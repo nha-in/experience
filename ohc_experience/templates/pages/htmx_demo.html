@@ -1,6 +1,17 @@
-{% extends "base.html" %}
+{% extends "layouts/marketing.html" %}
 
+{% comment %}
+  The htmx idiom reference that shipped with the htmx setup, kept runnable at
+  /htmx-demo/. Left in its original slate palette rather than restyled to
+  careui: it documents htmx wiring, not the design system, and the contrast
+  makes it obvious this is not a product page.
+{% endcomment %}
+
+{% block title %}
+  htmx examples
+{% endblock title %}
 {% block content %}
+  <div class="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
   <section class="rounded-2xl border border-slate-200 bg-white px-6 py-12 shadow-sm sm:px-10">
     <p class="text-sm font-medium uppercase tracking-wide text-blue-600">OHC Experience</p>
     <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Experience Builder</h1>
@@ -109,4 +120,5 @@
       </article>
     </div>
   </section>
+  </div>
 {% endblock content %}
