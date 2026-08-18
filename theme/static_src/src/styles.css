@@ -46,4 +46,13 @@
   form ul.errorlist {
     @apply mb-2 list-disc pl-5 text-sm text-red-600;
   }
+
+  .htmx-indicator {
+    @apply pointer-events-none opacity-0 transition-opacity;
+  }
+
+  .htmx-request.htmx-indicator,
+  .htmx-request .htmx-indicator {
+    @apply opacity-100;
+  }
 }
