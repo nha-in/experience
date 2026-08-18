@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
+from ohc_experience.events.tests.factories import EventFactory
 from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import InvitationFactory
 from ohc_experience.organisations.tests.factories import MembershipFactory
@@ -146,6 +149,73 @@ class TestDashboardView:
         response = sign_in(user).get(reverse("dashboard"))
 
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+class TestDashboardUpcomingEvents:
+    """The card on the dashboard that previews what is coming up."""
+
+    def test_lists_the_next_three_published_events(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        soonest = [
+            EventFactory.create(
+                published=True,
+                title=f"Office hours {day}",
+                starts_at=timezone.now() + timedelta(days=day),
+            )
+            for day in (1, 2, 3)
+        ]
+        fourth = EventFactory.create(
+            published=True,
+            title="Office hours 4",
+            starts_at=timezone.now() + timedelta(days=4),
+        )
+
+        response = sign_in(owner_membership.user).get(reverse("dashboard"))
+
+        assert list(response.context["upcoming_events"]) == soonest
+        assert fourth.title not in response.content.decode()
+
+    def test_each_row_links_to_the_event_and_the_card_to_the_list(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        event = EventFactory.create(published=True, title="Care v3.3 upgrade webinar")
+
+        response = sign_in(owner_membership.user).get(reverse("dashboard"))
+
+        body = response.content.decode()
+        assert event.get_absolute_url() in body
+        assert reverse("events:list") in body
+        assert "Care v3.3 upgrade webinar" in body
+
+    def test_drafts_and_finished_events_stay_out(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        EventFactory.create(title="Draft roadmap AMA")
+        EventFactory.create(published=True, past=True, title="Certification AMA")
+
+        response = sign_in(owner_membership.user).get(reverse("dashboard"))
+
+        assert list(response.context["upcoming_events"]) == []
+        body = response.content.decode()
+        assert "Draft roadmap AMA" not in body
+        assert "Certification AMA" not in body
+
+    def test_keeps_the_empty_state_when_there_is_nothing(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        response = sign_in(owner_membership.user).get(reverse("dashboard"))
+
+        assert list(response.context["upcoming_events"]) == []
+        assert "Nothing scheduled yet" in response.content.decode()
 
 
 class TestPostLoginDestination:

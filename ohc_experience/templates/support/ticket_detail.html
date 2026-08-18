@@ -1,0 +1,49 @@
+{% extends "layouts/app.html" %}
+
+{% comment %}
+  Screen 1h — the ticket thread.
+
+  Every part of this page that an action can invalidate is its own partial with
+  its own id, and each of those files is included exactly once here: the badges
+  under the title, the details rail, and the reply panel. A reply or a status
+  change appends one entry to #ticket-thread and sends those three back out of
+  band, so the page a swap leaves behind is the page a reload would draw.
+
+  With scripting off the same two forms POST to the same URLs and the views
+  redirect back here, which is the path that has to keep working.
+
+  Context: ticket, thread (messages, oldest first), reply_form.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {{ ticket.reference }} · {{ ticket.subject }}
+{% endblock title %}
+{% block page_header %}
+  <nav class="mb-3 text-[12.5px] text-soft-foreground"
+       aria-label="{% translate 'Breadcrumb' %}">
+    <a class="text-soft-foreground no-underline hover:underline"
+       href="{% url 'support:list' %}">{% translate "Support" %}</a>
+    <span aria-hidden="true">/</span>
+    <span class="font-mono" aria-current="page">{{ ticket.reference }}</span>
+  </nav>
+  <div class="mb-5 min-w-0">
+    <h1 class="text-[20px] font-bold tracking-[-0.015em] break-words text-foreground">{{ ticket.subject }}</h1>
+    {% include "support/partials/ticket_badges.html" %}
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <div class="grid items-start gap-3.5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+    <div class="flex min-w-0 flex-col gap-3">
+      <ol id="ticket-thread"
+          class="flex flex-col gap-3"
+          aria-label="{% translate 'Conversation' %}">
+        {% for message in thread %}
+          {% include "support/partials/ticket_message.html" %}
+        {% endfor %}
+      </ol>
+      {% include "support/partials/reply_panel.html" %}
+    </div>
+    <div class="flex min-w-0 flex-col gap-3.5">{% include "support/partials/ticket_details.html" %}</div>
+  </div>
+{% endblock content %}

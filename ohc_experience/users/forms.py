@@ -38,6 +38,31 @@ class UserAdminCreationForm(admin_forms.AdminUserCreationForm):
         }
 
 
+class OhcTeamCreationForm(admin_forms.AdminUserCreationForm):
+    """Create an OHC team account from the admin.
+
+    Same as the normal add form except the OHC flag is set for you — the whole
+    point of the screen — and the account is given staff access so the person
+    can reach the admin they were just created in.
+    """
+
+    class Meta(admin_forms.AdminUserCreationForm.Meta):
+        model = User
+        fields = ("email", "name")
+        field_classes = {"email": EmailField}
+        error_messages = {
+            "email": {"unique": _("This email has already been taken.")},
+        }
+
+    def save(self, commit=True) -> User:  # noqa: FBT002
+        user = super().save(commit=False)
+        user.is_ohc_team = True
+        user.is_staff = True
+        if commit:
+            user.save()
+        return user
+
+
 class OrganisationSignupMixin:
     """Creates the signing-up user's organisation, or joins the inviting one.
 

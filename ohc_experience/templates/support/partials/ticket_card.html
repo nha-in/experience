@@ -1,0 +1,23 @@
+{% comment %}
+  One inbox ticket as a stacked card, for screens narrower than md where the
+  six-column table cannot fit without scrolling sideways.
+
+  The card sits inside a .ui-card-bleed list, which pulls the list out to the
+  card's edges — hence the padding put back on each row.
+
+  Context: ticket.
+{% endcomment %}
+{% load i18n %}
+
+<li class="border-b border-soft-border px-6 py-3.5 last:border-b-0">
+  <a class="text-[13.5px] font-semibold no-underline hover:underline"
+     href="{{ ticket.get_absolute_url }}">{{ ticket.subject }}</a>
+  <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+    <span class="font-mono text-[12px] text-soft-foreground">{{ ticket.reference }}</span>
+    <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{{ ticket.get_status_display }}</span>
+    <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-sm">{{ ticket.get_priority_display }}</span>
+  </div>
+  <p class="mt-1.5 text-[12px] text-soft-foreground">
+    {% blocktranslate with category=ticket.get_category_display ago=ticket.updated_at|timesince %}{{ category }} · updated {{ ago }} ago{% endblocktranslate %}
+  </p>
+</li>

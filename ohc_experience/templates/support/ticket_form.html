@@ -1,0 +1,53 @@
+{% extends "layouts/app.html" %}
+
+{% comment %}
+  New ticket. One plain form: there is no fragment of this page worth swapping,
+  and a submitted ticket leaves the screen for its thread, so htmx is not used
+  here at all.
+
+  Context: form (TicketCreateForm).
+{% endcomment %}
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "New ticket" %}
+{% endblock title %}
+{% block page_header %}
+  <nav class="mb-3 text-[12.5px] text-soft-foreground"
+       aria-label="{% translate 'Breadcrumb' %}">
+    <a class="text-soft-foreground no-underline hover:underline"
+       href="{% url 'support:list' %}">{% translate "Support" %}</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">{% translate "New ticket" %}</span>
+  </nav>
+  <div class="mb-5">
+    <h1 class="ui-page-title">{% translate "New ticket" %}</h1>
+    <p class="ui-page-subtitle">{% translate "Tell us what is happening and we will pick it up from here." %}</p>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <div class="max-w-[720px]">
+    <div class="ui-card">
+      <div class="ui-card-content">
+        <form method="post" action="{% url 'support:create' %}">
+          {% csrf_token %}
+          {% include "components/form_errors.html" %}
+          <div class="flex flex-col gap-4">
+            {% ui_field form.subject %}
+            <div class="grid gap-4 sm:grid-cols-2">
+              {% ui_field form.category %}
+              {% ui_field form.priority %}
+            </div>
+            {% ui_field form.linked_facility %}
+            {% ui_field form.body %}
+          </div>
+          <div class="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row-reverse sm:justify-start">
+            <button class="ui-btn ui-btn--default ui-btn--size-default" type="submit">{% translate "Open ticket" %}</button>
+            <a class="ui-btn ui-btn--outline ui-btn--size-default"
+               href="{% url 'support:list' %}">{% translate "Cancel" %}</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock content %}

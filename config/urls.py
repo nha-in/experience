@@ -20,10 +20,14 @@ urlpatterns = [
     path("", include("ohc_experience.users.urls", namespace="users")),
     # Organisation, team and invitations
     path("", include("ohc_experience.organisations.urls", namespace="organisations")),
+    # The OHC team's console — gated to staff, scoped to no organisation.
+    path("ohc/", include("ohc_experience.ohc.urls", namespace="ohc")),
     # Signup is ours so an invite token can shape the form; the rest is allauth's.
     path("accounts/signup/", user_signup_view, name="account_signup"),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
+    path("events/", include("ohc_experience.events.urls", namespace="events")),
+    path("support/", include("ohc_experience.support.urls", namespace="support")),
     # ...
     # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),

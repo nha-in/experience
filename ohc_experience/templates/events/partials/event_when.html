@@ -1,0 +1,19 @@
+{% comment %}
+  When an event runs, in one line: weekday, date, start time and — when the
+  event has an end — the time it finishes.
+
+  The zone is named rather than assumed. This app renders in UTC and partners
+  read it from IST; every other timestamp in the product is something that
+  already happened, where that ambiguity costs nothing, but these are times
+  somebody has to show up for. "T" follows TIME_ZONE, so it stays correct if
+  the setting ever moves.
+
+  Context: event.
+{% endcomment %}
+{% load i18n %}
+
+<time datetime="{{ event.starts_at|date:'c' }}">
+  {{ event.starts_at|date:"l, j M Y" }} · {{ event.starts_at|date:"g:i a" }}
+  {% if event.ends_at %}– {{ event.ends_at|date:"g:i a" }}{% endif %}
+  {{ event.starts_at|date:"T" }}
+</time>

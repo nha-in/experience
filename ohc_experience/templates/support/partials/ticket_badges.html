@@ -1,0 +1,26 @@
+{% comment %}
+  Status and priority under the thread's title, with the opened-on line.
+
+  Both actions on this page can move the status, so this comes back out of band
+  from each of them; ticket_detail.html includes the same file for the page.
+
+  The linked facility is a name the vendor typed, not a record we can link to,
+  so it is printed as text rather than dressed up as a link to nowhere.
+
+  Context: ticket, oob.
+{% endcomment %}
+{% load i18n %}
+
+<div id="ticket-badges"
+     {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+     class="mt-2 flex flex-wrap items-center gap-2">
+  <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{{ ticket.get_status_display }}</span>
+  <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-sm">{{ ticket.get_priority_display }}</span>
+  <span class="text-[12.5px] text-soft-foreground">
+    {% if ticket.linked_facility %}
+      {% blocktranslate with opened=ticket.created_at|date:"j M Y" facility=ticket.linked_facility %}Opened {{ opened }} · {{ facility }}{% endblocktranslate %}
+    {% else %}
+      {% blocktranslate with opened=ticket.created_at|date:"j M Y" %}Opened {{ opened }}{% endblocktranslate %}
+    {% endif %}
+  </span>
+</div>

@@ -1,0 +1,29 @@
+{% comment %}
+  The publish/unpublish toggle for one event, written once for both
+  representations — event_row.html puts it in the table's action cell and
+  event_card.html in the stacked card, so the endpoint, the target and the swap
+  are defined here and cannot drift between the two.
+
+  Publishing changes what every vendor can see, so it is a POST and never a link.
+
+  Context: event, button_size — size modifier for the button.
+
+  No-JS contract: method, action and the CSRF token are real, so without htmx
+  this POSTs and the view redirects back to the events list.
+{% endcomment %}
+{% load i18n %}
+
+<form method="post"
+      action="{% url 'ohc:event-publish' event.slug %}"
+      hx-post="{% url 'ohc:event-publish' event.slug %}"
+      hx-target="#event-{{ event.pk }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button"
+      hx-indicator="#nav-progress">
+  {% csrf_token %}
+  {% if event.is_published %}
+    <button type="submit" class="ui-btn ui-btn--outline {{ button_size }}">{% translate "Unpublish" %}</button>
+  {% else %}
+    <button type="submit" class="ui-btn ui-btn--default {{ button_size }}">{% translate "Publish" %}</button>
+  {% endif %}
+</form>
