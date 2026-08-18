@@ -1,0 +1,88 @@
+volumes:
+  ohc_experience_local_postgres_data: {}
+  ohc_experience_local_postgres_data_backups: {}
+  ohc_experience_local_redis_data: {}
+
+services:
+  django: &django
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: ohc_experience_local_django
+    container_name: ohc_experience_local_django
+    depends_on:
+      - postgres
+      - redis
+      - mailtrap-local
+    volumes:
+      - /app/.venv
+      - .:/app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    ports:
+      - '8000:8000'
+    command: /start
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/production/postgres/Dockerfile
+    image: ohc_experience_production_postgres
+    container_name: ohc_experience_local_postgres
+    volumes:
+      - ohc_experience_local_postgres_data:/var/lib/postgresql/18/docker
+      - ohc_experience_local_postgres_data_backups:/backups
+    env_file:
+      - ./.envs/.local/.postgres
+
+  mailtrap-local:
+    image: docker.io/mailtrap/mailtrap-local:latest
+    container_name: ohc_experience_local_mailtrap
+    ports:
+      - "3550:3550"
+    tmpfs:
+      - /var/lib/mailtrap-local
+
+  redis:
+    image: docker.io/redis:7.2
+    container_name: ohc_experience_local_redis
+    volumes:
+      - ohc_experience_local_redis_data:/data
+
+  celeryworker:
+    <<: *django
+    image: ohc_experience_local_celeryworker
+    container_name: ohc_experience_local_celeryworker
+    depends_on:
+      - redis
+      - postgres
+      - mailtrap-local
+    ports: []
+    command: /start-celeryworker
+
+  tailwind:
+    <<: *django
+    image: ohc_experience_local_tailwind
+    container_name: ohc_experience_local_tailwind
+    ports: []
+    command: /tailwind.sh
+
+  celerybeat:
+    <<: *django
+    image: ohc_experience_local_celerybeat
+    container_name: ohc_experience_local_celerybeat
+    depends_on:
+      - redis
+      - postgres
+      - mailtrap-local
+    ports: []
+    command: /start-celerybeat
+
+  flower:
+    <<: *django
+    image: ohc_experience_local_flower
+    container_name: ohc_experience_local_flower
+    ports:
+      - '5555:5555'
+    command: /start-flower
