@@ -5,33 +5,23 @@
   email and password live behind allauth's own screens, so this page links out
   to them rather than duplicating those flows.
 
+  The form itself lives in partials/profile_form.html, because that fragment is
+  what htmx swaps back in after a save.
+
   Context: form (name only), request.user, current_membership (context processor).
 {% endcomment %}
-{% load i18n careui %}
+{% load i18n %}
 
 {% block title %}
   {% translate "Your profile" %}
 {% endblock title %}
 {% block settings_content %}
-  {% translate "Full name" as full_name_label %}
   <div class="ui-card">
     <div class="ui-card-header">
       <h2 class="ui-card-title">{% translate "Your details" %}</h2>
       <p class="ui-card-description">{% translate "How you appear to the rest of your team." %}</p>
     </div>
-    <form method="post" action="{% url 'users:profile' %}">
-      {% csrf_token %}
-      <div class="ui-card-content flex flex-col gap-4">
-        {% include "components/form_errors.html" %}
-        {% ui_field form.name label=full_name_label %}
-        <div class="flex border-t border-border pt-4 sm:justify-end">
-          <button type="submit"
-                  class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:w-auto">
-            {% translate "Save changes" %}
-          </button>
-        </div>
-      </div>
-    </form>
+    {% include "users/partials/profile_form.html" %}
     <div class="ui-card-content flex flex-col gap-3 border-t border-border pt-5">
       <div class="grid gap-1 sm:grid-cols-[190px_minmax(0,1fr)] sm:gap-4">
         <span class="text-[13px] font-medium text-soft-foreground">{% translate "Email" %}</span>

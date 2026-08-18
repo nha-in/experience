@@ -10,6 +10,17 @@
 
   Blocks: page_header (title row above the content), content.
   Context:  nav_section — set by the view to light the right nav item.
+
+  <main id="main-content"> is the boost target: the shell's navigation asks htmx
+  to keep just that element out of an ordinary whole-page response and swap it
+  in (components/app_nav.html spells the contract out). So the id has to stay,
+  and everything that changes from page to page has to live inside it — which
+  is also why #flash-messages sits here rather than outside the main column.
+  The views know none of this; they keep returning whole pages — including the
+  pages that are not this shell, which the script at the bottom hands back to
+  the browser rather than swapping into a sidebar they do not belong in.
+
+  Dismissing an alert is wired once for every shell in base.html.
 {% endcomment %}
 {% load i18n %}
 
@@ -71,7 +82,8 @@
       {% include "components/app_nav.html" %}
     </aside>
     <div class="flex min-w-0 flex-1 flex-col bg-soft-background">
-      <main id="main-content" class="flex-1 px-4 pt-6 pb-12 sm:px-6 md:pt-7 md:pb-12">
+      <main id="main-content"
+            class="flex-1 px-4 pt-6 pb-12 sm:px-6 md:pt-7 md:pb-12">
         <div class="mx-auto w-full max-w-[1120px]">
           {% include "components/messages.html" %}
           {% block page_header %}
@@ -83,7 +95,6 @@
     </div>
   </div>
 {% endblock body %}
-
 {% block inline_javascript %}
   <script>
     (() => {
@@ -97,8 +108,21 @@
         if (event.target.closest("a")) drawer.checked = false;
       });
     })();
-    document.querySelectorAll("[data-dismiss-alert]").forEach((button) => {
-      button.addEventListener("click", () => button.closest(".ui-alert")?.remove());
+    // A boosted nav click is answered by whatever the server decides to send,
+    // and that is not always this shell: an unfinished profile sends the
+    // dashboard on to /onboarding/, an expired session sends everything to
+    // sign-in. Neither of those pages has an #app-nav, so the out-of-band nav
+    // swap would quietly do nothing and their #main-content would be dropped
+    // inside a sidebar that no longer applies. Hand those responses back to
+    // the browser as an ordinary navigation — which is what the same click
+    // does with scripting off.
+    document.body.addEventListener("htmx:beforeSwap", (event) => {
+      const detail = event.detail;
+      if (!detail.boosted || typeof detail.serverResponse !== "string") return;
+      const page = new DOMParser().parseFromString(detail.serverResponse, "text/html");
+      if (page.getElementById("app-nav")) return;
+      detail.shouldSwap = false;
+      window.location.href = detail.xhr.responseURL || detail.pathInfo.responsePath;
     });
   </script>
 {% endblock inline_javascript %}

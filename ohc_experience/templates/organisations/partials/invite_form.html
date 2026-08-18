@@ -1,0 +1,60 @@
+{% comment %}
+  The invite form. team.html includes it and TeamView swaps this same file back
+  in — empty after a successful invite, or carrying its errors after a bad one.
+
+  The ordinary swap files the new row into the invitations tbody, so everything
+  else on the response (this form, the stacked card, the flash) travels out of
+  band. On a validation error the response is a 200 whose only content is this
+  form marked hx-swap-oob, which leaves the table untouched.
+
+  Context: form (InvitationForm),
+           oob — True when this rides on a response as an out-of-band swap.
+
+  No hx-indicator here on purpose, unlike the row actions: leaving it off makes
+  the form itself the indicator, which is what lets the spinner inside the
+  button light up (.htmx-request .htmx-indicator). Naming #nav-progress instead
+  would move the htmx-request class off the form and the spinner could never
+  show. This is the same arrangement organisation_form.html uses.
+
+  No-JS contract: method, action and the CSRF token are real, so without htmx
+  this POSTs the team page and the view redirects back as it always did.
+{% endcomment %}
+{% load i18n careui %}
+
+<form id="invite-form"
+      {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+      method="post"
+      action="{% url 'organisations:team' %}"
+      hx-post="{% url 'organisations:team' %}"
+      hx-target="#invitation-rows"
+      hx-swap="afterbegin"
+      hx-disabled-elt="find button[type=submit]">
+  {% csrf_token %}
+  {% include "components/form_errors.html" %}
+  <div class="flex flex-col gap-2.5 sm:flex-row sm:items-start">
+    <div class="min-w-0 flex-1">
+      <label class="sr-only" for="{{ form.email.id_for_label }}">{% translate "Email" %}</label>
+      {% ui_widget form.email %}
+      {% for error in form.email.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+    </div>
+    <div class="sm:w-[150px]">
+      <label class="sr-only" for="{{ form.role.id_for_label }}">{% translate "Role" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget form.role %}</div>
+      {% for error in form.role.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+    </div>
+    <button type="submit"
+            class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:w-auto"
+            hx-disabled-elt="this">
+      <svg class="htmx-indicator animate-spin"
+           viewBox="0 0 24 24"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="2.5"
+           aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke-opacity="0.3" />
+        <path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round" />
+      </svg>
+      {% translate "Send invite" %}
+    </button>
+  </div>
+</form>

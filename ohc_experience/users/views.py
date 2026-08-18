@@ -6,6 +6,7 @@ from allauth.account.views import SignupView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import redirect
+from django.shortcuts import render
 from django.urls import reverse
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
@@ -77,6 +78,8 @@ class UserProfileView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     model = User
     form_class = UserProfileForm
     template_name = "users/profile.html"
+    # The page includes this fragment; htmx swaps the same file back in.
+    partial_template_name = "users/partials/profile_form.html"
     success_message = _("Your details were updated.")
     success_url = reverse_lazy("users:profile")
 
@@ -88,6 +91,34 @@ class UserProfileView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         context["nav_section"] = "settings"
         context["settings_section"] = "profile"
         return context
+
+    def form_valid(self, form):
+        # SuccessMessageMixin saves and queues the flash; only the response
+        # shape changes for htmx.
+        response = super().form_valid(form)
+        if self.request.htmx:
+            # Swap the saved form back in — rebound to the stored instance —
+            # and let the flash ride along out of band into #flash-messages.
+            return render(
+                self.request,
+                self.partial_template_name,
+                self.get_context_data(
+                    form=self.get_form_class()(instance=self.object),
+                    oob_flash=True,
+                ),
+            )
+        return response
+
+    def form_invalid(self, form):
+        # 200 with the re-rendered fragment, so htmx swaps the errors in; the
+        # no-JS path still gets the whole page back, also with a 200.
+        if self.request.htmx:
+            return render(
+                self.request,
+                self.partial_template_name,
+                self.get_context_data(form=form),
+            )
+        return super().form_invalid(form)
 
 
 class UserRedirectView(LoginRequiredMixin, RedirectView):

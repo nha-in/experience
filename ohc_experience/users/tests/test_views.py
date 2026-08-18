@@ -112,6 +112,68 @@ class TestUserProfileView:
         owner_membership.user.refresh_from_db()
         assert owner_membership.user.name == "Meera K Krishnan"
 
+    def test_an_htmx_save_swaps_the_saved_form_back_in(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        response = sign_in(owner_membership.user).post(
+            reverse("users:profile"),
+            data={"name": "Meera K Krishnan"},
+            headers={"HX-Request": "true"},
+        )
+        html = response.content.decode()
+
+        assert response.status_code == HTTPStatus.OK
+        assert '<form id="profile-form"' in html
+        assert "<!DOCTYPE html>" not in html
+        assert "Meera K Krishnan" in html
+        # The flash rides along out of band into the page's #flash-messages.
+        assert 'hx-swap-oob="innerHTML"' in html
+        assert "Your details were updated." in html
+        owner_membership.user.refresh_from_db()
+        assert owner_membership.user.name == "Meera K Krishnan"
+
+    def test_an_invalid_htmx_save_swaps_the_errors_in(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        response = sign_in(owner_membership.user).post(
+            reverse("users:profile"),
+            data={"name": "M" * 300},
+            headers={"HX-Request": "true"},
+        )
+        html = response.content.decode()
+
+        # 200, not 4xx: htmx swaps the fragment and the errors become visible.
+        assert response.status_code == HTTPStatus.OK
+        assert '<form id="profile-form"' in html
+        assert "<!DOCTYPE html>" not in html
+        assert "Ensure this value has at most 255 characters" in html
+        assert "Your details were updated." not in html
+        owner_membership.user.refresh_from_db()
+        assert owner_membership.user.name == "Meera Krishnan"
+
+    def test_the_form_posts_on_its_own_without_javascript(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        html = (
+            sign_in(owner_membership.user)
+            .get(
+                reverse("users:profile"),
+            )
+            .content.decode()
+        )
+
+        # The htmx attributes are enhancement: the form has to stay a plain
+        # POST to a real URL, with one CSRF token, for a browser without them.
+        assert 'method="post"' in html
+        assert f'action="{reverse("users:profile")}"' in html
+        assert html.count("csrfmiddlewaretoken") == 1
+
     def test_the_legacy_update_url_redirects_to_the_profile(
         self,
         sign_in: Callable[[User], Client],

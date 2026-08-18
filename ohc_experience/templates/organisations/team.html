@@ -2,23 +2,30 @@
 
 {% comment %}
   Settings → Team (mockup 1j): the roster, the pending invites and the invite
-  form. Every action is its own POST form, so the page works with JavaScript
-  off; the script at the bottom only turns the role picker into an auto-submit.
+  form. Every action is still its own POST form with a real action URL, so the
+  page works with JavaScript off; htmx is layered on top of that and nothing
+  here depends on it.
 
-  Below md the table is swapped for a stacked card list carrying the same
-  information and the same actions.
+  Two representations of one roster: the md+ <table> and the md:hidden stacked
+  list. Each member therefore has two elements — a <tr id="member-5"> and an
+  <li id="member-card-5"> — and both come from partials/ that the endpoints
+  return, so a swapped fragment and a reloaded page are the same markup. A row
+  action targets the <tr> and the response carries the <li> out of band, which
+  keeps the two in step whichever one the person is looking at.
+
+  The pending-invitations heading and both of its containers always render now
+  (the heading hidden while the list is empty) because htmx needs a live element
+  to file a new invite into. It draws the same as before.
 
   Context: form (InvitationForm), memberships, member_count, invitations,
   assignable_roles, can_manage, membership, organisation.
 {% endcomment %}
-{% load i18n careui %}
+{% load i18n %}
 
 {% block title %}
   {% translate "Team settings" %} · {{ organisation.display_name }}
 {% endblock title %}
 {% block settings_content %}
-  {% translate "Remove this person from the team? They lose access immediately." as remove_confirm %}
-  {% translate "Revoke this invite? The link stops working straight away." as revoke_confirm %}
   <div class="ui-card">
     <div class="ui-card-header flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
       <h2 class="ui-card-title">{% translate "Team members" %}</h2>
@@ -39,196 +46,30 @@
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="member-rows">
             {% for m in memberships %}
-              <tr>
-                <td>
-                  <div class="flex items-center gap-2.5">
-                    <span class="ui-avatar size-7 {% if m.is_owner %}ui-avatar--primary{% else %}ui-avatar--muted{% endif %}"
-                          aria-hidden="true">{{ m.initials }}</span>
-                    <span class="min-w-0">
-                      <span class="block font-semibold">{{ m.user.name|default:m.user.email }}</span>
-                      <span class="block text-xs break-all text-soft-foreground">{{ m.user.email }}</span>
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  {% if m.is_owner %}
-                    <span class="ui-badge ui-badge--primary ui-badge--size-sm">{% translate "Owner" %}</span>
-                  {% elif can_manage %}
-                    <form class="flex items-center gap-2"
-                          method="post"
-                          action="{% url 'organisations:member-role' m.pk %}"
-                          data-role-form>
-                      {% csrf_token %}
-                      <div class="ui-select-wrapper w-[150px]">
-                        <select name="role"
-                                class="ui-select ui-select--sm"
-                                data-role-select
-                                aria-label="{% blocktranslate with name=m.user.name|default:m.user.email %}Role for {{ name }}{% endblocktranslate %}">
-                          {% for value, label in assignable_roles %}
-                            <option value="{{ value }}" {% if value == m.role %}selected{% endif %}>{{ label }}</option>
-                          {% endfor %}
-                        </select>
-                      </div>
-                      <button type="submit"
-                              class="ui-btn ui-btn--outline ui-btn--size-xs"
-                              data-role-submit>{% translate "Update" %}</button>
-                    </form>
-                  {% else %}
-                    <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{{ m.get_role_display }}</span>
-                  {% endif %}
-                </td>
-                <td class="text-[12.5px] text-soft-foreground">{{ m.joined_at|date:"j M Y" }}</td>
-                <td class="text-right">
-                  {% if can_manage and not m.is_owner and m.user.pk != request.user.pk %}
-                    <form method="post"
-                          action="{% url 'organisations:member-remove' m.pk %}"
-                          onsubmit="return confirm('{{ remove_confirm|escapejs }}')">
-                      {% csrf_token %}
-                      <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Remove" %}</button>
-                    </form>
-                  {% endif %}
-                </td>
-              </tr>
+              {% include "organisations/partials/member_row.html" %}
             {% endfor %}
           </tbody>
-          {% if invitations %}
-            <tbody>
-              <tr>
-                <th colspan="4"
-                    scope="colgroup"
-                    class="border-t border-border bg-soft-background">{% translate "Pending invitations" %}</th>
-              </tr>
-              {% for i in invitations %}
-                <tr>
-                  <td>
-                    <div class="flex items-center gap-2.5">
-                      <span class="ui-avatar ui-avatar--pending size-7" aria-hidden="true">{{ i.initials }}</span>
-                      <span class="min-w-0 font-semibold break-all">{{ i.email }}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Invited" %}</span>
-                      <span class="text-xs text-soft-foreground">{{ i.get_role_display }}</span>
-                    </div>
-                  </td>
-                  <td class="text-[12.5px] text-soft-foreground">
-                    {% blocktranslate with expires_on=i.expires_at|date:"j M Y" %}Expires {{ expires_on }}{% endblocktranslate %}
-                  </td>
-                  <td class="text-right">
-                    {% if can_manage %}
-                      <div class="flex items-center justify-end gap-1">
-                        <form method="post"
-                              action="{% url 'organisations:invitation-resend' i.pk %}">
-                          {% csrf_token %}
-                          <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Resend invite" %}</button>
-                        </form>
-                        <form method="post"
-                              action="{% url 'organisations:invitation-revoke' i.pk %}"
-                              onsubmit="return confirm('{{ revoke_confirm|escapejs }}')">
-                          {% csrf_token %}
-                          <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Revoke" %}</button>
-                        </form>
-                      </div>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          {% endif %}
+          <tbody>
+            {% include "organisations/partials/invitation_heading.html" %}
+          </tbody>
+          <tbody id="invitation-rows">
+            {% for i in invitations %}
+              {% include "organisations/partials/invitation_row.html" %}
+            {% endfor %}
+          </tbody>
         </table>
       </div>
       <!-- Below md the same roster as a stacked list -->
       <ul class="flex flex-col md:hidden">
         {% for m in memberships %}
-          <li class="flex flex-col gap-3 border-t border-soft-border px-6 py-4 first:border-t-0">
-            <div class="flex items-center gap-2.5">
-              <span class="ui-avatar size-8 {% if m.is_owner %}ui-avatar--primary{% else %}ui-avatar--muted{% endif %}"
-                    aria-hidden="true">{{ m.initials }}</span>
-              <span class="min-w-0">
-                <span class="block font-semibold">{{ m.user.name|default:m.user.email }}</span>
-                <span class="block text-xs break-all text-soft-foreground">{{ m.user.email }}</span>
-              </span>
-            </div>
-            <div class="text-xs text-soft-foreground">
-              {% blocktranslate with joined_on=m.joined_at|date:"j M Y" %}Joined {{ joined_on }}{% endblocktranslate %}
-            </div>
-            {% if m.is_owner %}
-              <div>
-                <span class="ui-badge ui-badge--primary ui-badge--size-sm">{% translate "Owner" %}</span>
-              </div>
-            {% elif can_manage %}
-              <form class="flex items-center gap-2"
-                    method="post"
-                    action="{% url 'organisations:member-role' m.pk %}"
-                    data-role-form>
-                {% csrf_token %}
-                <div class="ui-select-wrapper flex-1">
-                  <select name="role"
-                          class="ui-select ui-select--sm"
-                          data-role-select
-                          aria-label="{% blocktranslate with name=m.user.name|default:m.user.email %}Role for {{ name }}{% endblocktranslate %}">
-                    {% for value, label in assignable_roles %}
-                      <option value="{{ value }}" {% if value == m.role %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <button type="submit"
-                        class="ui-btn ui-btn--outline ui-btn--size-sm"
-                        data-role-submit>{% translate "Update" %}</button>
-              </form>
-            {% else %}
-              <div>
-                <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{{ m.get_role_display }}</span>
-              </div>
-            {% endif %}
-            {% if can_manage and not m.is_owner and m.user.pk != request.user.pk %}
-              <form method="post"
-                    action="{% url 'organisations:member-remove' m.pk %}"
-                    onsubmit="return confirm('{{ remove_confirm|escapejs }}')">
-                {% csrf_token %}
-                <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Remove" %}</button>
-              </form>
-            {% endif %}
-          </li>
+          {% include "organisations/partials/member_card.html" %}
         {% endfor %}
-        {% if invitations %}
-          <li class="border-t border-border bg-soft-background px-6 py-2.5 text-[11.5px] font-semibold tracking-[0.04em] text-soft-foreground uppercase">
-            {% translate "Pending invitations" %}
-          </li>
-          {% for i in invitations %}
-            <li class="flex flex-col gap-3 border-t border-soft-border px-6 py-4">
-              <div class="flex items-center gap-2.5">
-                <span class="ui-avatar ui-avatar--pending size-8" aria-hidden="true">{{ i.initials }}</span>
-                <span class="min-w-0 font-semibold break-all">{{ i.email }}</span>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Invited" %}</span>
-                <span class="text-xs text-soft-foreground">{{ i.get_role_display }}</span>
-                <span class="text-xs text-soft-foreground">
-                  {% blocktranslate with expires_on=i.expires_at|date:"j M Y" %}Expires {{ expires_on }}{% endblocktranslate %}
-                </span>
-              </div>
-              {% if can_manage %}
-                <div class="flex flex-wrap items-center gap-1">
-                  <form method="post"
-                        action="{% url 'organisations:invitation-resend' i.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Resend invite" %}</button>
-                  </form>
-                  <form method="post"
-                        action="{% url 'organisations:invitation-revoke' i.pk %}"
-                        onsubmit="return confirm('{{ revoke_confirm|escapejs }}')">
-                    {% csrf_token %}
-                    <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Revoke" %}</button>
-                  </form>
-                </div>
-              {% endif %}
-            </li>
-          {% endfor %}
-        {% endif %}
+        {% include "organisations/partials/invitation_heading.html" with variant="card" %}
+        {% for i in invitations %}
+          {% include "organisations/partials/invitation_card.html" %}
+        {% endfor %}
       </ul>
     </div>
   </div>
@@ -238,50 +79,35 @@
         <h2 class="ui-card-title">{% translate "Invite a teammate" %}</h2>
       </div>
       <div class="ui-card-content">
-        <form method="post" action="{% url 'organisations:team' %}">
-          {% csrf_token %}
-          {% include "components/form_errors.html" %}
-          <div class="flex flex-col gap-2.5 sm:flex-row sm:items-start">
-            <div class="min-w-0 flex-1">
-              <label class="sr-only" for="{{ form.email.id_for_label }}">{% translate "Email" %}</label>
-              {% ui_widget form.email %}
-              {% for error in form.email.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
-            </div>
-            <div class="sm:w-[150px]">
-              <label class="sr-only" for="{{ form.role.id_for_label }}">{% translate "Role" %}</label>
-              <div class="ui-select-wrapper">{% ui_widget form.role %}</div>
-              {% for error in form.role.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
-            </div>
-            <button type="submit"
-                    class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:w-auto">
-              {% translate "Send invite" %}
-            </button>
-          </div>
-        </form>
+        {% include "organisations/partials/invite_form.html" %}
         <p class="mt-2.5 text-[11.5px] leading-relaxed text-soft-foreground">
           {% translate "Developers see sandbox credentials and API resources. Support sees the inbox. Admins manage everything except billing and legal info." %}
         </p>
       </div>
     </div>
   {% endif %}
-{% endblock settings_content %}
-{% block inline_javascript %}
-  {{ block.super }}
   <script>
-    // Progressive enhancement: the role picker submits itself, so the Update
-    // button is only there for people without JavaScript.
-    document.querySelectorAll("[data-role-form]").forEach((form) => {
-      const submit = form.querySelector("[data-role-submit]");
-      const select = form.querySelector("[data-role-select]");
-      if (!submit || !select) return;
-      submit.hidden = true;
-      select.addEventListener("change", () => {
-        if (typeof form.requestSubmit === "function") {
-          form.requestSubmit();
-        } else {
-          form.submit();
-        }
+    // Progressive enhancement, and only that: with htmx on the page the role
+    // picker posts itself on "change" (the hx-trigger in partials/member_row.html),
+    // so the Update button beside it is redundant. It stays for anyone htmx
+    // never reaches — hence the test for htmx rather than for JavaScript.
+    //
+    // This sits inside #main-content, not in the inline_javascript block, so it
+    // also runs when the boosted navigation swaps this page in.
+    //
+    // htmx:load is the whole test: htmx fires it over the body once it is ready
+    // and over every fragment it swaps in afterwards, so the buttons go only
+    // when htmx is really there, and rows that arrive later are covered too.
+    // (Asking for window.htmx here would be wrong — the library is deferred, so
+    // it does not exist yet while this runs.)
+    (() => {
+      if (window.teamRoleFormsWired) return;
+      window.teamRoleFormsWired = true;
+      document.addEventListener("htmx:load", (event) => {
+        event.detail.elt.querySelectorAll("[data-role-form] [data-role-submit]").forEach((button) => {
+          button.hidden = true;
+        });
       });
-    });
+    })();
   </script>
-{% endblock inline_javascript %}
+{% endblock settings_content %}

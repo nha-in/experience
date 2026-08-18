@@ -1,0 +1,16 @@
+{% comment %}
+  htmx response for a resent invite, aimed at #invitation-<pk> with
+  hx-swap="outerHTML" — the row comes back carrying its new expiry date.
+
+  The <tr> is the ordinary swap; the stacked card and the flash travel out of
+  band inside <template>s (see member_swap.html for why).
+
+  Context: i (Invitation), can_manage.
+{% endcomment %}
+{% include "organisations/partials/invitation_row.html" %}
+<template>
+  {% include "organisations/partials/invitation_card.html" with oob=True %}
+</template>
+<template>
+  {% include "components/messages.html" with oob=True %}
+</template>

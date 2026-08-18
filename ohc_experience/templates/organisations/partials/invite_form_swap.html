@@ -1,0 +1,17 @@
+{% comment %}
+  htmx response for an invite that did not validate. Status 200 — htmx does not
+  swap a 4xx by default, and the honest thing to show is the form with its
+  errors, which is a perfectly ordinary response.
+
+  The form is out of band so it replaces itself wherever it sits, which leaves
+  the ordinary swap (afterbegin into #invitation-rows) with nothing to file —
+  exactly right, because no invite was created.
+
+  Context: form (the bound InvitationForm carrying the errors).
+{% endcomment %}
+<template>
+  {% include "organisations/partials/invite_form.html" with oob=True %}
+</template>
+<template>
+  {% include "components/messages.html" with oob=True %}
+</template>

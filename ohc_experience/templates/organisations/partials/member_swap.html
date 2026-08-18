@@ -1,0 +1,19 @@
+{% comment %}
+  htmx response for a role change (and for the refused "remove the owner"),
+  aimed at #member-<pk> with hx-swap="outerHTML".
+
+  The <tr> is the ordinary swap. Everything else travels out of band inside a
+  <template>: htmx looks inside templates for hx-swap-oob elements and drops the
+  emptied wrapper, and wrapping is what lets a <li> and a <div> ride on a
+  response whose first element is a <tr> without the HTML parser rearranging
+  them into the table.
+
+  Context: m (Membership), can_manage, assignable_roles, request.
+{% endcomment %}
+{% include "organisations/partials/member_row.html" %}
+<template>
+  {% include "organisations/partials/member_card.html" with oob=True %}
+</template>
+<template>
+  {% include "components/messages.html" with oob=True %}
+</template>

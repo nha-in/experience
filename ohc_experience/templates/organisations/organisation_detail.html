@@ -2,55 +2,22 @@
 
 {% comment %}
   Settings → Organisation. The onboarding company-profile form again, this time
-  inside the settings shell. Members who cannot manage the organisation see the
-  same information as read-only definition rows rather than a disabled form.
+  inside the settings shell — it is the shared partial, which is also what htmx
+  swaps back in after a save. Members who cannot manage the organisation see the
+  same information as read-only definition rows rather than a disabled form, and
+  that branch has no form and no htmx in it at all.
 
-  Context: form (OrganisationProfileForm), organisation, membership, can_manage.
+  Context: form (OrganisationProfileForm), organisation, membership, can_manage,
+  form_layout.
 {% endcomment %}
-{% load i18n careui %}
+{% load i18n %}
 
 {% block title %}
   {% translate "Organisation settings" %} · {{ organisation.display_name }}
 {% endblock title %}
 {% block settings_content %}
   {% if can_manage %}
-    <form method="post" action="{% url 'organisations:detail' %}">
-      {% csrf_token %}
-      <div class="ui-card">
-        <div class="ui-card-header">
-          <h2 class="ui-card-title">{% translate "Company profile" %}</h2>
-          <p class="ui-card-description">{% translate "Used for partner verification and for the certificates we issue." %}</p>
-        </div>
-        <div class="ui-card-content flex flex-col gap-4">
-          {% include "components/form_errors.html" %}
-          <div class="grid gap-4 sm:grid-cols-2 sm:gap-x-[18px]">
-            <div class="sm:col-span-2">{% ui_field form.legal_name %}</div>
-            <div>{% ui_field form.website %}</div>
-            <div class="grid gap-4 sm:grid-cols-2 sm:gap-x-3">
-              <div>{% ui_field form.city %}</div>
-              <div>{% ui_field form.state %}</div>
-            </div>
-            <div class="sm:col-span-2">{% ui_field form.deployment_regions placeholder="Kerala, Karnataka, …" %}</div>
-          </div>
-          <div class="h-px bg-border" role="presentation"></div>
-          <h3 class="ui-field-legend">{% translate "Technical contact" %}</h3>
-          <div class="grid gap-4 sm:grid-cols-2 sm:gap-x-[18px]">
-            <div>{% ui_field form.technical_contact_name %}</div>
-            <div>{% ui_field form.technical_contact_email %}</div>
-            <div>{% ui_field form.technical_contact_phone %}</div>
-          </div>
-          <p class="-mt-1.5 text-[11.5px] leading-relaxed text-soft-foreground">
-            {% translate "Receives sandbox reset notices, credential rotations and API changelogs." %}
-          </p>
-        </div>
-        <div class="ui-card-footer border-t border-border pt-4">
-          <button type="submit"
-                  class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:ml-auto sm:w-auto">
-            {% translate "Save changes" %}
-          </button>
-        </div>
-      </div>
-    </form>
+    {% include "organisations/partials/organisation_form.html" %}
   {% else %}
     <div class="ui-card">
       <div class="ui-card-header">

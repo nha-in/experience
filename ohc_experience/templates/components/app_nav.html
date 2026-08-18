@@ -10,13 +10,36 @@
                           design calls for left-nav chrome that later sections
                           slot into, and showing the shape up front beats a nav
                           that grows link by link.
+
+  Boosted: htmx fetches the very URL each href already points at, keeps only
+  #main-content out of the whole-page response and swaps it in, and picks this
+  nav out of the same response out-of-band so the active item follows the page.
+  hx-push-url keeps the address bar and the back button honest. Nothing about
+  this needs a view to know it happened. With JavaScript off every link below
+  is still a plain <a href> and the browser navigates normally, which is the
+  path that has to keep working.
+
+  Each link carries an id because the out-of-band swap replaces this whole nav,
+  destroying the very anchor that was activated: htmx puts keyboard focus back
+  on the element with the same id, and without one focus falls to <body> and a
+  keyboard or screen-reader user is dropped at the top of the document.
 {% endcomment %}
 {% load i18n %}
 
-<nav class="flex flex-1 flex-col" aria-label="{% translate 'Main' %}">
+<nav id="app-nav"
+     class="flex flex-1 flex-col"
+     aria-label="{% translate 'Main' %}"
+     hx-boost="true"
+     hx-target="#main-content"
+     hx-select="#main-content"
+     hx-select-oob="#app-nav"
+     hx-swap="outerHTML"
+     hx-push-url="true"
+     hx-indicator="#nav-progress">
   <ul class="flex flex-col gap-0.5">
     <li>
-      <a class="ui-nav-link {% if nav_section == 'dashboard' %}ui-nav-link--active{% endif %}"
+      <a id="nav-dashboard"
+         class="ui-nav-link {% if nav_section == 'dashboard' %}ui-nav-link--active{% endif %}"
          href="{% url 'dashboard' %}"
          {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>{% translate "Dashboard" %}</a>
     </li>
@@ -32,15 +55,19 @@
   </ul>
   <ul class="mt-auto flex flex-col gap-0.5 pt-6">
     <li>
-      <a class="ui-nav-link {% if nav_section == 'settings' %}ui-nav-link--active{% endif %}"
+      <a id="nav-settings"
+         class="ui-nav-link {% if nav_section == 'settings' %}ui-nav-link--active{% endif %}"
          href="{% url 'organisations:detail' %}"
          {% if nav_section == 'settings' %}aria-current="page"{% endif %}>{% translate "Settings" %}</a>
     </li>
     <li>
-      <a class="ui-nav-link"
+      {# Another origin and another tab: ordinary navigation, never boosted. #}
+      <a id="nav-docs"
+         class="ui-nav-link"
          href="https://docs.ohc.network"
          target="_blank"
-         rel="noopener noreferrer">
+         rel="noopener noreferrer"
+         hx-boost="false">
         {% translate "Docs" %} <span aria-hidden="true">↗</span>
       </a>
     </li>

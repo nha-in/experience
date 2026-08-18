@@ -1,0 +1,32 @@
+{% comment %}
+  One pending invite for the md+ table. Included by team.html and returned on
+  its own by the resend endpoint (the expiry date changes) and by the invite
+  endpoint (a brand new row). invitation_card.html is the stacked-card twin, and
+  both draw their two buttons from invitation_actions.html.
+
+  Context: i (Invitation), can_manage.
+{% endcomment %}
+{% load i18n %}
+
+<tr id="invitation-{{ i.pk }}">
+  <td>
+    <div class="flex items-center gap-2.5">
+      <span class="ui-avatar ui-avatar--pending size-7" aria-hidden="true">{{ i.initials }}</span>
+      <span class="min-w-0 font-semibold break-all">{{ i.email }}</span>
+    </div>
+  </td>
+  <td>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Invited" %}</span>
+      <span class="text-xs text-soft-foreground">{{ i.get_role_display }}</span>
+    </div>
+  </td>
+  <td class="text-[12.5px] text-soft-foreground">
+    {% blocktranslate with expires_on=i.expires_at|date:"j M Y" %}Expires {{ expires_on }}{% endblocktranslate %}
+  </td>
+  <td class="text-right">
+    {% if can_manage %}
+      <div class="flex items-center justify-end gap-1">{% include "organisations/partials/invitation_actions.html" %}</div>
+    {% endif %}
+  </td>
+</tr>

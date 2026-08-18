@@ -48,6 +48,21 @@ def message_texts(response: HttpResponse) -> list[str]:
     return [str(message) for message in get_messages(response.wsgi_request)]
 
 
+def htmx_fragment(response: HttpResponse) -> str:
+    """The response body with its whitespace squashed to single spaces.
+
+    Lets a test read the markup an htmx response carries without caring how the
+    template happened to be wrapped.
+    """
+    return " ".join(response.content.decode().split())
+
+
+def opening_tag(html: str, element_id: str) -> str:
+    """The opening tag carrying this id, so a test can read its attributes."""
+    start = html.rindex("<", 0, html.index(f'id="{element_id}"'))
+    return html[start : html.index(">", start) + 1]
+
+
 @pytest.fixture
 def admin_membership(onboarded_organisation: Organisation) -> Membership:
     return MembershipFactory.create(
@@ -149,6 +164,79 @@ class TestOnboardingView:
         organisation.refresh_from_db()
         assert organisation.is_onboarded is False
 
+    def test_an_htmx_save_hands_the_client_the_dashboard_redirect(
+        self,
+        sign_in: Callable[[User], Client],
+        organisation: Organisation,
+    ):
+        membership = MembershipFactory.create(
+            organisation=organisation,
+            role=Role.OWNER,
+        )
+
+        response = sign_in(membership.user).post(
+            reverse("organisations:onboarding"),
+            data=PROFILE_DATA,
+            headers={"HX-Request": "true"},
+        )
+
+        # Leaving onboarding is a real navigation, so htmx is told to redirect
+        # rather than handed a fragment.
+        assert response.status_code == HTTPStatus.OK
+        assert response["HX-Redirect"] == reverse("dashboard")
+        organisation.refresh_from_db()
+        assert organisation.is_onboarded is True
+        assert organisation.legal_name == "Sunrise Health Systems Pvt Ltd"
+
+    def test_an_htmx_form_error_swaps_the_form_back_in(
+        self,
+        sign_in: Callable[[User], Client],
+        organisation: Organisation,
+    ):
+        membership = MembershipFactory.create(
+            organisation=organisation,
+            role=Role.OWNER,
+        )
+
+        response = sign_in(membership.user).post(
+            reverse("organisations:onboarding"),
+            data={**PROFILE_DATA, "legal_name": ""},
+            headers={"HX-Request": "true"},
+        )
+        html = response.content.decode()
+
+        assert response.status_code == HTTPStatus.OK
+        assert "HX-Redirect" not in response
+        assert '<form id="organisation-form"' in html
+        assert "<!DOCTYPE html>" not in html
+        assert "This field is required." in html
+        organisation.refresh_from_db()
+        assert organisation.is_onboarded is False
+
+    def test_the_form_posts_on_its_own_without_javascript(
+        self,
+        sign_in: Callable[[User], Client],
+        organisation: Organisation,
+    ):
+        membership = MembershipFactory.create(
+            organisation=organisation,
+            role=Role.OWNER,
+        )
+
+        html = (
+            sign_in(membership.user)
+            .get(
+                reverse("organisations:onboarding"),
+            )
+            .content.decode()
+        )
+
+        # The htmx attributes are enhancement: the form has to stay a plain
+        # POST to a real URL, with one CSRF token, for a browser without them.
+        assert 'method="post"' in html
+        assert f'action="{reverse("organisations:onboarding")}"' in html
+        assert html.count("csrfmiddlewaretoken") == 1
+
 
 class TestOrganisationDetailView:
     def test_requires_login(self, client: Client):
@@ -208,6 +296,80 @@ class TestOrganisationDetailView:
         response = sign_in(user).get(reverse("organisations:detail"))
 
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_an_htmx_save_swaps_the_saved_form_back_in(
+        self,
+        sign_in: Callable[[User], Client],
+        admin_membership: Membership,
+    ):
+        response = sign_in(admin_membership.user).post(
+            reverse("organisations:detail"),
+            data={**PROFILE_DATA, "city": "Thiruvananthapuram"},
+            headers={"HX-Request": "true"},
+        )
+        html = response.content.decode()
+
+        assert response.status_code == HTTPStatus.OK
+        assert '<form id="organisation-form"' in html
+        assert "<!DOCTYPE html>" not in html
+        assert "Thiruvananthapuram" in html
+        # The flash rides along out of band into the page's #flash-messages.
+        assert 'hx-swap-oob="innerHTML"' in html
+        assert "Organisation profile updated." in html
+        admin_membership.organisation.refresh_from_db()
+        assert admin_membership.organisation.city == "Thiruvananthapuram"
+
+    def test_an_invalid_htmx_save_swaps_the_errors_in(
+        self,
+        sign_in: Callable[[User], Client],
+        admin_membership: Membership,
+    ):
+        response = sign_in(admin_membership.user).post(
+            reverse("organisations:detail"),
+            data={**PROFILE_DATA, "city": "Thiruvananthapuram", "legal_name": ""},
+            headers={"HX-Request": "true"},
+        )
+        html = response.content.decode()
+
+        # 200, not 4xx: htmx swaps the fragment and the errors become visible.
+        assert response.status_code == HTTPStatus.OK
+        assert '<form id="organisation-form"' in html
+        assert "<!DOCTYPE html>" not in html
+        assert "This field is required." in html
+        assert "Organisation profile updated." not in html
+        admin_membership.organisation.refresh_from_db()
+        assert admin_membership.organisation.city != "Thiruvananthapuram"
+
+    def test_a_developer_gets_the_read_only_panel_with_no_form(
+        self,
+        sign_in: Callable[[User], Client],
+        developer_membership: Membership,
+    ):
+        response = sign_in(developer_membership.user).get(
+            reverse("organisations:detail"),
+        )
+        html = response.content.decode()
+
+        assert response.status_code == HTTPStatus.OK
+        assert '<form id="organisation-form"' not in html
+        assert "Only the owner and admins can edit the company profile." in html
+
+    def test_the_form_posts_on_its_own_without_javascript(
+        self,
+        sign_in: Callable[[User], Client],
+        admin_membership: Membership,
+    ):
+        html = (
+            sign_in(admin_membership.user)
+            .get(
+                reverse("organisations:detail"),
+            )
+            .content.decode()
+        )
+
+        assert 'method="post"' in html
+        assert f'action="{reverse("organisations:detail")}"' in html
+        assert html.count("csrfmiddlewaretoken") == 1
 
 
 class TestTeamView:
@@ -306,6 +468,102 @@ class TestTeamView:
         assert Invitation.objects.count() == 1
         assert mail.outbox == []
 
+    def test_every_row_carries_the_id_its_actions_target(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+        developer_membership: Membership,
+    ):
+        invitation = InvitationFactory.create(
+            organisation=owner_membership.organisation,
+        )
+
+        html = htmx_fragment(sign_in(owner_membership.user).get(TEAM_URL))
+
+        # The page includes the same partials the fragments are rendered from,
+        # so these ids are the contract between the two.
+        for element_id in (
+            f"member-{developer_membership.pk}",
+            f"member-card-{developer_membership.pk}",
+            f"invitation-{invitation.pk}",
+            f"invitation-card-{invitation.pk}",
+            "invitation-rows",
+            "invite-form",
+        ):
+            assert f'id="{element_id}"' in html
+        # Something is pending, so the heading is on show.
+        assert "hidden" not in opening_tag(html, "invitation-heading-row")
+        assert "hidden" not in opening_tag(html, "invitation-heading-card")
+
+    def test_the_pending_heading_hides_itself_while_there_is_nothing_pending(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        html = htmx_fragment(sign_in(owner_membership.user).get(TEAM_URL))
+
+        assert "hidden" in opening_tag(html, "invitation-heading-row")
+        assert "hidden" in opening_tag(html, "invitation-heading-card")
+
+    def test_an_htmx_invite_returns_the_new_row_and_an_emptied_form(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        response = sign_in(owner_membership.user).post(
+            TEAM_URL,
+            data={"email": "arun@sunrise.in", "role": Role.DEVELOPER},
+            headers={"HX-Request": "true"},
+        )
+        html = htmx_fragment(response)
+        invitation = Invitation.objects.get(email="arun@sunrise.in")
+
+        assert response.status_code == HTTPStatus.OK
+        assert "<!DOCTYPE html>" not in html
+        # The row is the ordinary swap; the card, the headings and the form all
+        # ride along out of band.
+        assert f'<tr id="invitation-{invitation.pk}">' in html
+        # The card travels inside a carrier that holds the hx-swap-oob, because
+        # htmx swaps the children for every style except outerHTML.
+        assert (
+            '<ul hx-swap-oob="afterend:#invitation-heading-card"> '
+            f'<li id="invitation-card-{invitation.pk}"'
+        ) in html
+        assert "hidden" not in opening_tag(html, "invitation-heading-row")
+        assert "hidden" not in opening_tag(html, "invitation-heading-card")
+        assert 'hx-swap-oob="outerHTML"' in opening_tag(html, "invite-form")
+        # Unbound, so the email field is empty again.
+        assert 'value="arun@sunrise.in"' not in html
+        assert "Invite sent to arun@sunrise.in." in html
+        assert len(mail.outbox) == 1
+
+    def test_an_htmx_duplicate_invite_swaps_the_form_errors_in(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        InvitationFactory.create(
+            organisation=owner_membership.organisation,
+            email="arun@sunrise.in",
+        )
+
+        response = sign_in(owner_membership.user).post(
+            TEAM_URL,
+            data={"email": "arun@sunrise.in", "role": Role.DEVELOPER},
+            headers={"HX-Request": "true"},
+        )
+        html = htmx_fragment(response)
+
+        # 200, not 4xx: htmx will not swap a 4xx, and a form with errors on it
+        # is a perfectly ordinary response.
+        assert response.status_code == HTTPStatus.OK
+        assert 'hx-swap-oob="outerHTML"' in opening_tag(html, "invite-form")
+        assert "An invite is already pending for that address." in html
+        # Nothing was created, so nothing is filed into the table.
+        assert "<tr " not in html
+        assert Invitation.objects.count() == 1
+        assert mail.outbox == []
+
 
 class TestMembershipActions:
     def test_an_admin_can_change_a_role(
@@ -372,6 +630,7 @@ class TestMembershipActions:
         )
 
         assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == TEAM_URL
         assert not Membership.objects.filter(pk=developer_membership.pk).exists()
         assert message_texts(response) == ["Arun Nair was removed from the team."]
 
@@ -402,6 +661,81 @@ class TestMembershipActions:
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert Membership.objects.filter(pk=outsider.pk).exists()
 
+    def test_an_htmx_role_change_swaps_the_row_back_in(
+        self,
+        sign_in: Callable[[User], Client],
+        admin_membership: Membership,
+        developer_membership: Membership,
+    ):
+        response = sign_in(admin_membership.user).post(
+            reverse(
+                "organisations:member-role",
+                kwargs={"pk": developer_membership.pk},
+            ),
+            data={"role": Role.SUPPORT},
+            headers={"HX-Request": "true"},
+        )
+        html = htmx_fragment(response)
+
+        assert response.status_code == HTTPStatus.OK
+        assert "<!DOCTYPE html>" not in html
+        assert f'<tr id="member-{developer_membership.pk}">' in html
+        assert 'hx-swap-oob="outerHTML"' in opening_tag(
+            html,
+            f"member-card-{developer_membership.pk}",
+        )
+        # The picker comes back showing the role the database now holds.
+        assert '<option value="support" selected>' in html
+        assert "Arun Nair is now a Support." in html
+        developer_membership.refresh_from_db()
+        assert developer_membership.role == Role.SUPPORT
+
+    def test_an_htmx_role_change_that_is_refused_snaps_the_row_back(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        response = sign_in(owner_membership.user).post(
+            reverse("organisations:member-role", kwargs={"pk": owner_membership.pk}),
+            data={"role": Role.SUPPORT},
+            headers={"HX-Request": "true"},
+        )
+        html = htmx_fragment(response)
+
+        assert response.status_code == HTTPStatus.OK
+        assert f'<tr id="member-{owner_membership.pk}">' in html
+        assert "That role change is not allowed." in html
+        # The owner has no picker at all, so the row must still say Owner.
+        assert "Owner</span>" in html
+        owner_membership.refresh_from_db()
+        assert owner_membership.role == Role.OWNER
+
+    def test_an_htmx_removal_leaves_nothing_to_put_in_the_row(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+        developer_membership: Membership,
+    ):
+        response = sign_in(owner_membership.user).post(
+            reverse(
+                "organisations:member-remove",
+                kwargs={"pk": developer_membership.pk},
+            ),
+            headers={"HX-Request": "true"},
+        )
+        html = htmx_fragment(response)
+
+        assert response.status_code == HTTPStatus.OK
+        # Once htmx lifts the out-of-band parts out there is nothing left, and
+        # swapping nothing over the row's outerHTML is what removes it.
+        assert f'<tr id="member-{developer_membership.pk}">' not in html
+        assert 'hx-swap-oob="delete"' in opening_tag(
+            html,
+            f"member-card-{developer_membership.pk}",
+        )
+        assert "Arun Nair was removed from the team." in html
+        assert not Membership.objects.filter(pk=developer_membership.pk).exists()
+
 
 class TestInvitationActions:
     def test_resending_issues_a_new_token_and_another_email(
@@ -424,6 +758,7 @@ class TestInvitationActions:
         )
 
         assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == TEAM_URL
         invitation.refresh_from_db()
         assert invitation.token != old_token
         assert invitation.is_pending is True
@@ -449,10 +784,78 @@ class TestInvitationActions:
         )
 
         assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == TEAM_URL
         invitation.refresh_from_db()
         assert invitation.revoked_at is not None
         assert list(owner_membership.organisation.invitations.pending()) == []
         assert message_texts(response) == ["Invite to arun@sunrise.in revoked."]
+
+    def test_an_htmx_resend_swaps_the_row_back_in(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        invitation = InvitationFactory.create(
+            organisation=owner_membership.organisation,
+            email="arun@sunrise.in",
+        )
+        old_token = invitation.token
+        old_expiry = invitation.expires_at
+
+        response = sign_in(owner_membership.user).post(
+            reverse(
+                "organisations:invitation-resend",
+                kwargs={"pk": invitation.pk},
+            ),
+            headers={"HX-Request": "true"},
+        )
+        html = htmx_fragment(response)
+
+        assert response.status_code == HTTPStatus.OK
+        assert "<!DOCTYPE html>" not in html
+        assert f'<tr id="invitation-{invitation.pk}">' in html
+        assert 'hx-swap-oob="outerHTML"' in opening_tag(
+            html,
+            f"invitation-card-{invitation.pk}",
+        )
+        assert "Invite resent to arun@sunrise.in." in html
+        invitation.refresh_from_db()
+        # The row was re-rendered because the invite it draws has moved on.
+        assert invitation.token != old_token
+        assert invitation.expires_at > old_expiry
+        assert len(mail.outbox) == 1
+
+    def test_an_htmx_revoke_leaves_nothing_to_put_in_the_row(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        invitation = InvitationFactory.create(
+            organisation=owner_membership.organisation,
+            email="arun@sunrise.in",
+        )
+
+        response = sign_in(owner_membership.user).post(
+            reverse(
+                "organisations:invitation-revoke",
+                kwargs={"pk": invitation.pk},
+            ),
+            headers={"HX-Request": "true"},
+        )
+        html = htmx_fragment(response)
+
+        assert response.status_code == HTTPStatus.OK
+        assert f'<tr id="invitation-{invitation.pk}">' not in html
+        assert 'hx-swap-oob="delete"' in opening_tag(
+            html,
+            f"invitation-card-{invitation.pk}",
+        )
+        # That was the last one pending, so both headings hide themselves again.
+        assert "hidden" in opening_tag(html, "invitation-heading-row")
+        assert "hidden" in opening_tag(html, "invitation-heading-card")
+        assert "Invite to arun@sunrise.in revoked." in html
+        invitation.refresh_from_db()
+        assert invitation.revoked_at is not None
 
     def test_a_developer_cannot_revoke(
         self,

@@ -1,6 +1,5 @@
 {% load django_htmx %}
 {% load tailwind_tags %}
-
 {% load static i18n compress %}
 
 <!DOCTYPE html>
@@ -27,6 +26,59 @@
       {% compress css %}
         <link href="{% static 'css/project.css' %}" rel="stylesheet" />
       {% endcompress %}
+      {% comment %}
+        The one component the design system does not already own: the thin
+        progress bar for boosted navigation. It lives here rather than in
+        utility classes because theme/static/css/dist is a build artefact —
+        hand-written rules cannot arrive half-compiled, which for a strip
+        pinned across the top of the viewport is worth the exception.
+
+        Visibility is not defined here on purpose: .htmx-indicator (theme
+        styles.css) fades it 0 → 1 for the life of the request and back. That
+        makes the whole thing CSS — no script decides when it shows, and with
+        JavaScript off no request is ever in flight, so it simply never
+        appears. Colour is the semantic token, so it follows dark mode.
+      {% endcomment %}
+      <style>
+        #nav-progress {
+          position: fixed;
+          top: 0;
+          right: 0;
+          left: 0;
+          z-index: 50;
+          height: 2px;
+          overflow: hidden;
+          pointer-events: none;
+        }
+
+        #nav-progress::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          width: 35%;
+          background: var(--primary);
+          animation: nav-progress-sweep 1s linear infinite;
+        }
+
+        @keyframes nav-progress-sweep {
+          from {
+            transform: translateX(-100%);
+          }
+
+          to {
+            transform: translateX(400%);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          #nav-progress::after {
+            width: 100%;
+            animation: none;
+          }
+        }
+      </style>
     {% endblock css %}
     <!-- Le javascript
     ================================================== -->
@@ -42,18 +94,37 @@
   </head>
   {% comment %}
     hx-headers puts the CSRF token on every htmx request, so partial endpoints
-    need no per-form token. hx-boost swaps navigation into #main-content instead
-    of reloading the document; anything htmx cannot handle still follows the
-    link normally, which is what keeps these pages working without JavaScript.
+    need no per-form token.
+
+    #nav-progress is the shared page-level indicator: any element can point
+    hx-indicator at it and get the thin bar across the top of the viewport for
+    the life of its request. The signed-in shell's navigation (see
+    components/app_nav.html) uses it for boosted navigation. It is inert until
+    something references it, and invisible when scripts do not run.
   {% endcomment %}
   <body class="min-h-screen bg-soft-background text-foreground antialiased {% block bodyclass %}{% endblock bodyclass %}"
         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <a class="skip-link" href="#main-content">{% translate "Skip to content" %}</a>
+    <div id="nav-progress" class="htmx-indicator" aria-hidden="true"></div>
     {% block body %}
     {% endblock body %}
     {% block modal %}
     {% endblock modal %}
     {% block inline_javascript %}
     {% endblock inline_javascript %}
+    {% comment %}
+      One delegated listener for the whole site rather than a copy per shell.
+      An alert is not only ever present at load: it can be swapped in with a
+      boosted navigation, or arrive out of band from a partial (see
+      components/messages.html), and a handler bound to the buttons that
+      happened to exist at load would never see those. It sits outside the
+      block above so a page that overrides inline_javascript cannot drop it.
+    {% endcomment %}
+    <script>
+      document.addEventListener("click", (event) => {
+        const dismiss = event.target.closest("[data-dismiss-alert]");
+        if (dismiss) dismiss.closest(".ui-alert")?.remove();
+      });
+    </script>
   </body>
 </html>

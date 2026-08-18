@@ -1,0 +1,42 @@
+{% comment %}
+  The same roster entry as member_row.html, drawn as a stacked card for the
+  md:hidden list. Below md the table is not shown, so every row action has to
+  exist here too — and it is the same POST to the same URL, because both files
+  include the very same member_role_form.html and member_remove_form.html.
+
+  Both representations live in the DOM at once, so the endpoints re-render the
+  <tr> as the ordinary swap and carry this <li> along out of band. Whichever one
+  the person is looking at, both stay true.
+
+  Context: m (Membership), can_manage, assignable_roles, request,
+           oob — True when this card rides on a response as an out-of-band swap.
+{% endcomment %}
+{% load i18n %}
+
+<li id="member-card-{{ m.pk }}"
+    {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+    class="flex flex-col gap-3 border-t border-soft-border px-6 py-4 first:border-t-0">
+  <div class="flex items-center gap-2.5">
+    <span class="ui-avatar size-8 {% if m.is_owner %}ui-avatar--primary{% else %}ui-avatar--muted{% endif %}"
+          aria-hidden="true">{{ m.initials }}</span>
+    <span class="min-w-0">
+      <span class="block font-semibold">{{ m.user.name|default:m.user.email }}</span>
+      <span class="block text-xs break-all text-soft-foreground">{{ m.user.email }}</span>
+    </span>
+  </div>
+  <div class="text-xs text-soft-foreground">
+    {% blocktranslate with joined_on=m.joined_at|date:"j M Y" %}Joined {{ joined_on }}{% endblocktranslate %}
+  </div>
+  {% if m.is_owner %}
+    <div>
+      <span class="ui-badge ui-badge--primary ui-badge--size-sm">{% translate "Owner" %}</span>
+    </div>
+  {% elif can_manage %}
+    {% include "organisations/partials/member_role_form.html" with select_width="flex-1" button_size="ui-btn--size-sm" %}
+  {% else %}
+    <div>
+      <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{{ m.get_role_display }}</span>
+    </div>
+  {% endif %}
+  {% include "organisations/partials/member_remove_form.html" %}
+</li>

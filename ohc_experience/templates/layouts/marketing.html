@@ -5,11 +5,19 @@
   a white canvas, and the network footer from the signup mockup.
 
   Blocks: header_action (right side of the header), content.
+
+  Deliberately not boosted, unlike the signed-in shell: this shell wraps the
+  landing page and every allauth screen, and sign-in, sign-up, password reset
+  and sign-out have to be plain browser navigation — they redirect across
+  origins, rotate the session and the CSRF token, and are the last thing that
+  should depend on a swap succeeding.
+
+  Nothing on these screens swaps, so this shell needs no script of its own:
+  dismissing an alert is wired once for every shell in base.html.
 {% endcomment %}
 {% load i18n %}
 
 {% block bodyclass %}bg-background{% endblock bodyclass %}
-
 {% block body %}
   <div class="flex min-h-screen flex-col bg-background">
     <header class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border px-4 sm:px-8">
@@ -49,11 +57,3 @@
     </footer>
   </div>
 {% endblock body %}
-
-{% block inline_javascript %}
-  <script>
-    document.querySelectorAll("[data-dismiss-alert]").forEach((button) => {
-      button.addEventListener("click", () => button.closest(".ui-alert")?.remove());
-    });
-  </script>
-{% endblock inline_javascript %}
