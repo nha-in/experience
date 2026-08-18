@@ -4,21 +4,24 @@ from django.contrib import admin
 from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
-from django.views.generic import TemplateView
+
+from ohc_experience.users.views import user_signup_view
 
 from .api import api
 
 urlpatterns = [
+    # Landing page, about, dashboard
     path("", include("ohc_experience.pages.urls")),
-    path(
-        "about/",
-        TemplateView.as_view(template_name="pages/about.html"),
-        name="about",
-    ),
+    # The htmx idiom reference that shipped with the htmx setup.
+    path("htmx-demo/", include("ohc_experience.pages.demo_urls")),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
-    path("users/", include("ohc_experience.users.urls", namespace="users")),
+    path("", include("ohc_experience.users.urls", namespace="users")),
+    # Organisation, team and invitations
+    path("", include("ohc_experience.organisations.urls", namespace="organisations")),
+    # Signup is ours so an invite token can shape the form; the rest is allauth's.
+    path("accounts/signup/", user_signup_view, name="account_signup"),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
     # ...

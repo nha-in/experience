@@ -1,0 +1,17 @@
+{% comment %}
+  Settings sub-navigation — the 200px rail from mockup 1j.
+  Context: settings_section — "organisation" | "team" | "profile".
+{% endcomment %}
+{% load i18n %}
+<nav class="flex gap-1 overflow-x-auto pb-1 md:flex-col md:gap-0.5 md:overflow-visible md:pb-0"
+     aria-label="{% translate 'Settings' %}">
+  <a class="ui-subnav-link shrink-0 {% if settings_section == 'organisation' %}ui-subnav-link--active{% endif %}"
+     href="{% url 'organisations:detail' %}"
+     {% if settings_section == 'organisation' %}aria-current="page"{% endif %}>{% translate "Organisation" %}</a>
+  <a class="ui-subnav-link shrink-0 {% if settings_section == 'team' %}ui-subnav-link--active{% endif %}"
+     href="{% url 'organisations:team' %}"
+     {% if settings_section == 'team' %}aria-current="page"{% endif %}>{% translate "Team" %}</a>
+  <a class="ui-subnav-link shrink-0 {% if settings_section == 'profile' %}ui-subnav-link--active{% endif %}"
+     href="{% url 'users:profile' %}"
+     {% if settings_section == 'profile' %}aria-current="page"{% endif %}>{% translate "Your profile" %}</a>
+</nav>

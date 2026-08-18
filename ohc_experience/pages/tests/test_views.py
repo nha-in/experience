@@ -1,72 +1,170 @@
+"""Landing page and dashboard."""
+
 from __future__ import annotations
 
 from http import HTTPStatus
+from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
 
+from ohc_experience.organisations.models import Role
+from ohc_experience.organisations.tests.factories import InvitationFactory
+from ohc_experience.organisations.tests.factories import MembershipFactory
+from ohc_experience.pages.views import resolve_post_login_destination
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from django.test import Client
+
+    from ohc_experience.organisations.models import Membership
+    from ohc_experience.organisations.models import Organisation
+    from ohc_experience.users.models import User
+
 pytestmark = pytest.mark.django_db
 
 
-def test_home_includes_htmx_examples(client):
-    response = client.get(reverse("home"))
+class TestLandingView:
+    def test_renders_for_an_anonymous_visitor(self, client: Client):
+        response = client.get(reverse("home"))
 
-    assert response.status_code == HTTPStatus.OK
-    content = response.content.decode()
-    assert 'hx-headers=\'{"X-CSRFToken":' in content
-    assert 'hx-get="' in content
-    assert "Fetch server time" in content
-    assert "Hospital intake" in content
+        assert response.status_code == HTTPStatus.OK
+        assert "pages/home.html" in [
+            template.name for template in response.templates if template.name
+        ]
 
+    def test_sends_an_onboarded_member_to_the_dashboard(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        response = sign_in(owner_membership.user).get(reverse("home"))
 
-def test_server_time_partial(client):
-    response = client.get(reverse("htmx-time"), HTTP_HX_REQUEST="true")
+        assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == reverse("dashboard")
 
-    assert response.status_code == HTTPStatus.OK
-    assert b"UTC" in response.content
-    assert b"<html" not in response.content
+    def test_sends_a_half_set_up_member_to_onboarding(
+        self,
+        sign_in: Callable[[User], Client],
+        organisation: Organisation,
+    ):
+        membership = MembershipFactory.create(
+            organisation=organisation,
+            role=Role.OWNER,
+        )
 
+        response = sign_in(membership.user).get(reverse("home"))
 
-def test_counter_increment_and_reset(client):
-    increment = client.post(reverse("htmx-counter"), {"action": "inc"})
-    assert increment.status_code == HTTPStatus.OK
-    assert b">1<" in increment.content
+        assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == reverse("organisations:onboarding")
 
-    increment = client.post(reverse("htmx-counter"), {"action": "inc"})
-    assert b">2<" in increment.content
+    def test_a_signed_in_user_without_an_organisation_still_gets_a_page(
+        self,
+        sign_in: Callable[[User], Client],
+        user: User,
+    ):
+        # Regression: home → users:redirect → home used to loop forever.
+        response = sign_in(user).get(reverse("home"), follow=True)
 
-    decrement = client.post(reverse("htmx-counter"), {"action": "dec"})
-    assert b">1<" in decrement.content
-
-    reset = client.post(reverse("htmx-counter"), {"action": "reset"})
-    assert b">0<" in reset.content
-
-
-def test_search_filters_experiences(client):
-    response = client.get(reverse("htmx-search"), {"q": "pharmacy"})
-
-    assert response.status_code == HTTPStatus.OK
-    content = response.content.decode()
-    assert "Pharmacy refill" in content
-    assert "Hospital intake" not in content
-
-
-def test_search_empty_results(client):
-    response = client.get(reverse("htmx-search"), {"q": "no-such-experience"})
-
-    assert response.status_code == HTTPStatus.OK
-    assert b"No experiences match" in response.content
+        assert response.status_code == HTTPStatus.OK
+        assert response.redirect_chain == []
 
 
-def test_greet_uses_submitted_name(client):
-    response = client.post(reverse("htmx-greet"), {"name": "Ada"})
+class TestDashboardView:
+    def test_requires_login(self, client: Client):
+        response = client.get(reverse("dashboard"))
 
-    assert response.status_code == HTTPStatus.OK
-    assert b"Ada" in response.content
+        assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"].startswith(reverse("account_login"))
+
+    def test_redirects_until_the_company_profile_is_done(
+        self,
+        sign_in: Callable[[User], Client],
+        organisation: Organisation,
+    ):
+        membership = MembershipFactory.create(
+            organisation=organisation,
+            role=Role.OWNER,
+        )
+
+        response = sign_in(membership.user).get(reverse("dashboard"))
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == reverse("organisations:onboarding")
+
+    def test_renders_once_the_organisation_is_onboarded(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        response = sign_in(owner_membership.user).get(reverse("dashboard"))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["nav_section"] == "dashboard"
+        assert response.context["organisation"] == owner_membership.organisation
+        assert response.context["team_size"] == 1
+        assert response.context["pending_invites"] == 0
+
+    def test_the_setup_checklist_reports_honest_progress(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        response = sign_in(owner_membership.user).get(reverse("dashboard"))
+
+        steps = response.context["setup_steps"]
+        assert [step["done"] for step in steps] == [True, False, False, False]
+        progress = (
+            response.context["setup_done"],
+            response.context["setup_total"],
+            response.context["setup_percent"],
+        )
+        assert progress == (1, 4, 25)
+
+    def test_inviting_a_teammate_ticks_the_team_step(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: Membership,
+    ):
+        InvitationFactory.create(organisation=owner_membership.organisation)
+
+        response = sign_in(owner_membership.user).get(reverse("dashboard"))
+
+        progress = (
+            response.context["pending_invites"],
+            response.context["setup_done"],
+            response.context["setup_percent"],
+        )
+        assert progress == (1, 2, 50)
+
+    def test_a_user_without_an_organisation_is_refused(
+        self,
+        sign_in: Callable[[User], Client],
+        user: User,
+    ):
+        response = sign_in(user).get(reverse("dashboard"))
+
+        assert response.status_code == HTTPStatus.FORBIDDEN
 
 
-def test_greet_defaults_when_name_missing(client):
-    response = client.post(reverse("htmx-greet"), {"name": "  "})
+class TestPostLoginDestination:
+    def test_no_organisation_lands_home(self, user: User):
+        assert resolve_post_login_destination(user) == "home"
 
-    assert response.status_code == HTTPStatus.OK
-    assert b"friend" in response.content
+    def test_an_unfinished_organisation_lands_on_onboarding(
+        self,
+        organisation: Organisation,
+    ):
+        membership = MembershipFactory.create(organisation=organisation)
+
+        assert (
+            resolve_post_login_destination(membership.user)
+            == "organisations:onboarding"
+        )
+
+    def test_a_finished_organisation_lands_on_the_dashboard(
+        self,
+        owner_membership: Membership,
+    ):
+        assert resolve_post_login_destination(owner_membership.user) == "dashboard"

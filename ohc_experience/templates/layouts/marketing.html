@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Signed-out shell for the landing page and every allauth screen: a 56px header,
+  a white canvas, and the network footer from the signup mockup.
+
+  Blocks: header_action (right side of the header), content.
+{% endcomment %}
+{% load i18n %}
+
+{% block bodyclass %}bg-background{% endblock bodyclass %}
+
+{% block body %}
+  <div class="flex min-h-screen flex-col bg-background">
+    <header class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border px-4 sm:px-8">
+      <a href="{% url 'home' %}"
+         class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+        {% include "components/brand.html" %}
+      </a>
+      <div class="text-right text-[13px] text-muted-foreground">
+        {% block header_action %}
+          {% if request.user.is_authenticated %}
+            <a class="ui-prose-link" href="{% url 'dashboard' %}">{% translate "Go to dashboard" %}</a>
+          {% else %}
+            <span class="hidden sm:inline">{% translate "Already have an account?" %}</span>
+            <a class="ui-prose-link" href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+          {% endif %}
+        {% endblock header_action %}
+      </div>
+    </header>
+    <main id="main-content" class="flex-1">
+      {% block content %}
+      {% endblock content %}
+    </main>
+    <footer class="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border px-4 py-3.5 text-xs text-soft-foreground sm:px-8">
+      <span>© {% translate "Open Healthcare Network" %}</span>
+      <a class="hover:text-foreground"
+         href="https://care.ohc.network"
+         target="_blank"
+         rel="noopener noreferrer">care.ohc.network</a>
+      <a class="hover:text-foreground"
+         href="https://school.ohc.network"
+         target="_blank"
+         rel="noopener noreferrer">school.ohc.network</a>
+      <a class="hover:text-foreground"
+         href="https://docs.ohc.network"
+         target="_blank"
+         rel="noopener noreferrer">docs.ohc.network</a>
+    </footer>
+  </div>
+{% endblock body %}
+
+{% block inline_javascript %}
+  <script>
+    document.querySelectorAll("[data-dismiss-alert]").forEach((button) => {
+      button.addEventListener("click", () => button.closest(".ui-alert")?.remove());
+    });
+  </script>
+{% endblock inline_javascript %}

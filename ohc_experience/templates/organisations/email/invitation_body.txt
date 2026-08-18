@@ -1,0 +1,11 @@
+{% load i18n %}{% blocktranslate with inviter=invited_by.display_name|default:"A teammate" organisation=organisation.name role=invitation.get_role_display %}{{ inviter }} invited you to join {{ organisation }} on the Care Experience Hub as {{ role }}.{% endblocktranslate %}
+
+{% translate "Accept the invite here:" %}
+
+{{ accept_url }}
+
+{% blocktranslate with expires_on=invitation.expires_at|date:"j F Y" %}The link expires on {{ expires_on }}.{% endblocktranslate %}
+
+{% translate "If you were not expecting this invite, you can safely ignore this email." %}
+
+{% translate "— Care Experience Hub" %}

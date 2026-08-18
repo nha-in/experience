@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Signed-in shell: a 228px sidebar rail beside a soft-canvas content column,
+  exactly as the hub mockups draw it.
+
+  Below md the rail is replaced by a sticky top bar and a slide-in drawer. The
+  drawer is a checkbox + label so it works with JavaScript disabled; the script
+  at the bottom only adds Escape-to-close and closes it after a tap on a link.
+
+  Blocks: page_header (title row above the content), content.
+  Context:  nav_section — set by the view to light the right nav item.
+{% endcomment %}
+{% load i18n %}
+
+{% block body %}
+  <div class="flex min-h-screen flex-col md:flex-row">
+    <input type="checkbox"
+           id="app-drawer"
+           class="peer sr-only"
+           aria-hidden="true"
+           tabindex="-1" />
+    <!-- Mobile top bar -->
+    <header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card px-4 md:hidden">
+      <a href="{% url 'dashboard' %}"
+         class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+        {% include "components/brand.html" with size="sm" %}
+      </a>
+      <label for="app-drawer"
+             class="ui-btn ui-btn--ghost ui-btn--size-icon-sm no-underline"
+             role="button"
+             tabindex="0"
+             aria-controls="app-sidebar"
+             aria-label="{% translate 'Open navigation' %}">
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.75"
+             stroke-linecap="round"
+             aria-hidden="true">
+          <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+      </label>
+    </header>
+    <!-- Scrim: only interactive once the drawer is open -->
+    <label for="app-drawer"
+           class="invisible fixed inset-0 z-30 bg-foreground/40 opacity-0 transition-opacity duration-200 peer-checked:visible peer-checked:opacity-100 md:hidden"
+           aria-hidden="true"></label>
+    <aside id="app-sidebar"
+           class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar px-3 pt-4 pb-4 transition-transform duration-200 peer-checked:translate-x-0 md:static md:w-[228px] md:shrink-0 md:translate-x-0 md:pt-[18px]">
+      <div class="mb-4 flex items-center justify-between px-2.5">
+        <a href="{% url 'dashboard' %}"
+           class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+          {% include "components/brand.html" with size="sm" %}
+        </a>
+        <label for="app-drawer"
+               class="ui-btn ui-btn--ghost ui-btn--size-icon-xs no-underline md:hidden"
+               role="button"
+               tabindex="0"
+               aria-label="{% translate 'Close navigation' %}">
+          <svg viewBox="0 0 24 24"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="1.75"
+               stroke-linecap="round"
+               aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </label>
+      </div>
+      {% include "components/app_nav.html" %}
+    </aside>
+    <div class="flex min-w-0 flex-1 flex-col bg-soft-background">
+      <main id="main-content" class="flex-1 px-4 pt-6 pb-12 sm:px-6 md:pt-7 md:pb-12">
+        <div class="mx-auto w-full max-w-[1120px]">
+          {% include "components/messages.html" %}
+          {% block page_header %}
+          {% endblock page_header %}
+          {% block content %}
+          {% endblock content %}
+        </div>
+      </main>
+    </div>
+  </div>
+{% endblock body %}
+
+{% block inline_javascript %}
+  <script>
+    (() => {
+      const drawer = document.getElementById("app-drawer");
+      if (!drawer) return;
+      const sidebar = document.getElementById("app-sidebar");
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && drawer.checked) drawer.checked = false;
+      });
+      sidebar?.addEventListener("click", (event) => {
+        if (event.target.closest("a")) drawer.checked = false;
+      });
+    })();
+    document.querySelectorAll("[data-dismiss-alert]").forEach((button) => {
+      button.addEventListener("click", () => button.closest(".ui-alert")?.remove());
+    });
+  </script>
+{% endblock inline_javascript %}

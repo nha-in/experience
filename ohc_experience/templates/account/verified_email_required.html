@@ -1,0 +1,25 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  A gate, not a settings page: the visitor is signed in but has not confirmed
+  their address yet, so this stays in the signed-out shell rather than the app
+  sidebar — the sidebar's sections are not reachable until they are through it.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Confirm your email to continue" %}
+{% endblock title %}
+{% block entrance_title %}
+  {% translate "Confirm your email to continue" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% translate "This part of the hub is only open to accounts with a confirmed email address." %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <p class="text-sm leading-relaxed text-muted-foreground">
+    {% translate "We have emailed you a confirmation link. Open it and you will land straight back here. If it has not arrived in a few minutes, check your spam folder." %}
+  </p>
+  <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+     href="{% url 'account_email' %}">{% translate "Change your email address" %}</a>
+{% endblock entrance_body %}

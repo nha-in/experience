@@ -1,0 +1,85 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  Sign in. One centred card, the same header chrome as the signup screen.
+
+  The "Forgot your password?" link under the password box is allauth's own
+  PasswordField help text (it already points at account_reset_password); the
+  arbitrary variants on the form give it the hub's link styling rather than the
+  browser default.
+{% endcomment %}
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "Sign in to the hub" %}
+{% endblock title %}
+{% block header_action %}
+  {% if ACCOUNT_ALLOW_REGISTRATION %}
+    <span class="hidden sm:inline">{% translate "New to the hub?" %}</span>
+    {% url 'account_signup' as signup_fallback %}
+    <a class="ui-prose-link" href="{% firstof signup_url signup_fallback %}">{% translate "Create an account" %}</a>
+  {% endif %}
+{% endblock header_action %}
+{% block entrance_width %}max-w-[420px]{% endblock entrance_width %}
+{% block entrance_title %}
+  {% translate "Sign in to the hub" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% translate "Use the work email your vendor account was created with." %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  {% if not SOCIALACCOUNT_ONLY %}
+    <form class="flex flex-col gap-4 [&_.ui-hint_a]:font-semibold [&_.ui-hint_a]:text-primary-700 [&_.ui-hint_a]:underline-offset-2 [&_.ui-hint_a]:hover:underline"
+          method="post"
+          action="{% url 'account_login' %}">
+      {% csrf_token %}
+      {% include "components/form_errors.html" %}
+      {% translate "Work email" as login_label %}
+      {% translate "you@company.in" as login_placeholder %}
+      {% ui_field form.login label=login_label placeholder=login_placeholder %}
+      {% translate "Password" as password_label %}
+      {% ui_field form.password label=password_label %}
+      {% if form.remember %}
+        {% translate "Keep me signed in" as remember_label %}
+        {% ui_field form.remember label=remember_label %}
+      {% endif %}
+      {{ redirect_field }}
+      <button type="submit"
+              class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">{% translate "Sign in" %}</button>
+    </form>
+  {% endif %}
+  {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
+    <div class="flex flex-col gap-2 border-t border-soft-border pt-4">
+      {% if PASSKEY_LOGIN_ENABLED %}
+        <button type="submit"
+                form="mfa_login"
+                id="passkey_login"
+                class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block">
+          {% translate "Sign in with a passkey" %}
+        </button>
+      {% endif %}
+      {% if LOGIN_BY_CODE_ENABLED %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+           href="{{ request_login_code_url }}">{% translate "Email me a sign-in code" %}</a>
+      {% endif %}
+    </div>
+  {% endif %}
+  {% if SOCIALACCOUNT_ENABLED %}
+    {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
+  {% endif %}
+{% endblock entrance_body %}
+{% block entrance_after %}
+  {% if ACCOUNT_ALLOW_REGISTRATION and not SOCIALACCOUNT_ONLY %}
+    <p class="mt-4 text-center text-[13px] text-muted-foreground">
+      {% translate "No account yet?" %}
+      {% url 'account_signup' as signup_fallback %}
+      <a class="ui-prose-link" href="{% firstof signup_url signup_fallback %}">{% translate "Create your vendor account" %}</a>
+    </p>
+  {% endif %}
+{% endblock entrance_after %}
+{% block inline_javascript %}
+  {{ block.super }}
+  {% if PASSKEY_LOGIN_ENABLED %}
+    {% include "mfa/webauthn/snippets/login_script.html" with button_id="passkey_login" %}
+  {% endif %}
+{% endblock inline_javascript %}

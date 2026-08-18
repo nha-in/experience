@@ -1,0 +1,45 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  Request a one-time sign-in code.
+
+  Only rendered when ACCOUNT_LOGIN_BY_CODE_ENABLED is on, which is why the
+  action comes from `request_login_code_url` rather than a url tag — the
+  route does not exist while the feature is off.
+{% endcomment %}
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "Email me a sign-in code" %}
+{% endblock title %}
+{% block entrance_title %}
+  {% translate "Email me a sign-in code" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% translate "We will send a short code you can type instead of a password." %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <form class="flex flex-col gap-4"
+        method="post"
+        action="{{ request_login_code_url }}">
+    {% csrf_token %}
+    {% include "components/form_errors.html" %}
+    {% if form.email %}
+      {% translate "Work email" as email_label %}
+      {% translate "you@company.in" as email_placeholder %}
+      {% ui_field form.email label=email_label placeholder=email_placeholder %}
+    {% endif %}
+    {% if form.phone %}
+      {% ui_field form.phone %}
+    {% endif %}
+    {{ redirect_field }}
+    <button type="submit"
+            class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">{% translate "Send me a code" %}</button>
+  </form>
+{% endblock entrance_body %}
+{% block entrance_after %}
+  <p class="mt-4 text-center text-[13px] text-muted-foreground">
+    {% url 'account_login' as login_fallback %}
+    <a class="ui-prose-link" href="{% firstof login_url login_fallback %}">{% translate "Other ways to sign in" %}</a>
+  </p>
+{% endblock entrance_after %}

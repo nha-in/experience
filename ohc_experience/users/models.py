@@ -21,6 +21,7 @@ class User(AbstractUser):
     first_name = None  # type: ignore[assignment]
     last_name = None  # type: ignore[assignment]
     email = EmailField(_("email address"), unique=True)
+    phone_number = CharField(_("Mobile number"), blank=True, max_length=32)
     username = None  # type: ignore[assignment]
 
     USERNAME_FIELD = "email"
@@ -29,10 +30,19 @@ class User(AbstractUser):
     objects: ClassVar[UserManager] = UserManager()
 
     def get_absolute_url(self) -> str:
-        """Get URL for user's detail view.
+        """Get URL for the user's own account settings.
 
         Returns:
-            str: URL for user detail.
+            str: URL for the profile page.
 
         """
-        return reverse("users:detail", kwargs={"pk": self.id})
+        return reverse("users:profile")
+
+    @property
+    def display_name(self) -> str:
+        return self.name or self.email.split("@")[0]
+
+    @property
+    def first_name_or_email(self) -> str:
+        """First word of the name, for the dashboard's "Good afternoon, Meera"."""
+        return (self.name or self.email.split("@")[0]).split()[0]

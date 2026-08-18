@@ -1,0 +1,1 @@
+{{ invited_by.display_name|default:"The team" }} invited you to {{ organisation.name }} on the Care Experience Hub

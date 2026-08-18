@@ -1,0 +1,69 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  The page the confirmation link in the email lands on. Confirming is a POST, so
+  a stray link preview cannot verify an address by accident.
+{% endcomment %}
+{% load i18n account %}
+
+{% block title %}
+  {% if confirmation and can_confirm %}
+    {% translate "Confirm your email address" %}
+  {% elif confirmation %}
+    {% translate "This address is already in use" %}
+  {% else %}
+    {% translate "This link has expired" %}
+  {% endif %}
+{% endblock title %}
+{% block entrance_title %}
+  {% if confirmation and can_confirm %}
+    {% translate "Confirm your email address" %}
+  {% elif confirmation %}
+    {% translate "This address is already in use" %}
+  {% else %}
+    {% translate "This link has expired" %}
+  {% endif %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% if confirmation and can_confirm %}
+    {% user_display confirmation.email_address.user as confirming_user %}
+    {% blocktranslate trimmed with email=confirmation.email_address.email %}
+      Confirm that {{ email }} belongs to {{ confirming_user }}.
+    {% endblocktranslate %}
+  {% elif confirmation %}
+    {% blocktranslate trimmed with email=confirmation.email_address.email %}
+      We cannot confirm {{ email }}, because another account has already verified it.
+    {% endblocktranslate %}
+  {% else %}
+    {% translate "This confirmation link is no longer valid — it may have been used already, or it may have timed out." %}
+  {% endif %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  {% if confirmation and can_confirm %}
+    <form method="post"
+          action="{% url 'account_confirm_email' confirmation.key %}">
+      {% csrf_token %}
+      {{ redirect_field }}
+      <button type="submit"
+              class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">
+        {% translate "Confirm this address" %}
+      </button>
+    </form>
+    <p class="text-sm leading-relaxed text-muted-foreground">
+      {% translate "After this we verify every vendor account within 1 business day, and the Care team will be in touch once your sandbox and certification tracks are open." %}
+    </p>
+  {% elif confirmation %}
+    <p class="text-sm leading-relaxed text-muted-foreground">
+      {% translate "Sign in with the account that owns the address, or start again with a different work email." %}
+    </p>
+    {% url 'account_login' as login_fallback %}
+    <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+       href="{% firstof login_url login_fallback %}">{% translate "Back to sign in" %}</a>
+  {% else %}
+    <p class="text-sm leading-relaxed text-muted-foreground">
+      {% translate "Sign in and ask for a fresh confirmation email from your email settings." %}
+    </p>
+    <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+       href="{% url 'account_email' %}">{% translate "Manage email addresses" %}</a>
+  {% endif %}
+{% endblock entrance_body %}

@@ -1,0 +1,117 @@
+{% extends "account/base_manage_email.html" %}
+
+{% comment %}
+  Settings → Your profile → email addresses.
+
+  The radios are not form fields: allauth's view reads `email` plus one of
+  action_primary / action_send / action_remove straight off the POST, so they
+  are written by hand here. Everything destructive is a submit button inside a
+  POST form, never a link.
+{% endcomment %}
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "Email addresses" %}
+{% endblock title %}
+{% block settings_content %}
+  <form method="post" action="{% url 'account_email' %}">
+    {% csrf_token %}
+    <div class="ui-card">
+      <div class="ui-card-header">
+        <h2 class="ui-card-title">{% translate "Email addresses" %}</h2>
+        <p class="ui-card-description">
+          {% translate "The primary address receives sandbox notices, certification updates and support replies." %}
+        </p>
+      </div>
+      {% if emailaddresses %}
+        <div class="ui-card-content">
+          <fieldset>
+            <legend class="sr-only">{% translate "Choose an address to act on" %}</legend>
+            <ul class="ui-card-bleed divide-y divide-soft-border border-y border-soft-border">
+              {% for radio in emailaddress_radios %}
+                <li>
+                  <label class="flex cursor-pointer items-start gap-3 px-6 py-3 transition-colors hover:bg-muted-background/60"
+                         for="{{ radio.id }}">
+                    <input class="ui-checkbox mt-0.5 rounded-full"
+                           type="radio"
+                           name="email"
+                           id="{{ radio.id }}"
+                           value="{{ radio.emailaddress.email }}"
+                           {% if radio.checked %}checked{% endif %} />
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-sm font-medium text-foreground">{{ radio.emailaddress.email }}</span>
+                      <span class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {% if radio.emailaddress.verified %}
+                          <span class="ui-badge ui-badge--success ui-badge--size-sm">{% translate "Verified" %}</span>
+                        {% else %}
+                          <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Unverified" %}</span>
+                        {% endif %}
+                        {% if radio.emailaddress.primary %}
+                          <span class="ui-badge ui-badge--primary ui-badge--size-sm">{% translate "Primary" %}</span>
+                        {% endif %}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              {% endfor %}
+            </ul>
+          </fieldset>
+        </div>
+        <div class="ui-card-footer flex-wrap gap-2">
+          <button type="submit"
+                  name="action_primary"
+                  class="ui-btn ui-btn--default ui-btn--size-sm">{% translate "Make primary" %}</button>
+          <button type="submit"
+                  name="action_send"
+                  class="ui-btn ui-btn--outline ui-btn--size-sm">{% translate "Re-send verification" %}</button>
+          <button type="submit"
+                  name="action_remove"
+                  class="ui-btn ui-btn--destructive ui-btn--size-sm"
+                  data-confirm="{% translate 'Remove the selected email address?' %}">
+            {% translate "Remove" %}
+          </button>
+        </div>
+      {% else %}
+        <div class="ui-card-content">
+          <div class="ui-alert ui-alert--warning" role="status">
+            <p class="flex-1">
+              {% translate "There is no email address on this account yet. Add one below so you can reset your password and receive hub notices." %}
+            </p>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </form>
+  {% if can_add_email %}
+    <form method="post" action="{% url 'account_email' %}">
+      {% csrf_token %}
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <h2 class="ui-card-title">{% translate "Add an email address" %}</h2>
+          <p class="ui-card-description">{% translate "We send a confirmation link before a new address can be used." %}</p>
+        </div>
+        <div class="ui-card-content flex flex-col gap-4">
+          {% include "components/form_errors.html" %}
+          {% translate "Email address" as email_label %}
+          {% translate "you@company.in" as email_placeholder %}
+          {% ui_field form.email label=email_label placeholder=email_placeholder %}
+        </div>
+        <div class="ui-card-footer">
+          <button type="submit"
+                  name="action_add"
+                  class="ui-btn ui-btn--default ui-btn--size-sm">{% translate "Add email" %}</button>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+{% endblock settings_content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    document.querySelectorAll("[data-confirm]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        if (!window.confirm(button.dataset.confirm)) event.preventDefault();
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

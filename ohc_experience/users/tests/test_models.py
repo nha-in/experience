@@ -7,4 +7,6 @@ if TYPE_CHECKING:
 
 
 def test_user_get_absolute_url(user: User):
-    assert user.get_absolute_url() == f"/users/{user.pk}/"
+    # A user's canonical page is their own settings screen, not a public
+    # per-pk profile — there is no such thing as viewing another user here.
+    assert user.get_absolute_url() == "/settings/profile/"

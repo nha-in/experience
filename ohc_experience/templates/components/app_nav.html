@@ -1,0 +1,58 @@
+{% comment %}
+  Sidebar navigation. Shared by the desktop rail and the mobile drawer so the
+  two can never drift apart.
+
+  Context:
+    nav_section        — slug of the active section, set by each view.
+    soon_section_labels — sections the design draws that this release does not
+                          ship yet; supplied by the organisations context
+                          processor. They render greyed with a "Soon" chip: the
+                          design calls for left-nav chrome that later sections
+                          slot into, and showing the shape up front beats a nav
+                          that grows link by link.
+{% endcomment %}
+{% load i18n %}
+
+<nav class="flex flex-1 flex-col" aria-label="{% translate 'Main' %}">
+  <ul class="flex flex-col gap-0.5">
+    <li>
+      <a class="ui-nav-link {% if nav_section == 'dashboard' %}ui-nav-link--active{% endif %}"
+         href="{% url 'dashboard' %}"
+         {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>{% translate "Dashboard" %}</a>
+    </li>
+    {% for label in soon_section_labels %}
+      <li>
+        <span class="flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-disabled-foreground"
+              aria-disabled="true">
+          {{ label }}
+          <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{% translate "Soon" %}</span>
+        </span>
+      </li>
+    {% endfor %}
+  </ul>
+  <ul class="mt-auto flex flex-col gap-0.5 pt-6">
+    <li>
+      <a class="ui-nav-link {% if nav_section == 'settings' %}ui-nav-link--active{% endif %}"
+         href="{% url 'organisations:detail' %}"
+         {% if nav_section == 'settings' %}aria-current="page"{% endif %}>{% translate "Settings" %}</a>
+    </li>
+    <li>
+      <a class="ui-nav-link"
+         href="https://docs.ohc.network"
+         target="_blank"
+         rel="noopener noreferrer">
+        {% translate "Docs" %} <span aria-hidden="true">↗</span>
+      </a>
+    </li>
+  </ul>
+  {% if current_organisation %}
+    <div class="mt-2.5 flex items-center gap-2.5 border-t border-sidebar-border px-2.5 pt-3">
+      <span class="ui-avatar ui-avatar--primary size-7 text-[11px]"
+            aria-hidden="true">{{ current_organisation.initials }}</span>
+      <span class="min-w-0">
+        <span class="block truncate text-[12.5px] font-semibold">{{ current_organisation.name }}</span>
+        <span class="block truncate text-[11px] text-soft-foreground">{{ request.user.email }}</span>
+      </span>
+    </div>
+  {% endif %}
+</nav>

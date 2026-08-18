@@ -1,0 +1,17 @@
+{% comment %}
+  Django messages as careui alerts. Rendered once per layout, above page content.
+{% endcomment %}
+{% load i18n %}
+{% if messages %}
+  <div class="mb-6 space-y-3" role="status" aria-live="polite">
+    {% for message in messages %}
+      <div class="ui-alert {% if message.level_tag == 'success' %}ui-alert--success{% elif message.level_tag == 'error' %}ui-alert--destructive{% elif message.level_tag == 'warning' %}ui-alert--warning{% else %}ui-alert--info{% endif %}">
+        <p class="flex-1">{{ message }}</p>
+        <button type="button"
+                class="-my-1 -mr-1 shrink-0 rounded-md p-1 leading-none opacity-60 transition hover:bg-black/5 hover:opacity-100"
+                data-dismiss-alert
+                aria-label="{% translate 'Dismiss' %}">×</button>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

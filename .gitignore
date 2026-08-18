@@ -276,3 +276,4 @@ ohc_experience/media/
 .env
 .envs/*
 !.envs/.local/
+.gstack/
