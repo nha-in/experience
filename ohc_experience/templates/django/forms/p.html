@@ -1,0 +1,35 @@
+{{ errors }}
+{% if errors and not fields %}
+  <p>{% for field in hidden_fields %}{{ field }}{% endfor %}</p>
+{% endif %}
+{% for field, errors in fields %}
+  {{ errors }}
+  {% if field.widget_type == "checkbox" %}
+    <p class="flex items-center gap-2">
+      {{ field }}
+      {% if field.label %}{{ field.label_tag }}{% endif %}
+      {% if field.help_text %}
+        <span class="helptext"
+              {% if field.auto_id %} id="{{ field.auto_id }}_helptext"{% endif %}>{{ field.help_text|safe }}</span>
+      {% endif %}
+      {% if forloop.last %}
+        {% for hidden in hidden_fields %}{{ hidden }}{% endfor %}
+      {% endif %}
+    </p>
+  {% else %}
+    <p{% with classes=field.css_classes %}{% if classes %} class="{{ classes }}"{% endif %}{% endwith %}>
+      {% if field.label %}{{ field.label_tag }}{% endif %}
+      {{ field }}
+      {% if field.help_text %}
+        <span class="helptext"
+              {% if field.auto_id %} id="{{ field.auto_id }}_helptext"{% endif %}>{{ field.help_text|safe }}</span>
+      {% endif %}
+      {% if forloop.last %}
+        {% for hidden in hidden_fields %}{{ hidden }}{% endfor %}
+      {% endif %}
+    </p>
+  {% endif %}
+{% endfor %}
+{% if not fields and not errors %}
+  {% for field in hidden_fields %}{{ field }}{% endfor %}
+{% endif %}

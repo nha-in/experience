@@ -8,3 +8,42 @@
   * the scope of this path.
   */
 @source "../../../**/*.{html,py,js}";
+
+@layer components {
+  a:not([class]) {
+    @apply text-blue-600 underline hover:text-blue-800;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not(
+      [type="button"]
+    ):not([type="image"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    @apply mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    @apply size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500;
+  }
+
+  form p {
+    @apply mb-4;
+  }
+
+  form label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+
+  form p.flex label {
+    @apply mb-0;
+  }
+
+  form .helptext {
+    @apply mt-1 block text-sm text-slate-500;
+  }
+
+  form ul.errorlist {
+    @apply mb-2 list-disc pl-5 text-sm text-red-600;
+  }
+}
