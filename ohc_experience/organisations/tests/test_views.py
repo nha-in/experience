@@ -232,10 +232,13 @@ class TestOnboardingView:
         )
 
         # The htmx attributes are enhancement: the form has to stay a plain
-        # POST to a real URL, with one CSRF token, for a browser without them.
+        # POST to a real URL for a browser without them. Every POST form on the
+        # page carries exactly one token — counting pairs rather than asserting
+        # a single token keeps this honest as the shell grows forms of its own
+        # (the sidebar's sign-out, for one).
         assert 'method="post"' in html
         assert f'action="{reverse("organisations:onboarding")}"' in html
-        assert html.count("csrfmiddlewaretoken") == 1
+        assert html.count("csrfmiddlewaretoken") == html.count('method="post"')
 
 
 class TestOrganisationDetailView:
@@ -369,7 +372,7 @@ class TestOrganisationDetailView:
 
         assert 'method="post"' in html
         assert f'action="{reverse("organisations:detail")}"' in html
-        assert html.count("csrfmiddlewaretoken") == 1
+        assert html.count("csrfmiddlewaretoken") == html.count('method="post"')
 
 
 class TestTeamView:

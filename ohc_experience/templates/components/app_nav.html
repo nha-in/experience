@@ -4,12 +4,10 @@
 
   Context:
     nav_section        — slug of the active section, set by each view.
-    soon_section_labels — sections the design draws that this release does not
-                          ship yet; supplied by the organisations context
-                          processor. They render greyed with a "Soon" chip: the
-                          design calls for left-nav chrome that later sections
-                          slot into, and showing the shape up front beats a nav
-                          that grows link by link.
+  The nav lists only what exists. Sandbox, Certifications, Deployments,
+  Events and Support are in the mockup but not built, and rendering them
+  greyed with a "Soon" chip made the rail read as mostly disabled — so they
+  arrive when their pages do.
 
   Boosted: htmx fetches the very URL each href already points at, keeps only
   #main-content out of the whole-page response and swaps it in, and picks this
@@ -43,15 +41,6 @@
          href="{% url 'dashboard' %}"
          {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>{% translate "Dashboard" %}</a>
     </li>
-    {% for label in soon_section_labels %}
-      <li>
-        <span class="flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-disabled-foreground"
-              aria-disabled="true">
-          {{ label }}
-          <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{% translate "Soon" %}</span>
-        </span>
-      </li>
-    {% endfor %}
   </ul>
   <ul class="mt-auto flex flex-col gap-0.5 pt-6">
     <li>
@@ -72,14 +61,37 @@
       </a>
     </li>
   </ul>
-  {% if current_organisation %}
-    <div class="mt-2.5 flex items-center gap-2.5 border-t border-sidebar-border px-2.5 pt-3">
-      <span class="ui-avatar ui-avatar--primary size-7 text-[11px]"
-            aria-hidden="true">{{ current_organisation.initials }}</span>
-      <span class="min-w-0">
-        <span class="block truncate text-[12.5px] font-semibold">{{ current_organisation.name }}</span>
+  {% if request.user.is_authenticated %}
+    <div class="mt-2.5 flex items-center gap-2 border-t border-sidebar-border px-2.5 pt-3">
+      {% if current_organisation %}
+        <span class="ui-avatar ui-avatar--primary size-7 text-[11px]"
+              aria-hidden="true">{{ current_organisation.initials }}</span>
+      {% endif %}
+      <span class="min-w-0 flex-1">
+        {% if current_organisation %}
+          <span class="block truncate text-[12.5px] font-semibold">{{ current_organisation.name }}</span>
+        {% endif %}
         <span class="block truncate text-[11px] text-soft-foreground">{{ request.user.email }}</span>
       </span>
+      {# Signing out is a state change, so a real POST — never boosted, because #}
+      {# the response is the signed-out shell and has no #app-nav to swap. #}
+      <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+        {% csrf_token %}
+        <button type="submit"
+                class="ui-btn ui-btn--ghost ui-btn--size-icon-xs no-underline"
+                title="{% translate 'Sign out' %}"
+                aria-label="{% translate 'Sign out' %}">
+          <svg viewBox="0 0 24 24"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="1.75"
+               stroke-linecap="round"
+               stroke-linejoin="round"
+               aria-hidden="true">
+            <path d="M15 17l5-5-5-5M20 12H9M12 3H6a1 1 0 00-1 1v16a1 1 0 001 1h6" />
+          </svg>
+        </button>
+      </form>
     </div>
   {% endif %}
 </nav>

@@ -8,9 +8,13 @@ the same whoever built the form.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django import forms
 from django import template
-from django.forms import BoundField
+
+if TYPE_CHECKING:
+    from django.forms import BoundField
 
 register = template.Library()
 

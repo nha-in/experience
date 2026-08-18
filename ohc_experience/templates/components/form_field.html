@@ -11,10 +11,7 @@
   {% if field|is_checkbox %}
     {{ field }}
     <label class="text-sm leading-snug text-muted-foreground select-none"
-           for="{{ field.id_for_label }}">
-      {{ label }}
-      {% if is_optional %}<span class="text-soft-foreground">({% translate "optional" %})</span>{% endif %}
-    </label>
+           for="{{ field.id_for_label }}">{{ label }}</label>
   {% else %}
     <label class="ui-label" for="{{ field.id_for_label }}">
       {{ label }}

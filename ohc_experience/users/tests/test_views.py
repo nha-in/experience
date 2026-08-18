@@ -169,10 +169,13 @@ class TestUserProfileView:
         )
 
         # The htmx attributes are enhancement: the form has to stay a plain
-        # POST to a real URL, with one CSRF token, for a browser without them.
+        # POST to a real URL for a browser without them. Every POST form on the
+        # page carries exactly one token — counting pairs rather than asserting
+        # a single token keeps this honest as the shell grows forms of its own
+        # (the sidebar's sign-out, for one).
         assert 'method="post"' in html
         assert f'action="{reverse("users:profile")}"' in html
-        assert html.count("csrfmiddlewaretoken") == 1
+        assert html.count("csrfmiddlewaretoken") == html.count('method="post"')
 
     def test_the_legacy_update_url_redirects_to_the_profile(
         self,
@@ -282,3 +285,51 @@ class TestUserSignupView:
         assert membership.role == Role.SUPPORT
         assert Organisation.objects.count() == 1
         assert INVITATION_SESSION_KEY not in client.session
+
+
+class TestSignOut:
+    """The app shell must offer a way out, and it must work without scripts."""
+
+    def test_the_shell_offers_a_sign_out_post(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        html = sign_in(owner_membership.user).get(reverse("dashboard")).content.decode()
+
+        assert f'action="{reverse("account_logout")}"' in html
+        assert "Sign out" in html
+
+    def test_posting_sign_out_ends_the_session(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        client = sign_in(owner_membership.user)
+
+        response = client.post(reverse("account_logout"))
+
+        assert response.status_code == HTTPStatus.FOUND
+        # The dashboard is login-gated, so a redirect away from it proves the
+        # session is gone rather than merely that the POST was accepted.
+        assert client.get(reverse("dashboard")).status_code == HTTPStatus.FOUND
+
+    def test_the_nav_lists_only_sections_that_exist(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        html = sign_in(owner_membership.user).get(reverse("dashboard")).content.decode()
+        # Scoped to the rail: the dashboard legitimately says "Sandbox" on a
+        # status tile, which is not a nav entry.
+        nav = html[html.index('<nav id="app-nav"') : html.index("</nav>")]
+
+        assert "Soon" not in nav
+        for unbuilt in (
+            "Sandbox",
+            "Certifications",
+            "Deployments",
+            "Events",
+            "Support",
+        ):
+            assert unbuilt not in nav
