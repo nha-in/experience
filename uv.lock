@@ -1484,7 +1484,7 @@ requires-dist = [
     { name = "crispy-bootstrap5", specifier = "==2026.3" },
     { name = "django", specifier = "==6.0.8" },
     { name = "django-allauth", extras = ["mfa"], specifier = "==65.19.1" },
-    { name = "django-anymail", extras = ["mailgun"], specifier = "==15.1" },
+    { name = "django-anymail", specifier = "==15.1" },
     { name = "django-celery-beat", specifier = "==2.9.0" },
     { name = "django-compressor", specifier = "==4.6.0" },
     { name = "django-cors-headers", specifier = "==4.9.0" },
