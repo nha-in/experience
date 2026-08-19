@@ -90,7 +90,7 @@ TAILWIND_APP_NAME = "theme"
 
 NPM_BIN_PATH = env(
     "NPM_BIN_PATH",
-    default="npm",
+    default="/usr/bin/node",
 )
 
 # Build Tailwind with the standalone pytailwindcss binary rather than npm.
