@@ -1,0 +1,123 @@
+{% extends "layouts/marketing.html" %}
+
+{% comment %}
+  The htmx idiom reference that shipped with the htmx setup, kept runnable at
+  /htmx-demo/. Left in its original slate palette rather than restyled to
+  careui: it documents htmx wiring, not the design system, and the contrast
+  makes it obvious this is not a product page.
+{% endcomment %}
+{% block title %}
+  htmx examples
+{% endblock title %}
+{% block content %}
+  <div class="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
+    <section class="rounded-2xl border border-slate-200 bg-white px-6 py-12 shadow-sm sm:px-10">
+      <p class="text-sm font-medium uppercase tracking-wide text-blue-600">OHC Experience</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Experience Builder</h1>
+      <p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+        Build and manage experiences from a single place. Sign in to continue, or create an account to get started.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        {% if request.user.is_authenticated %}
+          <a class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+             href="{% url 'users:detail' request.user.pk %}">My Profile</a>
+        {% else %}
+          <a class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+             href="{% url 'account_login' %}">Sign In</a>
+          {% if ACCOUNT_ALLOW_REGISTRATION %}
+            <a class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+               href="{% url 'account_signup' %}">Sign Up</a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </section>
+    <section class="mt-10">
+      <h2 class="text-xl font-semibold tracking-tight text-slate-900">HTMX examples</h2>
+      <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+        These snippets run through django-htmx: click, POST, live search, and a form submit without a full page reload.
+      </p>
+      <div class="mt-6 grid gap-6 md:grid-cols-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 class="text-base font-semibold text-slate-900">Click to load</h3>
+          <p class="mt-1 text-sm text-slate-600">GET a partial and swap it into the page.</p>
+          <div id="server-time"
+               class="mt-4 rounded-lg bg-slate-50 px-3 py-2 font-mono text-sm text-slate-700">
+            Server time has not been loaded yet.
+          </div>
+          <button type="button"
+                  class="mt-4 inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  hx-get="{% url 'htmx-time' %}"
+                  hx-target="#server-time"
+                  hx-swap="innerHTML"
+                  hx-indicator="#time-indicator">Fetch server time</button>
+          <span id="time-indicator"
+                class="htmx-indicator ml-2 text-sm text-slate-500">Loading...</span>
+        </article>
+        <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 class="text-base font-semibold text-slate-900">Session counter</h3>
+          <p class="mt-1 text-sm text-slate-600">POST updates stored in the session.</p>
+          <div class="mt-4 flex items-center gap-3">
+            <button type="button"
+                    class="inline-flex size-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-lg font-medium text-slate-700 hover:bg-slate-50"
+                    hx-post="{% url 'htmx-counter' %}"
+                    hx-vals='{"action": "dec"}'
+                    hx-target="#htmx-counter"
+                    hx-swap="outerHTML">-</button>
+            {% include "pages/partials/counter.html" %}
+            <button type="button"
+                    class="inline-flex size-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-lg font-medium text-slate-700 hover:bg-slate-50"
+                    hx-post="{% url 'htmx-counter' %}"
+                    hx-vals='{"action": "inc"}'
+                    hx-target="#htmx-counter"
+                    hx-swap="outerHTML">+</button>
+            <button type="button"
+                    class="text-sm font-medium text-slate-500 hover:text-slate-800"
+                    hx-post="{% url 'htmx-counter' %}"
+                    hx-vals='{"action": "reset"}'
+                    hx-target="#htmx-counter"
+                    hx-swap="outerHTML">Reset</button>
+          </div>
+        </article>
+        <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 class="text-base font-semibold text-slate-900">Live search</h3>
+          <p class="mt-1 text-sm text-slate-600">Filter sample experiences as you type.</p>
+          <label class="mt-4 block text-sm font-medium text-slate-700"
+                 for="experience-search">Search</label>
+          <div class="relative">
+            <input id="experience-search"
+                   type="search"
+                   name="q"
+                   class="mt-1"
+                   placeholder="Try intake, pharmacy, virtual..."
+                   hx-get="{% url 'htmx-search' %}"
+                   hx-trigger="keyup changed delay:300ms, search"
+                   hx-target="#search-results"
+                   hx-indicator="#search-indicator" />
+            <span id="search-indicator"
+                  class="htmx-indicator pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-500">Searching...</span>
+          </div>
+          <div id="search-results" class="mt-4">{% include "pages/partials/search_results.html" %}</div>
+        </article>
+        <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 class="text-base font-semibold text-slate-900">Inline form</h3>
+          <p class="mt-1 text-sm text-slate-600">Submit a form and replace only the greeting.</p>
+          <form class="mt-4 space-y-3"
+                hx-post="{% url 'htmx-greet' %}"
+                hx-target="#greeting-result"
+                hx-swap="innerHTML">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700"
+                     for="greet-name">Name</label>
+              <input id="greet-name" type="text" name="name" placeholder="Ada Lovelace" />
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              Greet
+            </button>
+          </form>
+          <div id="greeting-result" class="mt-4 text-sm text-slate-700">Waiting for a name.</div>
+        </article>
+      </div>
+    </section>
+  </div>
+{% endblock content %}

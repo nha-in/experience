@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Shell for the error pages. Deliberately standalone rather than an extension of
+  the marketing or app shell: an error can be raised on any request, including
+  one where the sidebar's own context is missing, and a chrome that itself
+  depends on that context would fail a second time inside the handler.
+
+  Blocks: code, heading, message, actions.
+{% endcomment %}
+{% load i18n %}
+
+{% block bodyclass %}bg-background{% endblock bodyclass %}
+{% block body %}
+  <main id="main-content"
+        class="flex min-h-screen flex-col items-center justify-center px-5 py-16">
+    <div class="w-full max-w-[520px] text-center">
+      <p class="font-mono text-[13px] font-semibold tracking-[0.08em] text-soft-foreground">
+        {% block code %}
+        {% endblock code %}
+      </p>
+      <h1 class="mt-3 text-[26px] font-bold tracking-[-0.02em] text-balance sm:text-[30px]">
+        {% block heading %}
+        {% endblock heading %}
+      </h1>
+      <p class="mt-3.5 text-[15px] leading-[1.6] text-muted-foreground">
+        {% block message %}
+        {% endblock message %}
+      </p>
+      <div class="mt-7 flex flex-col justify-center gap-2.5 sm:flex-row">
+        {% block actions %}
+          <a class="ui-btn ui-btn--default ui-btn--size-default"
+             href="{% url 'home' %}">{% translate "Go home" %}</a>
+        {% endblock actions %}
+      </div>
+    </div>
+  </main>
+{% endblock body %}
