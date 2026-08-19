@@ -171,7 +171,9 @@ COMPRESS_FILTERS = {
 
 LOGGING = {
     "version": 1,
-    "disable_existing_loggers": True,
+    # Must stay False: Django installs its own "django"/"django.request" loggers
+    # during setup(), and disabling them silently discards every 500 traceback.
+    "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
             "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
@@ -186,6 +188,14 @@ LOGGING = {
     },
     "root": {"level": "INFO", "handlers": ["console"]},
     "loggers": {
+        # Unhandled view exceptions (HTTP 500) land here, with the traceback
+        # attached via exc_info. Without this they never reach stdout, so they
+        # never reach the DigitalOcean runtime logs.
+        "django.request": {
+            "level": "ERROR",
+            "handlers": ["console"],
+            "propagate": False,
+        },
         "django.db.backends": {
             "level": "ERROR",
             "handlers": ["console"],
