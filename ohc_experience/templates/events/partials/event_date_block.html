@@ -1,0 +1,16 @@
+{% comment %}
+  The 40px date block from the dashboard mockup — month over day in a bordered
+  box. The events list, an event's page and the dashboard card all include this
+  one file, so the three can never drift apart.
+
+  It is a real <time> rather than decoration: the rows beside it say the weekday
+  and the hour, so without the month and day here a screen reader would never
+  hear which date an event falls on.
+
+  Context: event.
+{% endcomment %}
+<time class="flex w-10 shrink-0 flex-col items-center rounded-lg border border-border bg-background py-1 text-center"
+      datetime="{{ event.starts_at|date:'c' }}">
+  <span class="text-[9.5px] font-bold tracking-[0.06em] text-destructive uppercase">{{ event.starts_at|date:"M" }}</span>
+  <span class="text-[15px] leading-[1.1] font-[750]">{{ event.starts_at|date:"j" }}</span>
+</time>

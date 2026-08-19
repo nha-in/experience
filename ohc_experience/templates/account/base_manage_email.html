@@ -1,0 +1,26 @@
+{% extends "layouts/settings.html" %}
+
+{% comment %}
+  Email management is reached while signed in, so it belongs in the app shell
+  rather than the signed-out one.
+
+  layouts/app.html lights its sidebar from `nav_section` and the settings
+  sub-nav from `settings_section`, both normally set by the view — and allauth's
+  views cannot. Re-rendering the shell inside a `with` block supplies both
+  without restating any of the shell's markup.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% block head_title %}
+    {% translate "Email addresses" %}
+  {% endblock head_title %}
+{% endblock title %}
+{% block body %}
+  {% with nav_section="settings" settings_section="profile" %}
+    {{ block.super }}
+  {% endwith %}
+{% endblock body %}
+{% block settings_subtitle %}
+  {% firstof current_organisation.display_name request.user.email %}
+{% endblock settings_subtitle %}

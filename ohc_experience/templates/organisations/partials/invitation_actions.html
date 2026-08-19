@@ -1,0 +1,40 @@
+{% comment %}
+  Resend and Revoke for one pending invite, written once for both
+  representations — invitation_row.html renders them in the table's actions
+  cell and invitation_card.html at the foot of the stacked card, each inside
+  its own wrapper. Both target the <tr>, whose response carries the <li> out of
+  band, so whichever control was pressed both stay true.
+
+  hx-confirm when htmx is driving, the inline confirm when it is not — htmx
+  ignores defaultPrevented, so the two must not both be live.
+
+  Context: i (Invitation).
+
+  No-JS contract: method, action and the CSRF token are real, so without htmx
+  these POST and the view redirects back to the team page as it always did.
+{% endcomment %}
+{% load i18n %}
+
+{% translate "Revoke this invite? The link stops working straight away." as revoke_confirm %}
+<form method="post"
+      action="{% url 'organisations:invitation-resend' i.pk %}"
+      hx-post="{% url 'organisations:invitation-resend' i.pk %}"
+      hx-target="#invitation-{{ i.pk }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type=submit]"
+      hx-indicator="#nav-progress">
+  {% csrf_token %}
+  <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Resend invite" %}</button>
+</form>
+<form method="post"
+      action="{% url 'organisations:invitation-revoke' i.pk %}"
+      onsubmit="return !window.htmx && confirm('{{ revoke_confirm|escapejs }}')"
+      hx-post="{% url 'organisations:invitation-revoke' i.pk %}"
+      hx-confirm="{{ revoke_confirm }}"
+      hx-target="#invitation-{{ i.pk }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type=submit]"
+      hx-indicator="#nav-progress">
+  {% csrf_token %}
+  <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Revoke" %}</button>
+</form>

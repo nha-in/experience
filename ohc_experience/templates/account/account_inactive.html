@@ -1,0 +1,21 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}Sign-in was refused because the account has been deactivated.{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "This account is inactive" %}
+{% endblock title %}
+{% block entrance_title %}
+  {% translate "This account is inactive" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% translate "Sign-in is switched off for this account, so we cannot let you through." %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <p class="text-sm leading-relaxed text-muted-foreground">
+    {% translate "An owner or admin in your organisation can remove and re-invite you, or the Care team can reactivate the account if it was deactivated by mistake. Reply to any mail you have had from the Care team and we will pick it up." %}
+  </p>
+  <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+     href="{% url 'home' %}">{% translate "Back to the hub" %}</a>
+{% endblock entrance_body %}

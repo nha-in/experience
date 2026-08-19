@@ -1,0 +1,62 @@
+{% extends "layouts/settings.html" %}
+
+{% comment %}
+  Settings → Your profile. The only editable thing here is the person's name;
+  email and password live behind allauth's own screens, so this page links out
+  to them rather than duplicating those flows.
+
+  The form itself lives in partials/profile_form.html, because that fragment is
+  what htmx swaps back in after a save.
+
+  Context: form (name only), request.user, current_membership (context processor).
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Your profile" %}
+{% endblock title %}
+{% block settings_content %}
+  <div class="ui-card">
+    <div class="ui-card-header">
+      <h2 class="ui-card-title">{% translate "Your details" %}</h2>
+      <p class="ui-card-description">{% translate "How you appear to the rest of your team." %}</p>
+    </div>
+    {% include "users/partials/profile_form.html" %}
+    <div class="ui-card-content flex flex-col gap-3 border-t border-border pt-5">
+      <div class="grid gap-1 sm:grid-cols-[190px_minmax(0,1fr)] sm:gap-4">
+        <span class="text-[13px] font-medium text-soft-foreground">{% translate "Email" %}</span>
+        <span class="min-w-0 text-sm break-all text-foreground">{{ request.user.email }}</span>
+      </div>
+      <p class="text-[11.5px] leading-relaxed text-soft-foreground">
+        {% url 'account_email' as email_url %}
+        {% blocktranslate %}You sign in with this address. Add or change it on the <a class="ui-prose-link" href="{{ email_url }}">email addresses</a> page.{% endblocktranslate %}
+      </p>
+      <div>
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm"
+           href="{% url 'account_change_password' %}">{% translate "Change password" %}</a>
+      </div>
+    </div>
+  </div>
+  {% if current_membership %}
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-header">
+        <h2 class="ui-card-title">{% translate "Your role" %}</h2>
+      </div>
+      <div class="ui-card-content flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {% if current_membership.is_owner %}
+          <span class="ui-badge ui-badge--primary ui-badge--size-sm">{{ current_membership.get_role_display }}</span>
+        {% else %}
+          <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{{ current_membership.get_role_display }}</span>
+        {% endif %}
+        <span class="text-[12.5px] text-soft-foreground">
+          {% blocktranslate with organisation=current_membership.organisation.display_name %}at {{ organisation }}{% endblocktranslate %}
+        </span>
+      </div>
+      <div class="ui-card-content">
+        <p class="text-[11.5px] leading-relaxed text-soft-foreground">
+          {% translate "Only the owner and admins can change roles, on the Team screen." %}
+        </p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock settings_content %}

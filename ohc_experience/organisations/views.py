@@ -55,7 +55,8 @@ class OrganisationMixin(LoginRequiredMixin):
         if self.membership is None:
             # OHC staff routinely have no vendor account. Sending them to the
             # console beats a 403 that reads as breakage on a page they were
-            # never meant to open.
+            # never meant to open. Staff who *do* belong to a vendor keep the
+            # vendor route; the console stays one click away in the sidebar.
             if is_ohc_team(request.user):
                 messages.info(
                     request,
@@ -144,7 +145,7 @@ class OrganisationDetailView(OrganisationMixin, UpdateView):
     template_name = "organisations/organisation_detail.html"
     # The page includes this fragment; htmx swaps the same file back in.
     partial_template_name = "organisations/partials/organisation_form.html"
-    success_url = reverse_lazy("organisations:detail")
+    success_url = reverse_lazy("dashboard")
 
     def get_object(self, queryset=None) -> Organisation:
         return self.organisation
@@ -166,17 +167,9 @@ class OrganisationDetailView(OrganisationMixin, UpdateView):
         response = super().form_valid(form)
         messages.success(self.request, _("Organisation profile updated."))
         if self.request.htmx:
-            # Swap the saved form back in — rebound to the stored instance, so
-            # the fields show what the database now holds — and let the flash
-            # ride along out of band into #flash-messages.
-            return render(
-                self.request,
-                self.partial_template_name,
-                self.get_context_data(
-                    form=self.get_form_class()(instance=self.object),
-                    oob_flash=True,
-                ),
-            )
+            # A full navigation home: the dashboard reloads with the new name in
+            # the sidebar and the flash riding along in Django's message store.
+            return HttpResponseClientRedirect(reverse("dashboard"))
         return response
 
     def form_invalid(self, form):

@@ -1,0 +1,23 @@
+{% comment %}
+  htmx response for a revoked invite, aimed at #invitation-<pk> with
+  hx-swap="outerHTML".
+
+  Everything is out of band inside a <template>, so nothing is left for the
+  ordinary swap and the row goes (member_removed.html spells that out). The
+  stacked card is deleted by id, and both headings are re-rendered because
+  revoking the last pending invite has to hide them again.
+
+  Context: invitation_pk (the row that is gone), invitations (what is left).
+{% endcomment %}
+<template>
+  <li id="invitation-card-{{ invitation_pk }}" hx-swap-oob="delete"></li>
+</template>
+<template>
+  {% include "organisations/partials/invitation_heading.html" with oob=True %}
+</template>
+<template>
+  {% include "organisations/partials/invitation_heading.html" with variant="card" oob=True %}
+</template>
+<template>
+  {% include "components/messages.html" with oob=True %}
+</template>

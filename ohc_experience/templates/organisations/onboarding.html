@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Screen 1b — the onboarding form.
+
+  Deliberately not the app shell: until the profile is saved there is nothing
+  to navigate to, so the page wears a bare 56px header (brand + sign out) and
+  gives the whole canvas to one form.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Set up your vendor profile" %}
+{% endblock title %}
+{% block body %}
+  <div class="flex min-h-screen flex-col">
+    <header class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-4 sm:px-8">
+      {% include "components/brand.html" %}
+      <div class="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground">
+        <span class="hidden min-w-0 truncate sm:inline">
+          {% blocktranslate with email=request.user.email %}Signed in as {{ email }}{% endblocktranslate %}
+        </span>
+        <span class="hidden sm:inline" aria-hidden="true">·</span>
+        <a class="ui-prose-link" href="{% url 'account_logout' %}">{% translate "Sign out" %}</a>
+      </div>
+    </header>
+    <main id="main-content" class="flex-1 px-4 pt-10 pb-16 sm:px-6">
+      <div class="mx-auto w-full max-w-[780px]">
+        {% include "components/messages.html" %}
+        <h1 class="text-2xl font-bold tracking-[-0.02em]">{% translate "Set up your vendor profile" %}</h1>
+        <p class="mt-1.5 text-sm text-muted-foreground">
+          {% translate "This unlocks your sandbox and certification tracks — takes a couple of minutes." %}
+        </p>
+        {% include "organisations/partials/organisation_form.html" %}
+        <p class="mt-3.5 text-center text-xs text-soft-foreground">
+          {% translate "Your details are used only for partner verification." %}
+        </p>
+      </div>
+    </main>
+  </div>
+{% endblock body %}
+{% block inline_javascript %}
+  <script>
+    // Delegated, like the app shell's copy: an alert can arrive after load —
+    // out of band from a partial — and a listener bound at load would never
+    // see it.
+    document.addEventListener("click", (event) => {
+      const dismiss = event.target.closest("[data-dismiss-alert]");
+      if (dismiss) dismiss.closest(".ui-alert")?.remove();
+    });
+  </script>
+{% endblock inline_javascript %}

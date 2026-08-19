@@ -1,0 +1,46 @@
+{% comment %}
+  The role picker for one roster entry, written once for both representations.
+
+  member_row.html puts it in the table's Role cell and member_card.html in the
+  stacked card, so the endpoint, the target and the swap are defined here and
+  cannot drift between the two. Only the two size utilities differ, and they
+  come in as arguments.
+
+  hx-trigger takes both events: "change" is the picker submitting itself
+  (change bubbles to the form), "submit" is the Update button, which is the
+  only route when scripts are off. One endpoint, one code path.
+
+  Context: m (Membership), assignable_roles,
+           select_width — width utility for the select wrapper,
+           button_size  — size modifier for the Update button.
+
+  No-JS contract: method, action and the CSRF token are real, so without htmx
+  this POSTs and the view redirects back to the team page as it always did.
+{% endcomment %}
+{% load i18n %}
+
+<form class="flex items-center gap-2"
+      method="post"
+      action="{% url 'organisations:member-role' m.pk %}"
+      hx-post="{% url 'organisations:member-role' m.pk %}"
+      hx-trigger="submit, change"
+      hx-target="#member-{{ m.pk }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find select, find button"
+      hx-indicator="#nav-progress"
+      data-role-form>
+  {% csrf_token %}
+  <div class="ui-select-wrapper {{ select_width }}">
+    <select name="role"
+            class="ui-select ui-select--sm"
+            data-role-select
+            aria-label="{% blocktranslate with name=m.user.name|default:m.user.email %}Role for {{ name }}{% endblocktranslate %}">
+      {% for value, label in assignable_roles %}
+        <option value="{{ value }}" {% if value == m.role %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit"
+          class="ui-btn ui-btn--outline {{ button_size }}"
+          data-role-submit>{% translate "Update" %}</button>
+</form>

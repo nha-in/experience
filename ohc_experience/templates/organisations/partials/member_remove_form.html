@@ -1,0 +1,33 @@
+{% comment %}
+  The "Remove" action for one roster entry, written once for both
+  representations — member_row.html renders it in the table's actions cell and
+  member_card.html at the foot of the stacked card. The rule for who sees it
+  lives here too, so the two cannot disagree about it.
+
+  Two confirmations for two worlds: hx-confirm when htmx is driving, the inline
+  one when it is not. htmx does not look at defaultPrevented, so the inline
+  handler stands down whenever htmx is on the page — otherwise cancelling it
+  would still let the request through.
+
+  Context: m (Membership), can_manage, request.
+
+  No-JS contract: method, action and the CSRF token are real, so without htmx
+  this POSTs and the view redirects back to the team page as it always did.
+{% endcomment %}
+{% load i18n %}
+
+{% if can_manage and not m.is_owner and m.user.pk != request.user.pk %}
+  {% translate "Remove this person from the team? They lose access immediately." as remove_confirm %}
+  <form method="post"
+        action="{% url 'organisations:member-remove' m.pk %}"
+        onsubmit="return !window.htmx && confirm('{{ remove_confirm|escapejs }}')"
+        hx-post="{% url 'organisations:member-remove' m.pk %}"
+        hx-confirm="{{ remove_confirm }}"
+        hx-target="#member-{{ m.pk }}"
+        hx-swap="outerHTML"
+        hx-disabled-elt="find button[type=submit]"
+        hx-indicator="#nav-progress">
+    {% csrf_token %}
+    <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Remove" %}</button>
+  </form>
+{% endif %}

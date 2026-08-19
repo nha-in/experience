@@ -1,3 +1,4 @@
+{% load django_htmx %}
 {% load tailwind_tags %}
 {% load static i18n compress %}
 
@@ -9,12 +10,14 @@
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
     <title>
       {% block title %}
-        OHC Experience
+        Care Experience Hub
       {% endblock title %}
     </title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Experience Builder" />
-    <meta name="author" content="OHCNF" />
+    <meta name="description"
+          content="{% block meta_description %}Build, certify and support your Care integrations in one place.{% endblock meta_description %}" />
+    <meta name="author" content="Open Healthcare Network" />
+    <meta name="theme-color" content="#065f46" />
     <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" />
     {% block css %}
       {% tailwind_css %}
@@ -23,11 +26,65 @@
       {% compress css %}
         <link href="{% static 'css/project.css' %}" rel="stylesheet" />
       {% endcompress %}
+      {% comment %}
+        The one component the design system does not already own: the thin
+        progress bar for boosted navigation. It lives here rather than in
+        utility classes because theme/static/css/dist is a build artefact —
+        hand-written rules cannot arrive half-compiled, which for a strip
+        pinned across the top of the viewport is worth the exception.
+
+        Visibility is not defined here on purpose: .htmx-indicator (theme
+        styles.css) fades it 0 → 1 for the life of the request and back. That
+        makes the whole thing CSS — no script decides when it shows, and with
+        JavaScript off no request is ever in flight, so it simply never
+        appears. Colour is the semantic token, so it follows dark mode.
+      {% endcomment %}
+      <style>
+        #nav-progress {
+          position: fixed;
+          top: 0;
+          right: 0;
+          left: 0;
+          z-index: 50;
+          height: 2px;
+          overflow: hidden;
+          pointer-events: none;
+        }
+
+        #nav-progress::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          width: 35%;
+          background: var(--primary);
+          animation: nav-progress-sweep 1s linear infinite;
+        }
+
+        @keyframes nav-progress-sweep {
+          from {
+            transform: translateX(-100%);
+          }
+
+          to {
+            transform: translateX(400%);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          #nav-progress::after {
+            width: 100%;
+            animation: none;
+          }
+        }
+      </style>
     {% endblock css %}
     <!-- Le javascript
     ================================================== -->
     {# Placed at the top of the document so pages load faster with defer #}
     {% block javascript %}
+      {% htmx_script %}
       <!-- Your stuff: Third-party javascript libraries go here -->
       <!-- place project specific Javascript in this file -->
       {% compress js %}
@@ -35,92 +92,39 @@
       {% endcompress %}
     {% endblock javascript %}
   </head>
-  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased {% block bodyclass %}{% endblock bodyclass %}">
+  {% comment %}
+    hx-headers puts the CSRF token on every htmx request, so partial endpoints
+    need no per-form token.
+
+    #nav-progress is the shared page-level indicator: any element can point
+    hx-indicator at it and get the thin bar across the top of the viewport for
+    the life of its request. The signed-in shell's navigation (see
+    components/app_nav.html) uses it for boosted navigation. It is inert until
+    something references it, and invisible when scripts do not run.
+  {% endcomment %}
+  <body class="min-h-screen bg-soft-background text-foreground antialiased {% block bodyclass %}{% endblock bodyclass %}"
+        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <a class="skip-link" href="#main-content">{% translate "Skip to content" %}</a>
+    <div id="nav-progress" class="htmx-indicator" aria-hidden="true"></div>
     {% block body %}
-      <header class="border-b border-slate-200 bg-white">
-        <nav class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
-          <a class="text-lg font-semibold tracking-tight text-slate-900"
-             href="{% url 'home' %}">OHC Experience</a>
-          <button type="button"
-                  class="inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 md:hidden"
-                  data-nav-toggle
-                  aria-controls="navbarSupportedContent"
-                  aria-expanded="false"
-                  aria-label="Toggle navigation">
-            <svg class="size-6"
-                 fill="none"
-                 viewBox="0 0 24 24"
-                 stroke-width="1.5"
-                 stroke="currentColor"
-                 aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-            </svg>
-          </button>
-          <div id="navbarSupportedContent"
-               class="hidden w-full flex-col gap-1 md:flex md:w-auto md:flex-row md:items-center md:gap-6">
-            <a class="rounded-md px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-               href="{% url 'home' %}">Home</a>
-            <a class="rounded-md px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-               href="{% url 'about' %}">About</a>
-            {% if request.user.is_authenticated %}
-              <a class="rounded-md px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                 href="{% url 'users:detail' request.user.pk %}">{% translate "My Profile" %}</a>
-              <a class="rounded-md px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                 href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a>
-            {% else %}
-              {% if ACCOUNT_ALLOW_REGISTRATION %}
-                <a id="sign-up-link"
-                   class="rounded-md px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                   href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
-              {% endif %}
-              <a id="log-in-link"
-                 class="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                 href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
-            {% endif %}
-          </div>
-        </nav>
-      </header>
-      <div class="mx-auto max-w-6xl px-4 py-8">
-        {% if messages %}
-          <div class="mb-6 space-y-3">
-            {% for message in messages %}
-              <div class="flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm {% if message.level_tag == 'success' %} border-green-200 bg-green-50 text-green-800 {% elif message.level_tag == 'error' %} border-red-200 bg-red-50 text-red-800 {% elif message.level_tag == 'warning' %} border-amber-200 bg-amber-50 text-amber-900 {% elif message.level_tag == 'debug' %} border-slate-200 bg-white text-slate-800 {% else %} border-blue-200 bg-blue-50 text-blue-800 {% endif %}">
-                <p>{{ message }}</p>
-                <button type="button"
-                        class="shrink-0 rounded-md p-1 hover:bg-black/5"
-                        data-dismiss-alert
-                        aria-label="Close">
-                  <span aria-hidden="true" class="text-lg leading-none">×</span>
-                </button>
-              </div>
-            {% endfor %}
-          </div>
-        {% endif %}
-        {% block main %}
-          {% block content %}
-            <p class="text-slate-600">Use this document as a way to quick start any new project.</p>
-          {% endblock content %}
-        {% endblock main %}
-      </div>
     {% endblock body %}
     {% block modal %}
     {% endblock modal %}
     {% block inline_javascript %}
-      <script>
-        document.querySelector("[data-nav-toggle]")?.addEventListener("click", (event) => {
-          const button = event.currentTarget;
-          const menu = document.getElementById("navbarSupportedContent");
-          if (!menu) return;
-          const isHidden = menu.classList.toggle("hidden");
-          menu.classList.toggle("flex", !isHidden);
-          button.setAttribute("aria-expanded", String(!isHidden));
-        });
-        document.querySelectorAll("[data-dismiss-alert]").forEach((button) => {
-          button.addEventListener("click", () => {
-            button.closest("div")?.remove();
-          });
-        });
-      </script>
     {% endblock inline_javascript %}
+    {% comment %}
+      One delegated listener for the whole site rather than a copy per shell.
+      An alert is not only ever present at load: it can be swapped in with a
+      boosted navigation, or arrive out of band from a partial (see
+      components/messages.html), and a handler bound to the buttons that
+      happened to exist at load would never see those. It sits outside the
+      block above so a page that overrides inline_javascript cannot drop it.
+    {% endcomment %}
+    <script>
+      document.addEventListener("click", (event) => {
+        const dismiss = event.target.closest("[data-dismiss-alert]");
+        if (dismiss) dismiss.closest(".ui-alert")?.remove();
+      });
+    </script>
   </body>
 </html>

@@ -1,0 +1,56 @@
+{% comment %}
+  The signed-in user's own details (UserProfileForm). Settings → Your profile
+  includes this file, and htmx swaps this same file back in after a save, so
+  the page and the fragment are one piece of markup.
+
+  It renders inside the surrounding .ui-card, between the card header and the
+  read-only email/password block, so the partial is the <form> only.
+
+  Context:
+    oob_flash — True on the htmx response that saved, so the success message
+                rides along out of band into #flash-messages.
+
+  `show:window:top` on the swap keeps the flash and any errors in view: every
+  pre-htmx response left the browser at the top of the page, and the swap has
+  to do the same or a save made from a scrolled position says nothing back.
+
+  No-JS contract: method/action are real and {% csrf_token %} is present, so
+  submitting without htmx POSTs the page and the view redirects as it always
+  did. Every hx-* attribute here is enhancement on top of that.
+{% endcomment %}
+{% load i18n careui %}
+
+{% translate "Full name" as full_name_label %}
+{% url 'users:profile' as form_action %}
+<form id="profile-form"
+      method="post"
+      action="{{ form_action }}"
+      hx-post="{{ form_action }}"
+      hx-target="this"
+      hx-swap="outerHTML show:window:top"
+      hx-disabled-elt="find button[type=submit]">
+  {% csrf_token %}
+  <div class="ui-card-content flex flex-col gap-4">
+    {% include "components/form_errors.html" %}
+    {% ui_field form.name label=full_name_label %}
+    <div class="flex border-t border-border pt-4 sm:justify-end">
+      <button type="submit"
+              class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:w-auto"
+              hx-disabled-elt="this">
+        <svg class="htmx-indicator animate-spin"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2.5"
+             aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke-opacity="0.3" />
+          <path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round" />
+        </svg>
+        {% translate "Save changes" %}
+      </button>
+    </div>
+  </div>
+</form>
+{% if oob_flash %}
+  {% include "components/messages.html" with oob=True %}
+{% endif %}

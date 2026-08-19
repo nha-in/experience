@@ -1,0 +1,80 @@
+{% comment %}
+  Console navigation. Shared by the desktop rail and the mobile drawer, and
+  built to the same contract as components/app_nav.html — read that file first;
+  everything it says about boosting, the out-of-band swap and the per-link ids
+  applies here with #ohc-nav in place of #app-nav.
+
+  Two sections only: Queue and Events. Below them, "Vendor view" leaves for the
+  hub, because an OHC staff member usually also belongs to an organisation and
+  needs a way back that is not the browser's history.
+
+  Context: nav_section — "queue" or "events", set by each view.
+
+  No-JS contract: every item is a real <a href> and signing out is a real POST.
+{% endcomment %}
+{% load i18n %}
+
+<nav id="ohc-nav"
+     class="flex flex-1 flex-col"
+     aria-label="{% translate 'Console' %}"
+     hx-boost="true"
+     hx-target="#main-content"
+     hx-select="#main-content"
+     hx-select-oob="#ohc-nav"
+     hx-swap="outerHTML"
+     hx-push-url="true"
+     hx-indicator="#nav-progress">
+  <ul class="flex flex-col gap-0.5">
+    <li>
+      <a id="ohc-nav-queue"
+         class="ui-subnav-link {% if nav_section == 'queue' %}ui-subnav-link--active{% endif %}"
+         href="{% url 'ohc:queue' %}"
+         {% if nav_section == 'queue' %}aria-current="page"{% endif %}>{% translate "Queue" %}</a>
+    </li>
+    <li>
+      <a id="ohc-nav-events"
+         class="ui-subnav-link {% if nav_section == 'events' %}ui-subnav-link--active{% endif %}"
+         href="{% url 'ohc:events' %}"
+         {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
+    </li>
+  </ul>
+  <ul class="mt-auto flex flex-col gap-0.5 pt-6">
+    <li>
+      {# The vendor hub is the other shell, and its pages carry #app-nav rather #}
+      {# than #ohc-nav — so this one leaves as an ordinary navigation. #}
+      <a id="ohc-nav-vendor"
+         class="ui-subnav-link"
+         href="{% url 'dashboard' %}"
+         hx-boost="false">{% translate "Vendor view" %} <span aria-hidden="true">↗</span></a>
+    </li>
+  </ul>
+  {% if request.user.is_authenticated %}
+    <div class="mt-2.5 flex items-center gap-2 border-t border-border px-2.5 pt-3">
+      <span class="ui-avatar ui-avatar--muted size-7 text-[11px]"
+            aria-hidden="true">{{ request.user.display_name|slice:":2"|upper }}</span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-[12.5px] font-semibold">{% translate "OHC team" %}</span>
+        <span class="block truncate text-[11px] text-soft-foreground">{{ request.user.email }}</span>
+      </span>
+      {# Signing out is a state change, so a real POST — never boosted, because #}
+      {# the response is the signed-out shell and has no #ohc-nav to swap. #}
+      <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+        {% csrf_token %}
+        <button type="submit"
+                class="ui-btn ui-btn--ghost ui-btn--size-icon-xs no-underline"
+                title="{% translate 'Sign out' %}"
+                aria-label="{% translate 'Sign out' %}">
+          <svg viewBox="0 0 24 24"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="1.75"
+               stroke-linecap="round"
+               stroke-linejoin="round"
+               aria-hidden="true">
+            <path d="M15 17l5-5-5-5M20 12H9M12 3H6a1 1 0 00-1 1v16a1 1 0 001 1h6" />
+          </svg>
+        </button>
+      </form>
+    </div>
+  {% endif %}
+</nav>

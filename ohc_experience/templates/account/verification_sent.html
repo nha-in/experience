@@ -1,0 +1,28 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  Shown straight after signup, before the confirmation link is opened. allauth
+  offers no resend action here, so this screen deliberately has none either.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Confirm your email address" %}
+{% endblock title %}
+{% block entrance_title %}
+  {% translate "Confirm your email address" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% translate "We have emailed you a confirmation link. Open it to finish creating your hub account." %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <p class="text-sm leading-relaxed text-muted-foreground">
+    {% translate "If it is not in your inbox within a few minutes, check your spam folder — the mail comes from the Care Experience Hub." %}
+  </p>
+  <p class="text-sm leading-relaxed text-muted-foreground">
+    {% translate "Once your address is confirmed we verify every vendor account within 1 business day. Your sandbox and certification tracks unlock as soon as that is done." %}
+  </p>
+  {% url 'account_login' as login_fallback %}
+  <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+     href="{% firstof login_url login_fallback %}">{% translate "Back to sign in" %}</a>
+{% endblock entrance_body %}

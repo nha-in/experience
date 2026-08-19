@@ -1,0 +1,90 @@
+{% extends "layouts/app.html" %}
+
+{% comment %}
+  Screen 1g — the support inbox.
+
+  The filter row is a real <form method="get"> with a submit button, so with
+  scripting off changing a picker and pressing "Apply" reloads the page with
+  the filters in the querystring. hx-get on the same form does the same request
+  the moment a picker changes and swaps just #ticket-results, pushing the URL
+  the plain form would have produced — so a swapped view and a reloaded one are
+  the same page, and Previous/Next keep working either way.
+
+  The count sits in the filter row rather than above the table, as the mockup
+  draws it, so it cannot ride along inside the swapped region: it comes back
+  out of band instead, from the one file that defines it.
+
+  Context: tickets, page_obj, paginator, is_paginated, filter_form,
+           has_filters, filter_querystring, median_first_response.
+{% endcomment %}
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "Support inbox" %}
+{% endblock title %}
+{% block page_header %}
+  <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div class="min-w-0">
+      <h1 class="ui-page-title">{% translate "Support inbox" %}</h1>
+      <p class="ui-page-subtitle">
+        {% if median_first_response %}
+          {% blocktranslate with duration=median_first_response %}Median first response over the last 30 days: {{ duration }}.{% endblocktranslate %}
+        {% else %}
+          {% translate "Too few answered tickets in the last 30 days to report a median first response yet." %}
+        {% endif %}
+      </p>
+    </div>
+    <a class="ui-btn ui-btn--default ui-btn--size-default"
+       href="{% url 'support:create' %}">{% translate "New ticket" %}</a>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <form class="mb-3.5 flex flex-wrap items-end gap-2.5"
+        method="get"
+        action="{% url 'support:list' %}"
+        hx-get="{% url 'support:list' %}"
+        hx-target="#ticket-results"
+        hx-swap="outerHTML"
+        hx-trigger="change, submit"
+        hx-push-url="true"
+        hx-indicator="#nav-progress">
+    <div class="w-[calc(50%-0.3125rem)] sm:w-[170px]">
+      <label class="sr-only" for="{{ filter_form.status.id_for_label }}">{% translate "Filter by status" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.status "ui-select--sm" %}</div>
+    </div>
+    <div class="w-[calc(50%-0.3125rem)] sm:w-[170px]">
+      <label class="sr-only" for="{{ filter_form.category.id_for_label }}">{% translate "Filter by category" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.category "ui-select--sm" %}</div>
+    </div>
+    <div class="w-[calc(50%-0.3125rem)] sm:w-[160px]">
+      <label class="sr-only" for="{{ filter_form.priority.id_for_label }}">{% translate "Filter by priority" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.priority "ui-select--sm" %}</div>
+    </div>
+    <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+            type="submit"
+            data-filter-submit>{% translate "Apply filters" %}</button>
+    {% include "support/partials/ticket_count.html" %}
+  </form>
+  {% include "support/partials/ticket_results.html" %}
+  <script>
+    // Progressive enhancement, and only that: with htmx on the page the filter
+    // form refreshes itself the moment a picker changes, so the Apply button is
+    // redundant. It stays for anyone htmx never reaches — hence the test for
+    // htmx rather than for JavaScript.
+    //
+    // This sits inside #main-content, not in the inline_javascript block, so it
+    // also runs when the boosted navigation swaps this page in. htmx:load is
+    // the whole test: htmx fires it over the body once it is ready. (Asking for
+    // window.htmx here would be wrong — the library is deferred, so it does not
+    // exist yet while this runs.)
+    (() => {
+      if (window.supportFilterFormWired) return;
+      window.supportFilterFormWired = true;
+      document.addEventListener("htmx:load", (event) => {
+        event.detail.elt.querySelectorAll("[data-filter-submit]").forEach((button) => {
+          button.hidden = true;
+        });
+      });
+    })();
+  </script>
+{% endblock content %}

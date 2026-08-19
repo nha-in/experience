@@ -1,0 +1,43 @@
+{% comment %}
+  Django messages as careui alerts — the page's one flash region.
+
+  The #flash-messages wrapper always renders, even with nothing to say, for two
+  reasons: an out-of-band swap needs a live element to aim at, and a permanent
+  aria-live region is announced far more reliably than one that appears with
+  its content already inside it.
+
+  OOB contract — a partial response that needs to raise a flash on a page it is
+  not otherwise re-rendering appends:
+
+      {% include "components/messages.html" with oob=True %}
+
+  to the end of the fragment it returns — never with `only`, which would cut
+  the include off from `messages` and quietly swap the region empty. That
+  marks the wrapper hx-swap-oob, so htmx drops the alerts into the live
+  #flash-messages wherever it sits on the page. The swap style is innerHTML on
+  purpose: the wrapper itself — id, role, aria-live — stays put and only the
+  alerts inside it change, which is what makes the announcement work.
+
+  Include this partial at most once per page; a second copy would give the OOB
+  swap two targets and Django's message store is consumed on first render.
+{% endcomment %}
+{% load i18n %}
+
+<div id="flash-messages"
+     {% if oob %}hx-swap-oob="innerHTML"{% endif %}
+     role="status"
+     aria-live="polite">
+  {% if messages %}
+    <div class="mb-6 space-y-3">
+      {% for message in messages %}
+        <div class="ui-alert {% if message.level_tag == 'success' %}ui-alert--success{% elif message.level_tag == 'error' %}ui-alert--destructive{% elif message.level_tag == 'warning' %}ui-alert--warning{% else %}ui-alert--info{% endif %}">
+          <p class="flex-1">{{ message }}</p>
+          <button type="button"
+                  class="-my-1 -mr-1 shrink-0 rounded-md p-1 leading-none opacity-60 transition hover:bg-black/5 hover:opacity-100"
+                  data-dismiss-alert
+                  aria-label="{% translate 'Dismiss' %}">×</button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>

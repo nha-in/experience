@@ -40,9 +40,12 @@ services:
     image: docker.io/mailtrap/mailtrap-local:latest
     container_name: ohc_experience_local_mailtrap
     ports:
+      # 3550 is the web inbox; 3535 is SMTP, published so a Django process run
+      # on the host (rather than in the django service) can deliver to it too.
       - "3550:3550"
+      - "3535:3535"
     tmpfs:
-      - /var/lib/mailtrap-local
+      - /var/lib/mailtrap-local:uid=65532,gid=65532
 
   redis:
     image: docker.io/redis:7.2

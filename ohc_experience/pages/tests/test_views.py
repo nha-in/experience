@@ -15,6 +15,7 @@ from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import InvitationFactory
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.pages.views import resolve_post_login_destination
+from ohc_experience.users.tests.factories import UserFactory
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,6 +27,9 @@ if TYPE_CHECKING:
     from ohc_experience.users.models import User
 
 pytestmark = pytest.mark.django_db
+
+# An error page shorter than this is the empty-skeleton bug, not a real page.
+RENDERED_ERROR_PAGE_MIN_LENGTH = 1000
 
 
 class TestLandingView:
@@ -245,8 +249,6 @@ class TestOhcStaffLanding:
 
     @pytest.fixture
     def ohc_user(self, db):
-        from ohc_experience.users.tests.factories import UserFactory
-
         return UserFactory.create(is_ohc_team=True)
 
     def test_post_login_goes_to_the_console(self, client, ohc_user):
@@ -286,4 +288,4 @@ class TestErrorPages:
         assert "do not have access" in html
         # The bug this pins: the old template filled a block base.html no longer
         # defines, so the page rendered as an empty skeleton.
-        assert len(html) > 1000
+        assert len(html) > RENDERED_ERROR_PAGE_MIN_LENGTH

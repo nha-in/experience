@@ -1,0 +1,8 @@
+{% comment %}Non-field errors, shown above the form's fields.{% endcomment %}
+{% if form.non_field_errors %}
+  <div class="ui-alert ui-alert--destructive" role="alert">
+    <div class="flex-1 space-y-1">
+      {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+  </div>
+{% endif %}

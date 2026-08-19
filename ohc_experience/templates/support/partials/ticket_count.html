@@ -1,0 +1,17 @@
+{% comment %}
+  The "N tickets" line in the filter row.
+
+  Defined once: ticket_list.html includes it inside the filter form, and the
+  htmx response includes it again with oob=True, because it sits outside the
+  swapped results region but changes with it.
+
+  Context: paginator (from ListView), oob.
+{% endcomment %}
+{% load i18n %}
+
+<span id="ticket-count"
+      {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+      class="text-[12.5px] text-soft-foreground sm:ml-auto"
+      role="status">
+  {% blocktranslate count counter=paginator.count %}{{ counter }} ticket{% plural %}{{ counter }} tickets{% endblocktranslate %}
+</span>

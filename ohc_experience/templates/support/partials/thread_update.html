@@ -1,0 +1,20 @@
+{% comment %}
+  htmx response for a reply or a status change.
+
+  The new entry is the ordinary swap, appended to #ticket-thread. Everything
+  the action invalidated follows out of band, each from the one file the page
+  itself includes: the badges under the title, the details rail, and the reply
+  panel — which comes back with an empty textarea, because a cleared field is
+  the server's answer rather than the browser's guess, and with the status
+  button relabelled if the move changed which one applies.
+
+  htmx only reads hx-swap-oob off the top-level elements of a response, so
+  every include below has to stay at this level.
+
+  Context: ticket, message (already carrying its avatar), reply_form.
+{% endcomment %}
+{% include "support/partials/ticket_message.html" %}
+{% include "support/partials/ticket_badges.html" with oob=True %}
+{% include "support/partials/ticket_details.html" with oob=True %}
+{% include "support/partials/reply_panel.html" with oob=True %}
+{% include "components/messages.html" with oob=True %}

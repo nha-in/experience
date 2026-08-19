@@ -1,0 +1,43 @@
+{% comment %}
+  One roster row for the md+ table.
+
+  team.html includes this file for the full page and the role/remove endpoints
+  return it on its own, so a swapped row and a reloaded page are the same markup
+  by construction. The <tr> carries its own id because that id is the hx-target;
+  the matching stacked card for narrow screens is member_card.html, which the
+  same responses carry out of band.
+
+  The two actions themselves live in member_role_form.html and
+  member_remove_form.html, which the card includes too — this file only decides
+  where they sit and how wide they draw.
+
+  Context: m (Membership), can_manage, assignable_roles, request.
+
+  No-JS contract: both forms keep method, action and the CSRF token, so without
+  htmx they POST the page and the view redirects back here as it always did.
+{% endcomment %}
+{% load i18n %}
+
+<tr id="member-{{ m.pk }}">
+  <td>
+    <div class="flex items-center gap-2.5">
+      <span class="ui-avatar size-7 {% if m.is_owner %}ui-avatar--primary{% else %}ui-avatar--muted{% endif %}"
+            aria-hidden="true">{{ m.initials }}</span>
+      <span class="min-w-0">
+        <span class="block font-semibold">{{ m.user.name|default:m.user.email }}</span>
+        <span class="block text-xs break-all text-soft-foreground">{{ m.user.email }}</span>
+      </span>
+    </div>
+  </td>
+  <td>
+    {% if m.is_owner %}
+      <span class="ui-badge ui-badge--primary ui-badge--size-sm">{% translate "Owner" %}</span>
+    {% elif can_manage %}
+      {% include "organisations/partials/member_role_form.html" with select_width="w-[150px]" button_size="ui-btn--size-xs" %}
+    {% else %}
+      <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{{ m.get_role_display }}</span>
+    {% endif %}
+  </td>
+  <td class="text-[12.5px] text-soft-foreground">{{ m.joined_at|date:"j M Y" }}</td>
+  <td class="text-right">{% include "organisations/partials/member_remove_form.html" %}</td>
+</tr>

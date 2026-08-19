@@ -1,0 +1,40 @@
+{% comment %}
+  One event row for the md+ table.
+
+  event_list.html includes this file and the publish endpoint returns it on its
+  own, so a toggled row and a reloaded page are the same markup. The <tr> id is
+  the hx-target; the matching stacked card is event_card.html, which the same
+  response carries out of band.
+
+  Context: event.
+{% endcomment %}
+{% load i18n %}
+
+<tr id="event-{{ event.pk }}">
+  <td>
+    <a class="font-semibold hover:underline"
+       href="{% url 'ohc:event-update' event.slug %}">{{ event.title }}</a>
+    {% if event.summary %}<span class="block text-xs text-soft-foreground">{{ event.summary }}</span>{% endif %}
+  </td>
+  <td class="text-[12.5px] whitespace-nowrap">
+    {{ event.starts_at|date:"j M Y, H:i" }}
+    {% if event.is_past %}
+      <span class="block text-xs text-soft-foreground">{% translate "Past" %}</span>
+    {% endif %}
+  </td>
+  <td class="text-[12.5px] text-muted-foreground">{{ event.get_kind_display }}</td>
+  <td>
+    {% if event.is_published %}
+      <span class="ui-badge ui-badge--success ui-badge--size-sm">{% translate "Published" %}</span>
+    {% else %}
+      <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{% translate "Draft" %}</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="flex items-center justify-end gap-2">
+      <a class="ui-btn ui-btn--ghost ui-btn--size-xs no-underline"
+         href="{% url 'ohc:event-update' event.slug %}">{% translate "Edit" %}</a>
+      {% include "ohc/partials/event_publish_form.html" with button_size="ui-btn--size-xs" %}
+    </div>
+  </td>
+</tr>
