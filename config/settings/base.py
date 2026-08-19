@@ -90,7 +90,7 @@ TAILWIND_APP_NAME = "theme"
 
 NPM_BIN_PATH = env(
     "NPM_BIN_PATH",
-    default="/usr/bin/npm",
+    default="/usr/bin/node",
 )
 
 THIRD_PARTY_APPS = [
