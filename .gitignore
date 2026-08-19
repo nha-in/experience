@@ -277,7 +277,3 @@ ohc_experience/media/
 .envs/*
 !.envs/.local/
 .gstack/
-
-# Compiled Tailwind CSS is committed so the deploy does not need node/npm
-!theme/static/css/dist/
-!theme/static/css/dist/*.css

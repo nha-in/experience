@@ -93,6 +93,15 @@ NPM_BIN_PATH = env(
     default="npm",
 )
 
+# Build Tailwind with the standalone pytailwindcss binary rather than npm.
+# The deploy environment (DigitalOcean's Python buildpack) has no node/npm, and
+# django-tailwind only falls back to the binary when theme/static_src/package.json
+# is absent -- which it no longer is. See tailwind/management/commands/tailwind.py.
+TAILWIND_USE_STANDALONE_BINARY = env.bool(
+    "TAILWIND_USE_STANDALONE_BINARY",
+    default=True,
+)
+
 THIRD_PARTY_APPS = [
     "crispy_forms",
     "crispy_bootstrap5",
