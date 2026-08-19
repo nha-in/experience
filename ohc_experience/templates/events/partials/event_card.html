@@ -1,0 +1,51 @@
+{% comment %}
+  One event in the list. Only the title is a link, because the card also carries
+  the Join button and nesting one interactive element inside another leaves both
+  keyboard users and screen readers guessing.
+
+  Context: event.
+{% endcomment %}
+{% load i18n %}
+
+<li>
+  <article class="ui-card ui-card--sm h-full">
+    {# items-start, or the 40px date block stretches to the card's full height. #}
+    <div class="ui-card-content flex items-start gap-3.5">
+      {% include "events/partials/event_date_block.html" %}
+      <div class="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+        <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{{ event.get_kind_display }}</span>
+        <h3 class="text-[13.5px] leading-[1.4] font-semibold break-words">
+          <a class="text-foreground no-underline hover:underline"
+             href="{% url 'events:detail' event.slug %}">{{ event.title }}</a>
+        </h3>
+        {% if event.summary %}
+          <p class="text-[12.5px] leading-[1.55] break-words text-muted-foreground">{{ event.summary }}</p>
+        {% endif %}
+        <p class="text-[11.5px] leading-[1.5] break-words text-soft-foreground">
+          {% include "events/partials/event_when.html" %}
+          ·
+          {% if event.is_online %}
+            {% translate "Online" %}
+          {% else %}
+            {{ event.location }}
+          {% endif %}
+        </p>
+        {% if event.join_url %}
+          {% comment %}
+            Every card on the page has a button reading "Join", so the visible
+            text alone is a useless accessible name — the title goes in the
+            label rather than a sr-only span, which would run the two words
+            together with no space between them.
+          {% endcomment %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-xs mt-0.5 no-underline"
+             href="{{ event.join_url }}"
+             target="_blank"
+             rel="noopener noreferrer"
+             aria-label="{% blocktranslate with title=event.title %}Join {{ title }}{% endblocktranslate %}">
+            {% translate "Join" %} <span aria-hidden="true">↗</span>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </article>
+</li>

@@ -1,0 +1,67 @@
+{% comment %}
+  The details rail. Below lg it stacks under the conversation.
+
+  A status change re-renders it out of band, so the rail cannot disagree with
+  the badges under the title.
+
+  Assignee and linked facility state plainly when there is nobody and nothing
+  rather than inventing a name.
+
+  Context: ticket, oob.
+{% endcomment %}
+{% load i18n %}
+
+<section id="ticket-details"
+         {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+         class="ui-card"
+         aria-labelledby="ticket-details-title">
+  <div class="ui-card-content">
+    <h2 class="ui-section-title" id="ticket-details-title">{% translate "Details" %}</h2>
+    <dl class="mt-2 flex flex-col text-[13px]">
+      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
+        <dt class="text-soft-foreground">{% translate "Status" %}</dt>
+        <dd>
+          <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{{ ticket.get_status_display }}</span>
+        </dd>
+      </div>
+      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
+        <dt class="text-soft-foreground">{% translate "Priority" %}</dt>
+        <dd class="font-medium">
+          {{ ticket.get_priority_display }}
+        </dd>
+      </div>
+      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
+        <dt class="text-soft-foreground">{% translate "Category" %}</dt>
+        <dd class="font-medium">
+          {{ ticket.get_category_display }}
+        </dd>
+      </div>
+      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
+        <dt class="text-soft-foreground">{% translate "Created" %}</dt>
+        <dd class="font-medium">
+          {{ ticket.created_at|date:"j M Y" }}
+        </dd>
+      </div>
+      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
+        <dt class="text-soft-foreground">{% translate "Assignee" %}</dt>
+        <dd class="min-w-0 text-right font-medium break-words">
+          {% if ticket.assignee %}
+            {% blocktranslate with name=ticket.assignee.display_name %}{{ name }} · Care support{% endblocktranslate %}
+          {% else %}
+            <span class="font-normal text-soft-foreground">{% translate "Not assigned yet" %}</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex items-center justify-between gap-3 py-2">
+        <dt class="text-soft-foreground">{% translate "Linked facility" %}</dt>
+        <dd class="min-w-0 text-right font-medium break-words">
+          {% if ticket.linked_facility %}
+            {{ ticket.linked_facility }}
+          {% else %}
+            <span class="font-normal text-soft-foreground">{% translate "None" %}</span>
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+  </div>
+</section>

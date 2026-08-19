@@ -325,11 +325,38 @@ class TestSignOut:
         nav = html[html.index('<nav id="app-nav"') : html.index("</nav>")]
 
         assert "Soon" not in nav
+        for built in ("Dashboard", "Events", "Support", "Settings"):
+            assert built in nav
+        # Still unbuilt: these arrive with their pages, not as disabled rows.
         for unbuilt in (
             "Sandbox",
             "Certifications",
             "Deployments",
-            "Events",
-            "Support",
         ):
             assert unbuilt not in nav
+
+
+class TestOhcConsoleLink:
+    """The console entry is offered only to the people who can actually open it."""
+
+    @staticmethod
+    def _nav_of(client: Client) -> str:
+        html = client.get(reverse("dashboard")).content.decode()
+        return html[html.index('<nav id="app-nav"') : html.index("</nav>")]
+
+    def test_a_vendor_is_not_offered_the_console(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        assert "OHC console" not in self._nav_of(sign_in(owner_membership.user))
+
+    def test_an_ohc_member_is_offered_the_console(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        owner_membership.user.is_ohc_team = True
+        owner_membership.user.save(update_fields=["is_ohc_team"])
+
+        assert "OHC console" in self._nav_of(sign_in(owner_membership.user))

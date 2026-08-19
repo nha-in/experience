@@ -1,6 +1,7 @@
 from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser
+from django.db.models import BooleanField
 from django.db.models import CharField
 from django.db.models import EmailField
 from django.urls import reverse
@@ -22,6 +23,14 @@ class User(AbstractUser):
     last_name = None  # type: ignore[assignment]
     email = EmailField(_("email address"), unique=True)
     phone_number = CharField(_("Mobile number"), blank=True, max_length=32)
+    is_ohc_team = BooleanField(
+        _("OHC team member"),
+        default=False,
+        help_text=_(
+            "Works the support queue across all vendors and publishes events. "
+            "Separate from staff status, which only controls Django admin access.",
+        ),
+    )
     username = None  # type: ignore[assignment]
 
     USERNAME_FIELD = "email"

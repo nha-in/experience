@@ -111,6 +111,9 @@ LOCAL_APPS = [
     "ohc_experience.users",
     "ohc_experience.organisations",
     "ohc_experience.pages",
+    "ohc_experience.support",
+    "ohc_experience.events",
+    "ohc_experience.ohc",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -221,6 +224,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "ohc_experience.users.context_processors.allauth_settings",
+                "ohc_experience.users.context_processors.ohc_team",
                 "ohc_experience.organisations.context_processors.current_organisation",
             ],
         },

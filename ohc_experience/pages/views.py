@@ -6,6 +6,7 @@ from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import TemplateView
 
+from ohc_experience.events.selectors import dashboard_events
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.organisations.views import OrganisationMixin
 
@@ -88,6 +89,9 @@ class DashboardView(OrganisationMixin, TemplateView):
                 ).order_by(
                     "-joined_at",
                 )[:5],
+                # Events are published to every vendor, so this is not scoped
+                # to the organisation — see events.selectors.
+                "upcoming_events": dashboard_events(),
             },
         )
         return context

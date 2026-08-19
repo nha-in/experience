@@ -1,0 +1,30 @@
+{% comment %}
+  One inbox row for the md+ table. The stacked equivalent for narrow screens is
+  ticket_card.html; ticket_results.html draws both from the same list.
+
+  Colour comes from Ticket.status_variant / .priority_variant so the vendor
+  inbox and the OHC queue can never drift apart.
+
+  Context: ticket.
+{% endcomment %}
+{% load i18n %}
+
+<tr>
+  <td class="font-mono text-[12.5px] whitespace-nowrap text-soft-foreground">{{ ticket.reference }}</td>
+  <td>
+    <a class="font-semibold no-underline hover:underline"
+       href="{{ ticket.get_absolute_url }}">{{ ticket.subject }}</a>
+  </td>
+  <td class="text-muted-foreground">{{ ticket.get_category_display }}</td>
+  <td>
+    <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-sm">{{ ticket.get_priority_display }}</span>
+  </td>
+  <td>
+    <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{{ ticket.get_status_display }}</span>
+  </td>
+  <td class="text-right text-[12.5px] whitespace-nowrap text-soft-foreground">
+    <time datetime="{{ ticket.updated_at|date:'c' }}">
+      {% blocktranslate with ago=ticket.updated_at|timesince %}{{ ago }} ago{% endblocktranslate %}
+    </time>
+  </td>
+</tr>

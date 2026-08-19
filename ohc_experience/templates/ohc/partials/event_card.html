@@ -1,0 +1,41 @@
+{% comment %}
+  The same event as event_row.html, drawn as a stacked card for the md:hidden
+  list. Below md the table is not shown, so the publish toggle has to exist here
+  too — and it is the same POST to the same URL, because both files include the
+  very same event_publish_form.html.
+
+  Both representations live in the DOM at once, so the publish endpoint
+  re-renders the <tr> as the ordinary swap and carries this <li> along out of
+  band. Whichever one the person is looking at, both stay true.
+
+  Context: event,
+           oob — True when this card rides on a response as an out-of-band swap.
+{% endcomment %}
+{% load i18n %}
+
+<li id="event-card-{{ event.pk }}"
+    {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+    class="flex flex-col gap-2.5 border-t border-soft-border px-6 py-4 first:border-t-0">
+  {# break-words: below md there is no scrolling table to catch a title with no #}
+  {# space in it, so without this the card clips it instead of wrapping. #}
+  <a class="font-semibold break-words hover:underline"
+     href="{% url 'ohc:event-update' event.slug %}">{{ event.title }}</a>
+  <div class="text-xs break-words text-soft-foreground">
+    {% blocktranslate with kind=event.get_kind_display when=event.starts_at|date:"j M Y, H:i" %}{{ kind }} · {{ when }}{% endblocktranslate %}
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    {% if event.is_published %}
+      <span class="ui-badge ui-badge--success ui-badge--size-sm">{% translate "Published" %}</span>
+    {% else %}
+      <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{% translate "Draft" %}</span>
+    {% endif %}
+    {% if event.is_past %}
+      <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{% translate "Past" %}</span>
+    {% endif %}
+  </div>
+  <div class="flex items-center gap-2">
+    <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+       href="{% url 'ohc:event-update' event.slug %}">{% translate "Edit" %}</a>
+    {% include "ohc/partials/event_publish_form.html" with button_size="ui-btn--size-sm" %}
+  </div>
+</li>
