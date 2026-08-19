@@ -99,13 +99,9 @@
       <h2 class="ui-card-title">{% translate "Verification" %}</h2>
     </div>
     <div class="ui-card-content flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      {% if organisation.is_verified %}
-        <span class="ui-badge ui-badge--success ui-badge--size-sm">{{ organisation.get_verification_status_display }}</span>
-      {% elif organisation.verification_status == "rejected" %}
-        <span class="ui-badge ui-badge--destructive ui-badge--size-sm">{{ organisation.get_verification_status_display }}</span>
-      {% else %}
-        <span class="ui-badge ui-badge--warning ui-badge--size-sm">{{ organisation.get_verification_status_display }}</span>
-      {% endif %}
+      {# The variant comes from the model so this badge and the OHC console's #}
+      {# cannot drift apart — they are the same fact about the same vendor. #}
+      <span class="ui-badge ui-badge--{{ organisation.verification_variant }} ui-badge--size-sm">{{ organisation.get_verification_status_display }}</span>
       {% if organisation.verified_at %}
         <span class="text-[12.5px] text-soft-foreground">
           {% blocktranslate with verified_on=organisation.verified_at|date:"j M Y" %}Verified {{ verified_on }}{% endblocktranslate %}

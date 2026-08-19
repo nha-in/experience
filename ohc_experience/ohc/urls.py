@@ -20,6 +20,21 @@ urlpatterns = [
         views.TicketUpdateView.as_view(),
         name="ticket-update",
     ),
+    path(
+        "organisations/",
+        views.OrganisationListView.as_view(),
+        name="organisations",
+    ),
+    path(
+        "organisations/<slug:slug>/",
+        views.OrganisationDetailView.as_view(),
+        name="organisation",
+    ),
+    path(
+        "organisations/<slug:slug>/verification/",
+        views.OrganisationVerificationView.as_view(),
+        name="organisation-verification",
+    ),
     path("events/", views.EventListView.as_view(), name="events"),
     path("events/new/", views.EventCreateView.as_view(), name="event-create"),
     path(

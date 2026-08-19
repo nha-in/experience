@@ -1,4 +1,4 @@
-"""The OHC team's console: one support queue across every vendor, and events.
+"""The OHC team's console: the support queue, the vendor register, and events.
 
 Every view here inherits OhcConsoleMixin, and OhcConsoleMixin exists to make the
 gate impossible to forget: it is OhcTeamRequiredMixin plus the shell's active
@@ -7,8 +7,9 @@ gate is the security boundary of the whole feature — a signed-in vendor who
 guesses a URL under /ohc/ is looking at every other vendor's tickets — so it is
 also asserted route by route in tests/test_views.py.
 
-Ticket state is never written here. post_reply() and record_status_change() own
-what a reply and a move mean; the views collect the input and call them.
+State is never written here. post_reply() and record_status_change() own what a
+reply and a move mean, and Organisation.set_verification() owns what verifying a
+vendor means; the views collect the input and call them.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
+from django.db import models
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -28,6 +30,7 @@ from django.views.generic import ListView
 from django.views.generic import UpdateView
 
 from ohc_experience.events.models import Event
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
@@ -37,9 +40,11 @@ from ohc_experience.users.permissions import OhcTeamRequiredMixin
 from .forms import ASSIGNEE_MINE
 from .forms import ASSIGNEE_UNASSIGNED
 from .forms import EventForm
+from .forms import OrganisationFilterForm
 from .forms import TicketControlForm
 from .forms import TicketFilterForm
 from .forms import TicketReplyForm
+from .forms import VerificationForm
 from .forms import ohc_team_members
 
 if TYPE_CHECKING:
@@ -299,6 +304,175 @@ class TicketUpdateView(TicketActionView):
         if fields:
             ticket.save(update_fields=[*fields, "updated_at"])
         return bool(fields)
+
+
+# ── Vendor register ────────────────────────────────────────────────────────
+
+
+class OrganisationListView(OhcConsoleMixin, ListView):
+    """Every vendor on the platform, with the undecided ones first.
+
+    Same idiom as the queue: the filters are a plain GET form, so a narrowed
+    list is a URL, and htmx only saves the page reload.
+    """
+
+    template_name = "ohc/organisation_list.html"
+    # The page includes this fragment; a filter change swaps the same file back
+    # in, so a filtered list and a reloaded page are the same markup.
+    partial_template_name = "ohc/partials/organisation_results.html"
+    context_object_name = "organisations"
+    paginate_by = QUEUE_PAGE_SIZE
+    nav_section = "organisations"
+
+    @cached_property
+    def filter_form(self) -> OrganisationFilterForm:
+        return OrganisationFilterForm(self.request.GET)
+
+    def get_queryset(self):
+        organisations = Organisation.objects.for_console()
+        status = self.filter_form.chosen("status")
+        if status:
+            organisations = organisations.filter(verification_status=status)
+
+        search = self.filter_form.chosen("q")
+        if search:
+            # Both names, because the console knows a vendor by the trading
+            # name in the queue and by the legal entity on the certificate,
+            # and whoever is searching has whichever one they were sent.
+            organisations = organisations.filter(
+                models.Q(name__icontains=search)
+                | models.Q(legal_name__icontains=search),
+            )
+        return organisations
+
+    def get_context_data(self, **kwargs) -> dict:
+        context = super().get_context_data(**kwargs)
+        context["filter_form"] = self.filter_form
+        context["filter_query"] = self.filter_query()
+        context["is_filtered"] = bool(
+            self.filter_form.chosen("status") or self.filter_form.chosen("q"),
+        )
+        return context
+
+    def filter_query(self) -> str:
+        """The current filters as a query string, for the pagination links."""
+        params = self.filter_form.data.copy()
+        params.pop("page", None)
+        return params.urlencode()
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        response = super().get(request, *args, **kwargs)
+        # A boosted nav click is also an htmx request, and it wants the whole
+        # page; only the filter form asks for the results on their own.
+        if request.htmx and not request.htmx.boosted:
+            response.template_name = self.partial_template_name
+        return response
+
+
+def get_organisation(slug: str) -> Organisation:
+    """One vendor, with the roster already loaded."""
+    return get_object_or_404(
+        Organisation.objects.prefetch_related("memberships__user"),
+        slug=slug,
+    )
+
+
+def register_context(
+    organisation: Organisation,
+    *,
+    verification_form: VerificationForm | None = None,
+) -> dict:
+    """Context for the vendor screen, in the shape the partial expects.
+
+    The full page and the verification POST render the same fragment, so a
+    swapped-in decision and a reloaded page cannot differ.
+    """
+    if verification_form is None:
+        verification_form = VerificationForm(
+            initial={"status": organisation.verification_status},
+        )
+    return {
+        "nav_section": "organisations",
+        "organisation": organisation,
+        "memberships": organisation.memberships.all(),
+        "verification_form": verification_form,
+    }
+
+
+class OrganisationDetailView(OhcConsoleMixin, View):
+    """One vendor: the profile they submitted, who works there, and the decision."""
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        organisation = get_organisation(kwargs["slug"])
+        return render(
+            request,
+            "ohc/organisation_detail.html",
+            register_context(organisation),
+        )
+
+
+class OrganisationVerificationView(OhcConsoleMixin, View):
+    """Verify a vendor, reject it, or put it back to pending.
+
+    Answers htmx with the register fragment — the badge and the rail move
+    together — and everyone else with POST → redirect → flash, which is the
+    path that has to keep working with scripting off.
+    """
+
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        organisation = get_organisation(kwargs["slug"])
+        form = VerificationForm(request.POST)
+        if not form.is_valid():
+            # A rejected submission: 200 with the errors, never a redirect.
+            return self.render_register(request, organisation, verification_form=form)
+
+        status = form.cleaned_data["status"]
+        # set_verification owns what each state means for verified_at, and
+        # reports whether anything actually moved.
+        if organisation.set_verification(status):
+            messages.success(request, self.confirmation(organisation, status))
+        else:
+            messages.info(request, _("That vendor was already in that state."))
+
+        if request.htmx:
+            return self.render_register(request, organisation)
+        return redirect("ohc:organisation", slug=organisation.slug)
+
+    @staticmethod
+    def confirmation(organisation: Organisation, status: str) -> str:
+        """What the decision means, said in the vendor's own name.
+
+        The queue and this screen both call a vendor by organisation.name, and
+        a flash that switched to the legal entity would read as a different
+        company entirely.
+        """
+        notes = {
+            Organisation.VerificationStatus.VERIFIED: _(
+                "%(vendor)s is now a verified vendor.",
+            ),
+            Organisation.VerificationStatus.REJECTED: _(
+                "%(vendor)s is marked as rejected.",
+            ),
+            Organisation.VerificationStatus.PENDING: _(
+                "%(vendor)s is back to pending verification.",
+            ),
+        }
+        return notes[status] % {"vendor": organisation.name}
+
+    @staticmethod
+    def render_register(
+        request: HttpRequest,
+        organisation: Organisation,
+        **forms,
+    ) -> HttpResponse:
+        context = register_context(organisation, **forms)
+        if request.htmx:
+            return render(
+                request,
+                "ohc/partials/organisation_register_swap.html",
+                context,
+            )
+        return render(request, "ohc/organisation_detail.html", context)
 
 
 # ── Events ─────────────────────────────────────────────────────────────────

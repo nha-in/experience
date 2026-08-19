@@ -95,19 +95,19 @@ class Ticket(models.Model):
     category = models.CharField(
         _("Category"),
         max_length=20,
-        choices=Category.choices,
+        choices=Category,
         default=Category.SANDBOX,
     )
     priority = models.CharField(
         _("Priority"),
         max_length=10,
-        choices=Priority.choices,
+        choices=Priority,
         default=Priority.MEDIUM,
     )
     status = models.CharField(
         _("Status"),
         max_length=20,
-        choices=Status.choices,
+        choices=Status,
         default=Status.OPEN,
     )
     created_by = models.ForeignKey(
