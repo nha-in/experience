@@ -1,97 +1,115 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
 from typing import TYPE_CHECKING
-from typing import Any
-from typing import TypedDict
 
-from django.shortcuts import render
-from django.views.decorators.http import require_GET
-from django.views.decorators.http import require_POST
+from django.shortcuts import redirect
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import TemplateView
+
+from ohc_experience.events.selectors import dashboard_events
+from ohc_experience.organisations.selectors import get_membership_for
+from ohc_experience.organisations.views import OrganisationMixin
+from ohc_experience.users.permissions import is_ohc_team
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
     from django.http import HttpResponse
 
-COUNTER_SESSION_KEY = "htmx_counter"
-
-
-class SampleExperience(TypedDict):
-    name: str
-    tag: str
-
-
-SAMPLE_EXPERIENCES: list[SampleExperience] = [
-    {"name": "Hospital intake", "tag": "clinical"},
-    {"name": "Discharge summary", "tag": "clinical"},
-    {"name": "Telehealth consult", "tag": "virtual"},
-    {"name": "Pharmacy refill", "tag": "pharmacy"},
-    {"name": "Lab results review", "tag": "diagnostics"},
-    {"name": "Care team huddle", "tag": "operations"},
-    {"name": "Patient onboarding", "tag": "operations"},
+# Setup checklist rows on the dashboard. Each is (label, url name, done-flag key).
+SETUP_STEPS = [
+    (_("Complete your company profile"), "organisations:detail", "profile_complete"),
+    (_("Sign in to your sandbox facility"), None, "sandbox_ready"),
+    (_("Invite your team"), "organisations:team", "team_invited"),
+    (_("Finish Care Basic certification"), None, "certified"),
 ]
 
 
-def _filter_experiences(query: str) -> list[SampleExperience]:
-    needle = query.strip().lower()
-    if not needle:
-        return SAMPLE_EXPERIENCES
-    return [
-        experience
-        for experience in SAMPLE_EXPERIENCES
-        if needle in experience["name"].lower() or needle in experience["tag"].lower()
-    ]
+class LandingView(TemplateView):
+    """Screen 1a's marketing half — the signed-out front door."""
 
-
-class HomeView(TemplateView):
     template_name = "pages/home.html"
 
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if request.user.is_authenticated:
+            destination = resolve_post_login_destination(request.user)
+            # A signed-in user with no organisation has nowhere to be sent —
+            # show them the marketing page rather than bouncing them in a loop.
+            if destination != "home":
+                return redirect(destination)
+        return super().get(request, *args, **kwargs)
+
+
+class DashboardView(OrganisationMixin, TemplateView):
+    """Screen 1c — status at a glance plus what to do next.
+
+    The sandbox, certification, ticket and deployment tiles read as zero/pending
+    until those subsystems land; the shape is here so adding them is a data
+    change rather than a layout change.
+    """
+
+    template_name = "dashboard/dashboard.html"
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if not self.organisation.is_onboarded:
+            return redirect("organisations:onboarding")
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
-        context["counter"] = int(self.request.session.get(COUNTER_SESSION_KEY, 0))
-        context["experiences"] = SAMPLE_EXPERIENCES
+        organisation = self.organisation
+        team_size = organisation.memberships.count()
+        pending_invites = organisation.invitations.pending().count()
+
+        completed = {
+            "profile_complete": organisation.is_onboarded,
+            "sandbox_ready": False,
+            "team_invited": team_size > 1 or pending_invites > 0,
+            "certified": False,
+        }
+        steps = [
+            {
+                "label": label,
+                "url_name": url_name,
+                "done": completed[key],
+            }
+            for label, url_name, key in SETUP_STEPS
+        ]
+        done_count = sum(1 for step in steps if step["done"])
+
+        context.update(
+            {
+                "nav_section": "dashboard",
+                "team_size": team_size,
+                "pending_invites": pending_invites,
+                "setup_steps": steps,
+                "setup_done": done_count,
+                "setup_total": len(steps),
+                "setup_percent": round(done_count / len(steps) * 100),
+                "recent_members": organisation.memberships.select_related(
+                    "user",
+                ).order_by(
+                    "-joined_at",
+                )[:5],
+                # Events are published to every vendor, so this is not scoped
+                # to the organisation — see events.selectors.
+                "upcoming_events": dashboard_events(),
+            },
+        )
         return context
 
 
-@require_GET
-def server_time(request: HttpRequest) -> HttpResponse:
-    return render(
-        request,
-        "pages/partials/server_time.html",
-        {"now": datetime.now(tz=UTC)},
-    )
+def resolve_post_login_destination(user) -> str:
+    """Where a freshly signed-in user belongs.
 
-
-@require_POST
-def counter(request: HttpRequest) -> HttpResponse:
-    action = request.POST.get("action", "inc")
-    value = int(request.session.get(COUNTER_SESSION_KEY, 0))
-    if action == "inc":
-        value += 1
-    elif action == "dec":
-        value -= 1
-    elif action == "reset":
-        value = 0
-    request.session[COUNTER_SESSION_KEY] = value
-    return render(request, "pages/partials/counter.html", {"counter": value})
-
-
-@require_GET
-def search(request: HttpRequest) -> HttpResponse:
-    query = request.GET.get("q", "")
-    return render(
-        request,
-        "pages/partials/search_results.html",
-        {
-            "experiences": _filter_experiences(query),
-            "query": query,
-        },
-    )
-
-
-@require_POST
-def greet(request: HttpRequest) -> HttpResponse:
-    name = request.POST.get("name", "").strip() or "friend"
-    return render(request, "pages/partials/greeting.html", {"name": name})
+    No organisation is an odd state (it only happens if a membership was deleted
+    out from under them), so send them to the landing page rather than a 403.
+    """
+    # OHC team have no organisation; their home is the support console.
+    if is_ohc_team(user):
+        return "ohc:queue"
+    membership = get_membership_for(user)
+    if membership is None:
+        return "home"
+    if not membership.organisation.is_onboarded:
+        return "organisations:onboarding"
+    return "dashboard"

@@ -1,0 +1,36 @@
+{% comment %}
+  htmx response for an invite that was just sent, aimed at #invitation-rows with
+  hx-swap="afterbegin" — Invitation.Meta orders newest first, so the new row
+  belongs at the top of that tbody rather than the bottom.
+
+  The <tr> is the ordinary swap. Out of band, inside <template>s: the stacked
+  card (filed directly after the heading, which is the same position in that
+  list), both headings (a first invite has to reveal them), the invite form
+  again — unbound, which is how the fields clear — and the flash.
+
+  The card is wrapped in a carrier <ul>: for every swap style except outerHTML,
+  htmx swaps the children of the out-of-band element rather than the element
+  itself, so the carrier is what holds the hx-swap-oob and the <li> inside it is
+  what lands in the list. The carrier is thrown away.
+
+  Context: i (the new Invitation), invitations (the pending list it is now in),
+           form (a fresh unbound InvitationForm), can_manage.
+{% endcomment %}
+{% include "organisations/partials/invitation_row.html" %}
+<template>
+  <ul hx-swap-oob="afterend:#invitation-heading-card">
+    {% include "organisations/partials/invitation_card.html" %}
+  </ul>
+</template>
+<template>
+  {% include "organisations/partials/invitation_heading.html" with oob=True %}
+</template>
+<template>
+  {% include "organisations/partials/invitation_heading.html" with variant="card" oob=True %}
+</template>
+<template>
+  {% include "organisations/partials/invite_form.html" with oob=True %}
+</template>
+<template>
+  {% include "components/messages.html" with oob=True %}
+</template>

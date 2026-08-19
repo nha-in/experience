@@ -1,0 +1,65 @@
+{% comment %}
+  The reply box and the one status move a vendor may make.
+
+  Two sibling forms, never nested: the reply posts to support:reply, the status
+  button posts to support:status. "Send reply" sits in the second row beside
+  "Mark as resolved" but belongs to the first form — the form= attribute is what
+  associates them, which needs no script and keeps the mockup's layout without
+  putting a form inside a form.
+
+  The status button is the whole choice a vendor gets: resolve an open ticket,
+  or reopen one. Closing is the Care team's, and the view's form refuses it.
+
+  Both forms keep method, action and a CSRF token, so with scripting off they
+  POST and the views redirect back to this thread. hx-post adds the entry to
+  the end of the conversation instead, with this panel, the badges and the
+  details rail returning out of band.
+
+  Context: ticket, reply_form, oob.
+{% endcomment %}
+{% load i18n careui %}
+
+<div id="reply-panel"
+     {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+     class="ui-card">
+  <div class="ui-card-content">
+    <h2 class="ui-section-title" id="reply-title">{% translate "Reply" %}</h2>
+    <form class="mt-2"
+          id="reply-form"
+          method="post"
+          action="{% url 'support:reply' ticket.reference %}"
+          hx-post="{% url 'support:reply' ticket.reference %}"
+          hx-target="#ticket-thread"
+          hx-swap="beforeend"
+          hx-indicator="#nav-progress">
+      {% csrf_token %}
+      <label class="sr-only" for="{{ reply_form.body.id_for_label }}">{% translate "Your reply" %}</label>
+      {% ui_widget reply_form.body "min-h-[88px]" %}
+      {% for error in reply_form.body.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+    </form>
+    <div class="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <form method="post"
+            action="{% url 'support:status' ticket.reference %}"
+            hx-post="{% url 'support:status' ticket.reference %}"
+            hx-target="#ticket-thread"
+            hx-swap="beforeend"
+            hx-indicator="#nav-progress">
+        {% csrf_token %}
+        {% if ticket.is_open %}
+          <button class="ui-btn ui-btn--secondary ui-btn--size-sm w-full sm:w-auto"
+                  type="submit"
+                  name="status"
+                  value="resolved">{% translate "Mark as resolved" %}</button>
+        {% else %}
+          <button class="ui-btn ui-btn--secondary ui-btn--size-sm w-full sm:w-auto"
+                  type="submit"
+                  name="status"
+                  value="open">{% translate "Reopen ticket" %}</button>
+        {% endif %}
+      </form>
+      <button class="ui-btn ui-btn--default ui-btn--size-sm"
+              type="submit"
+              form="reply-form">{% translate "Send reply" %}</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,113 @@
+{% extends "layouts/settings.html" %}
+
+{% comment %}
+  Settings → Team (mockup 1j): the roster, the pending invites and the invite
+  form. Every action is still its own POST form with a real action URL, so the
+  page works with JavaScript off; htmx is layered on top of that and nothing
+  here depends on it.
+
+  Two representations of one roster: the md+ <table> and the md:hidden stacked
+  list. Each member therefore has two elements — a <tr id="member-5"> and an
+  <li id="member-card-5"> — and both come from partials/ that the endpoints
+  return, so a swapped fragment and a reloaded page are the same markup. A row
+  action targets the <tr> and the response carries the <li> out of band, which
+  keeps the two in step whichever one the person is looking at.
+
+  The pending-invitations heading and both of its containers always render now
+  (the heading hidden while the list is empty) because htmx needs a live element
+  to file a new invite into. It draws the same as before.
+
+  Context: form (InvitationForm), memberships, member_count, invitations,
+  assignable_roles, can_manage, membership, organisation.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Team settings" %} · {{ organisation.display_name }}
+{% endblock title %}
+{% block settings_content %}
+  <div class="ui-card">
+    <div class="ui-card-header flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <h2 class="ui-card-title">{% translate "Team members" %}</h2>
+      <span class="text-[12.5px] text-soft-foreground">
+        {% blocktranslate count counter=member_count %}{{ counter }} member · Owner manages roles{% plural %}{{ counter }} members · Owner manages roles{% endblocktranslate %}
+      </span>
+    </div>
+    <div class="ui-card-content ui-card-bleed">
+      <div class="hidden overflow-x-auto md:block">
+        <table class="ui-table">
+          <thead>
+            <tr>
+              <th scope="col">{% translate "Member" %}</th>
+              <th scope="col">{% translate "Role" %}</th>
+              <th scope="col">{% translate "Joined" %}</th>
+              <th scope="col" class="text-right">
+                <span class="sr-only">{% translate "Actions" %}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="member-rows">
+            {% for m in memberships %}
+              {% include "organisations/partials/member_row.html" %}
+            {% endfor %}
+          </tbody>
+          <tbody>
+            {% include "organisations/partials/invitation_heading.html" %}
+          </tbody>
+          <tbody id="invitation-rows">
+            {% for i in invitations %}
+              {% include "organisations/partials/invitation_row.html" %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <!-- Below md the same roster as a stacked list -->
+      <ul class="flex flex-col md:hidden">
+        {% for m in memberships %}
+          {% include "organisations/partials/member_card.html" %}
+        {% endfor %}
+        {% include "organisations/partials/invitation_heading.html" with variant="card" %}
+        {% for i in invitations %}
+          {% include "organisations/partials/invitation_card.html" %}
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% if can_manage %}
+    <div class="ui-card">
+      <div class="ui-card-header">
+        <h2 class="ui-card-title">{% translate "Invite a teammate" %}</h2>
+      </div>
+      <div class="ui-card-content">
+        {% include "organisations/partials/invite_form.html" %}
+        <p class="mt-2.5 text-[11.5px] leading-relaxed text-soft-foreground">
+          {% translate "Developers see sandbox credentials and API resources. Support sees the inbox. Admins manage everything except billing and legal info." %}
+        </p>
+      </div>
+    </div>
+  {% endif %}
+  <script>
+    // Progressive enhancement, and only that: with htmx on the page the role
+    // picker posts itself on "change" (the hx-trigger in partials/member_row.html),
+    // so the Update button beside it is redundant. It stays for anyone htmx
+    // never reaches — hence the test for htmx rather than for JavaScript.
+    //
+    // This sits inside #main-content, not in the inline_javascript block, so it
+    // also runs when the boosted navigation swaps this page in.
+    //
+    // htmx:load is the whole test: htmx fires it over the body once it is ready
+    // and over every fragment it swaps in afterwards, so the buttons go only
+    // when htmx is really there, and rows that arrive later are covered too.
+    // (Asking for window.htmx here would be wrong — the library is deferred, so
+    // it does not exist yet while this runs.)
+    (() => {
+      if (window.teamRoleFormsWired) return;
+      window.teamRoleFormsWired = true;
+      document.addEventListener("htmx:load", (event) => {
+        event.detail.elt.querySelectorAll("[data-role-form] [data-role-submit]").forEach((button) => {
+          button.hidden = true;
+        });
+      });
+    })();
+  </script>
+{% endblock settings_content %}

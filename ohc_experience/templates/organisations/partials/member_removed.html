@@ -1,0 +1,19 @@
+{% comment %}
+  htmx response for a member who has just been removed, aimed at #member-<pk>
+  with hx-swap="outerHTML".
+
+  Every element here is out of band inside a <template>, which htmx lifts out
+  and discards the wrapper for — so what is left to swap is nothing, and
+  swapping nothing over the row's outerHTML is what takes the row out of the
+  table. (A literal 204 would not do this: htmx's default responseHandling
+  treats 204 as "no swap", so the row would stay put.) The stacked card is
+  deleted by id, and the flash rides along into #flash-messages.
+
+  Context: member_pk (the row that is gone).
+{% endcomment %}
+<template>
+  <li id="member-card-{{ member_pk }}" hx-swap-oob="delete"></li>
+</template>
+<template>
+  {% include "components/messages.html" with oob=True %}
+</template>

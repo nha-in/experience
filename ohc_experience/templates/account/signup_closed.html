@@ -1,0 +1,21 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}Shown when the adapter reports signups are closed.{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Signups are paused" %}
+{% endblock title %}
+{% block entrance_title %}
+  {% translate "Signups are paused" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% translate "New vendor accounts are not being created at the moment." %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <p class="text-sm leading-relaxed text-muted-foreground">
+    {% translate "If someone from your organisation is already on the hub, ask them to invite you — invited accounts still work while signups are closed. Otherwise please try again later." %}
+  </p>
+  <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+     href="{% url 'home' %}">{% translate "Back to the hub" %}</a>
+{% endblock entrance_body %}

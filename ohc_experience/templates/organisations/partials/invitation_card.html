@@ -1,0 +1,33 @@
+{% comment %}
+  The same pending invite as invitation_row.html, drawn as a stacked card for
+  the md:hidden list. The endpoints re-render the <tr> as the ordinary swap and
+  carry this <li> along out of band, so the two representations cannot drift.
+  Both include the same invitation_actions.html for Resend and Revoke.
+
+  Context: i (Invitation), can_manage,
+           oob — True to replace this card in place. Filing a brand new card
+                 instead is done by the caller wrapping this include (see
+                 invitation_created.html), because htmx only swaps the
+                 out-of-band element itself for outerHTML — every other swap
+                 style takes its children.
+{% endcomment %}
+{% load i18n %}
+
+<li id="invitation-card-{{ i.pk }}"
+    {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+    class="flex flex-col gap-3 border-t border-soft-border px-6 py-4">
+  <div class="flex items-center gap-2.5">
+    <span class="ui-avatar ui-avatar--pending size-8" aria-hidden="true">{{ i.initials }}</span>
+    <span class="min-w-0 font-semibold break-all">{{ i.email }}</span>
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Invited" %}</span>
+    <span class="text-xs text-soft-foreground">{{ i.get_role_display }}</span>
+    <span class="text-xs text-soft-foreground">
+      {% blocktranslate with expires_on=i.expires_at|date:"j M Y" %}Expires {{ expires_on }}{% endblocktranslate %}
+    </span>
+  </div>
+  {% if can_manage %}
+    <div class="flex flex-wrap items-center gap-1">{% include "organisations/partials/invitation_actions.html" %}</div>
+  {% endif %}
+</li>

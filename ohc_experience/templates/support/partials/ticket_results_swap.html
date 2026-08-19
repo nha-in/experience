@@ -1,0 +1,11 @@
+{% comment %}
+  htmx response for a filter change or a pager link.
+
+  The results region is the ordinary swap; the count line follows out of band,
+  because it lives up in the filter row and htmx only reads hx-swap-oob off the
+  top-level elements of a response.
+
+  Context: whatever ticket_list.html's view already put on the page.
+{% endcomment %}
+{% include "support/partials/ticket_results.html" %}
+{% include "support/partials/ticket_count.html" with oob=True %}

@@ -1,0 +1,434 @@
+/**
+ * careui component classes, ported for server-rendered Django templates.
+ *
+ * Upstream careui (ohcnetwork/careui) ships React components whose styling is a
+ * long Tailwind class string per variant. There is no React here, so each
+ * variant becomes a component class instead — same utilities, same tokens, one
+ * name to type in a template.
+ *
+ * Rules when editing:
+ *   - Colour comes from semantic tokens only (bg-card, text-muted-foreground,
+ *     border-border, …). Never a raw hex, never bg-emerald-600.
+ *   - Layout inside a page stays as plain Tailwind utilities in the template.
+ *   - Anything shadcn-package-specific upstream (rounded-squircle-*,
+ *     in-data-[slot=button-group]:*) is dropped: those utilities do not exist
+ *     in stock Tailwind and the visual difference is nil at these radii.
+ */
+
+@layer components {
+  /* ── Button ────────────────────────────────────────────────────────────── */
+
+  .ui-btn {
+    @apply inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-transparent bg-clip-padding px-3 text-sm font-semibold tracking-wide whitespace-nowrap outline-0 transition select-none;
+    @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500;
+    @apply disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50;
+    @apply aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .ui-btn svg {
+    @apply pointer-events-none size-4 shrink-0;
+  }
+
+  .ui-btn--default {
+    @apply border-primary-950/90 bg-primary text-primary-foreground shadow-md shadow-primary/50 text-shadow-xs text-shadow-primary-950/75;
+    @apply not-disabled:inset-shadow-2xs not-disabled:inset-shadow-primary-200/30;
+    @apply hover:bg-primary/90 active:bg-primary/80 active:inset-shadow-sm active:inset-shadow-primary-800 active:shadow-none;
+    @apply dark:border-primary-900 dark:shadow-background dark:text-shadow-primary-200/50 dark:not-disabled:inset-shadow-primary-200/80;
+  }
+
+  .ui-btn--secondary {
+    @apply border-primary-700 bg-background text-primary-900 shadow-md;
+    @apply hover:border-primary-600 hover:bg-primary-700/10;
+    @apply active:bg-primary-700/5 active:inset-shadow-sm active:inset-shadow-neutral-500/35 active:shadow-none;
+    @apply dark:text-primary-500 dark:active:inset-shadow-neutral-950;
+  }
+
+  .ui-btn--tertiary {
+    @apply bg-muted-background/70 underline underline-offset-4;
+    @apply hover:border-border hover:bg-muted hover:text-foreground;
+    @apply active:bg-muted/90 active:inset-shadow-sm active:inset-shadow-neutral-400/40;
+    @apply dark:hover:bg-muted dark:active:inset-shadow-neutral-950/80;
+  }
+
+  .ui-btn--outline {
+    @apply border-stronger-border bg-background shadow-md;
+    @apply hover:bg-muted hover:text-foreground;
+    @apply active:bg-muted/80 active:inset-shadow-sm active:inset-shadow-neutral-400/50 active:shadow-none;
+    @apply dark:border-input dark:bg-input/30 dark:hover:bg-input/50 dark:active:inset-shadow-neutral-950/80;
+  }
+
+  .ui-btn--ghost {
+    @apply underline underline-offset-4;
+    @apply hover:bg-strong-background/75 hover:text-foreground active:bg-muted/90;
+    @apply dark:hover:bg-muted;
+  }
+
+  .ui-btn--link {
+    @apply text-blue-700 underline underline-offset-4 transition-[color,text-underline-offset];
+    @apply hover:text-blue-800 hover:underline-offset-2 active:text-blue-900;
+    @apply dark:text-blue-400 dark:hover:text-blue-300 dark:active:text-blue-200;
+  }
+
+  .ui-btn--destructive {
+    @apply border-destructive/70 bg-red-100/75 text-red-700 shadow-md;
+    @apply hover:bg-destructive/20 focus-visible:outline-destructive;
+    @apply active:bg-destructive/25 active:inset-shadow-sm active:inset-shadow-red-400/40 active:shadow-none;
+    @apply dark:bg-destructive/5 dark:text-red-400 dark:hover:border-destructive/75 dark:hover:bg-destructive/10;
+  }
+
+  .ui-btn--destructive-solid {
+    @apply border-red-700 bg-destructive text-white shadow-md text-shadow-xs text-shadow-red-950/75;
+    @apply hover:bg-destructive/80 focus-visible:outline-destructive;
+    @apply active:bg-destructive/70 active:inset-shadow-sm active:inset-shadow-destructive/90 active:shadow-none;
+    @apply dark:bg-red-500/90 dark:hover:bg-red-500/80;
+  }
+
+  /* Sizes. Touch targets are taller on phones, tightening at md — same as careui. */
+  .ui-btn--size-default {
+    @apply h-12 px-4.5 md:h-10 md:px-3.5;
+  }
+
+  .ui-btn--size-xs {
+    @apply h-8 gap-1 rounded-sm px-2.5 text-xs;
+  }
+
+  .ui-btn--size-xs svg {
+    @apply size-3.5;
+  }
+
+  .ui-btn--size-sm {
+    @apply h-9 gap-1.5 px-3;
+  }
+
+  .ui-btn--size-lg {
+    @apply h-11 gap-1.5 px-4 text-base;
+  }
+
+  .ui-btn--size-xl {
+    @apply h-12 gap-2 px-4.5 text-base;
+  }
+
+  .ui-btn--size-icon {
+    @apply size-12 px-0 md:size-10;
+  }
+
+  .ui-btn--size-icon-sm {
+    @apply size-9 px-0;
+  }
+
+  .ui-btn--size-icon-xs {
+    @apply size-8 rounded-sm px-0;
+  }
+
+  .ui-btn--block {
+    @apply w-full;
+  }
+
+  /* ── Card ──────────────────────────────────────────────────────────────── */
+
+  .ui-card {
+    @apply flex flex-col gap-6 overflow-hidden rounded-xl bg-card py-6 text-sm text-card-foreground shadow-xs ring-1 ring-foreground/10;
+  }
+
+  .ui-card--sm {
+    @apply gap-4 py-4;
+  }
+
+  .ui-card-header {
+    @apply grid auto-rows-min items-start gap-1 rounded-t-xl px-6;
+  }
+
+  .ui-card--sm .ui-card-header {
+    @apply px-4;
+  }
+
+  .ui-card-title {
+    @apply text-base leading-normal font-semibold;
+  }
+
+  .ui-card--sm .ui-card-title {
+    @apply text-sm;
+  }
+
+  .ui-card-description {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .ui-card-content {
+    @apply px-6;
+  }
+
+  .ui-card--sm .ui-card-content {
+    @apply px-4;
+  }
+
+  .ui-card-footer {
+    @apply flex items-center rounded-b-xl px-6;
+  }
+
+  .ui-card--sm .ui-card-footer {
+    @apply px-4;
+  }
+
+  /* Bleed a table or divided list to the card edge without losing the radius. */
+  .ui-card-bleed {
+    @apply -mx-6;
+  }
+
+  .ui-card--sm .ui-card-bleed {
+    @apply -mx-4;
+  }
+
+  /* ── Badge ─────────────────────────────────────────────────────────────── */
+
+  .ui-badge {
+    @apply inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border font-medium whitespace-nowrap transition-[color,box-shadow];
+  }
+
+  .ui-badge svg {
+    @apply pointer-events-none size-3;
+  }
+
+  .ui-badge--primary {
+    @apply border-primary/50 bg-primary-100 text-primary-900;
+    @apply dark:border-primary-400/35 dark:bg-primary-400/15 dark:text-primary-300;
+  }
+
+  .ui-badge--success {
+    @apply border-green-600/45 bg-green-100 text-green-900;
+    @apply dark:border-green-500/35 dark:bg-green-500/15 dark:text-green-300;
+  }
+
+  .ui-badge--warning {
+    @apply border-orange-500/45 bg-orange-100 text-orange-900;
+    @apply dark:border-orange-400/35 dark:bg-orange-400/15 dark:text-orange-300;
+  }
+
+  .ui-badge--info {
+    @apply border-indigo-500/45 bg-indigo-100 text-indigo-900;
+    @apply dark:border-indigo-400/35 dark:bg-indigo-400/15 dark:text-indigo-300;
+  }
+
+  .ui-badge--destructive {
+    @apply border-red-500/45 bg-red-100 text-red-900;
+    @apply dark:border-red-400/35 dark:bg-red-400/15 dark:text-red-300;
+  }
+
+  .ui-badge--neutral {
+    @apply border-stronger-border/40 bg-muted-background text-accent-foreground;
+    @apply dark:border-strong-border dark:bg-muted-background dark:text-accent-foreground;
+  }
+
+  .ui-badge--size-xs {
+    @apply h-4 px-1.5 text-[10px];
+  }
+
+  .ui-badge--size-sm {
+    @apply h-5 px-2 text-xs;
+  }
+
+  .ui-badge--size-md {
+    @apply h-6 px-2 text-xs;
+  }
+
+  .ui-badge--size-lg {
+    @apply h-7 px-3 text-sm;
+  }
+
+  /* ── Form controls ─────────────────────────────────────────────────────── */
+
+  .ui-input {
+    @apply h-12 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-2xs transition-[color,box-shadow] outline-none md:h-10 md:px-2.5 md:text-sm;
+    @apply placeholder:text-placeholder-foreground;
+    @apply focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
+    @apply aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20;
+    @apply disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50;
+    @apply dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40;
+  }
+
+  .ui-input--sm {
+    @apply h-10 md:h-9;
+  }
+
+  .ui-textarea {
+    @apply flex min-h-16 w-full rounded-md border border-input bg-transparent px-2.5 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none md:text-sm;
+    field-sizing: content;
+    @apply placeholder:text-placeholder-foreground;
+    @apply focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
+    @apply aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+    @apply dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40;
+  }
+
+  /* Wrapper carries the chevron; the select itself drops its native arrow. */
+  .ui-select-wrapper {
+    @apply relative w-full has-[select:disabled]:opacity-50;
+  }
+
+  .ui-select-wrapper::after {
+    content: "";
+    @apply pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 bg-muted-foreground;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+  }
+
+  .ui-select {
+    @apply h-12 w-full min-w-0 appearance-none rounded-md border border-input bg-transparent py-1 pr-8 pl-2.5 text-base shadow-xs transition-[color,box-shadow] outline-none select-none md:h-9 md:text-sm;
+    @apply focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
+    @apply aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20;
+    @apply disabled:pointer-events-none disabled:cursor-not-allowed;
+    @apply dark:bg-input/30 dark:hover:bg-input/50;
+  }
+
+  .ui-select--sm {
+    @apply h-10 md:h-8;
+  }
+
+  .ui-checkbox {
+    @apply size-4 shrink-0 rounded-sm border border-input text-primary accent-[var(--primary)];
+    @apply focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none;
+  }
+
+  .ui-label {
+    @apply mb-1.5 block text-sm font-medium text-foreground select-none;
+  }
+
+  .ui-hint {
+    @apply mt-1.5 block text-xs leading-relaxed text-soft-foreground;
+  }
+
+  .ui-error {
+    @apply mt-1.5 block text-xs font-medium text-destructive;
+  }
+
+  /* ── Progress ──────────────────────────────────────────────────────────── */
+
+  .ui-progress-track {
+    @apply relative flex h-1.5 w-full items-center overflow-x-hidden rounded-full bg-muted;
+  }
+
+  .ui-progress-indicator {
+    @apply h-full rounded-full bg-primary transition-all;
+  }
+
+  /* ── Alert ─────────────────────────────────────────────────────────────── */
+
+  .ui-alert {
+    @apply flex items-start gap-3 rounded-lg border px-4 py-3 text-sm;
+  }
+
+  .ui-alert--info {
+    @apply border-indigo-500/45 bg-indigo-50 text-indigo-900 dark:border-indigo-400/35 dark:bg-indigo-400/10 dark:text-indigo-200;
+  }
+
+  .ui-alert--success {
+    @apply border-green-600/45 bg-green-50 text-green-900 dark:border-green-500/35 dark:bg-green-500/10 dark:text-green-200;
+  }
+
+  .ui-alert--warning {
+    @apply border-orange-500/45 bg-orange-50 text-orange-900 dark:border-orange-400/35 dark:bg-orange-400/10 dark:text-orange-200;
+  }
+
+  .ui-alert--destructive {
+    @apply border-red-500/45 bg-red-50 text-red-900 dark:border-red-400/35 dark:bg-red-400/10 dark:text-red-200;
+  }
+
+  /* ── Table ─────────────────────────────────────────────────────────────── */
+
+  .ui-table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .ui-table th {
+    @apply border-b border-border px-4 py-2.5 text-left text-[11.5px] font-semibold tracking-[0.04em] text-soft-foreground uppercase;
+  }
+
+  .ui-table td {
+    @apply border-b border-soft-border px-4 py-3 align-middle;
+  }
+
+  .ui-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  /* First and last cells align to the card's 24px gutter. */
+  .ui-table th:first-child,
+  .ui-table td:first-child {
+    @apply pl-6;
+  }
+
+  .ui-table th:last-child,
+  .ui-table td:last-child {
+    @apply pr-6;
+  }
+
+  /* ── Avatar chip ───────────────────────────────────────────────────────── */
+
+  .ui-avatar {
+    @apply flex shrink-0 items-center justify-center rounded-full text-xs font-bold;
+  }
+
+  .ui-avatar--primary {
+    @apply bg-primary-100 text-primary dark:bg-primary-400/15 dark:text-primary-300;
+  }
+
+  .ui-avatar--muted {
+    @apply bg-muted-background text-muted-foreground;
+  }
+
+  .ui-avatar--pending {
+    @apply border-[1.5px] border-dashed border-strong-border text-soft-foreground;
+  }
+
+  /* ── App shell ─────────────────────────────────────────────────────────── */
+
+  .ui-nav-link {
+    @apply block rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors;
+    @apply hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground;
+    @apply focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none;
+  }
+
+  .ui-nav-link--active {
+    @apply bg-sidebar-accent font-semibold text-sidebar-accent-foreground;
+  }
+
+  .ui-subnav-link {
+    @apply block rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors;
+    @apply hover:bg-muted-background hover:text-foreground;
+    @apply focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none;
+  }
+
+  .ui-subnav-link--active {
+    @apply bg-muted-background font-semibold text-foreground;
+  }
+
+  /* ── Typography helpers ────────────────────────────────────────────────── */
+
+  .ui-eyebrow {
+    @apply text-[11px] font-bold tracking-[0.09em] text-primary uppercase;
+  }
+
+  .ui-page-title {
+    @apply text-[22px] font-bold tracking-[-0.02em] text-foreground;
+  }
+
+  .ui-page-subtitle {
+    @apply mt-1.5 text-sm text-muted-foreground;
+  }
+
+  .ui-section-title {
+    @apply text-[15px] font-semibold text-foreground;
+  }
+
+  .ui-field-legend {
+    @apply text-[11px] font-semibold tracking-[0.06em] text-soft-foreground uppercase;
+  }
+
+  .ui-prose-link {
+    @apply font-semibold text-primary-700 underline-offset-2 hover:text-primary-800 hover:underline dark:text-primary-400 dark:hover:text-primary-300;
+  }
+}

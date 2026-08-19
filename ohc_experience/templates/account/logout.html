@@ -1,0 +1,33 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  Sign-out confirmation. Signing out is a POST, so this is a real form rather
+  than a link; the secondary action just goes back to the dashboard.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Sign out" %}
+{% endblock title %}
+{% block header_action %}
+{% endblock header_action %}
+{% block entrance_title %}
+  {% translate "Sign out of the hub?" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% translate "You will need to sign in again to reach your sandbox, certifications and tickets." %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <form class="flex flex-col gap-3"
+        method="post"
+        action="{% url 'account_logout' %}">
+    {% csrf_token %}
+    {{ redirect_field }}
+    <button type="submit"
+            class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">{% translate "Sign out" %}</button>
+  </form>
+  {% if request.user.is_authenticated %}
+    <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+       href="{% url 'dashboard' %}">{% translate "Stay signed in" %}</a>
+  {% endif %}
+{% endblock entrance_body %}

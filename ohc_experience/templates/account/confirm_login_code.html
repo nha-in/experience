@@ -1,0 +1,101 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  Type the one-time code. Mirrors allauth's account/base_confirm_code.html:
+  the verify form, an optional resend, a cancel that ends the half-finished
+  login stage, and — when allauth offers it — a way to correct the address the
+  code went to.
+
+  Context: verify_form, change_form, can_resend, can_change, cancel_url, email.
+{% endcomment %}
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "Enter your sign-in code" %}
+{% endblock title %}
+{% block entrance_title %}
+  {% translate "Enter your sign-in code" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% if email %}
+    {% blocktranslate trimmed with recipient=email %}
+      We sent a code to {{ recipient }}. It expires shortly, so use it soon.
+    {% endblocktranslate %}
+  {% elif phone %}
+    {% blocktranslate trimmed with recipient=phone %}
+      We sent a code to {{ recipient }}. It expires shortly, so use it soon.
+    {% endblocktranslate %}
+  {% else %}
+    {% translate "We sent you a code. It expires shortly, so use it soon." %}
+  {% endif %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <form class="flex flex-col gap-4"
+        method="post"
+        action="{% url 'account_confirm_login_code' %}">
+    {% csrf_token %}
+    {% include "components/form_errors.html" with form=verify_form %}
+    {% translate "Sign-in code" as code_label %}
+    {% translate "6-digit code" as code_placeholder %}
+    {% ui_field verify_form.code label=code_label placeholder=code_placeholder extra_class="font-mono" %}
+    {{ redirect_field }}
+    <button type="submit"
+            class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">{% translate "Confirm" %}</button>
+  </form>
+  <div class="flex flex-col gap-2">
+    {% if can_resend %}
+      <button type="submit"
+              form="resend-login-code"
+              class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block">{% translate "Send a new code" %}</button>
+    {% endif %}
+    {% if cancel_url %}
+      <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+         href="{{ cancel_url }}">{% translate "Cancel" %}</a>
+    {% else %}
+      <button type="submit"
+              form="logout-from-stage"
+              class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block">{% translate "Cancel" %}</button>
+    {% endif %}
+  </div>
+  {% if can_change %}
+    <details class="rounded-md border border-soft-border px-3.5 py-3"
+             {% if change_form.errors %}open{% endif %}>
+      <summary class="cursor-pointer text-[13px] font-semibold text-foreground">
+        {% translate "Sent to the wrong address?" %}
+      </summary>
+      <form class="mt-3 flex flex-col gap-4"
+            method="post"
+            action="{% url 'account_confirm_login_code' %}">
+        {% csrf_token %}
+        {% include "components/form_errors.html" with form=change_form %}
+        {% for field in change_form %}
+          {% ui_field field %}
+        {% endfor %}
+        {{ redirect_field }}
+        <button type="submit"
+                name="action"
+                value="change"
+                class="ui-btn ui-btn--outline ui-btn--size-sm">{% translate "Use this instead" %}</button>
+      </form>
+    </details>
+  {% endif %}
+{% endblock entrance_body %}
+{% block entrance_after %}
+  {% if can_resend %}
+    <form id="resend-login-code"
+          method="post"
+          action="{% url 'account_confirm_login_code' %}">
+      <input type="hidden" name="action" value="resend" />
+      {{ redirect_field }}
+      {% csrf_token %}
+    </form>
+  {% endif %}
+  {% if not cancel_url %}
+    <form id="logout-from-stage"
+          method="post"
+          action="{% url 'account_logout' %}">
+      <input type="hidden" name="next" value="{% url 'account_login' %}" />
+      {% csrf_token %}
+    </form>
+  {% endif %}
+{% endblock entrance_after %}

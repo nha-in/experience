@@ -1,0 +1,31 @@
+{% comment %}
+  The "Pending invitations" heading, in both representations.
+
+  It used to be skipped entirely while there were no pending invites. htmx needs
+  a live element to file a newly created invite against, so the heading and its
+  two containers always render now and the heading itself carries the hidden
+  attribute while the list is empty — which draws exactly the same as before.
+
+  Context: invitations (the pending list — only its emptiness matters here),
+           oob — True when this rides on a response as an out-of-band swap,
+                 which is how a first invite reveals the heading and a last
+                 revoke hides it again.
+{% endcomment %}
+{% load i18n %}
+
+{% if variant == "card" %}
+  <li id="invitation-heading-card"
+      {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+      {% if not invitations %}hidden{% endif %}
+      class="border-t border-border bg-soft-background px-6 py-2.5 text-[11.5px] font-semibold tracking-[0.04em] text-soft-foreground uppercase">
+    {% translate "Pending invitations" %}
+  </li>
+{% else %}
+  <tr id="invitation-heading-row"
+      {% if oob %}hx-swap-oob="outerHTML"{% endif %}
+      {% if not invitations %}hidden{% endif %}>
+    <th colspan="4"
+        scope="colgroup"
+        class="border-t border-border bg-soft-background">{% translate "Pending invitations" %}</th>
+  </tr>
+{% endif %}

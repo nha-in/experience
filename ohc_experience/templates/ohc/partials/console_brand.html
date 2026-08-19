@@ -1,0 +1,14 @@
+{% comment %}
+  The console's wordmark: "care | OHC Console", with the badge that says out
+  loud this is not a vendor's view of anything. Used by the desktop rail and the
+  mobile top bar, so the two cannot drift.
+{% endcomment %}
+{% load i18n %}
+
+<span class="flex min-w-0 flex-col gap-1">
+  <span class="flex items-baseline gap-2.5">
+    <span class="text-lg font-extrabold tracking-[-0.03em] text-primary">care</span>
+    <span class="truncate text-[11.5px] font-semibold text-soft-foreground">{% translate "OHC Console" %}</span>
+  </span>
+  <span class="ui-badge ui-badge--warning ui-badge--size-xs self-start">{% translate "Internal" %}</span>
+</span>

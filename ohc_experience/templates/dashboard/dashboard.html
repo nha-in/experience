@@ -1,0 +1,216 @@
+{% extends "layouts/app.html" %}
+
+{% comment %}
+  Screen 1c — the dashboard.
+
+  The sandbox, certification and deployment tiles are deliberately honest: those
+  subsystems do not exist yet, so each states what is missing instead of showing
+  a number nobody earned. Activity is built from real memberships only.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Dashboard" %}
+{% endblock title %}
+{% block page_header %}
+  <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div class="min-w-0">
+      <h1 class="ui-page-title">
+        {% blocktranslate with name=request.user.first_name_or_email %}Welcome back, {{ name }}{% endblocktranslate %}
+      </h1>
+      <div class="mt-1.5 flex flex-wrap items-center gap-2">
+        <span class="min-w-0 break-words text-[13.5px] text-muted-foreground">{{ organisation.display_name }}</span>
+        {% if organisation.is_verified %}
+          <span class="ui-badge ui-badge--success ui-badge--size-sm">{% translate "Verified vendor" %}</span>
+        {% else %}
+          <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Verification pending" %}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% comment %}
+      Source order puts the primary first so it leads when the pair stacks on a
+      phone; flex-row-reverse restores the mockup's order — primary rightmost —
+      once they sit side by side.
+    {% endcomment %}
+    <div class="flex flex-col-reverse gap-2.5 sm:flex-row-reverse sm:flex-wrap sm:justify-end">
+      <a class="ui-btn ui-btn--default ui-btn--size-default"
+         href="{% url 'organisations:team' %}">{% translate "Invite your team" %}</a>
+      <a class="ui-btn ui-btn--outline ui-btn--size-default"
+         href="{% url 'organisations:detail' %}">{% translate "Organisation settings" %}</a>
+    </div>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="text-xs font-medium text-soft-foreground">{% translate "Team" %}</p>
+        <p class="mt-1 text-[19px] font-bold">{{ team_size }}</p>
+        <p class="mt-[3px] text-xs text-muted-foreground">
+          {% if pending_invites %}
+            {% blocktranslate count counter=pending_invites %}
+              {{ counter }} invite pending
+            {% plural %}
+              {{ counter }} invites pending
+            {% endblocktranslate %}
+          {% else %}
+            {% translate "Everyone has joined" %}
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="text-xs font-medium text-soft-foreground">{% translate "Sandbox" %}</p>
+        <p class="mt-1 text-[19px] font-bold">{% translate "Not provisioned" %}</p>
+        <p class="mt-[3px] text-xs text-muted-foreground">{% translate "Provisioned per vendor on demo.ohc.network" %}</p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="text-xs font-medium text-soft-foreground">{% translate "Certification" %}</p>
+        <p class="mt-1 text-[19px] font-bold">{% translate "Not started" %}</p>
+        <p class="mt-[3px] text-xs text-muted-foreground">{% translate "Care Basic opens on school.ohc.network" %}</p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="text-xs font-medium text-soft-foreground">{% translate "Deployments" %}</p>
+        <p class="mt-1 text-[19px] font-bold">0</p>
+        <p class="mt-[3px] text-xs text-muted-foreground">{% translate "Report a go-live once you have one" %}</p>
+      </div>
+    </div>
+  </div>
+  <div class="mt-3.5 grid items-start gap-3.5 lg:grid-cols-[2fr_minmax(0,1fr)]">
+    <section class="ui-card" aria-labelledby="recent-activity-title">
+      <div class="ui-card-content">
+        <h2 class="ui-section-title" id="recent-activity-title">{% translate "Recent activity" %}</h2>
+        {% if recent_members|length > 1 %}
+          <ul class="mt-1.5 flex flex-col">
+            {% for member in recent_members %}
+              <li class="flex items-baseline gap-3 border-b border-soft-border py-3 last:border-b-0">
+                <span class="relative -top-px size-[7px] shrink-0 rounded-full bg-primary-500"
+                      aria-hidden="true"></span>
+                <p class="min-w-0 flex-1 text-[13.5px] leading-[1.45] break-words">
+                  {% if member.is_owner %}
+                    {% blocktranslate with name=member.user.display_name %}
+                      <span class="font-semibold">{{ name }}</span> created your organisation account
+                    {% endblocktranslate %}
+                  {% else %}
+                    {% blocktranslate with name=member.user.display_name role=member.get_role_display %}
+                      <span class="font-semibold">{{ name }}</span> joined your team with the {{ role }} role
+                    {% endblocktranslate %}
+                  {% endif %}
+                </p>
+                <span class="shrink-0 text-xs text-soft-foreground">{{ member.joined_at|date:"j M" }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="mt-3 flex flex-col items-start gap-3 rounded-lg border border-dashed border-border px-4 py-5">
+            <p class="text-[13.5px] leading-relaxed text-muted-foreground">
+              {% translate "It is just you here so far. Teammates joining, sandbox events and certification progress will appear here as they happen." %}
+            </p>
+            <a class="ui-btn ui-btn--secondary ui-btn--size-sm"
+               href="{% url 'organisations:team' %}">{% translate "Invite your team" %}</a>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+    <div class="flex flex-col gap-3.5">
+      <section class="ui-card" aria-labelledby="setup-checklist-title">
+        <div class="ui-card-content">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 class="ui-section-title" id="setup-checklist-title">{% translate "Finish your setup" %}</h2>
+            <span class="shrink-0 text-xs text-soft-foreground">
+              {% blocktranslate %}{{ setup_done }} of {{ setup_total }}{% endblocktranslate %}
+            </span>
+          </div>
+          <div class="mt-2.5 mb-3.5">
+            <div class="ui-progress-track"
+                 role="progressbar"
+                 aria-valuenow="{{ setup_percent }}"
+                 aria-valuemin="0"
+                 aria-valuemax="100"
+                 aria-label="{% translate 'Setup progress' %}">
+              <div class="ui-progress-indicator" style="width: {{ setup_percent }}%"></div>
+            </div>
+          </div>
+          <ul class="flex flex-col gap-2.5 text-[13.5px]">
+            {% for step in setup_steps %}
+              <li class="flex items-start gap-2.5 {% if step.done %}text-soft-foreground{% endif %}">
+                {% if step.done %}
+                  <span class="w-[15px] shrink-0 text-center font-extrabold text-primary"
+                        aria-hidden="true">✓</span>
+                  <span class="min-w-0 flex-1 line-through">{{ step.label }}</span>
+                {% else %}
+                  <span class="mt-[3px] size-[15px] shrink-0 rounded-full border-[1.5px] border-strong-border"
+                        aria-hidden="true"></span>
+                  <span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                    {% if step.url_name %}
+                      <a class="ui-prose-link no-underline hover:underline"
+                         href="{% url step.url_name %}">{{ step.label }}</a>
+                    {% else %}
+                      <span>{{ step.label }}</span>
+                      <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{% translate "Coming soon" %}</span>
+                    {% endif %}
+                  </span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
+      <section class="ui-card" aria-labelledby="upcoming-events-title">
+        <div class="ui-card-content">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 class="ui-section-title" id="upcoming-events-title">{% translate "Upcoming events" %}</h2>
+            <a class="ui-prose-link shrink-0 text-[12.5px] font-medium no-underline hover:underline"
+               href="{% url 'events:list' %}">{% translate "All events" %}</a>
+          </div>
+          {% if upcoming_events %}
+            {% comment %}
+              The rows reuse the events app's date block, so the card and the
+              events page can never draw the same date two different ways.
+            {% endcomment %}
+            <ul class="mt-1.5 flex flex-col">
+              {% for event in upcoming_events %}
+                <li class="border-b border-soft-border last:border-b-0">
+                  <a class="group flex items-center gap-3 py-2.5 text-foreground no-underline"
+                     href="{% url 'events:detail' event.slug %}">
+                    {% include "events/partials/event_date_block.html" %}
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-[13px] font-semibold break-words group-hover:underline">{{ event.title }}</span>
+                      <span class="mt-0.5 block text-[11.5px] leading-[1.45] break-words text-soft-foreground">
+                        {{ event.starts_at|date:"l · g:i a T" }}
+                        {% if event.summary %}· {{ event.summary }}{% endif %}
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="mt-3 flex items-center gap-3 rounded-lg border border-dashed border-border px-3.5 py-3">
+              <span class="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-soft-foreground"
+                    aria-hidden="true">
+                <svg class="size-[18px]"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.75"
+                     stroke-linecap="round"
+                     stroke-linejoin="round">
+                  <path d="M7 3v3m10-3v3M4 9h16M5.25 5.25h13.5A1.25 1.25 0 0 1 20 6.5v12.25a1.25 1.25 0 0 1-1.25 1.25H5.25A1.25 1.25 0 0 1 4 18.75V6.5a1.25 1.25 0 0 1 1.25-1.25Z" />
+                </svg>
+              </span>
+              <p class="text-[12.5px] leading-relaxed text-muted-foreground">
+                {% translate "Nothing scheduled yet. Partner office hours and Care release webinars will show up here once dates are announced." %}
+              </p>
+            </div>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+  </div>
+{% endblock content %}

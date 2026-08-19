@@ -1,0 +1,96 @@
+{% extends "layouts/ohc.html" %}
+
+{% comment %}
+  Every event the console knows about, draft and published — this is the only
+  screen where a draft exists at all, since vendors are shown published events
+  only.
+
+  Two representations of one list: the md+ <table> and the md:hidden stacked
+  cards. Each event therefore has a <tr id="event-5"> and an <li
+  id="event-card-5">, both from partials/ that the publish endpoint returns, so
+  a swapped row and a reloaded page are the same markup.
+
+  Context: events, page_obj, paginator, is_paginated.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Events" %} · {% translate "OHC Console" %}
+{% endblock title %}
+{% block page_header %}
+  <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="ui-page-title">{% translate "Events" %}</h1>
+      <p class="ui-page-subtitle">{% translate "Office hours, webinars and AMAs. Drafts stay invisible to vendors until published." %}</p>
+    </div>
+    <a class="ui-btn ui-btn--default ui-btn--size-default no-underline"
+       href="{% url 'ohc:event-create' %}">{% translate "New event" %}</a>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <div class="ui-card">
+    <div class="ui-card-header flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <h2 class="ui-card-title">{% translate "All events" %}</h2>
+      <span class="text-[12.5px] text-soft-foreground">
+        {% blocktranslate count counter=paginator.count %}{{ counter }} event{% plural %}{{ counter }} events{% endblocktranslate %}
+      </span>
+    </div>
+    <div class="ui-card-content ui-card-bleed">
+      {% if events %}
+        <div class="hidden overflow-x-auto md:block">
+          <table class="ui-table">
+            <thead>
+              <tr>
+                <th scope="col">{% translate "Event" %}</th>
+                <th scope="col">{% translate "Starts" %}</th>
+                <th scope="col">{% translate "Kind" %}</th>
+                <th scope="col">{% translate "State" %}</th>
+                <th scope="col" class="text-right">
+                  <span class="sr-only">{% translate "Actions" %}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for event in events %}
+                {% include "ohc/partials/event_row.html" %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <!-- Below md the same list as stacked cards -->
+        <ul class="flex flex-col md:hidden">
+          {% for event in events %}
+            {% include "ohc/partials/event_card.html" %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="px-6 py-10 text-center text-sm text-muted-foreground">
+          {% translate "No events yet. Create one and it stays a draft until you publish it." %}
+        </p>
+      {% endif %}
+    </div>
+    {% if is_paginated %}
+      <div class="ui-card-footer flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+        <span class="text-[12.5px] text-soft-foreground">
+          {% blocktranslate with first=page_obj.start_index last=page_obj.end_index total=paginator.count %}Showing {{ first }}–{{ last }} of {{ total }}{% endblocktranslate %}
+        </span>
+        <div class="flex gap-1.5">
+          {% if page_obj.has_previous %}
+            <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+               href="?page={{ page_obj.previous_page_number }}">{% translate "Previous" %}</a>
+          {% else %}
+            <span class="ui-btn ui-btn--outline ui-btn--size-xs opacity-50"
+                  aria-disabled="true">{% translate "Previous" %}</span>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+               href="?page={{ page_obj.next_page_number }}">{% translate "Next" %}</a>
+          {% else %}
+            <span class="ui-btn ui-btn--outline ui-btn--size-xs opacity-50"
+                  aria-disabled="true">{% translate "Next" %}</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock content %}

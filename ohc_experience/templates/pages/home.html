@@ -1,24 +1,134 @@
-{% extends "base.html" %}
+{% extends "layouts/marketing.html" %}
 
+{% comment %}
+  Screen 1a — the signed-out front door. The mockup's right-hand column is the signup form itself;
+  here it sells the account and hands off to /accounts/signup/, which owns the real form.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Care Experience Hub" %}
+{% endblock title %}
+{% block meta_description %}
+  {% translate "One account for your whole team to run a private Care sandbox, track certification, raise support tickets and register deployments." %}
+{% endblock meta_description %}
 {% block content %}
-  <section class="rounded-2xl border border-slate-200 bg-white px-6 py-12 shadow-sm sm:px-10">
-    <p class="text-sm font-medium uppercase tracking-wide text-blue-600">OHC Experience</p>
-    <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Experience Builder</h1>
-    <p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-      Build and manage experiences from a single place. Sign in to continue, or create an account to get started.
-    </p>
-    <div class="mt-8 flex flex-wrap gap-3">
-      {% if request.user.is_authenticated %}
-        <a class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-           href="{% url 'users:detail' request.user.pk %}">My Profile</a>
-      {% else %}
-        <a class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-           href="{% url 'account_login' %}">Sign In</a>
-        {% if ACCOUNT_ALLOW_REGISTRATION %}
-          <a class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-             href="{% url 'account_signup' %}">Sign Up</a>
-        {% endif %}
-      {% endif %}
+  <section class="mx-auto grid w-full max-w-[1360px] gap-10 px-5 py-12 sm:px-8 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-16 lg:px-[72px] lg:pt-16 lg:pb-[72px]">
+    <div>
+      <p class="ui-eyebrow">{% translate "For Care vendors &amp; partners" %}</p>
+      <h1 class="mt-3.5 text-[30px] leading-[1.12] font-[750] tracking-[-0.025em] text-pretty sm:text-[34px] lg:text-[38px]">
+        {% translate "Everything you need to get started with Care, all managed from one place." %}
+      </h1>
+      <p class="mt-4 max-w-[52ch] text-[15px] leading-[1.6] text-muted-foreground">
+        {% translate "Your sandbox, training tracks, and deployment docs, all in one account." %}
+      </p>
+      <ul class="mt-7 flex flex-col gap-3.5">
+        <li class="flex items-start gap-3">
+          <span aria-hidden="true"
+                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
+          <span class="text-sm leading-[1.5]">
+            <strong class="font-semibold">{% translate "Private sandbox" %}</strong>{% translate ": your own test environment, ready the moment you sign up." %}
+          </span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span aria-hidden="true"
+                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
+          <span class="text-sm leading-[1.5]">
+            <strong class="font-semibold">{% translate "Documentation" %}</strong>{% translate ": complete guides, references, and API docs in one place." %}
+          </span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span aria-hidden="true"
+                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
+          <span class="text-sm leading-[1.5]">
+            <strong class="font-semibold">{% translate "Deployment instructions" %}</strong>{% translate ": your path from sandbox to production." %}
+          </span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span aria-hidden="true"
+                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
+          <span class="text-sm leading-[1.5]">
+            <strong class="font-semibold">{% translate "Support system" %}</strong>{% translate ": tickets answered by the Care team, with response-time SLAs." %}
+          </span>
+        </li>
+      </ul>
+      <p class="mt-7 max-w-[60ch] text-[12.5px] leading-[1.55] text-soft-foreground">
+        {% translate "For HMIS/EMR integrators, medical device vendors, lab &amp; pharmacy systems, implementation partners and hospital IT teams." %}
+      </p>
+    </div>
+    <div class="ui-card w-full lg:max-w-[420px] lg:justify-self-end">
+      <div class="ui-card-header">
+        <h2 class="ui-card-title text-[17px] font-[650] tracking-[-0.01em]">{% translate "Create your vendor account" %}</h2>
+        <p class="ui-card-description text-[13px]">{% translate "Free for all OHC partners." %}</p>
+      </div>
+      <div class="ui-card-content flex flex-col gap-3.5">
+        <a class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block"
+           href="{% url 'account_signup' %}">{% translate "Create account" %}</a>
+        <p class="text-center text-[13px] text-muted-foreground">
+          {% translate "Already have an account?" %}
+          <a class="ui-prose-link" href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+        </p>
+        <p class="mt-1 text-[11.5px] leading-[1.5] text-soft-foreground">
+          {% translate "By creating an account you agree to the partner terms and privacy policy. We verify all vendor accounts within 1 business day." %}
+        </p>
+      </div>
+    </div>
+  </section>
+  <section aria-labelledby="how-it-works"
+           class="border-t border-border bg-soft-background">
+    <div class="mx-auto w-full max-w-[1360px] px-5 py-12 sm:px-8 sm:py-14 lg:px-[72px] lg:py-16">
+      <h2 id="how-it-works" class="ui-page-title">{% translate "How it works" %}</h2>
+      <p class="ui-page-subtitle max-w-[52ch]">
+        {% translate "Four steps from a new account to a certified team. Nothing to install, nothing to buy." %}
+      </p>
+      <ol class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <li class="ui-card ui-card--sm">
+          <div class="ui-card-content flex flex-col gap-2.5">
+            <span aria-hidden="true"
+                  class="ui-avatar ui-avatar--primary size-7 font-mono">1</span>
+            <h3 class="ui-section-title">{% translate "Create your account" %}</h3>
+            <p class="text-[13px] leading-[1.55] text-muted-foreground">
+              {% translate "Sign up with your work email. We verify every vendor account within 1 business day." %}
+            </p>
+          </div>
+        </li>
+        <li class="ui-card ui-card--sm">
+          <div class="ui-card-content flex flex-col gap-2.5">
+            <span aria-hidden="true"
+                  class="ui-avatar ui-avatar--primary size-7 font-mono">2</span>
+            <h3 class="ui-section-title">{% translate "Set up your vendor profile" %}</h3>
+            <p class="text-[13px] leading-[1.55] text-muted-foreground">
+              {% translate "Your legal entity, the states you deploy in, and a technical contact for sandbox and API notices." %}
+            </p>
+          </div>
+        </li>
+        <li class="ui-card ui-card--sm">
+          <div class="ui-card-content flex flex-col gap-2.5">
+            <span aria-hidden="true"
+                  class="ui-avatar ui-avatar--primary size-7 font-mono">3</span>
+            <h3 class="ui-section-title">{% translate "Invite your team" %}</h3>
+            <p class="text-[13px] leading-[1.55] text-muted-foreground">
+              {% translate "Bring in engineers, implementers and admins so the whole organisation shares one account." %}
+            </p>
+          </div>
+        </li>
+        <li class="ui-card ui-card--sm">
+          <div class="ui-card-content flex flex-col gap-2.5">
+            <span aria-hidden="true"
+                  class="ui-avatar ui-avatar--primary size-7 font-mono">4</span>
+            <h3 class="ui-section-title">{% translate "Work through certification" %}</h3>
+            <p class="text-[13px] leading-[1.55] text-muted-foreground">
+              {% translate "Care Basic runs on school.ohc.network today. Developer and Advanced tracks are on the way." %}
+            </p>
+          </div>
+        </li>
+      </ol>
+      <div class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <a class="ui-btn ui-btn--default ui-btn--size-default"
+           href="{% url 'account_signup' %}">{% translate "Create account" %}</a>
+        <a class="ui-btn ui-btn--ghost ui-btn--size-default"
+           href="{% url 'about' %}">{% translate "What is the Hub?" %}</a>
+      </div>
     </div>
   </section>
   <section class="mt-10">

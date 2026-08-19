@@ -1,0 +1,121 @@
+{% comment %}
+  Sidebar navigation. Shared by the desktop rail and the mobile drawer so the
+  two can never drift apart.
+
+  Context:
+    nav_section        — slug of the active section, set by each view.
+  The nav lists only what exists. Sandbox, Certifications, Deployments
+  and Support are in the mockup but not built, and rendering them greyed
+  with a "Soon" chip made the rail read as mostly disabled — so they
+  arrive when their pages do.
+
+  Boosted: htmx fetches the very URL each href already points at, keeps only
+  #main-content out of the whole-page response and swaps it in, and picks this
+  nav out of the same response out-of-band so the active item follows the page.
+  hx-push-url keeps the address bar and the back button honest. Nothing about
+  this needs a view to know it happened. With JavaScript off every link below
+  is still a plain <a href> and the browser navigates normally, which is the
+  path that has to keep working.
+
+  Each link carries an id because the out-of-band swap replaces this whole nav,
+  destroying the very anchor that was activated: htmx puts keyboard focus back
+  on the element with the same id, and without one focus falls to <body> and a
+  keyboard or screen-reader user is dropped at the top of the document.
+{% endcomment %}
+{% load i18n %}
+
+<nav id="app-nav"
+     class="flex flex-1 flex-col"
+     aria-label="{% translate 'Main' %}"
+     hx-boost="true"
+     hx-target="#main-content"
+     hx-select="#main-content"
+     hx-select-oob="#app-nav"
+     hx-swap="outerHTML"
+     hx-push-url="true"
+     hx-indicator="#nav-progress">
+  <ul class="flex flex-col gap-0.5">
+    <li>
+      <a id="nav-dashboard"
+         class="ui-nav-link {% if nav_section == 'dashboard' %}ui-nav-link--active{% endif %}"
+         href="{% url 'dashboard' %}"
+         {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>{% translate "Dashboard" %}</a>
+    </li>
+    <li>
+      <a id="nav-events"
+         class="ui-nav-link {% if nav_section == 'events' %}ui-nav-link--active{% endif %}"
+         href="{% url 'events:list' %}"
+         {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
+    </li>
+    <li>
+      <a id="nav-support"
+         class="ui-nav-link {% if nav_section == 'support' %}ui-nav-link--active{% endif %}"
+         href="{% url 'support:list' %}"
+         {% if nav_section == 'support' %}aria-current="page"{% endif %}>{% translate "Support" %}</a>
+    </li>
+  </ul>
+  <ul class="mt-auto flex flex-col gap-0.5 pt-6">
+    {% if is_ohc_team %}
+      {# Only the Care team sees this, and only they can open it (403 otherwise). #}
+      <li>
+        <a id="nav-ohc-console"
+           class="ui-nav-link flex items-center justify-between gap-2"
+           href="{% url 'ohc:queue' %}"
+           hx-boost="false">
+          {% translate "OHC console" %}
+          <span class="ui-badge ui-badge--info ui-badge--size-xs">{% translate "Internal" %}</span>
+        </a>
+      </li>
+    {% endif %}
+    <li>
+      <a id="nav-settings"
+         class="ui-nav-link {% if nav_section == 'settings' %}ui-nav-link--active{% endif %}"
+         href="{% url 'organisations:detail' %}"
+         {% if nav_section == 'settings' %}aria-current="page"{% endif %}>{% translate "Settings" %}</a>
+    </li>
+    <li>
+      {# Another origin and another tab: ordinary navigation, never boosted. #}
+      <a id="nav-docs"
+         class="ui-nav-link"
+         href="https://docs.ohc.network"
+         target="_blank"
+         rel="noopener noreferrer"
+         hx-boost="false">
+        {% translate "Docs" %} <span aria-hidden="true">↗</span>
+      </a>
+    </li>
+  </ul>
+  {% if request.user.is_authenticated %}
+    <div class="mt-2.5 flex items-center gap-2 border-t border-sidebar-border px-2.5 pt-3">
+      {% if current_organisation %}
+        <span class="ui-avatar ui-avatar--primary size-7 text-[11px]"
+              aria-hidden="true">{{ current_organisation.initials }}</span>
+      {% endif %}
+      <span class="min-w-0 flex-1">
+        {% if current_organisation %}
+          <span class="block truncate text-[12.5px] font-semibold">{{ current_organisation.display_name }}</span>
+        {% endif %}
+        <span class="block truncate text-[11px] text-soft-foreground">{{ request.user.email }}</span>
+      </span>
+      {# Signing out is a state change, so a real POST — never boosted, because #}
+      {# the response is the signed-out shell and has no #app-nav to swap. #}
+      <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+        {% csrf_token %}
+        <button type="submit"
+                class="ui-btn ui-btn--ghost ui-btn--size-icon-xs no-underline"
+                title="{% translate 'Sign out' %}"
+                aria-label="{% translate 'Sign out' %}">
+          <svg viewBox="0 0 24 24"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="1.75"
+               stroke-linecap="round"
+               stroke-linejoin="round"
+               aria-hidden="true">
+            <path d="M15 17l5-5-5-5M20 12H9M12 3H6a1 1 0 00-1 1v16a1 1 0 001 1h6" />
+          </svg>
+        </button>
+      </form>
+    </div>
+  {% endif %}
+</nav>

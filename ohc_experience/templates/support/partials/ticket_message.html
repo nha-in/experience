@@ -1,0 +1,41 @@
+{% comment %}
+  One entry in the thread.
+
+  A recorded status change is not a message anybody wrote, so it draws as a
+  centred muted line rather than a card — the conversation stays a conversation
+  and the state changes read as margin notes between the turns.
+
+  Care's own replies carry the badge and a primary edge, which is the one thing
+  in the thread a vendor scans for.
+
+  `initials` is hung on the message by support.selectors.with_avatar, so a reply
+  swapped in by htmx draws exactly like a reloaded one.
+
+  Context: message, request.
+{% endcomment %}
+{% load i18n %}
+
+{% if message.is_event %}
+  <li class="py-1 text-center text-[12px] text-soft-foreground">
+    {% blocktranslate with who=message.author_label state=message.body when=message.created_at|date:"j M, H:i" %}{{ who }} marked this <strong>{{ state }}</strong> · {{ when }}{% endblocktranslate %}
+  </li>
+{% else %}
+  <li class="ui-card {% if message.from_ohc_team %}border-l-[3px] border-l-primary-500{% endif %}">
+    <div class="ui-card-content">
+      <div class="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="ui-avatar size-[30px] text-[12px] {% if message.from_ohc_team %}ui-avatar--muted{% else %}ui-avatar--primary{% endif %}"
+              aria-hidden="true">{{ message.initials }}</span>
+        <span class="text-[13.5px] font-semibold">{{ message.author_label }}</span>
+        {% if message.from_ohc_team %}
+          <span class="ui-badge ui-badge--primary ui-badge--size-xs">{% translate "Care support" %}</span>
+        {% endif %}
+        <span class="text-[11.5px] text-soft-foreground">
+          {% if message.author_id and message.author_id == request.user.pk %}{% translate "You" %} ·{% endif %}
+          <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
+        </span>
+      </div>
+      {# linebreaks gives one <p> per paragraph; preflight strips their margins, so put the gap back. #}
+      <div class="text-[13.5px] leading-[1.6] break-words [&>p+p]:mt-2.5">{{ message.body|linebreaks }}</div>
+    </div>
+  </li>
+{% endif %}
