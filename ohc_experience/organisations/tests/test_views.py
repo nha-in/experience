@@ -259,7 +259,7 @@ class TestOrganisationDetailView:
         )
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("organisations:detail")
+        assert response["Location"] == reverse("dashboard")
         admin_membership.organisation.refresh_from_db()
         assert admin_membership.organisation.city == "Thiruvananthapuram"
         assert message_texts(response) == ["Organisation profile updated."]
@@ -300,7 +300,7 @@ class TestOrganisationDetailView:
 
         assert response.status_code == HTTPStatus.FORBIDDEN
 
-    def test_an_htmx_save_swaps_the_saved_form_back_in(
+    def test_an_htmx_save_sends_the_client_home(
         self,
         sign_in: Callable[[User], Client],
         admin_membership: Membership,
@@ -310,17 +310,14 @@ class TestOrganisationDetailView:
             data={**PROFILE_DATA, "city": "Thiruvananthapuram"},
             headers={"HX-Request": "true"},
         )
-        html = response.content.decode()
 
+        # Saving is a real navigation home, so htmx is told to redirect rather
+        # than handed the form fragment back.
         assert response.status_code == HTTPStatus.OK
-        assert '<form id="organisation-form"' in html
-        assert "<!DOCTYPE html>" not in html
-        assert "Thiruvananthapuram" in html
-        # The flash rides along out of band into the page's #flash-messages.
-        assert 'hx-swap-oob="innerHTML"' in html
-        assert "Organisation profile updated." in html
+        assert response["HX-Redirect"] == reverse("dashboard")
         admin_membership.organisation.refresh_from_db()
         assert admin_membership.organisation.city == "Thiruvananthapuram"
+        assert message_texts(response) == ["Organisation profile updated."]
 
     def test_an_invalid_htmx_save_swaps_the_errors_in(
         self,

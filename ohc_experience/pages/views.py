@@ -9,6 +9,7 @@ from django.views.generic import TemplateView
 from ohc_experience.events.selectors import dashboard_events
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.organisations.views import OrganisationMixin
+from ohc_experience.users.permissions import is_ohc_team
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -103,6 +104,9 @@ def resolve_post_login_destination(user) -> str:
     No organisation is an odd state (it only happens if a membership was deleted
     out from under them), so send them to the landing page rather than a 403.
     """
+    # OHC team have no organisation; their home is the support console.
+    if is_ohc_team(user):
+        return "ohc:queue"
     membership = get_membership_for(user)
     if membership is None:
         return "home"
