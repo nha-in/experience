@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import base64
 import json
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+from urllib.error import URLError
+from urllib.request import Request
+from urllib.request import urlopen
 
 from django.conf import settings
 
@@ -25,7 +27,7 @@ class CarePluginClient:
 
     def _auth_header(self) -> str:
         token = base64.b64encode(
-            f"{self.username}:{self.password}".encode()
+            f"{self.username}:{self.password}".encode(),
         ).decode()
         return f"Basic {token}"
 

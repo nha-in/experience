@@ -4,7 +4,8 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
-from .care_plugin import CarePluginClient, CarePluginError
+from .care_plugin import CarePluginClient
+from .care_plugin import CarePluginError
 from .models import Sandbox
 
 
@@ -23,7 +24,8 @@ def provision_sandbox(sandbox_id: int) -> None:
 
     try:
         job = CarePluginClient().create_sandbox(
-            sandbox.facility_name, sandbox.is_facility_empty
+            sandbox.facility_name,
+            sandbox.is_facility_empty,
         )
     except CarePluginError as exc:
         _fail(sandbox, str(exc))
@@ -37,7 +39,8 @@ def provision_sandbox(sandbox_id: int) -> None:
     sandbox.job_id = job_id
     sandbox.save(update_fields=["job_id", "modified_at"])
     poll_sandbox.apply_async(
-        (sandbox_id, 0), countdown=settings.CARE_SANDBOX_POLL_INTERVAL
+        (sandbox_id, 0),
+        countdown=settings.CARE_SANDBOX_POLL_INTERVAL,
     )
 
 
@@ -59,7 +62,7 @@ def poll_sandbox(sandbox_id: int, attempt: int) -> None:
         sandbox.status = Sandbox.Status.READY
         sandbox.provisioned_at = timezone.now()
         sandbox.save(
-            update_fields=["result", "status", "provisioned_at", "modified_at"]
+            update_fields=["result", "status", "provisioned_at", "modified_at"],
         )
         return
     if state == "failed":
@@ -70,5 +73,6 @@ def poll_sandbox(sandbox_id: int, attempt: int) -> None:
         _fail(sandbox, "Timed out waiting for the sandbox to be provisioned.")
         return
     poll_sandbox.apply_async(
-        (sandbox_id, attempt + 1), countdown=settings.CARE_SANDBOX_POLL_INTERVAL
+        (sandbox_id, attempt + 1),
+        countdown=settings.CARE_SANDBOX_POLL_INTERVAL,
     )

@@ -30,10 +30,11 @@ from django.views.generic import ListView
 from django.views.generic import UpdateView
 
 from ohc_experience.events.models import Event
-from ohc_experience.organisations.care_plugin import CarePluginClient, CarePluginError
+from ohc_experience.organisations.care_plugin import CarePluginClient
+from ohc_experience.organisations.care_plugin import CarePluginError
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Sandbox
 from ohc_experience.organisations.tasks import provision_sandbox
-from ohc_experience.organisations.models import Organisation
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
@@ -587,8 +588,7 @@ class SandboxProvisionView(OhcConsoleMixin, View):
             provision_sandbox.delay(sandbox.pk)
             messages.success(
                 request,
-                _("Provisioning started for %(org)s.")
-                % {"org": sandbox.organisation},
+                _("Provisioning started for %(org)s.") % {"org": sandbox.organisation},
             )
         else:
             messages.info(

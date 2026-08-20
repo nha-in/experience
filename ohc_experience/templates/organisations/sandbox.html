@@ -1,19 +1,16 @@
 {% extends "layouts/app.html" %}
+
 {% load i18n %}
 
-{% block title %}{% translate "Sandbox" %}{% endblock %}
-
-{% block page_header %}
-<div class="mb-5">
-  <h1 class="ui-page-title">{% translate "Sandbox" %}</h1>
-  <p class="mt-1.5 text-[13.5px] text-muted-foreground">
-    {% translate "Your team's private Care test environment." %}
-  </p>
-</div>
+{% block title %}
+  {% translate "Sandbox" %}
 {% endblock %}
-
+{% block page_header %}
+  <div class="mb-5">
+    <h1 class="ui-page-title">{% translate "Sandbox" %}</h1>
+    <p class="mt-1.5 text-[13.5px] text-muted-foreground">{% translate "Your team's private Care test environment." %}</p>
+  </div>
+{% endblock %}
 {% block content %}
-<div id="sandbox-panel">
-  {% include "organisations/partials/sandbox_status.html" %}
-</div>
+  <div id="sandbox-panel">{% include "organisations/partials/sandbox_status.html" %}</div>
 {% endblock %}
