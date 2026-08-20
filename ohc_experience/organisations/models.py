@@ -382,6 +382,93 @@ class Invitation(models.Model):
         return membership
 
 
+class Sandbox(models.Model):
+    """A vendor team's single Care sandbox, provisioned by the OHC team."""
+
+    class Status(models.TextChoices):
+        REQUESTED = "requested", _("Requested")
+        PROVISIONING = "provisioning", _("Provisioning")
+        READY = "ready", _("Ready")
+        FAILED = "failed", _("Failed")
+
+    organisation = models.OneToOneField(
+        Organisation,
+        on_delete=models.CASCADE,
+        related_name="sandbox",
+        verbose_name=_("Organisation"),
+    )
+    status = models.CharField(
+        _("Status"),
+        max_length=20,
+        choices=Status.choices,
+        default=Status.REQUESTED,
+    )
+    facility_name = models.CharField(_("Facility name"), max_length=255, blank=True)
+    is_facility_empty = models.BooleanField(_("Empty facility"), default=False)
+
+    job_id = models.CharField(_("Plugin job id"), max_length=64, blank=True)
+    result = models.JSONField(_("Result"), default=dict, blank=True)
+    error = models.TextField(_("Error"), blank=True)
+
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="requested_sandboxes",
+    )
+    provisioned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="provisioned_sandboxes",
+    )
+
+    requested_at = models.DateTimeField(auto_now_add=True)
+    provisioned_at = models.DateTimeField(null=True, blank=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Sandbox")
+        verbose_name_plural = _("Sandboxes")
+        ordering = ["-requested_at"]
+
+    def __str__(self) -> str:
+        return f"Sandbox for {self.organisation} ({self.status})"
+
+    @property
+    def is_ready(self) -> bool:
+        return self.status == self.Status.READY
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status in {self.Status.REQUESTED, self.Status.PROVISIONING}
+
+    @property
+    def server(self) -> str:
+        return (self.result or {}).get("server", "")
+
+    @property
+    def facility(self) -> dict:
+        return (self.result or {}).get("facility", {})
+
+    @property
+    def credentials(self) -> list:
+        return (self.result or {}).get("users", [])
+
+    @property
+    def primary_credential(self) -> dict | None:
+        for credential in self.credentials:
+            if credential.get("is_primary"):
+                return credential
+        return self.credentials[0] if self.credentials else None
+
+    @property
+    def loaded_data(self) -> dict:
+        return (self.result or {}).get("loaded_data", {})
+
+
 def initials_for(value: str) -> str:
     """Two-letter initials for avatar chips, matching the mockup's AS/MK/RN chips."""
     cleaned = (value or "").strip()

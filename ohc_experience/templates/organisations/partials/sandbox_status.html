@@ -1,0 +1,150 @@
+{% load i18n %}
+
+<div id="sandbox-status"
+     {% if sandbox and sandbox.is_pending %} hx-get="{% url 'organisations:sandbox-status' %}" hx-trigger="every 4s" hx-swap="outerHTML" {% endif %}>
+  {% if not sandbox %}
+    <section class="ui-card">
+      <div class="ui-card-content">
+        <h2 class="ui-section-title">{% translate "No sandbox yet" %}</h2>
+        <p class="mt-1 text-[13.5px] text-muted-foreground">
+          {% translate "Request a private test facility with sample users and data." %}
+        </p>
+        {% if can_manage %}
+          <form method="post"
+                action="{% url 'organisations:sandbox-request' %}"
+                class="mt-4 flex flex-col gap-3">
+            {% csrf_token %}
+            <label class="flex items-center gap-2 text-[13.5px]">
+              <input type="radio" name="data_scope" value="full" checked />
+              {% translate "Full facility (patients, encounters, lab, inventory, billing)" %}
+            </label>
+            <label class="flex items-center gap-2 text-[13.5px]">
+              <input type="radio" name="data_scope" value="empty" />
+              {% translate "Empty facility (users only)" %}
+            </label>
+            <button type="submit" class="ui-btn ui-btn--default self-start">{% translate "Request sandbox" %}</button>
+          </form>
+        {% else %}
+          <p class="mt-3 text-xs text-soft-foreground">{% translate "Ask an owner or admin to request a sandbox." %}</p>
+        {% endif %}
+      </div>
+    </section>
+  {% elif sandbox.is_pending %}
+    <section class="ui-card">
+      <div class="ui-card-content">
+        <span class="ui-badge ui-badge--info">{{ sandbox.get_status_display }}</span>
+        <p class="mt-2 text-[13.5px] text-muted-foreground">
+          {% translate "Your sandbox is being prepared. This page updates automatically." %}
+        </p>
+      </div>
+    </section>
+  {% elif sandbox.status == "failed" %}
+    <section class="ui-card">
+      <div class="ui-card-content">
+        <span class="ui-badge ui-badge--danger">{% translate "Failed" %}</span>
+        <p class="mt-2 text-[13.5px] text-muted-foreground">
+          {% translate "Provisioning failed. The OHC team can retry it." %}
+        </p>
+        {% if sandbox.error %}
+          <p class="mt-1 text-xs text-soft-foreground">{{ sandbox.error }}</p>
+        {% endif %}
+      </div>
+    </section>
+  {% else %}
+    {% with cred=sandbox.primary_credential f=sandbox.facility %}
+      <div class="flex flex-col gap-3.5">
+        <section class="ui-card">
+          <div class="ui-card-content">
+            <h2 class="ui-section-title">{% translate "Sign-in credentials" %}</h2>
+            <dl class="mt-2 grid grid-cols-1 gap-2 text-[13.5px] sm:grid-cols-2">
+              <div>
+                <dt class="text-soft-foreground">{% translate "Server" %}</dt>
+                <dd class="font-medium break-all">
+                  {{ sandbox.server }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-soft-foreground">{% translate "Username" %}</dt>
+                <dd class="font-medium">
+                  {{ cred.username }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-soft-foreground">{% translate "Password" %}</dt>
+                <dd class="font-mono">
+                  {{ cred.password }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-soft-foreground">{% translate "Role" %}</dt>
+                <dd class="font-medium">
+                  {{ cred.role }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+        <section class="ui-card">
+          <div class="ui-card-content">
+            <h2 class="ui-section-title">{% translate "Test facility" %}</h2>
+            <dl class="mt-2 grid grid-cols-1 gap-2 text-[13.5px] sm:grid-cols-2">
+              <div>
+                <dt class="text-soft-foreground">{% translate "Facility" %}</dt>
+                <dd class="font-medium">
+                  {{ f.name }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-soft-foreground">{% translate "Facility ID" %}</dt>
+                <dd class="font-mono break-all">
+                  {{ f.id }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-soft-foreground">{% translate "Type" %}</dt>
+                <dd class="font-medium">
+                  {{ f.type }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-soft-foreground">{% translate "District" %}</dt>
+                <dd class="font-medium">
+                  {{ f.district }}, {{ f.state }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+        {% if sandbox.loaded_data %}
+          <section class="ui-card">
+            <div class="ui-card-content">
+              <h2 class="ui-section-title">{% translate "Sample data" %}</h2>
+              <ul class="mt-2 grid grid-cols-2 gap-2 text-[13.5px] sm:grid-cols-3">
+                {% for key, value in sandbox.loaded_data.items %}
+                  <li class="flex justify-between border-b border-soft-border py-1.5">
+                    <span class="text-soft-foreground">{{ key|title }}</span>
+                    <span class="font-semibold">{{ value }}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </section>
+        {% endif %}
+        <section class="ui-card">
+          <div class="ui-card-content">
+            <h2 class="ui-section-title">{% translate "All sandbox users" %}</h2>
+            <p class="mt-1 text-xs text-soft-foreground">{% translate "Every user signs in with the password shown above." %}</p>
+            <ul class="mt-2 flex flex-col text-[13.5px]">
+              {% for c in sandbox.credentials %}
+                <li class="flex items-center justify-between border-b border-soft-border py-2">
+                  <span class="font-medium">{{ c.username }}</span>
+                  <span class="text-soft-foreground">{{ c.role }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+      </div>
+    {% endwith %}
+  {% endif %}
+</div>

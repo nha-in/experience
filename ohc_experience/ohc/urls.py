@@ -36,6 +36,17 @@ urlpatterns = [
         name="organisation-verification",
     ),
     path("events/", views.EventListView.as_view(), name="events"),
+    path("sandboxes/", views.SandboxQueueView.as_view(), name="sandboxes"),
+    path(
+        "sandboxes/<int:pk>/provision/",
+        views.SandboxProvisionView.as_view(),
+        name="sandbox-provision",
+    ),
+    path(
+        "sandboxes/<int:pk>/revoke/",
+        views.SandboxRevokeView.as_view(),
+        name="sandbox-revoke",
+    ),
     path("events/new/", views.EventCreateView.as_view(), name="event-create"),
     path(
         "events/<slug:slug>/edit/",

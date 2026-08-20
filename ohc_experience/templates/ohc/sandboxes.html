@@ -1,0 +1,61 @@
+{% extends "layouts/ohc.html" %}
+
+{% load i18n %}
+
+{% block title %}
+  {% translate "Sandboxes" %}
+{% endblock %}
+{% block content %}
+  <h1 class="ui-page-title mb-4">{% translate "Sandbox requests" %}</h1>
+  <div class="ui-card">
+    <div class="ui-card-content">
+      <table class="w-full text-[13.5px]">
+        <thead>
+          <tr class="text-left text-soft-foreground">
+            <th class="py-2">{% translate "Vendor" %}</th>
+            <th>{% translate "Scope" %}</th>
+            <th>{% translate "Status" %}</th>
+            <th>{% translate "Requested" %}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sandboxes %}
+            <tr class="border-t border-soft-border">
+              <td class="py-2 font-medium">{{ s.organisation.display_name }}</td>
+              <td>
+                {% if s.is_facility_empty %}
+                  {% translate "Empty" %}
+                {% else %}
+                  {% translate "Full" %}
+                {% endif %}
+              </td>
+              <td>{{ s.get_status_display }}</td>
+              <td>{{ s.requested_at|date:"j M, H:i" }}</td>
+              <td class="text-right">
+                <div class="flex justify-end gap-2">
+                  {% if s.status == "requested" or s.status == "failed" %}
+                    <form method="post" action="{% url 'ohc:sandbox-provision' s.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="ui-btn ui-btn--default ui-btn--size-sm">{% translate "Provision" %}</button>
+                    </form>
+                  {% endif %}
+                  <form method="post"
+                        action="{% url 'ohc:sandbox-revoke' s.pk %}"
+                        onsubmit="return confirm('{% translate "Revoke this sandbox? The facility and its users will be removed from Care." %}');">
+                    {% csrf_token %}
+                    <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-sm">{% translate "Revoke" %}</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="py-6 text-center text-soft-foreground">{% translate "No sandbox requests yet." %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
