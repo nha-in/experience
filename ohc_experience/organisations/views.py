@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -483,6 +484,11 @@ def send_invitation_email(request: HttpRequest, invitation: Invitation) -> None:
     )
 
 
+def sandbox_frontend_context() -> dict:
+    """The Care app the sandbox is used through, which is not the plugin's API."""
+    return {"sandbox_frontend_url": settings.CARE_SANDBOX_FRONTEND_URL}
+
+
 class SandboxView(OrganisationMixin, TemplateView):
     """Vendor sandbox page — visible to every team member."""
 
@@ -492,6 +498,7 @@ class SandboxView(OrganisationMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context["nav_section"] = "sandbox"
         context["sandbox"] = getattr(self.organisation, "sandbox", None)
+        context.update(sandbox_frontend_context())
         return context
 
 
@@ -503,6 +510,7 @@ class SandboxStatusView(OrganisationMixin, TemplateView):
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         context["sandbox"] = getattr(self.organisation, "sandbox", None)
+        context.update(sandbox_frontend_context())
         return context
 
 

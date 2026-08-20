@@ -1,0 +1,24 @@
+{% comment %}
+  The buttons for one sandbox request, drawn identically by the table row and
+  the stacked card. `s` is the sandbox.
+{% endcomment %}
+{% load i18n %}
+
+{% if s.status == "requested" or s.status == "failed" %}
+  <form method="post" action="{% url 'ohc:sandbox-provision' s.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="ui-btn ui-btn--default ui-btn--size-xs">
+      {% if s.status == "failed" %}
+        {% translate "Retry" %}
+      {% else %}
+        {% translate "Provision" %}
+      {% endif %}
+    </button>
+  </form>
+{% endif %}
+<form method="post"
+      action="{% url 'ohc:sandbox-revoke' s.pk %}"
+      onsubmit="return confirm('{% translate "Revoke this sandbox? The facility and its users will be removed from Care." %}');">
+  {% csrf_token %}
+  <button type="submit" class="ui-btn ui-btn--destructive ui-btn--size-xs">{% translate "Revoke" %}</button>
+</form>
