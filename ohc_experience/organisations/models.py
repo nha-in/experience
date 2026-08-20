@@ -446,6 +446,16 @@ class Sandbox(models.Model):
         return self.status in {self.Status.REQUESTED, self.Status.PROVISIONING}
 
     @property
+    def status_variant(self) -> str:
+        """The badge variant, so every screen agrees on what a status looks like."""
+        return {
+            self.Status.REQUESTED: "neutral",
+            self.Status.PROVISIONING: "info",
+            self.Status.READY: "success",
+            self.Status.FAILED: "destructive",
+        }.get(self.status, "neutral")
+
+    @property
     def server(self) -> str:
         return (self.result or {}).get("server", "")
 
@@ -467,6 +477,15 @@ class Sandbox(models.Model):
     @property
     def loaded_data(self) -> dict:
         return (self.result or {}).get("loaded_data", {})
+
+    @property
+    def loaded_data_counts(self) -> dict:
+        """Readable counts: the plugin also reports flags nobody can act on."""
+        return {
+            key.replace("_", " ").title(): value
+            for key, value in self.loaded_data.items()
+            if not isinstance(value, bool)
+        }
 
 
 def initials_for(value: str) -> str:
