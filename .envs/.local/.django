@@ -12,3 +12,13 @@ REDIS_URL=redis://redis:6379/0
 # Flower
 CELERY_FLOWER_USER=debug
 CELERY_FLOWER_PASSWORD=debug
+
+# Care sandbox plugin
+# ------------------------------------------------------------------------------
+# From inside Docker, the host machine is reachable at host.docker.internal.
+# Run Care with: python manage.py runserver 0.0.0.0:9000
+CARE_SANDBOX_BASE_URL=http://host.docker.internal:9000
+# Set to a real Care superuser's credentials (e.g. the account created by
+# `python manage.py load_fixtures` or your own createsuperuser).
+CARE_SANDBOX_USERNAME=admin
+CARE_SANDBOX_PASSWORD=admin

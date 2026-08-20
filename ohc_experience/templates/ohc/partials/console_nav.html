@@ -37,6 +37,12 @@
          href="{% url 'ohc:events' %}"
          {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
     </li>
+    <li>
+      <a id="ohc-nav-sandboxes"
+         class="ui-subnav-link {% if nav_section == 'sandboxes' %}ui-subnav-link--active{% endif %}"
+         href="{% url 'ohc:sandboxes' %}"
+         {% if nav_section == 'sandboxes' %}aria-current="page"{% endif %}>{% translate "Sandboxes" %}</a>
+    </li>
   </ul>
   <ul class="mt-auto flex flex-col gap-0.5 pt-6">
     <li>

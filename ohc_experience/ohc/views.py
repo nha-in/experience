@@ -28,6 +28,9 @@ from django.views.generic import ListView
 from django.views.generic import UpdateView
 
 from ohc_experience.events.models import Event
+from ohc_experience.organisations.care_plugin import CarePluginClient, CarePluginError
+from ohc_experience.organisations.models import Sandbox
+from ohc_experience.organisations.tasks import provision_sandbox
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
@@ -379,3 +382,68 @@ class EventPublishToggleView(OhcConsoleMixin, View):
             # Only this event's state moved, so only its row comes back.
             return render(request, "ohc/partials/event_swap.html", {"event": event})
         return redirect("ohc:events")
+
+
+# ── Sandboxes ────────────────────────────────────────────────────────────────
+
+
+class SandboxQueueView(OhcConsoleMixin, ListView):
+    """Every vendor's sandbox requests in one list."""
+
+    template_name = "ohc/sandboxes.html"
+    context_object_name = "sandboxes"
+    nav_section = "sandboxes"
+
+    def get_queryset(self):
+        return Sandbox.objects.select_related("organisation", "requested_by")
+
+
+class SandboxProvisionView(OhcConsoleMixin, View):
+    """Kick off (or retry) provisioning for a requested sandbox."""
+
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        sandbox = get_object_or_404(Sandbox, pk=kwargs["pk"])
+        if sandbox.status in {Sandbox.Status.REQUESTED, Sandbox.Status.FAILED}:
+            sandbox.provisioned_by = request.user
+            sandbox.status = Sandbox.Status.PROVISIONING
+            sandbox.error = ""
+            sandbox.save(
+                update_fields=["provisioned_by", "status", "error", "modified_at"],
+            )
+            provision_sandbox.delay(sandbox.pk)
+            messages.success(
+                request,
+                _("Provisioning started for %(org)s.")
+                % {"org": sandbox.organisation},
+            )
+        else:
+            messages.info(
+                request,
+                _("This sandbox is already %(status)s.")
+                % {"status": sandbox.get_status_display()},
+            )
+        return redirect("ohc:sandboxes")
+
+
+class SandboxRevokeView(OhcConsoleMixin, View):
+    """Revoke a sandbox: delete the facility/users in Care, then free the slot."""
+
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        sandbox = get_object_or_404(Sandbox, pk=kwargs["pk"])
+        organisation = sandbox.organisation
+        if sandbox.job_id:
+            try:
+                CarePluginClient().delete_sandbox(sandbox.job_id)
+            except CarePluginError as exc:
+                messages.error(
+                    request,
+                    _("Could not revoke in Care: %(error)s") % {"error": exc},
+                )
+                return redirect("ohc:sandboxes")
+        sandbox.delete()
+        messages.success(
+            request,
+            _("Sandbox revoked for %(org)s. They can request a new one.")
+            % {"org": organisation},
+        )
+        return redirect("ohc:sandboxes")

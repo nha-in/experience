@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import FormView
+from django.views.generic import TemplateView
 from django.views.generic import UpdateView
 from django_htmx.http import HttpResponseClientRedirect
 
@@ -29,6 +30,7 @@ from .models import Invitation
 from .models import Membership
 from .models import Organisation
 from .models import Role
+from .models import Sandbox
 from .selectors import get_membership_for
 
 if TYPE_CHECKING:
@@ -479,3 +481,51 @@ def send_invitation_email(request: HttpRequest, invitation: Invitation) -> None:
         recipient_list=[invitation.email],
         fail_silently=False,
     )
+
+
+class SandboxView(OrganisationMixin, TemplateView):
+    """Vendor sandbox page — visible to every team member."""
+
+    template_name = "organisations/sandbox.html"
+
+    def get_context_data(self, **kwargs) -> dict:
+        context = super().get_context_data(**kwargs)
+        context["nav_section"] = "sandbox"
+        context["sandbox"] = getattr(self.organisation, "sandbox", None)
+        return context
+
+
+class SandboxStatusView(OrganisationMixin, TemplateView):
+    """HTMX-polled status fragment for the sandbox page."""
+
+    template_name = "organisations/partials/sandbox_status.html"
+
+    def get_context_data(self, **kwargs) -> dict:
+        context = super().get_context_data(**kwargs)
+        context["sandbox"] = getattr(self.organisation, "sandbox", None)
+        return context
+
+
+class SandboxRequestView(OrganisationMixin, View):
+    """Managers request the team's single sandbox."""
+
+    require_manage = True
+
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if getattr(self.organisation, "sandbox", None) is not None:
+            messages.info(request, _("Your team already has a sandbox."))
+            return redirect("organisations:sandbox")
+
+        is_empty = request.POST.get("data_scope") == "empty"
+        Sandbox.objects.create(
+            organisation=self.organisation,
+            requested_by=request.user,
+            is_facility_empty=is_empty,
+            facility_name=f"{self.organisation.display_name} Sandbox",
+            status=Sandbox.Status.REQUESTED,
+        )
+        messages.success(
+            request,
+            _("Sandbox requested. The OHC team will provision it shortly."),
+        )
+        return redirect("organisations:sandbox")

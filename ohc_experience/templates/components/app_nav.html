@@ -42,6 +42,12 @@
          {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>{% translate "Dashboard" %}</a>
     </li>
     <li>
+      <a id="nav-sandbox"
+         class="ui-nav-link {% if nav_section == 'sandbox' %}ui-nav-link--active{% endif %}"
+         href="{% url 'organisations:sandbox' %}"
+         {% if nav_section == 'sandbox' %}aria-current="page"{% endif %}>{% translate "Sandbox" %}</a>
+    </li>
+    <li>
       <a id="nav-events"
          class="ui-nav-link {% if nav_section == 'events' %}ui-nav-link--active{% endif %}"
          href="{% url 'events:list' %}"
