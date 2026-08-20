@@ -25,7 +25,7 @@ def provision_sandbox(sandbox_id: int) -> None:
     try:
         job = CarePluginClient().create_sandbox(
             sandbox.facility_name,
-            sandbox.is_facility_empty,
+            is_facility_empty=sandbox.is_facility_empty,
         )
     except CarePluginError as exc:
         _fail(sandbox, str(exc))

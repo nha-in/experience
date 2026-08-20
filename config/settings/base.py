@@ -312,7 +312,8 @@ REDIS_SSL = REDIS_URL.startswith("rediss://")
 # Care sandbox plugin (provisions vendor sandboxes)
 # ------------------------------------------------------------------------------
 CARE_SANDBOX_BASE_URL = env(
-    "CARE_SANDBOX_BASE_URL", default="=http://host.docker.internal:9000"
+    "CARE_SANDBOX_BASE_URL",
+    default="http://host.docker.internal:9000",
 )
 CARE_SANDBOX_USERNAME = env("CARE_SANDBOX_USERNAME", default="admin")
 CARE_SANDBOX_PASSWORD = env("CARE_SANDBOX_PASSWORD", default="admin")

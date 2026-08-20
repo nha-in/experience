@@ -6,6 +6,7 @@ import base64
 import json
 from urllib.error import HTTPError
 from urllib.error import URLError
+from urllib.parse import urlparse
 from urllib.request import Request
 from urllib.request import urlopen
 
@@ -21,6 +22,9 @@ class CarePluginError(Exception):
 class CarePluginClient:
     def __init__(self) -> None:
         self.base_url = settings.CARE_SANDBOX_BASE_URL.rstrip("/")
+        if urlparse(self.base_url).scheme not in {"http", "https"}:
+            msg = "CARE_SANDBOX_BASE_URL must use http or https."
+            raise CarePluginError(msg)
         self.username = settings.CARE_SANDBOX_USERNAME
         self.password = settings.CARE_SANDBOX_PASSWORD
         self.timeout = settings.CARE_SANDBOX_TIMEOUT
@@ -33,12 +37,19 @@ class CarePluginClient:
 
     def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
         data = json.dumps(payload).encode() if payload is not None else None
-        req = Request(f"{self.base_url}{path}", data=data, method=method)
+        req = Request(  # noqa: S310 - base URL scheme is validated in __init__.
+            f"{self.base_url}{path}",
+            data=data,
+            method=method,
+        )
         req.add_header("Authorization", self._auth_header())
         req.add_header("Content-Type", "application/json")
         req.add_header("Accept", "application/json")
         try:
-            with urlopen(req, timeout=self.timeout) as resp:
+            with urlopen(  # noqa: S310 - base URL scheme is validated in __init__.
+                req,
+                timeout=self.timeout,
+            ) as resp:
                 body = resp.read().decode()
         except HTTPError as exc:
             detail = exc.read().decode(errors="replace")
@@ -49,7 +60,7 @@ class CarePluginClient:
             raise CarePluginError(msg) from exc
         return json.loads(body) if body else {}
 
-    def create_sandbox(self, facility_name: str, is_facility_empty: bool) -> dict:
+    def create_sandbox(self, facility_name: str, *, is_facility_empty: bool) -> dict:
         return self._request(
             "POST",
             CREATE_PATH,
