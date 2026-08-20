@@ -121,20 +121,28 @@
     fragment, so a validation-error re-render rewires cleanly.
   {% endcomment %}
   <script>
-    (function () {
+    (function() {
       var form = document.getElementById("organisation-form");
       if (!form) return;
       var buttons = form.querySelectorAll("button[type=submit]");
-      var fields = Array.prototype.filter.call(form.elements, function (el) {
+      var fields = Array.prototype.filter.call(form.elements, function(el) {
         return el.name && el.type !== "hidden" && el.type !== "submit";
       });
-      var initial = fields.map(function (el) { return el.value; });
+      var initial = fields.map(function(el) {
+        return el.value;
+      });
+
       function dirty() {
-        return fields.some(function (el, i) { return el.value !== initial[i]; });
+        return fields.some(function(el, i) {
+          return el.value !== initial[i];
+        });
       }
+
       function sync() {
         var off = !dirty();
-        buttons.forEach(function (b) { b.disabled = off; });
+        buttons.forEach(function(b) {
+          b.disabled = off;
+        });
       }
       form.addEventListener("input", sync);
       form.addEventListener("change", sync);

@@ -1,9 +1,10 @@
 """Forms for the OHC console.
 
-Three of them: the queue's filters, the levers on one ticket, and the event
-editor. None of them writes to a ticket — the console's views hand every state
-change to support.models.post_reply / record_status_change, which is where the
-rules about what a status change means actually live.
+The queue's filters, the levers on one ticket, the organisation list's filters,
+the verification decision, and the event editor. None of them writes state —
+the console's views hand every change to the model that owns what it means:
+support.models.post_reply / record_status_change for a ticket,
+Organisation.set_verification for a vendor.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 
 from ohc_experience.events.models import Event
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
@@ -61,13 +63,27 @@ class TeamMemberChoiceField(forms.ModelChoiceField):
         return obj.display_name
 
 
-class TicketFilterForm(forms.Form):
-    """The queue's three GET filters.
+class GetFilterForm(forms.Form):
+    """Base for the console's list filters, which arrive in the query string.
 
-    Nothing is required and nothing is trusted: the queue is reached by
+    Nothing is required and nothing is trusted: these screens are reached by
     hand-edited and shared URLs, so an unknown value has to degrade to "no
     filter" rather than to an error page.
     """
+
+    def chosen(self, name: str) -> str:
+        """The validated value of one filter, or "" when it did not validate.
+
+        `is_valid()` is called for its side effect: it leaves `cleaned_data`
+        holding every field that passed, so one bad parameter cannot take the
+        other filters down with it.
+        """
+        self.is_valid()
+        return self.cleaned_data.get(name) or ""
+
+
+class TicketFilterForm(GetFilterForm):
+    """The queue's three GET filters."""
 
     status = forms.ChoiceField(label=_("Status"), required=False)
     priority = forms.ChoiceField(label=_("Priority"), required=False)
@@ -86,16 +102,6 @@ class TicketFilterForm(forms.Form):
             (ASSIGNEE_MINE, _("Mine")),
             *[(str(member.pk), member.display_name) for member in team],
         ]
-
-    def chosen(self, name: str) -> str:
-        """The validated value of one filter, or "" when it did not validate.
-
-        `is_valid()` is called for its side effect: it leaves `cleaned_data`
-        holding every field that passed, so one bad parameter cannot take the
-        other two filters down with it.
-        """
-        self.is_valid()
-        return self.cleaned_data.get(name) or ""
 
 
 class TicketControlForm(forms.Form):
@@ -134,6 +140,44 @@ class TicketReplyForm(forms.Form):
                 "placeholder": _("Write your reply…"),
             },
         ),
+    )
+
+
+class OrganisationFilterForm(GetFilterForm):
+    """The organisation list's two GET filters: verification state and a search.
+
+    The list is both a directory and a triage screen, so it does not default to
+    a status the way the queue does — "everyone, undecided first" answers both
+    questions, and the ordering does the triage without hiding anybody.
+    """
+
+    status = forms.ChoiceField(
+        label=_("Verification"),
+        required=False,
+        choices=[
+            ("", _("All vendors")),
+            *Organisation.VerificationStatus.choices,
+        ],
+    )
+    q = forms.CharField(
+        label=_("Search"),
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={"placeholder": _("Vendor name…")}),
+    )
+
+
+class VerificationForm(forms.Form):
+    """Where a vendor's verification stands — the console's one lever on it.
+
+    Not a ModelForm, for the same reason TicketControlForm is not: the write has
+    to go through Organisation.set_verification(), which owns what each state
+    means for `verified_at`.
+    """
+
+    status = forms.ChoiceField(
+        label=_("Verification status"),
+        choices=Organisation.VerificationStatus.choices,
     )
 
 

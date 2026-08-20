@@ -4,11 +4,11 @@
   everything it says about boosting, the out-of-band swap and the per-link ids
   applies here with #ohc-nav in place of #app-nav.
 
-  Two sections only: Queue and Events. Below them, "Vendor view" leaves for the
-  hub, because an OHC staff member usually also belongs to an organisation and
-  needs a way back that is not the browser's history.
+  Three sections: Queue, Organisations and Events. Below them, "Vendor view"
+  leaves for the hub, because an OHC staff member usually also belongs to an
+  organisation and needs a way back that is not the browser's history.
 
-  Context: nav_section — "queue" or "events", set by each view.
+  Context: nav_section — "queue", "organisations" or "events", set by each view.
 
   No-JS contract: every item is a real <a href> and signing out is a real POST.
 {% endcomment %}
@@ -30,6 +30,12 @@
          class="ui-subnav-link {% if nav_section == 'queue' %}ui-subnav-link--active{% endif %}"
          href="{% url 'ohc:queue' %}"
          {% if nav_section == 'queue' %}aria-current="page"{% endif %}>{% translate "Queue" %}</a>
+    </li>
+    <li>
+      <a id="ohc-nav-organisations"
+         class="ui-subnav-link {% if nav_section == 'organisations' %}ui-subnav-link--active{% endif %}"
+         href="{% url 'ohc:organisations' %}"
+         {% if nav_section == 'organisations' %}aria-current="page"{% endif %}>{% translate "Organisations" %}</a>
     </li>
     <li>
       <a id="ohc-nav-events"

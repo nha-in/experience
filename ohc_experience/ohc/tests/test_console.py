@@ -5,7 +5,8 @@ of this module asserts it a second time, deliberately, because it is the
 security boundary of the whole feature and a screen added without
 OhcTeamRequiredMixin should fail loudly in more than one place. The rest of the
 file covers behaviour: the queue spans vendors and filters, a reply moves the
-ticket, a status change lands in the thread, publishing toggles both ways.
+ticket, a status change lands in the thread, a verification decision moves a
+vendor and stamps the date, publishing toggles both ways.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from django.utils import timezone
 
 from ohc_experience.events.models import Event
 from ohc_experience.ohc.views import QUEUE_PAGE_SIZE
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
@@ -35,12 +37,12 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.test import Client
 
-    from ohc_experience.organisations.models import Organisation
     from ohc_experience.users.models import User
 
 pytestmark = pytest.mark.django_db
 
 QUEUE_URL = reverse("ohc:queue")
+ORGANISATIONS_URL = reverse("ohc:organisations")
 EVENTS_URL = reverse("ohc:events")
 EVENT_CREATE_URL = reverse("ohc:event-create")
 
@@ -56,7 +58,12 @@ EVENT_DATA = {
 }
 
 # POST-only routes. Everything else the console publishes is a GET.
-POST_ONLY = {"ohc:ticket-reply", "ohc:ticket-update", "ohc:event-publish"}
+POST_ONLY = {
+    "ohc:ticket-reply",
+    "ohc:ticket-update",
+    "ohc:organisation-verification",
+    "ohc:event-publish",
+}
 
 
 def message_texts(response: HttpResponse) -> list[str]:
@@ -112,6 +119,15 @@ def route_urls(ticket: Ticket, event: Event) -> dict[str, str]:
         "ohc:ticket": reverse("ohc:ticket", args=[ticket.reference]),
         "ohc:ticket-reply": reverse("ohc:ticket-reply", args=[ticket.reference]),
         "ohc:ticket-update": reverse("ohc:ticket-update", args=[ticket.reference]),
+        "ohc:organisations": ORGANISATIONS_URL,
+        "ohc:organisation": reverse(
+            "ohc:organisation",
+            args=[ticket.organisation.slug],
+        ),
+        "ohc:organisation-verification": reverse(
+            "ohc:organisation-verification",
+            args=[ticket.organisation.slug],
+        ),
         "ohc:events": EVENTS_URL,
         "ohc:event-create": EVENT_CREATE_URL,
         "ohc:event-update": reverse("ohc:event-update", args=[event.slug]),
@@ -183,6 +199,9 @@ class TestEveryRouteIsGated:
                 "status": Status.AWAITING_VENDOR,
                 "priority": Priority.HIGH,
                 "assignee": "",
+            },
+            "ohc:organisation-verification": {
+                "status": Organisation.VerificationStatus.VERIFIED,
             },
             "ohc:event-publish": {},
         }
@@ -642,6 +661,320 @@ class TestTriage:
 
         assert ticket.messages.count() == 0
         assert "Nothing on this ticket changed." in message_texts(response)
+
+
+class TestOrganisationRegister:
+    def test_the_list_shows_every_vendor(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        other = OrganisationFactory.create(name="Arogya Systems", onboarded=True)
+
+        response = sign_in(ohc_user).get(ORGANISATIONS_URL)
+
+        listed = {org.pk for org in response.context["organisations"]}
+        assert {onboarded_organisation.pk, other.pk} <= listed
+
+    def test_vendors_awaiting_a_decision_are_listed_first(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+    ):
+        """The one row anyone has to act on, above an alphabet that buries it."""
+        OrganisationFactory.create(
+            name="Arogya Systems",
+            verification_status=Organisation.VerificationStatus.VERIFIED,
+        )
+        waiting = OrganisationFactory.create(name="Zenith Health")
+
+        response = sign_in(ohc_user).get(ORGANISATIONS_URL)
+
+        first = next(iter(response.context["organisations"]))
+
+        assert first.pk == waiting.pk
+
+    def test_it_filters_by_verification_status(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+    ):
+        verified = OrganisationFactory.create(
+            name="Arogya Systems",
+            verification_status=Organisation.VerificationStatus.VERIFIED,
+        )
+        OrganisationFactory.create(name="Zenith Health")
+
+        response = sign_in(ohc_user).get(
+            ORGANISATIONS_URL,
+            {"status": Organisation.VerificationStatus.VERIFIED},
+        )
+
+        assert [org.pk for org in response.context["organisations"]] == [verified.pk]
+
+    def test_the_search_matches_the_legal_name_too(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+    ):
+        """The console knows a vendor by its trading name and by the entity."""
+        arogya = OrganisationFactory.create(
+            name="Arogya Systems",
+            legal_name="Arogya Healthtech Private Limited",
+        )
+        OrganisationFactory.create(name="Zenith Health")
+
+        response = sign_in(ohc_user).get(ORGANISATIONS_URL, {"q": "healthtech"})
+
+        assert [org.pk for org in response.context["organisations"]] == [arogya.pk]
+
+    def test_a_junk_filter_falls_back_instead_of_erroring(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        """These URLs get hand-edited and pasted around."""
+        response = sign_in(ohc_user).get(ORGANISATIONS_URL, {"status": "banana"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert list(response.context["organisations"]) == [onboarded_organisation]
+
+    def test_an_empty_register_does_not_claim_a_filter_hid_anyone(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+    ):
+        response = sign_in(ohc_user).get(ORGANISATIONS_URL)
+        body = response.content.decode()
+
+        assert not response.context["organisations"]
+        assert "No vendors have signed up yet." in body
+
+    def test_a_filter_that_matches_nobody_says_that_instead(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        response = sign_in(ohc_user).get(ORGANISATIONS_URL, {"q": "nobody"})
+        body = response.content.decode()
+
+        assert not response.context["organisations"]
+        assert "No organisations match these filters." in body
+
+    def test_an_htmx_filter_change_returns_only_the_results(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        response = sign_in(ohc_user).get(
+            ORGANISATIONS_URL,
+            {"q": "sunrise"},
+            headers={"HX-Request": "true"},
+        )
+        body = response.content.decode()
+
+        assert 'id="organisation-results"' in body
+        assert 'id="ohc-nav"' not in body
+
+    def test_the_detail_page_shows_the_profile_and_the_roster(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        owner_membership,
+    ):
+        organisation = owner_membership.organisation
+        organisation.legal_name = "Sunrise Healthtech Private Limited"
+        organisation.technical_contact_email = "dev@sunrise.in"
+        organisation.save()
+
+        response = sign_in(ohc_user).get(
+            reverse("ohc:organisation", args=[organisation.slug]),
+        )
+        body = response.content.decode()
+
+        assert "Sunrise Healthtech Private Limited" in body
+        assert "dev@sunrise.in" in body
+        assert "Meera Krishnan" in body
+        assert "Owner" in body
+
+    def test_an_unknown_slug_is_a_404(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+    ):
+        response = sign_in(ohc_user).get(
+            reverse("ohc:organisation", args=["no-such-vendor"]),
+        )
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_a_roster_nobody_joined_says_so(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        response = sign_in(ohc_user).get(
+            reverse("ohc:organisation", args=[onboarded_organisation.slug]),
+        )
+
+        assert "Nobody has joined this organisation yet." in response.content.decode()
+
+
+class TestVerification:
+    def test_verifying_stamps_the_date(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        response = sign_in(ohc_user).post(
+            reverse(
+                "ohc:organisation-verification",
+                args=[onboarded_organisation.slug],
+            ),
+            {"status": Organisation.VerificationStatus.VERIFIED},
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert response.url == reverse(
+            "ohc:organisation",
+            args=[onboarded_organisation.slug],
+        )
+        onboarded_organisation.refresh_from_db()
+        assert onboarded_organisation.is_verified
+        assert onboarded_organisation.verified_at is not None
+        assert "Sunrise Health Systems is now a verified vendor." in message_texts(
+            response,
+        )
+
+    def test_moving_a_vendor_out_of_verified_clears_the_date(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        """A stale "Verified 3 Mar" under a rejected badge is a lie."""
+        onboarded_organisation.set_verification(
+            Organisation.VerificationStatus.VERIFIED,
+        )
+
+        sign_in(ohc_user).post(
+            reverse(
+                "ohc:organisation-verification",
+                args=[onboarded_organisation.slug],
+            ),
+            {"status": Organisation.VerificationStatus.REJECTED},
+        )
+
+        onboarded_organisation.refresh_from_db()
+        assert not onboarded_organisation.is_verified
+        assert onboarded_organisation.verified_at is None
+
+    def test_a_decision_can_go_back_to_pending(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        onboarded_organisation.set_verification(
+            Organisation.VerificationStatus.REJECTED,
+        )
+
+        sign_in(ohc_user).post(
+            reverse(
+                "ohc:organisation-verification",
+                args=[onboarded_organisation.slug],
+            ),
+            {"status": Organisation.VerificationStatus.PENDING},
+        )
+
+        onboarded_organisation.refresh_from_db()
+        assert (
+            onboarded_organisation.verification_status
+            == Organisation.VerificationStatus.PENDING
+        )
+
+    def test_submitting_the_state_it_is_already_in_says_so(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        response = sign_in(ohc_user).post(
+            reverse(
+                "ohc:organisation-verification",
+                args=[onboarded_organisation.slug],
+            ),
+            {"status": Organisation.VerificationStatus.PENDING},
+        )
+
+        assert "That vendor was already in that state." in message_texts(response)
+
+    def test_a_junk_status_moves_nothing(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        response = sign_in(ohc_user).post(
+            reverse(
+                "ohc:organisation-verification",
+                args=[onboarded_organisation.slug],
+            ),
+            {"status": "approved-ish"},
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        onboarded_organisation.refresh_from_db()
+        assert (
+            onboarded_organisation.verification_status
+            == Organisation.VerificationStatus.PENDING
+        )
+
+    def test_an_htmx_decision_swaps_the_register_back(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        onboarded_organisation: Organisation,
+    ):
+        response = sign_in(ohc_user).post(
+            reverse(
+                "ohc:organisation-verification",
+                args=[onboarded_organisation.slug],
+            ),
+            {"status": Organisation.VerificationStatus.VERIFIED},
+            headers={"HX-Request": "true"},
+        )
+        body = response.content.decode()
+
+        assert response.status_code == HTTPStatus.OK
+        assert 'id="organisation-register"' in body
+        # The badge moved in the same swap as the rail.
+        assert "Verified vendor" in body
+
+    def test_the_vendor_sees_the_decision_on_their_own_settings_page(
+        self,
+        sign_in: Callable[[User], Client],
+        ohc_user: User,
+        owner_membership,
+    ):
+        """The whole point of the decision — it is the vendor's badge that moves."""
+        organisation = owner_membership.organisation
+        sign_in(ohc_user).post(
+            reverse("ohc:organisation-verification", args=[organisation.slug]),
+            {"status": Organisation.VerificationStatus.VERIFIED},
+        )
+
+        response = sign_in(owner_membership.user).get(
+            reverse("organisations:detail"),
+        )
+
+        assert "Verified vendor" in response.content.decode()
 
 
 class TestEvents:
