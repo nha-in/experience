@@ -1,18 +1,49 @@
 from __future__ import annotations
 
+import logging
+
 from celery import shared_task
 from django.conf import settings
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from .care_plugin import CarePluginClient
 from .care_plugin import CarePluginError
 from .models import Sandbox
 
+logger = logging.getLogger(__name__)
+
+SANDBOX_EMAIL_CC = ["support@ohc.network"]
+
 
 def _fail(sandbox: Sandbox, message: str) -> None:
     sandbox.error = message
     sandbox.status = Sandbox.Status.FAILED
     sandbox.save(update_fields=["error", "status", "modified_at"])
+
+
+def send_sandbox_credentials_email(sandbox: Sandbox) -> None:
+    """Email the ready sandbox's credentials to whoever requested it."""
+    requester = sandbox.requested_by
+    if requester is None or not requester.email or not sandbox.credentials:
+        return
+    context = {
+        "sandbox": sandbox,
+        "cred": sandbox.primary_credential,
+        "sandbox_frontend_url": settings.CARE_SANDBOX_FRONTEND_URL,
+    }
+    subject = render_to_string(
+        "organisations/email/sandbox_credentials_subject.txt",
+        context,
+    ).strip()
+    body = render_to_string("organisations/email/sandbox_credentials_body.txt", context)
+    EmailMessage(
+        subject=subject,
+        body=body,
+        to=[requester.email],
+        cc=SANDBOX_EMAIL_CC,
+    ).send(fail_silently=False)
 
 
 @shared_task
@@ -64,6 +95,12 @@ def poll_sandbox(sandbox_id: int, attempt: int) -> None:
         sandbox.save(
             update_fields=["result", "status", "provisioned_at", "modified_at"],
         )
+        try:
+            send_sandbox_credentials_email(sandbox)
+        except Exception:
+            # The sandbox is already saved as ready; a mail failure must not
+            # crash the task or misreport its status.
+            logger.exception("Failed to email sandbox %s credentials", sandbox.pk)
         return
     if state == "failed":
         _fail(sandbox, payload.get("error") or "Sandbox creation failed.")
