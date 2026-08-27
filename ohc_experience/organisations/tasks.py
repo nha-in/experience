@@ -37,13 +37,15 @@ def send_sandbox_credentials_email(sandbox: Sandbox) -> None:
         "organisations/email/sandbox_credentials_subject.txt",
         context,
     ).strip()
-    body = render_to_string("organisations/email/sandbox_credentials_body.txt", context)
-    EmailMessage(
+    body = render_to_string("organisations/email/sandbox_credentials_body.html", context)
+    email = EmailMessage(
         subject=subject,
         body=body,
         to=[requester.email],
         cc=SANDBOX_EMAIL_CC,
-    ).send(fail_silently=False)
+    )
+    email.content_subtype = "html"
+    email.send(fail_silently=False)
 
 
 @shared_task
