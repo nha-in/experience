@@ -38,6 +38,12 @@
          {% if nav_section == 'organisations' %}aria-current="page"{% endif %}>{% translate "Organisations" %}</a>
     </li>
     <li>
+      <a id="ohc-nav-applications"
+         class="ui-subnav-link {% if nav_section == 'applications' %}ui-subnav-link--active{% endif %}"
+         href="{% url 'ohc:applications' %}"
+         {% if nav_section == 'applications' %}aria-current="page"{% endif %}>{% translate "Applications" %}</a>
+    </li>
+    <li>
       <a id="ohc-nav-events"
          class="ui-subnav-link {% if nav_section == 'events' %}ui-subnav-link--active{% endif %}"
          href="{% url 'ohc:events' %}"

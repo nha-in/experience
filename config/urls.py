@@ -28,6 +28,10 @@ urlpatterns = [
     # Your stuff: custom urls includes go here
     path("events/", include("ohc_experience.events.urls", namespace="events")),
     path("support/", include("ohc_experience.support.urls", namespace="support")),
+    path(
+        "applications/",
+        include("ohc_experience.experiences.urls", namespace="experiences"),
+    ),
     # ...
     # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),

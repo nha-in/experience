@@ -1,0 +1,36 @@
+{% load i18n %}
+
+<div id="query-header" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  <nav class="mb-3 text-xs text-soft-foreground"
+       aria-label="{% translate 'Breadcrumb' %}">
+    <a class="text-soft-foreground no-underline hover:underline"
+       href="{{ detail_url }}">{{ application.reference }}</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">{% translate "Query" %}</span>
+  </nav>
+  <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div class="min-w-0">
+      <h1 class="text-xl font-bold break-words">{{ thread.subject }}</h1>
+      <p class="mt-1 text-xs text-soft-foreground">
+        {% if thread.submission %}{{ thread.submission.form_key }} · {% endif %}{% blocktranslate with date=thread.created_at|date:"j M Y, H:i" %}Opened {{ date }}{% endblocktranslate %}
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="ui-badge {% if thread.status == 'resolved' %}ui-badge--success{% elif query_needs_attention %}ui-badge--warning{% else %}ui-badge--info{% endif %} ui-badge--size-sm">{{ thread.get_status_display }}</span>
+      {% if can_resolve %}
+        <form method="post"
+              action="{% url 'ohc:application-query-resolve' application.reference thread.pk %}"
+              hx-post="{% url 'ohc:application-query-resolve' application.reference thread.pk %}"
+              hx-target="#query-workspace"
+              hx-swap="outerHTML"
+              hx-disabled-elt="find button[type=submit]"
+              hx-indicator="#nav-progress">
+          {% csrf_token %}
+          <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+                  type="submit"
+                  hx-disabled-elt="this">{% translate "Resolve" %}</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>

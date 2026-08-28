@@ -1,0 +1,55 @@
+{% extends "layouts/app.html" %}
+
+{% load i18n %}
+
+{% block title %}
+  {% blocktranslate with name=definition.name %}Start {{ name }}{% endblocktranslate %}
+{% endblock title %}
+{% block page_header %}
+  <nav class="mb-3 text-xs text-soft-foreground"
+       aria-label="{% translate 'Breadcrumb' %}">
+    <a class="text-soft-foreground no-underline hover:underline"
+       href="{% url 'experiences:list' %}">{% translate "Applications" %}</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">{% translate "Start" %}</span>
+  </nav>
+  <div class="mb-5">
+    <h1 class="ui-page-title">{{ definition.name }}</h1>
+    <p class="ui-page-subtitle max-w-3xl">{{ definition.description }}</p>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,0.7fr)]">
+    <section class="rounded-md border border-border bg-card p-5">
+      <h2 class="text-sm font-semibold">{% translate "Application pack" %}</h2>
+      <ol class="mt-4 divide-y divide-border border-y border-border">
+        {% for form_definition in definition.forms %}
+          <li class="flex items-start gap-3 py-3">
+            <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-[11px] font-semibold tabular-nums">{{ forloop.counter }}</span>
+            <span>
+              <span class="block text-sm font-medium">{{ form_definition.name }}</span>
+              <span class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{{ form_definition.description }}</span>
+            </span>
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
+    <aside class="rounded-md border border-border bg-card p-5">
+      <h2 class="text-sm font-semibold">{% translate "Ready to begin" %}</h2>
+      <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
+        {% translate "A private workspace will be created for your organisation. You can invite collaborators from the workspace and submit only when every required form is complete." %}
+      </p>
+      <form class="mt-5"
+            method="post"
+            action="{{ request.path }}"
+            hx-post="{{ request.path }}"
+            hx-disabled-elt="find button[type=submit]"
+            hx-indicator="#nav-progress">
+        {% csrf_token %}
+        <button class="ui-btn ui-btn--default ui-btn--size-default w-full"
+                type="submit"
+                hx-disabled-elt="this">{% translate "Create workspace" %}</button>
+      </form>
+    </aside>
+  </div>
+{% endblock content %}

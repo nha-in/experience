@@ -1,0 +1,41 @@
+{% load i18n careui %}
+
+<div id="application-action"
+     class="max-w-2xl rounded-md border {% if action_definition.style == 'destructive' %}border-destructive/30{% else %}border-border{% endif %} bg-card p-5">
+  <div class="mb-5 flex items-start justify-between gap-4 border-b border-border pb-4">
+    <div>
+      <p class="text-xs font-semibold uppercase text-soft-foreground">{% translate "Application" %}</p>
+      <p class="mt-1 text-sm font-medium">{{ application.metadata.product_name|default:definition.name }}</p>
+      <p class="mt-0.5 font-mono text-xs text-muted-foreground">{{ application.reference }}</p>
+      {% if form_definition %}<p class="mt-1 text-xs text-soft-foreground">{{ form_definition.name }} · {% blocktranslate with revision=submission.revision %}Revision {{ revision }}{% endblocktranslate %}</p>{% endif %}
+    </div>
+    {% include "experiences/partials/status_badge.html" with status=status_definition %}
+  </div>
+  <form method="post"
+        action="{{ request.path }}"
+        novalidate
+        hx-post="{{ request.path }}"
+        hx-target="#application-action"
+        hx-swap="outerHTML show:window:top"
+        hx-disabled-elt="find button[type=submit]"
+        hx-indicator="#nav-progress">
+    {% csrf_token %}
+    {% if form %}
+      {% include "components/form_errors.html" %}
+      <div class="space-y-4">
+        {% for field in form %}
+          {% ui_field field %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm leading-relaxed text-muted-foreground">{% translate "Confirm this action. It will be recorded in the immutable application activity log." %}</p>
+    {% endif %}
+    <div class="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
+      <button class="ui-btn {% if action_definition.style == 'destructive' %}ui-btn--destructive{% else %}ui-btn--default{% endif %} ui-btn--size-default"
+              type="submit"
+              hx-disabled-elt="this">{{ action_definition.name }}</button>
+      <a class="ui-btn ui-btn--ghost ui-btn--size-default"
+         href="{{ detail_url }}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+</div>

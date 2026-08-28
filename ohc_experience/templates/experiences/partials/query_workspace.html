@@ -1,0 +1,50 @@
+{% load i18n careui %}
+
+<div id="query-workspace"
+     class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_300px]">
+  <div class="min-w-0 space-y-3">
+    <ol class="space-y-3" aria-label="{% translate 'Query conversation' %}">
+      {% for query_message in thread_messages %}
+        <li class="rounded-md border {% if query_message.kind == 'event' %}border-border bg-muted-background{% elif query_message.author.is_ohc_team %}border-primary/20 bg-primary/5{% else %}border-border bg-card{% endif %} p-4">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-xs font-semibold">{% if query_message.author %}{{ query_message.author.display_name }}{% else %}{% translate "System" %}{% endif %}{% if query_message.author.is_ohc_team %}<span class="ml-1 text-[10px] font-medium uppercase text-primary">{% translate "OHC" %}</span>{% endif %}</p>
+            <time class="text-[11px] text-soft-foreground"
+                  datetime="{{ query_message.created_at|date:'c' }}">{{ query_message.created_at|date:"j M Y, H:i" }}</time>
+          </div>
+          <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{{ query_message.body|linebreaksbr }}</p>
+        </li>
+      {% endfor %}
+    </ol>
+    {% if can_reply %}
+      <form class="rounded-md border border-border bg-card p-4"
+            method="post"
+            action="{{ request.path }}"
+            novalidate
+            hx-post="{{ request.path }}"
+            hx-target="#query-workspace"
+            hx-swap="outerHTML"
+            hx-disabled-elt="find button[type=submit]"
+            hx-indicator="#nav-progress">
+        {% csrf_token %}
+        {% include "components/form_errors.html" with form=reply_form %}
+        {% ui_field reply_form.body %}
+        <div class="mt-3">
+          <button class="ui-btn ui-btn--default ui-btn--size-default"
+                  type="submit"
+                  hx-disabled-elt="this">{% translate "Post response" %}</button>
+        </div>
+      </form>
+    {% elif thread.status == 'resolved' %}
+      <div class="rounded-md border border-success/30 bg-success/5 p-4 text-sm text-muted-foreground">{% translate "This query is resolved and the conversation is closed." %}</div>
+    {% endif %}
+  </div>
+  <aside class="rounded-md border border-border bg-card p-4">
+    <h2 class="text-sm font-semibold">{% translate "Query details" %}</h2>
+    <dl class="mt-3 space-y-3 text-xs">
+      <div><dt class="text-soft-foreground">{% translate "Opened by" %}</dt><dd class="mt-0.5 font-medium">{{ thread.opened_by.display_name }}</dd></div>
+      {% if thread.due_at %}<div><dt class="text-soft-foreground">{% translate "Response due" %}</dt><dd class="mt-0.5 font-medium">{{ thread.due_at|date:"j M Y" }}</dd></div>{% endif %}
+      {% if thread.submission %}<div><dt class="text-soft-foreground">{% translate "Related form" %}</dt><dd class="mt-0.5 font-mono">{{ thread.submission.form_key }}</dd></div>{% endif %}
+      <div><dt class="text-soft-foreground">{% translate "Application" %}</dt><dd class="mt-0.5"><a class="font-mono font-medium" href="{{ detail_url }}">{{ application.reference }}</a></dd></div>
+    </dl>
+  </aside>
+</div>

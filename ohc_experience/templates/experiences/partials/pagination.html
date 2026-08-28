@@ -1,0 +1,30 @@
+{% load i18n %}
+
+{% if is_paginated %}
+  <nav class="mt-4 flex items-center justify-between border-t border-border pt-4"
+       aria-label="{% translate 'Pagination' %}">
+    <span class="text-xs text-soft-foreground">
+      {% blocktranslate with number=page_obj.number total=paginator.num_pages %}Page {{ number }} of {{ total }}{% endblocktranslate %}
+    </span>
+    <div class="flex gap-2">
+      {% if page_obj.has_previous %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm"
+           href="?{% if filter_querystring %}{{ filter_querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+           hx-get="?{% if filter_querystring %}{{ filter_querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+           hx-target="#application-results"
+           hx-swap="outerHTML"
+           hx-push-url="true"
+           hx-indicator="#nav-progress">{% translate "Previous" %}</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm"
+           href="?{% if filter_querystring %}{{ filter_querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+           hx-get="?{% if filter_querystring %}{{ filter_querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+           hx-target="#application-results"
+           hx-swap="outerHTML"
+           hx-push-url="true"
+           hx-indicator="#nav-progress">{% translate "Next" %}</a>
+      {% endif %}
+    </div>
+  </nav>
+{% endif %}

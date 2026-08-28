@@ -54,6 +54,12 @@
          {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
     </li>
     <li>
+      <a id="nav-applications"
+         class="ui-nav-link {% if nav_section == 'applications' %}ui-nav-link--active{% endif %}"
+         href="{% url 'experiences:list' %}"
+         {% if nav_section == 'applications' %}aria-current="page"{% endif %}>{% translate "Applications" %}</a>
+    </li>
+    <li>
       <a id="nav-support"
          class="ui-nav-link {% if nav_section == 'support' %}ui-nav-link--active{% endif %}"
          href="{% url 'support:list' %}"

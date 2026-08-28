@@ -1,0 +1,51 @@
+{% load i18n %}
+
+<div id="application-results">
+  {% if applications %}
+    <div class="overflow-hidden rounded-md border border-border bg-card">
+      <div class="hidden grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_120px_110px] gap-4 border-b border-border bg-muted-background px-4 py-2.5 text-[11px] font-semibold uppercase text-soft-foreground md:grid">
+        <span>{% translate "Application" %}</span>
+        <span>{% translate "Product" %}</span>
+        <span>{% translate "Progress" %}</span>
+        <span>{% translate "Status" %}</span>
+      </div>
+      <ol class="divide-y divide-border">
+        {% for application in applications %}
+          <li>
+            <a class="grid gap-3 px-4 py-4 text-foreground no-underline hover:bg-muted-background {% if application.open_query_count %}bg-orange-50/70 dark:bg-orange-950/20{% endif %} md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_120px_110px] md:items-center md:gap-4"
+               href="{% url 'experiences:detail' application.reference %}"
+               hx-get="{% url 'experiences:detail' application.reference %}"
+               hx-target="#main-content"
+               hx-select="#main-content"
+               hx-swap="outerHTML"
+               hx-push-url="true"
+               hx-indicator="#nav-progress">
+              <span class="min-w-0">
+                <span class="flex flex-wrap items-center gap-2">
+                  <span class="truncate text-sm font-semibold">{{ application.definition.name }}</span>
+                  {% if application.open_query_count %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{% blocktranslate count count=application.open_query_count %}{{ count }} pending query{% plural %}{{ count }} pending queries{% endblocktranslate %}</span>{% endif %}
+                </span>
+                <span class="mt-0.5 block font-mono text-[11px] text-soft-foreground">{{ application.reference }} · {{ application.updated_at|date:"j M Y" }}</span>
+              </span>
+              <span class="truncate text-sm text-muted-foreground">{{ application.metadata.product_name|default:"—" }}</span>
+              <span>
+                <span class="mb-1 block text-xs font-medium tabular-nums">{{ application.progress_percent }}%</span>
+                <span class="block h-1.5 overflow-hidden rounded-full bg-muted">
+                  <span class="block h-full bg-primary"
+                        style="width: {{ application.progress_percent }}%"></span>
+                </span>
+              </span>
+              <span>{% include "experiences/partials/status_badge.html" with status=application.status_definition %}</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% include "experiences/partials/pagination.html" %}
+  {% else %}
+    <div class="border-y border-border py-12 text-center">
+      <h2 class="text-base font-semibold">{% translate "No applications found" %}</h2>
+      <p class="mt-1 text-sm text-muted-foreground">{% translate "Start an application or clear the current filters." %}</p>
+    </div>
+  {% endif %}
+</div>

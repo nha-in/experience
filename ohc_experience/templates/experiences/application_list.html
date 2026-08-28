@@ -1,0 +1,74 @@
+{% extends "layouts/app.html" %}
+
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "Applications" %}
+{% endblock title %}
+{% block page_header %}
+  <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <h1 class="ui-page-title">{% translate "Applications" %}</h1>
+      <p class="ui-page-subtitle">{% translate "Complete application packs, answer review queries, and track decisions." %}</p>
+    </div>
+    {% if available_definitions %}
+      <a class="ui-btn ui-btn--default ui-btn--size-default"
+         href="{% url 'experiences:start' available_definitions.0.key %}"
+         hx-get="{% url 'experiences:start' available_definitions.0.key %}"
+         hx-target="#main-content"
+         hx-select="#main-content"
+         hx-swap="outerHTML"
+         hx-push-url="true"
+         hx-indicator="#nav-progress">{% translate "Start application" %}</a>
+    {% endif %}
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <section class="mb-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border lg:grid-cols-4"
+           aria-label="{% translate 'Application summary' %}">
+    <div class="bg-card p-4">
+      <p class="text-xs font-medium text-soft-foreground">{% translate "All" %}</p>
+      <p class="mt-1 text-2xl font-bold tabular-nums">{{ total_count }}</p>
+    </div>
+    <div class="bg-card p-4">
+      <p class="text-xs font-medium text-soft-foreground">{% translate "In review" %}</p>
+      <p class="mt-1 text-2xl font-bold tabular-nums">{{ in_review_count }}</p>
+    </div>
+    <div class="bg-card p-4">
+      <p class="text-xs font-medium text-soft-foreground">{% translate "Pending queries" %}</p>
+      <p class="mt-1 text-2xl font-bold tabular-nums">{{ query_count }}</p>
+    </div>
+    <div class="bg-card p-4">
+      <p class="text-xs font-medium text-soft-foreground">{% translate "Approved" %}</p>
+      <p class="mt-1 text-2xl font-bold tabular-nums">{{ approved_count }}</p>
+    </div>
+  </section>
+  <form class="mb-4 flex flex-wrap items-end gap-2.5"
+        method="get"
+        action="{% url 'experiences:list' %}"
+        hx-get="{% url 'experiences:list' %}"
+        hx-trigger="change, submit"
+        hx-target="#application-results"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        hx-indicator="#nav-progress">
+    <div class="w-full sm:w-[180px]">
+      <label class="sr-only" for="{{ filter_form.status.id_for_label }}">{% translate "Status" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.status "ui-select--sm" %}</div>
+    </div>
+    <div class="w-full sm:w-[220px]">
+      <label class="sr-only" for="{{ filter_form.application_type.id_for_label }}">{% translate "Application type" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.application_type "ui-select--sm" %}</div>
+    </div>
+    <div class="w-full sm:w-[180px]">
+      <label class="sr-only" for="{{ filter_form.query_state.id_for_label }}">{% translate "Query state" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.query_state "ui-select--sm" %}</div>
+    </div>
+    <div class="min-w-[220px] flex-1">
+      <label class="sr-only" for="{{ filter_form.q.id_for_label }}">{% translate "Search" %}</label>
+      {% ui_widget filter_form.q "ui-input--sm" %}
+    </div>
+    <button class="ui-btn ui-btn--outline ui-btn--size-sm" type="submit">{% translate "Filter" %}</button>
+  </form>
+  {% include "experiences/partials/application_results.html" %}
+{% endblock content %}

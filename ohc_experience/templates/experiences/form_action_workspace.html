@@ -1,0 +1,25 @@
+{% extends layout_template %}
+
+{% load i18n %}
+
+{% block title %}
+  {{ action_definition.name }} · {{ application.reference }}
+{% endblock title %}
+{% block page_header %}
+  <nav class="mb-3 text-xs text-soft-foreground"
+       aria-label="{% translate 'Breadcrumb' %}">
+    <a class="text-soft-foreground no-underline hover:underline"
+       href="{{ detail_url }}">{{ application.reference }}</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ form_definition.name }}</span>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">{{ action_definition.name }}</span>
+  </nav>
+  <div class="mb-5">
+    <h1 class="ui-page-title">{{ action_definition.name }}</h1>
+    <p class="ui-page-subtitle max-w-3xl">{{ action_definition.description }}</p>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  {% include "experiences/partials/action_form.html" %}
+{% endblock content %}

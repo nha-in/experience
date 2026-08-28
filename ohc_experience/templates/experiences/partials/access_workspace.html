@@ -1,0 +1,76 @@
+{% load i18n careui %}
+
+<div id="access-workspace"
+     class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_360px]">
+  <section class="rounded-md border border-border bg-card">
+    <div class="border-b border-border px-4 py-3.5">
+      <h2 class="text-sm font-semibold">{% translate "People with access" %}</h2>
+    </div>
+    <ul class="divide-y divide-border">
+      {% for grant in access_grants %}
+        <li class="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium">{{ grant.user.display_name }}</p>
+            <p class="truncate text-xs text-soft-foreground">{{ grant.user.email }}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="ui-badge ui-badge--muted ui-badge--size-xs">{{ grant.role_definition.label|default:grant.role_key }}</span>
+            {% if grant.can_remove %}
+              {% if console %}
+                {% url 'ohc:application-access-remove' application.reference grant.user_id as remove_url %}
+              {% else %}
+                {% url 'experiences:access-remove' application.reference grant.user_id as remove_url %}
+              {% endif %}
+              <form method="post"
+                    action="{{ remove_url }}"
+                    hx-post="{{ remove_url }}"
+                    hx-target="#access-workspace"
+                    hx-swap="outerHTML"
+                    hx-confirm="{% translate 'Remove this application access assignment?' %}"
+                    hx-disabled-elt="find button[type=submit]"
+                    hx-indicator="#nav-progress">
+                {% csrf_token %}
+                <button class="ui-btn ui-btn--ghost ui-btn--size-sm text-destructive"
+                        type="submit"
+                        hx-disabled-elt="this">{% translate "Remove" %}</button>
+              </form>
+            {% endif %}
+          </div>
+          {% if grant.direct_permissions %}<p class="text-[11px] text-soft-foreground sm:basis-full">{% translate "Additional" %}: {{ grant.direct_permissions|join:", " }}</p>{% endif %}
+        </li>
+      {% empty %}
+        <li class="px-4 py-7 text-center text-sm text-muted-foreground">{% translate "No access assignments." %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  <aside class="rounded-md border border-border bg-card p-4">
+    <h2 class="text-sm font-semibold">{% translate "Add or update access" %}</h2>
+    <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{% translate "Selecting a person who already has access updates their assignment." %}</p>
+    <form class="mt-4"
+          method="post"
+          action="{{ request.path }}"
+          novalidate
+          hx-post="{{ request.path }}"
+          hx-target="#access-workspace"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button[type=submit]"
+          hx-indicator="#nav-progress">
+      {% csrf_token %}
+      {% include "components/form_errors.html" %}
+      <div class="space-y-4">
+        {% for field in form %}
+          {% ui_field field %}
+        {% endfor %}
+      </div>
+      <button class="ui-btn ui-btn--default ui-btn--size-default mt-5 w-full"
+              type="submit"
+              hx-disabled-elt="this">{% translate "Save access" %}</button>
+    </form>
+    <div class="mt-5 border-t border-border pt-4">
+      <h3 class="text-xs font-semibold">{% translate "Assignable roles" %}</h3>
+      <ul class="mt-2 space-y-3">
+        {% for role in assignable_roles %}<li><p class="text-xs font-medium">{{ role.label }}</p><p class="mt-0.5 text-[11px] leading-relaxed text-soft-foreground">{{ role.description }}</p></li>{% endfor %}
+      </ul>
+    </div>
+  </aside>
+</div>

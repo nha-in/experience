@@ -1,10 +1,53 @@
 from django.urls import path
 
+from ohc_experience.experiences import views as experience_views
+
 from . import views
 
 app_name = "ohc"
 urlpatterns = [
     path("", views.TicketQueueView.as_view(), name="queue"),
+    path(
+        "applications/",
+        experience_views.AdminApplicationListView.as_view(),
+        name="applications",
+    ),
+    path(
+        "applications/<str:reference>/",
+        experience_views.AdminApplicationDetailView.as_view(),
+        name="application-detail",
+    ),
+    path(
+        "applications/<str:reference>/actions/<str:action_key>/",
+        experience_views.AdminActionWorkspaceView.as_view(),
+        name="application-action",
+    ),
+    path(
+        "applications/<str:reference>/forms/<str:form_key>/actions/"
+        "<str:form_action_key>/",
+        experience_views.AdminFormActionWorkspaceView.as_view(),
+        name="application-form-action",
+    ),
+    path(
+        "applications/<str:reference>/queries/<int:query_pk>/",
+        experience_views.AdminQueryWorkspaceView.as_view(),
+        name="application-query",
+    ),
+    path(
+        "applications/<str:reference>/queries/<int:query_pk>/resolve/",
+        experience_views.AdminResolveQueryView.as_view(),
+        name="application-query-resolve",
+    ),
+    path(
+        "applications/<str:reference>/access/",
+        experience_views.AdminAccessWorkspaceView.as_view(),
+        name="application-access",
+    ),
+    path(
+        "applications/<str:reference>/access/<int:user_pk>/remove/",
+        experience_views.AdminRemoveAccessView.as_view(),
+        name="application-access-remove",
+    ),
     path(
         "tickets/<str:reference>/",
         views.TicketDetailView.as_view(),

@@ -1,0 +1,45 @@
+{% load i18n %}
+
+<div id="application-results">
+  {% if applications %}
+    <div class="overflow-x-auto rounded-md border border-border bg-card">
+      <table class="w-full min-w-[820px] text-left text-sm">
+        <thead class="border-b border-border bg-muted-background text-[11px] uppercase text-soft-foreground">
+          <tr>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Reference" %}</th>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Organisation / product" %}</th>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Submitted" %}</th>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Queries" %}</th>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Status" %}</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+          {% for application in applications %}
+            <tr class="hover:bg-muted-background {% if application.open_query_count %}bg-orange-50/70 dark:bg-orange-950/20{% endif %}">
+              <td class="px-4 py-3.5"><a class="font-mono text-xs font-semibold"
+   href="{% url 'ohc:application-detail' application.reference %}"
+   hx-get="{% url 'ohc:application-detail' application.reference %}"
+   hx-target="#main-content"
+   hx-select="#main-content"
+   hx-swap="outerHTML"
+   hx-push-url="true"
+   hx-indicator="#nav-progress">{{ application.reference }}</a><span class="mt-1 block text-[11px] text-soft-foreground">{{ application.definition.name }}</span></td>
+              <td class="px-4 py-3.5"><span class="block font-medium">{{ application.organisation.display_name }}</span><span class="mt-0.5 block text-xs text-muted-foreground">{{ application.metadata.product_name|default:"Product not named" }}</span></td>
+              <td class="px-4 py-3.5 text-xs text-muted-foreground">{{ application.submitted_at|date:"j M Y, H:i"|default:"Not submitted" }}</td>
+              <td class="px-4 py-3.5"><span class="ui-badge {% if application.open_query_count %}ui-badge--warning{% else %}ui-badge--muted{% endif %} ui-badge--size-xs">{% if application.open_query_count %}{% blocktranslate count count=application.open_query_count %}{{ count }} pending{% plural %}{{ count }} pending{% endblocktranslate %}{% else %}0{% endif %}</span></td>
+              <td class="px-4 py-3.5">
+                {% include "experiences/partials/status_badge.html" with status=application.status_definition %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "experiences/partials/pagination.html" %}
+  {% else %}
+    <div class="border-y border-border py-12 text-center">
+      <h2 class="text-base font-semibold">{% translate "No assigned applications" %}</h2>
+      <p class="mt-1 text-sm text-muted-foreground">{% translate "Applications appear here when a review role is assigned to you." %}</p>
+    </div>
+  {% endif %}
+</div>

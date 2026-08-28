@@ -325,11 +325,17 @@ class TestSignOut:
         nav = html[html.index('<nav id="app-nav"') : html.index("</nav>")]
 
         assert "Soon" not in nav
-        for built in ("Dashboard", "Events", "Support", "Settings"):
+        for built in (
+            "Dashboard",
+            "Sandbox",
+            "Events",
+            "Applications",
+            "Support",
+            "Settings",
+        ):
             assert built in nav
         # Still unbuilt: these arrive with their pages, not as disabled rows.
         for unbuilt in (
-            "Sandbox",
             "Certifications",
             "Deployments",
         ):

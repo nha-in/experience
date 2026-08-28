@@ -1,0 +1,894 @@
+from __future__ import annotations
+
+from http import HTTPStatus
+from typing import Any
+from urllib.parse import urlencode
+
+from django import forms
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
+from django.http import FileResponse
+from django.http import Http404
+from django.shortcuts import get_object_or_404
+from django.shortcuts import redirect
+from django.shortcuts import render
+from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
+from django.views import View
+from django.views.generic import ListView
+from django.views.generic import TemplateView
+from django_htmx.http import HttpResponseClientRedirect
+
+from ohc_experience.organisations.views import OrganisationMixin
+from ohc_experience.users.permissions import OhcTeamRequiredMixin
+
+from . import permission_keys
+from .forms import ApplicationAccessForm
+from .forms import ApplicationFilterForm
+from .forms import QueryReplyForm
+from .models import ApplicationAttachment
+from .models import ApplicationInstance
+from .models import QueryStatus
+from .permissions import get_effective_access
+from .registry import registry
+from .selectors import PENDING_QUERY_STATUSES
+from .selectors import applications_for_user
+from .selectors import filter_applications
+from .services import application_context
+from .services import assignable_roles
+from .services import create_application
+from .services import grant_application_access
+from .services import perform_application_action
+from .services import perform_form_action
+from .services import post_query_reply
+from .services import remove_application_access
+from .services import resolve_query
+from .services import save_form_submission
+
+
+def _status_for(application):
+    return registry.get(application.application_type).get_status(application.status)
+
+
+def _redirect_for_request(request, url: str):
+    if request.htmx:
+        return HttpResponseClientRedirect(url)
+    return redirect(url)
+
+
+def _decorate_applications(applications) -> None:
+    for application in applications:
+        application.definition = registry.get(application.application_type)
+        application.status_definition = application.definition.get_status(
+            application.status,
+        )
+
+
+def _choice_map(choices) -> dict[str, str]:
+    result = {}
+    for value, label in choices:
+        if isinstance(label, (list, tuple)):
+            result.update(_choice_map(label))
+        else:
+            result[str(value)] = str(label)
+    return result
+
+
+def _display_value(field, value) -> str:
+    if value in (None, "", []):
+        return str(_("Not provided"))
+    if isinstance(field, forms.BooleanField):
+        return str(_("Yes")) if value else str(_("No"))
+    choices = _choice_map(field.choices) if getattr(field, "choices", None) else {}
+    if isinstance(value, list):
+        return ", ".join(choices.get(str(item), str(item)) for item in value)
+    if choices:
+        return choices.get(str(value), str(value))
+    if isinstance(value, dict):
+        return str(value.get("name") or value)
+    return str(value)
+
+
+def _outcome_rows(outcome: dict[str, Any]) -> list[dict[str, str]]:
+    rows = []
+    for key, value in outcome.items():
+        if key in {"decision_note", "details"}:
+            continue
+        display_value = (
+            ", ".join(str(item) for item in value)
+            if isinstance(value, list)
+            else str(value)
+        )
+        rows.append(
+            {
+                "label": key.replace("_", " ").title(),
+                "value": display_value,
+            },
+        )
+    return rows
+
+
+def submission_sections(definition, context) -> list[dict[str, Any]]:
+    sections = []
+    for form_definition in definition.forms:
+        submission = context.submissions.get(form_definition.key)
+        if submission is None:
+            continue
+        attachments = {
+            item.field_key: item
+            for item in submission.attachments.filter(is_current=True)
+        }
+        rows = []
+        for field_name, field in form_definition.form_class.base_fields.items():
+            attachment = attachments.get(field_name)
+            rows.append(
+                {
+                    "label": field.label,
+                    "value": _display_value(field, submission.data.get(field_name)),
+                    "attachment": attachment,
+                },
+            )
+        sections.append(
+            {
+                "definition": form_definition,
+                "submission": submission,
+                "rows": rows,
+                "form_action_states": [
+                    state
+                    for state in form_definition.action_states(context)
+                    if state.available or state.outcome_label
+                ],
+            },
+        )
+    return sections
+
+
+class ApplicationObjectMixin:
+    console = False
+
+    def dispatch(self, request, *args, **kwargs):
+        queryset = applications_for_user(request.user)
+        if not self.console:
+            queryset = queryset.filter(organisation=self.organisation)
+        self.application = get_object_or_404(
+            queryset,
+            reference=kwargs["reference"],
+        )
+        self.definition = registry.get(self.application.application_type)
+        self.experience_context = application_context(
+            self.application,
+            request.user,
+        )
+        if not self.experience_context.has_permission(
+            permission_keys.VIEW_APPLICATION,
+        ):
+            raise PermissionDenied(_("You cannot view this application."))
+        return super().dispatch(request, *args, **kwargs)
+
+    def detail_url(self) -> str:
+        name = "ohc:application-detail" if self.console else "experiences:detail"
+        return reverse(name, kwargs={"reference": self.application.reference})
+
+    def common_context(self) -> dict[str, Any]:
+        access = get_effective_access(self.application, self.request.user)
+        permission_rows = [
+            {
+                "definition": permission,
+                "allowed": permission.key in access.permissions,
+            }
+            for permission in self.definition.permissions
+        ]
+        grants = list(self.application.access_grants.select_related("user"))
+        for grant in grants:
+            grant.role_definition = self.definition.get_role(grant.role_key)
+        return {
+            "application": self.application,
+            "definition": self.definition,
+            "experience_context": self.experience_context,
+            "status_definition": self.definition.get_status(self.application.status),
+            "effective_access": access,
+            "permission_rows": permission_rows,
+            "access_grants": grants,
+            "console": self.console,
+            "layout_template": "layouts/ohc.html"
+            if self.console
+            else "layouts/app.html",
+            "nav_section": "applications",
+            "detail_url": self.detail_url(),
+        }
+
+
+class HtmxApplicationListMixin:
+    partial_template_name: str
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        if request.htmx and not request.htmx.boosted:
+            return render(request, self.partial_template_name, response.context_data)
+        return response
+
+
+class VendorApplicationListView(
+    OrganisationMixin,
+    HtmxApplicationListMixin,
+    ListView,
+):
+    template_name = "experiences/application_list.html"
+    partial_template_name = "experiences/partials/application_results.html"
+    context_object_name = "applications"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = applications_for_user(self.request.user).filter(
+            organisation=self.organisation,
+        )
+        self.filter_form = ApplicationFilterForm(self.request.GET)
+        self.filters = self.filter_form.selected()
+        return filter_applications(queryset, self.filters).order_by(
+            "-updated_at",
+            "-pk",
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        applications = list(context["applications"])
+        _decorate_applications(applications)
+        base = ApplicationInstance.objects.visible_to(self.request.user).filter(
+            organisation=self.organisation,
+        )
+        context.update(
+            {
+                "applications": applications,
+                "filter_form": self.filter_form,
+                "filter_querystring": urlencode(self.filters),
+                "nav_section": "applications",
+                "available_definitions": registry.all(),
+                "total_count": base.count(),
+                "in_review_count": base.filter(
+                    status__in=["submitted", "under_review", "revision_submitted"],
+                ).count(),
+                "query_count": base.filter(
+                    query_threads__status__in=PENDING_QUERY_STATUSES,
+                )
+                .distinct()
+                .count(),
+                "approved_count": base.filter(status="approved").count(),
+            },
+        )
+        return context
+
+
+class StartApplicationView(OrganisationMixin, TemplateView):
+    template_name = "experiences/application_start.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.definition = registry.get(kwargs["application_type"])
+        except ImproperlyConfigured as exc:
+            raise Http404 from exc
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "definition": self.definition,
+                "nav_section": "applications",
+            },
+        )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        application = create_application(
+            application_type=self.definition.key,
+            organisation=self.organisation,
+            user=request.user,
+        )
+        messages.success(request, _("Application workspace created."))
+        return _redirect_for_request(
+            request,
+            reverse("experiences:detail", kwargs={"reference": application.reference}),
+        )
+
+
+class ApplicationDetailContextMixin(ApplicationObjectMixin):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        action_states = self.definition.action_states(self.experience_context)
+        form_states = self.definition.form_states(self.experience_context)
+        query_threads = list(
+            self.application.query_threads.select_related(
+                "submission",
+                "opened_by",
+            ),
+        )
+        for thread in query_threads:
+            thread.needs_attention = (
+                self.console and thread.status == QueryStatus.AWAITING_REVIEWER
+            ) or (not self.console and thread.status == QueryStatus.AWAITING_APPLICANT)
+        open_query_count = sum(
+            thread.status in PENDING_QUERY_STATUSES for thread in query_threads
+        )
+        context.update(self.common_context())
+        context.update(
+            {
+                "form_states": [item for item in form_states if item.visible],
+                "available_actions": [item for item in action_states if item.available],
+                "blocked_actions": [
+                    item
+                    for item in action_states
+                    if not item.available
+                    and self.experience_context.has_permission(
+                        item.definition.permission,
+                    )
+                    and (
+                        not item.definition.allowed_statuses
+                        or self.application.status in item.definition.allowed_statuses
+                    )
+                ],
+                "query_threads": query_threads,
+                "open_query_count": open_query_count,
+                "recent_events": self.application.events.select_related("actor")[:12],
+                "outcome_rows": _outcome_rows(self.application.outcome),
+                "submission_sections": submission_sections(
+                    self.definition,
+                    self.experience_context,
+                ),
+                "can_manage_access": bool(
+                    assignable_roles(self.application, self.request.user),
+                ),
+            },
+        )
+        return context
+
+
+class VendorApplicationDetailView(
+    OrganisationMixin,
+    ApplicationDetailContextMixin,
+    TemplateView,
+):
+    template_name = "experiences/application_detail.html"
+
+
+class AdminApplicationDetailView(
+    OhcTeamRequiredMixin,
+    ApplicationDetailContextMixin,
+    TemplateView,
+):
+    template_name = "experiences/admin/application_detail.html"
+    console = True
+
+
+class AdminApplicationListView(
+    OhcTeamRequiredMixin,
+    HtmxApplicationListMixin,
+    ListView,
+):
+    template_name = "experiences/admin/application_list.html"
+    partial_template_name = "experiences/admin/partials/application_results.html"
+    context_object_name = "applications"
+    paginate_by = 30
+
+    def get_queryset(self):
+        self.filter_form = ApplicationFilterForm(self.request.GET)
+        self.filters = self.filter_form.selected()
+        queryset = filter_applications(
+            applications_for_user(self.request.user),
+            self.filters,
+        )
+        return queryset.order_by("-updated_at", "-pk")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        applications = list(context["applications"])
+        _decorate_applications(applications)
+        base = ApplicationInstance.objects.visible_to(self.request.user)
+        context.update(
+            {
+                "applications": applications,
+                "filter_form": self.filter_form,
+                "filter_querystring": urlencode(self.filters),
+                "nav_section": "applications",
+                "assigned_count": base.count(),
+                "waiting_count": base.filter(
+                    status__in=["submitted", "revision_submitted"],
+                ).count(),
+                "review_count": base.filter(status="under_review").count(),
+                "query_count": base.filter(
+                    query_threads__status__in=PENDING_QUERY_STATUSES,
+                )
+                .distinct()
+                .count(),
+                "decided_count": base.filter(
+                    status__in=["approved", "rejected"],
+                ).count(),
+            },
+        )
+        return context
+
+
+class FormWorkspaceMixin(ApplicationObjectMixin):
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        self.form_key = kwargs.get("form_key", "")
+
+    def get_form_definition(self):
+        definition = self.definition.get_form(self.form_key)
+        if definition is None:
+            raise Http404
+        available, reason = definition.availability(self.experience_context)
+        if not available:
+            raise PermissionDenied(reason)
+        return definition
+
+    def render_form(self, form, *, partial=False, status=HTTPStatus.OK):
+        form_definition = self.get_form_definition()
+        context = {
+            **self.common_context(),
+            "form": form,
+            "form_definition": form_definition,
+            "submission": self.experience_context.submissions.get(self.form_key),
+        }
+        return render(
+            self.request,
+            (
+                "experiences/partials/form_submission_form.html"
+                if partial
+                else "experiences/form_workspace.html"
+            ),
+            context,
+            status=status,
+        )
+
+    def get(self, request, *args, **kwargs):
+        definition = self.get_form_definition()
+        form = definition.build_form(context=self.experience_context)
+        return self.render_form(form)
+
+    def post(self, request, *args, **kwargs):
+        definition = self.get_form_definition()
+        form = definition.build_form(
+            context=self.experience_context,
+            data=request.POST,
+            files=request.FILES,
+        )
+        if not form.is_valid():
+            return self.render_form(form, partial=bool(request.htmx))
+        save_form_submission(
+            application=self.application,
+            form_key=self.form_key,
+            form=form,
+            user=request.user,
+        )
+        messages.success(
+            request,
+            _("%(form)s saved.") % {"form": definition.name},
+        )
+        return _redirect_for_request(request, self.detail_url())
+
+
+class VendorFormWorkspaceView(
+    OrganisationMixin,
+    FormWorkspaceMixin,
+    View,
+):
+    pass
+
+
+class ActionWorkspaceMixin(ApplicationObjectMixin):
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        self.action_key = kwargs.get("action_key", "")
+
+    def get_action(self):
+        action = self.definition.get_action(self.action_key)
+        if action is None:
+            raise Http404
+        available, reason = action.availability(self.experience_context)
+        if not available:
+            raise PermissionDenied(reason)
+        return action
+
+    def render_action(self, form, *, partial=False):
+        action = self.get_action()
+        return render(
+            self.request,
+            (
+                "experiences/partials/action_form.html"
+                if partial
+                else "experiences/action_workspace.html"
+            ),
+            {
+                **self.common_context(),
+                "action_definition": action,
+                "form": form,
+            },
+        )
+
+    def get(self, request, *args, **kwargs):
+        action = self.get_action()
+        return self.render_action(
+            action.build_form(context=self.experience_context),
+        )
+
+    def post(self, request, *args, **kwargs):
+        action = self.get_action()
+        form = action.build_form(context=self.experience_context, data=request.POST)
+        if form is not None and not form.is_valid():
+            return self.render_action(form, partial=bool(request.htmx))
+        try:
+            result, _query = perform_application_action(
+                application=self.application,
+                action_key=action.key,
+                user=request.user,
+                cleaned_data=form.cleaned_data if form else {},
+            )
+        except ValidationError as exc:
+            if form is None:
+                form = forms.Form()
+            form.add_error(None, exc)
+            return self.render_action(form, partial=bool(request.htmx))
+        messages.success(request, result.message)
+        return _redirect_for_request(request, self.detail_url())
+
+
+class VendorActionWorkspaceView(
+    OrganisationMixin,
+    ActionWorkspaceMixin,
+    View,
+):
+    pass
+
+
+class AdminActionWorkspaceView(
+    OhcTeamRequiredMixin,
+    ActionWorkspaceMixin,
+    View,
+):
+    console = True
+
+
+class FormActionWorkspaceMixin(ApplicationObjectMixin):
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        self.form_key = kwargs.get("form_key", "")
+        self.form_action_key = kwargs.get("form_action_key", "")
+
+    def get_form_action(self):
+        form_definition = self.definition.get_form(self.form_key)
+        if form_definition is None:
+            raise Http404
+        action = form_definition.get_action(self.form_action_key)
+        if action is None:
+            raise Http404
+        submission = self.experience_context.submissions.get(self.form_key)
+        available, reason = action.availability(
+            self.experience_context,
+            submission,
+        )
+        if not available:
+            raise PermissionDenied(reason)
+        return form_definition, action, submission
+
+    def render_form_action(self, form, *, partial=False):
+        form_definition, action, submission = self.get_form_action()
+        return render(
+            self.request,
+            (
+                "experiences/partials/action_form.html"
+                if partial
+                else "experiences/form_action_workspace.html"
+            ),
+            {
+                **self.common_context(),
+                "form_definition": form_definition,
+                "action_definition": action,
+                "submission": submission,
+                "form": form,
+            },
+        )
+
+    def get(self, request, *args, **kwargs):
+        _form_definition, action, submission = self.get_form_action()
+        return self.render_form_action(
+            action.build_form(
+                context=self.experience_context,
+                submission=submission,
+            ),
+        )
+
+    def post(self, request, *args, **kwargs):
+        _form_definition, action, submission = self.get_form_action()
+        form = action.build_form(
+            context=self.experience_context,
+            submission=submission,
+            data=request.POST,
+        )
+        if form is not None and not form.is_valid():
+            return self.render_form_action(form, partial=bool(request.htmx))
+        try:
+            result = perform_form_action(
+                application=self.application,
+                form_key=self.form_key,
+                action_key=action.key,
+                user=request.user,
+                cleaned_data=form.cleaned_data if form else {},
+            )
+        except ValidationError as exc:
+            if form is None:
+                form = forms.Form()
+            form.add_error(None, exc)
+            return self.render_form_action(form, partial=bool(request.htmx))
+        messages.success(request, result.message)
+        return _redirect_for_request(request, self.detail_url())
+
+
+class VendorFormActionWorkspaceView(
+    OrganisationMixin,
+    FormActionWorkspaceMixin,
+    View,
+):
+    pass
+
+
+class AdminFormActionWorkspaceView(
+    OhcTeamRequiredMixin,
+    FormActionWorkspaceMixin,
+    View,
+):
+    console = True
+
+
+class QueryWorkspaceMixin(ApplicationObjectMixin):
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        self.query_pk = kwargs.get("query_pk")
+
+    def get_thread(self):
+        if not self.experience_context.has_permission(permission_keys.VIEW_QUERIES):
+            raise PermissionDenied(_("You cannot view application queries."))
+        return get_object_or_404(
+            self.application.query_threads.select_related(
+                "opened_by",
+                "assigned_to",
+                "submission",
+            ),
+            pk=self.query_pk,
+        )
+
+    def render_thread(self, reply_form, *, partial=False):
+        thread = self.get_thread()
+        thread_messages = thread.messages.select_related("author")
+        if not self.console:
+            thread_messages = thread_messages.filter(is_internal=False)
+        context = {
+            **self.common_context(),
+            "thread": thread,
+            "thread_messages": thread_messages,
+            "reply_form": reply_form,
+            "can_reply": thread.status != QueryStatus.RESOLVED
+            and (
+                self.experience_context.has_permission(permission_keys.RESPOND_QUERIES)
+                or self.experience_context.has_permission(permission_keys.RAISE_QUERY)
+            ),
+            "can_resolve": self.experience_context.has_permission(
+                permission_keys.RESOLVE_QUERY,
+            )
+            and thread.status != QueryStatus.RESOLVED,
+            "query_needs_attention": (
+                self.console and thread.status == QueryStatus.AWAITING_REVIEWER
+            )
+            or (not self.console and thread.status == QueryStatus.AWAITING_APPLICANT),
+        }
+        return render(
+            self.request,
+            (
+                "experiences/partials/query_workspace_swap.html"
+                if partial
+                else "experiences/query_thread.html"
+            ),
+            context,
+        )
+
+    def get(self, request, *args, **kwargs):
+        return self.render_thread(QueryReplyForm())
+
+    def post(self, request, *args, **kwargs):
+        form = QueryReplyForm(request.POST)
+        if not form.is_valid():
+            return self.render_thread(form, partial=bool(request.htmx))
+        thread = self.get_thread()
+        try:
+            post_query_reply(
+                thread=thread,
+                user=request.user,
+                body=form.cleaned_data["body"],
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc)
+            return self.render_thread(form, partial=bool(request.htmx))
+        messages.success(request, _("Query response posted."))
+        if request.htmx:
+            return self.render_thread(QueryReplyForm(), partial=True)
+        return redirect(request.path)
+
+
+class VendorQueryWorkspaceView(
+    OrganisationMixin,
+    QueryWorkspaceMixin,
+    View,
+):
+    pass
+
+
+class AdminQueryWorkspaceView(
+    OhcTeamRequiredMixin,
+    QueryWorkspaceMixin,
+    View,
+):
+    console = True
+
+
+class AdminResolveQueryView(
+    OhcTeamRequiredMixin,
+    QueryWorkspaceMixin,
+    View,
+):
+    console = True
+
+    def post(self, request, *args, **kwargs):
+        thread = get_object_or_404(
+            self.application.query_threads,
+            pk=kwargs["query_pk"],
+        )
+        resolve_query(thread=thread, user=request.user)
+        messages.success(request, _("Query resolved."))
+        if request.htmx:
+            return self.render_thread(QueryReplyForm(), partial=True)
+        return redirect(
+            "ohc:application-query",
+            reference=self.application.reference,
+            query_pk=thread.pk,
+        )
+
+
+class AccessWorkspaceMixin(ApplicationObjectMixin):
+    def get_form(self, data=None):
+        roles = assignable_roles(self.application, self.request.user)
+        if not roles:
+            raise PermissionDenied(_("You cannot manage access to this application."))
+        return ApplicationAccessForm(
+            data=data,
+            application=self.application,
+            actor=self.request.user,
+        )
+
+    def render_access(self, form, *, partial=False):
+        roles = assignable_roles(self.application, self.request.user)
+        audiences = {role.audience for role in roles}
+        actor_access = get_effective_access(self.application, self.request.user)
+        is_superuser = getattr(self.request.user, "is_superuser", False)
+        grants = []
+        for grant in self.application.access_grants.select_related("user"):
+            role = self.definition.get_role(grant.role_key)
+            if role is None or role.audience not in audiences:
+                continue
+            grant.role_definition = role
+            target_permissions = role.permissions | set(grant.direct_permissions)
+            grant.can_remove = (
+                grant.user_id != self.application.created_by_id
+                and role in roles
+                and (is_superuser or target_permissions <= actor_access.permissions)
+            )
+            grants.append(grant)
+        context = self.common_context()
+        context.update(
+            {
+                "form": form,
+                "assignable_roles": roles,
+                "access_grants": grants,
+            },
+        )
+        return render(
+            self.request,
+            (
+                "experiences/partials/access_workspace_swap.html"
+                if partial
+                else "experiences/access_workspace.html"
+            ),
+            context,
+        )
+
+    def get(self, request, *args, **kwargs):
+        return self.render_access(self.get_form())
+
+    def post(self, request, *args, **kwargs):
+        form = self.get_form(request.POST)
+        if not form.is_valid():
+            return self.render_access(form, partial=bool(request.htmx))
+        grant_application_access(
+            application=self.application,
+            actor=request.user,
+            target_user=form.cleaned_data["user"],
+            role_key=form.cleaned_data["role"],
+            direct_permissions=form.cleaned_data["direct_permissions"],
+        )
+        messages.success(request, _("Application access updated."))
+        if request.htmx:
+            return self.render_access(self.get_form(), partial=True)
+        return redirect(request.path)
+
+
+class VendorAccessWorkspaceView(
+    OrganisationMixin,
+    AccessWorkspaceMixin,
+    View,
+):
+    pass
+
+
+class AdminAccessWorkspaceView(
+    OhcTeamRequiredMixin,
+    AccessWorkspaceMixin,
+    View,
+):
+    console = True
+
+
+class RemoveAccessMixin(AccessWorkspaceMixin):
+    def post(self, request, *args, **kwargs):
+        target_user = get_object_or_404(
+            self.application.access_grants.select_related("user"),
+            user_id=kwargs["user_pk"],
+        ).user
+        remove_application_access(
+            application=self.application,
+            actor=request.user,
+            target_user=target_user,
+        )
+        messages.success(request, _("Application access removed."))
+        if request.htmx:
+            return self.render_access(self.get_form(), partial=True)
+        name = "ohc:application-access" if self.console else "experiences:access"
+        return redirect(name, reference=self.application.reference)
+
+
+class VendorRemoveAccessView(
+    OrganisationMixin,
+    RemoveAccessMixin,
+    View,
+):
+    pass
+
+
+class AdminRemoveAccessView(
+    OhcTeamRequiredMixin,
+    RemoveAccessMixin,
+    View,
+):
+    console = True
+
+
+class AttachmentDownloadView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        application = get_object_or_404(
+            ApplicationInstance.objects.visible_to(request.user),
+            reference=kwargs["reference"],
+        )
+        context = application_context(application, request.user)
+        if not context.has_permission(permission_keys.VIEW_APPLICATION):
+            raise PermissionDenied(_("You cannot download this attachment."))
+        attachment = get_object_or_404(
+            ApplicationAttachment.objects.select_related("submission"),
+            pk=kwargs["attachment_pk"],
+            submission__application=application,
+        )
+        return FileResponse(
+            attachment.file.open("rb"),
+            as_attachment=True,
+            filename=attachment.original_name,
+            content_type=attachment.content_type or "application/octet-stream",
+        )

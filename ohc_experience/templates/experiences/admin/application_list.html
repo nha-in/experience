@@ -1,0 +1,51 @@
+{% extends "layouts/ohc.html" %}
+
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "Application review" %} · {% translate "OHC Console" %}
+{% endblock title %}
+{% block page_header %}
+  <div class="mb-5">
+    <h1 class="ui-page-title">{% translate "Application review" %}</h1>
+    <p class="ui-page-subtitle">{% translate "Applications assigned to you for review, queries, and final decisions." %}</p>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <section class="mb-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border lg:grid-cols-5"
+           aria-label="{% translate 'Review summary' %}">
+    <div class="bg-card p-4"><p class="text-xs text-soft-foreground">{% translate "Assigned" %}</p><p class="mt-1 text-2xl font-bold tabular-nums">{{ assigned_count }}</p></div>
+    <div class="bg-card p-4"><p class="text-xs text-soft-foreground">{% translate "Waiting" %}</p><p class="mt-1 text-2xl font-bold tabular-nums">{{ waiting_count }}</p></div>
+    <div class="bg-card p-4"><p class="text-xs text-soft-foreground">{% translate "In review" %}</p><p class="mt-1 text-2xl font-bold tabular-nums">{{ review_count }}</p></div>
+    <div class="bg-card p-4"><p class="text-xs text-soft-foreground">{% translate "Pending queries" %}</p><p class="mt-1 text-2xl font-bold tabular-nums">{{ query_count }}</p></div>
+    <div class="col-span-2 bg-card p-4 lg:col-span-1"><p class="text-xs text-soft-foreground">{% translate "Decided" %}</p><p class="mt-1 text-2xl font-bold tabular-nums">{{ decided_count }}</p></div>
+  </section>
+  <form class="mb-4 flex flex-wrap items-end gap-2.5"
+        method="get"
+        action="{% url 'ohc:applications' %}"
+        hx-get="{% url 'ohc:applications' %}"
+        hx-trigger="change, submit"
+        hx-target="#application-results"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        hx-indicator="#nav-progress">
+    <div class="w-full sm:w-[180px]">
+      <label class="sr-only" for="{{ filter_form.status.id_for_label }}">{% translate "Status" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.status "ui-select--sm" %}</div>
+    </div>
+    <div class="w-full sm:w-[220px]">
+      <label class="sr-only" for="{{ filter_form.application_type.id_for_label }}">{% translate "Application type" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.application_type "ui-select--sm" %}</div>
+    </div>
+    <div class="w-full sm:w-[180px]">
+      <label class="sr-only" for="{{ filter_form.query_state.id_for_label }}">{% translate "Query state" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.query_state "ui-select--sm" %}</div>
+    </div>
+    <div class="min-w-[220px] flex-1">
+      <label class="sr-only" for="{{ filter_form.q.id_for_label }}">{% translate "Search" %}</label>
+      {% ui_widget filter_form.q "ui-input--sm" %}
+    </div>
+    <button class="ui-btn ui-btn--outline ui-btn--size-sm" type="submit">{% translate "Filter" %}</button>
+  </form>
+  {% include "experiences/admin/partials/application_results.html" %}
+{% endblock content %}
