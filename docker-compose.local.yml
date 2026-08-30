@@ -21,7 +21,6 @@ services:
       minio-create-bucket:
         condition: service_completed_successfully
     volumes:
-      - /app/.venv
       - .:/app:z
     env_file:
       - ./.envs/.local/.django

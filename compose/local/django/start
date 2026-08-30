@@ -5,7 +5,5 @@ set -o pipefail
 set -o nounset
 
 
-PYTHON_BIN=/usr/local/bin/python
-
-"${PYTHON_BIN}" manage.py migrate
-exec "${PYTHON_BIN}" manage.py runserver_plus 0.0.0.0:8000
+python manage.py migrate
+exec python manage.py runserver_plus 0.0.0.0:8000
