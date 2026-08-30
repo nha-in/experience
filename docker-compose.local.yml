@@ -2,6 +2,7 @@ volumes:
   ohc_experience_local_postgres_data: {}
   ohc_experience_local_postgres_data_backups: {}
   ohc_experience_local_redis_data: {}
+  ohc_experience_local_minio_data: {}
 
 services:
   django: &django
@@ -11,9 +12,14 @@ services:
     image: ohc_experience_local_django
     container_name: ohc_experience_local_django
     depends_on:
-      - postgres
-      - redis
-      - mailtrap-local
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      mailtrap-local:
+        condition: service_started
+      minio-create-bucket:
+        condition: service_completed_successfully
     volumes:
       - /app/.venv
       - .:/app:z
@@ -52,6 +58,33 @@ services:
     container_name: ohc_experience_local_redis
     volumes:
       - ohc_experience_local_redis_data:/data
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: ohc_experience_local_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ohc-local
+      MINIO_ROOT_PASSWORD: ohc-local-development-key
+    volumes:
+      - ohc_experience_local_minio_data:/data
+    ports:
+      - "9200:9000"
+      - "9201:9001"
+
+  minio-create-bucket:
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ohc-local
+      MINIO_ROOT_PASSWORD: ohc-local-development-key
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do sleep 1; done;
+      /usr/bin/mc mb --ignore-existing local/ohc-experience-media;
+      /usr/bin/mc anonymous set none local/ohc-experience-media;
+      "
 
   celeryworker:
     <<: *django

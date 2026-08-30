@@ -13,6 +13,7 @@
       hx-disabled-elt="find button[type=submit]"
       hx-indicator="#nav-progress">
   {% csrf_token %}
+  <input type="hidden" name="submission_mode" value="{{ submission_mode }}" />
   {% include "components/form_errors.html" %}
   <div class="space-y-4">
     {% for field in form %}
@@ -23,7 +24,9 @@
     <button class="ui-btn ui-btn--default ui-btn--size-default"
             type="submit"
             hx-disabled-elt="this">
-      {% if submission %}
+      {% if submission_mode == "renew" %}
+        {% translate "Submit new submission" %}
+      {% elif submission_mode == "edit" and submission %}
         {% translate "Save new revision" %}
       {% else %}
         {% translate "Complete form" %}

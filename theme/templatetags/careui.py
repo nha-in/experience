@@ -23,6 +23,7 @@ _CONTROL_CLASSES: list[tuple[type, str]] = [
     (forms.CheckboxInput, "ui-checkbox"),
     (forms.CheckboxSelectMultiple, ""),
     (forms.RadioSelect, ""),
+    (forms.FileInput, "sr-only"),
     (forms.Textarea, "ui-textarea"),
     (forms.SelectMultiple, "ui-select"),
     (forms.Select, "ui-select"),
@@ -75,8 +76,9 @@ def is_select(field: BoundField) -> bool:
     return isinstance(field.field.widget, _SELECT_WIDGETS)
 
 
-@register.inclusion_tag("components/form_field.html")
-def ui_field(
+@register.inclusion_tag("components/form_field.html", takes_context=True)
+def ui_field(  # noqa: PLR0913, PLR0917
+    context,
     field: BoundField,
     label: str = "",
     placeholder: str = "",
@@ -91,6 +93,12 @@ def ui_field(
     """
     if placeholder:
         field.field.widget.attrs["placeholder"] = placeholder
+    is_file = isinstance(field.field.widget, forms.FileInput)
+    is_multiple_file = bool(
+        is_file
+        and getattr(field.field.widget, "allow_multiple_selected", False),
+    )
+    form = field.form
     return {
         "field": _style(field, extra_class),
         "label": label or field.label,
@@ -99,6 +107,17 @@ def ui_field(
         # exceptions instead, which is both closer to the design and the clearer
         # convention.
         "is_optional": not field.field.required,
+        "is_file": is_file,
+        "is_multiple_file": is_multiple_file,
+        "existing_files": getattr(form, "existing_files", {}).get(field.name, []),
+        "removed_file_ids": getattr(form, "removed_file_ids", {}).get(
+            field.name,
+            set(),
+        ),
+        "max_files": getattr(field.field, "max_files", None)
+        if is_multiple_file
+        else 1,
+        "accepted_types": field.field.widget.attrs.get("accept", ""),
     }
 
 

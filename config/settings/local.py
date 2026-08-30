@@ -71,5 +71,42 @@ INSTALLED_APPS += ["django_extensions"]
 
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#task-eager-propagates
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# MinIO-backed private media storage
+# ------------------------------------------------------------------------------
+AWS_ACCESS_KEY_ID = env("DJANGO_AWS_ACCESS_KEY_ID", default="ohc-local")
+AWS_SECRET_ACCESS_KEY = env(
+    "DJANGO_AWS_SECRET_ACCESS_KEY",
+    default="ohc-local-development-key",
+)
+AWS_STORAGE_BUCKET_NAME = env(
+    "DJANGO_AWS_STORAGE_BUCKET_NAME",
+    default="ohc-experience-media",
+)
+AWS_S3_ENDPOINT_URL = env(
+    "DJANGO_AWS_S3_ENDPOINT_URL",
+    default="http://minio:9000",
+)
+AWS_S3_REGION_NAME = env("DJANGO_AWS_S3_REGION_NAME", default="us-east-1")
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "endpoint_url": AWS_S3_ENDPOINT_URL,
+            "region_name": AWS_S3_REGION_NAME,
+            "addressing_style": "path",
+            "default_acl": None,
+            "file_overwrite": False,
+            "location": "media",
+            "querystring_auth": True,
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 # Your stuff...
 # ------------------------------------------------------------------------------

@@ -77,12 +77,21 @@ def _choice_map(choices) -> dict[str, str]:
     return result
 
 
-def _display_value(field, value) -> str:
+def _display_historical_value(field, schema, value) -> str:
     if value in (None, "", []):
         return str(_("Not provided"))
-    if isinstance(field, forms.BooleanField):
+    choices = {
+        str(item.get("value")): str(item.get("label"))
+        for item in schema.get("choices", [])
+        if isinstance(item, dict)
+    }
+    if not choices and field is not None and getattr(field, "choices", None):
+        choices = _choice_map(field.choices)
+    if schema.get("type") == "BooleanField" or isinstance(
+        field,
+        forms.BooleanField,
+    ):
         return str(_("Yes")) if value else str(_("No"))
-    choices = _choice_map(field.choices) if getattr(field, "choices", None) else {}
     if isinstance(value, list):
         return ", ".join(choices.get(str(item), str(item)) for item in value)
     if choices:
@@ -111,31 +120,85 @@ def _outcome_rows(outcome: dict[str, Any]) -> list[dict[str, str]]:
     return rows
 
 
+def _submission_rows(form_definition, submission) -> list[dict[str, Any]]:
+    attachments = {}
+    for attachment in submission.attachments.filter(is_current=True):
+        attachments.setdefault(attachment.field_key, []).append(attachment)
+    current_fields = form_definition.form_class.base_fields
+    schema = submission.field_schema or [
+        {
+            "key": field_name,
+            "label": str(field.label or field_name.replace("_", " ").title()),
+            "type": field.__class__.__name__,
+            "choices": [],
+        }
+        for field_name, field in current_fields.items()
+    ]
+    rows = []
+    rendered_keys = set()
+    for item in schema:
+        if not isinstance(item, dict) or not item.get("key"):
+            continue
+        field_name = str(item["key"])
+        rendered_keys.add(field_name)
+        field = current_fields.get(field_name)
+        rows.append(
+            {
+                "label": item.get("label")
+                or field_name.replace("_", " ").title(),
+                "value": _display_historical_value(
+                    field,
+                    item,
+                    submission.data.get(field_name),
+                ),
+                "attachments": attachments.get(field_name, []),
+            },
+        )
+    remaining_keys = [
+        key
+        for key in [*submission.data, *attachments]
+        if key not in rendered_keys
+    ]
+    for field_name in dict.fromkeys(remaining_keys):
+        field = current_fields.get(field_name)
+        rows.append(
+            {
+                "label": str(
+                    field.label
+                    if field and field.label
+                    else field_name.replace("_", " ").title(),
+                ),
+                "value": _display_historical_value(
+                    field,
+                    {},
+                    submission.data.get(field_name),
+                ),
+                "attachments": attachments.get(field_name, []),
+            },
+        )
+    return rows
+
+
 def submission_sections(definition, context) -> list[dict[str, Any]]:
     sections = []
     for form_definition in definition.forms:
         submission = context.submissions.get(form_definition.key)
         if submission is None:
             continue
-        attachments = {
-            item.field_key: item
-            for item in submission.attachments.filter(is_current=True)
-        }
-        rows = []
-        for field_name, field in form_definition.form_class.base_fields.items():
-            attachment = attachments.get(field_name)
-            rows.append(
-                {
-                    "label": field.label,
-                    "value": _display_value(field, submission.data.get(field_name)),
-                    "attachment": attachment,
-                },
-            )
+        history = [
+            {
+                "submission": historical_submission,
+                "rows": _submission_rows(form_definition, historical_submission),
+            }
+            for historical_submission in context.form_history(form_definition.key)
+            if historical_submission.pk != submission.pk
+        ]
         sections.append(
             {
                 "definition": form_definition,
                 "submission": submission,
-                "rows": rows,
+                "rows": _submission_rows(form_definition, submission),
+                "history": history,
                 "form_action_states": [
                     state
                     for state in form_definition.action_states(context)
@@ -415,22 +478,68 @@ class FormWorkspaceMixin(ApplicationObjectMixin):
         super().setup(request, *args, **kwargs)
         self.form_key = kwargs.get("form_key", "")
 
-    def get_form_definition(self):
+    def get_form_definition(self, *, require_edit=False):
         definition = self.definition.get_form(self.form_key)
         if definition is None:
             raise Http404
-        available, reason = definition.availability(self.experience_context)
-        if not available:
-            raise PermissionDenied(reason)
+        submission = self.experience_context.submissions.get(self.form_key)
+        if require_edit:
+            available, reason = definition.availability(self.experience_context)
+            if not available:
+                raise PermissionDenied(reason)
+        elif submission is None and not definition.is_visible(
+            self.experience_context,
+        ):
+            raise PermissionDenied(_("Complete the preceding forms first."))
         return definition
+
+    def get_submission_mode(self, form_definition=None):
+        form_definition = form_definition or self.get_form_definition()
+        submission = self.experience_context.submissions.get(self.form_key)
+        if submission is None:
+            return "create"
+        if not form_definition.repeatable:
+            return "edit"
+        requested_mode = self.request.POST.get(
+            "submission_mode",
+            self.request.GET.get("mode", "renew"),
+        )
+        if requested_mode not in {"edit", "renew"}:
+            raise Http404
+        if requested_mode == "edit" and not form_definition.allow_updates:
+            raise PermissionDenied(
+                _("This submission is locked after it is completed."),
+            )
+        return requested_mode
 
     def render_form(self, form, *, partial=False, status=HTTPStatus.OK):
         form_definition = self.get_form_definition()
+        submission_mode = self.get_submission_mode(form_definition)
+        submission = self.experience_context.submissions.get(self.form_key)
+        history = self.experience_context.form_history(self.form_key)
+        can_submit, read_only_reason = form_definition.availability(
+            self.experience_context,
+        )
         context = {
             **self.common_context(),
             "form": form,
             "form_definition": form_definition,
-            "submission": self.experience_context.submissions.get(self.form_key),
+            "submission": submission,
+            "submission_mode": submission_mode,
+            "can_submit": can_submit,
+            "read_only_reason": read_only_reason,
+            "current_submission_rows": (
+                _submission_rows(form_definition, submission) if submission else []
+            ),
+            "submission_history": history,
+            "submission_history_sections": [
+                {
+                    "submission": historical,
+                    "rows": _submission_rows(form_definition, historical),
+                }
+                for historical in history
+                if submission is None or historical.pk != submission.pk
+            ],
         }
         return render(
             self.request,
@@ -445,15 +554,26 @@ class FormWorkspaceMixin(ApplicationObjectMixin):
 
     def get(self, request, *args, **kwargs):
         definition = self.get_form_definition()
-        form = definition.build_form(context=self.experience_context)
+        submission_mode = self.get_submission_mode(definition)
+        can_submit, _reason = definition.availability(self.experience_context)
+        form = (
+            definition.build_form(
+                context=self.experience_context,
+                submission_mode=submission_mode,
+            )
+            if can_submit
+            else None
+        )
         return self.render_form(form)
 
     def post(self, request, *args, **kwargs):
-        definition = self.get_form_definition()
+        definition = self.get_form_definition(require_edit=True)
+        submission_mode = self.get_submission_mode(definition)
         form = definition.build_form(
             context=self.experience_context,
             data=request.POST,
             files=request.FILES,
+            submission_mode=submission_mode,
         )
         if not form.is_valid():
             return self.render_form(form, partial=bool(request.htmx))
@@ -462,6 +582,7 @@ class FormWorkspaceMixin(ApplicationObjectMixin):
             form_key=self.form_key,
             form=form,
             user=request.user,
+            submission_mode=submission_mode,
         )
         messages.success(
             request,

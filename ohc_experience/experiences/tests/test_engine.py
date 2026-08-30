@@ -4,7 +4,9 @@ from datetime import timedelta
 
 import pytest
 from django.core.exceptions import PermissionDenied
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
+from django.utils.datastructures import MultiValueDict
 
 from ohc_experience.experiences import permission_keys
 from ohc_experience.experiences.models import ApplicationAccess
@@ -21,6 +23,8 @@ from ohc_experience.experiences.services import perform_form_action
 from ohc_experience.experiences.services import post_query_reply
 from ohc_experience.experiences.services import recalculate_progress
 from ohc_experience.experiences.services import resolve_query
+from ohc_experience.experiences.services import save_form_submission
+from ohc_experience.experiences.views import _submission_rows
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import OrganisationFactory
@@ -29,11 +33,20 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 APPLICATION_TYPE = "abdm_production_access"
-FORM_COUNT = 8
-BASE_REQUIRED_FORM_COUNT = 7
+FORM_COUNT = 9
+BASE_REQUIRED_FORM_COUNT = 8
 SCOPED_COMPLETED_FORM_COUNT = 3
-SCOPED_PROGRESS_PERCENT = 38
-BASE_PROGRESS_PERCENT = 43
+SCOPED_PROGRESS_PERCENT = 33
+BASE_PROGRESS_PERCENT = 38
+MULTI_FILE_COUNT = 2
+RENEWED_SUBMISSION_NUMBER = 2
+EDITED_REVISION_NUMBER = 2
+EDITED_VERSION_COUNT = 2
+RENEWAL_HISTORY_VERSION_COUNT = 3
+TOTAL_MULTI_FILE_COUNT = 4
+MAX_CERTIFICATE_FILES = 5
+APPENDED_CERTIFICATE_FILE_COUNT = 3
+RETAINED_SUPPORTING_FILE_COUNT = 1
 
 
 @pytest.fixture
@@ -292,6 +305,302 @@ def test_completed_form_update_policy_is_declared_per_form(application, actors):
     assert profile_available is True
     assert declaration_available is False
     assert "locked" in str(declaration_reason).lower()
+
+
+def test_editable_form_saves_immutable_revisions(application, actors):
+    organisation, owner, _contributor, _reviewer = actors
+    form_definition = registry.get(APPLICATION_TYPE).get_form(
+        "organisation_profile",
+    )
+    first_data = {
+        "legal_entity_name": "Original Health Private Limited",
+        "organisation_type": "company",
+        "registration_number": "U12345KA2024PTC123456",
+        "registered_address": "1 Original Road",
+        "city": "Bengaluru",
+        "state": "Karnataka",
+        "pincode": "560001",
+        "website": "https://original.example.in",
+        "authorised_contact_name": owner.display_name,
+        "authorised_contact_email": owner.email,
+        "authorised_contact_phone": "+91 90000 00000",
+    }
+    first_form = form_definition.build_form(
+        context=application_context(application, owner),
+        data=first_data,
+    )
+    assert first_form.is_valid(), first_form.errors
+    first = save_form_submission(
+        application=application,
+        form_key=form_definition.key,
+        form=first_form,
+        user=owner,
+    )
+    first.field_schema[0]["label"] = "Historic registered name"
+    first.save(update_fields=["field_schema"])
+
+    updated_data = {**first_data, "legal_entity_name": organisation.display_name}
+    updated_form = form_definition.build_form(
+        context=application_context(application, owner),
+        data=updated_data,
+        submission_mode="edit",
+    )
+    assert updated_form.is_valid(), updated_form.errors
+    updated = save_form_submission(
+        application=application,
+        form_key=form_definition.key,
+        form=updated_form,
+        user=owner,
+        submission_mode="edit",
+    )
+    first.refresh_from_db()
+
+    assert first.is_current is False
+    assert first.data["legal_entity_name"] == "Original Health Private Limited"
+    assert updated.is_current is True
+    assert updated.submission_number == first.submission_number
+    assert updated.revision == EDITED_REVISION_NUMBER
+    assert (
+        application.submissions.filter(form_key=form_definition.key).count()
+        == EDITED_VERSION_COUNT
+    )
+    historical_rows = _submission_rows(form_definition, first)
+    assert historical_rows[0]["label"] == "Historic registered name"
+    assert historical_rows[0]["value"] == "Original Health Private Limited"
+
+
+def test_repeatable_form_retains_history_and_multiple_file_groups(  # noqa: PLR0915
+    application,
+    actors,
+    settings,
+    tmp_path,
+):
+    settings.MEDIA_ROOT = tmp_path
+    _organisation, owner, _contributor, _reviewer = actors
+    complete_all_forms(application, owner)
+    application.status = "approved"
+    application.save(update_fields=["status", "updated_at"])
+    current = application.submissions.get(
+        form_key="security_certification",
+        is_current=True,
+    )
+    current.data = {
+        "certificate_number": "CERT-OLD",
+        "expires_on": (timezone.localdate() + timedelta(days=10)).isoformat(),
+    }
+    current.valid_until = timezone.localdate() + timedelta(days=10)
+    current.save(update_fields=["data", "valid_until", "updated_at"])
+
+    definition = registry.get(APPLICATION_TYPE)
+    context = application_context(application, owner)
+    state = next(
+        item
+        for item in definition.form_states(context)
+        if item.definition.key == "security_certification"
+    )
+    assert state.renewal_due is True
+    assert state.action_label == "Renew"
+    assert state.can_submit is True
+
+    form_definition = definition.get_form("security_certification")
+    renewal_form = form_definition.build_form(context=context)
+    edit_current_form = form_definition.build_form(
+        context=context,
+        submission_mode="edit",
+    )
+    assert renewal_form.initial == {}
+    assert renewal_form.existing_files == {}
+    assert edit_current_form.initial["certificate_number"] == "CERT-OLD"
+    renewal_data = {
+        "certification_type": "iso_27001",
+        "certification_name": "ISO 27001 certification",
+        "issuing_body": "Example Assurance Body",
+        "certificate_number": "ISO-NEW-2026",
+        "issued_on": (timezone.localdate() - timedelta(days=5)).isoformat(),
+        "expires_on": (timezone.localdate() + timedelta(days=365)).isoformat(),
+        "scope_summary": "ABDM production services and supporting cloud controls.",
+    }
+    form = form_definition.build_form(
+        context=context,
+        data=renewal_data,
+        files=MultiValueDict(
+            {
+                "certificate_documents": [
+                    SimpleUploadedFile(
+                        "certificate.pdf",
+                        b"certificate",
+                        content_type="application/pdf",
+                    ),
+                    SimpleUploadedFile(
+                        "scope-annexure.pdf",
+                        b"annexure",
+                        content_type="application/pdf",
+                    ),
+                ],
+                "supporting_documents": [
+                    SimpleUploadedFile(
+                        "control-map.pdf",
+                        b"controls",
+                        content_type="application/pdf",
+                    ),
+                    SimpleUploadedFile(
+                        "audit-cover.png",
+                        b"image",
+                        content_type="image/png",
+                    ),
+                ],
+            },
+        ),
+    )
+    assert form.is_valid(), form.errors
+
+    renewed = save_form_submission(
+        application=application,
+        form_key="security_certification",
+        form=form,
+        user=owner,
+        submission_mode="renew",
+    )
+    current.refresh_from_db()
+    application.refresh_from_db()
+
+    assert application.status == "approved"
+    assert current.is_current is False
+    assert renewed.is_current is True
+    assert renewed.submission_number == RENEWED_SUBMISSION_NUMBER
+    assert renewed.valid_until == timezone.localdate() + timedelta(days=365)
+    assert len(renewed.data["certificate_documents"]) == MULTI_FILE_COUNT
+    assert len(renewed.data["supporting_documents"]) == MULTI_FILE_COUNT
+    assert (
+        renewed.attachments.filter(field_key="certificate_documents").count()
+        == MULTI_FILE_COUNT
+    )
+    assert (
+        renewed.attachments.filter(field_key="supporting_documents").count()
+        == MULTI_FILE_COUNT
+    )
+    renewed_context = application_context(application, owner)
+    too_many_files_form = form_definition.build_form(
+        context=renewed_context,
+        data={**renewal_data, "certificate_number": "ISO-TOO-MANY-2026"},
+        files=MultiValueDict(
+            {
+                "certificate_documents": [
+                    SimpleUploadedFile(
+                        f"extra-{index}.pdf",
+                        b"extra",
+                        content_type="application/pdf",
+                    )
+                    for index in range(MAX_CERTIFICATE_FILES - 1)
+                ],
+            },
+        ),
+        submission_mode="edit",
+    )
+    assert too_many_files_form.is_valid() is False
+    assert "no more than 5 files" in str(
+        too_many_files_form.errors["certificate_documents"],
+    )
+
+    supporting_to_remove = renewed.attachments.filter(
+        field_key="supporting_documents",
+        is_current=True,
+    ).first()
+    assert supporting_to_remove is not None
+    edited_form = form_definition.build_form(
+        context=renewed_context,
+        data={
+            **renewal_data,
+            "certificate_number": "ISO-EDITED-2026",
+            "remove_files__supporting_documents": str(supporting_to_remove.pk),
+        },
+        files=MultiValueDict(
+            {
+                "certificate_documents": [
+                    SimpleUploadedFile(
+                        "new-annexure.pdf",
+                        b"new annexure",
+                        content_type="application/pdf",
+                    ),
+                ],
+            },
+        ),
+        submission_mode="edit",
+    )
+    assert edited_form.is_valid(), edited_form.errors
+    edited = save_form_submission(
+        application=application,
+        form_key="security_certification",
+        form=edited_form,
+        user=owner,
+        submission_mode="edit",
+    )
+    renewed.refresh_from_db()
+
+    assert renewed.is_current is False
+    assert edited.submission_number == RENEWED_SUBMISSION_NUMBER
+    assert edited.revision == EDITED_REVISION_NUMBER
+    assert edited.data["certificate_number"] == "ISO-EDITED-2026"
+    assert (
+        len(edited.data["certificate_documents"])
+        == APPENDED_CERTIFICATE_FILE_COUNT
+    )
+    assert (
+        len(edited.data["supporting_documents"])
+        == RETAINED_SUPPORTING_FILE_COUNT
+    )
+    assert set(
+        edited.attachments.filter(
+            field_key="certificate_documents",
+            is_current=True,
+        ).values_list("original_name", flat=True),
+    ) == {"certificate.pdf", "scope-annexure.pdf", "new-annexure.pdf"}
+    assert not edited.attachments.filter(
+        original_name=supporting_to_remove.original_name,
+        is_current=True,
+    ).exists()
+    assert (
+        edited.attachments.filter(is_current=True).count()
+        == TOTAL_MULTI_FILE_COUNT
+    )
+    assert (
+        renewed.attachments.filter(is_current=True).count()
+        == TOTAL_MULTI_FILE_COUNT
+    )
+    assert renewed.attachments.filter(pk=supporting_to_remove.pk).exists()
+    history = application_context(application, owner).form_history(
+        "security_certification",
+    )
+    assert len(history) == RENEWAL_HISTORY_VERSION_COUNT
+    assert (
+        len({item.submission_number for item in history})
+        == RENEWED_SUBMISSION_NUMBER
+    )
+
+
+def test_expired_repeatable_form_is_no_longer_complete(application, actors):
+    _organisation, owner, _contributor, _reviewer = actors
+    complete_all_forms(application, owner)
+    certification = application.submissions.get(
+        form_key="security_certification",
+        is_current=True,
+    )
+    certification.valid_until = timezone.localdate() - timedelta(days=1)
+    certification.save(update_fields=["valid_until", "updated_at"])
+
+    recalculate_progress(application, user=owner)
+    application.refresh_from_db()
+    context = application_context(application, owner)
+    state = next(
+        item
+        for item in registry.get(APPLICATION_TYPE).form_states(context)
+        if item.definition.key == "security_certification"
+    )
+
+    assert state.is_expired is True
+    assert state.is_completed is False
+    assert application.metadata["completed_forms"] == BASE_REQUIRED_FORM_COUNT - 1
+    assert application.metadata["required_forms"] == BASE_REQUIRED_FORM_COUNT
 
 
 def test_admin_form_action_runs_after_completion(application, actors):

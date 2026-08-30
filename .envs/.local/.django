@@ -13,6 +13,14 @@ REDIS_URL=redis://redis:6379/0
 CELERY_FLOWER_USER=debug
 CELERY_FLOWER_PASSWORD=debug
 
+# MinIO object storage
+# ------------------------------------------------------------------------------
+DJANGO_AWS_ACCESS_KEY_ID=ohc-local
+DJANGO_AWS_SECRET_ACCESS_KEY=ohc-local-development-key
+DJANGO_AWS_STORAGE_BUCKET_NAME=ohc-experience-media
+DJANGO_AWS_S3_ENDPOINT_URL=http://minio:9000
+DJANGO_AWS_S3_REGION_NAME=us-east-1
+
 # Care sandbox plugin
 # ------------------------------------------------------------------------------
 # From inside Docker, the host machine is reachable at host.docker.internal.

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field
+from datetime import timedelta
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import ClassVar
 
+from django import forms
 from django.core.exceptions import ImproperlyConfigured
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from . import permission_keys
@@ -15,9 +18,9 @@ from .models import SubmissionStatus
 if TYPE_CHECKING:
     from datetime import date
 
-    from django import forms
     from django.contrib.auth.base_user import AbstractBaseUser
 
+    from .models import ApplicationAttachment
     from .models import ApplicationFormSubmission
     from .models import ApplicationInstance
 
@@ -86,6 +89,7 @@ class ExperienceContext:
     user: AbstractBaseUser
     permissions: frozenset[str]
     submissions: dict[str, ApplicationFormSubmission]
+    submission_history: dict[str, tuple[ApplicationFormSubmission, ...]]
 
     def has_permission(self, permission: str) -> bool:
         return permission in self.permissions
@@ -99,6 +103,9 @@ class ExperienceContext:
     def form_data(self, form_key: str) -> dict[str, Any]:
         submission = self.submissions.get(form_key)
         return dict(submission.data) if submission else {}
+
+    def form_history(self, form_key: str) -> tuple[ApplicationFormSubmission, ...]:
+        return self.submission_history.get(form_key, ())
 
 
 @dataclass(frozen=True)
@@ -118,13 +125,19 @@ class FormState:
     can_submit: bool
     reason: str
     action_label: str
+    satisfied: bool
+    renewal_due: bool
+    submission_count: int
+    version_count: int
     actions: tuple[FormActionState, ...] = ()
 
     @property
     def is_completed(self) -> bool:
-        return bool(
-            self.submission and self.submission.status == SubmissionStatus.COMPLETED,
-        )
+        return self.satisfied
+
+    @property
+    def is_expired(self) -> bool:
+        return bool(self.submission and self.submission.is_expired)
 
 
 @dataclass(frozen=True)
@@ -143,6 +156,9 @@ class ApplicationFormDefinition:
     schema_version: ClassVar[int] = 1
     required: ClassVar[bool] = True
     allow_updates: ClassVar[bool] = False
+    repeatable: ClassVar[bool] = False
+    valid_until_field: ClassVar[str] = ""
+    renewal_window_days: ClassVar[int] = 0
     permission: ClassVar[str] = permission_keys.EDIT_FORMS
     actions: ClassVar[tuple[type[ApplicationFormAction], ...]] = ()
     editable_statuses: ClassVar[frozenset[str]] = frozenset(
@@ -176,9 +192,36 @@ class ApplicationFormDefinition:
             submission
             and submission.status == SubmissionStatus.COMPLETED
             and not cls.allow_updates
+            and not cls.repeatable
         ):
             return False, _("This form is locked after it is completed.")
         return True, ""
+
+    @classmethod
+    def is_complete(cls, context: ExperienceContext) -> bool:
+        submission = context.submissions.get(cls.key)
+        return bool(
+            submission
+            and submission.status == SubmissionStatus.COMPLETED
+            and not submission.is_expired,
+        )
+
+    @classmethod
+    def is_renewal_due(cls, context: ExperienceContext) -> bool:
+        submission = context.submissions.get(cls.key)
+        return bool(
+            cls.repeatable
+            and submission
+            and submission.valid_until
+            and submission.valid_until
+            <= timezone.localdate() + timedelta(days=cls.renewal_window_days),
+        )
+
+    @classmethod
+    def get_valid_until(cls, cleaned_data: dict[str, Any]):
+        if not cls.valid_until_field:
+            return None
+        return cleaned_data.get(cls.valid_until_field)
 
     @classmethod
     def get_action(cls, key: str) -> type[ApplicationFormAction] | None:
@@ -201,7 +244,19 @@ class ApplicationFormDefinition:
     @classmethod
     def get_initial(cls, context: ExperienceContext) -> dict[str, Any]:
         submission = context.submissions.get(cls.key)
-        return dict(submission.data) if submission else {}
+        initial = dict(submission.data) if submission else {}
+        for name, form_field in cls.form_class.base_fields.items():
+            if isinstance(form_field, forms.FileField):
+                initial.pop(name, None)
+        return initial
+
+    @classmethod
+    def get_new_submission_initial(
+        cls,
+        context: ExperienceContext,
+    ) -> dict[str, Any]:
+        """Return defaults for a new occurrence, without copying prior answers."""
+        return {}
 
     @classmethod
     def metadata_updates(
@@ -218,20 +273,27 @@ class ApplicationFormDefinition:
         context: ExperienceContext,
         data=None,
         files=None,
+        submission_mode: str | None = None,
     ) -> forms.Form:
         submission = context.submissions.get(cls.key)
-        existing_files = {
-            attachment.field_key: attachment
-            for attachment in (
-                submission.attachments.filter(is_current=True) if submission else []
+        if submission_mode is None:
+            submission_mode = (
+                "renew" if cls.repeatable and submission is not None else "edit"
             )
-        }
+        existing_files: dict[str, list[ApplicationAttachment]] = {}
+        if submission and submission_mode == "edit":
+            for attachment in submission.attachments.filter(is_current=True):
+                existing_files.setdefault(attachment.field_key, []).append(attachment)
         kwargs: dict[str, Any] = {
             "experience_context": context,
             "existing_files": existing_files,
         }
         if data is None:
-            kwargs["initial"] = cls.get_initial(context)
+            kwargs["initial"] = (
+                cls.get_new_submission_initial(context)
+                if submission_mode == "renew"
+                else cls.get_initial(context)
+            )
         else:
             kwargs["data"] = data
             kwargs["files"] = files
@@ -409,6 +471,18 @@ class ApplicationDefinition:
             if form_definition.permission not in permission_keys:
                 msg = f"{cls.key}.{form_definition.key} has an unknown permission."
                 raise ImproperlyConfigured(msg)
+            if form_definition.valid_until_field and (
+                form_definition.valid_until_field
+                not in form_definition.form_class.base_fields
+            ):
+                msg = (
+                    f"{cls.key}.{form_definition.key} has an unknown validity field "
+                    f"named {form_definition.valid_until_field}."
+                )
+                raise ImproperlyConfigured(msg)
+            if form_definition.renewal_window_days < 0:
+                msg = f"{cls.key}.{form_definition.key} has a negative renewal window."
+                raise ImproperlyConfigured(msg)
             for action in form_definition.actions:
                 if action.permission not in permission_keys:
                     msg = (
@@ -445,6 +519,14 @@ class ApplicationDefinition:
             visible = form_definition.is_visible(context)
             can_submit, reason = form_definition.availability(context)
             submission = context.submissions.get(form_definition.key)
+            history = context.form_history(form_definition.key)
+            renewal_due = form_definition.is_renewal_due(context)
+            if submission is None:
+                action_label = _("Complete")
+            elif form_definition.repeatable:
+                action_label = _("Renew") if renewal_due else _("Add submission")
+            else:
+                action_label = _("Update")
             states.append(
                 FormState(
                     definition=form_definition,
@@ -453,7 +535,13 @@ class ApplicationDefinition:
                     visible=visible,
                     can_submit=can_submit,
                     reason=reason,
-                    action_label=_("Update") if submission else _("Complete"),
+                    action_label=action_label,
+                    satisfied=form_definition.is_complete(context),
+                    renewal_due=renewal_due,
+                    submission_count=len(
+                        {item.submission_number for item in history},
+                    ),
+                    version_count=len(history),
                     actions=tuple(form_definition.action_states(context)),
                 ),
             )
@@ -468,7 +556,7 @@ class ApplicationDefinition:
     @classmethod
     def required_forms_complete(cls, context: ExperienceContext) -> bool:
         return all(
-            context.has_completed(form_definition.key)
+            form_definition.is_complete(context)
             for form_definition in cls.forms
             if form_definition.required and form_definition.is_applicable(context)
         )
@@ -481,7 +569,7 @@ class ApplicationDefinition:
             if form_definition.required and form_definition.is_applicable(context)
         ]
         completed = sum(
-            context.has_completed(form_definition.key) for form_definition in required
+            form_definition.is_complete(context) for form_definition in required
         )
         total = len(required)
         percentage = round(completed / total * 100) if total else 100
@@ -489,7 +577,7 @@ class ApplicationDefinition:
             (
                 form_definition.key
                 for form_definition in required
-                if not context.has_completed(form_definition.key)
+                if not form_definition.is_complete(context)
             ),
             "",
         )

@@ -7,6 +7,8 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.experiences.fields import MultipleFileField
+
 ORGANISATION_TYPES = [
     ("company", _("Company")),
     ("llp", _("Limited liability partnership")),
@@ -39,6 +41,14 @@ MILESTONES = [
     ("m3", _("M3 - HIU and consented health-record access")),
 ]
 
+SECURITY_CERTIFICATION_TYPES = [
+    ("cert_in_audit", _("CERT-In empanelled security audit")),
+    ("wasa", _("Web application security assessment (WASA)")),
+    ("iso_27001", _("ISO/IEC 27001")),
+    ("soc_2", _("SOC 2")),
+    ("other", _("Other security certification")),
+]
+
 
 class ExperienceForm(forms.Form):
     """Lets a static form receive workflow context without coupling Django to it."""
@@ -53,12 +63,71 @@ class ExperienceForm(forms.Form):
         self.experience_context = experience_context
         self.existing_files = existing_files or {}
         super().__init__(*args, **kwargs)
+        self.removed_file_ids = {
+            field_name: self._posted_removals(field_name)
+            for field_name, field in self.fields.items()
+            if isinstance(field, forms.FileField)
+        }
+
+    def _posted_removals(self, field_name: str) -> set[int]:
+        key = f"remove_files__{field_name}"
+        values = (
+            self.data.getlist(key)
+            if hasattr(self.data, "getlist")
+            else self.data.get(key, [])
+        )
+        if not isinstance(values, (list, tuple)):
+            values = [values]
+        result = set()
+        for value in values:
+            try:
+                result.add(int(value))
+            except (TypeError, ValueError):
+                continue
+        return result
+
+    def retained_existing_files(self, field_name: str):
+        removed_ids = self.removed_file_ids.get(field_name, set())
+        return [
+            attachment
+            for attachment in self.existing_files.get(field_name, [])
+            if attachment.pk not in removed_ids
+        ]
+
+    def clean(self):
+        cleaned = super().clean()
+        for field_name, field in self.fields.items():
+            if not isinstance(field, MultipleFileField) or field_name in self.errors:
+                continue
+            existing_count = len(self.retained_existing_files(field_name))
+            upload_count = len(cleaned.get(field_name) or [])
+            final_count = existing_count + upload_count
+            if final_count < field.min_files:
+                self.add_error(
+                    field_name,
+                    ValidationError(
+                        field.error_messages["too_few_files"],
+                        code="too_few_files",
+                        params={"minimum": field.min_files},
+                    ),
+                )
+            elif field.max_files is not None and final_count > field.max_files:
+                self.add_error(
+                    field_name,
+                    ValidationError(
+                        field.error_messages["too_many_files"],
+                        code="too_many_files",
+                        params={"maximum": field.max_files},
+                    ),
+                )
+        return cleaned
 
     def require_upload(self, field_name: str, label: str) -> None:
         has_upload = (
-            self.cleaned_data.get(field_name) or field_name in self.existing_files
+            self.cleaned_data.get(field_name)
+            or self.retained_existing_files(field_name)
         )
-        if not has_upload:
+        if not has_upload and not self.has_error(field_name):
             self.add_error(
                 field_name,
                 _("Upload %(label)s before completing this form.") % {"label": label},
@@ -78,6 +147,11 @@ def validate_upload(upload, *, extensions: set[str], max_mb: int) -> None:
         raise ValidationError(
             _("The file must be smaller than %(size)s MB.") % {"size": max_mb},
         )
+
+
+def validate_uploads(uploads, *, extensions: set[str], max_mb: int) -> None:
+    for upload in uploads or []:
+        validate_upload(upload, extensions=extensions, max_mb=max_mb)
 
 
 def validate_https(value: str) -> str:
@@ -328,6 +402,7 @@ class SecurityComplianceForm(ExperienceForm):
     security_audit_report = forms.FileField(
         label=_("Security assessment report"),
         required=False,
+        widget=forms.ClearableFileInput(attrs={"accept": ".pdf"}),
         help_text=_("PDF, up to 10 MB. A replacement creates a new retained revision."),
     )
     data_retention_policy = forms.CharField(
@@ -363,6 +438,82 @@ class SecurityComplianceForm(ExperienceForm):
         return cleaned
 
 
+class SecurityCertificationForm(ExperienceForm):
+    certification_type = forms.ChoiceField(
+        label=_("Certification type"),
+        choices=SECURITY_CERTIFICATION_TYPES,
+    )
+    certification_name = forms.CharField(
+        label=_("Certification or assessment name"),
+        max_length=255,
+    )
+    issuing_body = forms.CharField(label=_("Issuing body"), max_length=255)
+    certificate_number = forms.CharField(
+        label=_("Certificate or report number"),
+        max_length=150,
+    )
+    issued_on = forms.DateField(
+        label=_("Issued on"),
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    expires_on = forms.DateField(
+        label=_("Valid until"),
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    certificate_documents = MultipleFileField(
+        label=_("Certificate and assessment documents"),
+        required=False,
+        min_files=1,
+        max_files=5,
+        accept=".pdf",
+        help_text=_("Upload up to five PDF certificates or assessment volumes."),
+    )
+    supporting_documents = MultipleFileField(
+        label=_("Supporting evidence"),
+        required=False,
+        max_files=8,
+        accept=".pdf,.png,.jpg,.jpeg",
+        help_text=_("Optional PDF or image evidence, up to eight files."),
+    )
+    scope_summary = forms.CharField(
+        label=_("Certified scope"),
+        widget=forms.Textarea(attrs={"rows": 4}),
+    )
+
+    def clean_certificate_documents(self):
+        uploads = self.cleaned_data.get("certificate_documents", [])
+        validate_uploads(uploads, extensions={".pdf"}, max_mb=15)
+        return uploads
+
+    def clean_supporting_documents(self):
+        uploads = self.cleaned_data.get("supporting_documents", [])
+        validate_uploads(
+            uploads,
+            extensions={".pdf", ".png", ".jpg", ".jpeg"},
+            max_mb=10,
+        )
+        return uploads
+
+    def clean(self):
+        cleaned = super().clean()
+        issued_on = cleaned.get("issued_on")
+        expires_on = cleaned.get("expires_on")
+        if issued_on and issued_on > timezone.localdate():
+            self.add_error("issued_on", _("The issue date cannot be in the future."))
+        if issued_on and expires_on and expires_on <= issued_on:
+            self.add_error(
+                "expires_on",
+                _("The expiry date must follow the issue date."),
+            )
+        if expires_on and expires_on <= timezone.localdate():
+            self.add_error(
+                "expires_on",
+                _("Submit a certification that is still valid."),
+            )
+        self.require_upload("certificate_documents", _("certification evidence"))
+        return cleaned
+
+
 class ConformanceEvidenceForm(ExperienceForm):
     demonstration_date = forms.DateField(
         label=_("ABDM functionality demonstration date"),
@@ -381,14 +532,18 @@ class ConformanceEvidenceForm(ExperienceForm):
         label=_("Functional certification reference"),
         max_length=150,
     )
-    functional_test_report = forms.FileField(
-        label=_("Functional testing report"),
+    functional_test_report = MultipleFileField(
+        label=_("Functional testing reports"),
         required=False,
-        help_text=_("PDF, up to 15 MB."),
+        min_files=1,
+        max_files=5,
+        accept=".pdf",
+        help_text=_("Upload up to five PDF report volumes, each up to 15 MB."),
     )
     signed_undertaking = forms.FileField(
         label=_("Signed production undertaking"),
         required=False,
+        widget=forms.ClearableFileInput(attrs={"accept": ".pdf"}),
         help_text=_("Signed PDF, up to 10 MB."),
     )
     demo_recording_url = forms.URLField(
@@ -407,9 +562,9 @@ class ConformanceEvidenceForm(ExperienceForm):
     )
 
     def clean_functional_test_report(self):
-        upload = self.cleaned_data.get("functional_test_report")
-        validate_upload(upload, extensions={".pdf"}, max_mb=15)
-        return upload
+        uploads = self.cleaned_data.get("functional_test_report", [])
+        validate_uploads(uploads, extensions={".pdf"}, max_mb=15)
+        return uploads
 
     def clean_signed_undertaking(self):
         upload = self.cleaned_data.get("signed_undertaking")

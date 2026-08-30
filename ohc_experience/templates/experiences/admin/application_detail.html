@@ -62,7 +62,7 @@
       <section class="rounded-md border border-border bg-card">
         <div class="border-b border-border px-4 py-3.5">
           <h2 class="text-sm font-semibold">{% translate "Submitted application pack" %}</h2>
-          <p class="mt-0.5 text-xs text-muted-foreground">{% translate "Validated values and the current revision of each uploaded document." %}</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">{% translate "Validated values, uploaded evidence, and every retained form version." %}</p>
         </div>
         {% if submission_sections %}
           <div class="divide-y divide-border">
@@ -71,7 +71,13 @@
                 <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 hover:bg-muted-background">
                   <span>
                     <span class="block text-sm font-semibold">{{ section.definition.name }}</span>
-                    <span class="mt-0.5 block text-[11px] text-soft-foreground">{% blocktranslate with revision=section.submission.revision date=section.submission.updated_at|date:"j M Y, H:i" %}Revision {{ revision }} · {{ date }}{% endblocktranslate %}</span>
+                    <span class="mt-0.5 block text-[11px] text-soft-foreground">
+                      {% if section.definition.repeatable %}
+                        {% blocktranslate with number=section.submission.submission_number revision=section.submission.revision date=section.submission.submitted_at|date:"j M Y, H:i" %}Submission {{ number }} · Revision {{ revision }} · {{ date }}{% endblocktranslate %}
+                      {% else %}
+                        {% blocktranslate with revision=section.submission.revision date=section.submission.submitted_at|date:"j M Y, H:i" %}Revision {{ revision }} · {{ date }}{% endblocktranslate %}
+                      {% endif %}
+                    </span>
                   </span>
                   <span class="ui-badge ui-badge--success ui-badge--size-xs">{% translate "Complete" %}</span>
                 </summary>
@@ -92,10 +98,13 @@
                     <div class="min-w-0">
                       <dt class="text-[11px] font-semibold uppercase text-soft-foreground">{{ row.label }}</dt>
                       <dd class="mt-1 break-words text-sm leading-relaxed">
-                        {% if row.attachment %}
-                          <a class="font-medium"
-                             href="{% url 'experiences:attachment' application.reference row.attachment.pk %}">{{ row.attachment.original_name }}</a>
-                          <span class="ml-1 text-[11px] text-soft-foreground">{{ row.attachment.size|filesizeformat }}</span>
+                        {% if row.attachments %}
+                          <ul class="space-y-1.5">
+                            {% for attachment in row.attachments %}
+                              <li><a class="font-medium"
+   href="{% url 'experiences:attachment' application.reference attachment.pk %}">{{ attachment.original_name }}</a><span class="ml-1 text-[11px] text-soft-foreground">{{ attachment.size|filesizeformat }}</span></li>
+                            {% endfor %}
+                          </ul>
                         {% else %}
                           {{ row.value|linebreaksbr }}
                         {% endif %}
@@ -103,6 +112,43 @@
                     </div>
                   {% endfor %}
                 </dl>
+                {% if section.history %}
+                  <div class="border-t border-border px-4 py-4">
+                    <h3 class="text-xs font-semibold">{% translate "Previous versions" %}</h3>
+                    <div class="mt-2 space-y-2">
+                      {% for historical in section.history %}
+                        <details class="rounded-md border border-border bg-muted-background/40">
+                          <summary class="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-xs font-medium">
+                            <span>
+                              {% if section.definition.repeatable %}
+                                {% blocktranslate with number=historical.submission.submission_number revision=historical.submission.revision %}Submission {{ number }} · Revision {{ revision }}{% endblocktranslate %}
+                              {% else %}
+                                {% blocktranslate with revision=historical.submission.revision %}Revision {{ revision }}{% endblocktranslate %}
+                              {% endif %}
+                            </span>
+                            <span class="text-soft-foreground">{% if historical.submission.valid_until %}{% blocktranslate with date=historical.submission.valid_until|date:"j M Y" %}Valid until {{ date }}{% endblocktranslate %}{% else %}{{ historical.submission.submitted_at|date:"j M Y" }}{% endif %}</span>
+                          </summary>
+                          <dl class="grid gap-x-6 gap-y-3 border-t border-border px-3 py-3 sm:grid-cols-2">
+                            {% for row in historical.rows %}
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase text-soft-foreground">{{ row.label }}</dt>
+                                <dd class="mt-1 break-words text-xs leading-relaxed">
+                                  {% if row.attachments %}
+                                    <ul class="space-y-1">
+                                      {% for attachment in row.attachments %}<li><a href="{% url 'experiences:attachment' application.reference attachment.pk %}">{{ attachment.original_name }}</a></li>{% endfor %}
+                                    </ul>
+                                  {% else %}
+                                    {{ row.value|linebreaksbr }}
+                                  {% endif %}
+                                </dd>
+                              </div>
+                            {% endfor %}
+                          </dl>
+                        </details>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endif %}
               </details>
             {% endfor %}
           </div>

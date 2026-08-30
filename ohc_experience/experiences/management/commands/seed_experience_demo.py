@@ -20,6 +20,7 @@ from ohc_experience.experiences.models import EventKind
 from ohc_experience.experiences.models import QueryStatus
 from ohc_experience.experiences.registry import registry
 from ohc_experience.experiences.services import application_context
+from ohc_experience.experiences.services import form_field_schema
 from ohc_experience.experiences.services import recalculate_progress
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
@@ -40,6 +41,7 @@ ORGANISATION_SLUG = "arogya-digital-health-demo"
 DRAFT_REFERENCE = "ABDM-DEMO-DRAFT"
 REVIEW_REFERENCE = "ABDM-DEMO-REVIEW"
 APPLICATION_TYPE = "abdm_production_access"
+CURRENT_CERTIFICATION_SUBMISSION_NUMBER = 2
 
 PDF_BYTES = (
     b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
@@ -136,6 +138,18 @@ def complete_submission_data() -> dict[str, dict]:
             "encryption_at_rest": True,
             "encryption_in_transit": True,
             "least_privilege": True,
+        },
+        "security_certification": {
+            "certification_type": "cert_in_audit",
+            "certification_name": "Annual ABDM Production Security Assessment",
+            "issuing_body": "Example CERT-In Empanelled Auditor",
+            "certificate_number": "CERTIN-DEMO-2026-118",
+            "issued_on": (timezone.localdate() - timedelta(days=345)).isoformat(),
+            "expires_on": (timezone.localdate() + timedelta(days=20)).isoformat(),
+            "scope_summary": (
+                "ABDM gateway callbacks, consent artefact handling, health-data "
+                "exchange services, cloud controls, and the production support plane."
+            ),
         },
         "conformance_evidence": {
             "demonstration_date": (
@@ -236,6 +250,7 @@ class Command(BaseCommand):
                 "assigned_to": None,
                 "submission": draft.submissions.filter(
                     form_key="integration_scope",
+                    is_current=True,
                 ).first(),
             },
         )
@@ -261,6 +276,11 @@ class Command(BaseCommand):
             applicant,
             complete_submission_data(),
         )
+        previous_certification = self._security_certification_history(
+            review,
+            submissions["security_certification"],
+            applicant,
+        )
         self._attachment(
             submissions["security_compliance"],
             applicant,
@@ -271,13 +291,50 @@ class Command(BaseCommand):
             submissions["conformance_evidence"],
             applicant,
             "functional_test_report",
-            "demo-functional-test-report.pdf",
+            "demo-functional-test-report-volume-1.pdf",
+            multiple=True,
+        )
+        self._attachment(
+            submissions["conformance_evidence"],
+            applicant,
+            "functional_test_report",
+            "demo-functional-test-report-volume-2.pdf",
+            multiple=True,
         )
         self._attachment(
             submissions["conformance_evidence"],
             applicant,
             "signed_undertaking",
             "demo-signed-undertaking.pdf",
+        )
+        for name in (
+            "demo-security-certificate.pdf",
+            "demo-security-assessment-annexure.pdf",
+        ):
+            self._attachment(
+                submissions["security_certification"],
+                applicant,
+                "certificate_documents",
+                name,
+                multiple=True,
+            )
+        for name in (
+            "demo-remediation-closure.pdf",
+            "demo-scope-confirmation.pdf",
+        ):
+            self._attachment(
+                submissions["security_certification"],
+                applicant,
+                "supporting_documents",
+                name,
+                multiple=True,
+            )
+        self._attachment(
+            previous_certification,
+            applicant,
+            "certificate_documents",
+            "demo-expired-security-certificate.pdf",
+            multiple=True,
         )
         review.submitted_at = timezone.now() - timedelta(days=2)
         review.metadata = {
@@ -411,22 +468,31 @@ class Command(BaseCommand):
 
     def _submissions(self, application, applicant, data_by_key):
         result = {}
+        definition = registry.get(application.application_type)
         for form_key, data in data_by_key.items():
+            form_definition = definition.get_form(form_key)
             submission, _created = ApplicationFormSubmission.objects.update_or_create(
                 application=application,
                 form_key=form_key,
+                is_current=True,
                 defaults={
                     "data": data,
+                    "field_schema": form_field_schema(
+                        form_definition.form_class(),
+                    ),
                     "status": "completed",
                     "schema_version": 1,
-                    "revision": 1,
+                    "valid_until": (
+                        data.get(form_definition.valid_until_field)
+                        if form_definition and form_definition.valid_until_field
+                        else None
+                    ),
                     "submitted_by": applicant,
                 },
             )
             result[form_key] = submission
         recalculate_progress(application)
         application.refresh_from_db()
-        definition = registry.get(application.application_type)
         context = application_context(application, applicant)
         metadata = dict(application.metadata)
         for form_definition in definition.forms:
@@ -437,9 +503,18 @@ class Command(BaseCommand):
         application.save(update_fields=["metadata", "updated_at"])
         return result
 
-    def _attachment(self, submission, applicant, field_key, name) -> None:
+    def _attachment(
+        self,
+        submission,
+        applicant,
+        field_key,
+        name,
+        *,
+        multiple=False,
+    ) -> None:
         attachment = submission.attachments.filter(
             field_key=field_key,
+            original_name=name,
             is_current=True,
         ).first()
         if attachment is None:
@@ -453,13 +528,67 @@ class Command(BaseCommand):
                 uploaded_by=applicant,
             )
         data = dict(submission.data)
-        data[field_key] = {
-            "attachment_id": attachment.pk,
-            "name": attachment.original_name,
-            "size": attachment.size,
-        }
+        if multiple:
+            data[field_key] = [
+                {
+                    "attachment_id": item.pk,
+                    "name": item.original_name,
+                    "size": item.size,
+                }
+                for item in submission.attachments.filter(
+                    field_key=field_key,
+                    is_current=True,
+                ).order_by("created_at", "pk")
+            ]
+        else:
+            data[field_key] = {
+                "attachment_id": attachment.pk,
+                "name": attachment.original_name,
+                "size": attachment.size,
+            }
         submission.data = data
         submission.save(update_fields=["data", "updated_at"])
+
+    def _security_certification_history(self, application, current, applicant):
+        if current.submission_number != CURRENT_CERTIFICATION_SUBMISSION_NUMBER:
+            current.submission_number = CURRENT_CERTIFICATION_SUBMISSION_NUMBER
+            current.save(update_fields=["submission_number", "updated_at"])
+        historical, _created = ApplicationFormSubmission.objects.update_or_create(
+            application=application,
+            form_key="security_certification",
+            submission_number=1,
+            revision=1,
+            defaults={
+                "is_current": False,
+                "status": "completed",
+                "data": {
+                    "certification_type": "wasa",
+                    "certification_name": "ABDM Web Application Security Assessment",
+                    "issuing_body": "Example Security Assurance Labs",
+                    "certificate_number": "WASA-DEMO-2025-044",
+                    "issued_on": (
+                        timezone.localdate() - timedelta(days=730)
+                    ).isoformat(),
+                    "expires_on": (
+                        timezone.localdate() - timedelta(days=365)
+                    ).isoformat(),
+                    "scope_summary": (
+                        "Gateway and consent-manager integration endpoints for the "
+                        "previous production release."
+                    ),
+                },
+                "field_schema": form_field_schema(
+                    registry.get(application.application_type)
+                    .get_form("security_certification")
+                    .form_class(),
+                ),
+                "schema_version": 1,
+                "revision": 1,
+                "valid_until": timezone.localdate() - timedelta(days=365),
+                "submitted_by": applicant,
+            },
+        )
+        return historical
 
     def _remove_demo_applications(self) -> None:
         applications = ApplicationInstance.objects.filter(

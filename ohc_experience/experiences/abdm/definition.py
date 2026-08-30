@@ -27,6 +27,7 @@ from .forms import OrganisationProfileForm
 from .forms import ProductUseCaseForm
 from .forms import RaiseQueryForm
 from .forms import RejectionForm
+from .forms import SecurityCertificationForm
 from .forms import SecurityComplianceForm
 from .forms import TechnicalReadinessForm
 
@@ -189,12 +190,45 @@ class SecurityCompliance(ApplicationFormDefinition):
         }
 
 
+class SecurityCertification(ApplicationFormDefinition):
+    key = "security_certification"
+    name = _("Security certification")
+    description = _(
+        "Time-bound security certification with retained renewal history and "
+        "supporting evidence.",
+    )
+    form_class = SecurityCertificationForm
+    dependencies = (SecurityCompliance.key,)
+    allow_updates = True
+    repeatable = True
+    valid_until_field = "expires_on"
+    renewal_window_days = 45
+    editable_statuses = frozenset(
+        {
+            "draft",
+            "submitted",
+            "under_review",
+            "changes_requested",
+            "revision_submitted",
+            "approved",
+        },
+    )
+
+    @classmethod
+    def metadata_updates(cls, cleaned_data, context):
+        return {
+            "security_certification_type": cleaned_data["certification_type"],
+            "security_certification_number": cleaned_data["certificate_number"],
+            "security_certification_valid_until": cleaned_data["expires_on"],
+        }
+
+
 class ConformanceEvidence(ApplicationFormDefinition):
     key = "conformance_evidence"
     name = _("Conformance evidence")
     description = _("Functional testing report, undertaking, demo, and request traces.")
     form_class = ConformanceEvidenceForm
-    dependencies = (SecurityCompliance.key,)
+    dependencies = (SecurityCertification.key,)
     allow_updates = True
 
     @classmethod
@@ -563,6 +597,7 @@ class ABDMProductionAccess(ApplicationDefinition):
         HealthLockerOperations,
         TechnicalReadiness,
         SecurityCompliance,
+        SecurityCertification,
         ConformanceEvidence,
         Declaration,
     )

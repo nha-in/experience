@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from http import HTTPStatus
 from io import StringIO
 
 import pytest
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.urls import reverse
+from django.utils import timezone
 
 from ohc_experience.experiences.management.commands.seed_experience_demo import (
     ADMIN_EMAIL,
@@ -37,13 +40,21 @@ from ohc_experience.experiences.models import QueryStatus
 pytestmark = pytest.mark.django_db
 
 DRAFT_SUBMISSION_COUNT = 3
-COMPLETE_SUBMISSION_COUNT = 7
-DEMO_ATTACHMENT_COUNT = 3
-DRAFT_REQUIRED_FORM_COUNT = 8
-REVIEW_REQUIRED_FORM_COUNT = 7
-DRAFT_PROGRESS_PERCENT = 38
+COMPLETE_SUBMISSION_COUNT = 9
+CURRENT_COMPLETE_SUBMISSION_COUNT = 8
+DEMO_ATTACHMENT_COUNT = 9
+DRAFT_REQUIRED_FORM_COUNT = 9
+REVIEW_REQUIRED_FORM_COUNT = 8
+DRAFT_PROGRESS_PERCENT = 33
 COMPLETE_PROGRESS_PERCENT = 100
-FOUR_OF_EIGHT_PERCENT = 50
+FOUR_OF_NINE_PERCENT = 44
+MULTI_FILE_COUNT = 2
+RENEWED_CERTIFICATION_NUMBER = 3
+EDITED_REVISION_NUMBER = 2
+EDITED_VERSION_COUNT = 2
+CURRENT_CERTIFICATION_ATTACHMENT_COUNT = 4
+APPENDED_CERTIFICATE_FILE_COUNT = 3
+RETAINED_SUPPORTING_FILE_COUNT = 1
 HTMX_HEADERS = {"HX-Request": "true"}
 
 
@@ -59,6 +70,42 @@ def technical_readiness_data() -> dict[str, str]:
         "incident_contact_phone": "+91 90000 00000",
         "callback_idempotency": "on",
         "secrets_confirmation": "on",
+    }
+
+
+def renewed_certification_data() -> dict[str, object]:
+    return {
+        "certification_type": "iso_27001",
+        "certification_name": "ISO 27001 certification",
+        "issuing_body": "Example Assurance Body",
+        "certificate_number": "ISO-DEMO-2026-441",
+        "issued_on": (timezone.localdate() - timedelta(days=3)).isoformat(),
+        "expires_on": (timezone.localdate() + timedelta(days=365)).isoformat(),
+        "scope_summary": "ABDM production services and supporting cloud controls.",
+        "certificate_documents": [
+            SimpleUploadedFile(
+                "iso-certificate.pdf",
+                b"certificate",
+                content_type="application/pdf",
+            ),
+            SimpleUploadedFile(
+                "iso-scope.pdf",
+                b"scope",
+                content_type="application/pdf",
+            ),
+        ],
+        "supporting_documents": [
+            SimpleUploadedFile(
+                "control-map.pdf",
+                b"controls",
+                content_type="application/pdf",
+            ),
+            SimpleUploadedFile(
+                "audit-cover.png",
+                b"image",
+                content_type="image/png",
+            ),
+        ],
     }
 
 
@@ -84,6 +131,9 @@ def test_seeder_creates_working_accounts_and_both_workflows(seeded_demo):
     assert draft.metadata["required_forms"] == DRAFT_REQUIRED_FORM_COUNT
     assert draft.progress_percent == DRAFT_PROGRESS_PERCENT
     assert review.submissions.count() == COMPLETE_SUBMISSION_COUNT
+    assert review.submissions.filter(is_current=True).count() == (
+        CURRENT_COMPLETE_SUBMISSION_COUNT
+    )
     assert review.metadata["required_forms"] == REVIEW_REQUIRED_FORM_COUNT
     assert review.progress_percent == COMPLETE_PROGRESS_PERCENT
     assert (
@@ -96,6 +146,13 @@ def test_seeder_creates_working_accounts_and_both_workflows(seeded_demo):
     assert review.access_grants.get(user=admin).role_key == "decision_maker"
     assert review.metadata["product_version"] == "3.2.0"
     assert review.metadata["milestones"] == ["m1", "m2", "m3"]
+    certifications = review.submissions.filter(
+        form_key="security_certification",
+    ).order_by("submission_number")
+    assert list(certifications.values_list("submission_number", flat=True)) == [1, 2]
+    assert certifications.get(is_current=True).valid_until == (
+        timezone.localdate() + timedelta(days=20)
+    )
     applicant_query = draft.query_threads.get()
     assert applicant_query.status == QueryStatus.AWAITING_REVIEWER
     assert applicant_query.opened_by == applicant
@@ -147,7 +204,7 @@ def test_applicant_dashboard_detail_and_form_render(client, seeded_demo):
     assert detail_response.status_code == HTTPStatus.OK
     detail_html = detail_response.content.decode()
     assert "Application forms" in detail_html
-    assert "3 of 8 currently required forms complete" in detail_html
+    assert "3 of 9 currently required forms complete" in detail_html
     assert "Health locker operations" in detail_html
     assert "Technical readiness" in detail_html
     assert "Security and privacy" not in detail_html
@@ -190,7 +247,7 @@ def test_applicant_can_complete_the_next_gated_form(client, seeded_demo):
     assert response.status_code == HTTPStatus.FOUND
     application = ApplicationInstance.objects.get(reference=DRAFT_REFERENCE)
     assert application.submissions.filter(form_key="technical_readiness").exists()
-    assert application.progress_percent == FOUR_OF_EIGHT_PERCENT
+    assert application.progress_percent == FOUR_OF_NINE_PERCENT
     detail_html = client.get(
         reverse("experiences:detail", args=[DRAFT_REFERENCE]),
     ).content.decode()
@@ -294,6 +351,40 @@ def test_htmx_form_success_redirects_to_the_workspace(client, seeded_demo):
     )
 
 
+def test_form_revisions_remain_visible_when_editing_is_locked(client, seeded_demo):
+    applicant = get_user_model().objects.get(email=APPLICANT_EMAIL)
+    client.force_login(applicant)
+    url = reverse(
+        "experiences:form",
+        args=[DRAFT_REFERENCE, "technical_readiness"],
+    )
+    first_data = technical_readiness_data()
+    updated_data = {**first_data, "hosting_region": "Hyderabad, India"}
+
+    first_response = client.post(url, first_data)
+    second_response = client.post(url, updated_data)
+
+    assert first_response.status_code == HTTPStatus.FOUND
+    assert second_response.status_code == HTTPStatus.FOUND
+    application = ApplicationInstance.objects.get(reference=DRAFT_REFERENCE)
+    versions = application.submissions.filter(form_key="technical_readiness")
+    current = versions.get(is_current=True)
+    assert versions.count() == EDITED_VERSION_COUNT
+    assert current.revision == EDITED_REVISION_NUMBER
+
+    application.status = "submitted"
+    application.save(update_fields=["status", "updated_at"])
+    workspace = client.get(url)
+    workspace_html = workspace.content.decode()
+
+    assert workspace.status_code == HTTPStatus.OK
+    assert 'id="application-form"' not in workspace_html
+    assert "Saved form" in workspace_html
+    assert "Version history" in workspace_html
+    assert "Mumbai, India" in workspace_html
+    assert "Hyderabad, India" in workspace_html
+
+
 def test_applicant_can_raise_query_with_htmx(client, seeded_demo):
     applicant = get_user_model().objects.get(email=APPLICANT_EMAIL)
     client.force_login(applicant)
@@ -331,6 +422,184 @@ def test_applicant_can_raise_query_with_htmx(client, seeded_demo):
     assert application.status == "draft"
     assert query.status == QueryStatus.AWAITING_REVIEWER
     assert query.opened_by == applicant
+
+
+def test_htmx_repeatable_certification_accepts_multiple_file_groups(
+    client,
+    seeded_demo,
+    settings,
+    tmp_path,
+):
+    settings.MEDIA_ROOT = tmp_path
+    applicant = get_user_model().objects.get(email=APPLICANT_EMAIL)
+    client.force_login(applicant)
+    url = reverse(
+        "experiences:form",
+        args=[REVIEW_REFERENCE, "security_certification"],
+    )
+
+    workspace = client.get(url)
+    workspace_html = workspace.content.decode()
+    assert workspace.status_code == HTTPStatus.OK
+    assert "Submission 2" in workspace_html
+    assert "Version history" in workspace_html
+    assert 'name="submission_mode" value="renew"' in workspace_html
+    assert workspace_html.count("multiple") >= MULTI_FILE_COUNT
+
+    edit_workspace = client.get(url, {"mode": "edit"})
+    edit_html = edit_workspace.content.decode()
+    assert edit_workspace.status_code == HTTPStatus.OK
+    assert 'name="submission_mode" value="edit"' in edit_html
+    assert "CERTIN-DEMO-2026-118" in edit_html
+    assert "data-file-upload" in edit_html
+    assert "Saved files" in edit_html
+    assert "Add files" in edit_html
+    assert "demo-security-certificate.pdf" in edit_html
+    assert "demo-security-assessment-annexure.pdf" in edit_html
+    assert "demo-remediation-closure.pdf" in edit_html
+    assert "demo-scope-confirmation.pdf" in edit_html
+    assert (
+        edit_html.count("data-existing-file-remove")
+        == CURRENT_CERTIFICATION_ATTACHMENT_COUNT
+    )
+
+    response = client.post(
+        url,
+        renewed_certification_data(),
+        headers=HTMX_HEADERS,
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response["HX-Redirect"] == reverse(
+        "experiences:detail",
+        args=[REVIEW_REFERENCE],
+    )
+    application = ApplicationInstance.objects.get(reference=REVIEW_REFERENCE)
+    current = application.submissions.get(
+        form_key="security_certification",
+        is_current=True,
+    )
+    assert application.status == "under_review"
+    assert current.submission_number == RENEWED_CERTIFICATION_NUMBER
+    assert (
+        current.attachments.filter(field_key="certificate_documents").count()
+        == MULTI_FILE_COUNT
+    )
+    assert (
+        current.attachments.filter(field_key="supporting_documents").count()
+        == MULTI_FILE_COUNT
+    )
+    assert (
+        application.submissions.filter(
+            form_key="security_certification",
+        ).count()
+        == RENEWED_CERTIFICATION_NUMBER
+    )
+
+    detail_html = client.get(
+        reverse("experiences:detail", args=[REVIEW_REFERENCE]),
+    ).content.decode()
+    assert "3 submissions" in detail_html
+
+    client.force_login(get_user_model().objects.get(email=ADMIN_EMAIL))
+    admin_html = client.get(
+        reverse("ohc:application-detail", args=[REVIEW_REFERENCE]),
+    ).content.decode()
+    assert "Previous versions" in admin_html
+    assert "iso-certificate.pdf" in admin_html
+    assert "iso-scope.pdf" in admin_html
+    assert "control-map.pdf" in admin_html
+
+    attachment = current.attachments.get(original_name="iso-certificate.pdf")
+    download = client.get(
+        reverse(
+            "experiences:attachment",
+            args=[REVIEW_REFERENCE, attachment.pk],
+        ),
+    )
+    assert download.status_code == HTTPStatus.OK
+    assert download["Content-Disposition"].endswith('filename="iso-certificate.pdf"')
+    download.close()
+
+
+def test_htmx_edit_appends_and_removes_files_in_existing_submission(
+    client,
+    seeded_demo,
+    settings,
+    tmp_path,
+):
+    settings.MEDIA_ROOT = tmp_path
+    applicant = get_user_model().objects.get(email=APPLICANT_EMAIL)
+    client.force_login(applicant)
+    application = ApplicationInstance.objects.get(reference=REVIEW_REFERENCE)
+    previous = application.submissions.get(
+        form_key="security_certification",
+        is_current=True,
+    )
+    removed = previous.attachments.filter(
+        field_key="supporting_documents",
+        is_current=True,
+    ).first()
+    assert removed is not None
+    data = renewed_certification_data()
+    data.update(
+        {
+            "submission_mode": "edit",
+            "certificate_number": "CERTIN-DEMO-2026-118-EDITED",
+            "certificate_documents": [
+                SimpleUploadedFile(
+                    "additional-scope.pdf",
+                    b"additional scope",
+                    content_type="application/pdf",
+                ),
+            ],
+            "remove_files__supporting_documents": str(removed.pk),
+        },
+    )
+    data.pop("supporting_documents")
+    url = reverse(
+        "experiences:form",
+        args=[REVIEW_REFERENCE, "security_certification"],
+    )
+
+    response = client.post(url, data, headers=HTMX_HEADERS)
+
+    assert response.status_code == HTTPStatus.OK
+    assert response["HX-Redirect"] == reverse(
+        "experiences:detail",
+        args=[REVIEW_REFERENCE],
+    )
+    previous.refresh_from_db()
+    current = application.submissions.get(
+        form_key="security_certification",
+        is_current=True,
+    )
+    assert previous.is_current is False
+    assert current.submission_number == previous.submission_number
+    assert current.revision == EDITED_REVISION_NUMBER
+    assert (
+        current.attachments.filter(
+            field_key="certificate_documents",
+            is_current=True,
+        ).count()
+        == APPENDED_CERTIFICATE_FILE_COUNT
+    )
+    assert (
+        current.attachments.filter(
+            field_key="supporting_documents",
+            is_current=True,
+        ).count()
+        == RETAINED_SUPPORTING_FILE_COUNT
+    )
+    assert current.attachments.filter(
+        original_name="additional-scope.pdf",
+        is_current=True,
+    ).exists()
+    assert not current.attachments.filter(
+        original_name=removed.original_name,
+        is_current=True,
+    ).exists()
+    assert previous.attachments.filter(pk=removed.pk, is_current=True).exists()
 
 
 def test_admin_dashboard_review_and_decision_form_render(client, seeded_demo):

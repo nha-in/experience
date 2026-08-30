@@ -6,6 +6,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -94,7 +95,7 @@ class SubmissionStatus(models.TextChoices):
 
 
 class ApplicationFormSubmission(models.Model):
-    """The latest validated payload for one static form in an application."""
+    """One immutable revision of a validated form submission."""
 
     application = models.ForeignKey(
         ApplicationInstance,
@@ -109,9 +110,13 @@ class ApplicationFormSubmission(models.Model):
         default=SubmissionStatus.COMPLETED,
     )
     data = models.JSONField(_("Validated data"), default=dict)
+    field_schema = models.JSONField(_("Field schema"), default=list, blank=True)
     metadata = models.JSONField(_("Metadata"), default=dict, blank=True)
     schema_version = models.PositiveSmallIntegerField(default=1)
     revision = models.PositiveIntegerField(default=1)
+    submission_number = models.PositiveIntegerField(default=1)
+    is_current = models.BooleanField(default=True, db_index=True)
+    valid_until = models.DateField(null=True, blank=True, db_index=True)
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -121,16 +126,33 @@ class ApplicationFormSubmission(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["submitted_at"]
+        ordering = ["form_key", "-submission_number", "-revision"]
         constraints = [
             models.UniqueConstraint(
+                fields=[
+                    "application",
+                    "form_key",
+                    "submission_number",
+                    "revision",
+                ],
+                name="unique_experience_form_submission_revision",
+            ),
+            models.UniqueConstraint(
                 fields=["application", "form_key"],
-                name="unique_experience_form_per_application",
+                condition=Q(is_current=True),
+                name="unique_current_experience_form_submission",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"{self.application.reference} / {self.form_key}"
+        return (
+            f"{self.application.reference} / {self.form_key} "
+            f"#{self.submission_number} r{self.revision}"
+        )
+
+    @property
+    def is_expired(self) -> bool:
+        return bool(self.valid_until and self.valid_until < timezone.localdate())
 
 
 class ApplicationAccess(models.Model):

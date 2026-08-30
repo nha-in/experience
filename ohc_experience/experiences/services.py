@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from django import forms
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
@@ -19,6 +20,7 @@ from . import permission_keys
 from .definitions import ActionResult
 from .definitions import ExperienceContext
 from .definitions import FormActionResult
+from .fields import MultipleFileField
 from .models import ApplicationAccess
 from .models import ApplicationAttachment
 from .models import ApplicationEvent
@@ -38,14 +40,20 @@ REFERENCE_ALPHABET = string.ascii_uppercase + string.digits
 
 def application_context(application, user) -> ExperienceContext:
     access = get_effective_access(application, user)
-    submissions = {
-        submission.form_key: submission for submission in application.submissions.all()
-    }
+    submissions = {}
+    history: dict[str, list[ApplicationFormSubmission]] = {}
+    for submission in application.submissions.all():
+        history.setdefault(submission.form_key, []).append(submission)
+        if submission.is_current:
+            submissions[submission.form_key] = submission
     return ExperienceContext(
         application=application,
         user=user,
         permissions=access.permissions,
         submissions=submissions,
+        submission_history={
+            form_key: tuple(items) for form_key, items in history.items()
+        },
     )
 
 
@@ -128,8 +136,213 @@ def recalculate_progress(
     application.save(update_fields=["metadata", "updated_at"])
 
 
+def _submission_payload(form, initial_data):
+    stored_data = dict(initial_data)
+    uploads: dict[str, list[UploadedFile]] = {}
+    multiple_upload_fields: set[str] = set()
+    for field_name, value in form.cleaned_data.items():
+        form_field = form.fields[field_name]
+        if not isinstance(form_field, forms.FileField):
+            stored_data[field_name] = _json_value(value)
+            continue
+        if isinstance(value, UploadedFile):
+            uploads[field_name] = [value]
+        elif isinstance(value, (list, tuple)):
+            uploads[field_name] = [
+                upload for upload in value if isinstance(upload, UploadedFile)
+            ]
+        if isinstance(form_field, MultipleFileField):
+            multiple_upload_fields.add(field_name)
+        if not uploads.get(field_name):
+            uploads.pop(field_name, None)
+    return stored_data, uploads, multiple_upload_fields
+
+
+def _choice_schema(choices) -> list[dict[str, Any]]:
+    result = []
+    for value, label in choices:
+        if isinstance(label, (list, tuple)):
+            result.extend(_choice_schema(label))
+        else:
+            result.append({"value": _json_value(value), "label": str(label)})
+    return result
+
+
+def form_field_schema(form) -> list[dict[str, Any]]:
+    return [
+        {
+            "key": name,
+            "label": str(field.label or name.replace("_", " ").title()),
+            "type": field.__class__.__name__,
+            "required": field.required,
+            "choices": _choice_schema(field.choices)
+            if getattr(field, "choices", None)
+            else [],
+        }
+        for name, field in form.fields.items()
+    ]
+
+
+def _submission_mode(form_definition, current_submission, requested_mode):
+    if current_submission is None:
+        return "create"
+    if not form_definition.repeatable:
+        return "edit"
+    mode = requested_mode or "renew"
+    if mode not in {"edit", "renew"}:
+        raise ValidationError(_("Unknown form submission mode."))
+    if mode == "edit" and not form_definition.allow_updates:
+        raise PermissionDenied(_("This submission is locked after it is completed."))
+    return mode
+
+
+def _persist_submission(
+    *,
+    context,
+    form_definition,
+    submission_values,
+    submission_mode,
+):
+    application = context.application
+    form_key = form_definition.key
+    current_submission = context.submissions.get(form_key)
+    if current_submission:
+        current_submission.is_current = False
+        current_submission.save(update_fields=["is_current"])
+        is_renewal = submission_mode == "renew"
+        return ApplicationFormSubmission.objects.create(
+            application=application,
+            form_key=form_key,
+            metadata={} if is_renewal else dict(current_submission.metadata),
+            revision=1 if is_renewal else current_submission.revision + 1,
+            submission_number=(
+                current_submission.submission_number + 1
+                if is_renewal
+                else current_submission.submission_number
+            ),
+            **submission_values,
+        )
+    return ApplicationFormSubmission.objects.create(
+        application=application,
+        form_key=form_key,
+        **submission_values,
+    )
+
+
+def _clone_current_attachments(*, source, destination, form) -> None:
+    if source is None:
+        return
+    file_fields = {
+        name
+        for name, field in form.fields.items()
+        if isinstance(field, forms.FileField)
+    }
+    for attachment in source.attachments.filter(
+        field_key__in=file_fields,
+        is_current=True,
+    ):
+        form_field = form.fields[attachment.field_key]
+        removed_ids = getattr(form, "removed_file_ids", {}).get(
+            attachment.field_key,
+            set(),
+        )
+        replacing_single_file = (
+            not isinstance(form_field, MultipleFileField)
+            and form.cleaned_data.get(attachment.field_key)
+        )
+        if attachment.pk in removed_ids or replacing_single_file:
+            continue
+        ApplicationAttachment.objects.create(
+            submission=destination,
+            field_key=attachment.field_key,
+            file=attachment.file.name,
+            original_name=attachment.original_name,
+            content_type=attachment.content_type,
+            size=attachment.size,
+            uploaded_by=attachment.uploaded_by,
+        )
+
+
+def _store_uploads(
+    *,
+    submission,
+    uploads,
+    multiple_upload_fields,
+    stored_data,
+    user,
+) -> None:
+    for field_name, field_uploads in uploads.items():
+        if field_name not in multiple_upload_fields:
+            submission.attachments.filter(
+                field_key=field_name,
+                is_current=True,
+            ).update(is_current=False)
+        attachment_data = []
+        for upload in field_uploads:
+            attachment = ApplicationAttachment.objects.create(
+                submission=submission,
+                field_key=field_name,
+                file=upload,
+                original_name=upload.name,
+                content_type=getattr(upload, "content_type", ""),
+                size=upload.size,
+                uploaded_by=user,
+            )
+            attachment_data.append(
+                {
+                    "attachment_id": attachment.pk,
+                    "name": attachment.original_name,
+                    "size": attachment.size,
+                },
+            )
+        stored_data[field_name] = (
+            attachment_data
+            if field_name in multiple_upload_fields
+            else attachment_data[0]
+        )
+
+
+def _synchronize_attachment_data(*, submission, form, stored_data) -> bool:
+    has_file_fields = False
+    for field_name, form_field in form.fields.items():
+        if not isinstance(form_field, forms.FileField):
+            continue
+        has_file_fields = True
+        attachments = list(
+            submission.attachments.filter(
+                field_key=field_name,
+                is_current=True,
+            ).order_by("created_at", "pk"),
+        )
+        attachment_data = [
+            {
+                "attachment_id": attachment.pk,
+                "name": attachment.original_name,
+                "size": attachment.size,
+            }
+            for attachment in attachments
+        ]
+        if isinstance(form_field, MultipleFileField):
+            if attachment_data:
+                stored_data[field_name] = attachment_data
+            else:
+                stored_data.pop(field_name, None)
+        elif attachment_data:
+            stored_data[field_name] = attachment_data[0]
+        else:
+            stored_data.pop(field_name, None)
+    return has_file_fields
+
+
 @transaction.atomic
-def save_form_submission(*, application, form_key: str, form, user):  # noqa: C901
+def save_form_submission(
+    *,
+    application,
+    form_key: str,
+    form,
+    user,
+    submission_mode: str | None = None,
+):
     application = ApplicationInstance.objects.select_for_update().get(
         pk=application.pk,
     )
@@ -144,63 +357,56 @@ def save_form_submission(*, application, form_key: str, form, user):  # noqa: C9
     if not form.is_valid():
         raise ValidationError(_("The form must be valid before it is saved."))
 
-    submission = context.submissions.get(form_key)
-    stored_data = dict(submission.data) if submission else {}
-    uploads: dict[str, UploadedFile] = {}
-    for field_name, value in form.cleaned_data.items():
-        if isinstance(value, UploadedFile):
-            uploads[field_name] = value
-            continue
-        if value in (None, "") and field_name in form.files:
-            continue
-        stored_data[field_name] = _json_value(value)
-
-    if submission:
-        submission.data = stored_data
-        submission.status = SubmissionStatus.COMPLETED
-        submission.schema_version = form_definition.schema_version
-        submission.revision += 1
-        submission.submitted_by = user
-        submission.save(
-            update_fields=[
-                "data",
-                "status",
-                "schema_version",
-                "revision",
-                "submitted_by",
-                "updated_at",
-            ],
-        )
-    else:
-        submission = ApplicationFormSubmission.objects.create(
-            application=application,
-            form_key=form_key,
-            status=SubmissionStatus.COMPLETED,
-            data=stored_data,
-            schema_version=form_definition.schema_version,
-            submitted_by=user,
-        )
-
-    for field_name, upload in uploads.items():
-        submission.attachments.filter(
-            field_key=field_name,
-            is_current=True,
-        ).update(is_current=False)
-        attachment = ApplicationAttachment.objects.create(
-            submission=submission,
-            field_key=field_name,
-            file=upload,
-            original_name=upload.name,
-            content_type=getattr(upload, "content_type", ""),
-            size=upload.size,
-            uploaded_by=user,
-        )
-        stored_data[field_name] = {
-            "attachment_id": attachment.pk,
-            "name": attachment.original_name,
-            "size": attachment.size,
+    current_submission = context.submissions.get(form_key)
+    submission_mode = _submission_mode(
+        form_definition,
+        current_submission,
+        submission_mode,
+    )
+    stored_data = {}
+    if current_submission and submission_mode == "edit":
+        stored_data = {
+            field_name: current_submission.data[field_name]
+            for field_name, field in form.fields.items()
+            if isinstance(field, forms.FileField)
+            and field_name in current_submission.data
         }
-    if uploads:
+    stored_data, uploads, multiple_upload_fields = _submission_payload(
+        form,
+        stored_data,
+    )
+    valid_until = form_definition.get_valid_until(form.cleaned_data)
+    submission = _persist_submission(
+        context=context,
+        form_definition=form_definition,
+        submission_values={
+            "status": SubmissionStatus.COMPLETED,
+            "data": stored_data,
+            "field_schema": form_field_schema(form),
+            "schema_version": form_definition.schema_version,
+            "valid_until": valid_until,
+            "submitted_by": user,
+        },
+        submission_mode=submission_mode,
+    )
+    if submission_mode == "edit":
+        _clone_current_attachments(
+            source=current_submission,
+            destination=submission,
+            form=form,
+        )
+    _store_uploads(
+        submission=submission,
+        uploads=uploads,
+        multiple_upload_fields=multiple_upload_fields,
+        stored_data=stored_data,
+        user=user,
+    )
+    if _synchronize_attachment_data(
+        submission=submission,
+        form=form,
+        stored_data=stored_data,
+    ):
         submission.data = stored_data
         submission.save(update_fields=["data", "updated_at"])
 
@@ -217,9 +423,23 @@ def save_form_submission(*, application, form_key: str, form, user):  # noqa: C9
         actor=user,
         kind=EventKind.FORM_SUBMITTED,
         title=_("%(form)s completed") % {"form": form_definition.name},
-        description=_("Revision %(revision)s was saved.")
-        % {"revision": submission.revision},
-        payload={"form_key": form_key, "revision": submission.revision},
+        description=(
+            _("Submission %(number)s, revision %(revision)s was saved.")
+            % {
+                "number": submission.submission_number,
+                "revision": submission.revision,
+            }
+            if form_definition.repeatable
+            else _("Revision %(revision)s was saved.")
+            % {"revision": submission.revision}
+        ),
+        payload={
+            "form_key": form_key,
+            "revision": submission.revision,
+            "submission_number": submission.submission_number,
+            "submission_mode": submission_mode,
+            "valid_until": valid_until.isoformat() if valid_until else None,
+        },
     )
     return submission
 
@@ -269,7 +489,10 @@ def perform_application_action(
     query_thread = None
     if result.query:
         submission = (
-            application.submissions.filter(form_key=result.query.form_key).first()
+            application.submissions.filter(
+                form_key=result.query.form_key,
+                is_current=True,
+            ).first()
             if result.query.form_key
             else None
         )
