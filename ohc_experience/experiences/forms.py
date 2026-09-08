@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from .fields import MultipleFileField
+from .registry import get_program
+from .uploads import validate_pdf
 
 
 class ExperienceForm(forms.Form):
@@ -83,3 +85,57 @@ class ExperienceForm(forms.Form):
                 field_name,
                 _("Upload %(label)s before completing this form.") % {"label": label},
             )
+
+
+class ReviewForm(ExperienceForm):
+    required_uploads = ()
+    schema_version = 1
+
+    def __init__(self, *args, draft=False, **kwargs):
+        self.draft = draft
+        super().__init__(*args, **kwargs)
+        if draft:
+            for field in self.fields.values():
+                field.required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        if not self.draft:
+            for key in self.required_uploads:
+                self.require_upload(key, self.fields[key].label or key)
+        return cleaned
+
+
+class CredentialURLsForm(forms.Form):
+    callback_url = forms.URLField(required=False)
+    bridge_url = forms.URLField(required=False)
+
+    def clean(self):
+        cleaned = super().clean()
+        for key, value in cleaned.items():
+            if value and not value.lower().startswith("https://"):
+                self.add_error(key, "Use an HTTPS URL.")
+        return cleaned
+
+
+class SupportForm(forms.Form):
+    subject = forms.CharField(max_length=255)
+    track = forms.ChoiceField(required=False)
+    priority = forms.ChoiceField(
+        choices=[("low", "Low"), ("medium", "Medium"), ("high", "High")],
+    )
+    body = forms.CharField(label="Message", widget=forms.Textarea(attrs={"rows": 5}))
+    attachments = MultipleFileField(
+        required=False,
+        max_files=5,
+        validators=[validate_pdf],
+        accept=".pdf",
+    )
+
+    def __init__(self, *args, program=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        program = program or get_program()
+        self.fields["track"].choices = [
+            ("", "General"),
+            *((track.code, track.name) for track in program.tracks),
+        ]

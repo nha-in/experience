@@ -40,10 +40,10 @@ def resolve_post_login_destination(user) -> str:
     membership = get_membership_for(user)
     if membership is None:
         return (
-            "sandbox:assess-dashboard"
+            "experiences:assess-dashboard"
             if is_ohc_team(user) or user.is_superuser
             else "home"
         )
     if not membership.organisation.is_onboarded:
-        return "sandbox:organisation"
-    return "sandbox:home"
+        return "experiences:organisation"
+    return "experiences:home"

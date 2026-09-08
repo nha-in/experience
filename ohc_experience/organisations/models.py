@@ -95,7 +95,7 @@ class Organisation(models.Model):
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
-        return reverse("sandbox:organisation")
+        return reverse("experiences:organisation")
 
     def _build_unique_slug(self) -> str:
         base = slugify(self.name)[:200] or "organisation"

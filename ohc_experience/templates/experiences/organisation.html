@@ -1,0 +1,7 @@
+{% extends 'experiences/base.html' %}
+{% block portal_content %}
+<div class="sb-page-heading"><div><p class="sb-eyebrow">Organisation verification</p><h1>Organisation details</h1><p class="sb-muted">{{ organisation.display_name }}</p></div>{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}</div>
+{% include 'experiences/partials/review_status.html' %}
+{% if can_edit %}<form method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data" novalidate>{% csrf_token %}<input type="hidden" name="revision" value="{{ item.selected_submission_id|default:'' }}" />{% include 'experiences/partials/form.html' %}<div class="sb-actions"><button class="sb-button" type="submit">Submit for verification</button>{% if organisation.is_onboarded %}<a href="{% url 'experiences:product-create' %}">Continue to product</a>{% endif %}</div></form>{% else %}{% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}{% if not organisation.products.exists %}<a class="sb-button" href="{% url 'experiences:product-create' %}">Continue to product</a>{% endif %}{% endif %}
+{% include 'experiences/partials/queries.html' %}{% include 'experiences/partials/history.html' %}
+{% endblock %}

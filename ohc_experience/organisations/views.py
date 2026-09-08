@@ -54,9 +54,9 @@ class OrganisationMixin(LoginRequiredMixin):
             if is_ohc_team(request.user):
                 messages.info(
                     request,
-                    _("Opening the NHA review dashboard for your reviewer account."),
+                    _("Opening the review dashboard for your reviewer account."),
                 )
-                return redirect("sandbox:assess-dashboard")
+                return redirect("experiences:assess-dashboard")
             msg = _("You are not a member of any organisation.")
             raise PermissionDenied(msg)
         self.organisation = self.membership.organisation

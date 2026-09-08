@@ -1,0 +1,10 @@
+{% if item.queries.exists %}
+<section class="sb-section"><div class="sb-section-heading"><h2>Queries</h2><span class="sb-muted">{{ item.queries.count }} total</span></div>
+{% for query in item.queries.all %}<article class="sb-query"><div class="sb-section-heading"><strong>{{ query.field_key }}</strong><span class="sb-badge sb-status-{{ query.status }}">{{ query.get_status_display }}</span></div><p>{{ query.question|linebreaksbr }}</p><p class="sb-muted">{{ query.raised_by.display_name }} &middot; {{ query.raised_at|date:'d M Y, H:i' }} IST</p>
+{% if query.submission_id != item.selected_submission_id %}<p class="sb-muted">Earlier submission</p>{% endif %}
+{% if query.reply %}<blockquote><p>{{ query.reply|linebreaksbr }}</p><small>{{ query.replied_by.display_name }} &middot; {{ query.replied_at|date:'d M Y, H:i' }}</small></blockquote>{% endif %}
+{% if query.submission_id == item.selected_submission_id and item.pending %}
+{% if query.status == 'open' and can_integrate %}<form method="post" action="{% url 'experiences:query-action' query.pk %}">{% csrf_token %}<label for="reply-{{ query.pk }}">Your reply</label><textarea id="reply-{{ query.pk }}" name="body" rows="3" required maxlength="10000"></textarea><button class="sb-button" type="submit">Send reply</button></form>{% endif %}
+{% if query.status == 'answered' and can_decide %}<form method="post" action="{% url 'experiences:query-action' query.pk %}">{% csrf_token %}<input type="hidden" name="intent" value="resolve" /><button class="sb-button secondary" type="submit">Mark resolved</button></form>{% endif %}
+{% endif %}</article>{% endfor %}
+</section>{% endif %}

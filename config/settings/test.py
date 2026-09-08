@@ -36,5 +36,6 @@ TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
 MEDIA_URL = "http://media.testserver/"
 # Your stuff...
 # ------------------------------------------------------------------------------
-SANDBOX_ALLOW_DEMO_CREDENTIALS = True
+ABDM_ALLOW_DEMO_CREDENTIALS = True
+EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = True
 SANDBOX_SIGNUP_CAPTCHA = False

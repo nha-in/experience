@@ -1,59 +1,83 @@
-# Shared Application and Form Records
+# Experience Engine
 
-This app supplies the persistence and upload primitives used by the ABDM
-Developer Sandbox. Workflow policies and UI live in `ohc_experience/sandbox`;
-there is no separate generic workflow console or REST API.
+`experiences` is the Django app that owns the reusable workflow engine. It does
+not import ABDM. Implementations register ordinary Python definitions through
+`EXPERIENCE_IMPLEMENTATIONS`; `EXPERIENCE_PORTAL` selects the active portal.
 
-## Responsibilities
+## Boundary
 
-- `definitions.py` declares application identities and their form reuse scopes.
-- `registry.py` resolves persisted application types. `sandbox/definitions.py`
-  registers product registration and sandbox exit applications.
-- `models.py` stores products, applications, independent forms, submission
-  revisions, pinned form links, application dependencies and product outcomes.
-- `forms.py` and `fields.py` validate uploads, retained files and removal requests.
-- `services.py` creates applications, links reusable records, snapshots field
-  schemas and copies/stores attachments for new submission revisions.
-- `sandbox/services.py` owns permissions, milestone prerequisites, review state
-  transitions, queries, submission history and audit events.
+- `models.py`: products, independent forms, immutable submission revisions,
+  application/form links, dependencies, outcomes, workspaces, milestones,
+  reviews, queries, append-only audit events, credentials and notifications.
+- `definitions.py`, `registry.py`: implementation contracts and registration.
+- `services.py`: record creation, scoped form reuse, submission/schema snapshots,
+  attachment versioning and product-level outcome issuance.
+- `workflows.py`: transactional submission/review state changes, queries,
+  assignment, prerequisite enforcement and milestone materialization.
+- `permissions.py`: integrator scope, reviewer assignment and decision access.
+- `credentials.py`: encryption, audited reveal, rotation, revocation and callback
+  validation. A registered provider supplies eligibility and gateway operations.
+- `forms.py`, `fields.py`, `uploads.py`: shared form rendering and upload handling.
+- `views.py`, `urls.py`, `admin.py`, `tasks.py`: HTTP, admin and background work.
+  HTMX templates live in `templates/experiences`. Existing HTTP routes are kept.
 
-## Independent Forms
+Accounts, organisation membership, support tickets and events retain their
+existing apps. Neither they nor the engine import a concrete implementation.
 
-`FormRecord` is a durable form identity. A definition declares an organisation,
-product or application reuse scope. Creating an application materializes its
-`ApplicationFormUse` links, reusing the current submission within that scope.
-Each link pins an exact `FormSubmission`; later edits do not silently replace
-another application's evidence.
+## Implementing a Program
 
-Submissions store JSON answers, the field schema/version, occurrence and revision
-numbers, and attachment metadata. The sandbox workflow creates a new revision
-when editing evidence, or a new occurrence when submitting it under another
-application. History renders the saved schema even if the Python form changes.
-Retained attachments are linked into the new revision without modifying earlier
-versions. Downloads are authorised by the sandbox views and streamed from private
-MinIO locally or S3 in production.
+Implementations contain no models, migrations, URL configuration or views:
 
-`ApplicationDependency` rejects cross-product links, self references and cycles.
-The fixed milestone catalog and sandbox service enforce prerequisite approvals
-before submission.
+1. Subclass `ReviewForm` with the domain's fields and validation. Define `sections`,
+   `section_notes`, `section_badges` and `full_width_fields` for presentation.
+2. Subclass `ApplicationFormDefinition` with a stable key, `form_class`,
+   `reuse_scope` and schema version. Declare `allow_reuse` and
+   `allow_approved_updates`; implement submission checks and lifecycle hooks.
+3. Subclass `ApplicationDefinition` with its form definitions. `on_start` can
+   return `OutcomeDefinition` values immediately when an application is created.
+4. Subclass `ProgramDefinition` with the organisation form, product and milestone
+   application types, milestone/track catalog, product-field mapping and branding.
+   Catalog dependencies are validated and materialized in topological order.
+5. Register the dotted program class in settings and select its key as the portal.
+   Optionally supply a `CredentialDefinition` provider and demo builder.
 
-## Outcomes and Access
+Form hooks run inside the engine transaction: `initial_data` supplies defaults;
+`submission_block_reason` gates final submission; `on_submit` projects validated
+answers; `on_approve` returns structured outcomes; `on_send_back` updates domain
+state. External provider calls cannot roll back with the database, so integrations
+must implement idempotency and reconciliation.
 
-`ProductOutcome` stores structured application results at product scope. The
-sandbox workflow records milestone decisions and credential references; encrypted
-credential secrets live separately in `SandboxCredential`.
+The current product/milestone portal reviews one form per review item. The record
+layer supports multiple forms per application; the portal does not implement an
+arbitrary runtime-configurable workflow designer.
 
-Organisation memberships govern integrator access. Review items have explicit
-reviewer assignments, and only the assignee or a superuser can decide. Team
-invitation and role-management rules remain in the organisations app. The retired
-generic access grants, query tables and audit tables are replaced by these active
-membership, review-query and append-only sandbox audit models.
+## History and Access
 
-## Demo and Verification
+`FormRecord` has organisation, product or application reuse scope. Each
+`ApplicationFormUse` pins an exact `FormSubmission`; edits never silently replace
+another application's evidence. Revisions preserve answers, schema/version,
+occurrence, revision and attachments. History renders the saved schema even when
+the Python form changes. Downloads are permission-checked and served privately
+from MinIO locally or S3 in production.
 
-See [the sandbox guide](../../docs/abdm_sandbox.md) for setup, demo accounts,
-configuration and test commands. `seed_sandbox_demo --reset` creates the current
-demo and is deliberately destructive; never run it against data to retain.
+Organisation memberships govern integrator access. Only assigned reviewers or
+superusers can decide. Team invitation and role constraints live in the
+organisations app. Credentials are encrypted in `ProductCredential`, never stored
+as secrets in outcome JSON. `ApplicationDependency` rejects cross-product links,
+self references and cycles; the engine enforces prerequisite success statuses.
 
-Migration history is retained. Cleanup migrations remove obsolete tables without
-resetting the current portal's products, reviews, submissions or attachments.
+## Existing Databases and Tests
+
+Migrations 0003-0005 adopt the former `sandbox` tables into `experiences`, rename
+domain-neutral fields and move content types, preserving row identities, foreign
+keys, admin permission grants and scheduled tasks. They also support fresh
+databases. The table-adoption migration is deliberately irreversible; restore a
+backup when rolling back to the old code. Do not use demo reset for an upgrade.
+
+`tests/example_program.py` is an unrelated supplier-quality implementation.
+`tests/test_programs.py` exercises its full lifecycle, outcomes, reuse, queries,
+dependencies and portal, and starts Django with ABDM imports blocked.
+ABDM-specific regressions live in `abdm/tests`.
+
+See [the ABDM guide](../../docs/abdm_sandbox.md) for local setup and
+`seed_experience_demo`. The optional `--reset` flag is destructive.

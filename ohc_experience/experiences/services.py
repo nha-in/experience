@@ -22,6 +22,7 @@ from .models import ApplicationInstance
 from .models import FormAttachment
 from .models import FormRecord
 from .models import FormReuseScope
+from .models import ProductOutcome
 from .registry import registry
 
 REFERENCE_ALPHABET = string.ascii_uppercase + string.digits
@@ -140,7 +141,27 @@ def create_application(*, application_type: str, product, user):
         definition=definition,
         user=user,
     )
+    for outcome in definition.on_start(application, user):
+        issue_outcome(application=application, actor=user, outcome=outcome)
     return application
+
+
+def issue_outcome(*, application, actor, outcome):
+    result, _ = ProductOutcome.objects.update_or_create(
+        product=application.product,
+        source_application=application,
+        outcome_type=outcome.key,
+        defaults={
+            "name": outcome.name,
+            "status": outcome.status,
+            "data": _json_value(outcome.data),
+            "metadata": outcome.metadata,
+            "field_schema": outcome.field_schema,
+            "valid_until": outcome.valid_until,
+            "issued_by": actor,
+        },
+    )
+    return result
 
 
 def submission_payload(form, initial_data):

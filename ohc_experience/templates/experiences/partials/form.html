@@ -1,0 +1,14 @@
+{% load careui experience_ui %}
+{% if form.non_field_errors %}<div class="sb-notice error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+{% for section in form|sections %}
+<section class="sb-form-section">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  <div class="sb-form-grid">
+    {% for field in section.fields %}<div class="sb-field {% if field.name in form.full_width_fields %}sb-full{% endif %}" {% if field.name in form.required_uploads %}data-required-upload="{{ field.name }}"{% endif %}>{% ui_field field %}</div>{% endfor %}
+  </div>
+  {% for label,badge in section.badges %}<div class="sb-muted sb-disabled-track">{{ label }} <span class="sb-badge">{{ badge }}</span></div>{% endfor %}
+  {% if section.note %}<p class="sb-muted">{{ section.note }}</p>{% endif %}
+</section>
+{% endfor %}
+
+{% if approved_selections %}<p class="sb-notice success">Previously approved milestones are retained and cannot be removed.</p>{% endif %}

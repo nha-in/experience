@@ -2,15 +2,15 @@
 
 <nav id="app-nav" class="flex flex-1 flex-col" aria-label="{% translate 'Main' %}" hx-boost="false">
   <ul class="flex flex-col gap-0.5">
-    <li><a id="nav-dashboard" class="ui-nav-link" href="{% url 'sandbox:home' %}">{% translate "Dashboard" %}</a></li>
-    <li><a id="nav-products" class="ui-nav-link" href="{% url 'sandbox:products' %}">{% translate "Products" %}</a></li>
+    <li><a id="nav-dashboard" class="ui-nav-link" href="{% url 'experiences:home' %}">{% translate "Dashboard" %}</a></li>
+    <li><a id="nav-products" class="ui-nav-link" href="{% url 'experiences:products' %}">{% translate "Products" %}</a></li>
     {% if is_ohc_team or request.user.is_superuser %}
-      <li><a class="ui-nav-link" href="{% url 'sandbox:queue' %}">{% translate "Review queue" %}</a></li>
+      <li><a class="ui-nav-link" href="{% url 'experiences:queue' %}">{% translate "Review queue" %}</a></li>
     {% else %}
-      <li><a class="ui-nav-link" href="{% url 'sandbox:pending-queries' %}">{% translate "Pending queries" %}</a></li>
+      <li><a class="ui-nav-link" href="{% url 'experiences:pending-queries' %}">{% translate "Pending queries" %}</a></li>
     {% endif %}
-    <li><a id="nav-events" class="ui-nav-link" href="{% url 'sandbox:events' %}">{% translate "Events" %}</a></li>
-    <li><a id="nav-support" class="ui-nav-link" href="{% url 'sandbox:support' %}">{% translate "Support" %}</a></li>
+    <li><a id="nav-events" class="ui-nav-link" href="{% url 'experiences:events' %}">{% translate "Events" %}</a></li>
+    <li><a id="nav-support" class="ui-nav-link" href="{% url 'experiences:support' %}">{% translate "Support" %}</a></li>
   </ul>
   <ul class="mt-auto flex flex-col gap-0.5 pt-6">
     {% if current_organisation %}

@@ -107,7 +107,7 @@ class Event(models.Model):
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
-        return reverse("sandbox:events")
+        return reverse("experiences:events")
 
     def _build_unique_slug(self) -> str:
         base = slugify(self.title)[:200] or "event"

@@ -45,7 +45,7 @@ class TestLandingView:
         response = sign_in(owner_membership.user).get(reverse("home"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("sandbox:home")
+        assert response["Location"] == reverse("experiences:home")
 
     def test_sends_a_half_set_up_member_to_onboarding(
         self,
@@ -60,7 +60,7 @@ class TestLandingView:
         response = sign_in(membership.user).get(reverse("home"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("sandbox:organisation")
+        assert response["Location"] == reverse("experiences:organisation")
 
     def test_a_signed_in_user_without_an_organisation_still_gets_a_page(
         self,
@@ -81,21 +81,26 @@ class TestDashboardView:
         assert response.url.startswith(reverse("account_login"))
 
     def test_unfinished_organisation_goes_to_current_onboarding(
-        self, client, organisation,
+        self,
+        client,
+        organisation,
     ):
         membership = MembershipFactory.create(
-            organisation=organisation, role=Role.OWNER,
+            organisation=organisation,
+            role=Role.OWNER,
         )
         client.force_login(membership.user)
         response = client.get(reverse("dashboard"))
-        assert response.url == reverse("sandbox:organisation")
+        assert response.url == reverse("experiences:organisation")
 
     def test_onboarded_organisation_without_products_goes_to_registration(
-        self, client, owner_membership,
+        self,
+        client,
+        owner_membership,
     ):
         client.force_login(owner_membership.user)
         response = client.get(reverse("dashboard"))
-        assert response.url == reverse("sandbox:product-create")
+        assert response.url == reverse("experiences:product-create")
 
 
 class TestPostLoginDestination:
@@ -108,13 +113,18 @@ class TestPostLoginDestination:
     ):
         membership = MembershipFactory.create(organisation=organisation)
 
-        assert resolve_post_login_destination(membership.user) == "sandbox:organisation"
+        assert (
+            resolve_post_login_destination(membership.user)
+            == "experiences:organisation"
+        )
 
     def test_a_finished_organisation_lands_on_the_dashboard(
         self,
         owner_membership: Membership,
     ):
-        assert resolve_post_login_destination(owner_membership.user) == "sandbox:home"
+        assert (
+            resolve_post_login_destination(owner_membership.user) == "experiences:home"
+        )
 
 
 class TestOhcStaffLanding:
@@ -130,7 +140,7 @@ class TestOhcStaffLanding:
         response = client.get(reverse("users:redirect"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("sandbox:assess-dashboard")
+        assert response["Location"] == reverse("experiences:assess-dashboard")
 
     def test_the_dashboard_redirects_to_the_console(self, client, ohc_user):
         client.force_login(ohc_user)
@@ -138,7 +148,7 @@ class TestOhcStaffLanding:
         response = client.get(reverse("dashboard"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("sandbox:assess-dashboard")
+        assert response["Location"] == reverse("experiences:assess-dashboard")
 
     def test_a_vendor_with_no_organisation_still_gets_403(self, client, user):
         client.force_login(user)

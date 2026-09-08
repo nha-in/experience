@@ -5,26 +5,10 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F
 from django.db.models import Q
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
-
-
-class ProductType(models.TextChoices):
-    HMIS = "hmis", _("Hospital management information system (HMIS)")
-    LMIS = "lmis", _("Laboratory management information system (LMIS)")
-    EMR = "emr", _("Electronic medical record (EMR)")
-    PHR = "phr_locker", _("Personal health record (PHR) application")
-    HEALTH_LOCKER = "health_locker", _("Health locker")
-    TELEMEDICINE = "telemedicine", _("Telemedicine platform")
-    PHARMACY = "pharmacy", _("Pharmacy system")
-    CLAIMS = "claims_platform", _("Health claims or insurance platform")
-    HEALTH_SERVICES = (
-        "health_services_platform",
-        _("Health-service discovery or delivery platform"),
-    )
-    CONNECTOR = "connector", _("ABDM connector or middleware")
-    OTHER = "other", _("Other digital health solution")
 
 
 class Product(models.Model):
@@ -40,7 +24,6 @@ class Product(models.Model):
     product_type = models.CharField(
         _("Product type"),
         max_length=80,
-        choices=ProductType,
     )
     description = models.TextField(_("Product and intended use"))
     metadata = models.JSONField(_("Metadata"), default=dict, blank=True)
@@ -71,6 +54,13 @@ class Product(models.Model):
 
     def get_absolute_url(self) -> str:
         return self.workspace.get_absolute_url()
+
+    def get_product_type_display(self):
+        from .registry import get_program  # noqa: PLC0415
+
+        workspace = getattr(self, "workspace", None)
+        program = workspace.definition if workspace else get_program()
+        return program.product_types.get(self.product_type, self.product_type)
 
     def _build_unique_slug(self) -> str:
         base = slugify(self.name)[:220] or "product"
@@ -543,4 +533,414 @@ class FormAttachment(models.Model):
         ]
 
     def __str__(self) -> str:
+        return self.original_name
+
+
+class ProductWorkspace(models.Model):
+    product = models.OneToOneField(
+        "experiences.Product",
+        on_delete=models.CASCADE,
+        related_name="workspace",
+    )
+    reference = models.CharField(max_length=32, unique=True)
+    experience_type = models.CharField(max_length=100)
+    solution_type = models.CharField(max_length=40, blank=True)
+    applied_milestones = models.JSONField(default=list)
+    registration_status = models.CharField(
+        max_length=24,
+        default="pending",
+        choices=[
+            ("pending", "Pending registration"),
+            ("registered", "Registered"),
+            ("sent_back", "Sent back"),
+        ],
+    )
+    registered_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.reference} - {self.product.name}"
+
+    def get_absolute_url(self):
+        return reverse("experiences:overview", args=[self.reference])
+
+    @property
+    def definition(self):
+        from .registry import get_program  # noqa: PLC0415
+
+        return get_program(self.experience_type)
+
+    def get_solution_type_display(self):
+        return self.definition.solution_types.get(
+            self.solution_type, self.solution_type,
+        )
+
+
+class Milestone(models.Model):
+    product = models.ForeignKey(
+        "experiences.Product",
+        on_delete=models.CASCADE,
+        related_name="milestones",
+    )
+    key = models.CharField(max_length=100)
+    application = models.OneToOneField(
+        "experiences.ApplicationInstance",
+        on_delete=models.PROTECT,
+        related_name="milestone",
+    )
+    enabled = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "key"],
+                name="experience_unique_product_milestone",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name}: {self.definition.code}"
+
+    @property
+    def definition(self):
+        return self.product.workspace.definition.milestones[self.key]
+
+
+class ReviewItem(models.Model):
+    class Kind(models.TextChoices):
+        ORGANISATION = "organisation_verification", "Organisation verification"
+        PRODUCT = "product_registration", "Product registration"
+        APPLICATION = "application", "Application request"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "In progress"
+        NEW = "new", "New"
+        IN_REVIEW = "in_review", "Under review"
+        QUERY = "query_raised", "Query raised"
+        APPROVED = "approved", "Approved"
+        SENT_BACK = "sent_back", "Sent back"
+
+    kind = models.CharField(max_length=32, choices=Kind)
+    organisation = models.ForeignKey(
+        "organisations.Organisation",
+        on_delete=models.PROTECT,
+        related_name="review_items",
+    )
+    product = models.ForeignKey(
+        "experiences.Product",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="review_items",
+    )
+    application = models.OneToOneField(
+        "experiences.ApplicationInstance",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="review_item",
+    )
+    form = models.ForeignKey(
+        "experiences.FormRecord",
+        on_delete=models.PROTECT,
+        related_name="review_items",
+    )
+    selected_submission = models.ForeignKey(
+        "experiences.FormSubmission",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="review_items",
+    )
+    status = models.CharField(
+        max_length=24,
+        choices=Status,
+        default=Status.DRAFT,
+        db_index=True,
+    )
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="assigned_review_items",
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    resubmission_count = models.PositiveIntegerField(default=0)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="decided_review_items",
+    )
+    decision_note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["submitted_at", "pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organisation"],
+                condition=Q(kind="organisation_verification"),
+                name="experience_one_org_review",
+            ),
+            models.UniqueConstraint(
+                fields=["product"],
+                condition=Q(kind="product_registration"),
+                name="experience_one_product_review",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        kind="organisation_verification",
+                        product__isnull=True,
+                        application__isnull=True,
+                    )
+                    | Q(
+                        kind__in=["product_registration", "application"],
+                        product__isnull=False,
+                        application__isnull=False,
+                    )
+                ),
+                name="review_item_subject_required",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.reference} - {self.title}"
+
+    def get_absolute_url(self):
+        return reverse("experiences:review", args=[self.pk])
+
+    @property
+    def definition(self):
+        from .registry import registry  # noqa: PLC0415
+
+        return registry.get_form(self.form.form_key)
+
+    @property
+    def program(self):
+        from .registry import get_program  # noqa: PLC0415
+
+        if self.product_id:
+            return self.product.workspace.definition
+        return get_program(self.form.metadata.get("program"))
+
+    @property
+    def reference(self):
+        return f"REV-{self.pk:05d}"
+
+    @property
+    def title(self):
+        if self.kind == self.Kind.APPLICATION:
+            return self.application.title
+        return self.product.name if self.product_id else self.organisation.display_name
+
+    @property
+    def editable(self):
+        return self.status in {self.Status.DRAFT, self.Status.SENT_BACK}
+
+    @property
+    def pending(self):
+        return self.status in {
+            self.Status.NEW,
+            self.Status.IN_REVIEW,
+            self.Status.QUERY,
+        }
+
+    @property
+    def age(self):
+        return (timezone.now() - self.submitted_at).days if self.submitted_at else 0
+
+
+class ReviewQuery(models.Model):
+    item = models.ForeignKey(
+        ReviewItem,
+        on_delete=models.PROTECT,
+        related_name="queries",
+    )
+    submission = models.ForeignKey(
+        "experiences.FormSubmission",
+        on_delete=models.PROTECT,
+    )
+    field_key = models.CharField(max_length=100, default="form")
+    question = models.TextField()
+    raised_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="review_questions",
+    )
+    raised_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=12,
+        choices=[("open", "Open"), ("answered", "Answered"), ("resolved", "Resolved")],
+        default="open",
+    )
+    reply = models.TextField(blank=True)
+    replied_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="review_replies",
+    )
+    replied_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["raised_at", "pk"]
+
+    def __str__(self):
+        return f"{self.item.reference}: {self.field_key} ({self.status})"
+
+
+class AuditQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        message = "Audit events are append-only."
+        raise ValidationError(message)
+
+    def delete(self):
+        message = "Audit events are append-only."
+        raise ValidationError(message)
+
+
+class AuditEvent(models.Model):
+    organisation = models.ForeignKey(
+        "organisations.Organisation",
+        on_delete=models.PROTECT,
+        related_name="audit_events",
+    )
+    product = models.ForeignKey(
+        "experiences.Product",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="audit_events",
+    )
+    item = models.ForeignKey(
+        ReviewItem,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="history",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+    action = models.CharField(max_length=100)
+    detail = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    objects = AuditQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.action} ({self.created_at})"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            message = "Audit events are append-only."
+            raise ValidationError(message)
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        message = "Audit events are append-only."
+        raise ValidationError(message)
+
+
+class ProductCredential(models.Model):
+    product = models.OneToOneField(
+        "experiences.Product",
+        on_delete=models.PROTECT,
+        related_name="credential",
+    )
+    client_id = models.CharField(max_length=100, unique=True)
+    encrypted_secret = models.TextField(editable=False)
+    status = models.CharField(
+        max_length=16,
+        choices=[("active", "Active"), ("revoked", "Revoked")],
+        default="active",
+    )
+    gateway_url = models.URLField()
+    callback_url = models.URLField(blank=True)
+    bridge_url = models.URLField(blank=True)
+    issued_at = models.DateTimeField(default=timezone.now)
+    rotation_due = models.DateTimeField()
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_latency_ms = models.PositiveIntegerField(null=True, blank=True)
+    consecutive_failures = models.PositiveIntegerField(default=0)
+    last_error = models.CharField(max_length=255, blank=True)
+
+    def __str__(self):
+        return f"{self.client_id} ({self.status})"
+
+
+class Notification(models.Model):
+    recipient = models.EmailField()
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=255, blank=True)
+
+    def __str__(self):
+        return f"{self.subject} to {self.recipient}"
+
+
+class EventRegistration(models.Model):
+    event = models.ForeignKey(
+        "events.Event",
+        on_delete=models.CASCADE,
+        related_name="registrations",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_registrations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    reminder_sent = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "user"],
+                name="experience_unique_event_registration",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.event.title}: {self.user.email}"
+
+
+class TicketContext(models.Model):
+    ticket = models.OneToOneField(
+        "support.Ticket",
+        on_delete=models.CASCADE,
+        related_name="experience_context",
+    )
+    product = models.ForeignKey("experiences.Product", on_delete=models.PROTECT)
+    track = models.CharField(max_length=100, blank=True)
+
+    def __str__(self):
+        return f"{self.ticket.reference}: {self.product.name}"
+
+
+class TicketAttachment(models.Model):
+    message = models.ForeignKey(
+        "support.TicketMessage",
+        on_delete=models.CASCADE,
+        related_name="attachments",
+    )
+    file = models.FileField(upload_to="experience-support/%Y/%m/")
+    original_name = models.CharField(max_length=255)
+
+    def __str__(self):
         return self.original_name

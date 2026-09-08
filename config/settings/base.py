@@ -120,21 +120,29 @@ LOCAL_APPS = [
     "ohc_experience.support",
     "ohc_experience.events",
     "ohc_experience.experiences",
-    "ohc_experience.sandbox",
     # Your stuff: custom apps go here
 ]
+
+EXPERIENCE_IMPLEMENTATIONS = ["ohc_experience.abdm.definitions.ABDM"]
+EXPERIENCE_PORTAL = "abdm"
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # A separate Fernet key is required in production; local development derives one.
-SANDBOX_CREDENTIAL_KEY = env("SANDBOX_CREDENTIAL_KEY", default="")
-SANDBOX_CREDENTIAL_PROVIDER = env("SANDBOX_CREDENTIAL_PROVIDER", default="")
-SANDBOX_ALLOW_DEMO_CREDENTIALS = False
+EXPERIENCE_CREDENTIAL_KEY = env(
+    "EXPERIENCE_CREDENTIAL_KEY", default=env("SANDBOX_CREDENTIAL_KEY", default=""),
+)
+EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = False
+ABDM_CREDENTIAL_PROVIDER = env(
+    "ABDM_CREDENTIAL_PROVIDER", default=env("SANDBOX_CREDENTIAL_PROVIDER", default=""),
+)
+ABDM_ALLOW_DEMO_CREDENTIALS = False
 SANDBOX_SIGNUP_CAPTCHA = True
 TURNSTILE_SITE_KEY = env("TURNSTILE_SITE_KEY", default="")
 TURNSTILE_SECRET_KEY = env("TURNSTILE_SECRET_KEY", default="")
-SANDBOX_GATEWAY_URL = env(
-    "SANDBOX_GATEWAY_URL", default="https://dev.abdm.gov.in/gateway",
+ABDM_GATEWAY_URL = env(
+    "ABDM_GATEWAY_URL",
+    default=env("SANDBOX_GATEWAY_URL", default="https://dev.abdm.gov.in/gateway"),
 )
 
 # MIGRATIONS
@@ -243,6 +251,7 @@ TEMPLATES = [
                 "ohc_experience.users.context_processors.allauth_settings",
                 "ohc_experience.users.context_processors.ohc_team",
                 "ohc_experience.organisations.context_processors.current_organisation",
+                "ohc_experience.experiences.context_processors.experience_program",
             ],
         },
     },
@@ -349,15 +358,15 @@ CELERY_TASK_SOFT_TIME_LIMIT = 60
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "sandbox-callback-health": {
-        "task": "ohc_experience.sandbox.tasks.monitor_callbacks",
+        "task": "ohc_experience.experiences.tasks.monitor_callbacks",
         "schedule": 900.0,
     },
     "sandbox-notifications": {
-        "task": "ohc_experience.sandbox.tasks.deliver_notifications",
+        "task": "ohc_experience.experiences.tasks.deliver_notifications",
         "schedule": 60.0,
     },
     "sandbox-event-reminders": {
-        "task": "ohc_experience.sandbox.tasks.remind_event_registrations",
+        "task": "ohc_experience.experiences.tasks.remind_event_registrations",
         "schedule": 3600.0,
     },
 }

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from ohc_experience.sandbox.views import dashboard
+from ohc_experience.experiences.views import dashboard
 
 from .views import LandingView
 

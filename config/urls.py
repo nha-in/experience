@@ -8,7 +8,7 @@ from django.views import defaults as default_views
 from ohc_experience.users.views import user_signup_view
 
 urlpatterns = [
-    path("", include("ohc_experience.sandbox.urls")),
+    path("", include("ohc_experience.experiences.urls")),
     # Landing page and dashboard alias
     path("", include("ohc_experience.pages.urls")),
     # Django Admin, use {% url 'admin:index' %}

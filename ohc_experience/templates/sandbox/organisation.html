@@ -1,7 +1,0 @@
-{% extends 'sandbox/base.html' %}
-{% block portal_content %}
-<div class="sb-page-heading"><div><p class="sb-eyebrow">Organisation verification</p><h1>Organisation details</h1><p class="sb-muted">{{ organisation.display_name }}</p></div>{% include 'sandbox/partials/status.html' with status=item.status label=item.get_status_display %}</div>
-{% include 'sandbox/partials/review_status.html' %}
-{% if can_edit %}<form method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data" novalidate>{% csrf_token %}<input type="hidden" name="revision" value="{{ item.selected_submission_id|default:'' }}" />{% include 'sandbox/partials/form.html' %}<div class="sb-actions"><button class="sb-button" type="submit">Submit for verification</button>{% if organisation.is_onboarded %}<a href="{% url 'sandbox:product-create' %}">Continue to product</a>{% endif %}</div></form>{% else %}{% include 'sandbox/partials/snapshot.html' with snapshot=item.selected_submission %}{% if not organisation.products.exists %}<a class="sb-button" href="{% url 'sandbox:product-create' %}">Continue to product</a>{% endif %}{% endif %}
-{% include 'sandbox/partials/queries.html' %}{% include 'sandbox/partials/history.html' %}
-{% endblock %}

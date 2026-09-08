@@ -20,7 +20,7 @@
   {% if request.user.is_authenticated %}
     {% if is_ohc_team %}
       <a class="ui-btn ui-btn--default ui-btn--size-default"
-         href="{% url 'sandbox:assess-dashboard' %}">{% translate "Go to the NHA review dashboard" %}</a>
+         href="{% url 'experiences:assess-dashboard' %}">{% translate "Go to the NHA review dashboard" %}</a>
     {% else %}
       <a class="ui-btn ui-btn--default ui-btn--size-default"
          href="{% url 'dashboard' %}">{% translate "Go to your dashboard" %}</a>

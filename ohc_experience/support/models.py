@@ -155,7 +155,7 @@ class Ticket(models.Model):
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
-        return reverse("sandbox:ticket", kwargs={"reference": self.reference})
+        return reverse("experiences:ticket", kwargs={"reference": self.reference})
 
     @staticmethod
     def _next_reference() -> str:

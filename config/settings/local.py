@@ -7,7 +7,8 @@ from .base import env
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = True
-SANDBOX_ALLOW_DEMO_CREDENTIALS = True
+ABDM_ALLOW_DEMO_CREDENTIALS = True
+EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
 SECRET_KEY = env(
     "DJANGO_SECRET_KEY",

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title }} | {{ experience_program.name }}{% endblock %}
+{% block css %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/experiences.css' %}" />{% endblock %}
+{% block javascript %}{{ block.super }}<script defer src="{% static 'js/experiences.js' %}"></script>{% endblock %}
+{% block body %}
+<div id="portal" class="sb-portal {% if onboarding %}sb-onboarding{% endif %}" hx-boost="true" hx-target="#portal" hx-select="#portal" hx-swap="outerHTML" hx-indicator="#nav-progress" hx-history="false">
+  <aside class="sb-sidebar" aria-label="Main navigation">
+    <a href="{% url 'experiences:home' %}" class="sb-brand">{% if experience_program.logo %}<img src="{% static experience_program.logo %}" alt="{{ experience_program.short_name }}" width="74" height="44" />{% endif %}<span>{{ experience_program.brand_line_1 }}<br /><strong>{{ experience_program.brand_line_2 }}</strong></span></a>
+    <span class="sb-persona">{% if reviewer %}{{ experience_program.reviewer_name }}{% else %}Integrator workspace{% endif %}</span>
+    {% if workspace %}
+      <label class="sb-switch-label" for="product-switch">Product</label>
+      <form method="get" action="{% url 'experiences:home' %}" hx-push-url="true">
+        <select id="product-switch" name="product" data-product-switch aria-label="Switch product">
+          {% for choice in workspaces %}<option value="{{ choice.reference }}" {% if choice.pk == workspace.pk %}selected{% endif %}>{{ choice.product.name }}</option>{% endfor %}
+        </select>
+      </form>
+      <span class="sb-id sb-sidebar-id">{{ workspace.reference }}</span>
+    {% endif %}
+    <nav class="sb-nav">
+    {% if reviewer %}
+      <a class="{% if nav == 'assess-dashboard' %}active{% endif %}" href="{% url 'experiences:assess-dashboard' %}">Dashboard</a>
+      <a class="{% if nav == 'queue' %}active{% endif %}" href="{% url 'experiences:queue' %}">Review queue</a>
+      <a href="{% url 'experiences:products' %}">Products</a>
+    {% elif workspace %}
+      <a class="{% if nav == 'overview' %}active{% endif %}" href="{{ workspace.get_absolute_url }}">Overview</a>
+      {% if can_integrate and experience_program.credentials %}<a class="{% if nav == 'credentials' %}active{% endif %}" href="{% url 'experiences:credentials' workspace.reference %}">Credentials &amp; outcomes</a>{% endif %}
+      <span class="sb-nav-label">Compliance tracks</span>
+      {% for row in tracks %}<a class="{% if nav == row.definition.code %}active{% endif %}" href="{% url 'experiences:track' workspace.reference row.definition.code %}">{{ row.definition.code }}<small>{{ row.approved }}/{{ row.tiles|length }}</small></a>{% endfor %}
+      <hr />
+    {% else %}
+      <a href="{% url 'experiences:products' %}">Products</a>
+      <a href="{% url 'experiences:organisation' %}">Organisation</a>
+    {% endif %}
+      {% if not reviewer %}<a class="{% if nav == 'queries' %}active{% endif %}" href="{% url 'experiences:pending-queries' %}">Pending queries{% if query_count %}<span class="sb-count">{{ query_count }}</span>{% endif %}</a>{% endif %}
+      <a class="{% if nav == 'events' %}active{% endif %}" href="{% url 'experiences:events' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Events</a>
+      <a class="{% if nav == 'support' %}active{% endif %}" href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Support</a>
+      {% if workspace and can_integrate %}<a class="{% if nav == 'edit' %}active{% endif %}" href="{% url 'experiences:product-edit' workspace.reference %}">Edit product</a>{% endif %}
+      {% if not reviewer %}<a href="{% url 'organisations:team' %}" hx-boost="false">Team &amp; invitations</a>{% endif %}
+      {% if request.user.is_superuser %}<a href="{% url 'admin:index' %}" hx-boost="false">Administration</a>{% endif %}
+    </nav>
+    <div class="sb-sidebar-foot"><a href="{{ experience_program.docs_url }}" target="_blank" rel="noopener" hx-boost="false">{{ experience_program.short_name }} documentation <span aria-hidden="true">&#8599;</span></a><div class="sb-user"><span class="sb-avatar">{{ request.user.display_name|first }}</span><span>{{ request.user.display_name }}<small>{{ request.user.email }}</small></span></div><form method="post" action="{% url 'account_logout' %}" hx-boost="false">{% csrf_token %}<button class="sb-text-button" type="submit">Sign out</button></form>{% if experience_program.authority_logo %}<img src="{% static experience_program.authority_logo %}" width="112" height="40" alt="{{ experience_program.authority_name }}" />{% endif %}</div>
+  </aside>
+  <div class="sb-workspace">
+    <header class="sb-topbar"><button class="sb-mobile-menu" type="button" data-sidebar-toggle aria-label="Toggle navigation" aria-expanded="false">&#9776;</button><span>{{ experience_program.header_name }} <span class="sb-separator">/</span> <strong>{{ page_title }}</strong></span><span class="sb-environment"><span aria-hidden="true">&#9679;</span> {{ experience_program.environment_name }}</span></header>
+    <main id="main-content" class="sb-main">
+      {% if onboarding %}<ol class="sb-steps"><li class="{% if onboarding_step == 'account' %}current{% else %}done{% endif %}">{% if onboarding_step == 'account' %}1.{% else %}&#10003;{% endif %} Account</li><li class="{% if page_title == 'Organisation details' %}current{% elif onboarding_step != 'account' %}done{% endif %}">2. Organisation</li><li class="{% if page_title == 'Register a product' %}current{% endif %}">3. Product</li></ol>{% endif %}
+      {% for message in messages %}<div class="sb-notice {{ message.tags }}" role="status">{{ message }}</div>{% endfor %}
+      {% block portal_content %}{% endblock %}
+      <footer class="sb-footer"><span>{{ experience_program.name }}</span><span>{{ experience_program.footer_note }} <span aria-hidden="true">&middot;</span> All dates in IST</span></footer>
+    </main>
+  </div>
+</div>
+{% endblock %}

@@ -6,12 +6,19 @@ Historical migrations are retained for fresh installs and existing databases.
 Cleanup migrations drop retired Care provisioning and generic application
 access/query/audit tables and unused fields; current portal records are retained.
 
+The reusable engine, models, permissions, views and tasks belong to the
+`experiences` Django app. ABDM is a plain Python implementation package with
+forms, catalog, hooks and gateway policy, not an installed app. See the
+[engine boundary and extension contracts](../ohc_experience/experiences/README.md)
+and [ABDM package guide](../ohc_experience/abdm/README.md). There is no `sandbox`
+app; migrations adopt its existing tables and preserve admin permission grants.
+
 ## Local Demo
 
 ```sh
 docker compose -f docker-compose.local.yml up -d --build
 docker compose -f docker-compose.local.yml exec django python manage.py migrate
-docker compose -f docker-compose.local.yml exec django python manage.py seed_sandbox_demo --reset
+docker compose -f docker-compose.local.yml exec django python manage.py seed_experience_demo --reset
 ```
 
 The reset command is deliberately destructive: it deletes all application data,
@@ -39,7 +46,7 @@ Local mail is visible at http://localhost:3550/.
 
 ## Model Mapping
 
-- `ProductWorkspace` extends the existing `Product` with its sandbox ID,
+- `ProductWorkspace` extends the existing `Product` with its reference and program key,
   registration state, solution type and selected track/milestone pairs.
 - Each canonical `Milestone` has an `ApplicationInstance`. HI-CM M1 and PHR M1
   share the same milestone and approval. HealthLocker does not require M3.
@@ -63,7 +70,7 @@ Local mail is visible at http://localhost:3550/.
   This is not protection against a privileged database administrator; use database
   audit/retention controls when deploying in a regulated environment.
 
-The fixed catalog lives in `sandbox/catalog.py`. M4 is HFR Registration, PHR
+The fixed catalog lives in `abdm/catalog.py`. M4 is HFR Registration, PHR
 shares M1 with HI-CM, and NHCX intentionally has no published milestones per v3.
 There is no configured decision SLA. Production credential issuance is external;
 approval notes are emailed to integrators and retained as product outcomes.
@@ -98,13 +105,18 @@ and email settings plus the following secrets in deployment configuration:
 
 | Setting | Requirement |
 | --- | --- |
-| `SANDBOX_CREDENTIAL_KEY` | Dedicated Fernet key, kept in a secret manager, separate from Django's secret key. Back it up with appropriate access controls. |
-| `SANDBOX_CREDENTIAL_PROVIDER` | Dotted Python callable implementing real gateway provisioning. Required before issuing any real credentials. |
-| `SANDBOX_GATEWAY_URL` | Approved sandbox gateway endpoint, if using the local demo provider. |
+| `EXPERIENCE_CREDENTIAL_KEY` | Dedicated Fernet key, kept in a secret manager, separate from Django's secret key. Back it up with appropriate access controls. |
+| `ABDM_CREDENTIAL_PROVIDER` | Dotted Python callable implementing real gateway provisioning. Required before issuing any real credentials. |
+| `ABDM_GATEWAY_URL` | Approved sandbox gateway endpoint, if using the local demo provider. |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Registered Cloudflare Turnstile site keys for the deployed hostname. |
 | `DJANGO_AWS_ACCESS_KEY_ID`, `DJANGO_AWS_SECRET_ACCESS_KEY` | Credentials scoped to the upload bucket. |
 | `DJANGO_AWS_STORAGE_BUCKET_NAME`, `DJANGO_AWS_S3_REGION_NAME` | Private S3 bucket and region. |
 | `DJANGO_AWS_S3_ENDPOINT_URL` | Optional S3-compatible endpoint. Local settings use MinIO. |
+
+The previous `SANDBOX_CREDENTIAL_KEY`, `SANDBOX_CREDENTIAL_PROVIDER` and
+`SANDBOX_GATEWAY_URL` environment names remain fallbacks during deployment
+upgrades. Keep the same encryption key value when renaming its environment
+variable. The engine stores encrypted credentials in `ProductCredential`.
 
 Turnstile tokens are verified server-side, including their hostname, using
 [Cloudflare's Siteverify API](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).
@@ -153,3 +165,7 @@ resubmission history, schema snapshots, multi-file append/removal, CSRF,
 credential encryption and reveal limits, callback address validation, queue
 filters, legacy-route protection, and file type/size validation. Signup tests cover
 local challenge expiry and remote CAPTCHA verification failures.
+
+Engine tests additionally run an unrelated supplier-quality implementation and
+verify that Django starts without importing ABDM. The upgrade preserves current
+data; only invoke the demo reset command when deliberately starting afresh.

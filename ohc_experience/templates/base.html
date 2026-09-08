@@ -10,12 +10,12 @@
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
     <title>
       {% block title %}
-        ABDM Experience Hub
+        {{ experience_program.name }}
       {% endblock title %}
     </title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description"
-          content="{% block meta_description %}Build, certify and support your integrations with ABDM in one place.{% endblock meta_description %}" />
+          content="{% block meta_description %}{{ experience_program.description }}{% endblock meta_description %}" />
     <meta name="author" content="Open Healthcare Network" />
     <meta name="theme-color" content="#065f46" />
     <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" />

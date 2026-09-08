@@ -8,10 +8,11 @@ from django.db import transaction
 from django.forms import EmailField
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.experiences.registry import get_program
+from ohc_experience.experiences.workflows import organisation_review
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
-from ohc_experience.sandbox.services import organisation_review
 
 from .captcha import SignupVerificationMixin
 from .models import User
@@ -111,11 +112,6 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
 
     organisation_type = forms.ChoiceField(
         label=_("Type of organisation"),
-        choices=[
-            ("private_company", _("Company")),
-            ("government", _("Government")),
-            ("sole_proprietor", _("Sole proprietor")),
-        ],
         required=False,
     )
 
@@ -132,6 +128,9 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
     def __init__(self, *args, invitation=None, **kwargs):
         self.invitation = invitation
         super().__init__(*args, **kwargs)
+        self.fields[
+            "organisation_type"
+        ].choices = get_program().signup_organisation_choices
         if invitation is not None:
             # The organisation is already decided by the invite.
             del self.fields["organisation"]
@@ -167,9 +166,7 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
         if self.invitation is None:
             organisation = user.memberships.get().organisation
             item = organisation_review(organisation, user)
-            item.form.metadata["entity_type"] = (
-                self.cleaned_data.get("organisation_type") or "private_company"
-            )
+            item.form.metadata.update(get_program().signup_metadata(self.cleaned_data))
             item.form.save(update_fields=["metadata"])
         request.session.pop("signup_challenge", None)
         return user

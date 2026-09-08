@@ -15,7 +15,7 @@
      hx-indicator="#nav-progress">
   <a id="settings-nav-organisation"
      class="ui-subnav-link shrink-0 {% if settings_section == 'organisation' %}ui-subnav-link--active{% endif %}"
-     href="{% url 'sandbox:organisation' %}" hx-boost="false"
+     href="{% url 'experiences:organisation' %}" hx-boost="false"
      {% if settings_section == 'organisation' %}aria-current="page"{% endif %}>{% translate "Organisation" %}</a>
   <a id="settings-nav-team"
      class="ui-subnav-link shrink-0 {% if settings_section == 'team' %}ui-subnav-link--active{% endif %}"

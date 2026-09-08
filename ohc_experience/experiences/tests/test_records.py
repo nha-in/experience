@@ -10,11 +10,22 @@ from ohc_experience.experiences.models import ApplicationFormUse
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.registry import ExperienceRegistry
+from ohc_experience.experiences.registry import registry as default_registry
 from ohc_experience.experiences.services import create_application
+from ohc_experience.experiences.tests.example_program import SupplierQuality
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def register_test_program(monkeypatch):
+    for attribute in ("_definitions", "_forms", "_programs"):
+        monkeypatch.setattr(
+            default_registry, attribute, dict(getattr(default_registry, attribute)),
+        )
+    default_registry.register_program(SupplierQuality)
 
 
 @pytest.fixture
@@ -23,14 +34,14 @@ def product(owner_membership):
         organisation=owner_membership.organisation,
         name="Shared evidence product",
         product_type="hmis",
-        description="Sandbox test product",
+        description="Generic test product",
         created_by=owner_membership.user,
     )
 
 
 def start(product, user=None):
     return create_application(
-        application_type="abdm_sandbox_exit",
+        application_type=SupplierQuality.milestone_application.key,
         product=product,
         user=user or product.created_by,
     )
@@ -85,7 +96,7 @@ def test_form_use_rejects_cross_product_links_and_foreign_submissions(product):
     use = ApplicationFormUse(
         application=first,
         form=other.form_uses.get().form,
-        form_key="sandbox_exit_evidence",
+        form_key="inspection_report",
     )
     with pytest.raises(ValidationError, match="organisation"):
         use.clean()
