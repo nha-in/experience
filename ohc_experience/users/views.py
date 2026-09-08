@@ -52,6 +52,7 @@ class UserSignupView(SignupView):
     def get_form_kwargs(self) -> dict:
         kwargs = super().get_form_kwargs()
         kwargs["invitation"] = self.get_invitation()
+        kwargs["request"] = self.request
         return kwargs
 
     def get_initial(self) -> dict:
@@ -64,6 +65,9 @@ class UserSignupView(SignupView):
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         context["invitation"] = self.get_invitation()
+        context.update(
+            page_title="Create account", onboarding=True, onboarding_step="account",
+        )
         return context
 
     def form_valid(self, form):

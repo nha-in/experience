@@ -1,0 +1,82 @@
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class MilestoneDefinition:
+    key: str
+    code: str
+    name: str
+    predecessor: str = ""
+
+
+MILESTONES = {
+    item.key: item
+    for item in (
+        MilestoneDefinition("m1", "M1", "ABHA and identity"),
+        MilestoneDefinition("m2", "M2", "HIP services", "m1"),
+        MilestoneDefinition("m3", "M3", "HIU services", "m2"),
+        MilestoneDefinition("m4", "M4", "HFR Registration", "m3"),
+        MilestoneDefinition("phr1", "PHR1", "PHR application flows", "m1"),
+        MilestoneDefinition("locker1", "PHR1", "Locker flows"),
+        MilestoneDefinition("uhi1", "UHI1", "UHI participant flows"),
+    )
+}
+
+
+@dataclass(frozen=True)
+class TrackDefinition:
+    code: str
+    name: str
+    description: str
+    keys: tuple[str, ...]
+
+
+TRACKS = (
+    TrackDefinition(
+        "HI-CM",
+        "Health information & consent management",
+        "ABHA identity, health information exchange and facility registration.",
+        ("m1", "m2", "m3", "m4"),
+    ),
+    TrackDefinition(
+        "UHI",
+        "Unified Health Interface",
+        "Discovery and delivery of digital health services.",
+        ("uhi1",),
+    ),
+    TrackDefinition(
+        "NHCX",
+        "National Health Claims Exchange",
+        "No milestones have been published for this track yet.",
+        (),
+    ),
+    TrackDefinition(
+        "PHR",
+        "Personal Health Records",
+        "ABHA identity and personal health record application flows. "
+        "M1 is shared with HI-CM.",
+        ("m1", "phr1"),
+    ),
+    TrackDefinition(
+        "HealthLocker",
+        "Health Locker",
+        "Storage and retrieval of personal health records.",
+        ("locker1",),
+    ),
+)
+TRACK_MAP = {track.code: track for track in TRACKS}
+MILESTONE_CHOICES = [
+    (
+        track.name,
+        [
+            (f"{track.code}:{key}", f"{MILESTONES[key].code} - {MILESTONES[key].name}")
+            for key in track.keys
+        ],
+    )
+    for track in TRACKS
+    if track.keys
+]
+
+
+def canonical_keys(selections):
+    return {value.split(":", 1)[1] for value in selections}

@@ -50,6 +50,8 @@ class DashboardView(OrganisationMixin, TemplateView):
     template_name = "dashboard/dashboard.html"
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if self.organisation.products.filter(workspace__isnull=False).exists():
+            return redirect("sandbox:home")
         if not self.organisation.is_onboarded:
             return redirect("organisations:onboarding")
         return super().get(request, *args, **kwargs)
@@ -109,7 +111,11 @@ def resolve_post_login_destination(user) -> str:
     """
     membership = get_membership_for(user)
     if membership is None:
-        return "ohc:queue" if is_ohc_team(user) else "home"
+        return (
+            "sandbox:assess-dashboard"
+            if is_ohc_team(user) or user.is_superuser
+            else "home"
+        )
     if not membership.organisation.is_onboarded:
-        return "organisations:onboarding"
-    return "dashboard"
+        return "sandbox:organisation"
+    return "sandbox:home"

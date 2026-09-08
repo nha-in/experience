@@ -92,6 +92,14 @@ class ProductObjectMixin:
             ),
             slug=kwargs["slug"],
         )
+        if hasattr(self.product, "workspace"):
+            workspace = self.product.workspace
+            destination = (
+                reverse("sandbox:product-edit", args=[workspace.sandbox_id])
+                if request.path.endswith("/edit/")
+                else workspace.get_absolute_url()
+            )
+            return _redirect_for_request(request, destination)
         return super().dispatch(request, *args, **kwargs)
 
     def get_object(self, queryset=None):
@@ -112,6 +120,11 @@ class ProductObjectMixin:
 class ProductListView(OrganisationMixin, ListView):
     template_name = "experiences/product_list.html"
     context_object_name = "products"
+
+    def get(self, request, *args, **kwargs):
+        if self.organisation.products.filter(workspace__isnull=False).exists():
+            return redirect("sandbox:products")
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         return (
@@ -143,6 +156,16 @@ class ProductCreateView(OrganisationMixin, CreateView):
     template_name = "experiences/product_form.html"
     form_class = ProductForm
     model = Product
+
+    def get(self, request, *args, **kwargs):
+        if self.organisation.sandbox_reviews.exists():
+            return redirect("sandbox:product-create")
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if self.organisation.sandbox_reviews.exists():
+            return redirect("sandbox:product-create")
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
         product = form.save(commit=False)

@@ -106,7 +106,9 @@ def ui_field(  # noqa: PLR0913, PLR0917
         # The mockups mark nothing as required — almost every field is. Flag the
         # exceptions instead, which is both closer to the design and the clearer
         # convention.
-        "is_optional": not field.field.required,
+        "is_optional": not field.field.required
+        and field.name not in getattr(form, "required_uploads", ()),
+        "sandbox_files": getattr(form, "sandbox_files", False),
         "is_file": is_file,
         "is_multiple_file": is_multiple_file,
         "existing_files": getattr(form, "existing_files", {}).get(field.name, []),

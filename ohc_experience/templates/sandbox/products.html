@@ -1,0 +1,5 @@
+{% extends 'sandbox/base.html' %}
+{% block portal_content %}
+<div class="sb-page-heading"><div><p class="sb-eyebrow">Developer workspace</p><h1>Products</h1><p class="sb-muted">{{ organisation.display_name|default:'All registered organisations' }}</p></div>{% if not reviewer %}<a class="sb-button" href="{% url 'sandbox:product-create' %}">Register a product</a>{% endif %}</div>
+<div class="sb-product-list">{% for product in workspaces %}<a class="sb-product-row" href="{{ product.get_absolute_url }}"><div class="sb-product-monogram">{{ product.product.name|first }}</div><div><h2>{{ product.product.name }}</h2><p class="sb-muted">{{ product.sandbox_id }} &middot; {{ product.product.organisation.display_name }}</p></div>{% include 'sandbox/partials/status.html' with status=product.registration_status label=product.get_registration_status_display %}<span aria-hidden="true">&#8594;</span></a>{% empty %}<div class="sb-empty"><h2>No products yet</h2><p>Register your first product to start sandbox testing.</p></div>{% endfor %}</div>
+{% endblock %}

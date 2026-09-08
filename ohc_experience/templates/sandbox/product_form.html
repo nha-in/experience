@@ -1,0 +1,7 @@
+{% extends 'sandbox/base.html' %}
+{% block portal_content %}
+<div class="sb-page-heading"><div><p class="sb-eyebrow">Product registration</p><h1>{{ page_title }}</h1><p class="sb-muted">{{ organisation.display_name }}</p></div>{% if workspace %}<span class="sb-id">{{ workspace.sandbox_id }}</span>{% endif %}</div>
+{% if item %}{% include 'sandbox/partials/review_status.html' %}{% endif %}
+{% if not item or can_edit %}<form method="post" novalidate>{% csrf_token %}<input type="hidden" name="revision" value="{{ item.selected_submission_id|default:'' }}" />{% include 'sandbox/partials/form.html' %}<div class="sb-actions"><button class="sb-button" type="submit">{% if item %}Submit changes for review{% else %}Register product{% endif %}</button>{% if workspace %}<a href="{{ workspace.get_absolute_url }}">Cancel</a>{% endif %}</div></form>{% else %}{% include 'sandbox/partials/snapshot.html' with snapshot=item.selected_submission %}{% endif %}
+{% if item %}{% include 'sandbox/partials/queries.html' %}{% include 'sandbox/partials/history.html' %}{% endif %}
+{% endblock %}

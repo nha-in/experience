@@ -92,9 +92,16 @@ class OnboardingView(OrganisationMixin, UpdateView):
     partial_template_name = "organisations/partials/organisation_form.html"
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if self.organisation.sandbox_reviews.exists():
+            return redirect("sandbox:organisation")
         if self.organisation.is_onboarded:
             return redirect("dashboard")
         return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if self.organisation.sandbox_reviews.exists():
+            return redirect("sandbox:organisation")
+        return super().post(request, *args, **kwargs)
 
     def get_object(self, queryset=None) -> Organisation:
         return self.organisation
@@ -150,6 +157,11 @@ class OrganisationDetailView(OrganisationMixin, UpdateView):
     partial_template_name = "organisations/partials/organisation_form.html"
     success_url = reverse_lazy("dashboard")
 
+    def get(self, request, *args, **kwargs):
+        if self.organisation.sandbox_reviews.exists():
+            return redirect("sandbox:organisation")
+        return super().get(request, *args, **kwargs)
+
     def get_object(self, queryset=None) -> Organisation:
         return self.organisation
 
@@ -161,6 +173,8 @@ class OrganisationDetailView(OrganisationMixin, UpdateView):
         return context
 
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if self.organisation.sandbox_reviews.exists():
+            return redirect("sandbox:organisation")
         if not self.membership.can_manage:
             msg = _("Only the owner and admins can edit the organisation profile.")
             raise PermissionDenied(msg)

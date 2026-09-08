@@ -11,7 +11,9 @@ from django.utils.translation import gettext_lazy as _
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
+from ohc_experience.sandbox.services import organisation_review
 
+from .captcha import SignupVerificationMixin
 from .models import User
 
 MIN_PASSWORD_LENGTH = 12
@@ -86,7 +88,7 @@ class OrganisationSignupMixin:
         )
 
 
-class UserSignupForm(OrganisationSignupMixin, SignupForm):
+class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupForm):
     """Vendor account creation — screen 1a of the hub mockups."""
 
     name = forms.CharField(
@@ -97,6 +99,7 @@ class UserSignupForm(OrganisationSignupMixin, SignupForm):
     mobile_number = forms.CharField(
         label=_("Mobile number"),
         max_length=32,
+        required=False,
         widget=forms.TextInput(attrs={"autocomplete": "tel", "inputmode": "tel"}),
     )
     organisation = forms.CharField(
@@ -106,11 +109,22 @@ class UserSignupForm(OrganisationSignupMixin, SignupForm):
         widget=forms.TextInput(attrs={"autocomplete": "organization"}),
     )
 
+    organisation_type = forms.ChoiceField(
+        label=_("Type of organisation"),
+        choices=[
+            ("private_company", _("Company")),
+            ("government", _("Government")),
+            ("sole_proprietor", _("Sole proprietor")),
+        ],
+        required=False,
+    )
+
     field_order = [
         "name",
         "email",
         "mobile_number",
         "organisation",
+        "organisation_type",
         "password1",
         "password2",
     ]
@@ -121,6 +135,7 @@ class UserSignupForm(OrganisationSignupMixin, SignupForm):
         if invitation is not None:
             # The organisation is already decided by the invite.
             del self.fields["organisation"]
+            del self.fields["organisation_type"]
         self.fields["email"].widget.attrs["autocomplete"] = "email"
 
     def clean_organisation(self) -> str:
@@ -149,6 +164,14 @@ class UserSignupForm(OrganisationSignupMixin, SignupForm):
         user.phone_number = self.cleaned_data["mobile_number"].strip()
         user.save(update_fields=["name", "phone_number"])
         self.attach_organisation(user)
+        if self.invitation is None:
+            organisation = user.memberships.get().organisation
+            item = organisation_review(organisation, user)
+            item.form.metadata["entity_type"] = (
+                self.cleaned_data.get("organisation_type") or "private_company"
+            )
+            item.form.save(update_fields=["metadata"])
+        request.session.pop("signup_challenge", None)
         return user
 
 

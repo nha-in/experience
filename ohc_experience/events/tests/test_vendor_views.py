@@ -456,7 +456,7 @@ class TestTheTimeIsUnambiguous:
             sign_in(owner_membership.user).get(reverse("events:list")).content.decode(),
         )
 
-        assert "3:00 p.m. UTC" in body
+        assert "8:30 p.m. IST" in body
 
     def test_an_event_page_names_the_zone(
         self,
@@ -470,7 +470,7 @@ class TestTheTimeIsUnambiguous:
             .content.decode(),
         )
 
-        assert "3:00 p.m. UTC" in body
+        assert "8:30 p.m. IST" in body
 
     def test_the_dashboard_card_names_the_zone(
         self,
@@ -482,7 +482,7 @@ class TestTheTimeIsUnambiguous:
             sign_in(owner_membership.user).get(reverse("dashboard")).content.decode(),
         )
 
-        assert "3:00 p.m. UTC" in body
+        assert "8:30 p.m. IST" in body
 
     def test_the_zone_follows_the_setting_rather_than_being_hardcoded(
         self,

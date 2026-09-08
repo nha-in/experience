@@ -1,0 +1,1065 @@
+from datetime import timedelta
+from statistics import median
+
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Count
+from django.db.models import Q
+from django.http import FileResponse
+from django.http import Http404
+from django.shortcuts import get_object_or_404
+from django.shortcuts import redirect
+from django.shortcuts import render
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_POST
+
+from ohc_experience.events.models import Event
+from ohc_experience.experiences.models import FormAttachment
+from ohc_experience.experiences.models import FormSubmission
+from ohc_experience.organisations.selectors import get_membership_for
+from ohc_experience.support.models import Ticket
+from ohc_experience.support.models import post_reply
+from ohc_experience.support.models import record_status_change
+
+from . import credentials as credential_services
+from . import services
+from .catalog import MILESTONES
+from .catalog import TRACK_MAP
+from .catalog import TRACKS
+from .forms import CredentialURLsForm
+from .forms import ProductRegistrationForm
+from .forms import SupportForm
+from .models import AuditEvent
+from .models import EventRegistration
+from .models import Notification
+from .models import ProductWorkspace
+from .models import ReviewItem
+from .models import ReviewQuery
+from .models import SandboxCredential
+from .models import TicketAttachment
+from .models import TicketContext
+
+
+def _organisation(request):
+    membership = get_membership_for(request.user)
+    if not membership:
+        msg = "An integrator account with an organisation is required."
+        raise PermissionDenied(
+            msg,
+        )
+    return membership.organisation
+
+
+def _workspaces(user):
+    query = ProductWorkspace.objects.select_related("product__organisation")
+    if not services.reviewer(user):
+        query = query.filter(product__organisation__memberships__user=user)
+    return query.order_by("product__name")
+
+
+def _workspace(request, sandbox_id):
+    workspace = get_object_or_404(_workspaces(request.user), sandbox_id=sandbox_id)
+    request.session["sandbox_product"] = workspace.sandbox_id
+    return workspace
+
+
+def _item(request, pk):
+    query = ReviewItem.objects.select_related(
+        "selected_submission",
+        "form",
+        "organisation",
+        "product__workspace",
+        "application",
+        "assignee",
+        "decided_by",
+    )
+    if not services.reviewer(request.user):
+        query = query.filter(organisation__memberships__user=request.user)
+    return get_object_or_404(query, pk=pk)
+
+
+def _tracks(workspace):
+    rows = {
+        milestone.key: milestone
+        for milestone in workspace.product.milestones.filter(
+            enabled=True,
+        ).select_related("application__sandbox_review")
+    }
+    result = []
+    for track in TRACKS:
+        tiles = []
+        for key in track.keys:
+            if (
+                f"{track.code}:{key}" not in workspace.applied_milestones
+                or key not in rows
+            ):
+                continue
+            milestone = rows[key]
+            item = milestone.application.sandbox_review
+            locked = services.milestone_locked(item)
+            status = "locked" if locked else item.status
+            label = (
+                "Locked"
+                if locked
+                else (
+                    "Open"
+                    if item.status == "draft" and not item.selected_submission_id
+                    else item.get_status_display()
+                )
+            )
+            tiles.append(
+                {
+                    "milestone": milestone,
+                    "item": item,
+                    "definition": MILESTONES[key],
+                    "status": status,
+                    "label": label,
+                    "url": reverse(
+                        "sandbox:track",
+                        args=[workspace.sandbox_id, track.code],
+                    )
+                    + f"?milestone={key}",
+                },
+            )
+        result.append(
+            {
+                "definition": track,
+                "tiles": tiles,
+                "approved": sum(tile["status"] == "approved" for tile in tiles),
+            },
+        )
+    return result
+
+
+def _context(request, workspace=None, **kwargs):
+    is_reviewer = services.reviewer(request.user)
+    result = {
+        "reviewer": is_reviewer,
+        "workspaces": _workspaces(request.user),
+        "workspace": workspace,
+        "tracks": _tracks(workspace) if workspace else [],
+        "today": timezone.localdate(),
+        **kwargs,
+    }
+    if workspace:
+        result["organisation"] = workspace.product.organisation
+        result["can_integrate"] = services.can_integrate(
+            request.user,
+            workspace.product.organisation,
+        )
+    if not is_reviewer:
+        org = result.get("organisation") or _organisation(request)
+        result["organisation"] = org
+        result["can_integrate"] = services.can_integrate(request.user, org)
+        result["query_count"] = ReviewItem.objects.filter(
+            organisation=org,
+            status="query_raised",
+        ).count()
+    return result
+
+
+def _error(request, error):
+    messages.error(request, " ".join(error.messages))
+
+
+@login_required
+def dashboard(request):
+    if services.reviewer(request.user):
+        return redirect("sandbox:assess-dashboard")
+    organisation = _organisation(request)
+    if not organisation.is_onboarded:
+        return redirect("sandbox:organisation")
+    workspace = (
+        _workspaces(request.user)
+        .filter(
+            sandbox_id=request.GET.get(
+                "product", request.session.get("sandbox_product", ""),
+            ),
+        )
+        .first()
+        or _workspaces(request.user).order_by("product__created_at").first()
+    )
+    return redirect(
+        workspace.get_absolute_url() if workspace else "sandbox:product-create",
+    )
+
+
+@login_required
+def products(request):
+    return render(
+        request,
+        "sandbox/products.html",
+        _context(request, page_title="Products", nav="products"),
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def organisation(request):
+    org = _organisation(request)
+    services.require_integrator(request.user, org)
+    item = services.organisation_review(org, request.user)
+    form = services.build_form(item)
+    if request.method == "POST":
+        try:
+            item, form, saved = services.save_review_form(
+                item,
+                request.user,
+                data=request.POST,
+                files=request.FILES,
+                submit=True,
+                expected_revision=request.POST.get("revision", ""),
+            )
+            if saved:
+                messages.success(
+                    request,
+                    "Organisation submitted for verification. "
+                    "You can register your product while it is reviewed.",
+                )
+                return redirect(
+                    "sandbox:product-create"
+                    if not org.products.exists()
+                    else "sandbox:organisation",
+                )
+        except ValidationError as error:
+            _error(request, error)
+    return render(
+        request,
+        "sandbox/organisation.html",
+        _context(
+            request,
+            item=item,
+            form=form,
+            page_title="Organisation details",
+            onboarding=not org.products.exists(),
+            nav="organisation",
+            can_edit=item.editable or item.status == "approved",
+        ),
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def product_create(request):
+    org = _organisation(request)
+    services.require_integrator(request.user, org)
+    if not org.is_onboarded:
+        return redirect("sandbox:organisation")
+    form = ProductRegistrationForm(
+        data=request.POST if request.method == "POST" else None,
+    )
+    if request.method == "POST":
+        workspace, form = services.register_product(
+            org,
+            request.user,
+            data=request.POST,
+        )
+        if workspace:
+            messages.success(request, "Product submitted for registration.")
+            return redirect(workspace)
+    return render(
+        request,
+        "sandbox/product_form.html",
+        _context(
+            request,
+            form=form,
+            page_title="Register a product",
+            onboarding=not org.products.exists(),
+        ),
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def product_edit(request, sandbox_id):
+    workspace = _workspace(request, sandbox_id)
+    services.require_integrator(request.user, workspace.product.organisation)
+    item = workspace.product.sandbox_reviews.get(kind="product_registration")
+    form = services.build_form(item)
+    if request.method == "POST":
+        try:
+            item, form, saved = services.save_review_form(
+                item,
+                request.user,
+                data=request.POST,
+                submit=True,
+                expected_revision=request.POST.get("revision", ""),
+            )
+            if saved:
+                messages.success(request, "Product registration submitted for review.")
+                return redirect(workspace)
+        except ValidationError as error:
+            _error(request, error)
+    approved_selections = [
+        value
+        for value in workspace.applied_milestones
+        if workspace.product.milestones.filter(
+            key=value.split(":", 1)[1],
+            application__status="approved",
+        ).exists()
+    ]
+    return render(
+        request,
+        "sandbox/product_form.html",
+        _context(
+            request,
+            workspace,
+            item=item,
+            form=form,
+            page_title="Edit product",
+            nav="edit",
+            can_edit=item.editable or item.status == "approved",
+            approved_selections=approved_selections,
+        ),
+    )
+
+
+@login_required
+def overview(request, sandbox_id):
+    workspace = _workspace(request, sandbox_id)
+    product = workspace.product
+    context = _context(
+        request,
+        workspace,
+        page_title="Overview",
+        nav="overview",
+        activity=product.sandbox_events.select_related("actor", "item")[:10],
+        events=Event.objects.upcoming()[:3],
+        credential=SandboxCredential.objects.filter(product=product).first(),
+        outcomes=product.outcomes.exclude(outcome_type="sandbox_credentials")[:6],
+        registration=product.sandbox_reviews.filter(
+            kind="product_registration",
+        ).first(),
+    )
+    return render(request, "sandbox/overview.html", context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def track(request, sandbox_id, track_code):
+    workspace = _workspace(request, sandbox_id)
+    if track_code not in TRACK_MAP:
+        raise Http404
+    track_data = next(
+        row for row in _tracks(workspace) if row["definition"].code == track_code
+    )
+    selected = request.GET.get("milestone", "")
+    tile = next(
+        (tile for tile in track_data["tiles"] if tile["definition"].key == selected),
+        next(iter(track_data["tiles"]), None),
+    )
+    item = tile["item"] if tile else None
+    form = services.build_form(item) if item else None
+    if request.method == "POST":
+        if item is None:
+            raise Http404
+        try:
+            intent = request.POST.get("intent")
+            if intent == "reuse":
+                services.reuse_evidence(item, request.user)
+            elif intent in {"draft", "submit"}:
+                item, form, saved = services.save_review_form(
+                    item,
+                    request.user,
+                    data=request.POST,
+                    files=request.FILES,
+                    submit=intent == "submit",
+                    expected_revision=request.POST.get("revision", ""),
+                )
+                if not saved:
+                    return render(
+                        request,
+                        "sandbox/track.html",
+                        _context(
+                            request,
+                            workspace,
+                            page_title=track_code,
+                            nav=track_code,
+                            track=track_data,
+                            tile=tile,
+                            item=item,
+                            form=form,
+                            locked=services.milestone_locked(item),
+                        ),
+                    )
+            else:
+                msg = "Choose a valid form action."
+                raise ValidationError(msg)  # noqa: TRY301
+            messages.success(
+                request,
+                "Exit requested."
+                if intent == "submit"
+                else "Evidence reused."
+                if intent == "reuse"
+                else "Draft saved.",
+            )
+            return redirect(request.get_full_path())
+        except ValidationError as error:
+            _error(request, error)
+    return render(
+        request,
+        "sandbox/track.html",
+        _context(
+            request,
+            workspace,
+            page_title=track_code,
+            nav=track_code,
+            track=track_data,
+            tile=tile,
+            item=item,
+            form=form,
+            locked=services.milestone_locked(item) if item else "",
+        ),
+    )
+
+
+def _integrator_item_url(item):
+    if item.kind == "organisation_verification":
+        return reverse("sandbox:organisation")
+    if item.kind == "product_registration":
+        return reverse("sandbox:product-edit", args=[item.product.workspace.sandbox_id])
+    key = item.application.milestone.key
+    selection = next(
+        value
+        for value in item.product.workspace.applied_milestones
+        if value.endswith(f":{key}")
+    )
+    return (
+        reverse(
+            "sandbox:track",
+            args=[item.product.workspace.sandbox_id, selection.split(":")[0]],
+        )
+        + f"?milestone={key}"
+    )
+
+
+@login_required
+@require_POST
+def withdraw(request, pk):
+    item = _item(request, pk)
+    try:
+        services.withdraw(item, request.user)
+        messages.success(request, "Request withdrawn. The form can now be edited.")
+    except ValidationError as error:
+        _error(request, error)
+    return redirect(_integrator_item_url(item))
+
+
+@login_required
+@require_POST
+def query_action(request, pk):
+    query = get_object_or_404(ReviewQuery, pk=pk)
+    item = _item(request, query.item_id)
+    try:
+        if request.POST.get("intent") == "resolve":
+            services.resolve_query(query, request.user)
+        else:
+            services.reply_query(query, request.user, request.POST.get("body", ""))
+        messages.success(request, "Query updated.")
+    except ValidationError as error:
+        _error(request, error)
+    return redirect(
+        item.get_absolute_url()
+        if services.reviewer(request.user)
+        else _integrator_item_url(item),
+    )
+
+
+@login_required
+def pending_queries(request):
+    query = ReviewItem.objects.filter(status="query_raised")
+    if not services.reviewer(request.user):
+        query = query.filter(organisation__memberships__user=request.user)
+    items = list(
+        query.select_related("product__workspace", "application", "organisation"),
+    )
+    for item in items:
+        item.portal_url = (
+            item.get_absolute_url()
+            if services.reviewer(request.user)
+            else _integrator_item_url(item)
+        )
+    return render(
+        request,
+        "sandbox/pending.html",
+        _context(request, items=items, page_title="Pending queries", nav="queries"),
+    )
+
+
+@login_required
+@never_cache
+@require_http_methods(["GET", "POST"])
+def credentials(request, sandbox_id):  # noqa: C901
+    workspace = _workspace(request, sandbox_id)
+    # Reviewers can see health metadata in context, but cannot open this surface.
+    services.require_integrator(request.user, workspace.product.organisation)
+    credential = SandboxCredential.objects.filter(product=workspace.product).first()
+    form = CredentialURLsForm(
+        initial={
+            "callback_url": credential.callback_url,
+            "bridge_url": credential.bridge_url,
+        }
+        if credential
+        else None,
+    )
+    if request.method == "POST":
+        if not credential:
+            raise Http404
+        try:
+            intent = request.POST.get("intent")
+            if intent == "reveal":
+                secret = credential_services.reveal(credential, request.user)
+                response = render(
+                    request,
+                    "sandbox/partials/secret.html",
+                    {"secret": secret},
+                )
+                response["Cache-Control"] = "no-store, private"
+                response["Vary"] = "Cookie"
+                return response
+            if intent == "rotate":
+                credential_services.rotate(credential, request.user)
+            elif intent == "revoke":
+                credential_services.revoke(credential, request.user)
+            elif intent == "check":
+                credential_services.check_callback(credential, request.user)
+            elif intent == "urls":
+                form = CredentialURLsForm(request.POST)
+                if form.is_valid():
+                    credential_services.save_urls(
+                        credential,
+                        request.user,
+                        form.cleaned_data,
+                    )
+                else:
+                    return render(
+                        request,
+                        "sandbox/credentials.html",
+                        _context(
+                            request,
+                            workspace,
+                            credential=credential,
+                            form=form,
+                            nav="credentials",
+                            page_title="Sandbox credentials",
+                        ),
+                    )
+            else:
+                msg = "Choose a valid credential action."
+                raise ValidationError(msg)  # noqa: TRY301
+            messages.success(
+                request,
+                "Credentials updated."
+                if intent != "check"
+                else "Callback check complete.",
+            )
+            return redirect("sandbox:credentials", sandbox_id=sandbox_id)
+        except ValidationError as error:
+            if request.POST.get("intent") == "reveal":
+                return render(
+                    request,
+                    "sandbox/partials/secret.html",
+                    {"error": " ".join(error.messages)},
+                )
+            _error(request, error)
+    from django.conf import settings  # noqa: PLC0415
+
+    return render(
+        request,
+        "sandbox/credentials.html",
+        _context(
+            request,
+            workspace,
+            credential=credential,
+            form=form,
+            nav="credentials",
+            page_title="Sandbox credentials",
+            demo_credentials=settings.SANDBOX_ALLOW_DEMO_CREDENTIALS
+            and not settings.SANDBOX_CREDENTIAL_PROVIDER,
+        ),
+    )
+
+
+def _reviewer_required(request):
+    if not services.reviewer(request.user):
+        msg = "This area is for NHA reviewers."
+        raise PermissionDenied(msg)
+
+
+def _track_filter(code):
+    query = Q(pk__in=[])
+    for key in TRACK_MAP[code].keys:
+        query |= Q(
+            application__milestone__key=key,
+            product__workspace__applied_milestones__contains=[f"{code}:{key}"],
+        )
+    return query
+
+
+@login_required
+def assess_dashboard(request):
+    _reviewer_required(request)
+    items = ReviewItem.objects.exclude(status="draft")
+    pending = items.filter(status__in=["new", "in_review", "query_raised"])
+    today = timezone.localdate()
+    decisions = list(
+        AuditEvent.objects.filter(
+            action__in=["Approved", "Sent back"],
+            created_at__gte=timezone.now() - timedelta(weeks=8),
+        ),
+    )
+    submitted_at = dict(
+        FormSubmission.objects.filter(
+            pk__in=[event.detail.get("submission_id") for event in decisions],
+        ).values_list("pk", "submitted_at"),
+    )
+    durations = [
+        (event.created_at - submitted_at[event.detail["submission_id"]]).total_seconds()
+        / 86400
+        for event in decisions
+        if event.detail.get("submission_id") in submitted_at
+    ]
+    weeks = []
+    monday = today - timedelta(days=today.weekday())
+    for index in range(7, -1, -1):
+        start = monday - timedelta(weeks=index)
+        end = start + timedelta(days=7)
+        subset = [
+            item
+            for item in decisions
+            if start <= timezone.localtime(item.created_at).date() < end
+        ]
+        weeks.append(
+            {
+                "label": start.strftime("%d %b"),
+                "approved": sum(item.action == "Approved" for item in subset),
+                "sent_back": sum(item.action == "Sent back" for item in subset),
+            },
+        )
+    maximum = max([week["approved"] + week["sent_back"] for week in weeks] or [1]) or 1
+    for week in weeks:
+        week["approved_height"] = round(week["approved"] / maximum * 110)
+        week["sent_back_height"] = round(week["sent_back"] / maximum * 110)
+    context = _context(
+        request,
+        page_title="Reviewer dashboard",
+        nav="assess-dashboard",
+        pending_count=pending.count(),
+        new_count=pending.filter(status="new").count(),
+        review_count=pending.filter(status="in_review").count(),
+        query_count=pending.filter(status="query_raised").count(),
+        approved_month=AuditEvent.objects.filter(
+            action="Approved",
+            created_at__date__gte=today.replace(day=1),
+        ).count(),
+        median_days=round(median(durations), 1) if durations else None,
+        oldest=pending.exclude(status="query_raised")[:5],
+        weeks=weeks,
+        by_type=pending.values("kind").annotate(count=Count("pk")),
+        by_assignee=pending.values("assignee__name", "assignee__email").annotate(
+            count=Count("pk"),
+        ),
+        by_track=[
+            {
+                "code": track.code,
+                "count": pending.filter(_track_filter(track.code)).count(),
+            }
+            for track in TRACKS
+        ],
+        ageing=[
+            (
+                "0-2 days",
+                pending.filter(
+                    submitted_at__gte=timezone.now() - timedelta(days=3),
+                ).count(),
+            ),
+            (
+                "3-7 days",
+                pending.filter(
+                    submitted_at__lt=timezone.now() - timedelta(days=3),
+                    submitted_at__gte=timezone.now() - timedelta(days=8),
+                ).count(),
+            ),
+            (
+                "8+ days",
+                pending.filter(
+                    submitted_at__lt=timezone.now() - timedelta(days=8),
+                ).count(),
+            ),
+        ],
+    )
+    return render(request, "sandbox/assess_dashboard.html", context)
+
+
+@login_required
+def queue(request):
+    _reviewer_required(request)
+    query = ReviewItem.objects.exclude(status="draft").select_related(
+        "product",
+        "organisation",
+        "application",
+        "assignee",
+    )
+    kind, status, assignee, track_code, search = (
+        request.GET.get(key, "") for key in ("kind", "status", "assignee", "track", "q")
+    )
+    if kind == "mine":
+        query = query.filter(assignee=request.user)
+    elif kind in ReviewItem.Kind.values:
+        query = query.filter(kind=kind)
+    if status in ReviewItem.Status.values:
+        query = query.filter(status=status)
+    if assignee == "unassigned":
+        query = query.filter(assignee=None)
+    elif assignee.isdigit():
+        query = query.filter(assignee_id=assignee)
+    if track_code in TRACK_MAP:
+        query = query.filter(_track_filter(track_code))
+    if search:
+        query = query.filter(
+            Q(product__name__icontains=search)
+            | Q(organisation__name__icontains=search)
+            | Q(application__reference__icontains=search),
+        )
+    params = request.GET.copy()
+    params.pop("page", None)
+    return render(
+        request,
+        "sandbox/queue.html",
+        _context(
+            request,
+            page_title="Review queue",
+            nav="queue",
+            page=Paginator(query, 20).get_page(request.GET.get("page")),
+            kinds=ReviewItem.Kind.choices,
+            statuses=ReviewItem.Status.choices,
+            reviewers=get_user_model().objects.filter(
+                Q(is_ohc_team=True) | Q(is_superuser=True),
+                is_active=True,
+            ),
+            filters=request.GET,
+            filter_query=params.urlencode(),
+            track_choices=TRACKS,
+        ),
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def review(request, pk):
+    _reviewer_required(request)
+    item = _item(request, pk)
+    if request.method == "POST":
+        try:
+            if request.POST.get("intent") == "assign":
+                assignee_id = request.POST.get("assignee", "")
+                assignee = (
+                    get_object_or_404(get_user_model(), pk=assignee_id)
+                    if assignee_id.isdigit()
+                    else None
+                )
+                services.assign_review(item, request.user, assignee)
+            else:
+                services.decide(
+                    item,
+                    request.user,
+                    action=request.POST.get("action"),
+                    note=request.POST.get("note", ""),
+                    field_key=request.POST.get("field_key", "form"),
+                )
+            messages.success(request, "Review updated.")
+            return redirect(item)
+        except ValidationError as error:
+            _error(request, error)
+    return render(
+        request,
+        "sandbox/review.html",
+        _context(
+            request,
+            page_title=item.reference,
+            nav="queue",
+            item=item,
+            can_decide=services.can_decide(request.user, item),
+            reviewers=get_user_model().objects.filter(
+                Q(is_ohc_team=True) | Q(is_superuser=True),
+                is_active=True,
+            ),
+            decision_action=request.GET.get("action", "approve"),
+            query_field=request.GET.get("field", "form"),
+            prior_approvals=ReviewItem.objects.filter(
+                organisation=item.organisation,
+                status="approved",
+            ).exclude(pk=item.pk)[:10],
+            credential=SandboxCredential.objects.filter(product=item.product).first()
+            if item.product_id
+            else None,
+            open_tickets=Ticket.objects.filter(
+                organisation=item.organisation,
+                status__in=["open", "awaiting_vendor"],
+            )[:5],
+        ),
+    )
+
+
+@login_required
+@never_cache
+def attachment(request, pk):
+    attachment = get_object_or_404(
+        FormAttachment.objects.select_related("submission__form__organisation"),
+        pk=pk,
+    )
+    organisation = attachment.submission.form.organisation
+    if (
+        not services.reviewer(request.user)
+        and not organisation.memberships.filter(user=request.user).exists()
+    ):
+        raise Http404
+    response = FileResponse(
+        attachment.file.open("rb"),
+        as_attachment=True,
+        filename=attachment.original_name,
+    )
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
+def submission(request, pk, submission_id):
+    item = _item(request, pk)
+    snapshot = get_object_or_404(item.form.submissions, pk=submission_id)
+    return render(
+        request,
+        "sandbox/submission.html",
+        _context(
+            request,
+            item.product.workspace if item.product_id else None,
+            item=item,
+            snapshot=snapshot,
+            page_title=(
+                f"{item.form.name}: submission {snapshot.submission_number}, "
+                f"revision {snapshot.revision}"
+            ),
+        ),
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def events(request):
+    workspace = (
+        _workspaces(request.user).filter(sandbox_id=request.GET.get("product")).first()
+        or _workspaces(request.user).first()
+    )
+    if request.method == "POST":
+        event = get_object_or_404(
+            Event.objects.upcoming(),
+            pk=request.POST.get("event"),
+        )
+        if request.POST.get("intent") == "cancel":
+            EventRegistration.objects.filter(event=event, user=request.user).delete()
+        else:
+            _registration, created = EventRegistration.objects.get_or_create(
+                event=event,
+                user=request.user,
+            )
+            if created:
+                Notification.objects.create(
+                    recipient=request.user.email,
+                    subject=f"ABDM: registered for {event.title}",
+                    body=(
+                        f"{event.title}\n"
+                        f"{timezone.localtime(event.starts_at):%d %b %Y, %H:%M %Z}\n"
+                        f"{event.join_url}"
+                    ),
+                )
+        return redirect(request.get_full_path())
+    queryset = (
+        Event.objects.past()
+        if request.GET.get("period") == "past"
+        else Event.objects.upcoming()
+    )
+    if request.GET.get("kind") in Event.Kind.values:
+        queryset = queryset.filter(kind=request.GET["kind"])
+    registered = set(
+        EventRegistration.objects.filter(user=request.user).values_list(
+            "event_id",
+            flat=True,
+        ),
+    )
+    return render(
+        request,
+        "sandbox/events.html",
+        _context(
+            request,
+            workspace,
+            page_title="Events",
+            nav="events",
+            events=queryset,
+            registered=registered,
+            kinds=Event.Kind.choices,
+            period=request.GET.get("period", "upcoming"),
+        ),
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def support(request):
+    workspaces = _workspaces(request.user)
+    workspace = (
+        workspaces.filter(sandbox_id=request.GET.get("product")).first()
+        or workspaces.first()
+    )
+    tickets = (
+        Ticket.objects.all()
+        if services.reviewer(request.user)
+        else Ticket.objects.filter(organisation=_organisation(request))
+    )
+    if workspace and not services.reviewer(request.user):
+        tickets = tickets.filter(sandbox_context__product=workspace.product)
+    if request.GET.get("status") in {"open", "awaiting_vendor", "resolved", "closed"}:
+        tickets = tickets.filter(status=request.GET["status"])
+    form = SupportForm(
+        data=request.POST if request.method == "POST" else None,
+        files=request.FILES or None,
+    )
+    if request.method == "POST":
+        if not workspace:
+            msg = "Register a product before opening a ticket."
+            raise ValidationError(msg)
+        services.require_integrator(request.user, workspace.product.organisation)
+        if form.is_valid():
+            with transaction.atomic():
+                ticket = Ticket.objects.create(
+                    organisation=workspace.product.organisation,
+                    subject=form.cleaned_data["subject"],
+                    priority=form.cleaned_data["priority"],
+                    created_by=request.user,
+                )
+                TicketContext.objects.create(
+                    ticket=ticket,
+                    product=workspace.product,
+                    track=form.cleaned_data["track"],
+                )
+                message = post_reply(
+                    ticket,
+                    request.user,
+                    form.cleaned_data["body"],
+                    from_ohc_team=False,
+                )
+                for upload in form.cleaned_data["attachments"]:
+                    TicketAttachment.objects.create(
+                        message=message,
+                        file=upload,
+                        original_name=upload.name,
+                    )
+            return redirect("sandbox:ticket", reference=ticket.reference)
+    return render(
+        request,
+        "sandbox/support.html",
+        _context(
+            request,
+            workspace,
+            page_title="Support",
+            nav="support",
+            tickets=tickets.order_by("-updated_at"),
+            form=form,
+            creating=request.GET.get("new") == "1" or request.method == "POST",
+        ),
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def ticket(request, reference):
+    query = (
+        Ticket.objects.all()
+        if services.reviewer(request.user)
+        else Ticket.objects.filter(organisation__memberships__user=request.user)
+    )
+    ticket = get_object_or_404(query, reference=reference)
+    context = (
+        TicketContext.objects.filter(ticket=ticket)
+        .select_related("product__workspace")
+        .first()
+    )
+    workspace = context.product.workspace if context else None
+    form = SupportForm(
+        data=request.POST if request.method == "POST" else None,
+        files=request.FILES or None,
+    )
+    for key in ("subject", "track", "priority"):
+        del form.fields[key]
+    if request.method == "POST":
+        if request.POST.get("intent") == "resolve":
+            if not services.reviewer(request.user):
+                raise PermissionDenied
+            record_status_change(ticket, request.user, "resolved")
+            return redirect("sandbox:ticket", reference=reference)
+        if form.is_valid():
+            with transaction.atomic():
+                message = post_reply(
+                    ticket,
+                    request.user,
+                    form.cleaned_data["body"],
+                    from_ohc_team=services.reviewer(request.user),
+                )
+                for upload in form.cleaned_data["attachments"]:
+                    TicketAttachment.objects.create(
+                        message=message,
+                        file=upload,
+                        original_name=upload.name,
+                    )
+                if services.reviewer(request.user):
+                    services.notify_integrators(
+                        ticket.organisation,
+                        f"ABDM: reply to {ticket.reference}",
+                        form.cleaned_data["body"],
+                    )
+                elif ticket.assignee_id:
+                    Notification.objects.create(
+                        recipient=ticket.assignee.email,
+                        subject=f"ABDM: reply to {ticket.reference}",
+                        body=form.cleaned_data["body"],
+                    )
+            return redirect("sandbox:ticket", reference=reference)
+    return render(
+        request,
+        "sandbox/ticket.html",
+        _context(
+            request,
+            workspace,
+            page_title=ticket.reference,
+            nav="support",
+            ticket=ticket,
+            ticket_context=context,
+            form=form,
+        ),
+    )
+
+
+@login_required
+@never_cache
+def ticket_attachment(request, pk):
+    upload = get_object_or_404(TicketAttachment, pk=pk)
+    if (
+        not services.reviewer(request.user)
+        and not upload.message.ticket.organisation.memberships.filter(
+            user=request.user,
+        ).exists()
+    ):
+        raise Http404
+    return FileResponse(
+        upload.file.open("rb"),
+        as_attachment=True,
+        filename=upload.original_name,
+    )

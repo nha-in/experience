@@ -56,7 +56,8 @@
             </span>
             <span class="min-w-0 flex-1 peer-checked:opacity-50 peer-checked:line-through">
               <a class="block truncate text-xs font-medium"
-                 href="{% url 'experiences:attachment' application_reference attachment.pk %}">{{ attachment.original_name }}</a>
+                 hx-boost="false"
+                 href="{% if sandbox_files %}{% url 'sandbox:attachment' attachment.pk %}{% else %}{% url 'experiences:attachment' application_reference attachment.pk %}{% endif %}">{{ attachment.original_name }}</a>
               <span class="block text-[11px] text-soft-foreground">{{ attachment.size|filesizeformat }}</span>
             </span>
             <label class="ui-btn ui-btn--ghost ui-btn--size-icon-xs shrink-0 cursor-pointer"

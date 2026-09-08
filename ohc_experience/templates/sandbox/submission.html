@@ -1,0 +1,2 @@
+{% extends 'sandbox/base.html' %}
+{% block portal_content %}<div class="sb-page-heading"><div><p class="sb-eyebrow">Immutable submission history</p><h1>{{ item.form.name }}</h1><p class="sb-muted">Saved by {{ snapshot.submitted_by.display_name }} on {{ snapshot.submitted_at|date:'d M Y, H:i' }} IST</p></div></div>{% include 'sandbox/partials/snapshot.html' %}{% endblock %}

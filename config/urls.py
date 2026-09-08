@@ -10,6 +10,7 @@ from ohc_experience.users.views import user_signup_view
 from .api import api
 
 urlpatterns = [
+    path("", include("ohc_experience.sandbox.urls")),
     # Landing page, about, dashboard
     path("", include("ohc_experience.pages.urls")),
     # The htmx idiom reference that shipped with the htmx setup.

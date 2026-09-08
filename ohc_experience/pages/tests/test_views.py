@@ -49,7 +49,7 @@ class TestLandingView:
         response = sign_in(owner_membership.user).get(reverse("home"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("dashboard")
+        assert response["Location"] == reverse("sandbox:home")
 
     def test_sends_a_half_set_up_member_to_onboarding(
         self,
@@ -64,7 +64,7 @@ class TestLandingView:
         response = sign_in(membership.user).get(reverse("home"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("organisations:onboarding")
+        assert response["Location"] == reverse("sandbox:organisation")
 
     def test_a_signed_in_user_without_an_organisation_still_gets_a_page(
         self,
@@ -232,16 +232,13 @@ class TestPostLoginDestination:
     ):
         membership = MembershipFactory.create(organisation=organisation)
 
-        assert (
-            resolve_post_login_destination(membership.user)
-            == "organisations:onboarding"
-        )
+        assert resolve_post_login_destination(membership.user) == "sandbox:organisation"
 
     def test_a_finished_organisation_lands_on_the_dashboard(
         self,
         owner_membership: Membership,
     ):
-        assert resolve_post_login_destination(owner_membership.user) == "dashboard"
+        assert resolve_post_login_destination(owner_membership.user) == "sandbox:home"
 
 
 class TestOhcStaffLanding:
@@ -257,7 +254,7 @@ class TestOhcStaffLanding:
         response = client.get(reverse("users:redirect"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("ohc:queue")
+        assert response["Location"] == reverse("sandbox:assess-dashboard")
 
     def test_the_dashboard_redirects_to_the_console(self, client, ohc_user):
         client.force_login(ohc_user)

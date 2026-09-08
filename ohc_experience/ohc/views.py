@@ -408,6 +408,11 @@ class OrganisationDetailView(OhcConsoleMixin, View):
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         organisation = get_organisation(kwargs["slug"])
+        review = organisation.sandbox_reviews.filter(
+            kind="organisation_verification",
+        ).first()
+        if review:
+            return redirect(review)
         return render(
             request,
             "ohc/organisation_detail.html",
@@ -425,6 +430,11 @@ class OrganisationVerificationView(OhcConsoleMixin, View):
 
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         organisation = get_organisation(kwargs["slug"])
+        review = organisation.sandbox_reviews.filter(
+            kind="organisation_verification",
+        ).first()
+        if review:
+            return redirect(review)
         form = VerificationForm(request.POST)
         if not form.is_valid():
             # A rejected submission: 200 with the errors, never a redirect.

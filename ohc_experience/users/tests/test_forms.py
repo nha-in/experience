@@ -160,10 +160,10 @@ class TestSignupContactDetails:
         assert user.phone_number == SIGNUP_DATA["mobile_number"]
 
     @pytest.mark.django_db
-    def test_mobile_number_is_required(self):
+    def test_mobile_number_is_optional_for_sandbox_signup(self):
         payload = {k: v for k, v in SIGNUP_DATA.items() if k != "mobile_number"}
 
         form = UserSignupForm(data=payload)
 
-        assert not form.is_valid()
-        assert "mobile_number" in form.errors
+        assert form.is_valid(), form.errors
+        assert form.cleaned_data["mobile_number"] == ""

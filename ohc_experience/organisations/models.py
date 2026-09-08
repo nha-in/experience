@@ -80,6 +80,7 @@ class Organisation(models.Model):
         PENDING = "pending", _("Verification pending")
         VERIFIED = "verified", _("Verified vendor")
         REJECTED = "rejected", _("Verification rejected")
+        SENT_BACK = "sent_back", _("Sent back")
 
     name = models.CharField(_("Organisation"), max_length=255)
     slug = models.SlugField(_("Slug"), max_length=255, unique=True)

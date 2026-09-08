@@ -1,134 +1,21 @@
-{% extends "account/base_entrance.html" %}
-
-{% comment %}
-  Screen 1a — the real signup form beside the value proposition.
-
-  The view (ohc_experience.users.views.UserSignupView) hands us an `invitation`
-  when the visitor arrived through an invite link. In that case the form has no
-  Organisation field at all — the invite decides which organisation is joined —
-  so every field reference below is guarded.
-{% endcomment %}
-{% load i18n careui %}
-
-{% block title %}
-  {% translate "Create your ABDM partner account" %}
-{% endblock title %}
-{% block meta_description %}
-  {% translate "Create an ABDM Sandbox account for your team, manage integration evidence, and apply for production access." %}
-{% endblock meta_description %}
-{% block content %}
-  {% comment %}
-    Below lg the two columns stack. The form card is ordered first there — this
-    page is reached by someone who has already decided to sign up, so the pitch
-    reads as a reminder underneath rather than a wall to scroll past. Only the
-    visual order changes; the h1 still comes first in the document.
-  {% endcomment %}
-  <section class="mx-auto grid w-full max-w-[1360px] gap-10 px-5 py-12 sm:px-8 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-16 lg:px-[72px] lg:pt-16 lg:pb-[72px]">
-    <div class="order-2 lg:order-1">
-      <p class="ui-eyebrow">{% translate "For ABDM integrators &amp; partners" %}</p>
-      <h1 class="mt-3.5 text-[30px] leading-[1.12] font-[750] tracking-normal text-pretty sm:text-[34px] lg:text-[38px]">
-        {% translate "Take your ABDM integration from sandbox to production." %}
-      </h1>
-      <p class="mt-4 max-w-[52ch] text-[15px] leading-[1.6] text-muted-foreground">
-        {% translate "Sandbox access, production applications, review queries, and decisions in one shared workspace." %}
-      </p>
-      <ul class="mt-7 flex flex-col gap-3.5">
-        <li class="flex items-start gap-3">
-          <span aria-hidden="true"
-                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
-          <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Partner sandbox" %}</strong>{% translate ": manage credentials and test your selected ABDM journeys." %}
-          </span>
-        </li>
-        <li class="flex items-start gap-3">
-          <span aria-hidden="true"
-                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
-          <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "ABDM documentation" %}</strong>{% translate ": implementation guides and protocol references close at hand." %}
-          </span>
-        </li>
-        <li class="flex items-start gap-3">
-          <span aria-hidden="true"
-                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
-          <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Production applications" %}</strong>{% translate ": submit the evidence required for your product and scope." %}
-          </span>
-        </li>
-        <li class="flex items-start gap-3">
-          <span aria-hidden="true"
-                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
-          <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Review queries" %}</strong>{% translate ": resolve questions with the review team in the application record." %}
-          </span>
-        </li>
-      </ul>
-      <p class="mt-7 max-w-[60ch] text-[12.5px] leading-[1.55] text-soft-foreground">
-        {% translate "For HMIS/EMR integrators, medical device vendors, lab &amp; pharmacy systems, implementation partners and hospital IT teams." %}
-      </p>
-    </div>
-    <div class="order-1 w-full lg:order-2 lg:max-w-[420px] lg:justify-self-end">
-      {% include "components/messages.html" %}
-      <div class="ui-card">
-        <div class="ui-card-header">
-          <h2 class="ui-card-title text-[17px] font-[650] tracking-normal">{% translate "Create your partner account" %}</h2>
-          <p class="ui-card-description text-[13px]">{% translate "Built for ABDM partners." %}</p>
-        </div>
-        <div class="ui-card-content">
-          {% if invitation %}
-            <div class="ui-alert ui-alert--info mb-4" role="status">
-              <p class="flex-1">
-                {% blocktranslate trimmed with organisation=invitation.organisation.name role=invitation.get_role_display %}
-                  You are joining <strong>{{ organisation }}</strong>, invited as {{ role }}.
-                {% endblocktranslate %}
-              </p>
-            </div>
-          {% endif %}
-          <form class="flex flex-col gap-3.5"
-                method="post"
-                action="{% url 'account_signup' %}">
-            {% csrf_token %}
-            {% include "components/form_errors.html" %}
-            {% translate "Full name" as name_label %}
-            {% translate "Meera Krishnan" as name_placeholder %}
-            {% ui_field form.name label=name_label placeholder=name_placeholder %}
-            {% translate "Work email" as email_label %}
-            {% translate "you@company.in" as email_placeholder %}
-            {% if invitation %}
-              {% translate "Use the address the invite was sent to." as email_hint %}
-              {% ui_field form.email label=email_label placeholder=email_placeholder help_text=email_hint %}
-            {% else %}
-              {% ui_field form.email label=email_label placeholder=email_placeholder %}
-            {% endif %}
-            {% translate "Mobile number" as mobile_label %}
-            {% translate "+91 98765 43210" as mobile_placeholder %}
-            {% ui_field form.mobile_number label=mobile_label placeholder=mobile_placeholder %}
-            {% if form.organisation %}
-              {% translate "Organisation" as organisation_label %}
-              {% translate "Arogya Systems Pvt Ltd" as organisation_placeholder %}
-              {% ui_field form.organisation label=organisation_label placeholder=organisation_placeholder %}
-            {% endif %}
-            {% translate "Password" as password_label %}
-            {% translate "Min 12 characters" as password_placeholder %}
-            {% ui_field form.password1 label=password_label placeholder=password_placeholder %}
-            {% if form.password2 %}
-              {% translate "Confirm password" as password2_label %}
-              {% translate "Type it once more" as password2_placeholder %}
-              {% ui_field form.password2 label=password2_label placeholder=password2_placeholder %}
-            {% endif %}
-            {{ redirect_field }}
-            <button type="submit"
-                    class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">
-              {% translate "Create account" %}
-            </button>
-          </form>
-          {% if SOCIALACCOUNT_ENABLED %}
-            {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
-          {% endif %}
-          <p class="mt-3.5 text-[11.5px] leading-[1.5] text-soft-foreground">
-            {% translate "By creating an account you agree to the partner terms and privacy policy. We verify all vendor accounts within 1 business day." %}
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-{% endblock content %}
+{% extends 'sandbox/base.html' %}
+{% load static careui %}
+{% block portal_content %}
+<div class="sb-signup-brand"><img src="{% static 'images/abdm-logo.png' %}" alt="ABDM" width="102" height="58" /><img src="{% static 'images/nha-logo.png' %}" alt="National Health Authority" width="138" height="46" /></div>
+<div class="sb-page-heading"><div><p class="sb-eyebrow">ABDM Developer Sandbox</p><h1>Create your integrator account</h1><p class="sb-muted">Already registered? <a href="{% url 'account_login' %}" hx-boost="false">Sign in</a></p></div></div>
+{% if invitation %}<div class="sb-notice info">You are joining <strong>{{ invitation.organisation.name }}</strong> as {{ invitation.get_role_display }}.</div>{% endif %}
+<form method="post" action="{% url 'account_signup' %}" hx-boost="false" class="sb-signup-form">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="sb-notice error">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="sb-form-grid">
+    {% ui_field form.name label='Your name' %}
+    {% ui_field form.email label='Work email' %}
+    {% if form.organisation %}{% ui_field form.organisation label='Name of the entity' %}{% ui_field form.organisation_type %}{% endif %}
+    <div class="sb-full">{% ui_field form.password1 label='Password' help_text='At least 12 characters.' %}</div>
+    {% if form.password2 %}<div class="sb-full">{% ui_field form.password2 %}</div>{% endif %}
+    {% if form.captcha %}<div class="sb-full">{% if form.turnstile_site_key %}<div class="cf-turnstile" data-sitekey="{{ form.turnstile_site_key }}" data-response-field-name="captcha"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{% for error in form.captcha.errors %}<p class="sb-notice error">{{ error }}</p>{% endfor %}{% else %}{% ui_field form.captcha %}{% endif %}</div>{% endif %}
+  </div>
+  {{ redirect_field }}
+  <div class="sb-actions"><button class="sb-button" type="submit">Create account</button></div>
+</form>
+{% endblock %}

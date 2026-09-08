@@ -15,8 +15,10 @@ services:
 
     image: ohc_experience_production_django
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
     env_file:
       - ./.envs/.production/.django
       - ./.envs/.production/.postgres
@@ -52,7 +54,6 @@ services:
 
     volumes:
       - production_redis_data:/data
-
 
   celeryworker:
     <<: *django

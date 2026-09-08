@@ -55,7 +55,7 @@ class TestUserRedirectView:
         response = sign_in(membership.user).get(reverse("users:redirect"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("organisations:onboarding")
+        assert response["Location"] == reverse("sandbox:organisation")
 
     def test_sends_an_onboarded_vendor_to_the_dashboard(
         self,
@@ -65,7 +65,7 @@ class TestUserRedirectView:
         response = sign_in(owner_membership.user).get(reverse("users:redirect"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("dashboard")
+        assert response["Location"] == reverse("sandbox:home")
 
     def test_sends_a_user_without_an_organisation_home(
         self,
