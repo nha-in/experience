@@ -695,6 +695,7 @@ class Command(BaseCommand):
             author,
             turn.body,
             from_ohc_team=turn.actor == OHC,
+            notify=False,
         )
 
     @staticmethod

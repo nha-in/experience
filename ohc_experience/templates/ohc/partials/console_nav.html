@@ -1,21 +1,25 @@
 {% comment %}
-  Console navigation. Shared by the desktop rail and the mobile drawer, and
-  built to the same contract as components/app_nav.html — read that file first;
-  everything it says about boosting, the out-of-band swap and the per-link ids
-  applies here with #ohc-nav in place of #app-nav.
+  Console navigation, in the prototype's shape: the certification desk card,
+  REVIEW (Dashboard, Review queue with its count), SUPPORT (Tickets,
+  Organisations, Events), then the way back to the integrator view and the
+  reviewer's card at the foot. Shared by the desktop rail and the mobile
+  drawer, and built to the same contract as components/app_nav.html — read
+  that file first; everything it says about boosting, the out-of-band swap
+  and the per-link ids applies here with #ohc-nav in place of #app-nav.
 
-  Three sections: Queue, Organisations and Events. Below them, "Vendor view"
-  leaves for the hub, because an OHC staff member usually also belongs to an
-  organisation and needs a way back that is not the browser's history.
+  "Integrator view" leaves for the portal, because a reviewer may also belong
+  to an organisation and needs a way back that is not the browser's history.
 
-  Context: nav_section — "queue", "organisations" or "events", set by each view.
+  Context: nav_section — "dashboard", "review-queue", "queue", "organisations"
+  or "events", set by each view; desk_queue_count, desk_reviewer_count
+  (abdm.context_processors.certification_desk).
 
   No-JS contract: every item is a real <a href> and signing out is a real POST.
 {% endcomment %}
 {% load i18n %}
 
 <nav id="ohc-nav"
-     class="flex flex-1 flex-col"
+     class="flex min-h-0 flex-1 flex-col"
      aria-label="{% translate 'Console' %}"
      hx-boost="true"
      hx-target="#main-content"
@@ -24,55 +28,78 @@
      hx-swap="outerHTML"
      hx-push-url="true"
      hx-indicator="#nav-progress">
-  <ul class="flex flex-col gap-0.5">
-    <li>
-      <a id="ohc-nav-queue"
-         class="ui-subnav-link {% if nav_section == 'queue' %}ui-subnav-link--active{% endif %}"
-         href="{% url 'ohc:queue' %}"
-         {% if nav_section == 'queue' %}aria-current="page"{% endif %}>{% translate "Queue" %}</a>
-    </li>
-    <li>
-      <a id="ohc-nav-organisations"
-         class="ui-subnav-link {% if nav_section == 'organisations' %}ui-subnav-link--active{% endif %}"
-         href="{% url 'ohc:organisations' %}"
-         {% if nav_section == 'organisations' %}aria-current="page"{% endif %}>{% translate "Organisations" %}</a>
-    </li>
-    <li>
-      <a id="ohc-nav-applications"
-         class="ui-subnav-link {% if nav_section == 'applications' %}ui-subnav-link--active{% endif %}"
-         href="{% url 'ohc:applications' %}"
-         {% if nav_section == 'applications' %}aria-current="page"{% endif %}>{% translate "Applications" %}</a>
-    </li>
-    <li>
-      <a id="ohc-nav-events"
-         class="ui-subnav-link {% if nav_section == 'events' %}ui-subnav-link--active{% endif %}"
-         href="{% url 'ohc:events' %}"
-         {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
-    </li>
-    <li>
-      <a id="ohc-nav-sandboxes"
-         class="ui-subnav-link {% if nav_section == 'sandboxes' %}ui-subnav-link--active{% endif %}"
-         href="{% url 'ohc:sandboxes' %}"
-         {% if nav_section == 'sandboxes' %}aria-current="page"{% endif %}>{% translate "Sandboxes" %}</a>
-    </li>
-  </ul>
-  <ul class="mt-auto flex flex-col gap-0.5 pt-6">
-    <li>
-      {# The vendor hub is the other shell, and its pages carry #app-nav rather #}
-      {# than #ohc-nav — so this one leaves as an ordinary navigation. #}
-      <a id="ohc-nav-vendor"
-         class="ui-subnav-link"
-         href="{% url 'dashboard' %}"
-         hx-boost="false">{% translate "Vendor view" %} <span aria-hidden="true">↗</span></a>
-    </li>
-  </ul>
+  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
+    <div class="mb-3 flex items-center gap-2.5 rounded-[10px] border border-sidebar-border bg-background px-2.5 py-2">
+      <span class="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-foreground text-[8.5px] font-bold tracking-[0.02em] text-background"
+            aria-hidden="true">NHA</span>
+      <span class="min-w-0 leading-tight">
+        <span class="block truncate text-[11.5px] font-semibold">{% translate "Certification desk" %}</span>
+        <span class="block text-[9.5px] text-soft-foreground">
+          {% blocktranslate count counter=desk_reviewer_count|default:0 %}{{ counter }} reviewer{% plural %}{{ counter }} reviewers{% endblocktranslate %}
+          · {% blocktranslate with count=desk_queue_count|default:0 %}{{ count }} in queue{% endblocktranslate %}
+        </span>
+      </span>
+    </div>
+    <ul class="flex flex-col gap-px">
+      <li class="px-2 pt-1 pb-1.5 text-[9.5px] font-bold tracking-[0.09em] text-soft-foreground uppercase"
+          aria-hidden="true">{% translate "Review" %}</li>
+      <li>
+        <a id="ohc-nav-dashboard"
+           class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'dashboard' %}ui-nav-link--active{% endif %}"
+           href="{% url 'assess:dashboard' %}"
+           {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>{% translate "Dashboard" %}</a>
+      </li>
+      <li>
+        <a id="ohc-nav-review-queue"
+           class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'review-queue' %}ui-nav-link--active{% endif %}"
+           href="{% url 'assess:queue' %}"
+           {% if nav_section == 'review-queue' %}aria-current="page"{% endif %}>
+          <span class="min-w-0 flex-1">{% translate "Review queue" %}</span>
+          <span class="font-mono text-[9.5px] text-soft-foreground">{{ desk_queue_count|default:0 }}</span>
+        </a>
+      </li>
+      <li class="px-2 pt-3.5 pb-1.5 text-[9.5px] font-bold tracking-[0.09em] text-soft-foreground uppercase"
+          aria-hidden="true">{% translate "Support" %}</li>
+      <li>
+        <a id="ohc-nav-queue"
+           class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'queue' %}ui-nav-link--active{% endif %}"
+           href="{% url 'ohc:queue' %}"
+           {% if nav_section == 'queue' %}aria-current="page"{% endif %}>{% translate "Tickets" %}</a>
+      </li>
+      <li>
+        <a id="ohc-nav-organisations"
+           class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'organisations' %}ui-nav-link--active{% endif %}"
+           href="{% url 'ohc:organisations' %}"
+           {% if nav_section == 'organisations' %}aria-current="page"{% endif %}>{% translate "Organisations" %}</a>
+      </li>
+      <li>
+        <a id="ohc-nav-events"
+           class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'events' %}ui-nav-link--active{% endif %}"
+           href="{% url 'ohc:events' %}"
+           {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
+      </li>
+    </ul>
+    <ul class="mt-auto flex flex-col gap-px pt-5">
+      <li>
+        {# The integrator hub is the other shell, and its pages carry #app-nav rather #}
+        {# than #ohc-nav — so this one leaves as an ordinary navigation. #}
+        <a id="ohc-nav-vendor"
+           class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px]"
+           href="{% url 'dashboard' %}"
+           hx-boost="false">
+          <span class="min-w-0 flex-1">{% translate "Integrator view" %}</span>
+          <span aria-hidden="true" class="text-[10px] text-soft-foreground">↗</span>
+        </a>
+      </li>
+    </ul>
+  </div>
   {% if request.user.is_authenticated %}
-    <div class="mt-2.5 flex items-center gap-2 border-t border-border px-2.5 pt-3">
-      <span class="ui-avatar ui-avatar--muted size-7 text-[11px]"
-            aria-hidden="true">{{ request.user.display_name|slice:":2"|upper }}</span>
-      <span class="min-w-0 flex-1">
-        <span class="block truncate text-[12.5px] font-semibold">{% translate "OHC team" %}</span>
-        <span class="block truncate text-[11px] text-soft-foreground">{{ request.user.email }}</span>
+    <div class="mt-2 flex items-center gap-2.5 border-t border-sidebar-border px-2 pt-2.5">
+      <span class="ui-avatar size-[26px] bg-strong-background text-[10px] text-soft-foreground"
+            aria-hidden="true">{{ request.user.initials }}</span>
+      <span class="min-w-0 flex-1 leading-tight">
+        <span class="block truncate text-[11.5px] font-semibold">{{ request.user.display_name }}</span>
+        <span class="block truncate text-[9.5px] text-soft-foreground">{% translate "NHA reviewer · Certification desk" %}</span>
       </span>
       {# Signing out is a state change, so a real POST — never boosted, because #}
       {# the response is the signed-out shell and has no #ohc-nav to swap. #}

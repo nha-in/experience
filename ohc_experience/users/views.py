@@ -16,6 +16,7 @@ from django.views.generic import UpdateView
 from ohc_experience.organisations.models import Invitation
 from ohc_experience.organisations.views import INVITATION_SESSION_KEY
 from ohc_experience.pages.views import resolve_post_login_destination
+from ohc_experience.users import captcha
 from ohc_experience.users.forms import UserProfileForm
 from ohc_experience.users.models import User
 
@@ -52,6 +53,8 @@ class UserSignupView(SignupView):
     def get_form_kwargs(self) -> dict:
         kwargs = super().get_form_kwargs()
         kwargs["invitation"] = self.get_invitation()
+        # The captcha challenge lives in the session (users.captcha).
+        kwargs["session"] = self.request.session
         return kwargs
 
     def get_initial(self) -> dict:
@@ -61,9 +64,17 @@ class UserSignupView(SignupView):
             initial.setdefault("email", invitation.email)
         return initial
 
+    def get(self, request, *args, **kwargs):
+        # "Cannot read it? New sum" on the sign-up card: a plain GET that
+        # replaces the challenge held in the session before the page draws.
+        if request.GET.get("captcha") == "new":
+            captcha.issue_challenge(request.session)
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         context["invitation"] = self.get_invitation()
+        context["onboarding_step"] = 1
         return context
 
     def form_valid(self, form):

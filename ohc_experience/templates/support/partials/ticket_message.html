@@ -1,41 +1,60 @@
 {% comment %}
-  One entry in the thread.
+  One entry in the thread, as the prototype draws it: the author's avatar,
+  name, organisation and time, the body, and any attachment as a file chip.
 
   A recorded status change is not a message anybody wrote, so it draws as a
-  centred muted line rather than a card — the conversation stays a conversation
-  and the state changes read as margin notes between the turns.
-
-  Care's own replies carry the badge and a primary edge, which is the one thing
-  in the thread a vendor scans for.
+  dashed system line rather than a card — the conversation stays a
+  conversation and the state changes read as margin notes between the turns.
 
   `initials` is hung on the message by support.selectors.with_avatar, so a reply
   swapped in by htmx draws exactly like a reloaded one.
 
-  Context: message, request.
+  Context: message, request, ticket.
 {% endcomment %}
 {% load i18n %}
 
 {% if message.is_event %}
-  <li class="py-1 text-center text-[12px] text-soft-foreground">
-    {% blocktranslate with who=message.author_label state=message.body when=message.created_at|date:"j M, H:i" %}{{ who }} marked this <strong>{{ state }}</strong> · {{ when }}{% endblocktranslate %}
+  <li class="flex items-center gap-2.5 rounded-xl border border-dashed border-strong-border bg-soft-background px-3.5 py-2.5 text-[11.5px] text-soft-foreground">
+    {% include "components/status_dot.html" with variant="neutral" %}
+    <span class="min-w-0 flex-1 break-words">
+      {% blocktranslate with who=message.author_label state=message.body %}{{ who }} marked this <strong>{{ state }}</strong>{% endblocktranslate %}
+    </span>
+    <span class="text-[10.5px]">{{ message.created_at|date:"j M, H:i" }}</span>
   </li>
 {% else %}
-  <li class="ui-card {% if message.from_ohc_team %}border-l-[3px] border-l-primary-500{% endif %}">
+  <li class="ui-card ui-card--sm {% if message.from_ohc_team %}border-l-[3px] border-l-primary{% endif %}">
     <div class="ui-card-content">
-      <div class="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span class="ui-avatar size-[30px] text-[12px] {% if message.from_ohc_team %}ui-avatar--muted{% else %}ui-avatar--primary{% endif %}"
+      <div class="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="ui-avatar size-[22px] text-[9px] {% if message.from_ohc_team %}bg-primary text-primary-foreground{% else %}bg-strong-background text-soft-foreground{% endif %}"
               aria-hidden="true">{{ message.initials }}</span>
-        <span class="text-[13.5px] font-semibold">{{ message.author_label }}</span>
-        {% if message.from_ohc_team %}
-          <span class="ui-badge ui-badge--primary ui-badge--size-xs">{% translate "Care support" %}</span>
-        {% endif %}
-        <span class="text-[11.5px] text-soft-foreground">
-          {% if message.author_id and message.author_id == request.user.pk %}{% translate "You" %} ·{% endif %}
+        <span class="text-[11.5px] font-semibold">
+          {% if message.from_ohc_team %}
+            {% translate "NHA integration desk" %}
+          {% else %}
+            {{ message.author_label }}
+          {% endif %}
+        </span>
+        <span class="text-[10.5px] text-soft-foreground">
+          {% if message.from_ohc_team %}
+            {{ message.author_label }} ·
+          {% elif ticket %}
+            {{ ticket.organisation.name }} ·
+          {% endif %}
+          {% if message.author_id and message.author_id == request.user.pk %}{% translate "you" %} ·{% endif %}
           <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
         </span>
       </div>
       {# linebreaks gives one <p> per paragraph; preflight strips their margins, so put the gap back. #}
-      <div class="text-[13.5px] leading-[1.6] break-words [&>p+p]:mt-2.5">{{ message.body|linebreaks }}</div>
+      <div class="text-xs leading-[1.6] break-words [&>p+p]:mt-2.5">{{ message.body|linebreaks }}</div>
+      {% if message.attachment %}
+        <p class="mt-2.5">
+          <a class="inline-flex items-center gap-[7px] rounded-[9px] border border-border bg-soft-background px-2.5 py-[7px] text-[11px] text-foreground no-underline hover:border-stronger-border"
+             href="{% url 'products:document' 'ticket-message' message.pk 'attachment' %}">
+            <span class="font-mono text-[9.5px] font-bold text-soft-foreground uppercase">{{ message.attachment_name|slice:"-3:" }}</span>
+            {{ message.attachment_name }}
+          </a>
+        </p>
+      {% endif %}
     </div>
   </li>
 {% endif %}

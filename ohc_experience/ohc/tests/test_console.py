@@ -5,8 +5,7 @@ of this module asserts it a second time, deliberately, because it is the
 security boundary of the whole feature and a screen added without
 OhcTeamRequiredMixin should fail loudly in more than one place. The rest of the
 file covers behaviour: the queue spans vendors and filters, a reply moves the
-ticket, a status change lands in the thread, a verification decision moves a
-vendor and stamps the date, publishing toggles both ways.
+ticket, a status change lands in the thread, publishing toggles both ways.
 """
 
 from __future__ import annotations
@@ -61,7 +60,6 @@ EVENT_DATA = {
 POST_ONLY = {
     "ohc:ticket-reply",
     "ohc:ticket-update",
-    "ohc:organisation-verification",
     "ohc:event-publish",
 }
 
@@ -122,10 +120,6 @@ def route_urls(ticket: Ticket, event: Event) -> dict[str, str]:
         "ohc:organisations": ORGANISATIONS_URL,
         "ohc:organisation": reverse(
             "ohc:organisation",
-            args=[ticket.organisation.slug],
-        ),
-        "ohc:organisation-verification": reverse(
-            "ohc:organisation-verification",
             args=[ticket.organisation.slug],
         ),
         "ohc:events": EVENTS_URL,
@@ -199,9 +193,6 @@ class TestEveryRouteIsGated:
                 "status": Status.AWAITING_VENDOR,
                 "priority": Priority.HIGH,
                 "assignee": "",
-            },
-            "ohc:organisation-verification": {
-                "status": Organisation.VerificationStatus.VERIFIED,
             },
             "ohc:event-publish": {},
         }
@@ -787,8 +778,7 @@ class TestOrganisationRegister:
         owner_membership,
     ):
         organisation = owner_membership.organisation
-        organisation.legal_name = "Sunrise Healthtech Private Limited"
-        organisation.technical_contact_email = "dev@sunrise.in"
+        organisation.description = "Sunrise Healthtech runs district hospitals."
         organisation.save()
 
         response = sign_in(ohc_user).get(
@@ -796,8 +786,9 @@ class TestOrganisationRegister:
         )
         body = response.content.decode()
 
-        assert "Sunrise Healthtech Private Limited" in body
-        assert "dev@sunrise.in" in body
+        assert "Sunrise Healthtech runs district hospitals." in body
+        assert "AAACS1234K" in body
+        assert "Ernakulam" in body
         assert "Meera Krishnan" in body
         assert "Owner" in body
 
@@ -823,158 +814,6 @@ class TestOrganisationRegister:
         )
 
         assert "Nobody has joined this organisation yet." in response.content.decode()
-
-
-class TestVerification:
-    def test_verifying_stamps_the_date(
-        self,
-        sign_in: Callable[[User], Client],
-        ohc_user: User,
-        onboarded_organisation: Organisation,
-    ):
-        response = sign_in(ohc_user).post(
-            reverse(
-                "ohc:organisation-verification",
-                args=[onboarded_organisation.slug],
-            ),
-            {"status": Organisation.VerificationStatus.VERIFIED},
-        )
-
-        assert response.status_code == HTTPStatus.FOUND
-        assert response.url == reverse(
-            "ohc:organisation",
-            args=[onboarded_organisation.slug],
-        )
-        onboarded_organisation.refresh_from_db()
-        assert onboarded_organisation.is_verified
-        assert onboarded_organisation.verified_at is not None
-        assert "Sunrise Health Systems is now a verified vendor." in message_texts(
-            response,
-        )
-
-    def test_moving_a_vendor_out_of_verified_clears_the_date(
-        self,
-        sign_in: Callable[[User], Client],
-        ohc_user: User,
-        onboarded_organisation: Organisation,
-    ):
-        """A stale "Verified 3 Mar" under a rejected badge is a lie."""
-        onboarded_organisation.set_verification(
-            Organisation.VerificationStatus.VERIFIED,
-        )
-
-        sign_in(ohc_user).post(
-            reverse(
-                "ohc:organisation-verification",
-                args=[onboarded_organisation.slug],
-            ),
-            {"status": Organisation.VerificationStatus.REJECTED},
-        )
-
-        onboarded_organisation.refresh_from_db()
-        assert not onboarded_organisation.is_verified
-        assert onboarded_organisation.verified_at is None
-
-    def test_a_decision_can_go_back_to_pending(
-        self,
-        sign_in: Callable[[User], Client],
-        ohc_user: User,
-        onboarded_organisation: Organisation,
-    ):
-        onboarded_organisation.set_verification(
-            Organisation.VerificationStatus.REJECTED,
-        )
-
-        sign_in(ohc_user).post(
-            reverse(
-                "ohc:organisation-verification",
-                args=[onboarded_organisation.slug],
-            ),
-            {"status": Organisation.VerificationStatus.PENDING},
-        )
-
-        onboarded_organisation.refresh_from_db()
-        assert (
-            onboarded_organisation.verification_status
-            == Organisation.VerificationStatus.PENDING
-        )
-
-    def test_submitting_the_state_it_is_already_in_says_so(
-        self,
-        sign_in: Callable[[User], Client],
-        ohc_user: User,
-        onboarded_organisation: Organisation,
-    ):
-        response = sign_in(ohc_user).post(
-            reverse(
-                "ohc:organisation-verification",
-                args=[onboarded_organisation.slug],
-            ),
-            {"status": Organisation.VerificationStatus.PENDING},
-        )
-
-        assert "That vendor was already in that state." in message_texts(response)
-
-    def test_a_junk_status_moves_nothing(
-        self,
-        sign_in: Callable[[User], Client],
-        ohc_user: User,
-        onboarded_organisation: Organisation,
-    ):
-        response = sign_in(ohc_user).post(
-            reverse(
-                "ohc:organisation-verification",
-                args=[onboarded_organisation.slug],
-            ),
-            {"status": "approved-ish"},
-        )
-
-        assert response.status_code == HTTPStatus.OK
-        onboarded_organisation.refresh_from_db()
-        assert (
-            onboarded_organisation.verification_status
-            == Organisation.VerificationStatus.PENDING
-        )
-
-    def test_an_htmx_decision_swaps_the_register_back(
-        self,
-        sign_in: Callable[[User], Client],
-        ohc_user: User,
-        onboarded_organisation: Organisation,
-    ):
-        response = sign_in(ohc_user).post(
-            reverse(
-                "ohc:organisation-verification",
-                args=[onboarded_organisation.slug],
-            ),
-            {"status": Organisation.VerificationStatus.VERIFIED},
-            headers={"HX-Request": "true"},
-        )
-        body = response.content.decode()
-
-        assert response.status_code == HTTPStatus.OK
-        assert 'id="organisation-register"' in body
-        # The badge moved in the same swap as the rail.
-        assert "Verified vendor" in body
-
-    def test_the_vendor_sees_the_decision_on_their_own_settings_page(
-        self,
-        sign_in: Callable[[User], Client],
-        ohc_user: User,
-        owner_membership,
-    ):
-        """The whole point of the decision — it is the vendor's badge that moves."""
-        organisation = owner_membership.organisation
-        sign_in(ohc_user).post(
-            reverse("ohc:organisation-verification", args=[organisation.slug]),
-            {"status": Organisation.VerificationStatus.VERIFIED},
-        )
-
-        response = sign_in(owner_membership.user).get(
-            reverse("organisations:detail"),
-        )
-
-        assert "Verified vendor" in response.content.decode()
 
 
 class TestEvents:

@@ -346,7 +346,7 @@ def main_content(html: str) -> str:
 
 
 class TestWorksWithoutJavaScript:
-    """No script, no htmx, no forms — the whole surface is <a href>.
+    """No script needed: every link is a real href and registration is a real POST.
 
     The requests below carry no HX-Request header, which is exactly what a
     browser with scripting off sends, so what these assert is the no-JS path.
@@ -365,11 +365,13 @@ class TestWorksWithoutJavaScript:
         )
 
         assert "<script" not in body
-        assert "<form" not in body
-        assert "hx-" not in body
         # The title link and the Join link are both real destinations.
         assert f'href="{event.get_absolute_url()}"' in body
         assert 'href="https://meet.ohc.test/x"' in body
+        # Registering is a real POST to a real URL; htmx only enhances it.
+        register_url = reverse("events:registration", args=[event.slug, "register"])
+        assert f'action="{register_url}"' in body
+        assert body.count("csrfmiddlewaretoken") == body.count('method="post"')
         # Past events collapse with the browser's own widget, not a script.
         assert "<details" in body
 
@@ -387,18 +389,23 @@ class TestWorksWithoutJavaScript:
         )
 
         assert "<script" not in body
-        assert "<form" not in body
-        assert "hx-" not in body
         assert f'href="{reverse("events:list")}"' in body
+        register_url = reverse("events:registration", args=[event.slug, "register"])
+        assert f'action="{register_url}"' in body
 
     def test_the_dashboard_card_rows_are_real_links(
         self,
         sign_in: Callable[[User], Client],
         owner_membership: Membership,
+        product,
     ):
         event = EventFactory.create(published=True)
 
-        body = sign_in(owner_membership.user).get(reverse("dashboard")).content.decode()
+        body = (
+            sign_in(owner_membership.user)
+            .get(product.get_absolute_url())
+            .content.decode()
+        )
 
         assert f'href="{event.get_absolute_url()}"' in body
         assert f'href="{reverse("events:list")}"' in body
@@ -434,8 +441,8 @@ class TestTheTimeIsUnambiguous:
 
     Every other timestamp in this app is something that already happened, where
     the zone does not much matter. These are times a vendor has to show up for,
-    and the app renders in UTC, so a bare "3:00 p.m." reads as local and sends
-    an Indian partner to a call five and a half hours after it ended.
+    and the app renders in IST, so the zone is printed rather than assumed —
+    a partner reading from abroad must not guess.
     """
 
     @pytest.fixture
@@ -456,7 +463,7 @@ class TestTheTimeIsUnambiguous:
             sign_in(owner_membership.user).get(reverse("events:list")).content.decode(),
         )
 
-        assert "3:00 p.m. UTC" in body
+        assert "20:30 IST" in body
 
     def test_an_event_page_names_the_zone(
         self,
@@ -470,19 +477,22 @@ class TestTheTimeIsUnambiguous:
             .content.decode(),
         )
 
-        assert "3:00 p.m. UTC" in body
+        assert "20:30 IST" in body
 
     def test_the_dashboard_card_names_the_zone(
         self,
         sign_in: Callable[[User], Client],
         owner_membership: Membership,
         event: Event,
+        product,
     ):
         body = collapse(
-            sign_in(owner_membership.user).get(reverse("dashboard")).content.decode(),
+            sign_in(owner_membership.user)
+            .get(product.get_absolute_url())
+            .content.decode(),
         )
 
-        assert "3:00 p.m. UTC" in body
+        assert "20:30 IST" in body
 
     def test_the_zone_follows_the_setting_rather_than_being_hardcoded(
         self,
@@ -502,5 +512,5 @@ class TestTheTimeIsUnambiguous:
         finally:
             timezone.deactivate()
 
-        assert "8:30 p.m. IST" in body
+        assert "20:30 IST" in body
         assert "UTC" not in main_content(body)

@@ -1,7 +1,10 @@
 {% extends "layouts/app.html" %}
 
 {% comment %}
-  Screen 1h — the ticket thread.
+  The ticket thread, as the prototype draws it: severity, reference and status
+  above the subject; the conversation with the reply box under it; a rail
+  with the ticket's facts, related knowledge and the organisation's other
+  tickets.
 
   Every part of this page that an action can invalidate is its own partial with
   its own id, and each of those files is included exactly once here: the badges
@@ -12,29 +15,36 @@
   With scripting off the same two forms POST to the same URLs and the views
   redirect back here, which is the path that has to keep working.
 
-  Context: ticket, thread (messages, oldest first), reply_form.
+  Context: ticket, thread (messages, oldest first), reply_form,
+  related_knowledge, other_tickets.
 {% endcomment %}
 {% load i18n %}
 
 {% block title %}
   {{ ticket.reference }} · {{ ticket.subject }}
 {% endblock title %}
+{% block crumb_root %}
+  {% translate "Support" %}
+{% endblock crumb_root %}
+{% block crumb_leaf %}
+  {{ ticket.reference }}
+{% endblock crumb_leaf %}
 {% block page_header %}
-  <nav class="mb-3 text-[12.5px] text-soft-foreground"
-       aria-label="{% translate 'Breadcrumb' %}">
-    <a class="text-soft-foreground no-underline hover:underline"
-       href="{% url 'support:list' %}">{% translate "Support" %}</a>
-    <span aria-hidden="true">/</span>
-    <span class="font-mono" aria-current="page">{{ ticket.reference }}</span>
-  </nav>
-  <div class="mb-5 min-w-0">
-    <h1 class="text-[20px] font-bold tracking-[-0.015em] break-words text-foreground">{{ ticket.subject }}</h1>
+  <div class="mb-4 min-w-0">
     {% include "support/partials/ticket_badges.html" %}
+    <h1 class="mt-2 text-[19px] font-bold tracking-[-0.015em] break-words text-foreground">{{ ticket.subject }}</h1>
+    <p class="mt-1.5 text-[11.5px] break-words text-soft-foreground">
+      {% blocktranslate with who=ticket.created_by.display_name|default:ticket.organisation.name when=ticket.created_at|date:"j M Y, H:i" %}Opened by {{ who }} · {{ when }}{% endblocktranslate %}
+      · {{ ticket.sla_label|lower }}
+      {% if ticket.linked_facility %}· {{ ticket.linked_facility }}{% endif %}
+    </p>
+    <a class="mt-1.5 inline-block text-[11px] font-semibold text-primary no-underline hover:underline"
+       href="{% url 'support:list' %}">‹ {% translate "All tickets" %}</a>
   </div>
 {% endblock page_header %}
 {% block content %}
-  <div class="grid items-start gap-3.5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-    <div class="flex min-w-0 flex-col gap-3">
+  <div class="flex flex-col items-start gap-3.5 lg:flex-row">
+    <div class="flex min-w-0 flex-1 flex-col gap-3 lg:w-auto">
       <ol id="ticket-thread"
           class="flex flex-col gap-3"
           aria-label="{% translate 'Conversation' %}">
@@ -44,6 +54,32 @@
       </ol>
       {% include "support/partials/reply_panel.html" %}
     </div>
-    <div class="flex min-w-0 flex-col gap-3.5">{% include "support/partials/ticket_details.html" %}</div>
+    <div class="flex w-full shrink-0 flex-col gap-3 lg:w-[250px]">
+      {% include "support/partials/ticket_details.html" %}
+      {% include "support/partials/related_knowledge.html" %}
+      <section class="ui-card ui-card--sm" aria-labelledby="other-tickets-title">
+        <div class="ui-card-content">
+          <h2 class="mb-[11px] text-xs font-bold" id="other-tickets-title">{% translate "Other tickets" %}</h2>
+          {% if other_tickets %}
+            <ul class="flex flex-col gap-2.5">
+              {% for other in other_tickets %}
+                <li>
+                  <div class="flex items-baseline gap-2">
+                    <span class="font-mono text-[10px] text-soft-foreground">{{ other.reference }}</span>
+                    <a class="min-w-0 flex-1 text-[11px] leading-[1.4] break-words text-foreground no-underline hover:underline"
+                       href="{{ other.get_absolute_url }}">{{ other.subject }}</a>
+                  </div>
+                  <span class="block text-[10px] text-soft-foreground">
+                    {{ other.get_status_display }} · {{ other.updated_at|date:"j M" }}
+                  </span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-[11px] leading-[1.5] text-soft-foreground">{% translate "No other tickets from your organisation." %}</p>
+          {% endif %}
+        </div>
+      </section>
+    </div>
   </div>
 {% endblock content %}

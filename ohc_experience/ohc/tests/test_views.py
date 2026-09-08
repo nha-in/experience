@@ -128,10 +128,6 @@ def write_urls(ticket: Ticket, event: Event) -> list[str]:
     return [
         reverse("ohc:ticket-reply", args=[ticket.reference]),
         reverse("ohc:ticket-update", args=[ticket.reference]),
-        reverse(
-            "ohc:organisation-verification",
-            args=[ticket.organisation.slug],
-        ),
         reverse("ohc:event-create"),
         reverse("ohc:event-update", args=[event.slug]),
         reverse("ohc:event-publish", args=[event.slug]),

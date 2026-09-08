@@ -1,0 +1,152 @@
+{% comment %}
+  The selected milestone's exit request card, as the prototype draws it, in
+  one of six states: not applied, locked, editable (open / in progress),
+  under review, query raised, approved. The save and withdraw endpoints swap
+  this card by id.
+
+  Context (milestone_detail_context): product, milestone, record, can_write,
+  prerequisite, exit_form, review_item (+ item_queries, can_reply, reply_form).
+{% endcomment %}
+{% load i18n %}
+
+<section id="milestone-detail"
+         class="ui-card ui-card--sm gap-0 py-0"
+         aria-labelledby="milestone-detail-title">
+  <div class="flex flex-wrap items-center gap-2.5 border-b border-soft-border px-5 pt-[15px] pb-3.5">
+    <span class="rounded-md bg-muted-background px-[7px] py-0.5 font-mono text-xs font-bold">{{ milestone.code }}</span>
+    <h2 class="text-sm font-bold tracking-[-0.01em]"
+        id="milestone-detail-title">{{ milestone.name }}</h2>
+    {% if record %}
+      <span class="ui-badge ui-badge--{{ record.status_variant }} ui-badge--size-sm">{{ record.get_status_display }}</span>
+    {% endif %}
+    <span class="ml-auto text-[11px] text-soft-foreground">{% translate "Sandbox exit request" %} · {{ milestone.track_code }}</span>
+  </div>
+  {% if not record %}
+    <div class="flex flex-col items-start gap-3 px-5 py-[18px]">
+      <p class="text-[12.5px] leading-[1.5] text-soft-foreground">
+        {% blocktranslate with code=milestone.code %}{{ code }} was not applied for. Add it from Edit product to open an exit request.{% endblocktranslate %}
+      </p>
+      <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+         href="{% url 'products:edit' product.sandbox_id %}">{% translate "Edit product" %}</a>
+    </div>
+  {% elif record.is_locked %}
+    <div class="flex flex-col items-center gap-2 px-5 py-9 text-center">
+      <span class="flex size-[34px] items-center justify-center rounded-full bg-muted-background text-soft-foreground"
+            aria-hidden="true">
+        <svg class="size-3.5"
+             viewBox="0 0 16 16"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.5">
+          <rect x="3" y="7" width="10" height="7" rx="1.5" />
+          <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+        </svg>
+      </span>
+      <p class="text-[13px] font-semibold">
+        {% if prerequisite %}
+          {% blocktranslate with code=milestone.code previous=prerequisite.code %}{{ code }} unlocks once {{ previous }} is approved.{% endblocktranslate %}
+        {% else %}
+          {% blocktranslate with code=milestone.code %}{{ code }} unlocks once the previous milestone is approved.{% endblocktranslate %}
+        {% endif %}
+      </p>
+      <p class="max-w-[420px] text-[11.5px] leading-[1.5] text-soft-foreground">
+        {% translate "Milestones on a track open in order. The form, dates and evidence uploads become available as soon as the previous approval is recorded." %}
+      </p>
+    </div>
+  {% elif record.is_editable %}
+    {% if record.was_sent_back %}
+      <div class="mx-5 mt-[18px] rounded-xl border border-orange-200 bg-orange-50 px-4 py-[11px] text-[11.5px] leading-[1.5] text-orange-950">
+        <p>
+          {% blocktranslate with date=record.sent_back_on|date:"j M Y" name=record.sent_back_by.display_name|default:_("the reviewer") %}Sent back on <strong>{{ date }}</strong> by {{ name }}:{% endblocktranslate %}
+          <span class="whitespace-pre-line">{{ record.sent_back_reason }}</span>
+        </p>
+        <p class="mt-1 text-[10.5px] text-orange-900">{% translate "Correct the form below and request exit again." %}</p>
+      </div>
+    {% endif %}
+    {% include "abdm/partials/exit_form.html" with form=exit_form %}
+  {% elif record.is_under_review %}
+    {% if record.status == "query_raised" %}
+      <div class="mx-5 mt-[18px] flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-[11px]">
+        {% include "components/status_dot.html" with variant="warning" %}
+        <p class="text-[11.5px] leading-[1.5] text-amber-950">
+          {% translate "The reviewer has a question. Reply below; the review resumes once every open query is answered. To change the form itself, withdraw the request first." %}
+        </p>
+      </div>
+    {% else %}
+      <div class="mx-5 mt-[18px] flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-[11px]">
+        {% include "components/status_dot.html" with variant="info" %}
+        <p class="min-w-0 flex-1 text-[11.5px] leading-[1.5] text-sky-950">
+          {% blocktranslate with date=record.submitted_on|date:"j M Y" %}Exit requested on <strong>{{ date }}</strong> · with the NHA reviewer · the decision is recorded here and you are emailed either way. The form is locked while under review.{% endblocktranslate %}
+          {% if review_item %}<span class="font-mono text-[10.5px]">{{ review_item.reference }}</span>{% endif %}
+        </p>
+        {% if can_write %}
+          <form method="post"
+                action="{% url 'products:milestone-withdraw' product.sandbox_id record.track_code record.milestone_code %}"
+                hx-post="{% url 'products:milestone-withdraw' product.sandbox_id record.track_code record.milestone_code %}"
+                hx-target="#milestone-detail"
+                hx-swap="outerHTML"
+                hx-confirm="{% translate 'Withdraw this request? It leaves the review queue and any open queries are closed.' %}"
+                hx-disabled-elt="find button"
+                hx-indicator="#nav-progress">
+            {% csrf_token %}
+            <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Withdraw request" %}</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+    {% if item_queries %}
+      <div class="mx-5 mt-[18px]">{% include "abdm/partials/query_thread.html" with item=review_item %}</div>
+    {% endif %}
+    {% include "abdm/partials/exit_summary.html" %}
+    {% if record.status == "query_raised" and can_write %}
+      <div class="border-t border-soft-border px-5 py-3.5">
+        <form method="post"
+              action="{% url 'products:milestone-withdraw' product.sandbox_id record.track_code record.milestone_code %}"
+              hx-post="{% url 'products:milestone-withdraw' product.sandbox_id record.track_code record.milestone_code %}"
+              hx-target="#milestone-detail"
+              hx-swap="outerHTML"
+              hx-confirm="{% translate 'Withdraw this request? It leaves the review queue and any open queries are closed.' %}"
+              hx-disabled-elt="find button"
+              hx-indicator="#nav-progress">
+          {% csrf_token %}
+          <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-xs">{% translate "Withdraw request" %}</button>
+        </form>
+      </div>
+    {% endif %}
+  {% elif record.is_approved %}
+    <div class="mx-5 mt-[18px] rounded-xl border border-emerald-200 bg-primary-50 px-4 pt-3.5 pb-[13px]">
+      <dl class="flex flex-wrap gap-8">
+        <div>
+          <dt class="text-[9.5px] font-bold tracking-[0.09em] text-primary-700 uppercase">{% translate "Approved on" %}</dt>
+          <dd class="mt-1 text-[13px] font-semibold text-emerald-950">
+            {{ record.approved_on|date:"j M Y" }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[9.5px] font-bold tracking-[0.09em] text-primary-700 uppercase">{% translate "Approved by" %}</dt>
+          <dd class="mt-1 text-[13px] font-semibold text-emerald-950">
+            {% if record.approved_by %}
+              {% blocktranslate with name=record.approved_by.display_name %}{{ name }}, NHA reviewer{% endblocktranslate %}
+            {% else %}
+              —
+            {% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[9.5px] font-bold tracking-[0.09em] text-primary-700 uppercase">{% translate "Decision" %}</dt>
+          <dd class="mt-1 text-[13px] font-semibold text-emerald-950">
+            {% translate "Sandbox exit approved" %}
+          </dd>
+        </div>
+      </dl>
+      <p class="mt-2.5 text-[11.5px] leading-[1.5] text-emerald-900">
+        {% if record.decision_note %}
+          {{ record.decision_note|linebreaksbr }}
+        {% else %}
+          {% translate "Production onboarding for this milestone is handled outside the sandbox portal; the NHA team will contact you." %}
+        {% endif %}
+      </p>
+    </div>
+    {% include "abdm/partials/exit_summary.html" %}
+  {% endif %}
+</section>

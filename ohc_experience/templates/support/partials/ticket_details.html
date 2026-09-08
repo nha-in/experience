@@ -1,5 +1,7 @@
 {% comment %}
-  The details rail. Below lg it stacks under the conversation.
+  The details rail, as the prototype draws it: Severity, Assigned, Response
+  SLA, Product, Track, then the rest. Below lg it stacks under the
+  conversation.
 
   A status change re-renders it out of band, so the rail cannot disagree with
   the badges under the title.
@@ -13,55 +15,85 @@
 
 <section id="ticket-details"
          {% if oob %}hx-swap-oob="outerHTML"{% endif %}
-         class="ui-card"
+         class="ui-card ui-card--sm"
          aria-labelledby="ticket-details-title">
   <div class="ui-card-content">
-    <h2 class="ui-section-title" id="ticket-details-title">{% translate "Details" %}</h2>
-    <dl class="mt-2 flex flex-col text-[13px]">
-      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
-        <dt class="text-soft-foreground">{% translate "Status" %}</dt>
-        <dd>
-          <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{{ ticket.get_status_display }}</span>
-        </dd>
-      </div>
-      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
-        <dt class="text-soft-foreground">{% translate "Priority" %}</dt>
-        <dd class="font-medium">
+    <h2 class="mb-3 text-xs font-bold" id="ticket-details-title">{% translate "Ticket" %}</h2>
+    <dl class="flex flex-col gap-2.5 text-[11.5px]">
+      <div class="flex gap-2">
+        <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Severity" %}</dt>
+        <dd class="min-w-0 font-semibold">
           {{ ticket.get_priority_display }}
         </dd>
       </div>
-      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
-        <dt class="text-soft-foreground">{% translate "Category" %}</dt>
-        <dd class="font-medium">
+      <div class="flex gap-2">
+        <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Status" %}</dt>
+        <dd class="min-w-0">
+          <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-xs">{{ ticket.get_status_display }}</span>
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Assigned" %}</dt>
+        <dd class="min-w-0 break-words">
+          {% if ticket.assignee %}
+            {{ ticket.assignee.display_name }}
+          {% else %}
+            <span class="text-soft-foreground">{% translate "NHA desk" %}</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Response SLA" %}</dt>
+        <dd class="min-w-0 break-words {% if ticket.sla_met is False %}text-red-800{% elif ticket.sla_met is None %}text-amber-900{% endif %} font-semibold">
+          {{ ticket.sla_label }}
+          {% if ticket.sla_met is True %}
+            <span class="ui-badge ui-badge--success ui-badge--size-xs">{% translate "Met" %}</span>
+          {% elif ticket.sla_met is False %}
+            <span class="ui-badge ui-badge--warning ui-badge--size-xs">{% translate "Missed" %}</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Product" %}</dt>
+        <dd class="min-w-0 break-words">
+          {% if ticket.product %}
+            <a class="hover:underline" href="{{ ticket.product.get_absolute_url }}">{{ ticket.product.name }}</a>
+            <span class="block font-mono text-[11px] text-soft-foreground">{{ ticket.product.sandbox_id }}</span>
+          {% else %}
+            <span class="text-soft-foreground">{% translate "Not product-specific" %}</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Track" %}</dt>
+        <dd class="min-w-0">
+          {% if ticket.track %}
+            <span class="font-mono text-[11px]">{{ ticket.track }}</span>
+          {% else %}
+            <span class="text-soft-foreground">{% translate "None" %}</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Category" %}</dt>
+        <dd class="min-w-0 break-words">
           {{ ticket.get_category_display }}
         </dd>
       </div>
-      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
-        <dt class="text-soft-foreground">{% translate "Created" %}</dt>
-        <dd class="font-medium">
+      <div class="flex gap-2">
+        <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Created" %}</dt>
+        <dd class="min-w-0">
           {{ ticket.created_at|date:"j M Y" }}
         </dd>
       </div>
-      <div class="flex items-center justify-between gap-3 border-b border-soft-border py-2">
-        <dt class="text-soft-foreground">{% translate "Assignee" %}</dt>
-        <dd class="min-w-0 text-right font-medium break-words">
-          {% if ticket.assignee %}
-            {% blocktranslate with name=ticket.assignee.display_name %}{{ name }} · Care support{% endblocktranslate %}
-          {% else %}
-            <span class="font-normal text-soft-foreground">{% translate "Not assigned yet" %}</span>
-          {% endif %}
-        </dd>
-      </div>
-      <div class="flex items-center justify-between gap-3 py-2">
-        <dt class="text-soft-foreground">{% translate "Linked facility" %}</dt>
-        <dd class="min-w-0 text-right font-medium break-words">
-          {% if ticket.linked_facility %}
+      {% if ticket.linked_facility %}
+        <div class="flex gap-2">
+          <dt class="w-[86px] shrink-0 text-soft-foreground">{% translate "Facility" %}</dt>
+          <dd class="min-w-0 break-words">
             {{ ticket.linked_facility }}
-          {% else %}
-            <span class="font-normal text-soft-foreground">{% translate "None" %}</span>
-          {% endif %}
-        </dd>
-      </div>
+          </dd>
+        </div>
+      {% endif %}
     </dl>
   </div>
 </section>

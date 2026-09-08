@@ -8,10 +8,15 @@ from typing import TYPE_CHECKING
 import pytest
 from django.contrib.messages import get_messages
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
+from ohc_experience.abdm.models import ReviewItem
+from ohc_experience.abdm.models import ReviewQuery
+from ohc_experience.abdm.tests.factories import ReviewItemFactory
 from ohc_experience.organisations.models import Invitation
 from ohc_experience.organisations.models import Membership
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import InvitationFactory
 from ohc_experience.organisations.tests.factories import MembershipFactory
@@ -25,21 +30,32 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.test import Client
 
-    from ohc_experience.organisations.models import Organisation
     from ohc_experience.users.models import User
 
 pytestmark = pytest.mark.django_db
 
-PROFILE_DATA = {
-    "legal_name": "Sunrise Health Systems Pvt Ltd",
+DETAILS_DATA = {
+    "name": "Sunrise Health Systems",
+    "description": "Hospital information system for district hospitals.",
+    "entity_type": "private_company",
+    "category": "india_entity",
     "website": "https://sunrise.in",
-    "city": "Kochi",
+    "registered_address": "12 MG Road, Kochi",
+    "pincode": "682001",
     "state": "Kerala",
-    "deployment_regions": "Kerala, Karnataka",
-    "technical_contact_name": "Meera Krishnan",
-    "technical_contact_email": "meera@sunrise.in",
-    "technical_contact_phone": "+91 98765 43210",
+    "district": "Ernakulam",
+    "verification_document_type": "PAN",
+    "verification_document_number": "AAACS1234K",
 }
+
+
+def document():
+    return SimpleUploadedFile(
+        "pan.pdf",
+        b"%PDF-1.4 demo",
+        content_type="application/pdf",
+    )
+
 
 TEAM_URL = reverse("organisations:team")
 
@@ -88,7 +104,7 @@ class TestOnboardingView:
         assert response.status_code == HTTPStatus.FOUND
         assert response["Location"].startswith(reverse("account_login"))
 
-    def test_renders_the_company_profile_form(
+    def test_renders_the_details_form(
         self,
         sign_in: Callable[[User], Client],
         organisation: Organisation,
@@ -101,14 +117,15 @@ class TestOnboardingView:
         )
 
         response = sign_in(membership.user).get(reverse("organisations:onboarding"))
+        html = response.content.decode()
 
         assert response.status_code == HTTPStatus.OK
-        initial = response.context["form"].initial
-        assert initial["legal_name"] == organisation.name
-        assert initial["technical_contact_name"] == "Meera Krishnan"
-        assert initial["technical_contact_email"] == "meera@sunrise.in"
+        assert response.context["form"].instance == organisation
+        assert response.context["onboarding_step"] == 2  # noqa: PLR2004
+        assert "Submit for verification" in html
+        assert 'enctype="multipart/form-data"' in html
 
-    def test_skips_onboarding_once_it_is_done(
+    def test_skips_onboarding_once_details_are_submitted(
         self,
         sign_in: Callable[[User], Client],
         owner_membership: Membership,
@@ -117,10 +134,11 @@ class TestOnboardingView:
             reverse("organisations:onboarding"),
         )
 
+        # Details are in, no product yet: straight on to step three.
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("dashboard")
+        assert response["Location"] == reverse("products:onboarding-product")
 
-    def test_saving_marks_the_organisation_onboarded(
+    def test_submitting_creates_the_verification_review(
         self,
         sign_in: Callable[[User], Client],
         organisation: Organisation,
@@ -132,19 +150,27 @@ class TestOnboardingView:
 
         response = sign_in(membership.user).post(
             reverse("organisations:onboarding"),
-            data=PROFILE_DATA,
+            data={**DETAILS_DATA, "verification_document": document()},
         )
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("dashboard")
+        assert response["Location"] == reverse("products:onboarding-product")
         organisation.refresh_from_db()
+        assert organisation.has_submitted_details is True
         assert organisation.is_onboarded is True
-        assert organisation.legal_name == "Sunrise Health Systems Pvt Ltd"
+        assert organisation.is_pending
+        assert organisation.district == "Ernakulam"
+        item = ReviewItem.objects.get()
+        assert item.item_type == ReviewItem.Type.ORGANISATION_VERIFICATION
+        assert item.organisation == organisation
         assert message_texts(response) == [
-            "Your vendor profile is set up. Welcome to the hub.",
+            (
+                "Your organisation details are with the NHA review team. "
+                "You can register your first product while they verify them."
+            ),
         ]
 
-    def test_an_incomplete_form_does_not_finish_onboarding(
+    def test_an_incomplete_form_does_not_submit(
         self,
         sign_in: Callable[[User], Client],
         organisation: Organisation,
@@ -156,15 +182,51 @@ class TestOnboardingView:
 
         response = sign_in(membership.user).post(
             reverse("organisations:onboarding"),
-            data={**PROFILE_DATA, "legal_name": ""},
+            data={**DETAILS_DATA, "name": "", "verification_document": document()},
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert "legal_name" in response.context["form"].errors
+        assert "name" in response.context["form"].errors
         organisation.refresh_from_db()
-        assert organisation.is_onboarded is False
+        assert organisation.has_submitted_details is False
+        assert not ReviewItem.objects.exists()
 
-    def test_an_htmx_save_hands_the_client_the_dashboard_redirect(
+    def test_a_developer_cannot_submit(
+        self,
+        sign_in: Callable[[User], Client],
+        organisation: Organisation,
+    ):
+        membership = MembershipFactory.create(
+            organisation=organisation,
+            role=Role.DEVELOPER,
+        )
+
+        response = sign_in(membership.user).post(
+            reverse("organisations:onboarding"),
+            data={**DETAILS_DATA, "verification_document": document()},
+        )
+
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert not ReviewItem.objects.exists()
+
+    def test_a_developer_sees_who_has_to_finish_the_step(
+        self,
+        sign_in: Callable[[User], Client],
+        organisation: Organisation,
+    ):
+        membership = MembershipFactory.create(
+            organisation=organisation,
+            role=Role.DEVELOPER,
+        )
+
+        response = sign_in(membership.user).get(reverse("organisations:onboarding"))
+        html = response.content.decode()
+
+        assert response.status_code == HTTPStatus.OK
+        assert '<form id="organisation-form"' not in html
+        assert "Only the owner and admins can submit" in html
+
+    def test_an_htmx_submit_hands_the_client_the_redirect(
         self,
         sign_in: Callable[[User], Client],
         organisation: Organisation,
@@ -176,17 +238,16 @@ class TestOnboardingView:
 
         response = sign_in(membership.user).post(
             reverse("organisations:onboarding"),
-            data=PROFILE_DATA,
+            data={**DETAILS_DATA, "verification_document": document()},
             headers={"HX-Request": "true"},
         )
 
         # Leaving onboarding is a real navigation, so htmx is told to redirect
         # rather than handed a fragment.
         assert response.status_code == HTTPStatus.OK
-        assert response["HX-Redirect"] == reverse("dashboard")
+        assert response["HX-Redirect"] == reverse("products:onboarding-product")
         organisation.refresh_from_db()
-        assert organisation.is_onboarded is True
-        assert organisation.legal_name == "Sunrise Health Systems Pvt Ltd"
+        assert organisation.has_submitted_details is True
 
     def test_an_htmx_form_error_swaps_the_form_back_in(
         self,
@@ -200,7 +261,7 @@ class TestOnboardingView:
 
         response = sign_in(membership.user).post(
             reverse("organisations:onboarding"),
-            data={**PROFILE_DATA, "legal_name": ""},
+            data={**DETAILS_DATA, "name": "", "verification_document": document()},
             headers={"HX-Request": "true"},
         )
         html = response.content.decode()
@@ -211,7 +272,7 @@ class TestOnboardingView:
         assert "<!DOCTYPE html>" not in html
         assert "This field is required." in html
         organisation.refresh_from_db()
-        assert organisation.is_onboarded is False
+        assert organisation.has_submitted_details is False
 
     def test_the_form_posts_on_its_own_without_javascript(
         self,
@@ -232,12 +293,11 @@ class TestOnboardingView:
         )
 
         # The htmx attributes are enhancement: the form has to stay a plain
-        # POST to a real URL for a browser without them. Every POST form on the
-        # page carries exactly one token — counting pairs rather than asserting
-        # a single token keeps this honest as the shell grows forms of its own
-        # (the sidebar's sign-out, for one).
+        # multipart POST to a real URL for a browser without them. Every POST
+        # form on the page carries exactly one token.
         assert 'method="post"' in html
         assert f'action="{reverse("organisations:onboarding")}"' in html
+        assert 'enctype="multipart/form-data"' in html
         assert html.count("csrfmiddlewaretoken") == html.count('method="post"')
 
 
@@ -255,16 +315,52 @@ class TestOrganisationDetailView:
     ):
         response = sign_in(admin_membership.user).post(
             reverse("organisations:detail"),
-            data={**PROFILE_DATA, "city": "Thiruvananthapuram"},
+            data={**DETAILS_DATA, "district": "Thiruvananthapuram"},
         )
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("dashboard")
+        assert response["Location"] == reverse("organisations:detail")
         admin_membership.organisation.refresh_from_db()
-        assert admin_membership.organisation.city == "Thiruvananthapuram"
-        assert message_texts(response) == ["Organisation profile updated."]
+        assert admin_membership.organisation.district == "Thiruvananthapuram"
+        # The saved document survives a save that uploads nothing new.
+        assert admin_membership.organisation.verification_document
+        assert message_texts(response) == ["Organisation details updated."]
 
-    def test_a_developer_can_read_the_profile(
+    def test_saving_after_a_send_back_resubmits(
+        self,
+        sign_in: Callable[[User], Client],
+        admin_membership: Membership,
+    ):
+        organisation = admin_membership.organisation
+        item = ReviewItemFactory.create(
+            item_type=ReviewItem.Type.ORGANISATION_VERIFICATION,
+            compliance=None,
+            product=None,
+            organisation=organisation,
+            status=ReviewItem.Status.SENT_BACK,
+        )
+        organisation.set_verification(
+            Organisation.VerificationStatus.SENT_BACK,
+            reason="The PAN does not match the entity name.",
+        )
+
+        response = sign_in(admin_membership.user).post(
+            reverse("organisations:detail"),
+            data={**DETAILS_DATA, "verification_document_number": "AAACS1234L"},
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        organisation.refresh_from_db()
+        item.refresh_from_db()
+        assert organisation.is_pending
+        assert organisation.verification_reason == ""
+        assert item.status == ReviewItem.Status.IN_REVIEW
+        assert item.resubmission_count == 1
+        assert message_texts(response) == [
+            "Organisation details updated and resubmitted for verification.",
+        ]
+
+    def test_a_developer_can_read_the_details(
         self,
         sign_in: Callable[[User], Client],
         developer_membership: Membership,
@@ -284,12 +380,12 @@ class TestOrganisationDetailView:
     ):
         response = sign_in(developer_membership.user).post(
             reverse("organisations:detail"),
-            data={**PROFILE_DATA, "city": "Thiruvananthapuram"},
+            data={**DETAILS_DATA, "district": "Thiruvananthapuram"},
         )
 
         assert response.status_code == HTTPStatus.FORBIDDEN
         developer_membership.organisation.refresh_from_db()
-        assert developer_membership.organisation.city != "Thiruvananthapuram"
+        assert developer_membership.organisation.district != "Thiruvananthapuram"
 
     def test_someone_without_an_organisation_is_refused(
         self,
@@ -300,24 +396,24 @@ class TestOrganisationDetailView:
 
         assert response.status_code == HTTPStatus.FORBIDDEN
 
-    def test_an_htmx_save_sends_the_client_home(
+    def test_an_htmx_save_sends_the_client_back_here(
         self,
         sign_in: Callable[[User], Client],
         admin_membership: Membership,
     ):
         response = sign_in(admin_membership.user).post(
             reverse("organisations:detail"),
-            data={**PROFILE_DATA, "city": "Thiruvananthapuram"},
+            data={**DETAILS_DATA, "district": "Thiruvananthapuram"},
             headers={"HX-Request": "true"},
         )
 
-        # Saving is a real navigation home, so htmx is told to redirect rather
-        # than handed the form fragment back.
+        # Saving is a real navigation back to this page, so the verification
+        # card and the flash refresh together.
         assert response.status_code == HTTPStatus.OK
-        assert response["HX-Redirect"] == reverse("dashboard")
+        assert response["HX-Redirect"] == reverse("organisations:detail")
         admin_membership.organisation.refresh_from_db()
-        assert admin_membership.organisation.city == "Thiruvananthapuram"
-        assert message_texts(response) == ["Organisation profile updated."]
+        assert admin_membership.organisation.district == "Thiruvananthapuram"
+        assert message_texts(response) == ["Organisation details updated."]
 
     def test_an_invalid_htmx_save_swaps_the_errors_in(
         self,
@@ -326,7 +422,7 @@ class TestOrganisationDetailView:
     ):
         response = sign_in(admin_membership.user).post(
             reverse("organisations:detail"),
-            data={**PROFILE_DATA, "city": "Thiruvananthapuram", "legal_name": ""},
+            data={**DETAILS_DATA, "district": "Thiruvananthapuram", "pincode": "12"},
             headers={"HX-Request": "true"},
         )
         html = response.content.decode()
@@ -335,10 +431,10 @@ class TestOrganisationDetailView:
         assert response.status_code == HTTPStatus.OK
         assert '<form id="organisation-form"' in html
         assert "<!DOCTYPE html>" not in html
-        assert "This field is required." in html
-        assert "Organisation profile updated." not in html
+        assert "Enter a valid six-digit Indian pincode." in html
+        assert "Organisation details updated." not in html
         admin_membership.organisation.refresh_from_db()
-        assert admin_membership.organisation.city != "Thiruvananthapuram"
+        assert admin_membership.organisation.district != "Thiruvananthapuram"
 
     def test_a_developer_gets_the_read_only_panel_with_no_form(
         self,
@@ -352,7 +448,8 @@ class TestOrganisationDetailView:
 
         assert response.status_code == HTTPStatus.OK
         assert '<form id="organisation-form"' not in html
-        assert "Only the owner and admins can edit the company profile." in html
+        assert "Only the owner and admins can edit the organisation details." in html
+        assert "AAACS1234K" in html
 
     def test_the_form_posts_on_its_own_without_javascript(
         self,
@@ -370,6 +467,80 @@ class TestOrganisationDetailView:
         assert 'method="post"' in html
         assert f'action="{reverse("organisations:detail")}"' in html
         assert html.count("csrfmiddlewaretoken") == html.count('method="post"')
+
+    def test_the_verification_card_lists_open_queries_with_a_reply_box(
+        self,
+        sign_in: Callable[[User], Client],
+        admin_membership: Membership,
+    ):
+        item = ReviewItemFactory.create(
+            item_type=ReviewItem.Type.ORGANISATION_VERIFICATION,
+            compliance=None,
+            product=None,
+            organisation=admin_membership.organisation,
+            status=ReviewItem.Status.QUERY_RAISED,
+        )
+        query = ReviewQuery.objects.create(
+            item=item,
+            field_key="verification_document_number",
+            field_label="Document number",
+            question="Which PAN is the right one?",
+            raised_by=UserFactory.create(is_ohc_team=True),
+        )
+
+        response = sign_in(admin_membership.user).get(reverse("organisations:detail"))
+        html = response.content.decode()
+
+        assert "Which PAN is the right one?" in html
+        assert reverse("products:query-reply", args=[query.pk]) in html
+
+    def test_replying_to_a_query_from_the_settings_page(
+        self,
+        sign_in: Callable[[User], Client],
+        admin_membership: Membership,
+    ):
+        item = ReviewItemFactory.create(
+            item_type=ReviewItem.Type.ORGANISATION_VERIFICATION,
+            compliance=None,
+            product=None,
+            organisation=admin_membership.organisation,
+            status=ReviewItem.Status.QUERY_RAISED,
+        )
+        query = ReviewQuery.objects.create(
+            item=item,
+            question="Which PAN is the right one?",
+            raised_by=UserFactory.create(is_ohc_team=True),
+        )
+
+        response = sign_in(admin_membership.user).post(
+            reverse("products:query-reply", args=[query.pk]),
+            data={"reply": "AAACS1234K.", "next": reverse("organisations:detail")},
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == reverse("organisations:detail")
+        query.refresh_from_db()
+        item.refresh_from_db()
+        assert query.status == ReviewQuery.Status.ANSWERED
+        assert item.status == ReviewItem.Status.IN_REVIEW
+
+    def test_a_query_of_another_organisation_cannot_be_answered(
+        self,
+        sign_in: Callable[[User], Client],
+        admin_membership: Membership,
+    ):
+        query = ReviewQuery.objects.create(
+            item=ReviewItemFactory.create(),
+            question="Not yours.",
+            raised_by=UserFactory.create(is_ohc_team=True),
+        )
+
+        response = sign_in(admin_membership.user).post(
+            reverse("products:query-reply", args=[query.pk]),
+            data={"reply": "Hi."},
+        )
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
 
 
 class TestTeamView:

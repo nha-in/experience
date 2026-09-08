@@ -1,0 +1,37 @@
+{% comment %}
+  The milestone tiles, as the prototype draws them: code, status dot and
+  label, name. Each is a real link to the track page with that milestone
+  selected, so keyboard users and scripting-off browsers select exactly as
+  everyone else does.
+
+  Context: product, track, entries, selected.
+{% endcomment %}
+{% load i18n %}
+
+<nav class="mb-4 flex flex-wrap gap-2.5"
+     aria-label="{% translate 'Milestones' %}">
+  {% for entry in entries %}
+    <a class="flex w-full flex-col gap-2 rounded-xl border px-[15px] py-[13px] no-underline transition sm:w-[238px] {% if entry.milestone.code == selected.milestone.code %}border-[1.5px] border-primary bg-primary-50 shadow-xs{% else %}border-border bg-card hover:border-stronger-border{% endif %}"
+       href="{% url 'products:track' product.sandbox_id track.code %}?milestone={{ entry.milestone.code }}"
+       {% if entry.milestone.code == selected.milestone.code %}aria-current="true"{% endif %}>
+      <span class="flex items-center gap-2">
+        <span class="font-mono text-[15px] font-bold text-foreground">{{ entry.milestone.code }}</span>
+        <span class="ml-auto flex items-center gap-1.5 text-[10.5px] font-semibold {% if entry.record %}{% if entry.record.status_variant == 'success' %}text-primary-700{% elif entry.record.status_variant == 'info' %}text-sky-900{% elif entry.record.status_variant == 'warning' %}text-amber-800{% else %}text-soft-foreground{% endif %}{% else %}text-placeholder-foreground{% endif %}">
+          {% if entry.record %}
+            {% include "components/status_dot.html" with variant=entry.record.status_variant %}
+            {{ entry.record.get_status_display }}
+          {% else %}
+            {% include "components/status_dot.html" with variant="neutral" %}
+            {% translate "Not applied" %}
+          {% endif %}
+        </span>
+      </span>
+      <span class="text-[11.5px] leading-[1.35] text-soft-foreground">
+        {{ entry.milestone.name }}
+        {% if entry.milestone.is_alias %}
+          <span class="block text-[10.5px]">{% translate "Shared with HI-CM M1" %}</span>
+        {% endif %}
+      </span>
+    </a>
+  {% endfor %}
+</nav>

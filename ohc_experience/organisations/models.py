@@ -74,15 +74,97 @@ class OrganisationQuerySet(models.QuerySet["Organisation"]):
 
 
 class Organisation(models.Model):
-    """A vendor company: the unit that owns a sandbox, certifications and a team."""
+    """An integrator organisation: owns products, credentials and a team."""
 
     class VerificationStatus(models.TextChoices):
         PENDING = "pending", _("Verification pending")
-        VERIFIED = "verified", _("Verified vendor")
-        REJECTED = "rejected", _("Verification rejected")
+        VERIFIED = "verified", _("Verified")
+        SENT_BACK = "sent_back", _("Sent back")
 
-    name = models.CharField(_("Organisation"), max_length=255)
+    class EntityType(models.TextChoices):
+        PRIVATE_COMPANY = "private_company", _("Private company")
+        GOVERNMENT_BODY = "government_body", _("Government body")
+        SOLE_PROPRIETORSHIP = "sole_proprietorship", _("Sole proprietorship")
+        TRUST_OR_SOCIETY = "trust_or_society", _("Trust or society")
+        SECTION_8 = "section_8", _("Section 8 company")
+        LLP = "llp", _("Limited liability partnership")
+
+    class Category(models.TextChoices):
+        INDIA_ENTITY = "india_entity", _("Entity in India")
+        FOREIGN_WITH_INDIAN_SUBSIDIARY = (
+            "foreign_with_indian_subsidiary",
+            _("Foreign entity with an Indian subsidiary"),
+        )
+        ACADEMIC = "academic", _("Academic or research institution")
+
+    class VerificationDocumentType(models.TextChoices):
+        PAN = "PAN", "PAN"
+        GSTIN = "GSTIN", "GSTIN"
+        CIN = "CIN", "CIN"
+
+    name = models.CharField(_("Name of the entity"), max_length=255)
     slug = models.SlugField(_("Slug"), max_length=255, unique=True)
+
+    # Identity — the ABDM organisation details form (screen 5.2).
+    description = models.TextField(_("Description"), blank=True)
+    entity_type = models.CharField(
+        _("Type of entity"),
+        max_length=30,
+        choices=EntityType.choices,
+        blank=True,
+    )
+    category = models.CharField(
+        _("Category"),
+        max_length=40,
+        choices=Category.choices,
+        blank=True,
+    )
+    logo = models.ImageField(
+        _("Logo"),
+        upload_to="organisations/logos/%Y/%m/",
+        blank=True,
+    )
+
+    # Registered address.
+    registered_address = models.TextField(_("Registered address"), blank=True)
+    pincode = models.CharField(_("Pincode"), max_length=6, blank=True)
+    district = models.CharField(_("District"), max_length=120, blank=True)
+
+    # Verification document.
+    verification_document_type = models.CharField(
+        _("Verification document type"),
+        max_length=10,
+        choices=VerificationDocumentType.choices,
+        blank=True,
+    )
+    verification_document_number = models.CharField(
+        _("Verification document number"),
+        max_length=40,
+        blank=True,
+    )
+    verification_document = models.FileField(
+        _("Supporting document"),
+        upload_to="organisations/verification/%Y/%m/",
+        blank=True,
+    )
+    verification_submitted_at = models.DateTimeField(
+        _("Submitted for verification at"),
+        null=True,
+        blank=True,
+    )
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="verified_organisations",
+        verbose_name=_("Verified by"),
+    )
+    verification_reason = models.TextField(
+        _("Send-back reason"),
+        blank=True,
+        help_text=_("Shown to the integrator when verification is sent back."),
+    )
 
     # Company profile — collected during onboarding (screen 1b).
     legal_name = models.CharField(_("Legal entity name"), max_length=255, blank=True)
@@ -168,26 +250,82 @@ class Organisation(models.Model):
         """
         return {
             self.VerificationStatus.VERIFIED: "success",
-            self.VerificationStatus.REJECTED: "destructive",
+            self.VerificationStatus.SENT_BACK: "destructive",
         }.get(self.verification_status, "warning")
 
-    def set_verification(self, status: str) -> bool:
-        """Record the OHC team's decision. True when something actually moved.
+    @property
+    def is_pending(self) -> bool:
+        return self.verification_status == self.VerificationStatus.PENDING
+
+    @property
+    def is_sent_back(self) -> bool:
+        return self.verification_status == self.VerificationStatus.SENT_BACK
+
+    @property
+    def has_submitted_details(self) -> bool:
+        return self.verification_submitted_at is not None
+
+    # The details a reviewer needs before verification can be decided, in the
+    # order the form asks for them. Website and logo are optional.
+    REQUIRED_DETAILS = (
+        ("name", _("Name of the entity")),
+        ("description", _("Description")),
+        ("entity_type", _("Type of entity")),
+        ("category", _("Category")),
+        ("registered_address", _("Registered address")),
+        ("pincode", _("Pincode")),
+        ("state", _("State")),
+        ("district", _("District")),
+        ("verification_document_type", _("Verification document type")),
+        ("verification_document_number", _("Verification document number")),
+        ("verification_document", _("Supporting document")),
+    )
+
+    @property
+    def missing_details(self) -> list[str]:
+        return [
+            str(label)
+            for name, label in self.REQUIRED_DETAILS
+            if not getattr(self, name)
+        ]
+
+    @property
+    def details_complete(self) -> bool:
+        return not self.missing_details
+
+    @property
+    def verification_review_item(self):
+        """The organisation_verification review item, or None before submission."""
+        return self.review_items.filter(item_type="organisation_verification").first()
+
+    def set_verification(self, status: str, *, actor=None, reason: str = "") -> bool:
+        """Record the reviewer's decision. True when something actually moved.
 
         `verified_at` is the date shown beside the badge, so it belongs to the
-        verified state and to nothing else: a vendor moved back to pending or
-        to rejected has it cleared, rather than left reading "Verified 3 Mar"
-        under a badge that no longer says verified.
+        verified state and to nothing else: an organisation moved back to
+        pending or sent back has it cleared, rather than left reading
+        "Verified 3 Mar" under a badge that no longer says verified.
         """
         if self.verification_status == status:
             return False
         self.verification_status = status
-        self.verified_at = (
-            timezone.now() if status == self.VerificationStatus.VERIFIED else None
+        verified = status == self.VerificationStatus.VERIFIED
+        self.verified_at = timezone.now() if verified else None
+        self.verified_by = actor if verified else None
+        self.verification_reason = (
+            reason if status == self.VerificationStatus.SENT_BACK else ""
         )
         # modified_at is auto_now, and auto_now only fires for fields named in
         # update_fields.
-        self.save(update_fields=["verification_status", "verified_at", "modified_at"])
+        self.save(
+            update_fields=[
+                "verification_status",
+                "verified_at",
+                "verified_by",
+                "verification_reason",
+                "modified_at",
+            ],
+        )
         return True
 
     @property

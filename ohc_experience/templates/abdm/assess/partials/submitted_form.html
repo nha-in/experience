@@ -1,0 +1,58 @@
+{% comment %}
+  The submitted form, section by section, exactly as submitted, as the
+  prototype draws it: a strip per section, a row per field with its label,
+  value or file, a "Query open" tag while a query on it is unanswered, and a
+  Query action (a link that opens the Raise query tab against that field).
+
+  Context: item, sections.
+{% endcomment %}
+{% load i18n %}
+
+<section class="ui-card ui-card--sm gap-0 py-0"
+         aria-labelledby="submitted-form-title">
+  <div class="flex flex-wrap items-center gap-2.5 px-[18px] pt-[13px] pb-[11px]">
+    <h2 class="text-[12.5px] font-bold" id="submitted-form-title">{% translate "Submitted form" %}</h2>
+    <span class="text-[11px] text-soft-foreground">{% translate "Query any field, or the form as a whole" %}</span>
+    {% if item.is_open %}
+      <a class="ui-btn ui-btn--outline ui-btn--size-xs ml-auto no-underline"
+         href="{{ item.get_absolute_url }}?tab=query&amp;field=form#decision-panel">{% translate "Query the whole form" %}</a>
+    {% endif %}
+  </div>
+  {% for section in sections %}
+    <h3 class="border-t border-soft-border bg-soft-background px-[18px] pt-2.5 pb-1.5 text-[9.5px] font-bold tracking-[0.08em] text-soft-foreground uppercase">{{ section.title }}</h3>
+    <dl>
+      {% for row in section.rows %}
+        <div class="flex flex-col gap-1 border-t border-soft-border px-[18px] py-[9px] sm:flex-row sm:items-start sm:gap-3.5">
+          <dt class="shrink-0 text-[11px] text-soft-foreground sm:w-[180px]">{{ row.label }}</dt>
+          <dd class="flex min-w-0 flex-1 items-start gap-2">
+            <span class="min-w-0 flex-1 text-xs leading-[1.45] break-words {% if row.mono %}font-mono{% endif %}">
+              {% if row.url %}
+                <span class="inline-flex flex-wrap items-center gap-2">
+                  {% if row.file %}
+                    <span class="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-soft-foreground">FILE</span>
+                  {% endif %}
+                  <a class="font-semibold text-primary hover:underline {% if row.mono %}font-mono{% endif %}"
+                     href="{{ row.url }}"
+                     target="_blank"
+                     rel="noopener noreferrer">{{ row.value }} <span aria-hidden="true">↗</span></a>
+                </span>
+              {% elif row.value %}
+                {{ row.value|linebreaksbr }}
+              {% else %}
+                <span class="text-soft-foreground">—</span>
+              {% endif %}
+            </span>
+            {% if row.query_open %}
+              <span class="shrink-0 rounded-[5px] bg-amber-100 px-[7px] py-0.5 text-[9.5px] font-bold text-amber-900">{% translate "Query open" %}</span>
+            {% endif %}
+            {% if item.is_open %}
+              <a class="shrink-0 text-[10.5px] font-semibold text-primary hover:underline"
+                 href="{{ item.get_absolute_url }}?tab=query&amp;field={{ row.key }}&amp;label={{ row.label|urlencode }}#decision-panel"
+                 aria-label="{% blocktranslate with field=row.label %}Query {{ field }}{% endblocktranslate %}">{% translate "Query" %}</a>
+            {% endif %}
+          </dd>
+        </div>
+      {% endfor %}
+    </dl>
+  {% endfor %}
+</section>

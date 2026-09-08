@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "django-dev",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgres://localhost:5432/ohc_experience_dev",
+        "USE_DOCKER=no",
+        "DJANGO_USE_LOCAL_MEDIA=yes",
+        "DJANGO_SETTINGS_MODULE=config.settings.local",
+        "uv",
+        "run",
+        "python",
+        "manage.py",
+        "runserver",
+        "8000"
+      ],
+      "port": 8000
+    }
+  ]
+}

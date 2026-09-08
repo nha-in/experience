@@ -1,0 +1,9 @@
+{% autoescape off %}Hello {{ organisation.name }},
+
+The NHA review team has sent back your {{ item.title|lower }}{% if item.product %} for {{ item.product.name }} ({{ item.product.sandbox_id }}){% endif %}. The form is unlocked so you can correct it and resubmit.
+
+Reason:
+{{ reason }}
+
+Sign in: {{ portal_url }}
+{% endautoescape %}

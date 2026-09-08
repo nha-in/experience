@@ -1,0 +1,26 @@
+{% extends "layouts/onboarding.html" %}
+
+{% comment %}
+  Onboarding step 3 — register the first product (design doc 5.3).
+
+  Context: form, organisation, can_write, form_layout ("onboarding"), tracks,
+  form_tracks.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Register a product" %}
+{% endblock title %}
+{% block onboarding_content %}
+  <div class="mx-auto flex w-full max-w-[700px] flex-col gap-4">
+    {% include "components/messages.html" %}
+    <div>
+      <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "Product" %}</p>
+      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">{% translate "Register a product" %}</h1>
+      <p class="mt-1.5 max-w-[560px] text-[12.5px] leading-[1.55] text-soft-foreground">
+        {% translate "One product per application. Choose the tracks and milestones it will complete in the sandbox; each becomes its own exit request once credentials are issued." %}
+      </p>
+    </div>
+    {% include "abdm/partials/product_form.html" %}
+  </div>
+{% endblock onboarding_content %}

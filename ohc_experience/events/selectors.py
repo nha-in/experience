@@ -43,3 +43,21 @@ def get_published_event(slug: str) -> Event:
     so an unpublished slug is indistinguishable from a slug that never existed.
     """
     return get_object_or_404(Event.objects.published(), slug=slug)
+
+
+def registered_event_ids(user) -> set[int]:
+    """The ids of the events this person is registered for."""
+    if not getattr(user, "is_authenticated", False):
+        return set()
+    return set(
+        Event.objects.filter(registrations__user=user).values_list("pk", flat=True),
+    )
+
+
+def filter_events(queryset: EventQuerySet, chip: str, user) -> EventQuerySet:
+    """Narrow by the list's chips: a kind, or 'registered'. Unknown means all."""
+    if chip == "registered":
+        return queryset.filter(registrations__user=user) if user else queryset.none()
+    if chip in Event.Kind.values:
+        return queryset.filter(kind=chip)
+    return queryset

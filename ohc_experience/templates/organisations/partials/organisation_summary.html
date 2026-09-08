@@ -1,0 +1,92 @@
+{% comment %}
+  The organisation's submitted details as definition rows — what a developer
+  sees on Settings → Organisation, and what a reviewer sees on the console and
+  in a review. One file, so the two personas read the same facts.
+
+  Context: organisation.
+{% endcomment %}
+{% load i18n %}
+
+<dl class="flex flex-col text-[13px]">
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Name of the entity" %}</dt>
+    <dd class="min-w-0 text-right font-medium break-words">
+      {{ organisation.name }}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Description" %}</dt>
+    <dd class="min-w-0 text-right break-words">
+      {{ organisation.description|default:"—"|linebreaksbr }}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Type of entity" %}</dt>
+    <dd class="min-w-0 text-right font-medium break-words">
+      {{ organisation.get_entity_type_display|default:"—" }}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Category" %}</dt>
+    <dd class="min-w-0 text-right font-medium break-words">
+      {{ organisation.get_category_display|default:"—" }}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Website" %}</dt>
+    <dd class="min-w-0 text-right font-medium break-all">
+      {% if organisation.website %}
+        <a class="ui-prose-link"
+           href="{{ organisation.website }}"
+           target="_blank"
+           rel="noopener noreferrer">{{ organisation.website }}</a>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Logo" %}</dt>
+    <dd class="min-w-0 text-right font-medium break-all">
+      {% if organisation.logo %}
+        <a class="ui-prose-link"
+           href="{% url 'products:document' 'organisation' organisation.pk 'logo' %}">{% translate "Download" %}</a>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Registered address" %}</dt>
+    <dd class="min-w-0 text-right break-words">
+      {{ organisation.registered_address|default:"—"|linebreaksbr }}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Pincode · District · State" %}</dt>
+    <dd class="min-w-0 text-right font-medium break-words">
+      {{ organisation.pincode|default:"—" }} · {{ organisation.district|default:"—" }} · {{ organisation.state|default:"—" }}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Verification document" %}</dt>
+    <dd class="min-w-0 text-right font-medium break-all">
+      {% if organisation.verification_document_type %}
+        {{ organisation.verification_document_type }} <span class="font-mono">{{ organisation.verification_document_number }}</span>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+  </div>
+  <div class="flex items-baseline justify-between gap-3 py-2">
+    <dt class="shrink-0 text-soft-foreground">{% translate "Supporting document" %}</dt>
+    <dd class="min-w-0 text-right font-medium break-all">
+      {% if organisation.verification_document %}
+        <a class="ui-prose-link"
+           href="{% url 'products:document' 'organisation' organisation.pk 'verification_document' %}">{% translate "Download" %}</a>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+  </div>
+</dl>

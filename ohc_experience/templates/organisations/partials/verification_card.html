@@ -1,0 +1,66 @@
+{% comment %}
+  Where the organisation's verification stands, from the integrator's side:
+  the badge, the dates, a send-back reason, and the reviewer's open queries
+  with a reply box each.
+
+  Context: organisation, review_item (may be None), item_queries, can_reply,
+  reply_form (the last three from abdm.views.query_thread_context).
+{% endcomment %}
+{% load i18n %}
+
+<section id="verification-card"
+         class="ui-card ui-card--sm"
+         aria-labelledby="verification-title">
+  <div class="ui-card-header flex flex-wrap items-center justify-between gap-2">
+    <h2 class="ui-card-title" id="verification-title">{% translate "Verification" %}</h2>
+    <span class="ui-badge ui-badge--{{ organisation.verification_variant }} ui-badge--size-sm">
+      <span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>
+      {{ organisation.get_verification_status_display }}
+    </span>
+  </div>
+  <div class="ui-card-content flex flex-col gap-3 text-[13.5px]">
+    {% if organisation.is_verified %}
+      <p>
+        {% blocktranslate with date=organisation.verified_at|date:"j M Y" %}Verified on {{ date }}{% endblocktranslate %}
+        {% if organisation.verified_by %}
+          {% blocktranslate with name=organisation.verified_by.display_name %}by {{ name }}{% endblocktranslate %}
+        {% endif %}
+        . {% translate "Sandbox credentials are issued for every product you register." %}
+      </p>
+    {% elif organisation.is_sent_back %}
+      <div class="ui-alert ui-alert--warning" role="status">
+        <div class="flex-1">
+          <p class="font-semibold">
+            {% translate "Sent back for corrections" %}
+            {% if review_item.decided_by %}
+              {% blocktranslate with name=review_item.decided_by.display_name date=review_item.decided_on|date:"j M Y" %}by {{ name }} on {{ date }}{% endblocktranslate %}
+            {% endif %}
+          </p>
+          <p class="mt-1 whitespace-pre-line">{{ organisation.verification_reason }}</p>
+          <p class="mt-1.5 text-xs">{% translate "Correct the details below and save: that resubmits them to the review team." %}</p>
+        </div>
+      </div>
+    {% elif organisation.has_submitted_details %}
+      <p>
+        {% blocktranslate with date=organisation.verification_submitted_at|date:"j M Y" %}Submitted on {{ date }}. The NHA review team will verify the details or come back with a query. You can register products in the meantime; credentials are issued once verification completes.{% endblocktranslate %}
+      </p>
+    {% else %}
+      <p class="text-muted-foreground">{% translate "The organisation details have not been submitted yet." %}</p>
+      <div>
+        <a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
+           href="{% url 'organisations:onboarding' %}">{% translate "Add organisation details" %}</a>
+      </div>
+    {% endif %}
+    {% if review_item %}
+      <p class="text-xs text-soft-foreground">
+        {% translate "Review reference" %} <span class="font-mono">{{ review_item.reference }}</span>
+        {% if review_item.resubmission_count %}
+          · {% blocktranslate count counter=review_item.resubmission_count %}resubmitted once{% plural %}resubmitted {{ counter }} times{% endblocktranslate %}
+        {% endif %}
+      </p>
+      {% if item_queries %}
+        {% include "abdm/partials/query_thread.html" with item=review_item %}
+      {% endif %}
+    {% endif %}
+  </div>
+</section>

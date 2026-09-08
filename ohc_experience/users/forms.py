@@ -12,6 +12,7 @@ from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 
+from . import captcha
 from .models import User
 
 MIN_PASSWORD_LENGTH = 12
@@ -63,13 +64,27 @@ class OhcTeamCreationForm(admin_forms.AdminUserCreationForm):
         return user
 
 
+# The three-way choice on the sign-up card, mapped onto the full entity types
+# the organisation details form asks for later.
+SIGNUP_ORGANISATION_TYPES = [
+    ("company", _("Company")),
+    ("government", _("Government")),
+    ("sole_proprietor", _("Sole proprietor")),
+]
+SIGNUP_ENTITY_TYPES = {
+    "company": Organisation.EntityType.PRIVATE_COMPANY,
+    "government": Organisation.EntityType.GOVERNMENT_BODY,
+    "sole_proprietor": Organisation.EntityType.SOLE_PROPRIETORSHIP,
+}
+
+
 class OrganisationSignupMixin:
     """Creates the signing-up user's organisation, or joins the inviting one.
 
-    One organisation per user: the signup form's Organisation field creates it
-    and makes the user its owner. When the signup came from an invite link, the
-    field is dropped and the invitation's organisation is joined instead — that
-    is the only way to end up in someone else's organisation.
+    One organisation per user: the signup form's entity name creates it and
+    makes the user its owner. When the signup came from an invite link, the
+    fields are dropped and the invitation's organisation is joined instead —
+    that is the only way to end up in someone else's organisation.
     """
 
     def attach_organisation(self, user: User) -> None:
@@ -78,6 +93,7 @@ class OrganisationSignupMixin:
             return
         organisation = Organisation.objects.create(
             name=self.cleaned_data["organisation"].strip(),
+            entity_type=SIGNUP_ENTITY_TYPES[self.cleaned_data["organisation_type"]],
         )
         Membership.objects.create(
             organisation=organisation,
@@ -87,41 +103,54 @@ class OrganisationSignupMixin:
 
 
 class UserSignupForm(OrganisationSignupMixin, SignupForm):
-    """Vendor account creation — screen 1a of the hub mockups."""
+    """Integrator account creation — sign-up (design doc 5.1)."""
 
     name = forms.CharField(
-        label=_("Full name"),
+        label=_("Your name"),
         max_length=255,
         widget=forms.TextInput(attrs={"autocomplete": "name"}),
     )
-    mobile_number = forms.CharField(
-        label=_("Mobile number"),
-        max_length=32,
-        widget=forms.TextInput(attrs={"autocomplete": "tel", "inputmode": "tel"}),
-    )
     organisation = forms.CharField(
-        label=_("Organisation"),
+        label=_("Name of the entity"),
         max_length=255,
-        error_messages={"required": _("Tell us which company you work for.")},
+        error_messages={"required": _("Tell us which organisation you work for.")},
         widget=forms.TextInput(attrs={"autocomplete": "organization"}),
+    )
+    organisation_type = forms.ChoiceField(
+        label=_("Type of organisation"),
+        choices=SIGNUP_ORGANISATION_TYPES,
+        initial="company",
+        widget=forms.RadioSelect,
+    )
+    captcha = forms.IntegerField(
+        label=_("Captcha"),
+        widget=forms.NumberInput(attrs={"autocomplete": "off", "inputmode": "numeric"}),
+        error_messages={"required": _("Answer the sum to prove you are a person.")},
     )
 
     field_order = [
         "name",
-        "email",
-        "mobile_number",
         "organisation",
+        "organisation_type",
+        "email",
         "password1",
         "password2",
+        "captcha",
     ]
 
-    def __init__(self, *args, invitation=None, **kwargs):
+    def __init__(self, *args, invitation=None, session=None, **kwargs):
         self.invitation = invitation
+        self.session = session
         super().__init__(*args, **kwargs)
         if invitation is not None:
             # The organisation is already decided by the invite.
             del self.fields["organisation"]
+            del self.fields["organisation_type"]
         self.fields["email"].widget.attrs["autocomplete"] = "email"
+        question = captcha.current_question(session)
+        self.fields["captcha"].help_text = (
+            _("What is %(question)s?") % {"question": question} if question else ""
+        )
 
     def clean_organisation(self) -> str:
         organisation = self.cleaned_data["organisation"].strip()
@@ -142,12 +171,22 @@ class UserSignupForm(OrganisationSignupMixin, SignupForm):
             raise forms.ValidationError(msg)
         return email
 
+    def clean_captcha(self) -> int:
+        answer = self.cleaned_data["captcha"]
+        if not captcha.verify(self.session, answer):
+            # verify() has issued a fresh challenge; show it with the error.
+            self.fields["captcha"].help_text = _("What is %(question)s?") % {
+                "question": captcha.current_question(self.session),
+            }
+            msg = _("That answer is not right. Try the new sum.")
+            raise forms.ValidationError(msg)
+        return answer
+
     @transaction.atomic
     def save(self, request):
         user = super().save(request)
         user.name = self.cleaned_data["name"].strip()
-        user.phone_number = self.cleaned_data["mobile_number"].strip()
-        user.save(update_fields=["name", "phone_number"])
+        user.save(update_fields=["name"])
         self.attach_organisation(user)
         return user
 
@@ -156,9 +195,13 @@ class UserSocialSignupForm(OrganisationSignupMixin, SocialSignupForm):
     """Signup completion for accounts arriving from a social provider."""
 
     organisation = forms.CharField(
-        label=_("Organisation"),
+        label=_("Name of the entity"),
         max_length=255,
-        error_messages={"required": _("Tell us which company you work for.")},
+        error_messages={"required": _("Tell us which organisation you work for.")},
+    )
+    organisation_type = forms.ChoiceField(
+        label=_("Type of organisation"),
+        choices=SIGNUP_ORGANISATION_TYPES,
     )
 
     def __init__(self, *args, invitation=None, **kwargs):
@@ -166,6 +209,7 @@ class UserSocialSignupForm(OrganisationSignupMixin, SocialSignupForm):
         super().__init__(*args, **kwargs)
         if invitation is not None:
             del self.fields["organisation"]
+            del self.fields["organisation_type"]
 
     def clean_organisation(self) -> str:
         organisation = self.cleaned_data["organisation"].strip()

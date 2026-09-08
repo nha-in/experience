@@ -1,10 +1,9 @@
 """Forms for the OHC console.
 
 The queue's filters, the levers on one ticket, the organisation list's filters,
-the verification decision, and the event editor. None of them writes state —
-the console's views hand every change to the model that owns what it means:
-support.models.post_reply / record_status_change for a ticket,
-Organisation.set_verification for a vendor.
+and the event editor. None of them writes state — the console's views hand
+every change to the model that owns what it means:
+support.models.post_reply / record_status_change for a ticket.
 """
 
 from __future__ import annotations
@@ -17,6 +16,7 @@ from django.utils.translation import gettext_lazy as _
 
 from ohc_experience.events.models import Event
 from ohc_experience.organisations.models import Organisation
+from ohc_experience.support.forms import AttachmentMixin
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
@@ -129,17 +129,22 @@ class TicketControlForm(forms.Form):
         self.fields["assignee"].queryset = ohc_team_members()
 
 
-class TicketReplyForm(forms.Form):
-    """One field, because a reply is one thing: the words."""
+class TicketReplyForm(AttachmentMixin, forms.Form):
+    """The words, and optionally one file."""
 
     body = forms.CharField(
-        label=_("Reply to the vendor"),
+        label=_("Reply to the integrator"),
         widget=forms.Textarea(
             attrs={
                 "rows": 5,
                 "placeholder": _("Write your reply…"),
             },
         ),
+    )
+    attachment = forms.FileField(
+        label=_("Attachment"),
+        required=False,
+        help_text=_("PDF, image, text, log or JSON, up to 10 MB."),
     )
 
 
@@ -167,20 +172,6 @@ class OrganisationFilterForm(GetFilterForm):
     )
 
 
-class VerificationForm(forms.Form):
-    """Where a vendor's verification stands — the console's one lever on it.
-
-    Not a ModelForm, for the same reason TicketControlForm is not: the write has
-    to go through Organisation.set_verification(), which owns what each state
-    means for `verified_at`.
-    """
-
-    status = forms.ChoiceField(
-        label=_("Verification status"),
-        choices=Organisation.VerificationStatus.choices,
-    )
-
-
 class EventForm(forms.ModelForm):
     """Create and edit an event.
 
@@ -199,6 +190,8 @@ class EventForm(forms.ModelForm):
             "ends_at",
             "location",
             "join_url",
+            "materials_url",
+            "recording_url",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 5}),

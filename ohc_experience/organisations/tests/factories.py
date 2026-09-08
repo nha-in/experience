@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from django.core.files.base import ContentFile
 from django.utils import timezone
 from factory import LazyFunction
 from factory import Sequence
@@ -23,8 +24,29 @@ class OrganisationFactory(DjangoModelFactory[Organisation]):
         model = Organisation
 
     class Params:
-        # OrganisationFactory(onboarded=True) — past the company profile form.
-        onboarded = Trait(onboarded_at=LazyFunction(timezone.now))
+        # OrganisationFactory(onboarded=True) — details complete and submitted
+        # for verification (onboarding step 2 done), verification still pending.
+        onboarded = Trait(
+            onboarded_at=LazyFunction(timezone.now),
+            verification_submitted_at=LazyFunction(timezone.now),
+            description="Hospital information system for district hospitals.",
+            entity_type=Organisation.EntityType.PRIVATE_COMPANY,
+            category=Organisation.Category.INDIA_ENTITY,
+            registered_address="12 MG Road, Kochi",
+            pincode="682001",
+            state="Kerala",
+            district="Ernakulam",
+            verification_document_type=Organisation.VerificationDocumentType.PAN,
+            verification_document_number="AAACS1234K",
+            verification_document=LazyFunction(
+                lambda: ContentFile(b"%PDF-1.4 demo", name="pan.pdf"),
+            ),
+        )
+        # OrganisationFactory(verified=True) — the NHA team has verified it.
+        verified = Trait(
+            verification_status=Organisation.VerificationStatus.VERIFIED,
+            verified_at=LazyFunction(timezone.now),
+        )
 
 
 class MembershipFactory(DjangoModelFactory[Membership]):

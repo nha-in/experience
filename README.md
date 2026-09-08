@@ -23,6 +23,28 @@ Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getti
 
 For convenience, you can keep your normal user logged in on Chrome and your superuser logged in on Firefox (or similar), so that you can see how the site behaves for both kinds of users.
 
+### ABDM sandbox portal demo data
+
+The portal's screens are easiest to explore with the demo dataset: the NHA
+certification desk (two reviewers and an admin), a verified integrator with a
+product mid-way through HI-CM, a review queue with every kind of item, events
+and support tickets. It is idempotent and only ever touches the rows it seeds:
+
+    uv run python manage.py seed_abdm_demo
+
+Add `--fresh` to remove and re-create those rows, `--password` to choose the
+password printed for every demo account. Sign in as `rhea.nambiar@medibase.in`
+for the integrator side and `vaidya@nha.gov.in` for the certification desk.
+
+Running `runserver` straight from a shell, without the MinIO container, set
+`DJANGO_USE_LOCAL_MEDIA=yes` so uploads (verification documents, functional
+testing PDFs, ticket attachments) land in `MEDIA_ROOT` instead.
+
+The stylesheet is built from `theme/static_src` and committed; rebuild it after
+changing templates:
+
+    uv run python manage.py tailwind build
+
 ### Type checks
 
 Running type checks with mypy:

@@ -35,6 +35,7 @@ from .forms import TicketCreateForm
 from .forms import TicketFilterForm
 from .forms import TicketReplyForm
 from .forms import TicketStatusForm
+from .knowledge import related_knowledge
 from .models import Status
 from .models import Ticket
 from .models import post_reply
@@ -53,6 +54,10 @@ if TYPE_CHECKING:
     from .models import TicketMessage
 
 TICKETS_PER_PAGE = 25
+
+
+# How many of the organisation's other tickets the thread's rail lists.
+OTHER_TICKETS = 4
 
 
 class SupportMixin(OrganisationMixin):
@@ -128,6 +133,12 @@ class TicketCreateView(SupportMixin, CreateView):
     form_class = TicketCreateForm
     template_name = "support/ticket_form.html"
 
+    def get_form_kwargs(self) -> dict:
+        kwargs = super().get_form_kwargs()
+        # The product picker lists this organisation's products only.
+        kwargs["organisation"] = self.organisation
+        return kwargs
+
     def form_valid(self, form: TicketCreateForm):
         ticket = form.save(commit=False)
         ticket.organisation = self.organisation
@@ -140,6 +151,7 @@ class TicketCreateView(SupportMixin, CreateView):
             self.request.user,
             form.cleaned_data["body"],
             from_ohc_team=False,
+            attachment=form.cleaned_data.get("attachment"),
         )
         self.object = ticket
         messages.success(
@@ -165,6 +177,10 @@ class TicketDetailView(SupportMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["thread"] = thread_messages(self.object)
         context["reply_form"] = kwargs.get("reply_form") or TicketReplyForm()
+        context["related_knowledge"] = related_knowledge(self.object.category)
+        context["other_tickets"] = tickets_for(self.organisation).exclude(
+            pk=self.object.pk,
+        )[:OTHER_TICKETS]
         return context
 
 
@@ -202,7 +218,7 @@ class TicketReplyView(ThreadActionView):
 
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         ticket = self.get_ticket(kwargs["reference"])
-        form = TicketReplyForm(request.POST)
+        form = TicketReplyForm(request.POST, request.FILES)
         if not form.is_valid():
             if request.htmx:
                 # The only element in the response carries hx-swap-oob, so the
@@ -220,6 +236,7 @@ class TicketReplyView(ThreadActionView):
             request.user,
             form.cleaned_data["body"],
             from_ohc_team=False,
+            attachment=form.cleaned_data.get("attachment"),
         )
         messages.success(request, _("Your reply was added to the ticket."))
         if request.htmx:

@@ -1,0 +1,89 @@
+{% comment %}
+  The callback and bridge card, as the prototype draws it: Test callback in
+  the header, the callback URL with its last reachability check underneath,
+  the bridge URL with its explanation, and Save URLs. Both forms swap this
+  card by id.
+
+  Context: product, credential (active or None), urls_form, can_write.
+{% endcomment %}
+{% load i18n careui %}
+
+<section id="callback-card"
+         class="ui-card ui-card--sm"
+         aria-labelledby="callback-title">
+  <div class="ui-card-content">
+    <div class="mb-3.5 flex items-center justify-between gap-2">
+      <h2 class="text-[12.5px] font-bold" id="callback-title">{% translate "Callback and bridge" %}</h2>
+      {% if credential and can_write %}
+        <form id="callback-test-form"
+              method="post"
+              action="{% url 'products:credentials-test' product.sandbox_id %}"
+              hx-post="{% url 'products:credentials-test' product.sandbox_id %}"
+              hx-target="#callback-card"
+              hx-swap="outerHTML"
+              hx-disabled-elt="find button"
+              hx-indicator="#nav-progress">
+          {% csrf_token %}
+          <button type="submit"
+                  class="ui-btn ui-btn--outline ui-btn--size-xs"
+                  {% if not credential.callback_url %}disabled{% endif %}>{% translate "Test callback" %}</button>
+        </form>
+      {% endif %}
+    </div>
+    {% if credential %}
+      <form method="post"
+            action="{% url 'products:credentials-urls' product.sandbox_id %}"
+            novalidate
+            hx-post="{% url 'products:credentials-urls' product.sandbox_id %}"
+            hx-target="#callback-card"
+            hx-swap="outerHTML"
+            hx-disabled-elt="find button[type=submit]"
+            hx-indicator="#nav-progress">
+        {% csrf_token %}
+        {% include "components/form_errors.html" with form=urls_form %}
+        <div class="flex flex-col gap-3.5">
+          <div>
+            {% translate "Where the sandbox gateway delivers callbacks. Probed every 15 minutes." as callback_hint %}
+            {% ui_field urls_form.callback_url extra_class="font-mono text-xs" help_text=callback_hint %}
+            {% if credential.callback_checked %}
+              <p class="mt-1.5 flex items-center gap-1.5 text-[10.5px] font-semibold {% if credential.callback_ok %}text-primary-700{% else %}text-red-800{% endif %}">
+                {% include "components/status_dot.html" with variant=credential.callback_variant %}
+                <span>
+                  {{ credential.callback_label }}
+                  {% if credential.callback_status_code %}
+                    · HTTP {{ credential.callback_status_code }}
+                  {% elif credential.callback_error %}
+                    · {{ credential.callback_error }}
+                  {% endif %}
+                  {% if credential.callback_latency_ms is not None %}· {{ credential.callback_latency_ms }} ms{% endif %}
+                  · {% blocktranslate with ago=credential.callback_checked_at|timesince %}checked {{ ago }} ago{% endblocktranslate %}
+                </span>
+              </p>
+              {% if credential.callback_failure_streak %}
+                <p class="mt-1 text-[10.5px] text-red-700">
+                  {% blocktranslate count counter=credential.callback_failure_streak %}{{ counter }} failed check in a row.{% plural %}{{ counter }} failed checks in a row.{% endblocktranslate %}
+                </p>
+              {% endif %}
+            {% else %}
+              <p class="mt-1.5 flex items-center gap-1.5 text-[10.5px] text-soft-foreground">
+                {% include "components/status_dot.html" with variant="neutral" %}
+                {% translate "Not checked yet. Save a callback URL and test it." %}
+              </p>
+            {% endif %}
+          </div>
+          <div>
+            {% blocktranslate asvar bridge_hint with client_id=credential.client_id %}Registered as bridge {{ client_id }} for HIP and HIU flows. The gateway posts callbacks to the callback URL and routes linking and data-transfer requests to the bridge.{% endblocktranslate %}
+            {% ui_field urls_form.bridge_url extra_class="font-mono text-xs" help_text=bridge_hint %}
+          </div>
+        </div>
+        {% if can_write %}
+          <div class="mt-3.5">
+            <button type="submit" class="ui-btn ui-btn--default ui-btn--size-sm">{% translate "Save URLs" %}</button>
+          </div>
+        {% endif %}
+      </form>
+    {% else %}
+      <p class="text-[12.5px] leading-[1.55] text-soft-foreground">{% translate "URLs can be set once credentials are issued." %}</p>
+    {% endif %}
+  </div>
+</section>

@@ -27,11 +27,21 @@ if TYPE_CHECKING:
 SIGNUP_DATA = {
     "name": "Meera Krishnan",
     "email": "meera@sunrise.in",
-    "mobile_number": "+91 98765 43210",
     "organisation": "Sunrise Health Systems",
+    "organisation_type": "company",
     "password1": "sandbox-Kerala-2026",
     "password2": "sandbox-Kerala-2026",
+    "captcha": "4",
 }
+
+
+def captcha_session() -> dict:
+    """A session holding a challenge whose answer SIGNUP_DATA carries."""
+    return {"signup_captcha": {"question": "2 + 2", "answer": 4}}
+
+
+def signup_form(data=None, **kwargs) -> UserSignupForm:
+    return UserSignupForm(data=data, session=captcha_session(), **kwargs)
 
 
 def signup_request(rf: RequestFactory) -> HttpRequest:
@@ -65,38 +75,42 @@ class TestUserSignupForm:
         self,
         rf: RequestFactory,
     ):
-        form = UserSignupForm(data=SIGNUP_DATA)
+        form = signup_form(SIGNUP_DATA)
 
         assert form.is_valid(), form.errors
         user = form.save(signup_request(rf))
 
         assert user.name == "Meera Krishnan"
         organisation = Organisation.objects.get(name="Sunrise Health Systems")
+        assert organisation.entity_type == Organisation.EntityType.PRIVATE_COMPANY
         membership = Membership.objects.get(user=user)
         assert membership.organisation == organisation
         assert membership.role == Role.OWNER
 
     def test_rejects_a_blank_organisation(self):
-        form = UserSignupForm(data={**SIGNUP_DATA, "organisation": "   "})
+        form = signup_form({**SIGNUP_DATA, "organisation": "   "})
 
         assert not form.is_valid()
-        assert form.errors["organisation"] == ["Tell us which company you work for."]
+        assert form.errors["organisation"] == [
+            "Tell us which organisation you work for.",
+        ]
 
     def test_an_invite_drops_the_organisation_field(self, organisation: Organisation):
         invitation = InvitationFactory.create(
             organisation=organisation,
             email=SIGNUP_DATA["email"],
         )
-        form = UserSignupForm(invitation=invitation)
+        form = signup_form(invitation=invitation)
 
         assert "organisation" not in form.fields
+        assert "organisation_type" not in form.fields
 
     def test_an_invite_rejects_a_mismatched_email(self, organisation: Organisation):
         invitation = InvitationFactory.create(
             organisation=organisation,
             email="someone-else@sunrise.in",
         )
-        form = UserSignupForm(data=SIGNUP_DATA, invitation=invitation)
+        form = signup_form(SIGNUP_DATA, invitation=invitation)
 
         assert not form.is_valid()
         assert form.errors["email"] == [
@@ -113,7 +127,7 @@ class TestUserSignupForm:
             email=SIGNUP_DATA["email"],
             role=Role.ADMIN,
         )
-        form = UserSignupForm(data=SIGNUP_DATA, invitation=invitation)
+        form = signup_form(SIGNUP_DATA, invitation=invitation)
 
         assert form.is_valid(), form.errors
         user = form.save(signup_request(rf))
@@ -133,7 +147,7 @@ class TestUserSignupForm:
             organisation=organisation,
             email=SIGNUP_DATA["email"].upper(),
         )
-        form = UserSignupForm(data=SIGNUP_DATA, invitation=invitation)
+        form = signup_form(SIGNUP_DATA, invitation=invitation)
 
         assert form.is_valid(), form.errors
 
@@ -147,23 +161,38 @@ class TestUserProfileForm:
         assert form.save().name == "Meera Krishnan"
 
 
-class TestSignupContactDetails:
-    """The mockup's signup card asks for a mobile number; it must reach the user."""
+class TestSignupCaptcha:
+    """The sum in the session has to be answered, and only once."""
 
     @pytest.mark.django_db
-    def test_stores_the_mobile_number(self, rf: RequestFactory):
-        form = UserSignupForm(data=SIGNUP_DATA)
+    def test_a_wrong_answer_is_rejected_and_a_new_sum_is_issued(self):
+        session = captcha_session()
 
-        assert form.is_valid(), form.errors
-        user = form.save(signup_request(rf))
-
-        assert user.phone_number == SIGNUP_DATA["mobile_number"]
-
-    @pytest.mark.django_db
-    def test_mobile_number_is_required(self):
-        payload = {k: v for k, v in SIGNUP_DATA.items() if k != "mobile_number"}
-
-        form = UserSignupForm(data=payload)
+        form = UserSignupForm(data={**SIGNUP_DATA, "captcha": "5"}, session=session)
 
         assert not form.is_valid()
-        assert "mobile_number" in form.errors
+        assert form.errors["captcha"] == ["That answer is not right. Try the new sum."]
+        # The spent challenge was replaced, so the same guess cannot be retried.
+        assert session["signup_captcha"]["question"] != "2 + 2" or (
+            session["signup_captcha"]["answer"] == 4  # noqa: PLR2004
+        )
+        assert "What is" in form.fields["captcha"].help_text
+
+    @pytest.mark.django_db
+    def test_the_question_is_shown_as_help_text(self):
+        form = signup_form()
+
+        assert form.fields["captcha"].help_text == "What is 2 + 2?"
+
+    @pytest.mark.django_db
+    def test_the_captcha_is_required(self):
+        payload = {k: v for k, v in SIGNUP_DATA.items() if k != "captcha"}
+
+        form = signup_form(payload)
+
+        assert not form.is_valid()
+        assert "captcha" in form.errors
+
+    @pytest.mark.django_db
+    def test_a_mobile_number_is_no_longer_asked_for(self):
+        assert "mobile_number" not in signup_form().fields

@@ -1,0 +1,6 @@
+{% autoescape off %}{{ query.replied_by.display_name }} ({{ item.organisation.name }}) replied to your query "{{ query.question|truncatechars:80 }}":
+
+{{ query.reply }}
+
+Review it here: {{ review_url }}
+{% endautoescape %}

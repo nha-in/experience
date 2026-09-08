@@ -1,0 +1,144 @@
+{% comment %}
+  The queue's rows, as the prototype draws them: Type · Subject · Track ·
+  Submitted · Age · Assignee · Status, plus the footer with the count and the
+  pager. queue.html includes this file and the chips swap the same file back
+  in, so a filtered list and a reloaded page are the same markup.
+
+  Context: items, page_obj, paginator, is_paginated, filter_query, chip, scope,
+  attention days come from each item's needs_attention.
+{% endcomment %}
+{% load i18n %}
+
+<div id="queue-results">
+  <div class="ui-card ui-card--sm gap-0 py-0">
+    {% if items %}
+      <div class="hidden overflow-x-auto md:block">
+        <table class="w-full min-w-[820px] text-left">
+          <thead>
+            <tr class="text-[9.5px] font-bold tracking-[0.07em] text-soft-foreground uppercase">
+              <th scope="col" class="px-[18px] py-2.5 pr-3 font-bold">{% translate "Type" %}</th>
+              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Subject" %}</th>
+              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Track" %}</th>
+              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Submitted" %}</th>
+              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Age" %}</th>
+              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Assignee" %}</th>
+              <th scope="col" class="py-2.5 pr-[18px] font-bold">{% translate "Status" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+              <tr class="border-t border-soft-border">
+                <td class="px-[18px] py-[11px] pr-3">
+                  <span class="ui-badge ui-badge--{{ item.type_variant }} ui-badge--size-xs">{{ item.get_item_type_display }}</span>
+                  <span class="mt-1 block font-mono text-[10px] text-soft-foreground">{{ item.reference }}</span>
+                </td>
+                <td class="max-w-[300px] py-[11px] pr-3">
+                  <a class="block truncate text-xs font-semibold hover:underline"
+                     href="{{ item.get_absolute_url }}">{{ item.subject_label }}</a>
+                  <span class="block truncate text-[10.5px] text-soft-foreground">
+                    {% if item.product %}
+                      {{ item.organisation.name }}
+                    {% else %}
+                      {{ item.title }}
+                    {% endif %}
+                  </span>
+                </td>
+                <td class="py-[11px] pr-3 font-mono text-[11px] whitespace-nowrap">
+                  {% if item.track_code %}
+                    {{ item.track_code }} · {{ item.milestone_code }}
+                  {% elif item.product %}
+                    {{ item.product.applied_tracks|join:", " }}
+                  {% else %}
+                    <span class="text-soft-foreground">—</span>
+                  {% endif %}
+                </td>
+                <td class="py-[11px] pr-3 text-[11px] whitespace-nowrap text-soft-foreground">{{ item.submitted_on|date:"j M Y" }}</td>
+                <td class="py-[11px] pr-3 font-mono text-[11px] font-semibold whitespace-nowrap {% if item.needs_attention %}text-red-700{% endif %}">
+                  {% blocktranslate count counter=item.age_days %}{{ counter }} day{% plural %}{{ counter }} days{% endblocktranslate %}
+                </td>
+                <td class="max-w-[140px] truncate py-[11px] pr-3 text-[11px] whitespace-nowrap text-soft-foreground">
+                  {% if item.assignee %}
+                    {{ item.assignee.display_name }}
+                  {% else %}
+                    {% translate "Unassigned" %}
+                  {% endif %}
+                </td>
+                <td class="py-[11px] pr-[18px]">
+                  <span class="flex items-center gap-1.5 text-[10.5px] font-semibold whitespace-nowrap">
+                    {% include "components/status_dot.html" with variant=item.status_variant %}
+                    {{ item.get_status_display }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <ul class="flex flex-col md:hidden">
+        {% for item in items %}
+          <li class="flex flex-col gap-2 border-t border-soft-border px-[18px] py-3.5 first:border-t-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="ui-badge ui-badge--{{ item.type_variant }} ui-badge--size-xs">{{ item.get_item_type_display }}</span>
+              <span class="font-mono text-[10.5px] text-soft-foreground">{{ item.reference }}</span>
+            </div>
+            <a class="text-xs font-semibold break-words hover:underline"
+               href="{{ item.get_absolute_url }}">{{ item.subject_label }}</a>
+            <div class="flex flex-wrap items-center gap-2 text-[10.5px]">
+              <span class="flex items-center gap-1.5 font-semibold">
+                {% include "components/status_dot.html" with variant=item.status_variant %}
+                {{ item.get_status_display }}
+              </span>
+              {% if item.track_code %}<span class="font-mono">{{ item.track_code }} · {{ item.milestone_code }}</span>{% endif %}
+            </div>
+            <div class="text-[10.5px] text-soft-foreground">
+              {% blocktranslate count counter=item.age_days %}{{ counter }} day old{% plural %}{{ counter }} days old{% endblocktranslate %}
+              · {% if item.assignee %}{{ item.assignee.display_name }}{% else %}{% translate "Unassigned" %}{% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="px-[18px] py-10 text-center text-[12.5px] text-soft-foreground">
+        {% if chip or scope != "open" %}
+          {% translate "Nothing matches this filter." %}
+        {% else %}
+          {% translate "The queue is empty. Nothing is waiting on a decision." %}
+        {% endif %}
+      </p>
+    {% endif %}
+    <div class="flex flex-wrap items-center gap-2.5 border-t border-soft-border bg-soft-background px-[18px] py-2.5 text-[11px] text-soft-foreground">
+      <span>
+        {% if paginator.count %}
+          {% blocktranslate with first=page_obj.start_index last=page_obj.end_index total=paginator.count %}Showing {{ first }}–{{ last }} of {{ total }}{% endblocktranslate %}
+        {% else %}
+          {% translate "Showing 0 items" %}
+        {% endif %}
+        · {% translate "sorted by age" %}
+      </span>
+      {% if is_paginated %}
+        <span class="ml-auto flex gap-1">
+          {% if page_obj.has_previous %}
+            <a class="rounded-md border border-border px-2 py-0.5 no-underline hover:border-stronger-border"
+               href="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}"
+               hx-get="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}"
+               hx-target="#queue-results"
+               hx-swap="outerHTML"
+               hx-push-url="true"
+               hx-indicator="#nav-progress">{% translate "Previous" %}</a>
+          {% endif %}
+          <span class="rounded-md bg-foreground px-2 py-0.5 font-semibold text-background">{{ page_obj.number }}</span>
+          <span class="px-1 py-0.5">/ {{ paginator.num_pages }}</span>
+          {% if page_obj.has_next %}
+            <a class="rounded-md border border-border px-2 py-0.5 no-underline hover:border-stronger-border"
+               href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}"
+               hx-get="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}"
+               hx-target="#queue-results"
+               hx-swap="outerHTML"
+               hx-push-url="true"
+               hx-indicator="#nav-progress">{% translate "Next" %}</a>
+          {% endif %}
+        </span>
+      {% endif %}
+    </div>
+  </div>
+</div>

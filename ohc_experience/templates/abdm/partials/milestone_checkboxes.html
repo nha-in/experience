@@ -1,0 +1,81 @@
+{% comment %}
+  The "Tracks and milestones" picker: one box per track, a checkbox per
+  milestone, as the prototype draws it. NHCX has none published and is drawn
+  as a dashed box. A locked milestone (approved or under review) is disabled
+  and carried by a hidden input, so it is never dropped by a save; the service
+  refuses that too.
+
+  PHR's first tile is HI-CM's M1 (one record for both), which the hint says.
+
+  Context: form (ProductForm), form_tracks.
+{% endcomment %}
+{% load i18n abdm_extras %}
+
+<fieldset>
+  <legend class="mb-3">
+    <span class="block text-[12.5px] font-bold">{{ form.milestones.label }}</span>
+    <span class="mt-0.5 block text-[10.5px] leading-[1.45] text-soft-foreground">
+      {% translate "Select the milestones this product will complete in the sandbox. Each selected milestone gets its own exit request; milestones open in order on each track. Approved milestones cannot be removed." %}
+    </span>
+  </legend>
+  {% for error in form.milestones.errors %}<span class="ui-error mb-2">{{ error }}</span>{% endfor %}
+  <div class="grid gap-2.5 sm:grid-cols-2">
+    {% for track in form_tracks %}
+      {% if track.has_milestones %}
+        <div class="rounded-[11px] border border-soft-border bg-soft-background px-3.5 py-3">
+          <div class="mb-2.5 flex items-baseline gap-2">
+            <span class="shrink-0 font-mono text-[11.5px] font-bold whitespace-nowrap">{{ track.code }}</span>
+            <span class="min-w-0 truncate text-[10.5px] text-soft-foreground">{{ track.name }}</span>
+            <a class="ml-auto shrink-0 text-[10.5px] text-soft-foreground hover:underline"
+               href="{{ track.docs_url }}"
+               target="_blank"
+               rel="noopener noreferrer">{% translate "Docs" %} <span aria-hidden="true">↗</span></a>
+          </div>
+          <ul class="flex flex-col gap-2">
+            {% for milestone in track.milestones %}
+              <li class="flex items-start gap-2.5">
+                {% if milestone.canonical_key in form.locked_keys %}
+                  <input type="hidden" name="milestones" value="{{ milestone.key }}" />
+                  <input class="ui-checkbox mt-0.5"
+                         type="checkbox"
+                         id="milestone-{{ milestone.key|slugify }}"
+                         checked
+                         disabled
+                         aria-describedby="milestone-{{ milestone.key|slugify }}-why" />
+                {% else %}
+                  <input class="ui-checkbox mt-0.5"
+                         type="checkbox"
+                         id="milestone-{{ milestone.key|slugify }}"
+                         name="milestones"
+                         value="{{ milestone.key }}"
+                         {% if milestone.key in form.selected_keys %}checked{% endif %} />
+                {% endif %}
+                <label class="min-w-0 text-[11.5px] leading-snug select-none"
+                       for="milestone-{{ milestone.key|slugify }}">
+                  <span class="font-mono font-bold">{{ milestone.code }}</span> · {{ milestone.name }}
+                  {% if milestone.is_alias %}
+                    <span class="block text-[10.5px] text-soft-foreground">{% translate "Same record as HI-CM M1" %}</span>
+                  {% endif %}
+                  {% if milestone.canonical_key in form.locked_keys %}
+                    <span class="ui-badge ui-badge--neutral ui-badge--size-xs ml-1"
+                          id="milestone-{{ milestone.key|slugify }}-why">{{ form.locked_reasons|dict_get:milestone.canonical_key }}</span>
+                  {% endif %}
+                </label>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% else %}
+        <div class="rounded-[11px] border border-dashed border-strong-border px-3.5 py-3">
+          <div class="mb-1.5 flex items-baseline gap-2">
+            <span class="font-mono text-[11.5px] font-bold text-soft-foreground">{{ track.code }}</span>
+            <span class="min-w-0 truncate text-[10.5px] text-soft-foreground">{{ track.name }}</span>
+          </div>
+          <p class="text-[11px] leading-[1.45] text-soft-foreground">
+            {% translate "No milestones published yet. NHA will open this track for applications once they are." %}
+          </p>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</fieldset>

@@ -1,0 +1,8 @@
+{% autoescape off %}{{ message.author_label }} replied on ticket {{ ticket.reference }} ({{ ticket.subject }}){% if ticket.context_label %} · {{ ticket.context_label }}{% endif %}:
+
+{{ message.body }}
+{% if message.attachment %}
+Attachment: {{ message.attachment_name }}
+{% endif %}
+Open the ticket: {{ ticket_url }}
+{% endautoescape %}

@@ -1,12 +1,27 @@
 {% comment %}
-  The "care | Experience Hub" wordmark. Sizes: default (header) and sm (sidebar).
-  Context: size ("default"|"sm"), href (optional — renders a link when given).
-{% endcomment %}
-{% load i18n %}
+  The portal's brand: the care logo with "ABDM Developer Sandbox" beside it,
+  as the prototype draws it.
 
-<span class="flex items-baseline gap-2.5">
-  <span class="font-extrabold tracking-[-0.03em] text-primary {% if size == 'sm' %}text-lg{% else %}text-[19px]{% endif %}">care</span>
-  <span class="font-semibold text-soft-foreground {% if size == 'sm' %}text-[11.5px]{% else %}border-l border-border pl-2.5 text-xs{% endif %}">
-    {% translate "Experience Hub" %}
+  size: "sm" stacks the caption under the logo (the sidebar rail);
+        anything else puts them on one line with a divider (headers).
+{% endcomment %}
+{% load i18n static %}
+
+{% if size == "sm" %}
+  <span class="flex flex-col gap-1.5">
+    <img class="block h-auto w-[74px] max-w-none"
+         src="{% static 'images/care-logo.png' %}"
+         alt="care"
+         width="74" />
+    <span class="text-[10px] font-bold tracking-[0.06em] text-soft-foreground uppercase">{% translate "ABDM developer sandbox" %}</span>
   </span>
-</span>
+{% else %}
+  <span class="flex items-center gap-3.5">
+    <img class="block h-auto w-[66px]"
+         src="{% static 'images/care-logo.png' %}"
+         alt="care"
+         width="66" />
+    <span class="h-[18px] w-px bg-border" aria-hidden="true"></span>
+    <span class="text-xs font-semibold text-soft-foreground">{% translate "ABDM Developer Sandbox" %}</span>
+  </span>
+{% endif %}

@@ -1,0 +1,197 @@
+{% comment %}
+  The decision panel, as the prototype draws it: a three-way segmented switch
+  (Approve · Send back · Raise query) while the item is open, or the
+  "Decision recorded" box once it is not. The switch is a radio group driving
+  CSS-only tab panels, so it works without scripts; each panel is its own form
+  with a real action.
+
+  Context: item, approve_form, send_back_form, query_form, assign_form,
+  can_assign, decision_tab.
+{% endcomment %}
+{% load i18n careui %}
+
+{% if item.is_decided %}
+  <section id="decision-panel"
+           class="rounded-xl border px-4 pt-3.5 pb-[15px] {% if item.is_approved %}border-emerald-200 bg-primary-50{% else %}border-orange-200 bg-orange-50{% endif %}"
+           aria-labelledby="decision-title">
+    <p class="text-[9.5px] font-bold tracking-[0.09em] uppercase {% if item.is_approved %}text-primary-700{% else %}text-orange-800{% endif %}"
+       id="decision-title">{% translate "Decision recorded" %}</p>
+    <h2 class="mt-1.5 text-sm font-bold tracking-[-0.01em]">
+      {% if item.is_sent_back %}
+        {% translate "Sent back to the integrator" %}
+      {% elif item.is_exit_request %}
+        {% translate "Sandbox exit approved" %}
+      {% elif item.is_organisation_verification %}
+        {% translate "Organisation verified" %}
+      {% else %}
+        {% translate "Product registered" %}
+      {% endif %}
+    </h2>
+    <dl class="mt-2 flex gap-5 text-xs">
+      <div>
+        <dt class="text-[10px] text-soft-foreground">{% translate "On" %}</dt>
+        <dd class="font-semibold">
+          {{ item.decided_on|date:"j M Y" }}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-[10px] text-soft-foreground">{% translate "By" %}</dt>
+        <dd class="font-semibold">
+          {{ item.decided_by.display_name|default:"—" }}
+        </dd>
+      </div>
+    </dl>
+    {% if item.decision_note %}
+      <p class="mt-2 text-[11.5px] leading-[1.5] whitespace-pre-line">{{ item.decision_note }}</p>
+    {% endif %}
+    {% if item.is_sent_back %}
+      <p class="mt-2 text-[10.5px] leading-[1.45] text-soft-foreground">{% translate "The item re-enters the queue when the integrator resubmits, keeping this history." %}</p>
+    {% endif %}
+  </section>
+{% elif item.is_withdrawn %}
+  <section id="decision-panel"
+           class="ui-card ui-card--sm"
+           aria-labelledby="decision-title">
+    <div class="ui-card-content">
+      <h2 class="mb-2 text-[12.5px] font-bold" id="decision-title">{% translate "Withdrawn" %}</h2>
+      <p class="text-[11.5px] leading-[1.5] text-soft-foreground">{% translate "The integrator withdrew this request. It re-enters the queue if they request exit again." %}</p>
+    </div>
+  </section>
+{% else %}
+  <section id="decision-panel"
+           class="ui-card ui-card--sm"
+           aria-labelledby="decision-title">
+    <div class="ui-card-content">
+      <h2 class="mb-[11px] text-[12.5px] font-bold" id="decision-title">{% translate "Decision" %}</h2>
+      {% if item.open_query_count %}
+        <div class="mb-3.5 flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[11.5px] leading-[1.5] text-amber-950">
+          {% include "components/status_dot.html" with variant="warning" %}
+          <p>
+            {% blocktranslate count counter=item.open_query_count %}{{ counter }} query is waiting on the integrator. Approval waits for it.{% plural %}{{ counter }} queries are waiting on the integrator. Approval waits for them.{% endblocktranslate %}
+          </p>
+        </div>
+      {% endif %}
+      <div class="decision-tabs">
+        <div class="ui-segmented mb-3.5" role="tablist">
+          <input type="radio"
+                 name="decision-tab"
+                 id="tab-approve"
+                 value="approve"
+                 {% if decision_tab == "approve" %}checked{% endif %} />
+          <label class="decision-tab" for="tab-approve">{% translate "Approve" %}</label>
+          <input type="radio"
+                 name="decision-tab"
+                 id="tab-send-back"
+                 value="send_back"
+                 {% if decision_tab == "send_back" %}checked{% endif %} />
+          <label class="decision-tab" for="tab-send-back">{% translate "Send back" %}</label>
+          <input type="radio"
+                 name="decision-tab"
+                 id="tab-query"
+                 value="query"
+                 {% if decision_tab == "query" %}checked{% endif %} />
+          <label class="decision-tab" for="tab-query">{% translate "Raise query" %}</label>
+        </div>
+        <form class="decision-panel flex flex-col gap-3"
+              data-tab="approve"
+              method="post"
+              action="{% url 'assess:review-approve' item.reference %}"
+              novalidate
+              hx-post="{% url 'assess:review-approve' item.reference %}"
+              hx-target="#review-workspace"
+              hx-swap="outerHTML"
+              hx-disabled-elt="find button[type=submit]"
+              hx-indicator="#nav-progress">
+          {% csrf_token %}
+          {% include "components/form_errors.html" with form=approve_form %}
+          <div class="grid gap-2.5 sm:grid-cols-2">
+            <div>{% ui_field approve_form.approved_on %}</div>
+            <div>{% ui_field approve_form.approved_by %}</div>
+          </div>
+          {% translate "Recorded on the request and shown to the integrator" as note_placeholder %}
+          {% ui_field approve_form.note placeholder=note_placeholder %}
+          <button type="submit"
+                  class="ui-btn ui-btn--default ui-btn--size-sm ui-btn--block"
+                  {% if item.open_query_count %}disabled aria-disabled="true"{% endif %}>{% translate "Record approval" %}</button>
+          <p class="text-[10.5px] leading-[1.45] text-soft-foreground">
+            {% if item.is_exit_request %}
+              {% blocktranslate with milestone=item.milestone_code %}Records the approval on the request and notifies the integrator; the next milestone on the track opens. Production access for {{ milestone }} flows is handled outside the portal.{% endblocktranslate %}
+            {% elif item.is_organisation_verification %}
+              {% translate "Marks the organisation verified and releases sandbox credentials for its products." %}
+            {% else %}
+              {% translate "Registers the product and opens the selected tracks for exit requests." %}
+            {% endif %}
+          </p>
+        </form>
+        <form class="decision-panel flex flex-col gap-3"
+              data-tab="send_back"
+              method="post"
+              action="{% url 'assess:review-send-back' item.reference %}"
+              novalidate
+              hx-post="{% url 'assess:review-send-back' item.reference %}"
+              hx-target="#review-workspace"
+              hx-swap="outerHTML"
+              hx-disabled-elt="find button[type=submit]"
+              hx-indicator="#nav-progress">
+          {% csrf_token %}
+          {% include "components/form_errors.html" with form=send_back_form %}
+          {% translate "What must change before resubmission" as reason_placeholder %}
+          {% ui_field send_back_form.reason placeholder=reason_placeholder %}
+          <button type="submit"
+                  class="ui-btn ui-btn--outline ui-btn--size-sm ui-btn--block">{% translate "Send back to integrator" %}</button>
+          <p class="text-[10.5px] leading-[1.45] text-soft-foreground">{% translate "Unlocks the form for the integrator. The item re-enters the queue when it is resubmitted, keeping its history." %}</p>
+        </form>
+        <form class="decision-panel flex flex-col gap-3"
+              data-tab="query"
+              method="post"
+              action="{% url 'assess:review-query' item.reference %}"
+              novalidate
+              hx-post="{% url 'assess:review-query' item.reference %}"
+              hx-target="#review-workspace"
+              hx-swap="outerHTML"
+              hx-disabled-elt="find button[type=submit]"
+              hx-indicator="#nav-progress">
+          {% csrf_token %}
+          {% include "components/form_errors.html" with form=query_form %}
+          {{ query_form.field_key }}
+          {{ query_form.field_label }}
+          <div>
+            <span class="ui-label">{% translate "Against" %}</span>
+            <div class="flex h-9 items-center gap-2 rounded-md border border-border bg-soft-background px-2.5">
+              <span class="min-w-0 flex-1 truncate text-[11.5px] font-semibold">
+                {% if query_form.field_key.value and query_form.field_key.value != "form" %}
+                  {{ query_form.field_label.value|default:query_form.field_key.value }}
+                {% else %}
+                  {% translate "Whole form" %}
+                {% endif %}
+              </span>
+              <a class="text-[10px] text-soft-foreground hover:underline"
+                 href="{{ item.get_absolute_url }}?tab=query&amp;field=form#decision-panel">{% translate "Pick a field's Query to change" %}</a>
+            </div>
+          </div>
+          {% translate "Ask for the clarification or document you need" as question_placeholder %}
+          {% ui_field query_form.question placeholder=question_placeholder %}
+          <button type="submit"
+                  class="ui-btn ui-btn--default ui-btn--size-sm ui-btn--block">{% translate "Send query" %}</button>
+          <p class="text-[10.5px] leading-[1.45] text-soft-foreground">{% translate "The integrator answers in the portal. The request pauses until every open query is answered or resolved." %}</p>
+        </form>
+      </div>
+      {% if can_assign %}
+        <form class="mt-4 flex flex-col gap-2 border-t border-soft-border pt-3.5"
+              method="post"
+              action="{% url 'assess:review-assign' item.reference %}"
+              hx-post="{% url 'assess:review-assign' item.reference %}"
+              hx-target="#review-workspace"
+              hx-swap="outerHTML"
+              hx-disabled-elt="find button[type=submit]"
+              hx-indicator="#nav-progress">
+          {% csrf_token %}
+          {% ui_field assign_form.assignee %}
+          <div>
+            <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-xs">{% translate "Assign" %}</button>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+{% endif %}

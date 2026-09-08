@@ -1,0 +1,10 @@
+{% autoescape off %}Hello {{ organisation.name }},
+
+{{ query.raised_by.display_name }} has a question about your {{ item.title|lower }}{% if item.product %} for {{ item.product.name }}{% endif %} (against: {{ query.against_label }}):
+
+{{ query.question }}
+
+Reply from the portal; the review pauses until every open query is answered.
+
+Sign in: {{ portal_url }}
+{% endautoescape %}

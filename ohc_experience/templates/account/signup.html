@@ -1,134 +1,109 @@
-{% extends "account/base_entrance.html" %}
+{% extends "layouts/onboarding.html" %}
 
 {% comment %}
-  Screen 1a — the real signup form beside the value proposition.
+  Sign up (design doc 5.1) — step 1 of onboarding, drawn as the prototype's
+  centred card under the stepped header.
 
   The view (ohc_experience.users.views.UserSignupView) hands us an `invitation`
   when the visitor arrived through an invite link. In that case the form has no
-  Organisation field at all — the invite decides which organisation is joined —
-  so every field reference below is guarded.
+  entity fields at all — the invite decides which organisation is joined — so
+  those references are guarded.
+
+  The captcha is a sum held in the session (users.captcha); the question is
+  printed in the box beside the answer field, and "New sum" is a plain link
+  that asks the view for a fresh one, so it works without any script.
 {% endcomment %}
 {% load i18n careui %}
 
 {% block title %}
-  {% translate "Create your vendor account" %}
+  {% translate "Sign up for the Developer Sandbox" %}
 {% endblock title %}
 {% block meta_description %}
-  {% translate "Create a Care Experience Hub account for your team: a private sandbox, certification tracks, a support inbox and a deployment registry." %}
+  {% translate "Create an ABDM sandbox account for your organisation: sandbox credentials, compliance tracks with per-milestone exit requests, reviewer queries and support in one place." %}
 {% endblock meta_description %}
-{% block content %}
-  {% comment %}
-    Below lg the two columns stack. The form card is ordered first there — this
-    page is reached by someone who has already decided to sign up, so the pitch
-    reads as a reminder underneath rather than a wall to scroll past. Only the
-    visual order changes; the h1 still comes first in the document.
-  {% endcomment %}
-  <section class="mx-auto grid w-full max-w-[1360px] gap-10 px-5 py-12 sm:px-8 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-16 lg:px-[72px] lg:pt-16 lg:pb-[72px]">
-    <div class="order-2 lg:order-1">
-      <p class="ui-eyebrow">{% translate "For Care vendors &amp; partners" %}</p>
-      <h1 class="mt-3.5 text-[30px] leading-[1.12] font-[750] tracking-[-0.025em] text-pretty sm:text-[34px] lg:text-[38px]">
-        {% translate "Everything you need to get started with Care, all managed from one place." %}
-      </h1>
-      <p class="mt-4 max-w-[52ch] text-[15px] leading-[1.6] text-muted-foreground">
-        {% translate "Your sandbox, training tracks, and deployment docs, all in one account." %}
-      </p>
-      <ul class="mt-7 flex flex-col gap-3.5">
-        <li class="flex items-start gap-3">
-          <span aria-hidden="true"
-                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
-          <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Private sandbox" %}</strong>{% translate ": your own test environment, ready the moment you sign up." %}
-          </span>
-        </li>
-        <li class="flex items-start gap-3">
-          <span aria-hidden="true"
-                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
-          <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Documentation" %}</strong>{% translate ": complete guides, references, and API docs in one place." %}
-          </span>
-        </li>
-        <li class="flex items-start gap-3">
-          <span aria-hidden="true"
-                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
-          <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Deployment instructions" %}</strong>{% translate ": your path from sandbox to production." %}
-          </span>
-        </li>
-        <li class="flex items-start gap-3">
-          <span aria-hidden="true"
-                class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
-          <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Support system" %}</strong>{% translate ": tickets answered by the Care team, with response-time SLAs." %}
-          </span>
-        </li>
-      </ul>
-      <p class="mt-7 max-w-[60ch] text-[12.5px] leading-[1.55] text-soft-foreground">
-        {% translate "For HMIS/EMR integrators, medical device vendors, lab &amp; pharmacy systems, implementation partners and hospital IT teams." %}
+{% block onboarding_content %}
+  <div class="mx-auto mt-4 flex w-full max-w-[520px] flex-col gap-4">
+    {% include "components/messages.html" %}
+    <div>
+      <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "Create account" %}</p>
+      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">{% translate "Sign up for the Developer Sandbox" %}</h1>
+      <p class="mt-1.5 text-[12.5px] leading-[1.55] text-soft-foreground">
+        {% if invitation %}
+          {% blocktranslate trimmed with organisation=invitation.organisation.name role=invitation.get_role_display %}
+            You are joining <strong>{{ organisation }}</strong>, invited as {{ role }}.
+          {% endblocktranslate %}
+        {% else %}
+          {% translate "One account per organisation. You describe the organisation and register a product in the next two steps." %}
+        {% endif %}
       </p>
     </div>
-    <div class="order-1 w-full lg:order-2 lg:max-w-[420px] lg:justify-self-end">
-      {% include "components/messages.html" %}
-      <div class="ui-card">
-        <div class="ui-card-header">
-          <h2 class="ui-card-title text-[17px] font-[650] tracking-[-0.01em]">{% translate "Create your vendor account" %}</h2>
-          <p class="ui-card-description text-[13px]">{% translate "Free for all OHC partners." %}</p>
-        </div>
-        <div class="ui-card-content">
-          {% if invitation %}
-            <div class="ui-alert ui-alert--info mb-4" role="status">
-              <p class="flex-1">
-                {% blocktranslate trimmed with organisation=invitation.organisation.name role=invitation.get_role_display %}
-                  You are joining <strong>{{ organisation }}</strong>, invited as {{ role }}.
-                {% endblocktranslate %}
-              </p>
+    <div class="ui-card ui-card--sm">
+      <form class="ui-card-content flex flex-col gap-4 pt-1.5"
+            method="post"
+            action="{% url 'account_signup' %}">
+        {% csrf_token %}
+        {% include "components/form_errors.html" %}
+        {% translate "Rhea Nambiar" as name_placeholder %}
+        {% ui_field form.name placeholder=name_placeholder %}
+        {% if form.organisation %}
+          {% translate "Medibase Health Systems Pvt Ltd" as organisation_placeholder %}
+          {% translate "Legal name as it appears on the PAN, GSTIN or CIN record." as organisation_hint %}
+          {% ui_field form.organisation placeholder=organisation_placeholder help_text=organisation_hint %}
+          <fieldset>
+            <legend class="ui-label">{{ form.organisation_type.label }}</legend>
+            <div class="ui-segmented">
+              {% for choice in form.organisation_type %}
+                {{ choice.tag }}
+                <label for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+              {% endfor %}
             </div>
+            {% for error in form.organisation_type.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+          </fieldset>
+        {% endif %}
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% translate "Work email" as email_label %}
+          {% translate "rhea.nambiar@medibase.in" as email_placeholder %}
+          {% if invitation %}
+            {% translate "Use the address the invite was sent to." as email_hint %}
+            {% ui_field form.email label=email_label placeholder=email_placeholder help_text=email_hint %}
+          {% else %}
+            {% ui_field form.email label=email_label placeholder=email_placeholder %}
           {% endif %}
-          <form class="flex flex-col gap-3.5"
-                method="post"
-                action="{% url 'account_signup' %}">
-            {% csrf_token %}
-            {% include "components/form_errors.html" %}
-            {% translate "Full name" as name_label %}
-            {% translate "Meera Krishnan" as name_placeholder %}
-            {% ui_field form.name label=name_label placeholder=name_placeholder %}
-            {% translate "Work email" as email_label %}
-            {% translate "you@company.in" as email_placeholder %}
-            {% if invitation %}
-              {% translate "Use the address the invite was sent to." as email_hint %}
-              {% ui_field form.email label=email_label placeholder=email_placeholder help_text=email_hint %}
-            {% else %}
-              {% ui_field form.email label=email_label placeholder=email_placeholder %}
-            {% endif %}
-            {% translate "Mobile number" as mobile_label %}
-            {% translate "+91 98765 43210" as mobile_placeholder %}
-            {% ui_field form.mobile_number label=mobile_label placeholder=mobile_placeholder %}
-            {% if form.organisation %}
-              {% translate "Organisation" as organisation_label %}
-              {% translate "Arogya Systems Pvt Ltd" as organisation_placeholder %}
-              {% ui_field form.organisation label=organisation_label placeholder=organisation_placeholder %}
-            {% endif %}
-            {% translate "Password" as password_label %}
-            {% translate "Min 12 characters" as password_placeholder %}
-            {% ui_field form.password1 label=password_label placeholder=password_placeholder %}
-            {% if form.password2 %}
-              {% translate "Confirm password" as password2_label %}
-              {% translate "Type it once more" as password2_placeholder %}
-              {% ui_field form.password2 label=password2_label placeholder=password2_placeholder %}
-            {% endif %}
-            {{ redirect_field }}
-            <button type="submit"
-                    class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">
-              {% translate "Create account" %}
-            </button>
-          </form>
-          {% if SOCIALACCOUNT_ENABLED %}
-            {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
-          {% endif %}
-          <p class="mt-3.5 text-[11.5px] leading-[1.5] text-soft-foreground">
-            {% translate "By creating an account you agree to the partner terms and privacy policy. We verify all vendor accounts within 1 business day." %}
-          </p>
+          {% translate "Password" as password_label %}
+          {% translate "At least 12 characters." as password_hint %}
+          {% ui_field form.password1 label=password_label help_text=password_hint %}
         </div>
-      </div>
+        {% if form.password2 %}
+          {% translate "Confirm password" as password2_label %}
+          {% ui_field form.password2 label=password2_label %}
+        {% endif %}
+        <div>
+          <label class="ui-label" for="{{ form.captcha.id_for_label }}">{{ form.captcha.label }}</label>
+          <div class="flex gap-2.5">
+            <span class="flex h-12 w-[150px] shrink-0 select-none items-center justify-center rounded-md border border-border bg-[repeating-linear-gradient(135deg,var(--soft-background)_0_6px,var(--muted-background)_6px_12px)] font-mono text-[13px] font-bold tracking-[0.08em] text-foreground md:h-10"
+                  id="{{ form.captcha.auto_id }}_helptext">{{ form.captcha.help_text }}</span>
+            {% translate "Type the answer" as captcha_placeholder %}
+            {% ui_widget form.captcha %}
+          </div>
+          {% for error in form.captcha.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+          <span class="ui-hint">
+            {% translate "Cannot read it?" %}
+            <a class="font-semibold text-primary hover:underline"
+               href="{% url 'account_signup' %}?captcha=new">{% translate "New sum" %}</a>
+          </span>
+        </div>
+        {{ redirect_field }}
+        <div class="mt-0.5 flex flex-wrap items-center gap-3">
+          <button type="submit" class="ui-btn ui-btn--default ui-btn--size-sm">{% translate "Create account" %}</button>
+          <span class="text-[10.5px] text-soft-foreground">{% translate "A verification link is sent to the work email." %}</span>
+        </div>
+        {% if SOCIALACCOUNT_ENABLED %}
+          {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
+        {% endif %}
+      </form>
     </div>
-  </section>
-{% endblock content %}
+    <p class="text-[10.5px] leading-[1.5] text-soft-foreground">
+      {% translate "By creating an account you agree to the Sandbox terms of use and the NHA data policy. Organisation verification follows once you submit its details." %}
+    </p>
+  </div>
+{% endblock onboarding_content %}

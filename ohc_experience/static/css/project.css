@@ -11,3 +11,73 @@
   background-color: #f2dede;
   border-color: #eed3d7;
 }
+
+
+/* Decision panel (abdm/assess/partials/decision_panel.html): the segmented
+   radio group above picks which of the three forms is shown, with no script. */
+.decision-tabs .decision-panel {
+  display: none;
+}
+
+.decision-tabs:has(#tab-approve:checked) .decision-panel[data-tab="approve"],
+.decision-tabs:has(#tab-send-back:checked) .decision-panel[data-tab="send_back"],
+.decision-tabs:has(#tab-query:checked) .decision-panel[data-tab="query"] {
+  display: flex;
+}
+
+
+/* Segmented control (sign-up organisation type, the reviewer's decision
+   switch): a radio group whose labels draw as a pill bar. Pure CSS, so it
+   works with scripting off. */
+.ui-segmented {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--muted-background);
+}
+
+.ui-segmented input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.ui-segmented label {
+  flex: 1;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px 6px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--soft-foreground);
+  user-select: none;
+  transition: background-color 120ms, color 120ms;
+}
+
+.ui-segmented input:focus-visible + label {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.ui-segmented input:checked + label {
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+/* Sidebar navigation in the shape of the prototype: a small dot before the
+   label, a mono counter after it. */
+.ui-nav-dot::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.55;
+  flex: none;
+}

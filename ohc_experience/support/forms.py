@@ -5,6 +5,12 @@ from __future__ import annotations
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.abdm.models import Product
+from ohc_experience.abdm.tracks import TRACK_CHOICES
+from ohc_experience.abdm.uploads import DOCUMENTS
+from ohc_experience.abdm.uploads import PDF_MAX_MB
+from ohc_experience.abdm.uploads import validate_upload
+
 from .models import Category
 from .models import Priority
 from .models import Status
@@ -54,40 +60,93 @@ class TicketFilterForm(forms.Form):
         return {name: value for name, value in self.cleaned_data.items() if value}
 
 
-class TicketCreateForm(forms.ModelForm):
+ATTACHMENT_TYPES = DOCUMENTS | frozenset({".txt", ".log", ".json"})
+
+
+class AttachmentMixin:
+    """One optional file on a message: PDF, image, or a text/log/JSON dump."""
+
+    def clean_attachment(self):
+        upload = self.cleaned_data.get("attachment")
+        validate_upload(upload, extensions=ATTACHMENT_TYPES, max_mb=PDF_MAX_MB)
+        return upload
+
+
+class TicketCreateForm(AttachmentMixin, forms.ModelForm):
     """Open a ticket: the subject line and the first message, in one form."""
 
     body = forms.CharField(
         label=_("What is happening?"),
         widget=forms.Textarea(attrs={"rows": 6}),
         help_text=_(
-            "Include the facility, the API call and anything you already ruled out.",
+            "Include the request id, the API call and anything you already ruled out.",
         ),
+    )
+    track = forms.ChoiceField(
+        label=_("Track"),
+        required=False,
+        choices=[("", _("Not track-specific")), *TRACK_CHOICES],
+    )
+    attachment = forms.FileField(
+        label=_("Attachment"),
+        required=False,
+        help_text=_("PDF, image, text, log or JSON, up to 10 MB."),
     )
 
     class Meta:
         model = Ticket
-        fields = ["subject", "category", "priority", "linked_facility"]
+        fields = [
+            "subject",
+            "category",
+            "priority",
+            "product",
+            "track",
+            "linked_facility",
+        ]
         labels = {
+            "priority": _("Severity"),
+            "product": _("Product"),
             "linked_facility": _("Linked facility"),
         }
         help_texts = {
-            "linked_facility": _("The sandbox or production facility this concerns."),
+            "linked_facility": _(
+                "The sandbox facility or HFR id this concerns, if any.",
+            ),
         }
 
-    field_order = ["subject", "category", "priority", "linked_facility", "body"]
+    field_order = [
+        "subject",
+        "category",
+        "priority",
+        "product",
+        "track",
+        "linked_facility",
+        "body",
+        "attachment",
+    ]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, organisation=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["subject"].widget.attrs.setdefault(
             "placeholder",
-            _("Webhook events not firing on demo facility"),
+            _("Callback never received after a consent request"),
         )
+        self.fields["product"].required = False
+        self.fields["product"].empty_label = _("Not product-specific")
+        self.fields["product"].queryset = (
+            Product.objects.for_organisation(organisation)
+            if organisation is not None
+            else Product.objects.none()
+        )
+        self.fields["product"].label_from_instance = lambda product: (
+            f"{product.name} ({product.sandbox_id})"
+        )
+        self.fields["linked_facility"].required = False
         self.order_fields(self.field_order)
 
 
-class TicketReplyForm(forms.Form):
-    """One reply in a thread."""
+class TicketReplyForm(AttachmentMixin, forms.Form):
+    """One reply in a thread, with an optional file."""
 
     body = forms.CharField(
         label=_("Reply"),
@@ -95,6 +154,11 @@ class TicketReplyForm(forms.Form):
             attrs={"rows": 4, "placeholder": _("Write your reply…")},
         ),
         error_messages={"required": _("Write something before sending a reply.")},
+    )
+    attachment = forms.FileField(
+        label=_("Attachment"),
+        required=False,
+        help_text=_("PDF, image, text, log or JSON, up to 10 MB."),
     )
 
 

@@ -41,19 +41,16 @@
       {% endblock content %}
     </main>
     <footer class="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border px-4 py-3.5 text-xs text-soft-foreground sm:px-8">
-      <span>© {% translate "Open Healthcare Network" %}</span>
+      <span>{% translate "ABDM Developer Sandbox" %} · © {% translate "Open Healthcare Network" %}</span>
       <a class="hover:text-foreground"
-         href="https://care.ohc.network"
+         href="https://abdm.gov.in"
          target="_blank"
-         rel="noopener noreferrer">care.ohc.network</a>
+         rel="noopener noreferrer">abdm.gov.in</a>
       <a class="hover:text-foreground"
-         href="https://school.ohc.network"
+         href="{{ abdm_docs_url }}"
          target="_blank"
-         rel="noopener noreferrer">school.ohc.network</a>
-      <a class="hover:text-foreground"
-         href="https://docs.ohc.network"
-         target="_blank"
-         rel="noopener noreferrer">docs.ohc.network</a>
+         rel="noopener noreferrer">{% translate "Milestone documentation" %}</a>
+      <span>{% translate "The sandbox holds synthetic data only." %}</span>
     </footer>
   </div>
 {% endblock body %}

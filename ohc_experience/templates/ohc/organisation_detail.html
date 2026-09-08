@@ -3,11 +3,10 @@
 {% comment %}
   One vendor, read from the Care team's side.
 
-  Everything that can change — the badge and the verification rail — lives
-  inside ohc/partials/organisation_register.html, which the verification POST
-  renders back. The page keeps only the breadcrumb, which cannot go stale.
+  The details, the roster and the verification rail live inside
+  ohc/partials/organisation_register.html; the page keeps only the breadcrumb.
 
-  Context: organisation, memberships, verification_form.
+  Context: organisation, memberships, review_item.
 {% endcomment %}
 {% load i18n %}
 

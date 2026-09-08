@@ -1,8 +1,9 @@
-"""Form rules: company profile, invites and role changes."""
+"""Form rules: organisation details, invites and role changes."""
 
 from __future__ import annotations
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ohc_experience.organisations.forms import InvitationForm
 from ohc_experience.organisations.forms import MembershipRoleForm
@@ -15,58 +16,176 @@ from ohc_experience.organisations.tests.factories import MembershipFactory
 
 pytestmark = pytest.mark.django_db
 
-PROFILE_DATA = {
-    "legal_name": "Sunrise Health Systems Pvt Ltd",
+DETAILS_DATA = {
+    "name": "Sunrise Health Systems",
+    "description": "Hospital information system for district hospitals.",
+    "entity_type": "private_company",
+    "category": "india_entity",
     "website": "https://sunrise.in",
-    "city": "Kochi",
+    "registered_address": "12 MG Road, Kochi",
+    "pincode": "682001",
     "state": "Kerala",
-    "deployment_regions": "Kerala, Karnataka",
-    "technical_contact_name": "Meera Krishnan",
-    "technical_contact_email": "meera@sunrise.in",
-    "technical_contact_phone": "+91 98765 43210",
+    "district": "Ernakulam",
+    "verification_document_type": "PAN",
+    "verification_document_number": "aaacs1234k",
 }
 
 
+def document(name: str = "pan.pdf", body: bytes = b"%PDF-1.4 demo"):
+    return SimpleUploadedFile(name, body, content_type="application/pdf")
+
+
+def details_form(organisation, data=None, files=None) -> OrganisationProfileForm:
+    return OrganisationProfileForm(
+        data if data is not None else DETAILS_DATA,
+        files if files is not None else {"verification_document": document()},
+        instance=organisation,
+    )
+
+
 class TestOrganisationProfileForm:
-    def test_saves_the_company_profile(self, organisation: Organisation):
-        form = OrganisationProfileForm(PROFILE_DATA, instance=organisation)
+    def test_saves_the_details_and_upper_cases_the_document_number(
+        self,
+        organisation: Organisation,
+    ):
+        form = details_form(organisation)
 
         assert form.is_valid(), form.errors
         saved = form.save()
 
-        assert saved.legal_name == "Sunrise Health Systems Pvt Ltd"
-        assert saved.city == "Kochi"
-        assert saved.technical_contact_email == "meera@sunrise.in"
+        assert saved.entity_type == Organisation.EntityType.PRIVATE_COMPANY
+        assert saved.district == "Ernakulam"
+        assert saved.verification_document_number == "AAACS1234K"
+        assert saved.verification_document.name.endswith("pan.pdf")
+        assert saved.details_complete is True
 
     @pytest.mark.parametrize(
         "missing",
         [
-            "legal_name",
-            "technical_contact_name",
-            "technical_contact_email",
-            "technical_contact_phone",
+            "name",
+            "description",
+            "entity_type",
+            "category",
+            "registered_address",
+            "pincode",
+            "state",
+            "district",
+            "verification_document_type",
+            "verification_document_number",
         ],
     )
-    def test_requires_the_identifying_fields(
+    def test_requires_every_detail_the_reviewer_needs(
         self,
         organisation: Organisation,
         missing: str,
     ):
-        form = OrganisationProfileForm(
-            {**PROFILE_DATA, missing: ""},
-            instance=organisation,
-        )
+        form = details_form(organisation, {**DETAILS_DATA, missing: ""})
 
         assert not form.is_valid()
         assert missing in form.errors
 
-    def test_optional_fields_may_be_left_blank(self, organisation: Organisation):
-        form = OrganisationProfileForm(
-            {**PROFILE_DATA, "website": "", "city": "", "state": ""},
-            instance=organisation,
-        )
+    def test_website_and_logo_are_optional(self, organisation: Organisation):
+        form = details_form(organisation, {**DETAILS_DATA, "website": ""})
 
         assert form.is_valid(), form.errors
+
+    def test_the_supporting_document_is_required(self, organisation: Organisation):
+        form = details_form(organisation, files={})
+
+        assert not form.is_valid()
+        assert form.errors["verification_document"] == [
+            "Upload the supporting document.",
+        ]
+
+    def test_a_saved_document_satisfies_the_requirement(
+        self,
+        onboarded_organisation: Organisation,
+    ):
+        form = details_form(onboarded_organisation, files={})
+
+        assert form.is_valid(), form.errors
+
+    def test_removing_the_saved_document_without_a_replacement_is_refused(
+        self,
+        onboarded_organisation: Organisation,
+    ):
+        form = details_form(
+            onboarded_organisation,
+            {
+                **DETAILS_DATA,
+                "remove_files__verification_document": "verification_document",
+            },
+            files={},
+        )
+
+        assert not form.is_valid()
+        assert "verification_document" in form.errors
+
+    @pytest.mark.parametrize(
+        ("document_type", "number"),
+        [
+            ("PAN", "AAACS1234"),
+            ("GSTIN", "32AAACS1234K1Z"),
+            ("CIN", "U72900KA2024PTC12345"),
+        ],
+    )
+    def test_document_numbers_must_match_their_format(
+        self,
+        organisation: Organisation,
+        document_type: str,
+        number: str,
+    ):
+        form = details_form(
+            organisation,
+            {
+                **DETAILS_DATA,
+                "verification_document_type": document_type,
+                "verification_document_number": number,
+            },
+        )
+
+        assert not form.is_valid()
+        assert "verification_document_number" in form.errors
+
+    def test_a_gstin_and_a_cin_are_accepted(self, organisation: Organisation):
+        for document_type, number in (
+            ("GSTIN", "32AAACS1234K1Z5"),
+            ("CIN", "U72900KA2024PTC123456"),
+        ):
+            form = details_form(
+                organisation,
+                {
+                    **DETAILS_DATA,
+                    "verification_document_type": document_type,
+                    "verification_document_number": number,
+                },
+            )
+
+            assert form.is_valid(), form.errors
+
+    def test_the_pincode_must_be_six_digits(self, organisation: Organisation):
+        form = details_form(organisation, {**DETAILS_DATA, "pincode": "12345"})
+
+        assert not form.is_valid()
+        assert form.errors["pincode"] == ["Enter a valid six-digit Indian pincode."]
+
+    def test_the_document_must_be_a_pdf_or_image(self, organisation: Organisation):
+        form = details_form(
+            organisation,
+            files={"verification_document": document("pan.exe", b"MZ")},
+        )
+
+        assert not form.is_valid()
+        assert "file types" in form.errors["verification_document"][0]
+
+    def test_the_logo_must_be_an_image(self, organisation: Organisation):
+        form = details_form(
+            organisation,
+            files={"verification_document": document(), "logo": document("logo.pdf")},
+        )
+
+        assert not form.is_valid()
+        assert "logo" in form.errors
 
 
 class TestInvitationForm:
@@ -237,16 +356,3 @@ def test_invitation_form_defaults_to_developer(organisation: Organisation):
 
     assert form.fields["role"].initial == Role.DEVELOPER
     assert Role.OWNER not in dict(form.fields["role"].choices)
-
-
-class TestTechnicalContactPhone:
-    """The onboarding form gained a phone number alongside the contact's email."""
-
-    @pytest.mark.django_db
-    def test_stores_the_phone_number(self, organisation: Organisation):
-        form = OrganisationProfileForm(data=PROFILE_DATA, instance=organisation)
-
-        assert form.is_valid(), form.errors
-        saved = form.save()
-
-        assert saved.technical_contact_phone == PROFILE_DATA["technical_contact_phone"]

@@ -1,11 +1,9 @@
 {% comment %}
-  Status and priority under the thread's title, with the opened-on line.
+  Severity, reference and status above the thread's title, as the prototype
+  draws them.
 
   Both actions on this page can move the status, so this comes back out of band
   from each of them; ticket_detail.html includes the same file for the page.
-
-  The linked facility is a name the vendor typed, not a record we can link to,
-  so it is printed as text rather than dressed up as a link to nowhere.
 
   Context: ticket, oob.
 {% endcomment %}
@@ -13,14 +11,14 @@
 
 <div id="ticket-badges"
      {% if oob %}hx-swap-oob="outerHTML"{% endif %}
-     class="mt-2 flex flex-wrap items-center gap-2">
-  <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{{ ticket.get_status_display }}</span>
-  <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-sm">{{ ticket.get_priority_display }}</span>
-  <span class="text-[12.5px] text-soft-foreground">
-    {% if ticket.linked_facility %}
-      {% blocktranslate with opened=ticket.created_at|date:"j M Y" facility=ticket.linked_facility %}Opened {{ opened }} · {{ facility }}{% endblocktranslate %}
+     class="flex flex-wrap items-center gap-2">
+  <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-xs font-mono font-bold">{{ ticket.get_priority_display }}</span>
+  <span class="font-mono text-[11px] text-soft-foreground">{{ ticket.reference }}</span>
+  <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">
+    {% if ticket.status == "open" %}
+      {% translate "With the NHA desk" %}
     {% else %}
-      {% blocktranslate with opened=ticket.created_at|date:"j M Y" %}Opened {{ opened }}{% endblocktranslate %}
+      {{ ticket.get_status_display }}
     {% endif %}
   </span>
 </div>

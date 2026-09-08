@@ -88,6 +88,9 @@ AWS_S3_ENDPOINT_URL = env(
     default="http://minio:9000",
 )
 AWS_S3_REGION_NAME = env("DJANGO_AWS_S3_REGION_NAME", default="us-east-1")
+# Set DJANGO_USE_LOCAL_MEDIA=yes to keep uploads on disk (MEDIA_ROOT) when
+# running without the MinIO container — `runserver` straight from a shell.
+USE_LOCAL_MEDIA = env.bool("DJANGO_USE_LOCAL_MEDIA", default=False)
 STORAGES = {
     "default": {
         "BACKEND": "storages.backends.s3.S3Storage",
@@ -108,5 +111,9 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+if USE_LOCAL_MEDIA:
+    STORAGES["default"] = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    }
 # Your stuff...
 # ------------------------------------------------------------------------------

@@ -1,23 +1,16 @@
 {% comment %}
-  Everything about a vendor the console shows and can change: the heading badge,
-  the profile they submitted at onboarding, the roster, and the verification
-  rail.
+  One organisation, read from the review team's side: the heading badge, the
+  details it submitted, the roster, and where its verification stands.
 
-  organisation_detail.html includes this file, and the verification endpoint
-  renders it back aimed at #organisation-register — so a vendor moved to
-  verified updates the heading badge and the rail in the same swap, and a
-  reloaded page is the same markup by construction.
+  Verification is decided on the review item (the Review queue), never here:
+  the rail links there and says what state the item is in.
 
-  The form keeps method, action and the CSRF token, so with scripting off it
-  POSTs and the view redirects back here. hx-post sits alongside, never instead.
+  Everything the integrator typed carries break-words: a long unbroken string
+  would otherwise drag the page wide on a phone.
 
-  Everything a vendor typed — a legal name, a website, a deployment region —
-  carries break-words. These are free-text fields filled in by someone else, and
-  a long unbroken string would otherwise drag the page wide on a phone.
-
-  Context: organisation, memberships, verification_form.
+  Context: organisation, memberships, review_item.
 {% endcomment %}
-{% load i18n careui %}
+{% load i18n %}
 
 <div id="organisation-register">
   <div class="mb-5 flex min-w-0 items-start gap-3">
@@ -26,12 +19,15 @@
     <div class="min-w-0">
       <h1 class="text-[20px] font-bold tracking-[-0.015em] break-words text-foreground">{{ organisation.name }}</h1>
       <div class="mt-2 flex flex-wrap items-center gap-2">
-        <span class="ui-badge ui-badge--{{ organisation.verification_variant }} ui-badge--size-sm">{{ organisation.get_verification_status_display }}</span>
+        <span class="ui-badge ui-badge--{{ organisation.verification_variant }} ui-badge--size-sm">
+          <span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>
+          {{ organisation.get_verification_status_display }}
+        </span>
         <span class="text-[12.5px] text-soft-foreground">
-          {% if organisation.is_onboarded %}
-            {% blocktranslate with joined=organisation.created_at|date:"j M Y" %}Signed up {{ joined }} · profile complete{% endblocktranslate %}
+          {% if organisation.has_submitted_details %}
+            {% blocktranslate with joined=organisation.created_at|date:"j M Y" submitted=organisation.verification_submitted_at|date:"j M Y" %}Signed up {{ joined }} · details submitted {{ submitted }}{% endblocktranslate %}
           {% else %}
-            {% blocktranslate with joined=organisation.created_at|date:"j M Y" %}Signed up {{ joined }} · onboarding not finished{% endblocktranslate %}
+            {% blocktranslate with joined=organisation.created_at|date:"j M Y" %}Signed up {{ joined }} · details not submitted yet{% endblocktranslate %}
           {% endif %}
         </span>
       </div>
@@ -41,78 +37,10 @@
     <div class="flex min-w-0 flex-col gap-3.5">
       <div class="ui-card ui-card--sm">
         <div class="ui-card-header">
-          <h2 class="ui-card-title">{% translate "Company profile" %}</h2>
-          <p class="ui-card-description">{% translate "Submitted by the vendor during onboarding." %}</p>
+          <h2 class="ui-card-title">{% translate "Organisation details" %}</h2>
+          <p class="ui-card-description">{% translate "Submitted by the integrator for verification." %}</p>
         </div>
-        <div class="ui-card-content">
-          <dl class="flex flex-col text-[13px]">
-            <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
-              <dt class="text-soft-foreground">{% translate "Legal entity name" %}</dt>
-              <dd class="min-w-0 text-right font-medium break-words">
-                {{ organisation.legal_name|default:"—" }}
-              </dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
-              <dt class="text-soft-foreground">{% translate "Website" %}</dt>
-              <dd class="min-w-0 text-right font-medium break-all">
-                {% if organisation.website %}
-                  {# rel=noopener noreferrer: this is a URL a vendor typed, and #}
-                  {# the console is the one shell that spans every vendor. #}
-                  <a class="ui-prose-link"
-                     href="{{ organisation.website }}"
-                     target="_blank"
-                     rel="noopener noreferrer">{{ organisation.website }}</a>
-                {% else %}
-                  —
-                {% endif %}
-              </dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
-              <dt class="text-soft-foreground">{% translate "Location" %}</dt>
-              <dd class="min-w-0 text-right font-medium break-words">
-                {% if organisation.city or organisation.state %}
-                  {{ organisation.city }}{% if organisation.city and organisation.state %}, {% endif %}{{ organisation.state }}
-                {% else %}
-                  —
-                {% endif %}
-              </dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3 py-2">
-              <dt class="text-soft-foreground">{% translate "Deployment regions" %}</dt>
-              <dd class="min-w-0 text-right font-medium whitespace-pre-line break-words">
-                {{ organisation.deployment_regions|default:"—" }}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-      <div class="ui-card ui-card--sm">
-        <div class="ui-card-header">
-          <h2 class="ui-card-title">{% translate "Technical contact" %}</h2>
-          <p class="ui-card-description">{% translate "Receives sandbox resets, credential rotations and API changelogs." %}</p>
-        </div>
-        <div class="ui-card-content">
-          <dl class="flex flex-col text-[13px]">
-            <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
-              <dt class="text-soft-foreground">{% translate "Name" %}</dt>
-              <dd class="min-w-0 text-right font-medium break-words">
-                {{ organisation.technical_contact_name|default:"—" }}
-              </dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
-              <dt class="text-soft-foreground">{% translate "Email" %}</dt>
-              <dd class="min-w-0 text-right font-medium break-all">
-                {{ organisation.technical_contact_email|default:"—" }}
-              </dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3 py-2">
-              <dt class="text-soft-foreground">{% translate "Phone number" %}</dt>
-              <dd class="min-w-0 text-right font-medium break-words">
-                {{ organisation.technical_contact_phone|default:"—" }}
-              </dd>
-            </div>
-          </dl>
-        </div>
+        <div class="ui-card-content">{% include "organisations/partials/organisation_summary.html" %}</div>
       </div>
       <div class="ui-card ui-card--sm">
         <div class="ui-card-header flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -137,8 +65,6 @@
               {% endfor %}
             </ul>
           {% else %}
-            {# Possible: an invited-but-never-accepted vendor, or a roster #}
-            {# emptied by deleted accounts. Say so rather than draw a blank box. #}
             <p class="px-5 py-8 text-center text-sm text-muted-foreground">
               {% translate "Nobody has joined this organisation yet." %}
             </p>
@@ -147,31 +73,45 @@
       </div>
     </div>
     <div class="flex min-w-0 flex-col gap-3.5">
-      <form class="ui-card ui-card--sm"
-            method="post"
-            action="{% url 'ohc:organisation-verification' organisation.slug %}"
-            hx-post="{% url 'ohc:organisation-verification' organisation.slug %}"
-            hx-target="#organisation-register"
-            hx-swap="outerHTML"
-            hx-disabled-elt="find button"
-            hx-indicator="#nav-progress">
-        {% csrf_token %}
+      <div class="ui-card ui-card--sm">
         <div class="ui-card-header">
           <h2 class="ui-card-title">{% translate "Verification" %}</h2>
-          <p class="ui-card-description">{% translate "The vendor sees this on their own settings page." %}</p>
+          <p class="ui-card-description">{% translate "Decided on the review item, with the queries and history it carries." %}</p>
         </div>
-        <div class="ui-card-content flex flex-col gap-3">
-          {% ui_field verification_form.status %}
-          <p class="text-[11.5px] leading-relaxed text-soft-foreground">
-            {% if organisation.verified_at %}
-              {% blocktranslate with verified_on=organisation.verified_at|date:"j M Y" %}Verified {{ verified_on }}. Moving this vendor out of verified clears that date.{% endblocktranslate %}
-            {% else %}
-              {% translate "Verifying stamps today's date, which the vendor sees beside the badge." %}
-            {% endif %}
-          </p>
-          <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-sm">{% translate "Save decision" %}</button>
+        <div class="ui-card-content flex flex-col gap-3 text-[13px]">
+          {% if review_item %}
+            <dl class="flex flex-col">
+              <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+                <dt class="text-soft-foreground">{% translate "Review" %}</dt>
+                <dd class="font-mono text-[12.5px]">
+                  {{ review_item.reference }}
+                </dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+                <dt class="text-soft-foreground">{% translate "State" %}</dt>
+                <dd>
+                  <span class="ui-badge ui-badge--{{ review_item.status_variant }} ui-badge--size-sm">{{ review_item.get_status_display }}</span>
+                </dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-3 py-2">
+                <dt class="text-soft-foreground">{% translate "Submitted" %}</dt>
+                <dd class="font-medium">
+                  {{ review_item.submitted_on|date:"j M Y" }}
+                </dd>
+              </div>
+            </dl>
+            <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+               href="{{ review_item.get_absolute_url }}">{% translate "Open the review" %}</a>
+          {% else %}
+            <p class="text-muted-foreground">{% translate "The integrator has not submitted the organisation details yet." %}</p>
+          {% endif %}
+          {% if organisation.verified_at %}
+            <p class="text-[11.5px] leading-relaxed text-soft-foreground">
+              {% blocktranslate with verified_on=organisation.verified_at|date:"j M Y" name=organisation.verified_by.display_name|default:"—" %}Verified {{ verified_on }} by {{ name }}.{% endblocktranslate %}
+            </p>
+          {% endif %}
         </div>
-      </form>
+      </div>
     </div>
   </div>
 </div>

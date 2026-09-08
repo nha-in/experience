@@ -8,8 +8,8 @@ guesses a URL under /ohc/ is looking at every other vendor's tickets — so it i
 also asserted route by route in tests/test_views.py.
 
 State is never written here. post_reply() and record_status_change() own what a
-reply and a move mean, and Organisation.set_verification() owns what verifying a
-vendor means; the views collect the input and call them.
+reply and a move mean; verifying an organisation happens on its review item in
+the assess screens, never on this console page.
 """
 
 from __future__ import annotations
@@ -35,6 +35,7 @@ from ohc_experience.organisations.care_plugin import CarePluginError
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Sandbox
 from ohc_experience.organisations.tasks import provision_sandbox
+from ohc_experience.support.knowledge import related_knowledge
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
@@ -48,7 +49,6 @@ from .forms import OrganisationFilterForm
 from .forms import TicketControlForm
 from .forms import TicketFilterForm
 from .forms import TicketReplyForm
-from .forms import VerificationForm
 from .forms import ohc_team_members
 
 if TYPE_CHECKING:
@@ -211,6 +211,7 @@ def workspace_context(
         "thread": ticket.messages.select_related("author"),
         "reply_form": reply_form if reply_form is not None else TicketReplyForm(),
         "control_form": control_form,
+        "related_knowledge": related_knowledge(ticket.category),
     }
 
 
@@ -250,7 +251,7 @@ class TicketActionView(OhcConsoleMixin, View):
 class TicketReplyView(TicketActionView):
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         ticket = get_ticket(kwargs["reference"])
-        form = TicketReplyForm(request.POST)
+        form = TicketReplyForm(request.POST, request.FILES)
         if not form.is_valid():
             return self.reshow(request, ticket, reply_form=form)
         # post_reply moves the ticket to AWAITING_VENDOR and stamps the first
@@ -260,6 +261,7 @@ class TicketReplyView(TicketActionView):
             request.user,
             form.cleaned_data["body"],
             from_ohc_team=True,
+            attachment=form.cleaned_data.get("attachment"),
         )
         # organisation.name, matching the queue table and the hint under the
         # reply box — one name for the vendor, everywhere in the console.
@@ -381,30 +383,18 @@ def get_organisation(slug: str) -> Organisation:
     )
 
 
-def register_context(
-    organisation: Organisation,
-    *,
-    verification_form: VerificationForm | None = None,
-) -> dict:
-    """Context for the vendor screen, in the shape the partial expects.
-
-    The full page and the verification POST render the same fragment, so a
-    swapped-in decision and a reloaded page cannot differ.
-    """
-    if verification_form is None:
-        verification_form = VerificationForm(
-            initial={"status": organisation.verification_status},
-        )
+def register_context(organisation: Organisation) -> dict:
+    """Context for the organisation screen, in the shape the partial expects."""
     return {
         "nav_section": "organisations",
         "organisation": organisation,
         "memberships": organisation.memberships.all(),
-        "verification_form": verification_form,
+        "review_item": organisation.verification_review_item,
     }
 
 
 class OrganisationDetailView(OhcConsoleMixin, View):
-    """One vendor: the profile they submitted, who works there, and the decision."""
+    """One organisation: the details it submitted, who works there, its review."""
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         organisation = get_organisation(kwargs["slug"])
@@ -413,70 +403,6 @@ class OrganisationDetailView(OhcConsoleMixin, View):
             "ohc/organisation_detail.html",
             register_context(organisation),
         )
-
-
-class OrganisationVerificationView(OhcConsoleMixin, View):
-    """Verify a vendor, reject it, or put it back to pending.
-
-    Answers htmx with the register fragment — the badge and the rail move
-    together — and everyone else with POST → redirect → flash, which is the
-    path that has to keep working with scripting off.
-    """
-
-    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        organisation = get_organisation(kwargs["slug"])
-        form = VerificationForm(request.POST)
-        if not form.is_valid():
-            # A rejected submission: 200 with the errors, never a redirect.
-            return self.render_register(request, organisation, verification_form=form)
-
-        status = form.cleaned_data["status"]
-        # set_verification owns what each state means for verified_at, and
-        # reports whether anything actually moved.
-        if organisation.set_verification(status):
-            messages.success(request, self.confirmation(organisation, status))
-        else:
-            messages.info(request, _("That vendor was already in that state."))
-
-        if request.htmx:
-            return self.render_register(request, organisation)
-        return redirect("ohc:organisation", slug=organisation.slug)
-
-    @staticmethod
-    def confirmation(organisation: Organisation, status: str) -> str:
-        """What the decision means, said in the vendor's own name.
-
-        The queue and this screen both call a vendor by organisation.name, and
-        a flash that switched to the legal entity would read as a different
-        company entirely.
-        """
-        notes = {
-            Organisation.VerificationStatus.VERIFIED: _(
-                "%(vendor)s is now a verified vendor.",
-            ),
-            Organisation.VerificationStatus.REJECTED: _(
-                "%(vendor)s is marked as rejected.",
-            ),
-            Organisation.VerificationStatus.PENDING: _(
-                "%(vendor)s is back to pending verification.",
-            ),
-        }
-        return notes[status] % {"vendor": organisation.name}
-
-    @staticmethod
-    def render_register(
-        request: HttpRequest,
-        organisation: Organisation,
-        **forms,
-    ) -> HttpResponse:
-        context = register_context(organisation, **forms)
-        if request.htmx:
-            return render(
-                request,
-                "ohc/partials/organisation_register_swap.html",
-                context,
-            )
-        return render(request, "ohc/organisation_detail.html", context)
 
 
 # ── Events ─────────────────────────────────────────────────────────────────

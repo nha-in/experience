@@ -1,0 +1,6 @@
+{% autoescape off %}{{ product.organisation.name }} added the following milestones to {{ product.name }} ({{ product.sandbox_id }}):
+{% for key in keys %}
+- {{ key }}{% endfor %}
+
+New compliance records were created; exit requests will appear in the review queue when they are filed.
+{% endautoescape %}

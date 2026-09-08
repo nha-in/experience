@@ -1,0 +1,8 @@
+{% autoescape off %}Hello {{ user.display_name }},
+
+A reminder that {{ event.title }} starts {{ event.starts_at|date:"l, j M Y" }} at {{ event.starts_at|date:"g:i a" }} IST{% if event.location %} ({{ event.location }}){% else %} (online){% endif %}.
+{% if event.join_url %}
+Join link: {{ event.join_url }}
+{% endif %}
+Details: {{ event_url }}
+{% endautoescape %}

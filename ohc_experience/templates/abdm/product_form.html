@@ -1,0 +1,43 @@
+{% extends "layouts/app.html" %}
+
+{% comment %}
+  Register another product, or edit one, inside the shell.
+
+  Context: form, form_layout ("create" | "edit"), product (edit only), tracks,
+  form_tracks, can_write, nav_section.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% if form_layout == "edit" %}
+    {% translate "Edit product" %} · {{ product.name }}
+  {% else %}
+    {% translate "Register a product" %}
+  {% endif %}
+{% endblock title %}
+{% block crumb_leaf %}
+  {% if form_layout == "edit" %}
+    {% translate "Edit product" %}
+  {% else %}
+    {% translate "Register a product" %}
+  {% endif %}
+{% endblock crumb_leaf %}
+{% block page_header %}
+  <div class="mx-auto mb-4 w-full max-w-[700px]">
+    <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "Product" %}</p>
+    {% if form_layout == "edit" %}
+      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">{% translate "Edit product" %}</h1>
+      <p class="mt-1.5 max-w-[560px] text-[12.5px] leading-[1.55] text-soft-foreground">
+        {% translate "Changes to name, description and category apply immediately. Adding a track or milestone opens it for exit requests; NHA is notified of the change. Approved milestones and ones under review stay locked." %}
+      </p>
+    {% else %}
+      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">{% translate "Register a product" %}</h1>
+      <p class="mt-1.5 max-w-[560px] text-[12.5px] leading-[1.55] text-soft-foreground">
+        {% translate "One product per application. Choose the tracks and milestones it will complete in the sandbox; each becomes its own exit request once credentials are issued." %}
+      </p>
+    {% endif %}
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <div class="mx-auto w-full max-w-[700px]">{% include "abdm/partials/product_form.html" %}</div>
+{% endblock content %}

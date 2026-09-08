@@ -1,0 +1,6 @@
+{% comment %}
+  htmx response to a reply: the thread is the ordinary swap, the flash rides
+  along out of band into #flash-messages.
+{% endcomment %}
+{% include "abdm/partials/query_thread.html" %}
+{% include "components/messages.html" with oob=True %}

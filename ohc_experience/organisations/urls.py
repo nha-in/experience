@@ -4,11 +4,20 @@ from . import views
 
 app_name = "organisations"
 urlpatterns = [
-    path("onboarding/", views.OnboardingView.as_view(), name="onboarding"),
+    path(
+        "onboarding/organisation/",
+        views.OnboardingView.as_view(),
+        name="onboarding",
+    ),
     path(
         "settings/organisation/",
         views.OrganisationDetailView.as_view(),
         name="detail",
+    ),
+    path(
+        "settings/organisation/submit-verification/",
+        views.SubmitVerificationView.as_view(),
+        name="submit-verification",
     ),
     path("settings/team/", views.TeamView.as_view(), name="team"),
     path("sandbox/", views.SandboxView.as_view(), name="sandbox"),

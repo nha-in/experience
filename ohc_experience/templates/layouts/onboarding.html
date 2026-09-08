@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% comment %}
+  The onboarding shell, as the prototype draws it: a 56px header with the
+  brand on the left and the three steps (Account › Organisation › Product) on
+  the right, then a centred column. Sign-up (step 1) runs here signed out;
+  steps 2 and 3 run here signed in, because until a product exists there is
+  nothing for the sidebar to point at.
+
+  Blocks: onboarding_content.
+  Context: onboarding_step — 1, 2 or 3, set by the view.
+{% endcomment %}
+{% load i18n %}
+
+{% block body %}
+  <div class="flex min-h-screen flex-col">
+    <header class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-card px-4 py-2 sm:px-7">
+      <a href="{% url 'home' %}"
+         class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+        {% include "components/brand.html" %}
+      </a>
+      <ol class="ml-auto flex items-center gap-1.5 text-[11.5px]"
+          aria-label="{% translate 'Onboarding steps' %}">
+        {% for number, label in onboarding_steps %}
+          <li class="flex items-center gap-1.5"
+              {% if number == onboarding_step %}aria-current="step"{% endif %}>
+            <span class="flex size-5 items-center justify-center rounded-full border text-[10px] font-bold {% if number == onboarding_step %}border-primary bg-primary text-primary-foreground{% elif number < onboarding_step %}border-primary-200 bg-primary-100 text-primary-700{% else %}border-strong-border text-soft-foreground{% endif %}"
+                  aria-hidden="true">
+              {% if number < onboarding_step %}
+                ✓
+              {% else %}
+                {{ number }}
+              {% endif %}
+            </span>
+            <span class="{% if number == onboarding_step %}font-semibold text-foreground{% else %}text-soft-foreground{% endif %}">{{ label }}</span>
+            {% if number < onboarding_step %}
+              <span class="sr-only">{% translate "(done)" %}</span>
+            {% endif %}
+            {% if not forloop.last %}<span class="px-1.5 text-[13px] text-strong-border" aria-hidden="true">›</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+      <div class="flex items-center gap-1.5 border-l border-border pl-4 text-[11.5px] text-soft-foreground">
+        {% if request.user.is_authenticated %}
+          <span class="hidden max-w-[22ch] truncate sm:inline">{{ request.user.email }}</span>
+          <form method="post" action="{% url 'account_logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="font-semibold text-primary hover:underline">{% translate "Sign out" %}</button>
+          </form>
+        {% else %}
+          <span class="hidden sm:inline">{% translate "Already registered?" %}</span>
+          <a class="font-semibold text-primary no-underline hover:underline"
+             href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+        {% endif %}
+      </div>
+    </header>
+    <main id="main-content" class="flex-1 px-4 pt-8 pb-16 sm:px-6">
+      {% block onboarding_content %}
+      {% endblock onboarding_content %}
+    </main>
+  </div>
+{% endblock body %}

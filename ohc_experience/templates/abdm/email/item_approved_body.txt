@@ -1,0 +1,9 @@
+{% autoescape off %}Hello {{ organisation.name }},
+
+{% if item.is_organisation_verification %}Your organisation has been verified by the NHA review team. Sandbox credentials are now issued for every product you register; open a product's Credentials page to reveal the client secret.{% elif item.is_product_registration %}{{ item.product.name }} ({{ item.product.sandbox_id }}) is now a registered sandbox product.{% else %}Your {{ item.title|lower }} for {{ item.product.name }} ({{ item.product.sandbox_id }}) has been approved on {{ item.decided_on|date:"j M Y" }} by {{ item.decided_by.display_name }}. The next milestone on the track is now open. Production onboarding for this milestone is handled outside the sandbox portal; the NHA team will contact you separately.{% endif %}
+{% if item.decision_note %}
+Decision note:
+{{ item.decision_note }}
+{% endif %}
+Sign in: {{ portal_url }}
+{% endautoescape %}

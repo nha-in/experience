@@ -1,0 +1,82 @@
+{% comment %}
+  A review item's queries, from the integrator's side, as the prototype draws
+  them: a bordered card headed "Reviewer queries" with the count, then each
+  question — which field, who asked, when, its status — with the reply when
+  there is one, or a reply box while it is open.
+
+  Every page that shows an item's queries includes this one file — the
+  organisation's verification card, a product's overview, a milestone's
+  detail card — and the reply endpoint swaps it back in by its id, so a reply
+  posted with htmx and a reloaded page draw the same thing.
+
+  Context: item, item_queries, can_reply, reply_form, request.
+{% endcomment %}
+{% load i18n careui %}
+
+<div id="queries-{{ item.pk }}"
+     class="overflow-hidden rounded-xl border border-border"
+     aria-label="{% translate 'Reviewer queries' %}">
+  <div class="flex items-center bg-soft-background px-4 py-[11px]">
+    <h3 class="text-xs font-bold">{% translate "Reviewer queries" %}</h3>
+    <span class="ml-auto font-mono text-[10.5px] text-soft-foreground">{{ item_queries|length }}</span>
+  </div>
+  <ol>
+    {% for query in item_queries %}
+      <li class="border-t border-soft-border px-4 py-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="rounded-[5px] bg-muted-background px-[7px] py-0.5 text-[9.5px] font-bold text-soft-foreground">{{ query.against_label }}</span>
+          <span class="text-[10.5px] text-soft-foreground">{{ query.raised_by.display_name|default:_("Reviewer") }} · {{ query.raised_at|date:"j M Y, H:i" }}</span>
+          <span class="ml-auto text-[10.5px] font-semibold {% if query.is_open %}text-amber-800{% elif query.is_answered %}text-sky-900{% else %}text-primary-700{% endif %}">
+            {% if query.is_open %}
+              {% translate "Awaiting your reply" %}
+            {% elif query.is_answered %}
+              {% translate "Answered" %}
+            {% else %}
+              {% translate "Resolved" %}
+            {% endif %}
+          </span>
+        </div>
+        <p class="mt-[7px] text-xs leading-[1.55] break-words">{{ query.question|linebreaksbr }}</p>
+        {% if query.reply %}
+          <div class="mt-2.5 rounded-[9px] bg-soft-background px-3 py-2.5">
+            <p class="text-[10.5px] text-soft-foreground">
+              {% blocktranslate with name=query.replied_by.display_name date=query.replied_at|date:"j M Y, H:i" %}Reply from {{ name }} · {{ date }}{% endblocktranslate %}
+            </p>
+            <p class="mt-0.5 text-xs leading-[1.5] break-words">{{ query.reply|linebreaksbr }}</p>
+          </div>
+        {% elif query.is_open and can_reply %}
+          <form class="mt-2.5 flex flex-col gap-2"
+                method="post"
+                action="{% url 'products:query-reply' query.pk %}"
+                novalidate
+                hx-post="{% url 'products:query-reply' query.pk %}"
+                hx-target="#queries-{{ item.pk }}"
+                hx-swap="outerHTML"
+                hx-disabled-elt="find button[type=submit]"
+                hx-indicator="#nav-progress">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}" />
+            <label class="sr-only" for="reply-{{ query.pk }}">{% translate "Your reply" %}</label>
+            <textarea class="ui-textarea min-h-[60px]"
+                      id="reply-{{ query.pk }}"
+                      name="reply"
+                      rows="2"
+                      placeholder="{% translate 'Write a reply for the reviewer' %}"
+                      required></textarea>
+            {% if reply_form.errors and reply_form.data.reply == "" %}
+              {% for error in reply_form.reply.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+            {% endif %}
+            <div class="flex flex-wrap items-center gap-2.5">
+              <button type="submit" class="ui-btn ui-btn--default ui-btn--size-sm">{% translate "Send reply" %}</button>
+              <span class="text-[10.5px] text-soft-foreground">{% translate "Attach any file the reviewer asked for through a support ticket." %}</span>
+            </div>
+          </form>
+        {% elif query.is_open %}
+          <p class="mt-2 text-[10.5px] text-soft-foreground">{% translate "Waiting for a reply from your team." %}</p>
+        {% endif %}
+      </li>
+    {% empty %}
+      <li class="border-t border-soft-border px-4 py-3 text-[11px] text-soft-foreground">{% translate "No queries have been raised." %}</li>
+    {% endfor %}
+  </ol>
+</div>

@@ -1,0 +1,89 @@
+{% comment %}
+  The editable exit request, as the prototype draws it: Sandbox testing ·
+  Web application security audit (WASA) · Functional testing, with Save draft
+  and Request for exit. The request button is disabled until the *saved*
+  record is complete, and the hint says what is missing; the request action
+  saves the form first, so unsaved edits count.
+
+  Context: form (ExitRequestForm), product, record, can_write.
+{% endcomment %}
+{% load i18n careui %}
+
+<form id="exit-form"
+      class="flex flex-col gap-5 px-5 pt-[18px] pb-5"
+      method="post"
+      action="{% url 'products:milestone-save' product.sandbox_id record.track_code record.milestone_code %}"
+      enctype="multipart/form-data"
+      novalidate
+      hx-post="{% url 'products:milestone-save' product.sandbox_id record.track_code record.milestone_code %}"
+      hx-encoding="multipart/form-data"
+      hx-target="#milestone-detail"
+      hx-swap="outerHTML show:window:top"
+      hx-disabled-elt="find button[type=submit]"
+      hx-indicator="#nav-progress">
+  {% csrf_token %}
+  {% include "components/form_errors.html" %}
+  <fieldset class="flex flex-col gap-3">
+    <legend class="mb-3 flex flex-wrap items-baseline gap-2">
+      <span class="text-[12.5px] font-bold">{% translate "Sandbox testing" %}</span>
+      <span class="text-[10.5px] text-soft-foreground">{% translate "Dates the product is exercised against the sandbox gateway" %}</span>
+    </legend>
+    <div class="grid gap-3.5 sm:grid-cols-3">
+      <div>{% ui_field form.start_date %}</div>
+      <div>{% ui_field form.end_date %}</div>
+      <div>
+        {% translate "NHA schedules the demo on or after this date." as demo_hint %}
+        {% ui_field form.demo_date help_text=demo_hint %}
+      </div>
+    </div>
+  </fieldset>
+  <fieldset class="flex flex-col gap-3">
+    <legend class="mb-3 flex flex-wrap items-baseline gap-2">
+      <span class="text-[12.5px] font-bold">{% translate "Web application security audit (WASA)" %}</span>
+      <span class="text-[10.5px] text-soft-foreground">{% translate "Certificate from a CERT-In empanelled auditor" %}</span>
+    </legend>
+    <div class="grid gap-3.5 sm:grid-cols-2">
+      <div>
+        {% translate "Audit agency name" as agency_label %}
+        {% ui_field form.wasa_agency label=agency_label %}
+      </div>
+      <div>{% ui_field form.wasa_date %}</div>
+    </div>
+  </fieldset>
+  <fieldset class="flex flex-col gap-3">
+    <legend class="mb-3 flex flex-wrap items-baseline gap-2">
+      <span class="text-[12.5px] font-bold">{% translate "Functional testing" %}</span>
+      <span class="text-[10.5px] text-soft-foreground">{% translate "Issued after the functional test run on the sandbox" %}</span>
+    </legend>
+    <div class="grid gap-3.5 sm:grid-cols-2">
+      <div>{% ui_field form.functional_certificate %}</div>
+      <div>{% ui_field form.functional_report %}</div>
+    </div>
+  </fieldset>
+  {% if can_write %}
+    <div class="flex flex-col gap-3 border-t border-soft-border pt-4 sm:flex-row sm:items-center">
+      <div class="flex shrink-0 gap-2">
+        <button type="submit"
+                name="action"
+                value="draft"
+                class="ui-btn ui-btn--outline ui-btn--size-sm">{% translate "Save draft" %}</button>
+        <button type="submit"
+                name="action"
+                value="request"
+                class="ui-btn ui-btn--default ui-btn--size-sm"
+                {% if not record.is_complete %}disabled aria-disabled="true"{% endif %}>
+          {% translate "Request for exit" %}
+        </button>
+      </div>
+      <p class="max-w-[520px] text-[10.5px] leading-[1.45] text-soft-foreground">
+        {% if record.is_complete %}
+          {% translate "Sends this milestone to NHA for sandbox exit approval. The form locks while under review." %}
+        {% else %}
+          {% blocktranslate with fields=record.missing_fields|join:", " %}Request for exit needs: {{ fields }}. Save the draft first; every date, the WASA details and both functional testing files are required.{% endblocktranslate %}
+        {% endif %}
+      </p>
+    </div>
+  {% else %}
+    <p class="text-[10.5px] text-soft-foreground">{% translate "Support members can read this request but not change it." %}</p>
+  {% endif %}
+</form>

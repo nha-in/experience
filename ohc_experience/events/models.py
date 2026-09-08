@@ -71,6 +71,9 @@ class Event(models.Model):
         help_text=_("Leave blank for an online event."),
     )
     join_url = models.URLField(_("Join link"), blank=True)
+    # Past materials: the deck and the recording, filled in after the event.
+    materials_url = models.URLField(_("Slides or materials link"), blank=True)
+    recording_url = models.URLField(_("Recording link"), blank=True)
     published_at = models.DateTimeField(_("Published at"), null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -132,9 +135,53 @@ class Event(models.Model):
     def is_online(self) -> bool:
         return not self.location
 
+    @property
+    def has_materials(self) -> bool:
+        return bool(self.materials_url or self.recording_url)
+
+    @property
+    def registration_count(self) -> int:
+        return self.registrations.count()
+
+    def is_registered(self, user) -> bool:
+        if not getattr(user, "is_authenticated", False):
+            return False
+        return self.registrations.filter(user=user).exists()
+
     def publish(self) -> None:
         if self.published_at is None:
             self.published_at = timezone.now()
 
     def unpublish(self) -> None:
         self.published_at = None
+
+
+class EventRegistration(models.Model):
+    """One person signed up for one event; reminded once, the day before."""
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="registrations",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_registrations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    reminded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Event registration")
+        verbose_name_plural = _("Event registrations")
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "user"],
+                name="unique_registration_per_event",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user} → {self.event}"

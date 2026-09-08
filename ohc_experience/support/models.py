@@ -10,17 +10,19 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.abdm.tracks import TRACK_CHOICES
+
 # Reference numbers start here so the first ticket does not read as TKT-1.
 REFERENCE_SEED = 2000
 REFERENCE_PREFIX = "TKT"
 
 
 class Category(models.TextChoices):
-    SANDBOX = "sandbox", _("Sandbox")
-    API = "api", _("API")
-    CERTIFICATION = "certification", _("Certification")
-    DEPLOYMENT = "deployment", _("Deployment")
-    BILLING = "billing", _("Billing")
+    SANDBOX = "sandbox", _("Sandbox and credentials")
+    API = "api", _("Gateway APIs")
+    CERTIFICATION = "certification", _("Milestones and exit")
+    DEPLOYMENT = "deployment", _("Production onboarding")
+    BILLING = "billing", _("Account and organisation")
 
 
 class Priority(models.TextChoices):
@@ -58,6 +60,13 @@ PRIORITY_VARIANTS = {
     Priority.HIGH: "destructive",
     Priority.MEDIUM: "warning",
     Priority.LOW: "neutral",
+}
+
+# First-response commitment per severity, in business days.
+SLA_BUSINESS_DAYS = {
+    Priority.HIGH: 1,
+    Priority.MEDIUM: 2,
+    Priority.LOW: 5,
 }
 
 
@@ -130,6 +139,21 @@ class Ticket(models.Model):
     linked_facility = models.CharField(
         _("Linked facility"),
         max_length=255,
+        blank=True,
+    )
+    # Portal context: which product and track the problem is about.
+    product = models.ForeignKey(
+        "abdm.Product",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tickets",
+        verbose_name=_("Product"),
+    )
+    track = models.CharField(
+        _("Track"),
+        max_length=20,
+        choices=TRACK_CHOICES,
         blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -207,6 +231,34 @@ class Ticket(models.Model):
             return _("Needs a reply")
         return self.get_status_display()
 
+    @property
+    def sla_business_days(self) -> int:
+        return SLA_BUSINESS_DAYS.get(self.priority, SLA_BUSINESS_DAYS[Priority.LOW])
+
+    @property
+    def sla_label(self) -> str:
+        days = self.sla_business_days
+        if days == 1:
+            return str(_("First response within 1 business day"))
+        return str(_("First response within %(days)s business days") % {"days": days})
+
+    @property
+    def sla_met(self) -> bool | None:
+        """True/False once answered, None while the first reply is pending."""
+        if self.first_responded_at is None:
+            return None
+        elapsed = self.first_responded_at - self.created_at
+        return elapsed.days <= self.sla_business_days
+
+    @property
+    def context_label(self) -> str:
+        parts = []
+        if self.product_id:
+            parts.append(self.product.name)
+        if self.track:
+            parts.append(self.track)
+        return " · ".join(parts)
+
 
 class TicketMessage(models.Model):
     """One entry in a ticket thread: a reply, or a recorded status change."""
@@ -233,6 +285,11 @@ class TicketMessage(models.Model):
     # Denormalised so a reply still reads correctly if the author later joins or
     # leaves the OHC team.
     from_ohc_team = models.BooleanField(default=False, editable=False)
+    attachment = models.FileField(
+        _("Attachment"),
+        upload_to="support/attachments/%Y/%m/",
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -253,19 +310,26 @@ class TicketMessage(models.Model):
             return str(_("Removed user"))
         return self.author.name or self.author.email
 
+    @property
+    def attachment_name(self) -> str:
+        return self.attachment.name.rsplit("/", 1)[-1] if self.attachment else ""
 
-def post_reply(
+
+def post_reply(  # noqa: PLR0913
     ticket: Ticket,
     author,
     body: str,
     *,
     from_ohc_team: bool,
+    attachment=None,
+    notify: bool = True,
 ) -> TicketMessage:
     """Add a reply and move the ticket to the other party's court.
 
     A vendor reply reopens the ticket; an OHC reply puts it on the vendor. This
     lives here rather than in a view so the vendor inbox, the OHC console and
-    the admin all move a ticket the same way.
+    the admin all move a ticket the same way. The other party is emailed
+    unless `notify` is off (seeding).
     """
     message = TicketMessage.objects.create(
         ticket=ticket,
@@ -273,6 +337,7 @@ def post_reply(
         body=body,
         kind=TicketMessage.Kind.REPLY,
         from_ohc_team=from_ohc_team,
+        attachment=attachment,
     )
     updates = ["status", "updated_at"]
     ticket.status = Status.AWAITING_VENDOR if from_ohc_team else Status.OPEN
@@ -280,6 +345,10 @@ def post_reply(
         ticket.first_responded_at = timezone.now()
         updates.append("first_responded_at")
     ticket.save(update_fields=updates)
+    if notify:
+        from .notifications import notify_reply  # noqa: PLC0415 - avoids a cycle
+
+        notify_reply(message)
     return message
 
 

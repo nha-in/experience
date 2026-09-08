@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
@@ -22,6 +23,9 @@ from django.views.generic import TemplateView
 from django.views.generic import UpdateView
 from django_htmx.http import HttpResponseClientRedirect
 
+from ohc_experience.abdm import services as portal
+from ohc_experience.abdm.selectors import can_write
+from ohc_experience.abdm.selectors import query_thread_context
 from ohc_experience.users.permissions import is_ohc_team
 
 from .forms import InvitationForm
@@ -63,9 +67,9 @@ class OrganisationMixin(LoginRequiredMixin):
             if is_ohc_team(request.user):
                 messages.info(
                     request,
-                    _("That is a vendor page. Here is the OHC console instead."),
+                    _("That is an integrator page. Here is the review console."),
                 )
-                return redirect("ohc:queue")
+                return redirect("assess:dashboard")
             msg = _("You are not a member of any organisation.")
             raise PermissionDenied(msg)
         self.organisation = self.membership.organisation
@@ -82,109 +86,171 @@ class OrganisationMixin(LoginRequiredMixin):
         return context
 
 
-class OnboardingView(OrganisationMixin, UpdateView):
-    """Screen 1b — one form, save and continue, then straight to the dashboard."""
+def _post_login_url(user) -> str:
+    # pages.views imports this module for OrganisationMixin, so the routing
+    # helper is imported here rather than at the top.
+    from ohc_experience.pages.views import (  # noqa: PLC0415
+        resolve_post_login_destination,
+    )
+
+    return reverse(resolve_post_login_destination(user))
+
+
+class OrganisationDetailsFormMixin:
+    """Shared plumbing for the two screens that carry the details form."""
 
     model = Organisation
     form_class = OrganisationProfileForm
-    template_name = "organisations/onboarding.html"
     # The page includes this fragment; htmx swaps the same file back in.
     partial_template_name = "organisations/partials/organisation_form.html"
-
-    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if self.organisation.is_onboarded:
-            return redirect("dashboard")
-        return super().get(request, *args, **kwargs)
 
     def get_object(self, queryset=None) -> Organisation:
         return self.organisation
 
-    def get_initial(self) -> dict:
-        initial = super().get_initial()
-        # The person setting the account up is the technical contact more often
-        # than not, so pre-fill rather than ask twice.
-        initial.setdefault("legal_name", self.organisation.name)
-        initial.setdefault("technical_contact_name", self.request.user.name)
-        initial.setdefault("technical_contact_email", self.request.user.email)
-        return initial
+    def form_invalid(self, form):
+        # 200 with the re-rendered fragment, so htmx swaps the errors in; the
+        # no-JS path still gets the whole page back, also with a 200.
+        if self.request.htmx:
+            return render(
+                self.request,
+                self.partial_template_name,
+                self.get_context_data(form=form),
+            )
+        return super().form_invalid(form)
+
+
+class OnboardingView(OrganisationDetailsFormMixin, OrganisationMixin, UpdateView):
+    """Onboarding step 2 — the organisation details, submitted for verification."""
+
+    template_name = "organisations/onboarding.html"
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if self.organisation.has_submitted_details:
+            return redirect(_post_login_url(request.user))
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         context["form_layout"] = "onboarding"
-        return context
-
-    def form_valid(self, form):
-        organisation = form.save(commit=False)
-        organisation.mark_onboarded()
-        organisation.save()
-        messages.success(
-            self.request,
-            _("Your vendor profile is set up. Welcome to the hub."),
-        )
-        if self.request.htmx:
-            # Finishing onboarding leaves this screen for good, so there is no
-            # fragment worth swapping: hand htmx a real client-side redirect and
-            # the browser lands on the dashboard exactly as the no-JS path does.
-            return HttpResponseClientRedirect(reverse("dashboard"))
-        return HttpResponseRedirect(reverse("dashboard"))
-
-    def form_invalid(self, form):
-        # 200 with the re-rendered fragment, so htmx swaps the errors in; the
-        # no-JS path still gets the whole page back, also with a 200.
-        if self.request.htmx:
-            return render(
-                self.request,
-                self.partial_template_name,
-                self.get_context_data(form=form),
-            )
-        return super().form_invalid(form)
-
-
-class OrganisationDetailView(OrganisationMixin, UpdateView):
-    """Settings → Organization."""
-
-    model = Organisation
-    form_class = OrganisationProfileForm
-    template_name = "organisations/organisation_detail.html"
-    # The page includes this fragment; htmx swaps the same file back in.
-    partial_template_name = "organisations/partials/organisation_form.html"
-    success_url = reverse_lazy("dashboard")
-
-    def get_object(self, queryset=None) -> Organisation:
-        return self.organisation
-
-    def get_context_data(self, **kwargs) -> dict:
-        context = super().get_context_data(**kwargs)
-        context["nav_section"] = "settings"
-        context["settings_section"] = "organisation"
-        context["form_layout"] = "settings"
+        context["onboarding_step"] = 2
         return context
 
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         if not self.membership.can_manage:
-            msg = _("Only the owner and admins can edit the organisation profile.")
+            msg = _("Only the owner and admins can submit the organisation details.")
             raise PermissionDenied(msg)
         return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, _("Organisation profile updated."))
-        if self.request.htmx:
-            # A full navigation home: the dashboard reloads with the new name in
-            # the sidebar and the flash riding along in Django's message store.
-            return HttpResponseClientRedirect(reverse("dashboard"))
-        return response
-
-    def form_invalid(self, form):
-        # 200 with the re-rendered fragment, so htmx swaps the errors in; the
-        # no-JS path still gets the whole page back, also with a 200.
-        if self.request.htmx:
-            return render(
-                self.request,
-                self.partial_template_name,
-                self.get_context_data(form=form),
+        portal.save_organisation_details(
+            organisation=self.organisation,
+            user=self.request.user,
+            form=form,
+        )
+        try:
+            portal.submit_organisation_for_verification(
+                organisation=self.organisation,
+                user=self.request.user,
             )
-        return super().form_invalid(form)
+        except ValidationError as exc:
+            form.add_error(None, exc)
+            return self.form_invalid(form)
+        messages.success(
+            self.request,
+            _(
+                "Your organisation details are with the NHA review team. "
+                "You can register your first product while they verify them.",
+            ),
+        )
+        url = _post_login_url(self.request.user)
+        if self.request.htmx:
+            # Finishing this step leaves the screen for good, so there is no
+            # fragment worth swapping: hand htmx a real client-side redirect.
+            return HttpResponseClientRedirect(url)
+        return HttpResponseRedirect(url)
+
+
+class OrganisationDetailView(
+    OrganisationDetailsFormMixin,
+    OrganisationMixin,
+    UpdateView,
+):
+    """Settings → Organisation: the details, the verification state, queries."""
+
+    template_name = "organisations/organisation_detail.html"
+    success_url = reverse_lazy("organisations:detail")
+
+    def get_context_data(self, **kwargs) -> dict:
+        context = super().get_context_data(**kwargs)
+        item = self.organisation.verification_review_item
+        context.update(
+            {
+                "nav_section": "settings",
+                "settings_section": "organisation",
+                "form_layout": "settings",
+                "review_item": item,
+            },
+        )
+        if item is not None:
+            context.update(
+                query_thread_context(item, can_reply=can_write(self.membership)),
+            )
+        return context
+
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if not self.membership.can_manage:
+            msg = _("Only the owner and admins can edit the organisation details.")
+            raise PermissionDenied(msg)
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        portal.save_organisation_details(
+            organisation=self.organisation,
+            user=self.request.user,
+            form=form,
+        )
+        organisation = self.organisation
+        if organisation.is_sent_back or not organisation.has_submitted_details:
+            try:
+                portal.submit_organisation_for_verification(
+                    organisation=self.organisation,
+                    user=self.request.user,
+                )
+            except ValidationError as exc:
+                form.add_error(None, exc)
+                return self.form_invalid(form)
+            messages.success(
+                self.request,
+                _("Organisation details updated and resubmitted for verification."),
+            )
+        else:
+            messages.success(self.request, _("Organisation details updated."))
+        if self.request.htmx:
+            # A full navigation back here: the verification card, the badge
+            # in the shell and the flash all refresh together.
+            return HttpResponseClientRedirect(str(self.success_url))
+        return HttpResponseRedirect(str(self.success_url))
+
+
+class SubmitVerificationView(OrganisationMixin, View):
+    """Resubmit the saved details without changing them."""
+
+    require_manage = True
+
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        try:
+            portal.submit_organisation_for_verification(
+                organisation=self.organisation,
+                user=request.user,
+            )
+        except ValidationError as exc:
+            messages.error(request, " ".join(exc.messages))
+        else:
+            messages.success(
+                request,
+                _("Your organisation details were resubmitted for verification."),
+            )
+        return redirect("organisations:detail")
 
 
 class TeamFragmentMixin:

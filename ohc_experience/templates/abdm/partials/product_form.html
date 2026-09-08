@@ -1,0 +1,76 @@
+{% comment %}
+  The product form (ProductForm): identity, a rule, then the milestone
+  picker — one card, as the prototype draws it. Used by onboarding step 3,
+  "Register another product" and "Edit product"; every one includes this file
+  and htmx swaps it back in after a validation error.
+
+  Context: form, form_layout ("onboarding" | "create" | "edit"), product (edit),
+  organisation, form_tracks, can_write.
+{% endcomment %}
+{% load i18n careui abdm_extras %}
+
+{% if form_layout == "edit" %}
+  {% url 'products:edit' product.sandbox_id as form_action %}
+  {% translate "Save changes" as submit_label %}
+{% elif form_layout == "create" %}
+  {% url 'products:new' as form_action %}
+  {% translate "Submit product" as submit_label %}
+{% else %}
+  {% url 'products:onboarding-product' as form_action %}
+  {% translate "Submit product" as submit_label %}
+{% endif %}
+<form id="product-form"
+      class="ui-card ui-card--sm"
+      method="post"
+      action="{{ form_action }}"
+      novalidate
+      hx-post="{{ form_action }}"
+      hx-target="this"
+      hx-swap="outerHTML show:window:top"
+      hx-disabled-elt="find button[type=submit]"
+      hx-indicator="#nav-progress">
+  {% csrf_token %}
+  <div class="ui-card-content flex flex-col gap-5 pt-1.5">
+    {% include "components/form_errors.html" %}
+    {% if not can_write %}
+      <div class="ui-alert ui-alert--info" role="status">
+        <p class="flex-1">{% translate "Support members can read product details but not change them." %}</p>
+      </div>
+    {% endif %}
+    <div class="flex flex-col gap-3.5">
+      {% translate "Name" as name_label %}
+      {% ui_field form.name label=name_label %}
+      {% translate "A brief of the product: what it does, who uses it and how it will use ABDM. Shown to NHA reviewers." as description_hint %}
+      {% ui_field form.description help_text=description_hint %}
+      <div class="grid gap-3.5 sm:grid-cols-2">
+        <div>{% ui_field form.category %}</div>
+        <div>{% ui_field form.solution_type %}</div>
+      </div>
+    </div>
+    <hr class="border-soft-border" />
+    {% include "abdm/partials/milestone_checkboxes.html" %}
+    <div class="flex flex-col gap-2.5 border-t border-soft-border pt-4 sm:flex-row sm:items-center">
+      {% if form_layout == "edit" %}
+        <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+           href="{% url 'products:overview' product.sandbox_id %}">{% translate "Cancel" %}</a>
+      {% elif form_layout == "create" %}
+        <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+           href="{% url 'dashboard' %}">{% translate "Cancel" %}</a>
+      {% endif %}
+      <span class="text-[10.5px] text-soft-foreground sm:ml-auto">
+        {% if form_layout == "edit" %}
+          {% blocktranslate with date=product.updated_at|date:"j M Y" %}Last saved {{ date }}{% endblocktranslate %}
+        {% elif organisation.is_verified %}
+          {% translate "Credentials are issued as soon as the product is registered" %}
+        {% else %}
+          {% translate "Credentials are issued once the organisation is verified" %}
+        {% endif %}
+      </span>
+      {% if can_write %}
+        <button type="submit"
+                class="ui-btn ui-btn--default ui-btn--size-sm"
+                hx-disabled-elt="this">{{ submit_label }}</button>
+      {% endif %}
+    </div>
+  </div>
+</form>

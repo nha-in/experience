@@ -5,7 +5,7 @@
   and a submitted ticket leaves the screen for its thread, so htmx is not used
   here at all.
 
-  Context: form (TicketCreateForm).
+  Context: form (TicketCreateForm, with this organisation's products).
 {% endcomment %}
 {% load i18n careui %}
 
@@ -22,14 +22,16 @@
   </nav>
   <div class="mb-5">
     <h1 class="ui-page-title">{% translate "New ticket" %}</h1>
-    <p class="ui-page-subtitle">{% translate "Tell us what is happening and we will pick it up from here." %}</p>
+    <p class="ui-page-subtitle">{% translate "Tell the NHA desk what is happening. Severity sets the first-response commitment: High within 1 business day, Medium 2, Low 5." %}</p>
   </div>
 {% endblock page_header %}
 {% block content %}
   <div class="max-w-[720px]">
     <div class="ui-card">
       <div class="ui-card-content">
-        <form method="post" action="{% url 'support:create' %}">
+        <form method="post"
+              action="{% url 'support:create' %}"
+              enctype="multipart/form-data">
           {% csrf_token %}
           {% include "components/form_errors.html" %}
           <div class="flex flex-col gap-4">
@@ -38,8 +40,13 @@
               {% ui_field form.category %}
               {% ui_field form.priority %}
             </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              {% ui_field form.product %}
+              {% ui_field form.track %}
+            </div>
             {% ui_field form.linked_facility %}
             {% ui_field form.body %}
+            {% ui_field form.attachment %}
           </div>
           <div class="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row-reverse sm:justify-start">
             <button class="ui-btn ui-btn--default ui-btn--size-default" type="submit">{% translate "Open ticket" %}</button>

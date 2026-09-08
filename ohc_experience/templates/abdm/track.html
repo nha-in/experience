@@ -1,0 +1,85 @@
+{% extends "layouts/app.html" %}
+
+{% comment %}
+  One track (design doc 5.6), as the prototype draws it: the header with the
+  approved count on the right, the milestone tiles, and the selected
+  milestone's exit request card below them.
+
+  Three empty states: the track was not applied for, the track has no
+  published milestones (NHCX), and — inside the detail card — a tile the
+  product did not apply for.
+
+  Context: product, track, entries, track_applied, selected, approved_count,
+  applied_count, plus milestone_detail_context() for the selected tile.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {{ track.code }} · {{ product.name }}
+{% endblock title %}
+{% block crumb_root %}
+  {% translate "Tracks" %}
+{% endblock crumb_root %}
+{% block page_header %}
+  <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+    <div class="min-w-0">
+      <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "Track" %}</p>
+      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">
+        {{ track.code }} <span class="font-medium text-soft-foreground">· {{ track.name }}</span>
+      </h1>
+      <p class="mt-1.5 max-w-[640px] text-[12.5px] leading-[1.55] text-soft-foreground">{{ track.description }}</p>
+    </div>
+    <div class="flex shrink-0 flex-col items-start gap-1 lg:items-end lg:pt-6">
+      <span class="font-mono text-[11px] font-semibold {% if track_applied %}text-primary-700{% else %}text-soft-foreground{% endif %}">
+        {% if track_applied %}
+          {% blocktranslate with approved=approved_count applied=applied_count %}{{ approved }} of {{ applied }} milestones approved{% endblocktranslate %}
+        {% elif track.has_milestones %}
+          {% translate "Not applied for" %}
+        {% else %}
+          {% translate "No milestones published" %}
+        {% endif %}
+      </span>
+      <a class="text-[11px] text-soft-foreground hover:underline"
+         href="{{ track.docs_url }}"
+         target="_blank"
+         rel="noopener noreferrer">{% translate "NHA milestone documentation" %} <span aria-hidden="true">↗</span></a>
+    </div>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  {% if not track.has_milestones %}
+    <div class="ui-card ui-card--sm items-center px-5 py-11 text-center">
+      <h2 class="text-sm font-semibold">
+        {% translate "No milestones published yet" %}
+        <span class="font-normal text-soft-foreground">· {{ track.code }}</span>
+      </h2>
+      <p class="max-w-[460px] text-xs leading-[1.55] text-soft-foreground">
+        {% blocktranslate with code=track.code %}NHA publishes each track's milestones and exit requirements here. Products can apply for {{ code }} once the first milestone is live; until then, keep an eye on the events NHA runs for it.{% endblocktranslate %}
+      </p>
+      <div class="flex flex-wrap justify-center gap-2">
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+           href="{% url 'events:list' %}">{% translate "See events" %}</a>
+        <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+           href="{{ track.docs_url }}"
+           target="_blank"
+           rel="noopener noreferrer">{% translate "Track documentation" %} <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+  {% elif not track_applied %}
+    <div class="ui-card ui-card--sm items-center px-5 py-11 text-center">
+      <h2 class="text-sm font-semibold">
+        {% blocktranslate with name=product.name code=track.code %}{{ name }} has not applied for the {{ code }} track{% endblocktranslate %}
+      </h2>
+      <p class="max-w-[460px] text-xs leading-[1.55] text-soft-foreground">
+        {% translate "Not applied for. Add its milestones on the product form; NHA reviews the change and the track opens here with its exit request forms." %}
+      </p>
+      <div>
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+           href="{% url 'products:edit' product.sandbox_id %}">{% translate "Edit product" %}</a>
+      </div>
+    </div>
+  {% else %}
+    {% include "abdm/partials/milestone_tiles.html" %}
+    {% include "abdm/partials/milestone_detail.html" %}
+  {% endif %}
+{% endblock content %}

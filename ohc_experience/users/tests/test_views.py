@@ -29,10 +29,16 @@ SIGNUP_URL = "/accounts/signup/"
 SIGNUP_DATA = {
     "name": "Arun Nair",
     "email": "arun@sunrise.in",
-    "mobile_number": "+91 98765 43210",
+    "organisation_type": "company",
     "password1": "sandbox-Kerala-2026",
     "password2": "sandbox-Kerala-2026",
 }
+
+
+def with_captcha(client: Client, data: dict) -> dict:
+    """The sign-up data plus the answer to the sum the client was just shown."""
+    client.get(SIGNUP_URL)
+    return {**data, "captcha": client.session["signup_captcha"]["answer"]}
 
 
 class TestUserRedirectView:
@@ -61,6 +67,7 @@ class TestUserRedirectView:
         self,
         sign_in: Callable[[User], Client],
         owner_membership: MembershipType,
+        product,
     ):
         response = sign_in(owner_membership.user).get(reverse("users:redirect"))
 
@@ -209,9 +216,16 @@ class TestUserDetailView:
 class TestUserSignupView:
     def test_renders_the_account_card(self, client: Client):
         response = client.get(SIGNUP_URL)
+        html = response.content.decode()
 
         assert response.status_code == HTTPStatus.OK
         assert "organisation" in response.context["form"].fields
+        assert "organisation_type" in response.context["form"].fields
+        assert "Name of the entity" in html
+        assert "Sole proprietor" in html
+        # The captcha question is issued into the session and printed.
+        question = client.session["signup_captcha"]["question"]
+        assert f"What is {question}?" in html
 
     def test_an_invite_in_the_session_shapes_the_form(
         self,
@@ -255,13 +269,40 @@ class TestUserSignupView:
     def test_signing_up_creates_the_vendor_account(self, client: Client):
         response = client.post(
             SIGNUP_URL,
-            data={**SIGNUP_DATA, "organisation": "Sunrise Health Systems"},
+            data=with_captcha(
+                client,
+                {**SIGNUP_DATA, "organisation": "Sunrise Health Systems"},
+            ),
         )
 
         assert response.status_code == HTTPStatus.FOUND
         membership = Membership.objects.get(user__email=SIGNUP_DATA["email"])
         assert membership.role == Role.OWNER
         assert membership.organisation.name == "Sunrise Health Systems"
+        assert membership.organisation.entity_type == "private_company"
+
+    def test_a_wrong_captcha_answer_creates_nothing(self, client: Client):
+        client.get(SIGNUP_URL)
+        wrong = client.session["signup_captcha"]["answer"] + 1
+
+        response = client.post(
+            SIGNUP_URL,
+            data={
+                **SIGNUP_DATA,
+                "organisation": "Sunrise Health Systems",
+                "captcha": wrong,
+            },
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert "That answer is not right" in response.content.decode()
+        assert not Membership.objects.filter(user__email=SIGNUP_DATA["email"]).exists()
+
+    def test_the_short_signup_route_redirects_to_the_form(self, client: Client):
+        response = client.get("/signup/")
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == SIGNUP_URL
 
     def test_signing_up_from_an_invite_joins_that_organisation(
         self,
@@ -277,7 +318,7 @@ class TestUserSignupView:
         session[INVITATION_SESSION_KEY] = invitation.token
         session.save()
 
-        response = client.post(SIGNUP_URL, data=SIGNUP_DATA)
+        response = client.post(SIGNUP_URL, data=with_captcha(client, SIGNUP_DATA))
 
         assert response.status_code == HTTPStatus.FOUND
         membership = Membership.objects.get(user__email=SIGNUP_DATA["email"])
@@ -294,8 +335,13 @@ class TestSignOut:
         self,
         sign_in: Callable[[User], Client],
         owner_membership: MembershipType,
+        product,
     ):
-        html = sign_in(owner_membership.user).get(reverse("dashboard")).content.decode()
+        html = (
+            sign_in(owner_membership.user)
+            .get(product.get_absolute_url())
+            .content.decode()
+        )
 
         assert f'action="{reverse("account_logout")}"' in html
         assert "Sign out" in html
@@ -314,55 +360,67 @@ class TestSignOut:
         # session is gone rather than merely that the POST was accepted.
         assert client.get(reverse("dashboard")).status_code == HTTPStatus.FOUND
 
-    def test_the_nav_lists_only_sections_that_exist(
+    def test_the_nav_lists_the_portal_sections(
         self,
         sign_in: Callable[[User], Client],
         owner_membership: MembershipType,
+        product,
     ):
-        html = sign_in(owner_membership.user).get(reverse("dashboard")).content.decode()
-        # Scoped to the rail: the dashboard legitimately says "Sandbox" on a
-        # status tile, which is not a nav entry.
+        html = (
+            sign_in(owner_membership.user)
+            .get(product.get_absolute_url())
+            .content.decode()
+        )
         nav = html[html.index('<nav id="app-nav"') : html.index("</nav>")]
 
-        assert "Soon" not in nav
         for built in (
-            "Dashboard",
-            "Sandbox",
+            "Overview",
+            "Credentials",
+            "HI-CM",
+            "UHI",
+            "NHCX",
+            "PHR",
+            "HealthLocker",
             "Events",
-            "Applications",
             "Support",
+            "Edit product",
             "Settings",
         ):
             assert built in nav
-        # Still unbuilt: these arrive with their pages, not as disabled rows.
-        for unbuilt in (
-            "Certifications",
-            "Deployments",
-        ):
-            assert unbuilt not in nav
+        # Gone from the rail with the portal's IA: the generic hub sections.
+        for retired in ("Dashboard", "Applications", "Sandbox"):
+            assert retired not in nav
 
 
 class TestOhcConsoleLink:
     """The console entry is offered only to the people who can actually open it."""
 
     @staticmethod
-    def _nav_of(client: Client) -> str:
-        html = client.get(reverse("dashboard")).content.decode()
+    def _nav_of(client: Client, product) -> str:
+        html = client.get(product.get_absolute_url()).content.decode()
         return html[html.index('<nav id="app-nav"') : html.index("</nav>")]
 
     def test_a_vendor_is_not_offered_the_console(
         self,
         sign_in: Callable[[User], Client],
         owner_membership: MembershipType,
+        product,
     ):
-        assert "OHC console" not in self._nav_of(sign_in(owner_membership.user))
+        assert "Certification desk" not in self._nav_of(
+            sign_in(owner_membership.user),
+            product,
+        )
 
     def test_an_ohc_member_is_offered_the_console(
         self,
         sign_in: Callable[[User], Client],
         owner_membership: MembershipType,
+        product,
     ):
         owner_membership.user.is_ohc_team = True
         owner_membership.user.save(update_fields=["is_ohc_team"])
 
-        assert "OHC console" in self._nav_of(sign_in(owner_membership.user))
+        nav = self._nav_of(sign_in(owner_membership.user), product)
+
+        assert "Certification desk" in nav
+        assert reverse("assess:dashboard") in nav

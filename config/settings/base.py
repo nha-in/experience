@@ -25,7 +25,7 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.
 # In Windows, this must be set to your system time zone.
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Kolkata"
 # https://docs.djangoproject.com/en/dev/ref/settings/#language-code
 LANGUAGE_CODE = "en-us"
 # https://docs.djangoproject.com/en/dev/ref/settings/#languages
@@ -124,6 +124,7 @@ LOCAL_APPS = [
     "ohc_experience.events",
     "ohc_experience.experiences",
     "ohc_experience.ohc",
+    "ohc_experience.abdm",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -236,6 +237,8 @@ TEMPLATES = [
                 "ohc_experience.users.context_processors.allauth_settings",
                 "ohc_experience.users.context_processors.ohc_team",
                 "ohc_experience.organisations.context_processors.current_organisation",
+                "ohc_experience.abdm.context_processors.current_product",
+                "ohc_experience.abdm.context_processors.certification_desk",
             ],
         },
     },
@@ -392,5 +395,40 @@ SOCIALACCOUNT_FORMS = {"signup": "ohc_experience.users.forms.UserSocialSignupFor
 INSTALLED_APPS += ["compressor"]
 STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
 
+# ABDM sandbox portal
+# ------------------------------------------------------------------------------
+# Where the sandbox gateway lives; printed beside the client id on the
+# credentials screen.
+ABDM_SANDBOX_GATEWAY_URL = env(
+    "ABDM_SANDBOX_GATEWAY_URL",
+    default="https://dev.abdm.gov.in/api/hiecm/gateway/v3",
+)
+# NHA's milestone documentation, linked from every track and milestone.
+ABDM_DOCS_URL = env("ABDM_DOCS_URL", default="https://sandbox.abdm.gov.in/docs")
+# Set a dedicated key in production so rotating SECRET_KEY never strands the
+# encrypted client secrets (see abdm/crypto.py).
+ABDM_SECRET_ENCRYPTION_KEY = env("ABDM_SECRET_ENCRYPTION_KEY", default="")
+# Reveals of a client secret allowed per user inside the window, in seconds.
+ABDM_SECRET_REVEAL_LIMIT = env.int("ABDM_SECRET_REVEAL_LIMIT", default=5)
+ABDM_SECRET_REVEAL_WINDOW = env.int("ABDM_SECRET_REVEAL_WINDOW", default=600)
+ABDM_CREDENTIAL_ROTATION_DAYS = env.int("ABDM_CREDENTIAL_ROTATION_DAYS", default=90)
+# The callback monitor: probe timeout and how many failures in a row raise a mail.
+ABDM_CALLBACK_TIMEOUT = env.int("ABDM_CALLBACK_TIMEOUT", default=5)
+ABDM_CALLBACK_FAILURE_ALERT = env.int("ABDM_CALLBACK_FAILURE_ALERT", default=3)
+# An open review item older than this is flagged on the reviewer dashboard.
+ABDM_REVIEW_ATTENTION_DAYS = env.int("ABDM_REVIEW_ATTENTION_DAYS", default=10)
+# Reviewer mail goes to every OHC team member unless an item has an assignee.
+ABDM_REVIEW_INBOX = env("ABDM_REVIEW_INBOX", default="")
+# https://docs.celeryq.dev/en/stable/userguide/periodic-tasks.html
+CELERY_BEAT_SCHEDULE = {
+    "abdm-callback-checks": {
+        "task": "ohc_experience.abdm.tasks.run_callback_checks",
+        "schedule": 15 * 60,
+    },
+    "event-reminders": {
+        "task": "ohc_experience.events.tasks.send_event_reminders",
+        "schedule": 60 * 60,
+    },
+}
 # Your stuff...
 # ------------------------------------------------------------------------------

@@ -1,0 +1,64 @@
+{% comment %}
+  Register / withdraw for one event. A real POST either way; htmx swaps this
+  element back in. Finished events show their materials instead.
+
+  Context: event, is_registered, compact (the list row's smaller variant).
+{% endcomment %}
+{% load i18n %}
+
+<div id="registration-{{ event.pk }}"
+     class="flex flex-wrap items-center gap-2 {% if compact %}justify-end{% endif %}">
+  {% if event.is_past %}
+    {% if event.materials_url %}
+      <a class="ui-btn ui-btn--outline {% if compact %}ui-btn--size-xs{% else %}ui-btn--size-sm{% endif %} no-underline"
+         href="{{ event.materials_url }}"
+         target="_blank"
+         rel="noopener noreferrer">{% translate "Slides" %} <span aria-hidden="true">↗</span></a>
+    {% endif %}
+    {% if event.recording_url %}
+      <a class="ui-btn ui-btn--outline {% if compact %}ui-btn--size-xs{% else %}ui-btn--size-sm{% endif %} no-underline"
+         href="{{ event.recording_url }}"
+         target="_blank"
+         rel="noopener noreferrer">{% translate "Recording" %} <span aria-hidden="true">↗</span></a>
+    {% endif %}
+    {% if not event.has_materials %}
+      <span class="text-[11px] text-soft-foreground">{% translate "Materials not posted yet." %}</span>
+    {% endif %}
+  {% elif is_registered %}
+    <span class="flex items-center gap-1.5 text-[11px] font-semibold text-primary-700">
+      {% include "components/status_dot.html" with variant="success" %}
+      {% translate "Registered" %}
+    </span>
+    <form method="post"
+          action="{% url 'events:registration' event.slug 'withdraw' %}"
+          hx-post="{% url 'events:registration' event.slug 'withdraw' %}"
+          hx-target="#registration-{{ event.pk }}"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button"
+          hx-indicator="#nav-progress">
+      {% csrf_token %}
+      <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Withdraw" %}</button>
+    </form>
+  {% else %}
+    <form method="post"
+          action="{% url 'events:registration' event.slug 'register' %}"
+          hx-post="{% url 'events:registration' event.slug 'register' %}"
+          hx-target="#registration-{{ event.pk }}"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button"
+          hx-indicator="#nav-progress">
+      {% csrf_token %}
+      <button type="submit"
+              class="ui-btn {% if compact %}ui-btn--outline ui-btn--size-xs{% else %}ui-btn--default ui-btn--size-sm{% endif %}">
+        {% translate "Register" %}
+      </button>
+    </form>
+  {% endif %}
+  {% if event.join_url and not event.is_past %}
+    <a class="ui-btn ui-btn--outline {% if compact %}ui-btn--size-xs{% else %}ui-btn--size-sm{% endif %} no-underline"
+       href="{{ event.join_url }}"
+       target="_blank"
+       rel="noopener noreferrer"
+       aria-label="{% blocktranslate with title=event.title %}Join {{ title }}{% endblocktranslate %}">{% translate "Join" %} <span aria-hidden="true">↗</span></a>
+  {% endif %}
+</div>

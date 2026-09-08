@@ -1,0 +1,9 @@
+{% autoescape off %}Hello {{ product.organisation.name }},
+
+The callback URL for {{ product.name }} ({{ product.sandbox_id }}) has failed {{ credential.callback_failure_streak }} checks in a row.
+
+URL: {{ credential.callback_url }}
+Last result: {% if credential.callback_status_code %}HTTP {{ credential.callback_status_code }}{% else %}{{ credential.callback_error }}{% endif %} at {{ credential.callback_checked_at|date:"j M Y, H:i" }} IST
+
+Fix the endpoint or update the URL on the Credentials page. Checks run every 15 minutes.
+{% endautoescape %}

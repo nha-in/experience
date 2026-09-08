@@ -52,6 +52,24 @@ def owner_membership(onboarded_organisation: Organisation) -> Membership:
 
 
 @pytest.fixture
+def product(owner_membership: Membership):
+    """The owner's first registered product, on HI-CM M1 and M2."""
+    from ohc_experience.abdm import services  # noqa: PLC0415
+
+    return services.register_product(
+        organisation=owner_membership.organisation,
+        user=owner_membership.user,
+        data={
+            "name": "Sunrise HMIS",
+            "description": "Hospital management with ABHA-linked registration.",
+            "category": "hmis",
+            "solution_type": "clinical_hmis",
+            "milestones": ["HI-CM:M1", "HI-CM:M2"],
+        },
+    )
+
+
+@pytest.fixture
 def sign_in(client: Client) -> Callable[[User], Client]:
     """Sign a user into the shared test client and hand the client back."""
 

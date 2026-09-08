@@ -1,0 +1,35 @@
+{% comment %}
+  Recent activity: the history entries on this product's review items and on
+  the organisation's verification, newest first — the audit record, as the
+  prototype labels it.
+
+  Context: activity (ReviewHistory rows).
+{% endcomment %}
+{% load i18n %}
+
+<section class="ui-card ui-card--sm" aria-labelledby="activity-title">
+  <div class="ui-card-content">
+    <div class="mb-3 flex items-center justify-between gap-2">
+      <h2 class="text-[12.5px] font-bold" id="activity-title">{% translate "Recent activity" %}</h2>
+      <span class="text-[11px] text-soft-foreground">{% translate "Audit record" %}</span>
+    </div>
+    {% if activity %}
+      <ol class="flex flex-col gap-[11px]">
+        {% for entry in activity %}
+          <li class="flex items-start gap-[11px]">
+            <span class="mt-[5px]">{% include "components/status_dot.html" with variant=entry.variant %}</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-xs leading-[1.4] break-words">
+                {{ entry.title }}
+                {% if entry.description %}<span class="text-soft-foreground">· {{ entry.description|truncatechars:120 }}</span>{% endif %}
+              </p>
+              <p class="text-[10.5px] text-soft-foreground">{{ entry.item.title }} · {{ entry.actor_label }} · {{ entry.created_at|date:"j M Y, H:i" }}</p>
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="text-xs leading-[1.5] text-soft-foreground">{% translate "Nothing has happened yet. Submissions, decisions and queries will appear here." %}</p>
+    {% endif %}
+  </div>
+</section>

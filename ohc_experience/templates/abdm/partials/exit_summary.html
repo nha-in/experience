@@ -1,0 +1,72 @@
+{% comment %}
+  The exit request as submitted, read-only, in the prototype's two-column
+  grid, with the two files openable.
+
+  Context: record, product.
+{% endcomment %}
+{% load i18n abdm_extras %}
+
+<dl class="grid gap-x-6 gap-y-4 px-5 pt-[18px] pb-5 sm:grid-cols-2">
+  <div>
+    <dt class="text-[10.5px] text-soft-foreground">{% translate "Sandbox testing window" %}</dt>
+    <dd class="mt-0.5 text-[12.5px]">
+      {{ record.start_date|date:"j M Y"|default:"—" }} – {{ record.end_date|date:"j M Y"|default:"—" }}
+    </dd>
+  </div>
+  <div>
+    <dt class="text-[10.5px] text-soft-foreground">{% translate "Demo date" %}</dt>
+    <dd class="mt-0.5 text-[12.5px]">
+      {{ record.demo_date|date:"j M Y"|default:"—" }}
+    </dd>
+  </div>
+  <div>
+    <dt class="text-[10.5px] text-soft-foreground">{% translate "WASA audit agency" %}</dt>
+    <dd class="mt-0.5 text-[12.5px] break-words">
+      {{ record.wasa_agency|default:"—" }}
+    </dd>
+  </div>
+  <div>
+    <dt class="text-[10.5px] text-soft-foreground">{% translate "WASA date" %}</dt>
+    <dd class="mt-0.5 text-[12.5px]">
+      {{ record.wasa_date|date:"j M Y"|default:"—" }}
+    </dd>
+  </div>
+  <div>
+    <dt class="mb-1.5 text-[10.5px] text-soft-foreground">{% translate "Functional testing certificate" %}</dt>
+    <dd>
+      {% if record.functional_certificate %}
+        <span class="flex h-[38px] items-center gap-2.5 rounded-md border border-border bg-soft-background px-3">
+          <span class="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-soft-foreground">PDF</span>
+          <span class="min-w-0 flex-1 truncate text-[11.5px]">{{ record.functional_certificate.name|file_basename }}</span>
+          <a class="text-[10.5px] font-semibold text-primary hover:underline"
+             href="{% url 'products:document' 'compliance' record.pk 'functional_certificate' %}">{% translate "Download certificate" %}</a>
+        </span>
+      {% else %}
+        <span class="text-[12.5px]">—</span>
+      {% endif %}
+    </dd>
+  </div>
+  <div>
+    <dt class="mb-1.5 text-[10.5px] text-soft-foreground">{% translate "Functional testing report" %}</dt>
+    <dd>
+      {% if record.functional_report %}
+        <span class="flex h-[38px] items-center gap-2.5 rounded-md border border-border bg-soft-background px-3">
+          <span class="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-soft-foreground">PDF</span>
+          <span class="min-w-0 flex-1 truncate text-[11.5px]">{{ record.functional_report.name|file_basename }}</span>
+          <a class="text-[10.5px] font-semibold text-primary hover:underline"
+             href="{% url 'products:document' 'compliance' record.pk 'functional_report' %}">{% translate "Download report" %}</a>
+        </span>
+      {% else %}
+        <span class="text-[12.5px]">—</span>
+      {% endif %}
+    </dd>
+  </div>
+  {% if record.resubmission_count %}
+    <div class="sm:col-span-2">
+      <dt class="text-[10.5px] text-soft-foreground">{% translate "Resubmissions" %}</dt>
+      <dd class="mt-0.5 text-[12.5px]">
+        {{ record.resubmission_count }}
+      </dd>
+    </div>
+  {% endif %}
+</dl>

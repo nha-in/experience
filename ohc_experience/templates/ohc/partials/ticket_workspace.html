@@ -51,13 +51,19 @@
                       aria-hidden="true">{{ entry.author_label|slice:":2"|upper }}</span>
                 <span class="text-[13.5px] font-semibold break-words">{{ entry.author_label }}</span>
                 {% if entry.from_ohc_team %}
-                  <span class="ui-badge ui-badge--primary ui-badge--size-xs">{% translate "Care support" %}</span>
+                  <span class="ui-badge ui-badge--primary ui-badge--size-xs">{% translate "NHA desk" %}</span>
                 {% else %}
                   <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{{ ticket.organisation.name }}</span>
                 {% endif %}
                 <span class="text-[11.5px] text-soft-foreground">{{ entry.created_at|date:"j M Y, H:i" }}</span>
               </div>
               <p class="text-[13.5px] leading-relaxed break-words text-foreground">{{ entry.body|linebreaksbr }}</p>
+              {% if entry.attachment %}
+                <p class="mt-2 text-[12.5px]">
+                  <a class="ui-prose-link"
+                     href="{% url 'products:document' 'ticket-message' entry.pk 'attachment' %}">📎 {{ entry.attachment_name }}</a>
+                </p>
+              {% endif %}
             </div>
           </article>
         {% endif %}
@@ -69,14 +75,17 @@
       <form class="ui-card ui-card--sm"
             method="post"
             action="{% url 'ohc:ticket-reply' ticket.reference %}"
+            enctype="multipart/form-data"
             hx-post="{% url 'ohc:ticket-reply' ticket.reference %}"
+            hx-encoding="multipart/form-data"
             hx-target="#ticket-workspace"
             hx-swap="outerHTML"
             hx-disabled-elt="find button"
             hx-indicator="#nav-progress">
         {% csrf_token %}
-        <div class="ui-card-content">
+        <div class="ui-card-content flex flex-col gap-3">
           {% ui_field reply_form.body %}
+          {% ui_field reply_form.attachment %}
           <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
             <p class="text-[11.5px] text-soft-foreground">
               {% blocktranslate with vendor=ticket.organisation.name %}Goes to {{ vendor }} and moves the ticket to Awaiting vendor.{% endblocktranslate %}
@@ -118,7 +127,7 @@
                 {{ ticket.reference }}
               </dd>
             </div>
-            <div class="flex items-baseline justify-between gap-3 py-2">
+            <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
               <dt class="text-soft-foreground">{% translate "Linked facility" %}</dt>
               <dd class="min-w-0 text-right font-medium break-words">
                 {% if ticket.linked_facility %}
@@ -128,9 +137,38 @@
                 {% endif %}
               </dd>
             </div>
+            <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+              <dt class="text-soft-foreground">{% translate "Product" %}</dt>
+              <dd class="min-w-0 text-right font-medium break-words">
+                {% if ticket.product %}
+                  {{ ticket.product.name }}
+                  <span class="block font-mono text-[11px] font-normal text-soft-foreground">{{ ticket.product.sandbox_id }}</span>
+                {% else %}
+                  <span class="text-soft-foreground">{% translate "Not product-specific" %}</span>
+                {% endif %}
+              </dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-3 border-b border-soft-border py-2">
+              <dt class="text-soft-foreground">{% translate "Track" %}</dt>
+              <dd class="font-mono text-[12.5px]">
+                {{ ticket.track|default:"—" }}
+              </dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-3 py-2">
+              <dt class="text-soft-foreground">{% translate "SLA" %}</dt>
+              <dd class="min-w-0 text-right font-medium">
+                {{ ticket.sla_label }}
+                {% if ticket.sla_met is True %}
+                  <span class="ui-badge ui-badge--success ui-badge--size-xs">{% translate "Met" %}</span>
+                {% elif ticket.sla_met is False %}
+                  <span class="ui-badge ui-badge--warning ui-badge--size-xs">{% translate "Missed" %}</span>
+                {% endif %}
+              </dd>
+            </div>
           </dl>
         </div>
       </div>
+      {% include "support/partials/related_knowledge.html" %}
       <form class="ui-card ui-card--sm"
             method="post"
             action="{% url 'ohc:ticket-update' ticket.reference %}"

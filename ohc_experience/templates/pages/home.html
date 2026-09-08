@@ -1,65 +1,65 @@
 {% extends "layouts/marketing.html" %}
 
 {% comment %}
-  Screen 1a — the signed-out front door. The mockup's right-hand column is the signup form itself;
-  here it sells the account and hands off to /accounts/signup/, which owns the real form.
+  The signed-out front door. The right-hand card sells the account and hands
+  off to /accounts/signup/, which owns the real form.
 {% endcomment %}
 {% load i18n %}
 
 {% block title %}
-  {% translate "Care Experience Hub" %}
+  {% translate "ABDM Sandbox Portal" %}
 {% endblock title %}
 {% block meta_description %}
-  {% translate "One account for your whole team to run a private Care sandbox, track certification, raise support tickets and register deployments." %}
+  {% translate "Onboard to the ABDM sandbox, register your product, test against the gateway and request sandbox exit per milestone, with NHA reviewers deciding in the open." %}
 {% endblock meta_description %}
 {% block content %}
   <section class="mx-auto grid w-full max-w-[1360px] gap-10 px-5 py-12 sm:px-8 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-16 lg:px-[72px] lg:pt-16 lg:pb-[72px]">
     <div>
-      <p class="ui-eyebrow">{% translate "For Care vendors &amp; partners" %}</p>
+      <p class="ui-eyebrow">{% translate "ABDM developer sandbox" %}</p>
       <h1 class="mt-3.5 text-[30px] leading-[1.12] font-[750] tracking-[-0.025em] text-pretty sm:text-[34px] lg:text-[38px]">
-        {% translate "Everything you need to get started with Care, all managed from one place." %}
+        {% translate "Build against the ABDM sandbox and exit it one milestone at a time." %}
       </h1>
       <p class="mt-4 max-w-[52ch] text-[15px] leading-[1.6] text-muted-foreground">
-        {% translate "Your sandbox, training tracks, and deployment docs, all in one account." %}
+        {% translate "Describe your organisation, register a product, get sandbox credentials and file exit requests per compliance milestone. NHA reviewers approve, send back or raise a query, and every decision is on the record." %}
       </p>
       <ul class="mt-7 flex flex-col gap-3.5">
         <li class="flex items-start gap-3">
           <span aria-hidden="true"
                 class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
           <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Private sandbox" %}</strong>{% translate ": your own test environment, ready the moment you sign up." %}
+            <strong class="font-semibold">{% translate "Sandbox credentials" %}</strong>{% translate ": a client id and secret per product, callback and bridge URLs you manage, and a reachability check every 15 minutes." %}
           </span>
         </li>
         <li class="flex items-start gap-3">
           <span aria-hidden="true"
                 class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
           <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Documentation" %}</strong>{% translate ": complete guides, references, and API docs in one place." %}
+            <strong class="font-semibold">{% translate "Compliance tracks" %}</strong>{% translate ": HI-CM, PHR, Health Locker and UHI milestones that unlock in order as each one is approved." %}
           </span>
         </li>
         <li class="flex items-start gap-3">
           <span aria-hidden="true"
                 class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
           <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Deployment instructions" %}</strong>{% translate ": your path from sandbox to production." %}
+            <strong class="font-semibold">{% translate "Reviewer queries" %}</strong>{% translate ": questions against a field or the whole form, answered from the portal, with the full history visible to both sides." %}
           </span>
         </li>
         <li class="flex items-start gap-3">
           <span aria-hidden="true"
                 class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
           <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Support system" %}</strong>{% translate ": tickets answered by the Care team, with response-time SLAs." %}
+            <strong class="font-semibold">{% translate "Support and events" %}</strong>{% translate ": tickets with product and track context, and NHA office hours and webinars to register for." %}
           </span>
         </li>
       </ul>
       <p class="mt-7 max-w-[60ch] text-[12.5px] leading-[1.55] text-soft-foreground">
-        {% translate "For HMIS/EMR integrators, medical device vendors, lab &amp; pharmacy systems, implementation partners and hospital IT teams." %}
+        {% translate "For HMIS and LMIS vendors, PHR applications, health lockers, payer and TPA systems and the teams that integrate them. The sandbox holds synthetic data only." %}
       </p>
     </div>
     <div class="ui-card w-full lg:max-w-[420px] lg:justify-self-end">
       <div class="ui-card-header">
-        <h2 class="ui-card-title text-[17px] font-[650] tracking-[-0.01em]">{% translate "Create your vendor account" %}</h2>
-        <p class="ui-card-description text-[13px]">{% translate "Free for all OHC partners." %}</p>
+        <h2 class="ui-card-title text-[17px] font-[650] tracking-[-0.01em]">{% translate "Create your integrator account" %}</h2>
+        <p class="ui-card-description text-[13px]">{% translate "Free for every ABDM integrator." %}</p>
       </div>
       <div class="ui-card-content flex flex-col gap-3.5">
         <a class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block"
@@ -69,7 +69,7 @@
           <a class="ui-prose-link" href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
         </p>
         <p class="mt-1 text-[11.5px] leading-[1.5] text-soft-foreground">
-          {% translate "By creating an account you agree to the partner terms and privacy policy. We verify all vendor accounts within 1 business day." %}
+          {% translate "By creating an account you agree to the sandbox terms. The NHA review team verifies every organisation before credentials are issued." %}
         </p>
       </div>
     </div>
@@ -79,7 +79,7 @@
     <div class="mx-auto w-full max-w-[1360px] px-5 py-12 sm:px-8 sm:py-14 lg:px-[72px] lg:py-16">
       <h2 id="how-it-works" class="ui-page-title">{% translate "How it works" %}</h2>
       <p class="ui-page-subtitle max-w-[52ch]">
-        {% translate "Four steps from a new account to a certified team. Nothing to install, nothing to buy." %}
+        {% translate "Four steps from a new account to an approved milestone. Nothing to install, nothing to buy." %}
       </p>
       <ol class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <li class="ui-card ui-card--sm">
@@ -88,7 +88,7 @@
                   class="ui-avatar ui-avatar--primary size-7 font-mono">1</span>
             <h3 class="ui-section-title">{% translate "Create your account" %}</h3>
             <p class="text-[13px] leading-[1.55] text-muted-foreground">
-              {% translate "Sign up with your work email. We verify every vendor account within 1 business day." %}
+              {% translate "Your name, the entity you work for and a work email. We send a link to verify the address." %}
             </p>
           </div>
         </li>
@@ -96,9 +96,9 @@
           <div class="ui-card-content flex flex-col gap-2.5">
             <span aria-hidden="true"
                   class="ui-avatar ui-avatar--primary size-7 font-mono">2</span>
-            <h3 class="ui-section-title">{% translate "Set up your vendor profile" %}</h3>
+            <h3 class="ui-section-title">{% translate "Describe your organisation" %}</h3>
             <p class="text-[13px] leading-[1.55] text-muted-foreground">
-              {% translate "Your legal entity, the states you deploy in, and a technical contact for sandbox and API notices." %}
+              {% translate "Identity, registered address and a PAN, GSTIN or CIN with its document. NHA reviewers verify it." %}
             </p>
           </div>
         </li>
@@ -106,9 +106,9 @@
           <div class="ui-card-content flex flex-col gap-2.5">
             <span aria-hidden="true"
                   class="ui-avatar ui-avatar--primary size-7 font-mono">3</span>
-            <h3 class="ui-section-title">{% translate "Invite your team" %}</h3>
+            <h3 class="ui-section-title">{% translate "Register a product" %}</h3>
             <p class="text-[13px] leading-[1.55] text-muted-foreground">
-              {% translate "Bring in engineers, implementers and admins so the whole organisation shares one account." %}
+              {% translate "Pick the tracks and milestones you are applying for. You get a sandbox id and, once verified, credentials." %}
             </p>
           </div>
         </li>
@@ -116,9 +116,9 @@
           <div class="ui-card-content flex flex-col gap-2.5">
             <span aria-hidden="true"
                   class="ui-avatar ui-avatar--primary size-7 font-mono">4</span>
-            <h3 class="ui-section-title">{% translate "Work through certification" %}</h3>
+            <h3 class="ui-section-title">{% translate "Request exit per milestone" %}</h3>
             <p class="text-[13px] leading-[1.55] text-muted-foreground">
-              {% translate "Care Basic runs on school.ohc.network today. Developer and Advanced tracks are on the way." %}
+              {% translate "Test in the sandbox, attach the functional testing certificate and report, and request exit. The next milestone opens on approval." %}
             </p>
           </div>
         </li>
@@ -127,7 +127,9 @@
         <a class="ui-btn ui-btn--default ui-btn--size-default"
            href="{% url 'account_signup' %}">{% translate "Create account" %}</a>
         <a class="ui-btn ui-btn--ghost ui-btn--size-default"
-           href="{% url 'about' %}">{% translate "What is the Hub?" %}</a>
+           href="{{ abdm_docs_url }}"
+           target="_blank"
+           rel="noopener noreferrer">{% translate "Read the milestone documentation" %} <span aria-hidden="true">↗</span></a>
       </div>
     </div>
   </section>

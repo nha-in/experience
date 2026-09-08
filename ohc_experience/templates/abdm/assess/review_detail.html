@@ -1,0 +1,20 @@
+{% extends "layouts/ohc.html" %}
+
+{% comment %}
+  Review detail (design doc 5.11). Everything a decision can change lives in
+  partials/review_workspace.html, which every POST renders back; this page
+  only sets the breadcrumb leaf and includes it.
+
+  Context: see abdm.assess_views.review_context.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {{ item.reference }} · {{ item.subject_label }}
+{% endblock title %}
+{% block crumb_leaf %}
+  {{ item.reference }}
+{% endblock crumb_leaf %}
+{% block content %}
+  {% include "abdm/assess/partials/review_workspace.html" %}
+{% endblock content %}

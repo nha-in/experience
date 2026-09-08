@@ -1,14 +1,13 @@
 {% extends "base.html" %}
 
 {% comment %}
-  The OHC console's shell — deliberately not layouts/app.html.
+  The certification desk's shell — deliberately not layouts/app.html.
 
-  Same 228px rail and the same careui tokens as the vendor hub, but the rail is
-  bg-muted-background rather than bg-sidebar, the wordmark reads "care | OHC
-  Console" and carries an "Internal" badge. A staff member who also belongs to a
-  vendor organisation switches between the two all day; the two shells have to
-  be told apart at a glance, because everything in here spans every vendor and
-  acting on the wrong one is the failure that matters.
+  The same 232px rail, top bar and careui tokens as the integrator hub, as the
+  prototype draws both personas in one frame; what tells the two apart is the
+  desk card at the top of the rail and the "Certification desk" breadcrumb.
+  A staff member who also belongs to an integrator organisation switches
+  between the two all day, and everything in here spans every organisation.
 
   Structure is lifted from layouts/app.html on purpose — the mobile drawer is a
   checkbox + label so it works with JavaScript disabled, and <main
@@ -16,8 +15,9 @@
   components/app_nav.html for the full contract; ohc/partials/console_nav.html
   is the same idea with #ohc-nav as its out-of-band id.
 
-  Blocks: page_header, content.
-  Context: nav_section — "queue", "organisations" or "events", set by each view.
+  Blocks: crumb_leaf, page_header, content.
+  Context: nav_section — "dashboard", "review-queue", "queue", "organisations"
+  or "events", set by each view.
 {% endcomment %}
 {% load i18n %}
 
@@ -30,7 +30,7 @@
            tabindex="-1" />
     <!-- Mobile top bar -->
     <header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card px-4 md:hidden">
-      <a href="{% url 'ohc:queue' %}"
+      <a href="{% url 'assess:dashboard' %}"
          class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
         {% include "ohc/partials/console_brand.html" %}
       </a>
@@ -55,11 +55,11 @@
            class="invisible fixed inset-0 z-30 bg-foreground/40 opacity-0 transition-opacity duration-200 peer-checked:visible peer-checked:opacity-100 md:hidden"
            aria-hidden="true"></label>
     <aside id="ohc-sidebar"
-           class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-border bg-muted-background px-3 pt-4 pb-4 transition-transform duration-200 peer-checked:translate-x-0 md:static md:w-[228px] md:shrink-0 md:translate-x-0 md:pt-[18px]">
-      <div class="mb-4 flex items-start justify-between gap-2 px-2.5">
-        <a href="{% url 'ohc:queue' %}"
+           class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar px-3 pt-4 pb-3 transition-transform duration-200 peer-checked:translate-x-0 md:sticky md:top-0 md:h-screen md:w-[232px] md:shrink-0 md:translate-x-0">
+      <div class="mb-3.5 flex items-start justify-between px-1.5">
+        <a href="{% url 'assess:dashboard' %}"
            class="min-w-0 rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
-          {% include "ohc/partials/console_brand.html" %}
+          {% include "ohc/partials/console_brand.html" with size="sm" %}
         </a>
         <label for="ohc-drawer"
                class="ui-btn ui-btn--ghost ui-btn--size-icon-xs no-underline md:hidden"
@@ -79,14 +79,49 @@
       {% include "ohc/partials/console_nav.html" %}
     </aside>
     <div class="flex min-w-0 flex-1 flex-col bg-soft-background">
-      <main id="main-content"
-            class="flex-1 px-4 pt-6 pb-12 sm:px-6 md:pt-7 md:pb-12">
-        <div class="mx-auto w-full max-w-[1120px]">
-          {% include "components/messages.html" %}
-          {% block page_header %}
-          {% endblock page_header %}
-          {% block content %}
-          {% endblock content %}
+      <main id="main-content" class="flex flex-1 flex-col">
+        <div class="hidden h-[50px] shrink-0 items-center gap-3 border-b border-border bg-card px-[22px] md:flex">
+          <nav class="flex min-w-0 items-center gap-1.5 text-[11.5px] text-soft-foreground"
+               aria-label="{% translate 'Breadcrumb' %}">
+            <span class="truncate">{% translate "Certification desk" %}</span>
+            <span class="opacity-50" aria-hidden="true">/</span>
+            <span class="truncate font-mono text-foreground">
+              {% block crumb_leaf %}
+                {% if nav_section == "dashboard" %}
+                  {% translate "Dashboard" %}
+                {% elif nav_section == "review-queue" %}
+                  {% translate "Review queue" %}
+                {% elif nav_section == "queue" %}
+                  {% translate "Tickets" %}
+                {% elif nav_section == "organisations" %}
+                  {% translate "Organisations" %}
+                {% elif nav_section == "events" %}
+                  {% translate "Events" %}
+                {% else %}
+                  {% translate "Console" %}
+                {% endif %}
+              {% endblock crumb_leaf %}
+            </span>
+          </nav>
+          <div class="ml-auto flex items-center gap-2">
+            <span class="flex h-[26px] items-center gap-1.5 rounded-lg border border-border bg-soft-background px-2.5 text-[11px] text-soft-foreground">
+              {% include "components/status_dot.html" with variant="success" %}
+              {% translate "Sandbox environment" %}
+            </span>
+            <span class="mx-0.5 h-5 w-px bg-border" aria-hidden="true"></span>
+            <span class="ui-avatar ui-avatar--muted size-[26px] text-[9.5px]"
+                  title="{{ request.user.display_name }}"
+                  aria-hidden="true">{{ request.user.initials }}</span>
+          </div>
+        </div>
+        <div class="flex-1 px-4 pt-6 pb-12 sm:px-[26px]">
+          <div class="mx-auto w-full max-w-[1120px]">
+            {% include "components/messages.html" %}
+            {% block page_header %}
+            {% endblock page_header %}
+            {% block content %}
+            {% endblock content %}
+          </div>
         </div>
       </main>
     </div>

@@ -52,6 +52,27 @@ class User(AbstractUser):
         return self.name or self.email.split("@")[0]
 
     @property
+    def role(self) -> str:
+        """The design doc's three personas, read off the two flags we keep."""
+        if self.is_superuser:
+            return "admin"
+        if self.is_ohc_team:
+            return "reviewer"
+        return "integrator"
+
+    @property
+    def is_portal_admin(self) -> bool:
+        return self.is_superuser
+
+    @property
+    def initials(self) -> str:
+        """Two letters for the avatar chip: "Rhea Nambiar" → "RN"."""
+        words = [word for word in self.display_name.replace("@", " ").split() if word]
+        if len(words) >= 2:  # noqa: PLR2004
+            return (words[0][0] + words[1][0]).upper()
+        return self.display_name[:2].upper()
+
+    @property
     def first_name_or_email(self) -> str:
         """First word of the name, for the dashboard's "Good afternoon, Meera"."""
         return (self.name or self.email.split("@")[0]).split()[0]

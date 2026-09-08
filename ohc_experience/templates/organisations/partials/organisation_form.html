@@ -1,155 +1,111 @@
 {% comment %}
-  The company profile form (OrganisationProfileForm), shared by onboarding and
-  Settings → Organisation. Both screens include this file and htmx swaps this
-  same file back in after a save, so there is exactly one definition of the
-  form's markup.
+  The organisation details form (OrganisationProfileForm), shared by onboarding
+  step 2 and Settings → Organisation. Both screens include this file and htmx
+  swaps this same file back in after a save, so there is exactly one
+  definition of the form's markup.
+
+  One card, three sections divided by rules — Identity, Registered address,
+  Verification document — exactly as the prototype draws it.
 
   Context (set by the view, so the full page and the swapped fragment agree):
-    form_layout — "onboarding" or "settings"; picks the action URL, the button
-                  label and which card chrome the form wears.
-    oob_flash   — True on the htmx response that saved, so the success message
-                  rides along out of band into #flash-messages.
+    form_layout — "onboarding" or "settings"; picks the action URL and the
+                  button label.
+    organisation — for the resubmit wording when verification was sent back.
 
   `show:window:top` on the swap is not decoration: this form is long enough to
   scroll past, and every pre-htmx response — the redirect after a save, the
   re-rendered page after a validation error — landed the browser at the top.
-  Without it a save made from the button at the bottom would drop the flash,
-  and the error summary, above the fold where nobody sees them.
 
-  No-JS contract: method/action are real and {% csrf_token %} is present, so
-  submitting without htmx POSTs the page and the view redirects as it always
-  did. Every hx-* attribute here is enhancement on top of that.
+  No-JS contract: method/action/enctype are real and {% csrf_token %} is
+  present, so submitting without htmx POSTs the page and the view redirects as
+  it always did. Every hx-* attribute here is enhancement on top of that.
 {% endcomment %}
 {% load i18n careui %}
 
 {% if form_layout == "settings" %}
   {% url 'organisations:detail' as form_action %}
-  {% translate "Save changes" as submit_label %}
+  {% if organisation.is_sent_back %}
+    {% translate "Save and resubmit for verification" as submit_label %}
+  {% else %}
+    {% translate "Save changes" as submit_label %}
+  {% endif %}
 {% else %}
   {% url 'organisations:onboarding' as form_action %}
-  {% translate "Save and continue" as submit_label %}
+  {% translate "Submit for verification" as submit_label %}
 {% endif %}
-{% translate "Kerala, Karnataka, …" as regions_placeholder %}
 <form id="organisation-form"
-      {% if form_layout != "settings" %}class="mt-6"{% endif %}
+      class="ui-card ui-card--sm"
       method="post"
       action="{{ form_action }}"
+      enctype="multipart/form-data"
+      novalidate
       hx-post="{{ form_action }}"
+      hx-encoding="multipart/form-data"
       hx-target="this"
       hx-swap="outerHTML show:window:top"
-      hx-disabled-elt="find button[type=submit]">
+      hx-disabled-elt="find button[type=submit]"
+      hx-indicator="#nav-progress">
   {% csrf_token %}
-  <div class="ui-card">
-    {% if form_layout == "settings" %}
-      <div class="ui-card-header">
-        <h2 class="ui-card-title">{% translate "Company profile" %}</h2>
-        <p class="ui-card-description">{% translate "Used for partner verification and for the certificates we issue." %}</p>
+  <div class="ui-card-content flex flex-col gap-5 pt-1.5">
+    {% include "components/form_errors.html" %}
+    <fieldset class="flex flex-col gap-3.5">
+      <legend class="mb-3.5 text-[12.5px] font-bold">{% translate "Identity" %}</legend>
+      {% ui_field form.name %}
+      {% translate "A brief of the organisation, shown to NHA reviewers." as description_hint %}
+      {% ui_field form.description help_text=description_hint %}
+      <div class="grid gap-3.5 sm:grid-cols-2">
+        <div>{% ui_field form.entity_type %}</div>
+        <div>{% ui_field form.category %}</div>
       </div>
-    {% endif %}
-    <div class="ui-card-content flex flex-col gap-4">
-      {% include "components/form_errors.html" %}
-      {% if form_layout != "settings" %}
-        <h2 class="ui-section-title">{% translate "Company profile" %}</h2>
-      {% endif %}
-      <div class="grid gap-4 sm:grid-cols-2 sm:gap-x-[18px]">
-        <div class="sm:col-span-2">{% ui_field form.legal_name %}</div>
+      <div class="grid gap-3.5 sm:grid-cols-2">
         <div>{% ui_field form.website %}</div>
-        <div class="grid gap-4 sm:grid-cols-2 sm:gap-x-3">
-          <div>{% ui_field form.city %}</div>
-          <div>{% ui_field form.state %}</div>
-        </div>
-        <div class="sm:col-span-2">{% ui_field form.deployment_regions placeholder=regions_placeholder %}</div>
+        <div>{% ui_field form.logo %}</div>
       </div>
-      <div class="h-px bg-border" role="presentation"></div>
+    </fieldset>
+    <hr class="border-soft-border" />
+    <fieldset class="flex flex-col gap-3.5">
+      <legend class="mb-3.5 text-[12.5px] font-bold">{% translate "Registered address" %}</legend>
+      {% translate "Address" as address_label %}
+      {% ui_field form.registered_address label=address_label %}
+      <div class="grid gap-3.5 sm:grid-cols-[1fr_1.4fr_1.4fr]">
+        <div>{% ui_field form.pincode %}</div>
+        <div>{% ui_field form.state %}</div>
+        <div>{% ui_field form.district %}</div>
+      </div>
+    </fieldset>
+    <hr class="border-soft-border" />
+    <fieldset class="flex flex-col gap-3.5">
+      <legend class="mb-3.5 text-[12.5px] font-bold">{% translate "Verification document" %}</legend>
+      <div class="grid gap-3.5 sm:grid-cols-[170px_1fr]">
+        <div>{% ui_field form.verification_document_type %}</div>
+        <div>{% ui_field form.verification_document_number extra_class="font-mono" %}</div>
+      </div>
+      {% translate "Document upload" as document_label %}
+      {% translate "The PAN card, GST certificate or certificate of incorporation as PDF or image, up to 10 MB. NHA checks the document number against the issuing registry." as document_hint %}
+      {% ui_field form.verification_document label=document_label help_text=document_hint %}
+    </fieldset>
+    <div class="flex flex-col-reverse gap-2.5 border-t border-soft-border pt-4 sm:flex-row sm:items-center sm:justify-end">
       {% if form_layout == "settings" %}
-        <h3 class="ui-field-legend">{% translate "Technical contact" %}</h3>
-      {% else %}
-        <h2 class="ui-field-legend">{% translate "Technical contact" %}</h2>
+        <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+           href="{% url 'organisations:detail' %}">{% translate "Discard changes" %}</a>
       {% endif %}
-      <div class="grid gap-4 sm:grid-cols-2 sm:gap-x-[18px]">
-        <div>{% ui_field form.technical_contact_name %}</div>
-        <div>{% ui_field form.technical_contact_email %}</div>
-        <div>{% ui_field form.technical_contact_phone %}</div>
-      </div>
-      <p class="-mt-1.5 text-[11.5px] leading-relaxed text-soft-foreground">
-        {% translate "Receives sandbox reset notices, credential rotations and API changelogs." %}
-      </p>
-      {% if form_layout != "settings" %}
-        <div class="flex border-t border-border pt-4 sm:justify-end">
-          <button type="submit"
-                  class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:w-auto"
-                  hx-disabled-elt="this">
-            <svg class="htmx-indicator animate-spin"
-                 viewBox="0 0 24 24"
-                 fill="none"
-                 stroke="currentColor"
-                 stroke-width="2.5"
-                 aria-hidden="true">
-              <circle cx="12" cy="12" r="9" stroke-opacity="0.3" />
-              <path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round" />
-            </svg>
-            {{ submit_label }}
-          </button>
-        </div>
-      {% endif %}
+      <button type="submit"
+              class="ui-btn ui-btn--default ui-btn--size-sm"
+              hx-disabled-elt="this">
+        <svg class="htmx-indicator animate-spin"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2.5"
+             aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke-opacity="0.3" />
+          <path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round" />
+        </svg>
+        {{ submit_label }}
+      </button>
     </div>
-    {% if form_layout == "settings" %}
-      <div class="ui-card-footer border-t border-border pt-4">
-        <button type="submit"
-                class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:ml-auto sm:w-auto"
-                hx-disabled-elt="this">
-          <svg class="htmx-indicator animate-spin"
-               viewBox="0 0 24 24"
-               fill="none"
-               stroke="currentColor"
-               stroke-width="2.5"
-               aria-hidden="true">
-            <circle cx="12" cy="12" r="9" stroke-opacity="0.3" />
-            <path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round" />
-          </svg>
-          {{ submit_label }}
-        </button>
-      </div>
-    {% endif %}
   </div>
 </form>
-{% if form_layout == "settings" %}
-  {% comment %}
-    Progressive enhancement: hold the save button disabled until a field
-    actually changes. The button ships enabled so the no-JS path still submits;
-    this only tightens it where JS runs. Re-executes on every htmx swap of this
-    fragment, so a validation-error re-render rewires cleanly.
-  {% endcomment %}
-  <script>
-    (function() {
-      var form = document.getElementById("organisation-form");
-      if (!form) return;
-      var buttons = form.querySelectorAll("button[type=submit]");
-      var fields = Array.prototype.filter.call(form.elements, function(el) {
-        return el.name && el.type !== "hidden" && el.type !== "submit";
-      });
-      var initial = fields.map(function(el) {
-        return el.value;
-      });
-
-      function dirty() {
-        return fields.some(function(el, i) {
-          return el.value !== initial[i];
-        });
-      }
-
-      function sync() {
-        var off = !dirty();
-        buttons.forEach(function(b) {
-          b.disabled = off;
-        });
-      }
-      form.addEventListener("input", sync);
-      form.addEventListener("change", sync);
-      sync();
-    })();
-  </script>
-{% endif %}
 {% if oob_flash %}
   {% include "components/messages.html" with oob=True %}
 {% endif %}

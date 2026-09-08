@@ -1,0 +1,210 @@
+{% extends "layouts/app.html" %}
+
+{% comment %}
+  Product overview (design doc 5.4), as the prototype draws it: the product
+  header with the organisation's verification badge, then Tracks and Recent
+  activity on the left and Organisation, Credentials and Upcoming events on
+  the right.
+
+  Context: product, organisation, track_summaries, activity, credential,
+  registration_item (+ item_queries, can_reply, reply_form), upcoming_events,
+  registered_ids, can_write, tracks.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {{ product.name }} · {{ product.sandbox_id }}
+{% endblock title %}
+{% block page_header %}
+  <div class="mb-[18px] flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div class="min-w-0">
+      <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "Product" %}</p>
+      <h1 class="mt-1.5 text-[23px] leading-[1.15] font-bold tracking-[-0.02em] break-words">{{ product.name }}</h1>
+      <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-soft-foreground">
+        <span class="font-mono text-foreground">{{ product.sandbox_id }}</span>
+        <span class="opacity-45" aria-hidden="true">·</span>
+        <span>{{ product.get_solution_type_display }}</span>
+        <span class="opacity-45" aria-hidden="true">·</span>
+        <span>{{ organisation.name }}</span>
+        <span class="opacity-45" aria-hidden="true">·</span>
+        {% if product.is_registered %}
+          <span>{% blocktranslate with date=product.registered_on|date:"j M Y" %}Registered {{ date }}{% endblocktranslate %}</span>
+        {% else %}
+          <span class="ui-badge ui-badge--{{ product.status_variant }} ui-badge--size-xs">
+            {% translate "Registration" %}: {{ product.get_registration_status_display|lower }}
+          </span>
+        {% endif %}
+      </p>
+    </div>
+    <div class="flex shrink-0 flex-wrap items-center gap-2">
+      <span class="ui-badge ui-badge--{{ organisation.verification_variant }} ui-badge--size-sm">
+        {% if organisation.is_verified %}
+          {% translate "Organisation verified" %}
+        {% elif organisation.is_sent_back %}
+          {% translate "Verification sent back" %}
+        {% else %}
+          {% translate "Verification pending" %}
+        {% endif %}
+      </span>
+      <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+         href="{% url 'products:edit' product.sandbox_id %}">{% translate "Edit product" %}</a>
+    </div>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  {% if product.is_sent_back %}
+    <div class="ui-alert ui-alert--warning mb-3.5" role="status">
+      <div class="flex-1">
+        <p class="font-semibold">{% translate "Registration sent back" %}</p>
+        <p class="mt-1 whitespace-pre-line">{{ product.sent_back_reason }}</p>
+        <p class="mt-1.5 text-xs">{% translate "Correct the product details and save: that resubmits the registration." %}</p>
+      </div>
+    </div>
+  {% endif %}
+  {% if item_queries %}
+    <div class="ui-card ui-card--sm mb-3.5">
+      <div class="ui-card-content">{% include "abdm/partials/query_thread.html" with item=registration_item %}</div>
+    </div>
+  {% endif %}
+  <div class="grid items-start gap-3.5 lg:grid-cols-[1.35fr_1fr]">
+    <div class="flex min-w-0 flex-col gap-3.5">
+      {% include "abdm/partials/track_status_list.html" %}
+      {% include "abdm/partials/activity_feed.html" %}
+    </div>
+    <div class="flex min-w-0 flex-col gap-3.5">
+      <section class="ui-card ui-card--sm" aria-labelledby="org-card-title">
+        <div class="ui-card-content">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="text-xs font-bold" id="org-card-title">{% translate "Organisation" %}</h2>
+            <a class="text-[11px] font-semibold text-primary hover:underline"
+               href="{% url 'organisations:detail' %}">{% translate "Settings" %}</a>
+          </div>
+          <dl class="flex flex-col gap-2.5 text-[11.5px]">
+            <div class="flex gap-2.5">
+              <dt class="w-[72px] shrink-0 text-soft-foreground">{% translate "Entity" %}</dt>
+              <dd class="min-w-0 break-words">
+                {{ organisation.name }}
+              </dd>
+            </div>
+            <div class="flex gap-2.5">
+              <dt class="w-[72px] shrink-0 text-soft-foreground">{% translate "Type" %}</dt>
+              <dd class="min-w-0 break-words">
+                {{ organisation.get_entity_type_display|default:"—" }}
+                {% if organisation.category %}· {{ organisation.get_category_display }}{% endif %}
+              </dd>
+            </div>
+            <div class="flex gap-2.5">
+              <dt class="w-[72px] shrink-0 text-soft-foreground">{{ organisation.verification_document_type|default:_("Document") }}</dt>
+              <dd class="min-w-0 font-mono text-[11px] break-all">
+                {{ organisation.verification_document_number|default:"—" }}
+              </dd>
+            </div>
+            <div class="flex gap-2.5">
+              <dt class="w-[72px] shrink-0 text-soft-foreground">{% translate "Address" %}</dt>
+              <dd class="min-w-0 break-words">
+                {% if organisation.district or organisation.state %}
+                  {{ organisation.district }}{% if organisation.district and organisation.state %},{% endif %}
+                  {{ organisation.state }} {{ organisation.pincode }}
+                {% else %}
+                  —
+                {% endif %}
+              </dd>
+            </div>
+            <div class="flex gap-2.5">
+              <dt class="w-[72px] shrink-0 text-soft-foreground">{% translate "Status" %}</dt>
+              <dd class="flex min-w-0 items-center gap-1.5 font-semibold {% if organisation.is_verified %}text-primary-700{% elif organisation.is_sent_back %}text-red-800{% else %}text-amber-800{% endif %}">
+                {% include "components/status_dot.html" with variant=organisation.verification_variant %}
+                {% if organisation.is_verified %}
+                  {% blocktranslate with date=organisation.verified_at|date:"j M Y" %}Verified on {{ date }}{% endblocktranslate %}
+                {% elif organisation.is_sent_back %}
+                  {% translate "Sent back for corrections" %}
+                {% elif organisation.has_submitted_details %}
+                  {% blocktranslate with date=organisation.verification_submitted_at|date:"j M Y" %}Pending since {{ date }}{% endblocktranslate %}
+                {% else %}
+                  {% translate "Details not submitted" %}
+                {% endif %}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+      <section class="ui-card ui-card--sm" aria-labelledby="credentials-card-title">
+        <div class="ui-card-content">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="text-xs font-bold" id="credentials-card-title">{% translate "Credentials" %}</h2>
+            <a class="text-[11px] font-semibold text-primary hover:underline"
+               href="{% url 'products:credentials' product.sandbox_id %}">{% translate "Open" %}</a>
+          </div>
+          {% if credential %}
+            <dl class="flex flex-col gap-2.5 text-[11.5px]">
+              <div class="flex gap-2.5">
+                <dt class="w-[72px] shrink-0 text-soft-foreground">{% translate "Client ID" %}</dt>
+                <dd class="min-w-0 truncate font-mono text-[11px]">
+                  {{ credential.client_id }}
+                </dd>
+              </div>
+              <div class="flex gap-2.5">
+                <dt class="w-[72px] shrink-0 text-soft-foreground">{% translate "Callback" %}</dt>
+                <dd class="flex min-w-0 items-center gap-1.5 font-semibold {% if credential.callback_ok %}text-primary-700{% elif credential.callback_ok is False %}text-red-800{% else %}text-soft-foreground{% endif %}">
+                  {% include "components/status_dot.html" with variant=credential.callback_variant %}
+                  <span class="truncate">
+                    {{ credential.callback_label }}
+                    {% if credential.callback_checked %}
+                      · {% blocktranslate with ago=credential.callback_checked_at|timesince %}checked {{ ago }} ago{% endblocktranslate %}
+                    {% endif %}
+                  </span>
+                </dd>
+              </div>
+              <div class="flex gap-2.5">
+                <dt class="w-[72px] shrink-0 text-soft-foreground">{% translate "Bridge" %}</dt>
+                <dd class="min-w-0 truncate font-mono text-[11px]">
+                  {{ credential.bridge_url|default:"—" }}
+                </dd>
+              </div>
+            </dl>
+          {% elif organisation.is_verified %}
+            <p class="text-[11.5px] leading-[1.5] text-soft-foreground">{% translate "Credentials were revoked. Request new ones from the Credentials page." %}</p>
+          {% else %}
+            <p class="text-[11.5px] leading-[1.5] text-soft-foreground">{% translate "Issued once the organisation is verified." %}</p>
+          {% endif %}
+        </div>
+      </section>
+      <section class="ui-card ui-card--sm" aria-labelledby="upcoming-events-title">
+        <div class="ui-card-content">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="text-xs font-bold" id="upcoming-events-title">{% translate "Upcoming events" %}</h2>
+            <a class="text-[11px] font-semibold text-primary hover:underline"
+               href="{% url 'events:list' %}">{% translate "All events" %}</a>
+          </div>
+          {% if upcoming_events %}
+            <ul class="flex flex-col gap-2.5">
+              {% for event in upcoming_events %}
+                <li>
+                  <a class="group flex items-start gap-2.5 text-foreground no-underline"
+                     href="{% url 'events:detail' event.slug %}">
+                    {% include "events/partials/event_date_block.html" %}
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-[11.5px] leading-[1.4] font-semibold break-words group-hover:underline">{{ event.title }}</span>
+                      <span class="block text-[10.5px] text-soft-foreground">
+                        {{ event.get_kind_display }} · {{ event.starts_at|date:"H:i" }} {{ event.starts_at|date:"T" }} ·
+                        {% if event.pk in registered_ids %}
+                          {% translate "registered" %}
+                        {% else %}
+                          {% translate "not registered" %}
+                        {% endif %}
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-[11.5px] leading-[1.5] text-soft-foreground">
+              {% translate "Nothing scheduled yet. NHA office hours and webinars will show up here once dates are announced." %}
+            </p>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+  </div>
+{% endblock content %}

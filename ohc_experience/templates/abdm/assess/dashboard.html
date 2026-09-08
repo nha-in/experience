@@ -1,0 +1,275 @@
+{% extends "layouts/ohc.html" %}
+
+{% comment %}
+  The reviewer dashboard (design doc 5.9), as the prototype draws it: four
+  stat cards, the five oldest items needing a decision, decisions over the
+  last eight weeks as a stacked bar per week, and four breakdowns as bars.
+  Everything is server-rendered; the bars are CSS widths and heights.
+
+  Context: see abdm.selectors.dashboard_stats.
+{% endcomment %}
+{% load i18n abdm_extras %}
+
+{% block title %}
+  {% translate "Dashboard" %} · {% translate "Certification desk" %}
+{% endblock title %}
+{% block page_header %}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "NHA certification desk" %}</p>
+      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">{% translate "Dashboard" %}</h1>
+      <p class="mt-1.5 text-[12.5px] leading-[1.55] text-soft-foreground">
+        {{ generated_at|date:"l j F Y" }} · {% translate "queue, ageing and decisions across all tracks" %}
+      </p>
+    </div>
+    <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+       href="{% url 'assess:queue' %}">{% translate "Open review queue" %}</a>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+           aria-label="{% translate 'Summary' %}">
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="text-[10.5px] text-soft-foreground">{% translate "In queue" %}</p>
+        <p class="mt-2 text-[26px] leading-none font-bold tracking-[-0.02em] tabular-nums">{{ in_queue }}</p>
+        <p class="mt-2 text-[10.5px] leading-[1.4] text-soft-foreground">
+          {% for label, count in in_queue_by_status %}{{ count }} {{ label|lower }}{% if not forloop.last %} · {% endif %}{% endfor %}
+        </p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="text-[10.5px] text-soft-foreground">{% translate "Median time to decision" %}</p>
+        <p class="mt-2 text-[26px] leading-none font-bold tracking-[-0.02em] tabular-nums">
+          {% if median_days is not None %}
+            {{ median_days|floatformat:"-1" }} <span class="text-[13px] font-medium text-soft-foreground">{% translate "days" %}</span>
+          {% else %}
+            —
+          {% endif %}
+        </p>
+        <p class="mt-2 text-[10.5px] leading-[1.4] text-soft-foreground">
+          {% blocktranslate count counter=decided_count %}{{ counter }} decision in the last 90 days{% plural %}{{ counter }} decisions in the last 90 days{% endblocktranslate %}
+          · {% blocktranslate with days=attention_days count counter=over_attention %}{{ counter }} item over {{ days }} days{% plural %}{{ counter }} items over {{ days }} days{% endblocktranslate %}
+        </p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="text-[10.5px] text-soft-foreground">{% translate "Queries awaiting integrator" %}</p>
+        <p class="mt-2 text-[26px] leading-none font-bold tracking-[-0.02em] tabular-nums">{{ queries_awaiting }}</p>
+        <p class="mt-2 text-[10.5px] leading-[1.4] text-soft-foreground">{% translate "Items pause until these are answered." %}</p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="text-[10.5px] text-soft-foreground">{% translate "Approved this month" %}</p>
+        <p class="mt-2 text-[26px] leading-none font-bold tracking-[-0.02em] tabular-nums">{{ approved_this_month }}</p>
+        <p class="mt-2 text-[10.5px] leading-[1.4] text-soft-foreground">
+          {% for label, count in approved_by_milestone %}{{ label }} {{ count }}{% if not forloop.last %} · {% endif %}{% empty %}{% translate "Nothing yet" %}{% endfor %}
+        </p>
+      </div>
+    </div>
+  </section>
+  <div class="mt-3.5 grid items-start gap-3.5 lg:grid-cols-[1.4fr_1fr]">
+    <div class="flex min-w-0 flex-col gap-3.5">
+      <section class="ui-card ui-card--sm gap-0 py-0"
+               aria-labelledby="needs-decision-title">
+        <div class="flex items-center justify-between gap-2 px-[18px] pt-3.5 pb-2.5">
+          <h2 class="text-[12.5px] font-bold" id="needs-decision-title">{% translate "Needs a decision" %}</h2>
+          <span class="text-[11px] text-soft-foreground">
+            {% blocktranslate with days=attention_days %}Oldest first · items over {{ days }} days in red{% endblocktranslate %}
+          </span>
+        </div>
+        {% if needs_decision %}
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[560px] text-left">
+              <thead>
+                <tr class="text-[9.5px] font-bold tracking-[0.07em] text-soft-foreground uppercase">
+                  <th scope="col" class="px-[18px] py-2.5 pr-3 font-bold">{% translate "Type" %}</th>
+                  <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Subject" %}</th>
+                  <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Track" %}</th>
+                  <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Age" %}</th>
+                  <th scope="col" class="py-2.5 pr-[18px] font-bold">{% translate "Status" %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in needs_decision %}
+                  <tr class="border-t border-soft-border">
+                    <td class="px-[18px] py-[11px] pr-3">
+                      <span class="ui-badge ui-badge--{{ item.type_variant }} ui-badge--size-xs">{{ item.get_item_type_display }}</span>
+                    </td>
+                    <td class="max-w-[260px] py-[11px] pr-3">
+                      <a class="block truncate text-xs font-semibold hover:underline"
+                         href="{{ item.get_absolute_url }}">{{ item.subject_label }}</a>
+                      <span class="block truncate text-[10.5px] text-soft-foreground">
+                        {% if item.product %}{{ item.organisation.name }}{% else %}{{ item.title }}{% endif %}
+                        · {% if item.assignee %}{{ item.assignee.display_name }}{% else %}{% translate "Unassigned" %}{% endif %}
+                      </span>
+                    </td>
+                    <td class="py-[11px] pr-3 font-mono text-[11px] whitespace-nowrap">
+                      {% if item.track_code %}
+                        {{ item.track_code }} · {{ item.milestone_code }}
+                      {% else %}
+                        <span class="text-soft-foreground">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="py-[11px] pr-3 font-mono text-[11px] font-semibold whitespace-nowrap {% if item.needs_attention %}text-red-700{% endif %}">
+                      {% blocktranslate count counter=item.age_days %}{{ counter }} day{% plural %}{{ counter }} days{% endblocktranslate %}
+                    </td>
+                    <td class="py-[11px] pr-[18px]">
+                      <span class="flex items-center gap-1.5 text-[10.5px] font-semibold whitespace-nowrap">
+                        {% include "components/status_dot.html" with variant=item.status_variant %}
+                        {{ item.get_status_display }}
+                      </span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="border-t border-soft-border px-[18px] py-8 text-center text-[12.5px] text-soft-foreground">{% translate "Nothing is waiting on a decision." %}</p>
+        {% endif %}
+        <div class="flex items-center border-t border-soft-border bg-soft-background px-[18px] py-2.5 text-[11px] text-soft-foreground">
+          {% blocktranslate with shown=needs_decision|length total=in_queue %}Showing {{ shown }} of {{ total }}{% endblocktranslate %}
+          <a class="ml-auto font-semibold text-primary no-underline hover:underline"
+             href="{% url 'assess:queue' %}">{% translate "Full queue" %}</a>
+        </div>
+      </section>
+      <section class="ui-card ui-card--sm" aria-labelledby="decisions-title">
+        <div class="ui-card-content">
+          <div class="mb-3.5 flex flex-wrap items-center gap-3.5">
+            <h2 class="text-[12.5px] font-bold" id="decisions-title">{% translate "Decisions over the last 8 weeks" %}</h2>
+            <span class="flex items-center gap-1.5 text-[10.5px] text-soft-foreground">
+              <span class="size-2 rounded-[2px] bg-primary" aria-hidden="true"></span>
+              {% translate "Approved" %} · {{ approved_in_window }}
+            </span>
+            <span class="flex items-center gap-1.5 text-[10.5px] text-soft-foreground">
+              <span class="size-2 rounded-[2px] bg-amber-400" aria-hidden="true"></span>
+              {% translate "Sent back" %} · {{ sent_back_in_window }}
+            </span>
+          </div>
+          <div class="grid h-[104px] grid-cols-8 gap-2.5 px-1"
+               role="img"
+               aria-label="{% translate 'Approved and sent-back decisions per week' %}">
+            {% for week in weeks %}
+              <div class="flex h-full flex-col justify-end gap-0.5">
+                <span class="block rounded-t-[3px] bg-amber-400"
+                      style="height: {{ week.sent_back_stack_pct }}%"
+                      title="{{ week.sent_back }} {% translate 'sent back' %}"></span>
+                <span class="block rounded-b-[3px] bg-primary {% if not week.sent_back %}rounded-t-[3px]{% endif %}"
+                      style="height: {{ week.approved_stack_pct }}%"
+                      title="{{ week.approved }} {% translate 'approved' %}"></span>
+              </div>
+            {% endfor %}
+          </div>
+          <div class="grid grid-cols-8 gap-2.5 px-1 pt-1.5 text-center font-mono text-[9.5px] text-soft-foreground">
+            {% for week in weeks %}<span>{{ week.label }}</span>{% endfor %}
+          </div>
+          <table class="sr-only">
+            <caption>{% translate "Decisions per week" %}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{% translate "Week" %}</th>
+                <th scope="col">{% translate "Approved" %}</th>
+                <th scope="col">{% translate "Sent back" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for week in weeks %}
+                <tr>
+                  <td>{{ week.label }}</td>
+                  <td>{{ week.approved }}</td>
+                  <td>{{ week.sent_back }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <div class="flex min-w-0 flex-col gap-3">
+      <section class="ui-card ui-card--sm" aria-labelledby="by-type-title">
+        <div class="ui-card-content">
+          <h2 class="mb-3 text-xs font-bold" id="by-type-title">{% translate "Queue by type" %}</h2>
+          <dl class="flex flex-col gap-[9px]">
+            {% for label, count in queue_by_type %}
+              <div class="flex items-center gap-2.5">
+                <dt class="w-[150px] shrink-0 text-[11.5px]">{{ label }}</dt>
+                <dd class="h-1.5 flex-1 overflow-hidden rounded-[3px] bg-muted-background">
+                  <span class="block h-full bg-primary"
+                        style="width: {{ count|pct_of:queue_by_type_max }}%"></span>
+                </dd>
+                <dd class="w-[22px] text-right font-mono text-[11px] tabular-nums">
+                  {{ count }}
+                </dd>
+              </div>
+            {% endfor %}
+          </dl>
+        </div>
+      </section>
+      <section class="ui-card ui-card--sm" aria-labelledby="by-track-title">
+        <div class="ui-card-content">
+          <h2 class="mb-3 text-xs font-bold" id="by-track-title">{% translate "Exit requests by track" %}</h2>
+          {% if exit_by_track %}
+            <dl class="flex flex-col gap-[9px]">
+              {% for label, count in exit_by_track %}
+                <div class="flex items-center gap-2.5">
+                  <dt class="w-[150px] shrink-0 text-[11.5px]">{{ label }}</dt>
+                  <dd class="h-1.5 flex-1 overflow-hidden rounded-[3px] bg-muted-background">
+                    <span class="block h-full bg-primary"
+                          style="width: {{ count|pct_of:exit_by_track_max }}%"></span>
+                  </dd>
+                  <dd class="w-[22px] text-right font-mono text-[11px] tabular-nums">
+                    {{ count }}
+                  </dd>
+                </div>
+              {% endfor %}
+            </dl>
+          {% else %}
+            <p class="text-[11.5px] text-soft-foreground">{% translate "No open exit requests." %}</p>
+          {% endif %}
+        </div>
+      </section>
+      <section class="ui-card ui-card--sm" aria-labelledby="ageing-title">
+        <div class="ui-card-content">
+          <h2 class="mb-3 text-xs font-bold" id="ageing-title">{% translate "Ageing" %}</h2>
+          <dl class="flex flex-col gap-[9px]">
+            {% for bucket in ageing %}
+              <div class="flex items-center gap-2.5">
+                <dt class="w-[150px] shrink-0 text-[11.5px]">{{ bucket.label }}</dt>
+                <dd class="h-1.5 flex-1 overflow-hidden rounded-[3px] bg-muted-background">
+                  <span class="block h-full {% if bucket.over %}bg-red-500{% else %}bg-primary{% endif %}"
+                        style="width: {{ bucket.count|pct_of:ageing_max }}%"></span>
+                </dd>
+                <dd class="w-[22px] text-right font-mono text-[11px] tabular-nums">
+                  {{ bucket.count }}
+                </dd>
+              </div>
+            {% endfor %}
+          </dl>
+        </div>
+      </section>
+      <section class="ui-card ui-card--sm" aria-labelledby="load-title">
+        <div class="ui-card-content">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="text-xs font-bold" id="load-title">{% translate "Reviewer load" %}</h2>
+            <a class="text-[11px] font-semibold text-primary hover:underline"
+               href="{% url 'assess:queue' %}?chip=&amp;scope=open">{% translate "Assign" %}</a>
+          </div>
+          <dl class="flex flex-col gap-[9px] text-[11.5px]">
+            {% for name, count in reviewer_load %}
+              <div class="flex items-center gap-2 {% if name == 'Unassigned' %}font-semibold text-amber-800{% endif %}">
+                <dt class="min-w-0 flex-1 truncate">{{ name }}</dt>
+                <dd class="font-mono text-[11px] tabular-nums">
+                  {{ count }}
+                </dd>
+              </div>
+            {% endfor %}
+          </dl>
+        </div>
+      </section>
+    </div>
+  </div>
+{% endblock content %}

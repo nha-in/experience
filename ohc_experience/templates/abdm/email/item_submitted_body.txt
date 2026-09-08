@@ -1,0 +1,6 @@
+{% autoescape off %}{{ item.organisation.name }} has {% if item.resubmission_count %}resubmitted{% else %}submitted{% endif %} a {{ item.title|lower }}{% if item.product %} for {{ item.product.name }} ({{ item.product.sandbox_id }}){% endif %}.
+
+Review it here: {{ review_url }}
+
+Reference: {{ item.reference }}
+{% endautoescape %}

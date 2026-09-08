@@ -1,31 +1,34 @@
 {% comment %}
-  Sidebar navigation. Shared by the desktop rail and the mobile drawer so the
-  two can never drift apart.
+  Sidebar navigation for the integrator shell, in the prototype's shape: the
+  product card, Overview and Credentials, TRACKS with an approved/applied
+  counter per track, PROGRAMME (Events, Support, each with a counter), PRODUCT
+  (Edit product), then the account links and the person's card at the foot.
+  Shared by the desktop rail and the mobile drawer so the two never drift.
 
-  Context:
-    nav_section        — slug of the active section, set by each view.
-  The nav lists only what exists. Sandbox, Certifications, Deployments
-  and Support are in the mockup but not built, and rendering them greyed
-  with a "Soon" chip made the rail read as mostly disabled — so they
-  arrive when their pages do.
+  Every product link points at `current_product` (abdm.context_processors):
+  the product this person last opened, or the organisation's first. With no
+  product registered yet the rail offers the registration step instead.
 
   Boosted: htmx fetches the very URL each href already points at, keeps only
   #main-content out of the whole-page response and swaps it in, and picks this
   nav out of the same response out-of-band so the active item follows the page.
-  hx-push-url keeps the address bar and the back button honest. Nothing about
-  this needs a view to know it happened. With JavaScript off every link below
-  is still a plain <a href> and the browser navigates normally, which is the
-  path that has to keep working.
+  hx-push-url keeps the address bar and the back button honest. With
+  JavaScript off every link below is still a plain <a href>.
 
   Each link carries an id because the out-of-band swap replaces this whole nav,
   destroying the very anchor that was activated: htmx puts keyboard focus back
-  on the element with the same id, and without one focus falls to <body> and a
-  keyboard or screen-reader user is dropped at the top of the document.
+  on the element with the same id.
+
+  Context: nav_section — "overview" | "credentials" | "track" | "events" |
+           "support" | "edit" | "settings" | "product-form"; nav_track — the
+           track code when nav_section is "track"; current_product,
+           organisation_products, nav_tracks, nav_event_count,
+           nav_ticket_count (context processor); is_ohc_team.
 {% endcomment %}
 {% load i18n %}
 
 <nav id="app-nav"
-     class="flex flex-1 flex-col"
+     class="flex min-h-0 flex-1 flex-col"
      aria-label="{% translate 'Main' %}"
      hx-boost="true"
      hx-target="#main-content"
@@ -34,80 +37,181 @@
      hx-swap="outerHTML"
      hx-push-url="true"
      hx-indicator="#nav-progress">
-  <ul class="flex flex-col gap-0.5">
-    <li>
-      <a id="nav-dashboard"
-         class="ui-nav-link {% if nav_section == 'dashboard' %}ui-nav-link--active{% endif %}"
-         href="{% url 'dashboard' %}"
-         {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>{% translate "Dashboard" %}</a>
-    </li>
-    <li>
-      <a id="nav-sandbox"
-         class="ui-nav-link {% if nav_section == 'sandbox' %}ui-nav-link--active{% endif %}"
-         href="{% url 'organisations:sandbox' %}"
-         {% if nav_section == 'sandbox' %}aria-current="page"{% endif %}>{% translate "Sandbox" %}</a>
-    </li>
-    <li>
-      <a id="nav-events"
-         class="ui-nav-link {% if nav_section == 'events' %}ui-nav-link--active{% endif %}"
-         href="{% url 'events:list' %}"
-         {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
-    </li>
-    <li>
-      <a id="nav-applications"
-         class="ui-nav-link {% if nav_section == 'applications' %}ui-nav-link--active{% endif %}"
-         href="{% url 'experiences:list' %}"
-         {% if nav_section == 'applications' %}aria-current="page"{% endif %}>{% translate "Applications" %}</a>
-    </li>
-    <li>
-      <a id="nav-support"
-         class="ui-nav-link {% if nav_section == 'support' %}ui-nav-link--active{% endif %}"
-         href="{% url 'support:list' %}"
-         {% if nav_section == 'support' %}aria-current="page"{% endif %}>{% translate "Support" %}</a>
-    </li>
-  </ul>
-  <ul class="mt-auto flex flex-col gap-0.5 pt-6">
-    {% if is_ohc_team %}
-      {# Only the Care team sees this, and only they can open it (403 otherwise). #}
+  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
+    {% if current_product %}
+      <div class="mb-3 flex items-center gap-2.5 rounded-[10px] border border-sidebar-border bg-background px-2.5 py-2">
+        <span class="ui-avatar ui-avatar--primary size-[26px] rounded-[7px] text-[10px]"
+              aria-hidden="true">{{ current_organisation.initials|default:current_product.name|slice:":2"|upper }}</span>
+        <span class="min-w-0 leading-tight">
+          <span class="block truncate text-[11.5px] font-semibold">{{ current_product.name }}</span>
+          <span class="block font-mono text-[9.5px] text-soft-foreground">{{ current_product.sandbox_id }}</span>
+        </span>
+      </div>
+      <ul class="flex flex-col gap-px">
+        <li>
+          <a id="nav-overview"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'overview' %}ui-nav-link--active{% endif %}"
+             href="{% url 'products:overview' current_product.sandbox_id %}"
+             {% if nav_section == 'overview' %}aria-current="page"{% endif %}>{% translate "Overview" %}</a>
+        </li>
+        <li>
+          <a id="nav-credentials"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'credentials' %}ui-nav-link--active{% endif %}"
+             href="{% url 'products:credentials' current_product.sandbox_id %}"
+             {% if nav_section == 'credentials' %}aria-current="page"{% endif %}>{% translate "Credentials" %}</a>
+        </li>
+        <li class="px-2 pt-3.5 pb-1.5 text-[9.5px] font-bold tracking-[0.09em] text-soft-foreground uppercase"
+            aria-hidden="true">{% translate "Tracks" %}</li>
+        {% for row in nav_tracks %}
+          <li>
+            <a id="nav-track-{{ row.track.code|slugify }}"
+               class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'track' and nav_track == row.track.code %}ui-nav-link--active{% elif not row.applied %}text-placeholder-foreground{% endif %}"
+               href="{% url 'products:track' current_product.sandbox_id row.track.code %}"
+               {% if nav_section == 'track' and nav_track == row.track.code %}aria-current="page"{% endif %}>
+              <span class="min-w-0 flex-1 truncate">{{ row.track.code }}</span>
+              <span class="font-mono text-[9.5px] text-soft-foreground">
+                {% if row.applied %}
+                  {{ row.approved }}/{{ row.count }}
+                  <span class="sr-only">{% translate "milestones approved" %}</span>
+                {% else %}
+                  <span aria-hidden="true">—</span>
+                  <span class="sr-only">{% translate "(not applied)" %}</span>
+                {% endif %}
+              </span>
+            </a>
+          </li>
+        {% endfor %}
+        <li class="px-2 pt-3.5 pb-1.5 text-[9.5px] font-bold tracking-[0.09em] text-soft-foreground uppercase"
+            aria-hidden="true">{% translate "Programme" %}</li>
+        <li>
+          <a id="nav-events"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'events' %}ui-nav-link--active{% endif %}"
+             href="{% url 'events:list' %}"
+             {% if nav_section == 'events' %}aria-current="page"{% endif %}>
+            <span class="min-w-0 flex-1">{% translate "Events" %}</span>
+            {% if nav_event_count %}
+              <span class="font-mono text-[9.5px] text-soft-foreground"
+                    title="{% translate 'Upcoming events' %}">{{ nav_event_count }}</span>
+            {% endif %}
+          </a>
+        </li>
+        <li>
+          <a id="nav-support"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'support' %}ui-nav-link--active{% endif %}"
+             href="{% url 'support:list' %}"
+             {% if nav_section == 'support' %}aria-current="page"{% endif %}>
+            <span class="min-w-0 flex-1">{% translate "Support" %}</span>
+            {% if nav_ticket_count %}
+              <span class="font-mono text-[9.5px] text-soft-foreground"
+                    title="{% translate 'Open tickets' %}">{{ nav_ticket_count }}</span>
+            {% endif %}
+          </a>
+        </li>
+        <li class="px-2 pt-3.5 pb-1.5 text-[9.5px] font-bold tracking-[0.09em] text-soft-foreground uppercase"
+            aria-hidden="true">{% translate "Product" %}</li>
+        <li>
+          <a id="nav-edit"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'edit' %}ui-nav-link--active{% endif %}"
+             href="{% url 'products:edit' current_product.sandbox_id %}"
+             {% if nav_section == 'edit' %}aria-current="page"{% endif %}>{% translate "Edit product" %}</a>
+        </li>
+        {% if organisation_products|length > 1 %}
+          <li>
+            <details class="group">
+              <summary class="ui-nav-link ui-nav-dot flex cursor-pointer list-none items-center gap-2.5 py-[7px] text-[12.5px] [&::-webkit-details-marker]:hidden">
+                <span class="min-w-0 flex-1">{% translate "Switch product" %}</span>
+                <span class="text-[10px] text-soft-foreground transition-transform group-open:rotate-180"
+                      aria-hidden="true">▾</span>
+              </summary>
+              <ul class="mt-px flex flex-col gap-px pl-4">
+                {% for item in organisation_products %}
+                  {% if item.pk != current_product.pk %}
+                    <li>
+                      <a class="ui-nav-link block truncate py-1.5 text-[12px]"
+                         href="{% url 'products:overview' item.sandbox_id %}">{{ item.name }}</a>
+                    </li>
+                  {% endif %}
+                {% endfor %}
+              </ul>
+            </details>
+          </li>
+        {% endif %}
+        <li>
+          <a id="nav-new-product"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'product-form' %}ui-nav-link--active{% endif %}"
+             href="{% url 'products:new' %}"
+             {% if nav_section == 'product-form' %}aria-current="page"{% endif %}>{% translate "Register another product" %}</a>
+        </li>
+      </ul>
+    {% else %}
+      <ul class="flex flex-col gap-px">
+        <li>
+          <a id="nav-register"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'product-form' %}ui-nav-link--active{% endif %}"
+             href="{% url 'dashboard' %}">{% translate "Register a product" %}</a>
+        </li>
+        <li class="px-2 pt-3.5 pb-1.5 text-[9.5px] font-bold tracking-[0.09em] text-soft-foreground uppercase"
+            aria-hidden="true">{% translate "Programme" %}</li>
+        <li>
+          <a id="nav-events"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'events' %}ui-nav-link--active{% endif %}"
+             href="{% url 'events:list' %}"
+             {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
+        </li>
+        <li>
+          <a id="nav-support"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'support' %}ui-nav-link--active{% endif %}"
+             href="{% url 'support:list' %}"
+             {% if nav_section == 'support' %}aria-current="page"{% endif %}>{% translate "Support" %}</a>
+        </li>
+      </ul>
+    {% endif %}
+    <ul class="mt-auto flex flex-col gap-px pt-5">
+      {% if is_ohc_team %}
+        {# Only reviewers see this, and only they can open it (403 otherwise). #}
+        <li>
+          <a id="nav-ohc-console"
+             class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px]"
+             href="{% url 'assess:dashboard' %}"
+             hx-boost="false">
+            <span class="min-w-0 flex-1">{% translate "Certification desk" %}</span>
+            <span class="ui-badge ui-badge--info ui-badge--size-xs">{% translate "NHA" %}</span>
+          </a>
+        </li>
+      {% endif %}
       <li>
-        <a id="nav-ohc-console"
-           class="ui-nav-link flex items-center justify-between gap-2"
-           href="{% url 'ohc:queue' %}"
+        <a id="nav-settings"
+           class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'settings' %}ui-nav-link--active{% endif %}"
+           href="{% url 'organisations:detail' %}"
+           {% if nav_section == 'settings' %}aria-current="page"{% endif %}>{% translate "Settings" %}</a>
+      </li>
+      <li>
+        {# Another origin and another tab: ordinary navigation, never boosted. #}
+        <a id="nav-docs"
+           class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px]"
+           href="{{ abdm_docs_url }}"
+           target="_blank"
+           rel="noopener noreferrer"
            hx-boost="false">
-          {% translate "OHC console" %}
-          <span class="ui-badge ui-badge--info ui-badge--size-xs">{% translate "Internal" %}</span>
+          <span class="min-w-0 flex-1">{% translate "Milestone docs" %}</span>
+          <span aria-hidden="true" class="text-[10px] text-soft-foreground">↗</span>
         </a>
       </li>
-    {% endif %}
-    <li>
-      <a id="nav-settings"
-         class="ui-nav-link {% if nav_section == 'settings' %}ui-nav-link--active{% endif %}"
-         href="{% url 'organisations:detail' %}"
-         {% if nav_section == 'settings' %}aria-current="page"{% endif %}>{% translate "Settings" %}</a>
-    </li>
-    <li>
-      {# Another origin and another tab: ordinary navigation, never boosted. #}
-      <a id="nav-docs"
-         class="ui-nav-link"
-         href="https://docs.ohc.network"
-         target="_blank"
-         rel="noopener noreferrer"
-         hx-boost="false">
-        {% translate "Docs" %} <span aria-hidden="true">↗</span>
-      </a>
-    </li>
-  </ul>
+    </ul>
+  </div>
   {% if request.user.is_authenticated %}
-    <div class="mt-2.5 flex items-center gap-2 border-t border-sidebar-border px-2.5 pt-3">
-      {% if current_organisation %}
-        <span class="ui-avatar ui-avatar--primary size-7 text-[11px]"
-              aria-hidden="true">{{ current_organisation.initials }}</span>
-      {% endif %}
-      <span class="min-w-0 flex-1">
-        {% if current_organisation %}
-          <span class="block truncate text-[12.5px] font-semibold">{{ current_organisation.display_name }}</span>
-        {% endif %}
-        <span class="block truncate text-[11px] text-soft-foreground">{{ request.user.email }}</span>
+    <div class="mt-2 flex items-center gap-2.5 border-t border-sidebar-border px-2 pt-2.5">
+      <span class="ui-avatar size-[26px] bg-strong-background text-[10px] text-soft-foreground"
+            aria-hidden="true">{{ request.user.initials }}</span>
+      <span class="min-w-0 flex-1 leading-tight">
+        <span class="block truncate text-[11.5px] font-semibold">{{ request.user.display_name }}</span>
+        <span class="block truncate text-[9.5px] text-soft-foreground">
+          {% if current_organisation %}
+            {{ current_organisation.display_name }}
+          {% else %}
+            {{ request.user.email }}
+          {% endif %}
+        </span>
       </span>
       {# Signing out is a state change, so a real POST — never boosted, because #}
       {# the response is the signed-out shell and has no #app-nav to swap. #}

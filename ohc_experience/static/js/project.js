@@ -190,3 +190,40 @@
     initializeUploads(event.detail.elt),
   );
 })();
+
+
+// Masked secrets and copy buttons (components/secret_value.html and
+// components/copy_button.html). Delegated once so the controls survive any
+// htmx swap that draws them in later.
+(() => {
+  if (window.ohcSecretControlsWired) return;
+  window.ohcSecretControlsWired = true;
+  document.addEventListener("click", (event) => {
+    const toggle = event.target.closest("[data-secret-toggle]");
+    if (toggle) {
+      const secret = toggle.closest("[data-secret]");
+      const mask = secret?.querySelector("[data-secret-mask]");
+      const value = secret?.querySelector("[data-secret-value]");
+      if (!mask || !value) return;
+      const revealed = mask.classList.toggle("hidden");
+      value.classList.toggle("hidden", !revealed);
+      toggle.querySelector("[data-icon-show]")?.classList.toggle("hidden", revealed);
+      toggle.querySelector("[data-icon-hide]")?.classList.toggle("hidden", !revealed);
+      toggle.setAttribute("aria-pressed", String(revealed));
+      return;
+    }
+
+    const copy = event.target.closest("[data-copy]");
+    if (!copy || !navigator.clipboard) return;
+    navigator.clipboard.writeText(copy.dataset.copy).then(() => {
+      const idle = copy.querySelector("[data-icon-copy]");
+      const done = copy.querySelector("[data-icon-done]");
+      idle?.classList.add("hidden");
+      done?.classList.remove("hidden");
+      setTimeout(() => {
+        done?.classList.add("hidden");
+        idle?.classList.remove("hidden");
+      }, 1200);
+    });
+  });
+})();

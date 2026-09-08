@@ -1,0 +1,93 @@
+{% comment %}
+  Integrator context, as the prototype draws it: a two-column grid of
+  Organisation, Prior approvals, Callback and Open tickets. Read-only; the
+  client secret is never here.
+
+  Context: item, context_organisation, prior_approvals, context_credential,
+  open_tickets.
+{% endcomment %}
+{% load i18n %}
+
+<section class="ui-card ui-card--sm"
+         aria-labelledby="integrator-context-title">
+  <div class="ui-card-content">
+    <h2 class="mb-[11px] text-[12.5px] font-bold"
+        id="integrator-context-title">{% translate "Integrator context" %}</h2>
+    <dl class="grid gap-x-6 gap-y-2.5 text-xs sm:grid-cols-2">
+      <div>
+        <dt class="text-[10.5px] text-soft-foreground">{% translate "Organisation" %}</dt>
+        <dd class="mt-0.5 leading-[1.45] break-words">
+          <a class="hover:underline"
+             href="{% url 'ohc:organisation' context_organisation.slug %}">{{ context_organisation.name }}</a>
+          ·
+          {% if context_organisation.is_verified %}
+            {% blocktranslate with date=context_organisation.verified_at|date:"j M Y" %}Verified {{ date }}{% endblocktranslate %}
+          {% else %}
+            {{ context_organisation.get_verification_status_display }}
+          {% endif %}
+          {% if context_organisation.verification_document_type %}
+            · {{ context_organisation.verification_document_type }}
+            <span class="font-mono">{{ context_organisation.verification_document_number }}</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-[10.5px] text-soft-foreground">{% translate "Prior approvals" %}</dt>
+        <dd class="mt-0.5 leading-[1.45]">
+          {% if prior_approvals %}
+            <ul class="flex flex-col gap-0.5">
+              {% for approval in prior_approvals %}
+                <li>
+                  <a class="hover:underline" href="{{ approval.get_absolute_url }}">
+                    {% blocktranslate with milestone=approval.milestone_code track=approval.track_code %}{{ milestone }} on {{ track }}{% endblocktranslate %}
+                  </a>
+                  <span class="text-soft-foreground">· {{ approval.product.name }} · {{ approval.decided_on|date:"j M Y" }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            {% translate "None" %}
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-[10.5px] text-soft-foreground">{% translate "Callback" %}</dt>
+        <dd class="mt-0.5 leading-[1.45]">
+          {% if context_credential %}
+            <span class="inline-flex items-center gap-1.5">
+              {% include "components/status_dot.html" with variant=context_credential.callback_variant %}
+              {{ context_credential.callback_label }}
+            </span>
+            {% if context_credential.callback_status_code %}· HTTP {{ context_credential.callback_status_code }}{% endif %}
+            {% if context_credential.callback_latency_ms is not None %}· {{ context_credential.callback_latency_ms }} ms{% endif %}
+            <span class="block font-mono text-[10.5px] break-all text-soft-foreground">{{ context_credential.client_id }}</span>
+          {% elif item.product %}
+            {% translate "No active credentials." %}
+          {% else %}
+            {% translate "Not a product item." %}
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-[10.5px] text-soft-foreground">{% translate "Open tickets" %}</dt>
+        <dd class="mt-0.5 leading-[1.45]">
+          {% if open_tickets %}
+            <ul class="flex flex-col gap-0.5">
+              {% for ticket in open_tickets %}
+                <li>
+                  <a class="font-mono text-[11px] hover:underline"
+                     href="{% url 'ohc:ticket' ticket.reference %}">{{ ticket.reference }}</a>
+                  · {{ ticket.get_priority_display }}
+                  {% if ticket.track %}· <span class="font-mono">{{ ticket.track }}</span>{% endif %}
+                  <span class="block truncate text-[10.5px] text-soft-foreground">{{ ticket.subject }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            {% translate "None" %}
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+  </div>
+</section>
