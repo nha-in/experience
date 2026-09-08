@@ -283,7 +283,7 @@ class TestTicketQuerySet:
 
         assert list(Ticket.objects.open_only()) == [live]
 
-    def test_awaiting_ohc_is_the_queue_of_real_work(
+    def test_open_filter_lists_tickets_awaiting_reviewers(
         self,
         organisation,
         ohc_member,
@@ -294,4 +294,4 @@ class TestTicketQuerySet:
         waiting_on_them = open_ticket(organisation, "We spoke last")
         post_reply(waiting_on_them, ohc_member, "Over to you.", from_ohc_team=True)
 
-        assert list(Ticket.objects.awaiting_ohc()) == [waiting_on_us]
+        assert list(Ticket.objects.filter(status=Status.OPEN)) == [waiting_on_us]

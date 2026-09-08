@@ -98,7 +98,6 @@ def ui_field(  # noqa: PLR0913, PLR0917
         is_file and getattr(field.field.widget, "allow_multiple_selected", False),
     )
     form = field.form
-    application = context.get("application")
     return {
         "field": _style(field, extra_class),
         "label": label or field.label,
@@ -108,7 +107,6 @@ def ui_field(  # noqa: PLR0913, PLR0917
         # convention.
         "is_optional": not field.field.required
         and field.name not in getattr(form, "required_uploads", ()),
-        "sandbox_files": getattr(form, "sandbox_files", False),
         "is_file": is_file,
         "is_multiple_file": is_multiple_file,
         "existing_files": getattr(form, "existing_files", {}).get(field.name, []),
@@ -118,7 +116,6 @@ def ui_field(  # noqa: PLR0913, PLR0917
         ),
         "max_files": getattr(field.field, "max_files", None) if is_multiple_file else 1,
         "accepted_types": field.field.widget.attrs.get("accept", ""),
-        "application_reference": getattr(application, "reference", ""),
     }
 
 

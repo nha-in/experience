@@ -103,14 +103,11 @@ TAILWIND_USE_STANDALONE_BINARY = env.bool(
 )
 
 THIRD_PARTY_APPS = [
-    "crispy_forms",
-    "crispy_bootstrap5",
     "allauth",
     "allauth.account",
     "allauth.mfa",
     "allauth.socialaccount",
     "django_celery_beat",
-    "corsheaders",
     "django_htmx",
     "tailwind",
     "theme",
@@ -124,7 +121,6 @@ LOCAL_APPS = [
     "ohc_experience.events",
     "ohc_experience.experiences",
     "ohc_experience.sandbox",
-    "ohc_experience.ohc",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -189,7 +185,6 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -256,10 +251,6 @@ TEMPLATES = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#form-renderer
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 
-# http://django-crispy-forms.readthedocs.io/en/latest/install.html#template-packs
-CRISPY_TEMPLATE_PACK = "bootstrap5"
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-
 # FIXTURES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#fixture-dirs
@@ -321,19 +312,6 @@ LOGGING = {
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
-
-# Care sandbox plugin (provisions vendor sandboxes)
-# ------------------------------------------------------------------------------
-CARE_SANDBOX_BASE_URL = env(
-    "CARE_SANDBOX_BASE_URL",
-    default="http://host.docker.internal:9000",
-)
-CARE_SANDBOX_FRONTEND_URL = env("CARE_SANDBOX_FRONTEND_URL", default="")
-CARE_SANDBOX_USERNAME = env("CARE_SANDBOX_USERNAME", default="admin")
-CARE_SANDBOX_PASSWORD = env("CARE_SANDBOX_PASSWORD", default="admin")
-CARE_SANDBOX_TIMEOUT = env.int("CARE_SANDBOX_TIMEOUT", default=30)
-CARE_SANDBOX_POLL_ATTEMPTS = env.int("CARE_SANDBOX_POLL_ATTEMPTS", default=60)
-CARE_SANDBOX_POLL_INTERVAL = env.int("CARE_SANDBOX_POLL_INTERVAL", default=5)
 
 # Celery
 # ------------------------------------------------------------------------------

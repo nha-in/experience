@@ -535,27 +535,20 @@ def test_track_filter_respects_which_track_applied_for_shared_m1(environment, cl
     assert item in client.get(url, {"track": "PHR"}).context["page"]
 
 
-def test_legacy_organisation_urls_cannot_bypass_review(environment, client):
+def test_removed_organisation_urls_cannot_bypass_review(environment, client):
     org = environment["org"]
     client.force_login(environment["applicant"])
-    for name in ["organisations:detail", "organisations:onboarding"]:
-        response = client.post(reverse(name), {"name": "Bypassed review"})
-        assert response.status_code == 302
-        assert response.url == reverse("sandbox:organisation")
-    org.refresh_from_db()
-    assert org.name != "Bypassed review"
+    for url in ["/settings/organisation/", "/onboarding/"]:
+        assert client.post(url, {"name": "Bypassed review"}).status_code == 404
     client.force_login(environment["reviewer"])
     response = client.post(
-        reverse("ohc:organisation-verification", args=[org.slug]),
+        f"/ohc/organisations/{org.slug}/verification/",
         {"verification_status": "sent_back"},
     )
-    assert response.status_code == 302
-    assert (
-        response.url
-        == org.sandbox_reviews.get(kind="organisation_verification").get_absolute_url()
-    )
+    assert response.status_code == 404
     org.refresh_from_db()
     assert org.is_verified
+    assert org.name != "Bypassed review"
 
 
 def test_support_members_cannot_reply_or_withdraw(environment, client):

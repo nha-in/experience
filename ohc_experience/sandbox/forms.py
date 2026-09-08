@@ -1,8 +1,8 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from ohc_experience.experiences.abdm.forms import ExperienceForm
 from ohc_experience.experiences.fields import MultipleFileField
+from ohc_experience.experiences.forms import ExperienceForm
 
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
@@ -13,7 +13,6 @@ from .uploads import validate_upload_size
 
 class SandboxForm(ExperienceForm):
     required_uploads = ()
-    sandbox_files = True
     schema_version = 1
 
     def __init__(self, *args, draft=False, **kwargs):

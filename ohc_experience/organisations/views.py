@@ -2,36 +2,27 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
-from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
 from django.template.loader import render_to_string
-from django.urls import reverse
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import FormView
-from django.views.generic import TemplateView
-from django.views.generic import UpdateView
-from django_htmx.http import HttpResponseClientRedirect
 
 from ohc_experience.users.permissions import is_ohc_team
 
 from .forms import InvitationForm
 from .forms import MembershipRoleForm
-from .forms import OrganisationProfileForm
 from .models import Invitation
 from .models import Membership
-from .models import Organisation
 from .models import Role
-from .models import Sandbox
 from .selectors import get_membership_for
 
 if TYPE_CHECKING:
@@ -63,9 +54,9 @@ class OrganisationMixin(LoginRequiredMixin):
             if is_ohc_team(request.user):
                 messages.info(
                     request,
-                    _("That is a vendor page. Here is the OHC console instead."),
+                    _("Opening the NHA review dashboard for your reviewer account."),
                 )
-                return redirect("ohc:queue")
+                return redirect("sandbox:assess-dashboard")
             msg = _("You are not a member of any organisation.")
             raise PermissionDenied(msg)
         self.organisation = self.membership.organisation
@@ -80,125 +71,6 @@ class OrganisationMixin(LoginRequiredMixin):
         context["membership"] = self.membership
         context["can_manage"] = self.membership.can_manage
         return context
-
-
-class OnboardingView(OrganisationMixin, UpdateView):
-    """Screen 1b — one form, save and continue, then straight to the dashboard."""
-
-    model = Organisation
-    form_class = OrganisationProfileForm
-    template_name = "organisations/onboarding.html"
-    # The page includes this fragment; htmx swaps the same file back in.
-    partial_template_name = "organisations/partials/organisation_form.html"
-
-    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if self.organisation.sandbox_reviews.exists():
-            return redirect("sandbox:organisation")
-        if self.organisation.is_onboarded:
-            return redirect("dashboard")
-        return super().get(request, *args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        if self.organisation.sandbox_reviews.exists():
-            return redirect("sandbox:organisation")
-        return super().post(request, *args, **kwargs)
-
-    def get_object(self, queryset=None) -> Organisation:
-        return self.organisation
-
-    def get_initial(self) -> dict:
-        initial = super().get_initial()
-        # The person setting the account up is the technical contact more often
-        # than not, so pre-fill rather than ask twice.
-        initial.setdefault("legal_name", self.organisation.name)
-        initial.setdefault("technical_contact_name", self.request.user.name)
-        initial.setdefault("technical_contact_email", self.request.user.email)
-        return initial
-
-    def get_context_data(self, **kwargs) -> dict:
-        context = super().get_context_data(**kwargs)
-        context["form_layout"] = "onboarding"
-        return context
-
-    def form_valid(self, form):
-        organisation = form.save(commit=False)
-        organisation.mark_onboarded()
-        organisation.save()
-        messages.success(
-            self.request,
-            _("Your vendor profile is set up. Welcome to the hub."),
-        )
-        if self.request.htmx:
-            # Finishing onboarding leaves this screen for good, so there is no
-            # fragment worth swapping: hand htmx a real client-side redirect and
-            # the browser lands on the dashboard exactly as the no-JS path does.
-            return HttpResponseClientRedirect(reverse("dashboard"))
-        return HttpResponseRedirect(reverse("dashboard"))
-
-    def form_invalid(self, form):
-        # 200 with the re-rendered fragment, so htmx swaps the errors in; the
-        # no-JS path still gets the whole page back, also with a 200.
-        if self.request.htmx:
-            return render(
-                self.request,
-                self.partial_template_name,
-                self.get_context_data(form=form),
-            )
-        return super().form_invalid(form)
-
-
-class OrganisationDetailView(OrganisationMixin, UpdateView):
-    """Settings → Organization."""
-
-    model = Organisation
-    form_class = OrganisationProfileForm
-    template_name = "organisations/organisation_detail.html"
-    # The page includes this fragment; htmx swaps the same file back in.
-    partial_template_name = "organisations/partials/organisation_form.html"
-    success_url = reverse_lazy("dashboard")
-
-    def get(self, request, *args, **kwargs):
-        if self.organisation.sandbox_reviews.exists():
-            return redirect("sandbox:organisation")
-        return super().get(request, *args, **kwargs)
-
-    def get_object(self, queryset=None) -> Organisation:
-        return self.organisation
-
-    def get_context_data(self, **kwargs) -> dict:
-        context = super().get_context_data(**kwargs)
-        context["nav_section"] = "settings"
-        context["settings_section"] = "organisation"
-        context["form_layout"] = "settings"
-        return context
-
-    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if self.organisation.sandbox_reviews.exists():
-            return redirect("sandbox:organisation")
-        if not self.membership.can_manage:
-            msg = _("Only the owner and admins can edit the organisation profile.")
-            raise PermissionDenied(msg)
-        return super().post(request, *args, **kwargs)
-
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, _("Organisation profile updated."))
-        if self.request.htmx:
-            # A full navigation home: the dashboard reloads with the new name in
-            # the sidebar and the flash riding along in Django's message store.
-            return HttpResponseClientRedirect(reverse("dashboard"))
-        return response
-
-    def form_invalid(self, form):
-        # 200 with the re-rendered fragment, so htmx swaps the errors in; the
-        # no-JS path still gets the whole page back, also with a 200.
-        if self.request.htmx:
-            return render(
-                self.request,
-                self.partial_template_name,
-                self.get_context_data(form=form),
-            )
-        return super().form_invalid(form)
 
 
 class TeamFragmentMixin:
@@ -496,58 +368,3 @@ def send_invitation_email(request: HttpRequest, invitation: Invitation) -> None:
         recipient_list=[invitation.email],
         fail_silently=False,
     )
-
-
-def sandbox_frontend_context() -> dict:
-    """The Care app the sandbox is used through, which is not the plugin's API."""
-    return {"sandbox_frontend_url": settings.CARE_SANDBOX_FRONTEND_URL}
-
-
-class SandboxView(OrganisationMixin, TemplateView):
-    """Vendor sandbox page — visible to every team member."""
-
-    template_name = "organisations/sandbox.html"
-
-    def get_context_data(self, **kwargs) -> dict:
-        context = super().get_context_data(**kwargs)
-        context["nav_section"] = "sandbox"
-        context["sandbox"] = getattr(self.organisation, "sandbox", None)
-        context.update(sandbox_frontend_context())
-        return context
-
-
-class SandboxStatusView(OrganisationMixin, TemplateView):
-    """HTMX-polled status fragment for the sandbox page."""
-
-    template_name = "organisations/partials/sandbox_status.html"
-
-    def get_context_data(self, **kwargs) -> dict:
-        context = super().get_context_data(**kwargs)
-        context["sandbox"] = getattr(self.organisation, "sandbox", None)
-        context.update(sandbox_frontend_context())
-        return context
-
-
-class SandboxRequestView(OrganisationMixin, View):
-    """Managers request the team's single sandbox."""
-
-    require_manage = True
-
-    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if getattr(self.organisation, "sandbox", None) is not None:
-            messages.info(request, _("Your team already has a sandbox."))
-            return redirect("organisations:sandbox")
-
-        is_empty = request.POST.get("data_scope") == "empty"
-        Sandbox.objects.create(
-            organisation=self.organisation,
-            requested_by=request.user,
-            is_facility_empty=is_empty,
-            facility_name=f"{self.organisation.display_name} Sandbox",
-            status=Sandbox.Status.REQUESTED,
-        )
-        messages.success(
-            request,
-            _("Sandbox requested. The OHC team will provision it shortly."),
-        )
-        return redirect("organisations:sandbox")

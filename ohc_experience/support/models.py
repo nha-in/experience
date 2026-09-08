@@ -68,10 +68,6 @@ class TicketQuerySet(models.QuerySet["Ticket"]):
     def open_only(self) -> TicketQuerySet:
         return self.filter(status__in=Status.active())
 
-    def awaiting_ohc(self) -> TicketQuerySet:
-        """Tickets whose last word came from the vendor — the queue's real work."""
-        return self.filter(status=Status.OPEN)
-
     def with_related(self) -> TicketQuerySet:
         return self.select_related("organisation", "created_by", "assignee")
 
@@ -127,11 +123,6 @@ class Ticket(models.Model):
         # Only OHC staff answer tickets, so the picker never offers a vendor.
         limit_choices_to={"is_ohc_team": True},
     )
-    linked_facility = models.CharField(
-        _("Linked facility"),
-        max_length=255,
-        blank=True,
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     first_responded_at = models.DateTimeField(null=True, blank=True, editable=False)
@@ -164,7 +155,7 @@ class Ticket(models.Model):
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
-        return reverse("support:detail", kwargs={"reference": self.reference})
+        return reverse("sandbox:ticket", kwargs={"reference": self.reference})
 
     @staticmethod
     def _next_reference() -> str:

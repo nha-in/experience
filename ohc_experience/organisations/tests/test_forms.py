@@ -6,7 +6,6 @@ import pytest
 
 from ohc_experience.organisations.forms import InvitationForm
 from ohc_experience.organisations.forms import MembershipRoleForm
-from ohc_experience.organisations.forms import OrganisationProfileForm
 from ohc_experience.organisations.models import Invitation
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
@@ -14,59 +13,6 @@ from ohc_experience.organisations.tests.factories import InvitationFactory
 from ohc_experience.organisations.tests.factories import MembershipFactory
 
 pytestmark = pytest.mark.django_db
-
-PROFILE_DATA = {
-    "legal_name": "Sunrise Health Systems Pvt Ltd",
-    "website": "https://sunrise.in",
-    "city": "Kochi",
-    "state": "Kerala",
-    "deployment_regions": "Kerala, Karnataka",
-    "technical_contact_name": "Meera Krishnan",
-    "technical_contact_email": "meera@sunrise.in",
-    "technical_contact_phone": "+91 98765 43210",
-}
-
-
-class TestOrganisationProfileForm:
-    def test_saves_the_company_profile(self, organisation: Organisation):
-        form = OrganisationProfileForm(PROFILE_DATA, instance=organisation)
-
-        assert form.is_valid(), form.errors
-        saved = form.save()
-
-        assert saved.legal_name == "Sunrise Health Systems Pvt Ltd"
-        assert saved.city == "Kochi"
-        assert saved.technical_contact_email == "meera@sunrise.in"
-
-    @pytest.mark.parametrize(
-        "missing",
-        [
-            "legal_name",
-            "technical_contact_name",
-            "technical_contact_email",
-            "technical_contact_phone",
-        ],
-    )
-    def test_requires_the_identifying_fields(
-        self,
-        organisation: Organisation,
-        missing: str,
-    ):
-        form = OrganisationProfileForm(
-            {**PROFILE_DATA, missing: ""},
-            instance=organisation,
-        )
-
-        assert not form.is_valid()
-        assert missing in form.errors
-
-    def test_optional_fields_may_be_left_blank(self, organisation: Organisation):
-        form = OrganisationProfileForm(
-            {**PROFILE_DATA, "website": "", "city": "", "state": ""},
-            instance=organisation,
-        )
-
-        assert form.is_valid(), form.errors
 
 
 class TestInvitationForm:
@@ -237,16 +183,3 @@ def test_invitation_form_defaults_to_developer(organisation: Organisation):
 
     assert form.fields["role"].initial == Role.DEVELOPER
     assert Role.OWNER not in dict(form.fields["role"].choices)
-
-
-class TestTechnicalContactPhone:
-    """The onboarding form gained a phone number alongside the contact's email."""
-
-    @pytest.mark.django_db
-    def test_stores_the_phone_number(self, organisation: Organisation):
-        form = OrganisationProfileForm(data=PROFILE_DATA, instance=organisation)
-
-        assert form.is_valid(), form.errors
-        saved = form.save()
-
-        assert saved.technical_contact_phone == PROFILE_DATA["technical_contact_phone"]

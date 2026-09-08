@@ -36,7 +36,7 @@
       <a class="{% if nav == 'events' %}active{% endif %}" href="{% url 'sandbox:events' %}{% if workspace %}?product={{ workspace.sandbox_id }}{% endif %}">Events</a>
       <a class="{% if nav == 'support' %}active{% endif %}" href="{% url 'sandbox:support' %}{% if workspace %}?product={{ workspace.sandbox_id }}{% endif %}">Support</a>
       {% if workspace and can_integrate %}<a class="{% if nav == 'edit' %}active{% endif %}" href="{% url 'sandbox:product-edit' workspace.sandbox_id %}">Edit product</a>{% endif %}
-      {% if not reviewer %}<a href="{% url 'organisations:team' %}">Team &amp; invitations</a>{% endif %}
+      {% if not reviewer %}<a href="{% url 'organisations:team' %}" hx-boost="false">Team &amp; invitations</a>{% endif %}
       {% if request.user.is_superuser %}<a href="{% url 'admin:index' %}" hx-boost="false">Administration</a>{% endif %}
     </nav>
     <div class="sb-sidebar-foot"><a href="https://nha-in.github.io/docs/" target="_blank" rel="noopener" hx-boost="false">ABDM documentation <span aria-hidden="true">&#8599;</span></a><div class="sb-user"><span class="sb-avatar">{{ request.user.display_name|first }}</span><span>{{ request.user.display_name }}<small>{{ request.user.email }}</small></span></div><form method="post" action="{% url 'account_logout' %}" hx-boost="false">{% csrf_token %}<button class="sb-text-button" type="submit">Sign out</button></form><img src="{% static 'images/nha-logo.png' %}" width="112" height="40" alt="National Health Authority" /></div>

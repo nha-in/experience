@@ -2,7 +2,9 @@
 
 The September 2026 v3 design is implemented as a Django/HTMX portal on top of the
 existing product, application, reusable form, attachment and outcome engine.
-No legacy records are transformed. The added migrations create schema only.
+Historical migrations are retained for fresh installs and existing databases.
+Cleanup migrations drop retired Care provisioning and generic application
+access/query/audit tables and unused fields; current portal records are retained.
 
 ## Local Demo
 
@@ -83,8 +85,10 @@ local HTMX history cache. Upload controls retain saved files, append sequential
 selections, permit removal and preserve previous revision attachments. Downloads
 are permission-checked and streamed from private object storage; object keys and
 public media URLs are not exposed. Desktop and mobile share the same templates.
-Dates are shown in Asia/Kolkata. Legacy organisation/product edit routes redirect
-into the new review workflow for sandbox records.
+Dates are shown in Asia/Kolkata. Account settings, team management and Django
+admin remain available. Transitions between their layouts and the portal use
+full-page navigation. Retired OHC, generic application, Care provisioning, demo
+and user API routes are no longer exposed.
 
 ## Production Configuration
 

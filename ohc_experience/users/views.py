@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from allauth.account.views import SignupView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.shortcuts import redirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.urls import reverse_lazy
@@ -21,8 +20,6 @@ from ohc_experience.users.models import User
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
-    from django.http import HttpRequest
-    from django.http import HttpResponse
 
 
 class UserSignupView(SignupView):
@@ -134,20 +131,6 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
         return reverse(resolve_post_login_destination(self.request.user))
 
 
-class UserDetailView(LoginRequiredMixin, RedirectView):
-    """Kept so `User.get_absolute_url()` resolves; profiles are not public."""
-
-    permanent = False
-
-    def get_redirect_url(self, *args, **kwargs) -> str:
-        return reverse("users:profile")
-
-
-def legacy_update_redirect(request: HttpRequest) -> HttpResponse:
-    return redirect("users:profile")
-
-
 user_signup_view = UserSignupView.as_view()
 user_profile_view = UserProfileView.as_view()
 user_redirect_view = UserRedirectView.as_view()
-user_detail_view = UserDetailView.as_view()

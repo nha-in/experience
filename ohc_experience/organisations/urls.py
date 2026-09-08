@@ -4,24 +4,7 @@ from . import views
 
 app_name = "organisations"
 urlpatterns = [
-    path("onboarding/", views.OnboardingView.as_view(), name="onboarding"),
-    path(
-        "settings/organisation/",
-        views.OrganisationDetailView.as_view(),
-        name="detail",
-    ),
     path("settings/team/", views.TeamView.as_view(), name="team"),
-    path("sandbox/", views.SandboxView.as_view(), name="sandbox"),
-    path(
-        "sandbox/status/",
-        views.SandboxStatusView.as_view(),
-        name="sandbox-status",
-    ),
-    path(
-        "sandbox/request/",
-        views.SandboxRequestView.as_view(),
-        name="sandbox-request",
-    ),
     path(
         "settings/team/members/<int:pk>/role/",
         views.MembershipRoleUpdateView.as_view(),

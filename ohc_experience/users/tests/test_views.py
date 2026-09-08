@@ -177,34 +177,6 @@ class TestUserProfileView:
         assert f'action="{reverse("users:profile")}"' in html
         assert html.count("csrfmiddlewaretoken") == html.count('method="post"')
 
-    def test_the_legacy_update_url_redirects_to_the_profile(
-        self,
-        sign_in: Callable[[User], Client],
-        user: User,
-    ):
-        response = sign_in(user).get(reverse("users:update"))
-
-        assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("users:profile")
-
-
-class TestUserDetailView:
-    def test_redirects_to_the_profile_page(
-        self,
-        sign_in: Callable[[User], Client],
-        user: User,
-    ):
-        response = sign_in(user).get(reverse("users:detail", kwargs={"pk": user.pk}))
-
-        assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("users:profile")
-
-    def test_requires_login(self, client: Client, user: User):
-        response = client.get(reverse("users:detail", kwargs={"pk": user.pk}))
-
-        assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"].startswith(reverse("account_login"))
-
 
 class TestUserSignupView:
     def test_renders_the_account_card(self, client: Client):
@@ -295,7 +267,11 @@ class TestSignOut:
         sign_in: Callable[[User], Client],
         owner_membership: MembershipType,
     ):
-        html = sign_in(owner_membership.user).get(reverse("dashboard")).content.decode()
+        html = (
+            sign_in(owner_membership.user)
+            .get(reverse("organisations:team"))
+            .content.decode()
+        )
 
         assert f'action="{reverse("account_logout")}"' in html
         assert "Sign out" in html
@@ -319,19 +295,21 @@ class TestSignOut:
         sign_in: Callable[[User], Client],
         owner_membership: MembershipType,
     ):
-        html = sign_in(owner_membership.user).get(reverse("dashboard")).content.decode()
-        # Scoped to the rail: the dashboard legitimately says "Sandbox" on a
-        # status tile, which is not a nav entry.
+        html = (
+            sign_in(owner_membership.user)
+            .get(reverse("organisations:team"))
+            .content.decode()
+        )
         nav = html[html.index('<nav id="app-nav"') : html.index("</nav>")]
 
         assert "Soon" not in nav
         for built in (
             "Dashboard",
-            "Sandbox",
+            "Products",
             "Events",
-            "Applications",
+            "Pending queries",
             "Support",
-            "Settings",
+            "Team settings",
         ):
             assert built in nav
         # Still unbuilt: these arrive with their pages, not as disabled rows.
@@ -340,29 +318,3 @@ class TestSignOut:
             "Deployments",
         ):
             assert unbuilt not in nav
-
-
-class TestOhcConsoleLink:
-    """The console entry is offered only to the people who can actually open it."""
-
-    @staticmethod
-    def _nav_of(client: Client) -> str:
-        html = client.get(reverse("dashboard")).content.decode()
-        return html[html.index('<nav id="app-nav"') : html.index("</nav>")]
-
-    def test_a_vendor_is_not_offered_the_console(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: MembershipType,
-    ):
-        assert "OHC console" not in self._nav_of(sign_in(owner_membership.user))
-
-    def test_an_ohc_member_is_offered_the_console(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: MembershipType,
-    ):
-        owner_membership.user.is_ohc_team = True
-        owner_membership.user.save(update_fields=["is_ohc_team"])
-
-        assert "OHC console" in self._nav_of(sign_in(owner_membership.user))

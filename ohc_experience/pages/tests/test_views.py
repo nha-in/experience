@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
-from django.utils import timezone
 
-from ohc_experience.events.tests.factories import EventFactory
 from ohc_experience.organisations.models import Role
-from ohc_experience.organisations.tests.factories import InvitationFactory
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.pages.views import resolve_post_login_destination
 from ohc_experience.users.tests.factories import UserFactory
@@ -79,147 +75,27 @@ class TestLandingView:
 
 
 class TestDashboardView:
-    def test_requires_login(self, client: Client):
+    def test_requires_login(self, client):
         response = client.get(reverse("dashboard"))
-
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"].startswith(reverse("account_login"))
+        assert response.url.startswith(reverse("account_login"))
 
-    def test_redirects_until_the_company_profile_is_done(
-        self,
-        sign_in: Callable[[User], Client],
-        organisation: Organisation,
+    def test_unfinished_organisation_goes_to_current_onboarding(
+        self, client, organisation,
     ):
         membership = MembershipFactory.create(
-            organisation=organisation,
-            role=Role.OWNER,
+            organisation=organisation, role=Role.OWNER,
         )
+        client.force_login(membership.user)
+        response = client.get(reverse("dashboard"))
+        assert response.url == reverse("sandbox:organisation")
 
-        response = sign_in(membership.user).get(reverse("dashboard"))
-
-        assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("organisations:onboarding")
-
-    def test_renders_once_the_organisation_is_onboarded(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: Membership,
+    def test_onboarded_organisation_without_products_goes_to_registration(
+        self, client, owner_membership,
     ):
-        response = sign_in(owner_membership.user).get(reverse("dashboard"))
-
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["nav_section"] == "dashboard"
-        assert response.context["organisation"] == owner_membership.organisation
-        assert response.context["team_size"] == 1
-        assert response.context["pending_invites"] == 0
-
-    def test_the_setup_checklist_reports_honest_progress(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: Membership,
-    ):
-        response = sign_in(owner_membership.user).get(reverse("dashboard"))
-
-        steps = response.context["setup_steps"]
-        assert [step["done"] for step in steps] == [True, False, False, False]
-        progress = (
-            response.context["setup_done"],
-            response.context["setup_total"],
-            response.context["setup_percent"],
-        )
-        assert progress == (1, 4, 25)
-
-    def test_inviting_a_teammate_ticks_the_team_step(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: Membership,
-    ):
-        InvitationFactory.create(organisation=owner_membership.organisation)
-
-        response = sign_in(owner_membership.user).get(reverse("dashboard"))
-
-        progress = (
-            response.context["pending_invites"],
-            response.context["setup_done"],
-            response.context["setup_percent"],
-        )
-        assert progress == (1, 2, 50)
-
-    def test_a_user_without_an_organisation_is_refused(
-        self,
-        sign_in: Callable[[User], Client],
-        user: User,
-    ):
-        response = sign_in(user).get(reverse("dashboard"))
-
-        assert response.status_code == HTTPStatus.FORBIDDEN
-
-
-class TestDashboardUpcomingEvents:
-    """The card on the dashboard that previews what is coming up."""
-
-    def test_lists_the_next_three_published_events(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: Membership,
-    ):
-        soonest = [
-            EventFactory.create(
-                published=True,
-                title=f"Office hours {day}",
-                starts_at=timezone.now() + timedelta(days=day),
-            )
-            for day in (1, 2, 3)
-        ]
-        fourth = EventFactory.create(
-            published=True,
-            title="Office hours 4",
-            starts_at=timezone.now() + timedelta(days=4),
-        )
-
-        response = sign_in(owner_membership.user).get(reverse("dashboard"))
-
-        assert list(response.context["upcoming_events"]) == soonest
-        assert fourth.title not in response.content.decode()
-
-    def test_each_row_links_to_the_event_and_the_card_to_the_list(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: Membership,
-    ):
-        event = EventFactory.create(published=True, title="Care v3.3 upgrade webinar")
-
-        response = sign_in(owner_membership.user).get(reverse("dashboard"))
-
-        body = response.content.decode()
-        assert event.get_absolute_url() in body
-        assert reverse("events:list") in body
-        assert "Care v3.3 upgrade webinar" in body
-
-    def test_drafts_and_finished_events_stay_out(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: Membership,
-    ):
-        EventFactory.create(title="Draft roadmap AMA")
-        EventFactory.create(published=True, past=True, title="Certification AMA")
-
-        response = sign_in(owner_membership.user).get(reverse("dashboard"))
-
-        assert list(response.context["upcoming_events"]) == []
-        body = response.content.decode()
-        assert "Draft roadmap AMA" not in body
-        assert "Certification AMA" not in body
-
-    def test_keeps_the_empty_state_when_there_is_nothing(
-        self,
-        sign_in: Callable[[User], Client],
-        owner_membership: Membership,
-    ):
-        response = sign_in(owner_membership.user).get(reverse("dashboard"))
-
-        assert list(response.context["upcoming_events"]) == []
-        assert "Nothing scheduled yet" in response.content.decode()
+        client.force_login(owner_membership.user)
+        response = client.get(reverse("dashboard"))
+        assert response.url == reverse("sandbox:product-create")
 
 
 class TestPostLoginDestination:
@@ -262,7 +138,7 @@ class TestOhcStaffLanding:
         response = client.get(reverse("dashboard"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("ohc:queue")
+        assert response["Location"] == reverse("sandbox:assess-dashboard")
 
     def test_a_vendor_with_no_organisation_still_gets_403(self, client, user):
         client.force_login(user)

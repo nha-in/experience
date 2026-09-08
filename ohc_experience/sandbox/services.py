@@ -16,12 +16,12 @@ from ohc_experience.experiences.models import FormReuseScope
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductOutcome
-from ohc_experience.experiences.services import _clone_current_attachments
-from ohc_experience.experiences.services import _store_uploads
-from ohc_experience.experiences.services import _submission_payload
-from ohc_experience.experiences.services import _synchronize_attachment_data
+from ohc_experience.experiences.services import clone_current_attachments
 from ohc_experience.experiences.services import create_application
 from ohc_experience.experiences.services import form_field_schema
+from ohc_experience.experiences.services import store_uploads
+from ohc_experience.experiences.services import submission_payload
+from ohc_experience.experiences.services import synchronize_attachment_data
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 from ohc_experience.users.permissions import is_ohc_team
@@ -189,7 +189,7 @@ def build_form(item, *, data=None, files=None, draft=False):
 def _snapshot(item, form, actor, *, completed):
     record = FormRecord.objects.select_for_update().get(pk=item.form_id)
     old = item.selected_submission
-    data, uploads, multiple = _submission_payload(form, old.data if old else {})
+    data, uploads, multiple = submission_payload(form, old.data if old else {})
     record.submissions.filter(is_current=True).update(is_current=False)
     # A new application gets a new occurrence; edits remain revisions of its pin.
     if old and old.origin_application_id == item.application_id:
@@ -218,15 +218,15 @@ def _snapshot(item, form, actor, *, completed):
         revision=revision,
         submitted_by=actor,
     )
-    _clone_current_attachments(source=old, destination=snapshot, form=form)
-    _store_uploads(
+    clone_current_attachments(source=old, destination=snapshot, form=form)
+    store_uploads(
         submission=snapshot,
         uploads=uploads,
         multiple_upload_fields=multiple,
         stored_data=data,
         user=actor,
     )
-    _synchronize_attachment_data(submission=snapshot, form=form, stored_data=data)
+    synchronize_attachment_data(submission=snapshot, form=form, stored_data=data)
     snapshot.data = data
     snapshot.save(update_fields=["data"])
     item.selected_submission = snapshot

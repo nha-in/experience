@@ -20,16 +20,3 @@ DJANGO_AWS_SECRET_ACCESS_KEY=ohc-local-development-key
 DJANGO_AWS_STORAGE_BUCKET_NAME=ohc-experience-media
 DJANGO_AWS_S3_ENDPOINT_URL=http://minio:9000
 DJANGO_AWS_S3_REGION_NAME=us-east-1
-
-# Care sandbox plugin
-# ------------------------------------------------------------------------------
-# From inside Docker, the host machine is reachable at host.docker.internal.
-# Run Care with: python manage.py runserver 0.0.0.0:9000
-CARE_SANDBOX_BASE_URL=http://host.docker.internal:9000
-# The browser-facing Care application URL, opened from the sandbox credentials.
-# CARE_SANDBOX_FRONTEND_URL=http://localhost:4000
-# Set to a real Care superuser's credentials (e.g. the account created by
-# `python manage.py load_fixtures` or your own createsuperuser).
-CARE_SANDBOX_USERNAME=admin
-CARE_SANDBOX_PASSWORD=admin
-CARE_SANDBOX_FRONTEND_URL=http://localhost:4000

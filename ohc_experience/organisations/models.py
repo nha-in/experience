@@ -49,29 +49,6 @@ class OrganisationQuerySet(models.QuerySet["Organisation"]):
     def for_user(self, user) -> OrganisationQuerySet:
         return self.filter(memberships__user=user)
 
-    def for_console(self) -> OrganisationQuerySet:
-        """The OHC console's list: undecided vendors first, then alphabetical.
-
-        A vendor waiting on verification is the only row on that screen anyone
-        has to act on, so it floats to the top rather than sitting wherever the
-        alphabet put it. Everything already decided keeps the usual name order.
-        """
-        return self.annotate(
-            member_count=models.Count("memberships", distinct=True),
-            # Ordering on verification_status itself would sort by the stored
-            # value — pending, rejected, verified — which puts rejected vendors
-            # above verified ones for no reason a reader could guess. Rank the
-            # one distinction that matters instead.
-            triage_rank=models.Case(
-                models.When(
-                    verification_status=Organisation.VerificationStatus.PENDING,
-                    then=models.Value(0),
-                ),
-                default=models.Value(1),
-                output_field=models.PositiveSmallIntegerField(),
-            ),
-        ).order_by("triage_rank", "name")
-
 
 class Organisation(models.Model):
     """A vendor company: the unit that owns a sandbox, certifications and a team."""
@@ -90,28 +67,6 @@ class Organisation(models.Model):
     website = models.URLField(_("Website"), blank=True)
     city = models.CharField(_("City"), max_length=120, blank=True)
     state = models.CharField(_("State"), max_length=120, blank=True)
-    deployment_regions = models.TextField(
-        _("Deployment regions"),
-        blank=True,
-        help_text=_("States/UTs where you deploy or plan to deploy Care."),
-    )
-
-    # Technical contact — receives sandbox resets, credential rotations, changelogs.
-    technical_contact_name = models.CharField(
-        _("Technical contact name"),
-        max_length=255,
-        blank=True,
-    )
-    technical_contact_email = models.EmailField(
-        _("Technical contact email"),
-        blank=True,
-    )
-    technical_contact_phone = models.CharField(
-        _("Technical contact phone number"),
-        max_length=32,
-        blank=True,
-    )
-
     verification_status = models.CharField(
         _("Verification status"),
         max_length=20,
@@ -140,7 +95,7 @@ class Organisation(models.Model):
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
-        return reverse("organisations:detail")
+        return reverse("sandbox:organisation")
 
     def _build_unique_slug(self) -> str:
         base = slugify(self.name)[:200] or "organisation"
@@ -381,112 +336,6 @@ class Invitation(models.Model):
         self.accepted_at = timezone.now()
         self.save(update_fields=["accepted_at"])
         return membership
-
-
-class Sandbox(models.Model):
-    """A vendor team's single Care sandbox, provisioned by the OHC team."""
-
-    class Status(models.TextChoices):
-        REQUESTED = "requested", _("Requested")
-        PROVISIONING = "provisioning", _("Provisioning")
-        READY = "ready", _("Ready")
-        FAILED = "failed", _("Failed")
-
-    organisation = models.OneToOneField(
-        Organisation,
-        on_delete=models.CASCADE,
-        related_name="sandbox",
-        verbose_name=_("Organisation"),
-    )
-    status = models.CharField(
-        _("Status"),
-        max_length=20,
-        choices=Status.choices,
-        default=Status.REQUESTED,
-    )
-    facility_name = models.CharField(_("Facility name"), max_length=255, blank=True)
-    is_facility_empty = models.BooleanField(_("Empty facility"), default=False)
-
-    job_id = models.CharField(_("Plugin job id"), max_length=64, blank=True)
-    result = models.JSONField(_("Result"), default=dict, blank=True)
-    error = models.TextField(_("Error"), blank=True)
-
-    requested_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="requested_sandboxes",
-    )
-    provisioned_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="provisioned_sandboxes",
-    )
-
-    requested_at = models.DateTimeField(auto_now_add=True)
-    provisioned_at = models.DateTimeField(null=True, blank=True)
-    modified_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = _("Sandbox")
-        verbose_name_plural = _("Sandboxes")
-        ordering = ["-requested_at"]
-
-    def __str__(self) -> str:
-        return f"Sandbox for {self.organisation} ({self.status})"
-
-    @property
-    def is_ready(self) -> bool:
-        return self.status == self.Status.READY
-
-    @property
-    def is_pending(self) -> bool:
-        return self.status in {self.Status.REQUESTED, self.Status.PROVISIONING}
-
-    @property
-    def status_variant(self) -> str:
-        """The badge variant, so every screen agrees on what a status looks like."""
-        return {
-            self.Status.REQUESTED: "neutral",
-            self.Status.PROVISIONING: "info",
-            self.Status.READY: "success",
-            self.Status.FAILED: "destructive",
-        }.get(self.status, "neutral")
-
-    @property
-    def server(self) -> str:
-        return (self.result or {}).get("server", "")
-
-    @property
-    def facility(self) -> dict:
-        return (self.result or {}).get("facility", {})
-
-    @property
-    def credentials(self) -> list:
-        return (self.result or {}).get("users", [])
-
-    @property
-    def primary_credential(self) -> dict | None:
-        for credential in self.credentials:
-            if credential.get("is_primary"):
-                return credential
-        return self.credentials[0] if self.credentials else None
-
-    @property
-    def loaded_data(self) -> dict:
-        return (self.result or {}).get("loaded_data", {})
-
-    @property
-    def loaded_data_counts(self) -> dict:
-        """Readable counts: the plugin also reports flags nobody can act on."""
-        return {
-            key.replace("_", " ").title(): value
-            for key, value in self.loaded_data.items()
-            if not isinstance(value, bool)
-        }
 
 
 def initials_for(value: str) -> str:

@@ -11,52 +11,6 @@ from .models import Organisation
 from .models import Role
 
 
-class OrganisationProfileForm(forms.ModelForm):
-    """Company profile — the onboarding form, reused on the settings screen."""
-
-    class Meta:
-        model = Organisation
-        fields = [
-            "legal_name",
-            "website",
-            "city",
-            "state",
-            "deployment_regions",
-            "technical_contact_name",
-            "technical_contact_email",
-            "technical_contact_phone",
-        ]
-        widgets = {
-            "deployment_regions": forms.Textarea(attrs={"rows": 2}),
-        }
-        labels = {
-            "legal_name": _("Legal entity name"),
-            "technical_contact_name": _("Name"),
-            "technical_contact_email": _("Email"),
-            "technical_contact_phone": _("Phone number"),
-        }
-        help_texts = {
-            "deployment_regions": _(
-                "States/UTs where you deploy or plan to deploy Care.",
-            ),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["legal_name"].required = True
-        self.fields["technical_contact_name"].required = True
-        self.fields["technical_contact_email"].required = True
-        self.fields["technical_contact_phone"].required = True
-        self.fields["technical_contact_phone"].widget.attrs.setdefault(
-            "placeholder",
-            "+91 98765 43210",
-        )
-        self.fields["website"].widget.attrs.setdefault(
-            "placeholder",
-            "https://example.in",
-        )
-
-
 class InvitationForm(forms.ModelForm):
     """Invite a teammate by email with a role."""
 

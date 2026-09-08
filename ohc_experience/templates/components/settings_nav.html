@@ -1,14 +1,6 @@
 {% comment %}
-  Settings sub-navigation — the 200px rail from mockup 1j.
-  Context: settings_section — "organisation" | "team" | "profile".
-
-  Boosted the same way as the sidebar (components/app_nav.html): the response is
-  the ordinary whole page, htmx keeps #main-content — which contains this rail,
-  so the active tab updates itself — and out-of-band swaps #app-nav so the
-  sidebar cannot drift out of step. Every link is still a real href, so with
-  JavaScript off these are three ordinary page loads. The ids are what let htmx
-  put keyboard focus back on the tab that was activated once the swap has
-  replaced it (components/app_nav.html says more).
+  Team and profile share the settings layout and swap its main content via
+  HTMX. Organisation uses the portal layout and needs full-page navigation.
 {% endcomment %}
 {% load i18n %}
 
@@ -23,7 +15,7 @@
      hx-indicator="#nav-progress">
   <a id="settings-nav-organisation"
      class="ui-subnav-link shrink-0 {% if settings_section == 'organisation' %}ui-subnav-link--active{% endif %}"
-     href="{% url 'organisations:detail' %}"
+     href="{% url 'sandbox:organisation' %}" hx-boost="false"
      {% if settings_section == 'organisation' %}aria-current="page"{% endif %}>{% translate "Organisation" %}</a>
   <a id="settings-nav-team"
      class="ui-subnav-link shrink-0 {% if settings_section == 'team' %}ui-subnav-link--active{% endif %}"
