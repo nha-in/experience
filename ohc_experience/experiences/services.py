@@ -13,6 +13,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
+from django.db.models import Max
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -20,15 +21,21 @@ from . import permission_keys
 from .definitions import ActionResult
 from .definitions import ExperienceContext
 from .definitions import FormActionResult
+from .definitions import ProductOutcomeSpec
 from .fields import MultipleFileField
 from .models import ApplicationAccess
-from .models import ApplicationAttachment
+from .models import ApplicationDependency
 from .models import ApplicationEvent
-from .models import ApplicationFormSubmission
+from .models import ApplicationFormUse
 from .models import ApplicationInstance
 from .models import ApplicationQueryMessage
 from .models import ApplicationQueryThread
 from .models import EventKind
+from .models import FormAttachment
+from .models import FormRecord
+from .models import FormReuseScope
+from .models import FormSubmission
+from .models import ProductOutcome
 from .models import QueryMessageKind
 from .models import QueryStatus
 from .models import SubmissionStatus
@@ -41,19 +48,34 @@ REFERENCE_ALPHABET = string.ascii_uppercase + string.digits
 def application_context(application, user) -> ExperienceContext:
     access = get_effective_access(application, user)
     submissions = {}
-    history: dict[str, list[ApplicationFormSubmission]] = {}
-    for submission in application.submissions.all():
-        history.setdefault(submission.form_key, []).append(submission)
-        if submission.is_current:
-            submissions[submission.form_key] = submission
+    history: dict[str, tuple[FormSubmission, ...]] = {}
+    form_records = {}
+    form_uses = {}
+    uses = application.form_uses.select_related(
+        "form",
+        "selected_submission",
+    ).prefetch_related(
+        "form__submissions__attachments",
+        "form__application_uses",
+    )
+    for form_use in uses:
+        form_record = form_use.form
+        form_key = form_use.form_key
+        form_records[form_key] = form_record
+        form_uses[form_key] = form_use
+        form_history = tuple(form_record.submissions.all())
+        history[form_key] = form_history
+        submission = form_use.selected_submission
+        if submission is not None:
+            submissions[form_key] = submission
     return ExperienceContext(
         application=application,
         user=user,
         permissions=access.permissions,
         submissions=submissions,
-        submission_history={
-            form_key: tuple(items) for form_key, items in history.items()
-        },
+        submission_history=history,
+        form_records=form_records,
+        form_uses=form_uses,
     )
 
 
@@ -65,6 +87,75 @@ def _make_reference(prefix: str) -> str:
             return reference
     msg = _("Could not allocate a unique application reference. Try again.")
     raise ValidationError(msg)
+
+
+def _make_form_reference() -> str:
+    for _attempt in range(10):
+        suffix = "".join(secrets.choice(REFERENCE_ALPHABET) for _ in range(8))
+        reference = f"FORM-{suffix}"
+        if not FormRecord.objects.filter(reference=reference).exists():
+            return reference
+    msg = _("Could not allocate a unique form reference. Try again.")
+    raise ValidationError(msg)
+
+
+def _resolve_form_record(*, application, form_definition, user) -> FormRecord:
+    defaults = {
+        "reference": _make_form_reference(),
+        "name": form_definition.name,
+        "created_by": user,
+        "metadata": {"schema_version": form_definition.schema_version},
+    }
+    if form_definition.reuse_scope == FormReuseScope.ORGANISATION:
+        form_record, _created = FormRecord.objects.get_or_create(
+            organisation=application.organisation,
+            product=None,
+            form_key=form_definition.key,
+            reuse_scope=FormReuseScope.ORGANISATION,
+            defaults=defaults,
+        )
+    elif form_definition.reuse_scope == FormReuseScope.PRODUCT:
+        form_record, _created = FormRecord.objects.get_or_create(
+            organisation=application.organisation,
+            product=application.product,
+            form_key=form_definition.key,
+            reuse_scope=FormReuseScope.PRODUCT,
+            defaults=defaults,
+        )
+    else:
+        form_record = FormRecord.objects.create(
+            organisation=application.organisation,
+            product=application.product,
+            form_key=form_definition.key,
+            reuse_scope=FormReuseScope.APPLICATION,
+            **defaults,
+        )
+    if form_record.name != str(form_definition.name):
+        form_record.name = form_definition.name
+        form_record.save(update_fields=["name", "updated_at"])
+    return form_record
+
+
+def materialize_application_forms(*, application, definition, user) -> None:
+    for form_definition in definition.forms:
+        existing_use = application.form_uses.filter(
+            form_key=form_definition.key,
+        ).first()
+        if existing_use is not None:
+            continue
+        form_record = _resolve_form_record(
+            application=application,
+            form_definition=form_definition,
+            user=user,
+        )
+        form_use = ApplicationFormUse(
+            application=application,
+            form=form_record,
+            form_key=form_definition.key,
+            selected_submission=form_record.current_submission,
+        )
+        form_use.full_clean()
+        form_use.save()
 
 
 def _json_value(value: Any) -> Any:
@@ -81,22 +172,85 @@ def _json_value(value: Any) -> Any:
     return value
 
 
+def issue_product_outcomes(
+    *,
+    application: ApplicationInstance,
+    actor,
+    outcomes: tuple[ProductOutcomeSpec, ...],
+) -> tuple[ProductOutcome, ...]:
+    issued = []
+    for spec in outcomes:
+        outcome, created = ProductOutcome.objects.get_or_create(
+            product=application.product,
+            outcome_type=spec.outcome_type,
+            source_application=application,
+            defaults={
+                "name": spec.name,
+                "status": spec.status,
+                "data": _json_value(spec.data),
+                "field_schema": _json_value(list(spec.field_schema)),
+                "metadata": _json_value(spec.metadata),
+                "valid_until": spec.valid_until,
+                "issued_by": actor,
+            },
+        )
+        issued.append(outcome)
+        if created:
+            ApplicationEvent.objects.create(
+                application=application,
+                actor=actor,
+                kind=EventKind.OUTCOME_ISSUED,
+                title=_("%(outcome)s issued to %(product)s")
+                % {"outcome": spec.name, "product": application.product.name},
+                status_before=application.status,
+                status_after=application.status,
+                payload={
+                    "product_outcome_id": outcome.pk,
+                    "outcome_type": spec.outcome_type,
+                },
+            )
+    return tuple(issued)
+
+
 @transaction.atomic
-def create_application(*, application_type: str, organisation, user):
+def create_application(*, application_type: str, product, user, dependencies=()):
     definition = registry.get(application_type)
-    if not organisation.memberships.filter(user=user).exists():
+    if not product.organisation.memberships.filter(user=user).exists():
         msg = _("Only an organisation member can start its application.")
         raise PermissionDenied(msg)
+
+    dependencies = list(dependencies)
+    dependency_ids = {dependency.pk for dependency in dependencies}
+    allowed_dependency_ids = set(
+        ApplicationInstance.objects.visible_to(user)
+        .filter(product=product, pk__in=dependency_ids)
+        .values_list("pk", flat=True),
+    )
+    if dependency_ids != allowed_dependency_ids:
+        msg = _("Prerequisites must be visible applications for the same product.")
+        raise ValidationError(msg)
 
     application = ApplicationInstance.objects.create(
         reference=_make_reference(definition.reference_prefix),
         application_type=definition.key,
         title=definition.name,
-        organisation=organisation,
+        product=product,
         created_by=user,
         status=definition.initial_status,
         metadata={"progress_percent": 0, "completed_forms": 0},
     )
+    materialize_application_forms(
+        application=application,
+        definition=definition,
+        user=user,
+    )
+    for dependency in dependencies:
+        link = ApplicationDependency(
+            application=application,
+            depends_on=dependency,
+        )
+        link.full_clean()
+        link.save()
     ApplicationAccess.objects.create(
         application=application,
         user=user,
@@ -108,8 +262,18 @@ def create_application(*, application_type: str, organisation, user):
         actor=user,
         kind=EventKind.CREATED,
         title=_("Application started"),
-        description=_("The application workspace was created."),
+        description=_("The application workspace was created for %(product)s.")
+        % {"product": product.name},
         status_after=definition.initial_status,
+        payload={
+            "product_id": product.pk,
+            "dependency_references": [item.reference for item in dependencies],
+        },
+    )
+    issue_product_outcomes(
+        application=application,
+        actor=user,
+        outcomes=definition.initial_product_outcomes(application, user),
     )
     recalculate_progress(application, user=user)
     return application
@@ -205,28 +369,49 @@ def _persist_submission(
 ):
     application = context.application
     form_key = form_definition.key
+    form_record = FormRecord.objects.select_for_update().get(
+        pk=context.form_records[form_key].pk,
+    )
+    form_use = context.form_uses[form_key]
     current_submission = context.submissions.get(form_key)
-    if current_submission:
-        current_submission.is_current = False
-        current_submission.save(update_fields=["is_current"])
+    latest_submission = form_record.current_submission
+    if latest_submission:
+        latest_submission.is_current = False
+        latest_submission.save(update_fields=["is_current"])
+    if current_submission or latest_submission:
+        base_submission = current_submission or latest_submission
         is_renewal = submission_mode == "renew"
-        return ApplicationFormSubmission.objects.create(
-            application=application,
+        if is_renewal:
+            latest_number = form_record.submissions.aggregate(
+                number=Max("submission_number"),
+            )["number"]
+            submission_number = (latest_number or 0) + 1
+            revision = 1
+        else:
+            submission_number = base_submission.submission_number
+            latest_revision = form_record.submissions.filter(
+                submission_number=submission_number,
+            ).aggregate(revision=Max("revision"))["revision"]
+            revision = (latest_revision or 0) + 1
+        submission = FormSubmission.objects.create(
+            form=form_record,
+            origin_application=application,
             form_key=form_key,
-            metadata={} if is_renewal else dict(current_submission.metadata),
-            revision=1 if is_renewal else current_submission.revision + 1,
-            submission_number=(
-                current_submission.submission_number + 1
-                if is_renewal
-                else current_submission.submission_number
-            ),
+            metadata={} if is_renewal else dict(base_submission.metadata),
+            revision=revision,
+            submission_number=submission_number,
             **submission_values,
         )
-    return ApplicationFormSubmission.objects.create(
-        application=application,
-        form_key=form_key,
-        **submission_values,
-    )
+    else:
+        submission = FormSubmission.objects.create(
+            form=form_record,
+            origin_application=application,
+            form_key=form_key,
+            **submission_values,
+        )
+    form_use.selected_submission = submission
+    form_use.save(update_fields=["selected_submission", "updated_at"])
+    return submission
 
 
 def _clone_current_attachments(*, source, destination, form) -> None:
@@ -246,13 +431,13 @@ def _clone_current_attachments(*, source, destination, form) -> None:
             attachment.field_key,
             set(),
         )
-        replacing_single_file = (
-            not isinstance(form_field, MultipleFileField)
-            and form.cleaned_data.get(attachment.field_key)
+        is_multiple_file = isinstance(form_field, MultipleFileField)
+        replacing_single_file = not is_multiple_file and form.cleaned_data.get(
+            attachment.field_key,
         )
         if attachment.pk in removed_ids or replacing_single_file:
             continue
-        ApplicationAttachment.objects.create(
+        FormAttachment.objects.create(
             submission=destination,
             field_key=attachment.field_key,
             file=attachment.file.name,
@@ -279,7 +464,7 @@ def _store_uploads(
             ).update(is_current=False)
         attachment_data = []
         for upload in field_uploads:
-            attachment = ApplicationAttachment.objects.create(
+            attachment = FormAttachment.objects.create(
                 submission=submission,
                 field_key=field_name,
                 file=upload,
@@ -414,6 +599,9 @@ def save_form_submission(
         form_definition.metadata_updates(form.cleaned_data, context),
     )
     if updates:
+        form_record = context.form_records[form_key]
+        form_record.metadata = {**form_record.metadata, **updates}
+        form_record.save(update_fields=["metadata", "updated_at"])
         application.metadata = {**application.metadata, **updates}
         application.save(update_fields=["metadata", "updated_at"])
     recalculate_progress(application, user=user)
@@ -488,14 +676,7 @@ def perform_application_action(
 
     query_thread = None
     if result.query:
-        submission = (
-            application.submissions.filter(
-                form_key=result.query.form_key,
-                is_current=True,
-            ).first()
-            if result.query.form_key
-            else None
-        )
+        submission = context.submissions.get(result.query.form_key)
         query_thread = ApplicationQueryThread.objects.create(
             application=application,
             submission=submission,
@@ -530,6 +711,11 @@ def perform_application_action(
         status_before=status_before,
         status_after=application.status,
         payload={"query_id": query_thread.pk if query_thread else None},
+    )
+    issue_product_outcomes(
+        application=application,
+        actor=user,
+        outcomes=result.product_outcomes,
     )
     return result, query_thread
 

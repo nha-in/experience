@@ -10,6 +10,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
+from django.db.models import Count
+from django.db.models import Q
 from django.http import FileResponse
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -18,8 +20,10 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
+from django.views.generic import CreateView
 from django.views.generic import ListView
 from django.views.generic import TemplateView
+from django.views.generic import UpdateView
 from django_htmx.http import HttpResponseClientRedirect
 
 from ohc_experience.organisations.views import OrganisationMixin
@@ -28,9 +32,13 @@ from ohc_experience.users.permissions import OhcTeamRequiredMixin
 from . import permission_keys
 from .forms import ApplicationAccessForm
 from .forms import ApplicationFilterForm
+from .forms import ProductForm
 from .forms import QueryReplyForm
-from .models import ApplicationAttachment
+from .forms import StartApplicationForm
 from .models import ApplicationInstance
+from .models import FormAttachment
+from .models import FormRecord
+from .models import Product
 from .models import QueryStatus
 from .permissions import get_effective_access
 from .registry import registry
@@ -59,12 +67,184 @@ def _redirect_for_request(request, url: str):
     return redirect(url)
 
 
+def _filter_querystring(filters: dict[str, object]) -> str:
+    values = {
+        key: value.pk if isinstance(value, Product) else value
+        for key, value in filters.items()
+    }
+    return urlencode(values)
+
+
 def _decorate_applications(applications) -> None:
     for application in applications:
         application.definition = registry.get(application.application_type)
         application.status_definition = application.definition.get_status(
             application.status,
         )
+
+
+class ProductObjectMixin:
+    def dispatch(self, request, *args, **kwargs):
+        self.product = get_object_or_404(
+            Product.objects.for_organisation(self.organisation).select_related(
+                "organisation",
+                "created_by",
+            ),
+            slug=kwargs["slug"],
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_object(self, queryset=None):
+        return self.product
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "product": self.product,
+                "nav_section": "products",
+                "can_edit_product": self.product.can_edit(self.request.user),
+            },
+        )
+        return context
+
+
+class ProductListView(OrganisationMixin, ListView):
+    template_name = "experiences/product_list.html"
+    context_object_name = "products"
+
+    def get_queryset(self):
+        return (
+            Product.objects.for_organisation(self.organisation)
+            .select_related("created_by")
+            .annotate(
+                application_count=Count("applications", distinct=True),
+                active_application_count=Count(
+                    "applications",
+                    filter=~Q(applications__status__in={"approved", "rejected"}),
+                    distinct=True,
+                ),
+            )
+            .order_by("name")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "nav_section": "products",
+                "product_count": self.get_queryset().count(),
+            },
+        )
+        return context
+
+
+class ProductCreateView(OrganisationMixin, CreateView):
+    template_name = "experiences/product_form.html"
+    form_class = ProductForm
+    model = Product
+
+    def form_valid(self, form):
+        product = form.save(commit=False)
+        product.organisation = self.organisation
+        product.created_by = self.request.user
+        product.save()
+        messages.success(self.request, _("Product created."))
+        return _redirect_for_request(self.request, product.get_absolute_url())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "nav_section": "products",
+                "page_title": _("Add product"),
+                "submit_label": _("Create product"),
+            },
+        )
+        return context
+
+
+class ProductDetailView(
+    OrganisationMixin,
+    ProductObjectMixin,
+    TemplateView,
+):
+    template_name = "experiences/product_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        applications = list(
+            applications_for_user(self.request.user)
+            .filter(product=self.product)
+            .order_by("-updated_at", "-pk"),
+        )
+        _decorate_applications(applications)
+        form_records = list(
+            FormRecord.objects.with_workspace_data()
+            .filter(application_uses__application__product=self.product)
+            .annotate(
+                application_count=Count(
+                    "application_uses__application",
+                    distinct=True,
+                ),
+            )
+            .distinct()
+            .order_by("name", "created_at"),
+        )
+        for form_record in form_records:
+            form_record.latest_submission = form_record.current_submission
+        outcomes = list(
+            self.product.outcomes.select_related(
+                "source_application",
+                "issued_by",
+            ),
+        )
+        for outcome in outcomes:
+            outcome.rows = _product_outcome_rows(outcome)
+        context.update(
+            {
+                "applications": applications,
+                "available_definitions": registry.all(),
+                "form_records": form_records,
+                "product_outcomes": outcomes,
+            },
+        )
+        return context
+
+
+class ProductUpdateView(
+    OrganisationMixin,
+    ProductObjectMixin,
+    UpdateView,
+):
+    template_name = "experiences/product_form.html"
+    form_class = ProductForm
+    model = Product
+
+    def get(self, request, *args, **kwargs):
+        if not self.product.can_edit(request.user):
+            raise PermissionDenied(_("You cannot edit this product."))
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if not self.product.can_edit(request.user):
+            raise PermissionDenied(_("You cannot edit this product."))
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        product = form.save()
+        messages.success(self.request, _("Product updated."))
+        return _redirect_for_request(self.request, product.get_absolute_url())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "page_title": _("Edit product"),
+                "submit_label": _("Save product"),
+            },
+        )
+        return context
 
 
 def _choice_map(choices) -> dict[str, str]:
@@ -120,6 +300,30 @@ def _outcome_rows(outcome: dict[str, Any]) -> list[dict[str, str]]:
     return rows
 
 
+def _product_outcome_rows(outcome) -> list[dict[str, Any]]:
+    schema_by_key = {
+        str(item.get("key")): item
+        for item in outcome.field_schema
+        if isinstance(item, dict) and item.get("key")
+    }
+    keys = [*schema_by_key, *(key for key in outcome.data if key not in schema_by_key)]
+    return [
+        {
+            "key": key,
+            "label": schema_by_key.get(key, {}).get("label")
+            or key.replace("_", " ").title(),
+            "value": outcome.data.get(key, ""),
+            "display_value": (
+                ", ".join(str(item) for item in outcome.data.get(key, []))
+                if isinstance(outcome.data.get(key), list)
+                else str(outcome.data.get(key, ""))
+            ),
+            "secret": bool(schema_by_key.get(key, {}).get("secret")),
+        }
+        for key in keys
+    ]
+
+
 def _submission_rows(form_definition, submission) -> list[dict[str, Any]]:
     attachments = {}
     for attachment in submission.attachments.filter(is_current=True):
@@ -144,8 +348,7 @@ def _submission_rows(form_definition, submission) -> list[dict[str, Any]]:
         field = current_fields.get(field_name)
         rows.append(
             {
-                "label": item.get("label")
-                or field_name.replace("_", " ").title(),
+                "label": item.get("label") or field_name.replace("_", " ").title(),
                 "value": _display_historical_value(
                     field,
                     item,
@@ -155,9 +358,7 @@ def _submission_rows(form_definition, submission) -> list[dict[str, Any]]:
             },
         )
     remaining_keys = [
-        key
-        for key in [*submission.data, *attachments]
-        if key not in rendered_keys
+        key for key in [*submission.data, *attachments] if key not in rendered_keys
     ]
     for field_name in dict.fromkeys(remaining_keys):
         field = current_fields.get(field_name)
@@ -196,6 +397,12 @@ def submission_sections(definition, context) -> list[dict[str, Any]]:
         sections.append(
             {
                 "definition": form_definition,
+                "form_record": context.form_records[form_definition.key],
+                "form_use": context.form_uses[form_definition.key],
+                "reused": context.form_uses[form_definition.key].is_reused,
+                "used_by_count": len(
+                    context.form_records[form_definition.key].application_uses.all(),
+                ),
                 "submission": submission,
                 "rows": _submission_rows(form_definition, submission),
                 "history": history,
@@ -215,7 +422,7 @@ class ApplicationObjectMixin:
     def dispatch(self, request, *args, **kwargs):
         queryset = applications_for_user(request.user)
         if not self.console:
-            queryset = queryset.filter(organisation=self.organisation)
+            queryset = queryset.filter(product__organisation=self.organisation)
         self.application = get_object_or_404(
             queryset,
             reference=kwargs["reference"],
@@ -247,6 +454,23 @@ class ApplicationObjectMixin:
         grants = list(self.application.access_grants.select_related("user"))
         for grant in grants:
             grant.role_definition = self.definition.get_role(grant.role_key)
+        dependencies = list(
+            self.application.dependencies.with_workspace_data().order_by(
+                "created_at",
+                "pk",
+            ),
+        )
+        _decorate_applications(dependencies)
+        dependents = list(
+            self.application.dependent_applications.with_workspace_data().order_by(
+                "created_at",
+                "pk",
+            ),
+        )
+        _decorate_applications(dependents)
+        unmet_dependencies = self.definition.unmet_dependencies(
+            self.experience_context,
+        )
         return {
             "application": self.application,
             "definition": self.definition,
@@ -255,6 +479,9 @@ class ApplicationObjectMixin:
             "effective_access": access,
             "permission_rows": permission_rows,
             "access_grants": grants,
+            "dependencies": dependencies,
+            "dependents": dependents,
+            "unmet_dependencies": unmet_dependencies,
             "console": self.console,
             "layout_template": "layouts/ohc.html"
             if self.console
@@ -286,9 +513,12 @@ class VendorApplicationListView(
 
     def get_queryset(self):
         queryset = applications_for_user(self.request.user).filter(
-            organisation=self.organisation,
+            product__organisation=self.organisation,
         )
-        self.filter_form = ApplicationFilterForm(self.request.GET)
+        self.filter_form = ApplicationFilterForm(
+            self.request.GET,
+            product_queryset=Product.objects.for_organisation(self.organisation),
+        )
         self.filters = self.filter_form.selected()
         return filter_applications(queryset, self.filters).order_by(
             "-updated_at",
@@ -300,15 +530,17 @@ class VendorApplicationListView(
         applications = list(context["applications"])
         _decorate_applications(applications)
         base = ApplicationInstance.objects.visible_to(self.request.user).filter(
-            organisation=self.organisation,
+            product__organisation=self.organisation,
         )
         context.update(
             {
                 "applications": applications,
                 "filter_form": self.filter_form,
-                "filter_querystring": urlencode(self.filters),
+                "filter_querystring": _filter_querystring(self.filters),
                 "nav_section": "applications",
-                "available_definitions": registry.all(),
+                "product_count": Product.objects.for_organisation(
+                    self.organisation,
+                ).count(),
                 "total_count": base.count(),
                 "in_review_count": base.filter(
                     status__in=["submitted", "under_review", "revision_submitted"],
@@ -324,7 +556,11 @@ class VendorApplicationListView(
         return context
 
 
-class StartApplicationView(OrganisationMixin, TemplateView):
+class StartApplicationView(
+    OrganisationMixin,
+    ProductObjectMixin,
+    TemplateView,
+):
     template_name = "experiences/application_start.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -336,19 +572,32 @@ class StartApplicationView(OrganisationMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        form = kwargs.get("form") or StartApplicationForm(
+            product=self.product,
+            user=self.request.user,
+        )
         context.update(
             {
                 "definition": self.definition,
-                "nav_section": "applications",
+                "form": form,
+                "nav_section": "products",
             },
         )
         return context
 
     def post(self, request, *args, **kwargs):
+        form = StartApplicationForm(
+            request.POST,
+            product=self.product,
+            user=request.user,
+        )
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
         application = create_application(
             application_type=self.definition.key,
-            organisation=self.organisation,
+            product=self.product,
             user=request.user,
+            dependencies=form.cleaned_data["dependencies"],
         )
         messages.success(request, _("Application workspace created."))
         return _redirect_for_request(
@@ -436,10 +685,18 @@ class AdminApplicationListView(
     paginate_by = 30
 
     def get_queryset(self):
-        self.filter_form = ApplicationFilterForm(self.request.GET)
+        base = ApplicationInstance.objects.visible_to(self.request.user)
+        self.filter_form = ApplicationFilterForm(
+            self.request.GET,
+            product_queryset=Product.objects.filter(
+                applications__in=base,
+            )
+            .distinct()
+            .order_by("name"),
+        )
         self.filters = self.filter_form.selected()
         queryset = filter_applications(
-            applications_for_user(self.request.user),
+            base.with_workspace_data(),
             self.filters,
         )
         return queryset.order_by("-updated_at", "-pk")
@@ -453,9 +710,9 @@ class AdminApplicationListView(
             {
                 "applications": applications,
                 "filter_form": self.filter_form,
-                "filter_querystring": urlencode(self.filters),
+                "filter_querystring": _filter_querystring(self.filters),
                 "nav_section": "applications",
-                "assigned_count": base.count(),
+                "total_count": base.count(),
                 "waiting_count": base.filter(
                     status__in=["submitted", "revision_submitted"],
                 ).count(),
@@ -516,6 +773,8 @@ class FormWorkspaceMixin(ApplicationObjectMixin):
         form_definition = self.get_form_definition()
         submission_mode = self.get_submission_mode(form_definition)
         submission = self.experience_context.submissions.get(self.form_key)
+        form_record = self.experience_context.form_records[self.form_key]
+        form_use = self.experience_context.form_uses[self.form_key]
         history = self.experience_context.form_history(self.form_key)
         can_submit, read_only_reason = form_definition.availability(
             self.experience_context,
@@ -524,6 +783,9 @@ class FormWorkspaceMixin(ApplicationObjectMixin):
             **self.common_context(),
             "form": form,
             "form_definition": form_definition,
+            "form_record": form_record,
+            "form_use": form_use,
+            "form_used_by_count": len(form_record.application_uses.all()),
             "submission": submission,
             "submission_mode": submission_mode,
             "can_submit": can_submit,
@@ -1003,9 +1265,9 @@ class AttachmentDownloadView(LoginRequiredMixin, View):
         if not context.has_permission(permission_keys.VIEW_APPLICATION):
             raise PermissionDenied(_("You cannot download this attachment."))
         attachment = get_object_or_404(
-            ApplicationAttachment.objects.select_related("submission"),
+            FormAttachment.objects.select_related("submission", "submission__form"),
             pk=kwargs["attachment_pk"],
-            submission__application=application,
+            submission__form__application_uses__application=application,
         )
         return FileResponse(
             attachment.file.open("rb"),

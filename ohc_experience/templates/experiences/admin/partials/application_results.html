@@ -24,7 +24,7 @@
    hx-swap="outerHTML"
    hx-push-url="true"
    hx-indicator="#nav-progress">{{ application.reference }}</a><span class="mt-1 block text-[11px] text-soft-foreground">{{ application.definition.name }}</span></td>
-              <td class="px-4 py-3.5"><span class="block font-medium">{{ application.organisation.display_name }}</span><span class="mt-0.5 block text-xs text-muted-foreground">{{ application.metadata.product_name|default:"Product not named" }}</span></td>
+              <td class="px-4 py-3.5"><span class="block font-medium">{{ application.organisation.display_name }}</span><span class="mt-0.5 block text-xs text-muted-foreground">{{ application.product.name }}</span></td>
               <td class="px-4 py-3.5 text-xs text-muted-foreground">{{ application.submitted_at|date:"j M Y, H:i"|default:"Not submitted" }}</td>
               <td class="px-4 py-3.5"><span class="ui-badge {% if application.open_query_count %}ui-badge--warning{% else %}ui-badge--muted{% endif %} ui-badge--size-xs">{% if application.open_query_count %}{% blocktranslate count count=application.open_query_count %}{{ count }} pending{% plural %}{{ count }} pending{% endblocktranslate %}{% else %}0{% endif %}</span></td>
               <td class="px-4 py-3.5">
@@ -38,8 +38,8 @@
     {% include "experiences/partials/pagination.html" %}
   {% else %}
     <div class="border-y border-border py-12 text-center">
-      <h2 class="text-base font-semibold">{% translate "No assigned applications" %}</h2>
-      <p class="mt-1 text-sm text-muted-foreground">{% translate "Applications appear here when a review role is assigned to you." %}</p>
+      <h2 class="text-base font-semibold">{% translate "No applications" %}</h2>
+      <p class="mt-1 text-sm text-muted-foreground">{% translate "Applications appear here as soon as a vendor starts one." %}</p>
     </div>
   {% endif %}
 </div>

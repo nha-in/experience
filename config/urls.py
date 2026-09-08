@@ -29,6 +29,10 @@ urlpatterns = [
     path("events/", include("ohc_experience.events.urls", namespace="events")),
     path("support/", include("ohc_experience.support.urls", namespace="support")),
     path(
+        "products/",
+        include("ohc_experience.experiences.product_urls", namespace="products"),
+    ),
+    path(
         "applications/",
         include("ohc_experience.experiences.urls", namespace="experiences"),
     ),

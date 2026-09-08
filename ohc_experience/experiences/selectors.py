@@ -16,7 +16,7 @@ def applications_for_user(user):
     return ApplicationInstance.objects.visible_to(user).with_workspace_data()
 
 
-def filter_applications(queryset, selected: dict[str, str]):
+def filter_applications(queryset, selected: dict[str, object]):
     queryset = queryset.annotate(
         open_query_count=Count(
             "query_threads",
@@ -28,12 +28,14 @@ def filter_applications(queryset, selected: dict[str, str]):
         queryset = queryset.filter(status=status)
     if application_type := selected.get("application_type"):
         queryset = queryset.filter(application_type=application_type)
+    if product := selected.get("product"):
+        queryset = queryset.filter(product=product)
     if query := selected.get("q"):
         queryset = queryset.filter(
             Q(reference__icontains=query)
             | Q(title__icontains=query)
-            | Q(organisation__name__icontains=query)
-            | Q(metadata__product_name__icontains=query),
+            | Q(product__organisation__name__icontains=query)
+            | Q(product__name__icontains=query),
         )
     if selected.get("query_state") == "pending":
         queryset = queryset.filter(open_query_count__gt=0)

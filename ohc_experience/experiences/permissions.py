@@ -42,6 +42,8 @@ def get_effective_access(application, user) -> EffectiveAccess:
         ).first()
 
     role = definition.get_role(grant.role_key) if grant else None
+    if role is None and getattr(user, "is_ohc_team", False):
+        role = definition.get_role(definition.platform_observer_role_key)
     # A damaged or manually edited access row must never strand the creator.
     if role is None and application.created_by_id == user.pk:
         role = definition.get_role(definition.owner_role_key)

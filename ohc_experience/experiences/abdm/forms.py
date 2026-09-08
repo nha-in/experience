@@ -18,21 +18,15 @@ ORGANISATION_TYPES = [
     ("government", _("Government or statutory institution")),
 ]
 
-PRODUCT_TYPES = [
-    ("hmis", _("Hospital management information system (HMIS)")),
-    ("lmis", _("Laboratory management information system (LMIS)")),
-    ("emr", _("Electronic medical record (EMR)")),
-    ("phr_locker", _("Personal health record / health locker")),
-    ("telemedicine", _("Telemedicine platform")),
-    ("pharmacy", _("Pharmacy system")),
-    ("connector", _("ABDM connector or middleware")),
-    ("other", _("Other digital health solution")),
-]
-
 ABDM_ROLES = [
     ("hip", _("Health Information Provider (HIP)")),
     ("hiu", _("Health Information User (HIU)")),
     ("health_locker", _("Health locker")),
+]
+
+ADDITIONAL_PROTOCOLS = [
+    ("nhcx", _("National Health Claims Exchange (NHCX)")),
+    ("uhi", _("Unified Health Interface (UHI)")),
 ]
 
 MILESTONES = [
@@ -82,7 +76,7 @@ class ExperienceForm(forms.Form):
         for value in values:
             try:
                 result.add(int(value))
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
         return result
 
@@ -123,10 +117,8 @@ class ExperienceForm(forms.Form):
         return cleaned
 
     def require_upload(self, field_name: str, label: str) -> None:
-        has_upload = (
-            self.cleaned_data.get(field_name)
-            or self.retained_existing_files(field_name)
-        )
+        has_upload = self.cleaned_data.get(field_name)
+        has_upload = has_upload or self.retained_existing_files(field_name)
         if not has_upload and not self.has_error(field_name):
             self.add_error(
                 field_name,
@@ -193,35 +185,22 @@ class OrganisationProfileForm(ExperienceForm):
     )
 
 
-class ProductUseCaseForm(ExperienceForm):
-    product_name = forms.CharField(
-        label=_("Digital health product name"),
-        max_length=255,
-    )
+class ApplicationPlanForm(ExperienceForm):
     product_version = forms.CharField(
         label=_("Version seeking production access"),
         max_length=80,
     )
-    product_type = forms.ChoiceField(label=_("Product type"), choices=PRODUCT_TYPES)
-    product_description = forms.CharField(
-        label=_("Product and intended use"),
+    intended_use = forms.CharField(
+        label=_("Intended use for this application"),
         widget=forms.Textarea(attrs={"rows": 5}),
         help_text=_(
-            "Describe users, care settings, and the ABDM-enabled patient journey.",
+            "Describe the release, users, care settings, and production journey "
+            "covered by this request.",
         ),
-    )
-    current_facility_count = forms.IntegerField(
-        label=_("Facilities currently using the product"),
-        min_value=0,
     )
     expected_monthly_transactions = forms.IntegerField(
         label=_("Expected monthly ABDM transactions"),
         min_value=0,
-    )
-    deployment_states = forms.CharField(
-        label=_("Planned deployment states / UTs"),
-        widget=forms.Textarea(attrs={"rows": 3}),
-        help_text=_("Enter one or more states or union territories."),
     )
     target_go_live_date = forms.DateField(
         label=_("Target production go-live"),
@@ -239,14 +218,29 @@ class IntegrationScopeForm(ExperienceForm):
     abdm_roles = forms.MultipleChoiceField(
         label=_("ABDM roles"),
         choices=ABDM_ROLES,
+        required=False,
         widget=forms.CheckboxSelectMultiple,
+    )
+    protocols = forms.MultipleChoiceField(
+        label=_("Additional national health protocols"),
+        choices=ADDITIONAL_PROTOCOLS,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text=_(
+            "Select NHCX or UHI when this production request includes those protocols.",
+        ),
     )
     milestones = forms.MultipleChoiceField(
         label=_("Completed sandbox milestones"),
         choices=MILESTONES,
+        required=False,
         widget=forms.CheckboxSelectMultiple,
     )
-    sandbox_client_id = forms.CharField(label=_("Sandbox client ID"), max_length=150)
+    sandbox_client_id = forms.CharField(
+        label=_("ABDM sandbox client ID"),
+        max_length=150,
+        required=False,
+    )
     sandbox_exit_request_id = forms.CharField(
         label=_("Sandbox exit request ID"),
         max_length=150,
@@ -255,6 +249,7 @@ class IntegrationScopeForm(ExperienceForm):
     hfr_facility_ids = forms.CharField(
         label=_("HFR facility IDs"),
         widget=forms.Textarea(attrs={"rows": 4}),
+        required=False,
         help_text=_("One facility ID per line. Do not include facility credentials."),
     )
     health_information_types = forms.MultipleChoiceField(
@@ -267,6 +262,7 @@ class IntegrationScopeForm(ExperienceForm):
             ("op_consultation", _("Outpatient consultation")),
             ("wellness", _("Wellness record")),
         ],
+        required=False,
         widget=forms.CheckboxSelectMultiple,
     )
     integration_approach = forms.ChoiceField(
@@ -282,20 +278,87 @@ class IntegrationScopeForm(ExperienceForm):
         required=False,
     )
 
+    def _product_type(self) -> str:
+        if self.experience_context:
+            return self.experience_context.application.product.product_type
+        return ""
+
+    def _validate_selected_scope(self, roles, protocols, milestones) -> None:
+        if not roles and not protocols and not milestones:
+            self.add_error(
+                "abdm_roles",
+                _("Select at least one ABDM role, milestone, NHCX, or UHI."),
+            )
+
+    def _validate_abdm_details(self, cleaned, roles, milestones) -> None:
+        if (roles or milestones) and not cleaned.get("sandbox_client_id"):
+            self.add_error(
+                "sandbox_client_id",
+                _("Enter the sandbox client ID for the selected ABDM scope."),
+            )
+        if roles and not cleaned.get("hfr_facility_ids"):
+            self.add_error(
+                "hfr_facility_ids",
+                _("Enter at least one HFR facility ID for the selected ABDM roles."),
+            )
+        if roles and not cleaned.get("health_information_types"):
+            self.add_error(
+                "health_information_types",
+                _("Select the health information types handled by these roles."),
+            )
+
+    def _validate_milestones(self, roles, milestones, product_type) -> None:
+        health_locker_requested = (
+            "health_locker" in roles or product_type == "health_locker"
+        )
+        if health_locker_requested and not {
+            "hip",
+            "hiu",
+            "health_locker",
+        }.issubset(roles):
+            self.add_error(
+                "abdm_roles",
+                _("A health locker requires HIP, HIU, and Health locker roles."),
+            )
+        if health_locker_requested and not {"m2", "m3"}.issubset(milestones):
+            self.add_error(
+                "milestones",
+                _("Health locker production access requires both M2 and M3 evidence."),
+            )
+        else:
+            if "hip" in roles and "m2" not in milestones:
+                self.add_error(
+                    "milestones",
+                    _("HIP production access requires M2 evidence."),
+                )
+            if "hiu" in roles and "m3" not in milestones:
+                self.add_error(
+                    "milestones",
+                    _("HIU production access requires M3 evidence."),
+                )
+        if product_type == "phr_locker" and "hiu" not in roles:
+            self.add_error(
+                "abdm_roles",
+                _("A PHR application requires the HIU role."),
+            )
+        if (
+            product_type == "phr_locker"
+            and not health_locker_requested
+            and "m3" not in milestones
+        ):
+            self.add_error(
+                "milestones",
+                _("A PHR application requires M3 evidence for health-record access."),
+            )
+
     def clean(self):
         cleaned = super().clean()
         roles = cleaned.get("abdm_roles") or []
+        protocols = cleaned.get("protocols") or []
         milestones = cleaned.get("milestones") or []
-        if "hip" in roles and "m2" not in milestones:
-            self.add_error(
-                "milestones",
-                _("HIP production access requires M2 evidence."),
-            )
-        if "hiu" in roles and "m3" not in milestones:
-            self.add_error(
-                "milestones",
-                _("HIU production access requires M3 evidence."),
-            )
+        self._validate_selected_scope(roles, protocols, milestones)
+        self._validate_abdm_details(cleaned, roles, milestones)
+        self._validate_milestones(roles, milestones, self._product_type())
         if cleaned.get("integration_approach") == "connector" and not cleaned.get(
             "connector_name",
         ):
@@ -343,6 +406,193 @@ class HealthLockerOperationsForm(ExperienceForm):
                 "custodian_partner",
                 _("Name the partner operating the health locker."),
             )
+        return cleaned
+
+
+class NHCXIntegrationForm(ExperienceForm):
+    participant_roles = forms.MultipleChoiceField(
+        label=_("NHCX participant roles"),
+        choices=[
+            ("provider", _("Healthcare provider")),
+            ("payer", _("Payer or insurer")),
+            ("tpa", _("Third-party administrator (TPA)")),
+            ("technology_provider", _("Technology or benefit service provider")),
+        ],
+        widget=forms.CheckboxSelectMultiple,
+    )
+    participant_id = forms.CharField(
+        label=_("NHCX participant / registry ID"),
+        max_length=180,
+    )
+    protocol_version = forms.CharField(
+        label=_("NHCX protocol or implementation-guide version"),
+        max_length=80,
+    )
+    production_callback_url = forms.URLField(
+        label=_("Production NHCX callback URL"),
+        validators=[validate_https],
+    )
+    public_key_url = forms.URLField(
+        label=_("Signing and encryption public-key URL"),
+        validators=[validate_https],
+    )
+    claim_use_cases = forms.MultipleChoiceField(
+        label=_("Claims-exchange use cases"),
+        choices=[
+            ("coverage_eligibility", _("Coverage eligibility")),
+            ("predetermination", _("Pre-determination")),
+            ("preauthorization", _("Pre-authorization")),
+            ("claim", _("Claim submission and adjudication")),
+            ("communication", _("Supporting information and communication")),
+            ("payment", _("Payment and settlement communication")),
+            ("status", _("Status and notifications")),
+        ],
+        widget=forms.CheckboxSelectMultiple,
+    )
+    claim_modes = forms.MultipleChoiceField(
+        label=_("Supported claim modes"),
+        choices=[
+            ("cashless", _("Cashless")),
+            ("reimbursement", _("Reimbursement")),
+        ],
+        widget=forms.CheckboxSelectMultiple,
+    )
+    sandbox_test_reference_ids = forms.CharField(
+        label=_("Representative NHCX sandbox transaction IDs"),
+        widget=forms.Textarea(attrs={"rows": 4}),
+        help_text=_("Use synthetic test transactions only, one reference per line."),
+    )
+    conformance_documents = MultipleFileField(
+        label=_("NHCX conformance and test evidence"),
+        required=False,
+        min_files=1,
+        max_files=8,
+        accept=".pdf,.json,.zip",
+        help_text=_("Upload up to eight PDF, JSON, or ZIP evidence files."),
+    )
+    signed_encrypted_payloads = forms.BooleanField(
+        label=_("NHCX payloads are signed and encrypted as required"),
+    )
+    asynchronous_idempotency = forms.BooleanField(
+        label=_("Callbacks are asynchronous, idempotent, and safely retryable"),
+    )
+    fhir_validation = forms.BooleanField(
+        label=_("Claim bundles validate against the declared implementation guide"),
+    )
+    synthetic_data_only = forms.BooleanField(
+        label=_("Submitted test references contain synthetic data only"),
+    )
+
+    def clean_conformance_documents(self):
+        uploads = self.cleaned_data.get("conformance_documents", [])
+        validate_uploads(
+            uploads,
+            extensions={".pdf", ".json", ".zip"},
+            max_mb=20,
+        )
+        return uploads
+
+    def clean(self):
+        cleaned = super().clean()
+        self.require_upload("conformance_documents", _("NHCX conformance evidence"))
+        return cleaned
+
+
+class UHIIntegrationForm(ExperienceForm):
+    participant_role = forms.ChoiceField(
+        label=_("UHI participant role"),
+        choices=[
+            ("eua", _("End User Application (EUA)")),
+            ("hsp", _("Health Service Provider (HSP) application")),
+            ("eua_hsp", _("Both EUA and HSP application")),
+        ],
+    )
+    subscriber_id = forms.CharField(
+        label=_("UHI registry subscriber ID"),
+        max_length=180,
+    )
+    protocol_version = forms.CharField(
+        label=_("UHI protocol version"),
+        max_length=80,
+    )
+    production_callback_url = forms.URLField(
+        label=_("Production UHI callback URL"),
+        validators=[validate_https],
+    )
+    service_categories = forms.MultipleChoiceField(
+        label=_("Health-service categories"),
+        choices=[
+            ("teleconsultation", _("Teleconsultation")),
+            ("in_person_consultation", _("In-person consultation")),
+            ("appointment_booking", _("Appointment booking")),
+            ("laboratory", _("Laboratory services")),
+            ("pharmacy", _("Pharmacy services")),
+            ("ambulance", _("Ambulance services")),
+        ],
+        widget=forms.CheckboxSelectMultiple,
+    )
+    supported_flows = forms.MultipleChoiceField(
+        label=_("Supported UHI protocol flows"),
+        choices=[
+            ("discovery", _("Discovery (search / on_search)")),
+            ("selection", _("Selection (select / on_select)")),
+            ("initialization", _("Initialization (init / on_init)")),
+            ("confirmation", _("Confirmation (confirm / on_confirm)")),
+            ("status", _("Order status")),
+            ("cancellation", _("Cancellation")),
+            ("feedback", _("Rating and feedback")),
+        ],
+        widget=forms.CheckboxSelectMultiple,
+    )
+    hpr_hfr_registry_ids = forms.CharField(
+        label=_("Linked HPR / HFR registry IDs"),
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_("Required for an HSP application. Enter one ID per line."),
+    )
+    sandbox_transaction_ids = forms.CharField(
+        label=_("Representative UHI sandbox transaction IDs"),
+        widget=forms.Textarea(attrs={"rows": 4}),
+        help_text=_("Use synthetic test transactions only, one reference per line."),
+    )
+    conformance_documents = MultipleFileField(
+        label=_("UHI conformance and test evidence"),
+        required=False,
+        min_files=1,
+        max_files=8,
+        accept=".pdf,.json,.zip",
+        help_text=_("Upload up to eight PDF, JSON, or ZIP evidence files."),
+    )
+    catalog_current = forms.BooleanField(
+        label=_("Published services, availability, and prices are kept current"),
+    )
+    signed_callbacks = forms.BooleanField(
+        label=_("Protocol requests and callbacks are signed and verified"),
+    )
+    consent_and_privacy = forms.BooleanField(
+        label=_("User consent, privacy notices, and data minimisation are enforced"),
+    )
+    grievance_email = forms.EmailField(label=_("UHI grievance and support email"))
+
+    def clean_conformance_documents(self):
+        uploads = self.cleaned_data.get("conformance_documents", [])
+        validate_uploads(
+            uploads,
+            extensions={".pdf", ".json", ".zip"},
+            max_mb=20,
+        )
+        return uploads
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("participant_role") in {"hsp", "eua_hsp"} and not cleaned.get(
+            "hpr_hfr_registry_ids",
+        ):
+            self.add_error(
+                "hpr_hfr_registry_ids",
+                _("Enter the HPR or HFR IDs represented by this HSP application."),
+            )
+        self.require_upload("conformance_documents", _("UHI conformance evidence"))
         return cleaned
 
 

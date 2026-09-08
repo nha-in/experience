@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -11,25 +13,29 @@ from ohc_experience.experiences.definitions import ApplicationDefinition
 from ohc_experience.experiences.definitions import ApplicationFormAction
 from ohc_experience.experiences.definitions import ApplicationFormDefinition
 from ohc_experience.experiences.definitions import FormActionResult
+from ohc_experience.experiences.definitions import ProductOutcomeSpec
 from ohc_experience.experiences.definitions import QueryRequest
 from ohc_experience.experiences.definitions import RoleDefinition
 from ohc_experience.experiences.definitions import StatusDefinition
+from ohc_experience.experiences.models import FormReuseScope
 from ohc_experience.experiences.models import QueryStatus
 from ohc_experience.experiences.registry import registry
 
 from .forms import ApplicantQueryForm
+from .forms import ApplicationPlanForm
 from .forms import ApprovalForm
 from .forms import ConformanceEvidenceForm
 from .forms import DeclarationForm
 from .forms import HealthLockerOperationsForm
 from .forms import IntegrationScopeForm
+from .forms import NHCXIntegrationForm
 from .forms import OrganisationProfileForm
-from .forms import ProductUseCaseForm
 from .forms import RaiseQueryForm
 from .forms import RejectionForm
 from .forms import SecurityCertificationForm
 from .forms import SecurityComplianceForm
 from .forms import TechnicalReadinessForm
+from .forms import UHIIntegrationForm
 
 
 class OrganisationProfile(ApplicationFormDefinition):
@@ -37,6 +43,7 @@ class OrganisationProfile(ApplicationFormDefinition):
     name = _("Organisation profile")
     description = _("Legal identity and the authorised production-access contact.")
     form_class = OrganisationProfileForm
+    reuse_scope = FormReuseScope.ORGANISATION
     allow_updates = True
 
     @classmethod
@@ -67,18 +74,17 @@ class OrganisationProfile(ApplicationFormDefinition):
         }
 
 
-class ProductUseCase(ApplicationFormDefinition):
-    key = "product_use_case"
-    name = _("Product and use case")
-    description = _("The product, deployment footprint, users, and planned launch.")
-    form_class = ProductUseCaseForm
+class ApplicationPlan(ApplicationFormDefinition):
+    key = "application_plan"
+    name = _("Application plan")
+    description = _("The release, production use case, volume, and planned launch.")
+    form_class = ApplicationPlanForm
     dependencies = (OrganisationProfile.key,)
     allow_updates = True
 
     @classmethod
     def metadata_updates(cls, cleaned_data, context):
         return {
-            "product_name": cleaned_data["product_name"],
             "product_version": cleaned_data["product_version"],
             "target_go_live_date": cleaned_data["target_go_live_date"],
         }
@@ -86,18 +92,71 @@ class ProductUseCase(ApplicationFormDefinition):
 
 class IntegrationScope(ApplicationFormDefinition):
     key = "integration_scope"
-    name = _("ABDM integration scope")
-    description = _("HIP, HIU, health-locker roles and completed sandbox milestones.")
+    name = _("Integration scope")
+    description = _(
+        "Select ABDM roles and milestones plus any NHCX or UHI production scope.",
+    )
     form_class = IntegrationScopeForm
-    dependencies = (ProductUseCase.key,)
+    dependencies = (ApplicationPlan.key,)
     allow_updates = True
 
     @classmethod
     def metadata_updates(cls, cleaned_data, context):
         return {
             "abdm_roles": cleaned_data["abdm_roles"],
+            "protocols": cleaned_data.get("protocols", []),
             "milestones": cleaned_data["milestones"],
             "sandbox_client_id": cleaned_data["sandbox_client_id"],
+        }
+
+
+class NHCXIntegration(ApplicationFormDefinition):
+    key = "nhcx_integration"
+    name = _("NHCX claims exchange")
+    description = _(
+        "Participant identity, claims use cases, endpoints, and conformance evidence.",
+    )
+    form_class = NHCXIntegrationForm
+    dependencies = (IntegrationScope.key,)
+    allow_updates = True
+
+    @classmethod
+    def is_applicable(cls, context):
+        integration_scope = context.form_data(IntegrationScope.key)
+        return "nhcx" in integration_scope.get("protocols", [])
+
+    @classmethod
+    def metadata_updates(cls, cleaned_data, context):
+        return {
+            "nhcx_participant_id": cleaned_data["participant_id"],
+            "nhcx_participant_roles": cleaned_data["participant_roles"],
+            "nhcx_protocol_version": cleaned_data["protocol_version"],
+            "nhcx_claim_use_cases": cleaned_data["claim_use_cases"],
+        }
+
+
+class UHIIntegration(ApplicationFormDefinition):
+    key = "uhi_integration"
+    name = _("UHI service network")
+    description = _(
+        "EUA or HSP registration, service flows, callbacks, and conformance evidence.",
+    )
+    form_class = UHIIntegrationForm
+    dependencies = (IntegrationScope.key,)
+    allow_updates = True
+
+    @classmethod
+    def is_applicable(cls, context):
+        integration_scope = context.form_data(IntegrationScope.key)
+        return "uhi" in integration_scope.get("protocols", [])
+
+    @classmethod
+    def metadata_updates(cls, cleaned_data, context):
+        return {
+            "uhi_subscriber_id": cleaned_data["subscriber_id"],
+            "uhi_participant_role": cleaned_data["participant_role"],
+            "uhi_protocol_version": cleaned_data["protocol_version"],
+            "uhi_service_categories": cleaned_data["service_categories"],
         }
 
 
@@ -246,6 +305,7 @@ class Declaration(ApplicationFormDefinition):
     name = _("Authorised declaration")
     description = _("Final declarations and accountable signatory details.")
     form_class = DeclarationForm
+    reuse_scope = FormReuseScope.APPLICATION
     dependencies = (ConformanceEvidence.key,)
     allow_updates = False
 
@@ -267,6 +327,12 @@ class SubmitApplication(ApplicationAction):
     @classmethod
     def extra_availability(cls, context):
         definition = registry.get(context.application.application_type)
+        unmet_dependencies = list(definition.unmet_dependencies(context))
+        if unmet_dependencies:
+            references = ", ".join(item.reference for item in unmet_dependencies)
+            return False, _(
+                "Wait for prerequisite applications to be approved: %(references)s.",
+            ) % {"references": references}
         if not definition.required_forms_complete(context):
             return False, _("Complete every required form before submitting.")
         has_unanswered_query = context.application.query_threads.filter(
@@ -396,6 +462,37 @@ class ApproveApplication(ApplicationAction):
                 "decision_note": cleaned_data.get("note", ""),
                 "decided_by": context.user.display_name,
             },
+            product_outcomes=(
+                ProductOutcomeSpec(
+                    outcome_type="production_access",
+                    name=str(_("ABDM production access")),
+                    data={
+                        "production_client_id": cleaned_data["production_client_id"],
+                        "approved_milestones": cleaned_data["approved_milestones"],
+                        "effective_date": cleaned_data["effective_date"],
+                        "certificate_reference": cleaned_data["certificate_reference"],
+                    },
+                    field_schema=(
+                        {
+                            "key": "production_client_id",
+                            "label": str(_("Production client ID")),
+                        },
+                        {
+                            "key": "approved_milestones",
+                            "label": str(_("Approved milestones")),
+                        },
+                        {
+                            "key": "effective_date",
+                            "label": str(_("Effective date")),
+                        },
+                        {
+                            "key": "certificate_reference",
+                            "label": str(_("Certificate reference")),
+                        },
+                    ),
+                    metadata={"decision": "approved"},
+                ),
+            ),
         )
 
 
@@ -434,6 +531,40 @@ class ABDMProductionAccess(ApplicationDefinition):
         "digital health product.",
     )
     reference_prefix = "ABDM"
+
+    @classmethod
+    def initial_product_outcomes(cls, application, actor):
+        product_slug = application.product.slug.replace("-", "_")
+        return (
+            ProductOutcomeSpec(
+                outcome_type="sandbox_credentials",
+                name=str(_("ABDM sandbox credentials")),
+                data={
+                    "environment": "sandbox",
+                    "client_id": f"sbx_{product_slug}_{secrets.token_hex(4)}",
+                    "client_secret": secrets.token_urlsafe(24),
+                    "product": application.product.name,
+                },
+                field_schema=(
+                    {
+                        "key": "environment",
+                        "label": str(_("Environment")),
+                    },
+                    {"key": "client_id", "label": str(_("Client ID"))},
+                    {
+                        "key": "client_secret",
+                        "label": str(_("Client secret")),
+                        "secret": True,
+                    },
+                    {"key": "product", "label": str(_("Product"))},
+                ),
+                metadata={
+                    "issued_when": "application_started",
+                    "issued_to_user_id": actor.pk,
+                },
+            ),
+        )
+
     statuses = (
         StatusDefinition("draft", _("Draft"), _("Forms are being completed."), "muted"),
         StatusDefinition(
@@ -592,8 +723,10 @@ class ABDMProductionAccess(ApplicationDefinition):
     )
     forms = (
         OrganisationProfile,
-        ProductUseCase,
+        ApplicationPlan,
         IntegrationScope,
+        NHCXIntegration,
+        UHIIntegration,
         HealthLockerOperations,
         TechnicalReadiness,
         SecurityCompliance,

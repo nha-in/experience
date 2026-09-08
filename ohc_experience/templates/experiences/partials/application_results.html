@@ -27,7 +27,7 @@
                 </span>
                 <span class="mt-0.5 block font-mono text-[11px] text-soft-foreground">{{ application.reference }} · {{ application.updated_at|date:"j M Y" }}</span>
               </span>
-              <span class="truncate text-sm text-muted-foreground">{{ application.metadata.product_name|default:"—" }}</span>
+              <span class="truncate text-sm text-muted-foreground">{{ application.product.name }}</span>
               <span>
                 <span class="mb-1 block text-xs font-medium tabular-nums">{{ application.progress_percent }}%</span>
                 <span class="block h-1.5 overflow-hidden rounded-full bg-muted">

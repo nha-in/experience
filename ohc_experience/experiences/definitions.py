@@ -13,16 +13,21 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from . import permission_keys
+from .models import FormReuseScope
+from .models import ProductOutcomeStatus
 from .models import SubmissionStatus
+from .registry import registry
 
 if TYPE_CHECKING:
     from datetime import date
 
     from django.contrib.auth.base_user import AbstractBaseUser
 
-    from .models import ApplicationAttachment
-    from .models import ApplicationFormSubmission
+    from .models import ApplicationFormUse
     from .models import ApplicationInstance
+    from .models import FormAttachment
+    from .models import FormRecord
+    from .models import FormSubmission
 
 
 @dataclass(frozen=True)
@@ -61,11 +66,23 @@ class QueryRequest:
 
 
 @dataclass(frozen=True)
+class ProductOutcomeSpec:
+    outcome_type: str
+    name: str
+    data: dict[str, Any]
+    field_schema: tuple[dict[str, Any], ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+    status: str = ProductOutcomeStatus.ACTIVE
+    valid_until: date | None = None
+
+
+@dataclass(frozen=True)
 class ActionResult:
     message: str
     new_status: str = ""
     metadata_updates: dict[str, Any] = field(default_factory=dict)
     outcome_updates: dict[str, Any] = field(default_factory=dict)
+    product_outcomes: tuple[ProductOutcomeSpec, ...] = ()
     query: QueryRequest | None = None
 
 
@@ -88,8 +105,10 @@ class ExperienceContext:
     application: ApplicationInstance
     user: AbstractBaseUser
     permissions: frozenset[str]
-    submissions: dict[str, ApplicationFormSubmission]
-    submission_history: dict[str, tuple[ApplicationFormSubmission, ...]]
+    submissions: dict[str, FormSubmission]
+    submission_history: dict[str, tuple[FormSubmission, ...]]
+    form_records: dict[str, FormRecord]
+    form_uses: dict[str, ApplicationFormUse]
 
     def has_permission(self, permission: str) -> bool:
         return permission in self.permissions
@@ -104,7 +123,7 @@ class ExperienceContext:
         submission = self.submissions.get(form_key)
         return dict(submission.data) if submission else {}
 
-    def form_history(self, form_key: str) -> tuple[ApplicationFormSubmission, ...]:
+    def form_history(self, form_key: str) -> tuple[FormSubmission, ...]:
         return self.submission_history.get(form_key, ())
 
 
@@ -119,7 +138,9 @@ class FormActionState:
 @dataclass(frozen=True)
 class FormState:
     definition: type[ApplicationFormDefinition]
-    submission: ApplicationFormSubmission | None
+    form_record: FormRecord
+    form_use: ApplicationFormUse
+    submission: FormSubmission | None
     applicable: bool
     visible: bool
     can_submit: bool
@@ -129,6 +150,8 @@ class FormState:
     renewal_due: bool
     submission_count: int
     version_count: int
+    reused: bool
+    used_by_count: int
     actions: tuple[FormActionState, ...] = ()
 
     @property
@@ -154,6 +177,7 @@ class ApplicationFormDefinition:
     form_class: ClassVar[type[forms.Form]]
     dependencies: ClassVar[tuple[str, ...]] = ()
     schema_version: ClassVar[int] = 1
+    reuse_scope: ClassVar[str] = FormReuseScope.PRODUCT
     required: ClassVar[bool] = True
     allow_updates: ClassVar[bool] = False
     repeatable: ClassVar[bool] = False
@@ -280,7 +304,7 @@ class ApplicationFormDefinition:
             submission_mode = (
                 "renew" if cls.repeatable and submission is not None else "edit"
             )
-        existing_files: dict[str, list[ApplicationAttachment]] = {}
+        existing_files: dict[str, list[FormAttachment]] = {}
         if submission and submission_mode == "edit":
             for attachment in submission.attachments.filter(is_current=True):
                 existing_files.setdefault(attachment.field_key, []).append(attachment)
@@ -313,7 +337,7 @@ class ApplicationFormAction:
     def availability(
         cls,
         context: ExperienceContext,
-        submission: ApplicationFormSubmission | None,
+        submission: FormSubmission | None,
     ) -> tuple[bool, str]:
         if not context.has_permission(cls.permission):
             return False, _("Your application role does not include this permission.")
@@ -330,7 +354,7 @@ class ApplicationFormAction:
     def extra_availability(
         cls,
         context: ExperienceContext,
-        submission: ApplicationFormSubmission,
+        submission: FormSubmission,
     ) -> tuple[bool, str]:
         return True, ""
 
@@ -338,7 +362,7 @@ class ApplicationFormAction:
     def outcome_label(
         cls,
         context: ExperienceContext,
-        submission: ApplicationFormSubmission | None,
+        submission: FormSubmission | None,
     ) -> str:
         return ""
 
@@ -347,7 +371,7 @@ class ApplicationFormAction:
         cls,
         *,
         context: ExperienceContext,
-        submission: ApplicationFormSubmission,
+        submission: FormSubmission,
         data=None,
     ) -> forms.Form | None:
         if cls.form_class is None:
@@ -358,7 +382,7 @@ class ApplicationFormAction:
     def perform(
         cls,
         context: ExperienceContext,
-        submission: ApplicationFormSubmission,
+        submission: FormSubmission,
         cleaned_data: dict[str, Any],
     ) -> FormActionResult:
         raise NotImplementedError
@@ -413,6 +437,10 @@ class ApplicationDefinition:
     reference_prefix: ClassVar[str] = "APP"
     initial_status: ClassVar[str] = "draft"
     owner_role_key: ClassVar[str] = "applicant_owner"
+    platform_observer_role_key: ClassVar[str] = "review_observer"
+    dependency_satisfied_statuses: ClassVar[frozenset[str]] = frozenset(
+        {"approved"},
+    )
     statuses: ClassVar[tuple[StatusDefinition, ...]]
     permissions: ClassVar[tuple[PermissionDefinition, ...]]
     roles: ClassVar[tuple[RoleDefinition, ...]]
@@ -445,10 +473,31 @@ class ApplicationDefinition:
         if cls.owner_role_key not in collections["role"]:
             msg = f"{cls.key} has no owner role named {cls.owner_role_key}."
             raise ImproperlyConfigured(msg)
+        cls._validate_platform_observer()
         if cls.initial_status not in collections["status"]:
             msg = f"{cls.key} has no initial status named {cls.initial_status}."
             raise ImproperlyConfigured(msg)
+
+        unknown_dependency_statuses = cls.dependency_satisfied_statuses - set(
+            collections["status"],
+        )
+        if unknown_dependency_statuses:
+            msg = (
+                f"{cls.key} has unknown dependency-satisfied statuses: "
+                f"{unknown_dependency_statuses}"
+            )
+            raise ImproperlyConfigured(msg)
         cls._validate_forms(set(collections["form"]), permission_keys)
+
+    @classmethod
+    def _validate_platform_observer(cls) -> None:
+        platform_observer = cls.get_role(cls.platform_observer_role_key)
+        if platform_observer is None or platform_observer.audience != "platform":
+            msg = (
+                f"{cls.key} has no platform observer role named "
+                f"{cls.platform_observer_role_key}."
+            )
+            raise ImproperlyConfigured(msg)
 
     @classmethod
     def _validate_forms(
@@ -470,6 +519,12 @@ class ApplicationDefinition:
                 raise ImproperlyConfigured(msg)
             if form_definition.permission not in permission_keys:
                 msg = f"{cls.key}.{form_definition.key} has an unknown permission."
+                raise ImproperlyConfigured(msg)
+            if form_definition.reuse_scope not in FormReuseScope.values:
+                msg = (
+                    f"{cls.key}.{form_definition.key} has an unknown reuse scope "
+                    f"named {form_definition.reuse_scope}."
+                )
                 raise ImproperlyConfigured(msg)
             if form_definition.valid_until_field and (
                 form_definition.valid_until_field
@@ -512,12 +567,22 @@ class ApplicationDefinition:
         return next((item for item in cls.actions if item.key == key), None)
 
     @classmethod
+    def initial_product_outcomes(
+        cls,
+        application: ApplicationInstance,
+        actor: AbstractBaseUser,
+    ) -> tuple[ProductOutcomeSpec, ...]:
+        return ()
+
+    @classmethod
     def form_states(cls, context: ExperienceContext) -> list[FormState]:
         states = []
         for form_definition in cls.forms:
             applicable = form_definition.is_applicable(context)
             visible = form_definition.is_visible(context)
             can_submit, reason = form_definition.availability(context)
+            form_record = context.form_records[form_definition.key]
+            form_use = context.form_uses[form_definition.key]
             submission = context.submissions.get(form_definition.key)
             history = context.form_history(form_definition.key)
             renewal_due = form_definition.is_renewal_due(context)
@@ -530,6 +595,8 @@ class ApplicationDefinition:
             states.append(
                 FormState(
                     definition=form_definition,
+                    form_record=form_record,
+                    form_use=form_use,
                     submission=submission,
                     applicable=applicable,
                     visible=visible,
@@ -542,6 +609,8 @@ class ApplicationDefinition:
                         {item.submission_number for item in history},
                     ),
                     version_count=len(history),
+                    reused=form_use.is_reused,
+                    used_by_count=len(form_record.application_uses.all()),
                     actions=tuple(form_definition.action_states(context)),
                 ),
             )
@@ -551,6 +620,17 @@ class ApplicationDefinition:
     def action_states(cls, context: ExperienceContext) -> list[ActionState]:
         return [
             ActionState(action, *action.availability(context)) for action in cls.actions
+        ]
+
+    @classmethod
+    def unmet_dependencies(cls, context: ExperienceContext):
+        return [
+            application
+            for application in context.application.dependencies.all()
+            if application.status
+            not in registry.get(
+                application.application_type,
+            ).dependency_satisfied_statuses
         ]
 
     @classmethod

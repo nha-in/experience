@@ -8,17 +8,67 @@ stable database rows.
 - `definitions.py` defines the extension API for statuses, permissions, roles, forms,
   and actions.
 - `registry.py` maps a persisted `application_type` to its Python definition.
-- `models.py` stores application instances, validated form JSON, versioned uploads,
-  application-scoped access grants, query threads, and append-only audit events.
+- `models.py` stores organisation-owned products, independent form records,
+  immutable form submissions, application-to-form links, structured product outcomes,
+  application prerequisites, access grants, query threads, and audit events.
 - `services.py` is the only write boundary for form submissions, state transitions,
   permissions, queries, and outcomes.
 - `abdm/` is the kitchen-sink ABDM production-access example.
 
+Every application belongs to exactly one product. Product identity and deployment
+details live once on that product, while each related application keeps its own
+status, permissions, queries, and selected form revisions. Applications may depend
+on earlier applications for the same product; submission stays unavailable until
+every prerequisite reaches a status its own definition declares as
+dependency-satisfying.
+
+## Independent forms and reuse
+
+`FormRecord` is the durable identity of a form. `FormSubmission` stores immutable
+JSON revisions and versioned attachments against that identity. `ApplicationFormUse`
+links an application to a form and pins the exact submission selected for that
+application, so later edits remain visible in history without silently changing an
+older application pack.
+
+Each static form definition declares a reuse scope:
+
+```python
+class OrganisationProfile(ApplicationFormDefinition):
+    key = "organisation_profile"
+    reuse_scope = FormReuseScope.ORGANISATION
+
+
+class ApplicationPlan(ApplicationFormDefinition):
+    key = "application_plan"
+    reuse_scope = FormReuseScope.PRODUCT
+
+
+class Declaration(ApplicationFormDefinition):
+    key = "declaration"
+    reuse_scope = FormReuseScope.APPLICATION
+```
+
+When an application starts, the service materializes all of its form links. It reuses
+the current submission for an existing organisation- or product-scoped record and
+creates a private record for an application-only form. Editing creates a new immutable
+revision; renewal creates a fresh submission number.
+
+## Product outcomes
+
+`ProductOutcome` records a typed, structured result issued by an application to its
+product. A definition can issue initial outcomes from `initial_product_outcomes()` or
+return `ProductOutcomeSpec` values from an application action. Field schemas provide
+stable labels and secret-value hints for the generic product workspace. The ABDM
+example issues sandbox credentials when an application starts and production access
+when a decision maker approves it.
+
 An application definition exposes every permission and role it supports. Effective
 permissions are the union of the assigned role and any valid direct permissions.
 Applicant-side access is restricted to members of the owning organisation; review
-access is restricted to OHC team users. Available form and action states are computed
-from these effective permissions and the current application state.
+access is restricted to OHC team users. Every OHC team user has implicit read-only
+observer access across the review console, while reviewer and decision permissions
+remain explicit application grants. Available form and action states are computed from
+these effective permissions and the current application state.
 
 ## Add an experience
 
@@ -29,9 +79,9 @@ from these effective permissions and the current application state.
    actions, then decorate it with `@registry.register`.
 5. Import the definition from `ExperiencesConfig.ready()`.
 
-Views remain generic. A registered definition automatically appears in application
-creation, form workspaces, permission-aware actions, applicant dashboards, and the OHC
-review console.
+Views remain generic. A registered definition automatically appears on each product
+workspace and powers application creation, form workspaces, permission-aware actions,
+applicant dashboards, and the OHC review console.
 
 ### Form dependencies
 
@@ -50,6 +100,13 @@ class SecurityCompliance(ApplicationFormDefinition):
 `ApplicationFormDefinition.is_visible()` owns this rule, so a custom UI cannot bypass
 it by linking directly to the form.
 
+### Application dependencies
+
+An applicant selects zero or more prerequisite applications when starting another
+workflow from a product. `ApplicationDependency` rejects self references, cycles, and
+cross-product links. The application action definition performs the final submission
+gate, so direct requests cannot bypass an unmet prerequisite.
+
 ## HTMX
 
 Every experience interaction keeps an ordinary Django `method`, `action`, and redirect
@@ -66,7 +123,8 @@ Run:
 python manage.py seed_experience_demo
 ```
 
-The command creates a partially completed applicant workspace and a fully submitted
-review workspace. It prints verified applicant, contributor, and OHC decision-maker
-credentials. Re-running it is idempotent; `--fresh` removes only these two seeded
-applications and recreates them.
+The command creates one product with a fully submitted review application and a
+partially completed follow-up application that depends on it. It prints verified
+applicant, contributor, and OHC decision-maker credentials. Re-running it is
+idempotent; `--fresh` removes only this seeded product and its applications before
+recreating them.

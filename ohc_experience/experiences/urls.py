@@ -7,11 +7,6 @@ app_name = "experiences"
 urlpatterns = [
     path("", views.VendorApplicationListView.as_view(), name="list"),
     path(
-        "start/<str:application_type>/",
-        views.StartApplicationView.as_view(),
-        name="start",
-    ),
-    path(
         "<str:reference>/",
         views.VendorApplicationDetailView.as_view(),
         name="detail",

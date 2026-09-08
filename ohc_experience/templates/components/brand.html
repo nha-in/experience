@@ -1,11 +1,11 @@
 {% comment %}
-  The "care | Experience Hub" wordmark. Sizes: default (header) and sm (sidebar).
+  The "ABDM | Experience Hub" wordmark. Sizes: default (header) and sm (sidebar).
   Context: size ("default"|"sm"), href (optional — renders a link when given).
 {% endcomment %}
 {% load i18n %}
 
 <span class="flex items-baseline gap-2.5">
-  <span class="font-extrabold tracking-[-0.03em] text-primary {% if size == 'sm' %}text-lg{% else %}text-[19px]{% endif %}">care</span>
+  <span class="font-extrabold tracking-normal text-primary {% if size == 'sm' %}text-lg{% else %}text-[19px]{% endif %}">ABDM</span>
   <span class="font-semibold text-soft-foreground {% if size == 'sm' %}text-[11.5px]{% else %}border-l border-border pl-2.5 text-xs{% endif %}">
     {% translate "Experience Hub" %}
   </span>

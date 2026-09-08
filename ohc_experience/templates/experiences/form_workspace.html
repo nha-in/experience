@@ -27,8 +27,16 @@
           {% endif %}
         </span>
       {% endif %}
+      {% if form_use.is_reused %}
+        <span class="ui-badge ui-badge--info ui-badge--size-xs">{% translate "Reused submission" %}</span>
+      {% endif %}
     </div>
     <p class="ui-page-subtitle max-w-3xl">{{ form_definition.description }}</p>
+    <p class="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-soft-foreground">
+      <span class="font-mono">{{ form_record.reference }}</span>
+      <span>{{ form_record.get_reuse_scope_display }}</span>
+      {% if form_used_by_count > 1 %}<span>{% blocktranslate count count=form_used_by_count %}Used by {{ count }} application{% plural %}Used by {{ count }} applications{% endblocktranslate %}</span>{% endif %}
+    </p>
   </div>
 {% endblock page_header %}
 {% block content %}
@@ -156,7 +164,7 @@
       {% endif %}
       <section class="rounded-md border border-border bg-muted-background p-4">
         <h2 class="text-sm font-semibold">{% translate "Data handling" %}</h2>
-        <p class="mt-2 text-xs leading-relaxed text-muted-foreground">{% translate "Do not enter patient data, passwords, private keys, or client secrets. Uploaded files remain in the application audit history when replaced." %}</p>
+        <p class="mt-2 text-xs leading-relaxed text-muted-foreground">{% translate "Do not enter patient data, passwords, private keys, or client secrets. Uploaded files remain in this independent form's revision history when replaced." %}</p>
       </section>
     </aside>
   </div>

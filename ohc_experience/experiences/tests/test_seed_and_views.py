@@ -28,26 +28,37 @@ from ohc_experience.experiences.management.commands.seed_experience_demo import 
     DRAFT_REFERENCE,
 )
 from ohc_experience.experiences.management.commands.seed_experience_demo import (
+    PRODUCT_NAME,
+)
+from ohc_experience.experiences.management.commands.seed_experience_demo import (
+    PRODUCT_SLUG,
+)
+from ohc_experience.experiences.management.commands.seed_experience_demo import (
     REVIEW_REFERENCE,
 )
-from ohc_experience.experiences.models import ApplicationAttachment
-from ohc_experience.experiences.models import ApplicationFormSubmission
+from ohc_experience.experiences.models import ApplicationAccess
+from ohc_experience.experiences.models import ApplicationDependency
 from ohc_experience.experiences.models import ApplicationInstance
 from ohc_experience.experiences.models import ApplicationQueryMessage
 from ohc_experience.experiences.models import ApplicationQueryThread
+from ohc_experience.experiences.models import FormAttachment
+from ohc_experience.experiences.models import FormSubmission
+from ohc_experience.experiences.models import Product
+from ohc_experience.experiences.models import ProductOutcome
+from ohc_experience.experiences.models import ProductType
 from ohc_experience.experiences.models import QueryStatus
 
 pytestmark = pytest.mark.django_db
 
 DRAFT_SUBMISSION_COUNT = 3
-COMPLETE_SUBMISSION_COUNT = 9
-CURRENT_COMPLETE_SUBMISSION_COUNT = 8
-DEMO_ATTACHMENT_COUNT = 9
-DRAFT_REQUIRED_FORM_COUNT = 9
-REVIEW_REQUIRED_FORM_COUNT = 8
-DRAFT_PROGRESS_PERCENT = 33
+REVIEW_SELECTED_SUBMISSION_COUNT = 10
+SEEDED_CERTIFICATION_HISTORY_COUNT = 2
+DEMO_ATTACHMENT_COUNT = 11
+DRAFT_REQUIRED_FORM_COUNT = 11
+REVIEW_REQUIRED_FORM_COUNT = 10
+DRAFT_PROGRESS_PERCENT = 27
 COMPLETE_PROGRESS_PERCENT = 100
-FOUR_OF_NINE_PERCENT = 44
+FOUR_OF_ELEVEN_PERCENT = 36
 MULTI_FILE_COUNT = 2
 RENEWED_CERTIFICATION_NUMBER = 3
 EDITED_REVISION_NUMBER = 2
@@ -55,6 +66,7 @@ EDITED_VERSION_COUNT = 2
 CURRENT_CERTIFICATION_ATTACHMENT_COUNT = 4
 APPENDED_CERTIFICATE_FILE_COUNT = 3
 RETAINED_SUPPORTING_FILE_COUNT = 1
+SEEDED_APPLICATION_COUNT = 2
 HTMX_HEADERS = {"HX-Request": "true"}
 
 
@@ -109,6 +121,37 @@ def renewed_certification_data() -> dict[str, object]:
     }
 
 
+def product_form_data(*, name="Care Coordination Suite") -> dict[str, object]:
+    return {
+        "name": name,
+        "product_type": ProductType.HEALTH_SERVICES,
+        "description": (
+            "Coordinates referrals, care navigation, and longitudinal follow-up."
+        ),
+        "website": "https://care.example.in",
+        "current_facility_count": 12,
+        "deployment_regions": "Karnataka\nTamil Nadu",
+    }
+
+
+def selected_submission(application, form_key):
+    return (
+        application.form_uses.select_related("selected_submission")
+        .get(
+            form_key=form_key,
+        )
+        .selected_submission
+    )
+
+
+def form_history(application, form_key):
+    return application.form_uses.get(form_key=form_key).form.submissions.all()
+
+
+def selected_submission_count(application):
+    return application.form_uses.filter(selected_submission__isnull=False).count()
+
+
 @pytest.fixture
 def seeded_demo():
     output = StringIO()
@@ -121,37 +164,57 @@ def test_seeder_creates_working_accounts_and_both_workflows(seeded_demo):
     admin = get_user_model().objects.get(email=ADMIN_EMAIL)
     draft = ApplicationInstance.objects.get(reference=DRAFT_REFERENCE)
     review = ApplicationInstance.objects.get(reference=REVIEW_REFERENCE)
+    product = Product.objects.get(slug=PRODUCT_SLUG)
 
     assert applicant.check_password(DEFAULT_PASSWORD)
     assert admin.check_password(DEFAULT_PASSWORD)
     assert admin.is_ohc_team is True
     assert admin.is_staff is True
     assert EmailAddress.objects.get(user=applicant).verified is True
-    assert draft.submissions.count() == DRAFT_SUBMISSION_COUNT
+    assert product.name == PRODUCT_NAME
+    assert product.product_type == ProductType.HMIS
+    assert draft.product == product
+    assert review.product == product
+    assert list(draft.dependencies.all()) == [review]
+    assert selected_submission_count(draft) == DRAFT_SUBMISSION_COUNT
     assert draft.metadata["required_forms"] == DRAFT_REQUIRED_FORM_COUNT
     assert draft.progress_percent == DRAFT_PROGRESS_PERCENT
-    assert review.submissions.count() == COMPLETE_SUBMISSION_COUNT
-    assert review.submissions.filter(is_current=True).count() == (
-        CURRENT_COMPLETE_SUBMISSION_COUNT
-    )
+    assert selected_submission_count(review) == REVIEW_SELECTED_SUBMISSION_COUNT
+    draft_profile = selected_submission(draft, "organisation_profile")
+    review_profile = selected_submission(review, "organisation_profile")
+    assert review_profile == draft_profile
+    assert review.form_uses.get(form_key="organisation_profile").is_reused
     assert review.metadata["required_forms"] == REVIEW_REQUIRED_FORM_COUNT
     assert review.progress_percent == COMPLETE_PROGRESS_PERCENT
     assert (
-        ApplicationAttachment.objects.filter(
-            submission__application=review,
+        FormAttachment.objects.filter(
+            submission__form__application_uses__application=review,
             is_current=True,
-        ).count()
+        )
+        .distinct()
+        .count()
         == DEMO_ATTACHMENT_COUNT
     )
     assert review.access_grants.get(user=admin).role_key == "decision_maker"
     assert review.metadata["product_version"] == "3.2.0"
     assert review.metadata["milestones"] == ["m1", "m2", "m3"]
-    certifications = review.submissions.filter(
-        form_key="security_certification",
-    ).order_by("submission_number")
+    assert review.metadata["protocols"] == ["nhcx", "uhi"]
+    assert review.metadata["nhcx_participant_id"] == "NHCX-AROGYA-032"
+    assert review.metadata["uhi_subscriber_id"] == "uhi.arogya.example.com"
+    certifications = form_history(review, "security_certification").order_by(
+        "submission_number",
+    )
+    assert certifications.count() == SEEDED_CERTIFICATION_HISTORY_COUNT
     assert list(certifications.values_list("submission_number", flat=True)) == [1, 2]
     assert certifications.get(is_current=True).valid_until == (
         timezone.localdate() + timedelta(days=20)
+    )
+    assert (
+        ProductOutcome.objects.filter(
+            product=product,
+            outcome_type="sandbox_credentials",
+        ).count()
+        == SEEDED_APPLICATION_COUNT
     )
     applicant_query = draft.query_threads.get()
     assert applicant_query.status == QueryStatus.AWAITING_REVIEWER
@@ -160,12 +223,15 @@ def test_seeder_creates_working_accounts_and_both_workflows(seeded_demo):
     assert APPLICANT_EMAIL in seeded_demo
     assert ADMIN_EMAIL in seeded_demo
     assert DEFAULT_PASSWORD in seeded_demo
+    assert f"/products/{PRODUCT_SLUG}/" in seeded_demo
 
 
 def test_seeder_is_idempotent(seeded_demo):
     before = (
+        Product.objects.count(),
         ApplicationInstance.objects.count(),
-        ApplicationAttachment.objects.count(),
+        ApplicationDependency.objects.count(),
+        FormAttachment.objects.count(),
         ApplicationQueryThread.objects.count(),
         ApplicationQueryMessage.objects.count(),
         get_user_model().objects.count(),
@@ -174,12 +240,88 @@ def test_seeder_is_idempotent(seeded_demo):
     call_command("seed_experience_demo", stdout=StringIO())
 
     assert (
+        Product.objects.count(),
         ApplicationInstance.objects.count(),
-        ApplicationAttachment.objects.count(),
+        ApplicationDependency.objects.count(),
+        FormAttachment.objects.count(),
         ApplicationQueryThread.objects.count(),
         ApplicationQueryMessage.objects.count(),
         get_user_model().objects.count(),
     ) == before
+
+
+def test_product_workspace_lists_related_applications(client, seeded_demo):
+    applicant = get_user_model().objects.get(email=APPLICANT_EMAIL)
+    client.force_login(applicant)
+
+    list_response = client.get(reverse("products:list"))
+    detail_response = client.get(reverse("products:detail", args=[PRODUCT_SLUG]))
+    detail_html = detail_response.content.decode()
+
+    assert list_response.status_code == HTTPStatus.OK
+    assert PRODUCT_NAME in list_response.content.decode()
+    assert detail_response.status_code == HTTPStatus.OK
+    assert DRAFT_REFERENCE in detail_html
+    assert REVIEW_REFERENCE in detail_html
+    assert "Start ABDM production access" in detail_html
+    assert "Prerequisites" in detail_html
+    assert "Product outcomes" in detail_html
+    assert "ABDM sandbox credentials" in detail_html
+    assert "Shared forms" in detail_html
+
+
+def test_product_create_edit_and_application_start_use_htmx(client, seeded_demo):
+    applicant = get_user_model().objects.get(email=APPLICANT_EMAIL)
+    review = ApplicationInstance.objects.get(reference=REVIEW_REFERENCE)
+    client.force_login(applicant)
+
+    create_response = client.post(
+        reverse("products:create"),
+        product_form_data(),
+        headers=HTMX_HEADERS,
+    )
+    product = Product.objects.get(name="Care Coordination Suite")
+
+    assert create_response.status_code == HTTPStatus.OK
+    assert create_response["HX-Redirect"] == product.get_absolute_url()
+    assert product.created_by == applicant
+
+    edit_response = client.post(
+        reverse("products:edit", args=[product.slug]),
+        product_form_data(name="Care Coordination Suite Pro"),
+        headers=HTMX_HEADERS,
+    )
+    product.refresh_from_db()
+
+    assert edit_response.status_code == HTTPStatus.OK
+    assert edit_response["HX-Redirect"] == product.get_absolute_url()
+    assert product.name == "Care Coordination Suite Pro"
+    assert product.slug == "care-coordination-suite"
+
+    start_url = reverse(
+        "products:start-application",
+        args=[PRODUCT_SLUG, "abdm_production_access"],
+    )
+    start_page = client.get(start_url)
+    start_response = client.post(
+        start_url,
+        {"dependencies": [review.pk]},
+        headers=HTMX_HEADERS,
+    )
+    application = (
+        ApplicationInstance.objects.filter(product=review.product)
+        .exclude(reference__in=[DRAFT_REFERENCE, REVIEW_REFERENCE])
+        .get()
+    )
+
+    assert start_page.status_code == HTTPStatus.OK
+    assert REVIEW_REFERENCE in start_page.content.decode()
+    assert start_response.status_code == HTTPStatus.OK
+    assert start_response["HX-Redirect"] == reverse(
+        "experiences:detail",
+        args=[application.reference],
+    )
+    assert list(application.dependencies.all()) == [review]
 
 
 def test_applicant_dashboard_detail_and_form_render(client, seeded_demo):
@@ -196,6 +338,18 @@ def test_applicant_dashboard_detail_and_form_render(client, seeded_demo):
             args=[DRAFT_REFERENCE, "technical_readiness"],
         ),
     )
+    nhcx_response = client.get(
+        reverse(
+            "experiences:form",
+            args=[DRAFT_REFERENCE, "nhcx_integration"],
+        ),
+    )
+    uhi_response = client.get(
+        reverse(
+            "experiences:form",
+            args=[DRAFT_REFERENCE, "uhi_integration"],
+        ),
+    )
 
     assert list_response.status_code == HTTPStatus.OK
     list_html = list_response.content.decode()
@@ -203,18 +357,29 @@ def test_applicant_dashboard_detail_and_form_render(client, seeded_demo):
     assert 'hx-target="#application-results"' in list_html
     assert detail_response.status_code == HTTPStatus.OK
     detail_html = detail_response.content.decode()
-    assert "Application forms" in detail_html
-    assert "3 of 9 currently required forms complete" in detail_html
+    assert "Forms used by this application" in detail_html
+    assert "3 of 11 currently required forms complete" in detail_html
+    assert "NHCX claims exchange" in detail_html
+    assert "UHI service network" in detail_html
     assert "Health locker operations" in detail_html
     assert "Technical readiness" in detail_html
     assert "Security and privacy" not in detail_html
     assert "Pending application queries" in detail_html
+    assert "Application prerequisites" in detail_html
+    assert REVIEW_REFERENCE in detail_html
+    assert "cannot be submitted until every prerequisite is approved" in detail_html
     assert "Ask review team" in detail_html
     assert form_response.status_code == HTTPStatus.OK
     form_html = form_response.content.decode()
     assert "Production gateway callback" in form_html
     assert 'id="application-form"' in form_html
     assert 'hx-encoding="multipart/form-data"' in form_html
+    assert nhcx_response.status_code == HTTPStatus.OK
+    assert "NHCX participant roles" in nhcx_response.content.decode()
+    assert "NHCX conformance and test evidence" in nhcx_response.content.decode()
+    assert uhi_response.status_code == HTTPStatus.OK
+    assert "UHI participant role" in uhi_response.content.decode()
+    assert "UHI conformance and test evidence" in uhi_response.content.decode()
 
 
 def test_hidden_dependency_cannot_be_opened_directly(client, seeded_demo):
@@ -246,8 +411,10 @@ def test_applicant_can_complete_the_next_gated_form(client, seeded_demo):
 
     assert response.status_code == HTTPStatus.FOUND
     application = ApplicationInstance.objects.get(reference=DRAFT_REFERENCE)
-    assert application.submissions.filter(form_key="technical_readiness").exists()
-    assert application.progress_percent == FOUR_OF_NINE_PERCENT
+    submission = selected_submission(application, "technical_readiness")
+    assert submission is not None
+    assert submission.origin_application == application
+    assert application.progress_percent == FOUR_OF_ELEVEN_PERCENT
     detail_html = client.get(
         reverse("experiences:detail", args=[DRAFT_REFERENCE]),
     ).content.decode()
@@ -367,10 +534,12 @@ def test_form_revisions_remain_visible_when_editing_is_locked(client, seeded_dem
     assert first_response.status_code == HTTPStatus.FOUND
     assert second_response.status_code == HTTPStatus.FOUND
     application = ApplicationInstance.objects.get(reference=DRAFT_REFERENCE)
-    versions = application.submissions.filter(form_key="technical_readiness")
-    current = versions.get(is_current=True)
+    versions = form_history(application, "technical_readiness").filter(
+        origin_application=application,
+    )
+    current = selected_submission(application, "technical_readiness")
     assert versions.count() == EDITED_VERSION_COUNT
-    assert current.revision == EDITED_REVISION_NUMBER
+    assert current == versions.get(is_current=True)
 
     application.status = "submitted"
     application.save(update_fields=["status", "updated_at"])
@@ -475,10 +644,7 @@ def test_htmx_repeatable_certification_accepts_multiple_file_groups(
         args=[REVIEW_REFERENCE],
     )
     application = ApplicationInstance.objects.get(reference=REVIEW_REFERENCE)
-    current = application.submissions.get(
-        form_key="security_certification",
-        is_current=True,
-    )
+    current = selected_submission(application, "security_certification")
     assert application.status == "under_review"
     assert current.submission_number == RENEWED_CERTIFICATION_NUMBER
     assert (
@@ -490,9 +656,7 @@ def test_htmx_repeatable_certification_accepts_multiple_file_groups(
         == MULTI_FILE_COUNT
     )
     assert (
-        application.submissions.filter(
-            form_key="security_certification",
-        ).count()
+        form_history(application, "security_certification").count()
         == RENEWED_CERTIFICATION_NUMBER
     )
 
@@ -532,10 +696,7 @@ def test_htmx_edit_appends_and_removes_files_in_existing_submission(
     applicant = get_user_model().objects.get(email=APPLICANT_EMAIL)
     client.force_login(applicant)
     application = ApplicationInstance.objects.get(reference=REVIEW_REFERENCE)
-    previous = application.submissions.get(
-        form_key="security_certification",
-        is_current=True,
-    )
+    previous = selected_submission(application, "security_certification")
     removed = previous.attachments.filter(
         field_key="supporting_documents",
         is_current=True,
@@ -570,10 +731,7 @@ def test_htmx_edit_appends_and_removes_files_in_existing_submission(
         args=[REVIEW_REFERENCE],
     )
     previous.refresh_from_db()
-    current = application.submissions.get(
-        form_key="security_certification",
-        is_current=True,
-    )
+    current = selected_submission(application, "security_certification")
     assert previous.is_current is False
     assert current.submission_number == previous.submission_number
     assert current.revision == EDITED_REVISION_NUMBER
@@ -627,6 +785,31 @@ def test_admin_dashboard_review_and_decision_form_render(client, seeded_demo):
     assert "Production client ID" in approve_html
     assert 'id="application-action"' in approve_html
     assert 'hx-post="' in approve_html
+
+
+def test_admin_console_shows_unassigned_applications_as_read_only(
+    client,
+    seeded_demo,
+):
+    admin = get_user_model().objects.get(email=ADMIN_EMAIL)
+    application = ApplicationInstance.objects.get(reference=REVIEW_REFERENCE)
+    ApplicationAccess.objects.filter(application=application, user=admin).delete()
+    client.force_login(admin)
+
+    list_response = client.get(reverse("ohc:applications"))
+    detail_response = client.get(
+        reverse("ohc:application-detail", args=[REVIEW_REFERENCE]),
+    )
+    approve_response = client.get(
+        reverse("ohc:application-action", args=[REVIEW_REFERENCE, "approve"]),
+    )
+
+    assert list_response.status_code == HTTPStatus.OK
+    assert list_response.context["total_count"] == SEEDED_APPLICATION_COUNT
+    assert REVIEW_REFERENCE in list_response.content.decode()
+    assert detail_response.status_code == HTTPStatus.OK
+    assert "You are review observer" in detail_response.content.decode()
+    assert approve_response.status_code == HTTPStatus.FORBIDDEN
 
 
 def test_htmx_admin_filter_returns_only_application_results(client, seeded_demo):
@@ -706,9 +889,10 @@ def test_admin_can_run_completed_form_action_with_htmx(client, seeded_demo):
 
     workspace = client.get(url)
     response = client.post(url, headers=HTMX_HEADERS)
-    submission = ApplicationFormSubmission.objects.get(
-        application__reference=REVIEW_REFERENCE,
-        form_key="security_compliance",
+    submission = FormSubmission.objects.get(
+        form__application_uses__application__reference=REVIEW_REFERENCE,
+        form__application_uses__form_key="security_compliance",
+        is_current=True,
     )
 
     assert workspace.status_code == HTTPStatus.OK

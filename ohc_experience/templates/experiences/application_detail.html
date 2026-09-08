@@ -3,23 +3,23 @@
 {% load i18n %}
 
 {% block title %}
-  {{ application.reference }} · {{ definition.name }}
+  {{ application.reference }} · {{ application.product.name }}
 {% endblock title %}
 {% block page_header %}
   <nav class="mb-3 text-xs text-soft-foreground"
        aria-label="{% translate 'Breadcrumb' %}">
     <a class="text-soft-foreground no-underline hover:underline"
-       href="{% url 'experiences:list' %}">{% translate "Applications" %}</a>
+       href="{% url 'products:detail' application.product.slug %}">{{ application.product.name }}</a>
     <span aria-hidden="true">/</span>
     <span class="font-mono" aria-current="page">{{ application.reference }}</span>
   </nav>
   <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
     <div class="min-w-0">
       <div class="flex flex-wrap items-center gap-2">
-        <h1 class="text-xl font-bold break-words">{{ definition.name }}</h1>
+        <h1 class="text-xl font-bold break-words">{{ application.product.name }}</h1>
         {% include "experiences/partials/status_badge.html" with status=status_definition %}
       </div>
-      <p class="mt-1 font-mono text-xs text-soft-foreground">{{ application.reference }}</p>
+      <p class="mt-1 text-xs text-soft-foreground">{{ definition.name }} · <span class="font-mono">{{ application.reference }}</span></p>
     </div>
     {% if available_actions %}
       <div class="flex flex-wrap gap-2">
@@ -63,12 +63,28 @@
       <span class="ui-badge ui-badge--warning ui-badge--size-sm">{{ open_query_count }}</span>
     </section>
   {% endif %}
+  {% if dependencies %}
+    <section class="mb-4 rounded-md border {% if unmet_dependencies %}border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20{% else %}border-border bg-card{% endif %} px-4 py-3">
+      <h2 class="text-sm font-semibold">{% translate "Application prerequisites" %}</h2>
+      <ul class="mt-2 divide-y divide-border">
+        {% for dependency in dependencies %}
+          <li class="flex items-center justify-between gap-3 py-2 text-xs">
+            <span><span class="font-mono font-medium">{{ dependency.reference }}</span> · {{ dependency.definition.name }}</span>
+            {% include "experiences/partials/status_badge.html" with status=dependency.status_definition %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% if unmet_dependencies %}
+        <p class="mt-2 text-xs text-muted-foreground">{% translate "This application cannot be submitted until every prerequisite is approved." %}</p>
+      {% endif %}
+    </section>
+  {% endif %}
   <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,0.75fr)]">
     <div class="min-w-0 space-y-4">
       <section class="rounded-md border border-border bg-card">
         <div class="flex items-center justify-between gap-4 border-b border-border px-4 py-3.5">
           <div>
-            <h2 class="text-sm font-semibold">{% translate "Application forms" %}</h2>
+            <h2 class="text-sm font-semibold">{% translate "Forms used by this application" %}</h2>
             <p class="mt-0.5 text-xs text-muted-foreground">
               {% blocktranslate with complete=application.metadata.completed_forms total=application.metadata.required_forms %}{{ complete }} of {{ total }} currently required forms complete{% endblocktranslate %}
             </p>
@@ -83,13 +99,39 @@
           {% for form_state in form_states %}
             <li class="flex items-start gap-3 px-4 py-4">
               <span class="flex size-7 shrink-0 items-center justify-center rounded-full border {% if form_state.is_expired or form_state.renewal_due %}border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-800 dark:bg-orange-950/20 dark:text-orange-200{% elif form_state.is_completed %}border-success/40 bg-success/10 text-success{% else %}border-border bg-muted-background text-soft-foreground{% endif %} text-[10px] font-bold">
-                {% if form_state.is_expired %}{% translate "Due" %}{% elif form_state.is_completed %}{% translate "Done" %}{% else %}{{ forloop.counter }}{% endif %}
+                {% if form_state.is_expired %}
+                  {% translate "Due" %}
+                {% elif form_state.is_completed %}
+                  <svg class="size-4"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2.5"
+                       stroke-linecap="round"
+                       stroke-linejoin="round"
+                       aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  <span class="sr-only">{% translate "Completed" %}</span>
+                {% else %}
+                  {{ forloop.counter }}
+                {% endif %}
               </span>
               <div class="min-w-0 flex-1">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <h3 class="text-sm font-semibold">{{ form_state.definition.name }}</h3>
                     <p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">{{ form_state.definition.description }}</p>
+                    <p class="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-soft-foreground">
+                      <span class="font-mono">{{ form_state.form_record.reference }}</span>
+                      <span>{{ form_state.form_record.get_reuse_scope_display }}</span>
+                      {% if form_state.reused %}
+                        <span class="ui-badge ui-badge--info ui-badge--size-xs">{% translate "Reused submission" %}</span>
+                      {% endif %}
+                      {% if form_state.used_by_count > 1 %}
+                        <span>{% blocktranslate count count=form_state.used_by_count %}Used by {{ count }} application{% plural %}Used by {{ count }} applications{% endblocktranslate %}</span>
+                      {% endif %}
+                    </p>
                     {% if form_state.submission %}
                       <p class="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-soft-foreground">
                         {% if form_state.definition.repeatable %}<span>{% blocktranslate count count=form_state.submission_count %}{{ count }} submission{% plural %}{{ count }} submissions{% endblocktranslate %}</span>{% endif %}
@@ -206,7 +248,14 @@
           <div>
             <dt class="text-[11px] font-medium uppercase text-soft-foreground">{% translate "Product" %}</dt>
             <dd class="mt-0.5 text-sm">
-              {{ application.metadata.product_name|default:"Not provided" }}
+              <a class="ui-prose-link"
+                 href="{% url 'products:detail' application.product.slug %}">{{ application.product.name }}</a>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-[11px] font-medium uppercase text-soft-foreground">{% translate "Application type" %}</dt>
+            <dd class="mt-0.5 text-sm">
+              {{ definition.name }}
             </dd>
           </div>
           <div>
@@ -215,6 +264,14 @@
               {{ application.metadata.milestones|join:", "|default:"Not provided" }}
             </dd>
           </div>
+          {% if dependents %}
+            <div>
+              <dt class="text-[11px] font-medium uppercase text-soft-foreground">{% translate "Required by" %}</dt>
+              <dd class="mt-0.5 space-y-1 text-xs">
+                {% for dependent in dependents %}<span class="block font-mono">{{ dependent.reference }}</span>{% endfor %}
+              </dd>
+            </div>
+          {% endif %}
           <div>
             <dt class="text-[11px] font-medium uppercase text-soft-foreground">{% translate "Last updated" %}</dt>
             <dd class="mt-0.5 text-sm">

@@ -1,6 +1,6 @@
 {% extends "layouts/app.html" %}
 
-{% load i18n %}
+{% load i18n careui %}
 
 {% block title %}
   {% blocktranslate with name=definition.name %}Start {{ name }}{% endblocktranslate %}
@@ -9,13 +9,16 @@
   <nav class="mb-3 text-xs text-soft-foreground"
        aria-label="{% translate 'Breadcrumb' %}">
     <a class="text-soft-foreground no-underline hover:underline"
-       href="{% url 'experiences:list' %}">{% translate "Applications" %}</a>
+       href="{% url 'products:list' %}">{% translate "Products" %}</a>
+    <span aria-hidden="true">/</span>
+    <a class="text-soft-foreground no-underline hover:underline"
+       href="{% url 'products:detail' product.slug %}">{{ product.name }}</a>
     <span aria-hidden="true">/</span>
     <span aria-current="page">{% translate "Start" %}</span>
   </nav>
   <div class="mb-5">
-    <h1 class="ui-page-title">{{ definition.name }}</h1>
-    <p class="ui-page-subtitle max-w-3xl">{{ definition.description }}</p>
+    <h1 class="ui-page-title">{% blocktranslate with name=definition.name %}Start {{ name }}{% endblocktranslate %}</h1>
+    <p class="ui-page-subtitle max-w-3xl">{% blocktranslate with product=product.name %}Create a new workspace for {{ product }}. {{ definition.description }}{% endblocktranslate %}</p>
   </div>
 {% endblock page_header %}
 {% block content %}
@@ -35,18 +38,25 @@
       </ol>
     </section>
     <aside class="rounded-md border border-border bg-card p-5">
-      <h2 class="text-sm font-semibold">{% translate "Ready to begin" %}</h2>
-      <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-        {% translate "A private workspace will be created for your organisation. You can invite collaborators from the workspace and submit only when every required form is complete." %}
-      </p>
-      <form class="mt-5"
+      <h2 class="text-sm font-semibold">{{ product.name }}</h2>
+      <p class="mt-1 text-xs text-muted-foreground">{{ product.get_product_type_display }}</p>
+      <form id="start-application"
+            class="mt-5"
             method="post"
             action="{{ request.path }}"
             hx-post="{{ request.path }}"
+            hx-target="#start-application"
+            hx-select="#start-application"
+            hx-swap="outerHTML show:window:top"
             hx-disabled-elt="find button[type=submit]"
             hx-indicator="#nav-progress">
         {% csrf_token %}
-        <button class="ui-btn ui-btn--default ui-btn--size-default w-full"
+        {% include "components/form_errors.html" %}
+        {% ui_field form.dependencies %}
+        <p class="mt-4 text-xs leading-relaxed text-muted-foreground">
+          {% translate "The workspace remains private to assigned users. It can be submitted only after its forms and selected prerequisites are complete." %}
+        </p>
+        <button class="ui-btn ui-btn--default ui-btn--size-default mt-4 w-full"
                 type="submit"
                 hx-disabled-elt="this">{% translate "Create workspace" %}</button>
       </form>

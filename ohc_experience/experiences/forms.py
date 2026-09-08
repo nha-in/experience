@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
+from .models import ApplicationInstance
+from .models import Product
 from .permissions import get_effective_access
 from .registry import registry
 from .services import assignable_roles
@@ -15,9 +17,68 @@ class UserChoiceField(forms.ModelChoiceField):
         return f"{obj.display_name} ({obj.email})"
 
 
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = [
+            "name",
+            "product_type",
+            "description",
+            "website",
+            "current_facility_count",
+            "deployment_regions",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 5}),
+            "deployment_regions": forms.Textarea(attrs={"rows": 3}),
+        }
+        help_texts = {
+            "description": _(
+                "Describe the users, care settings, and journeys this product "
+                "supports.",
+            ),
+            "deployment_regions": _(
+                "Enter one or more states or union territories.",
+            ),
+        }
+
+
+class DependencyChoiceField(forms.ModelMultipleChoiceField):
+    def label_from_instance(self, obj) -> str:
+        definition = registry.get(obj.application_type)
+        return f"{obj.reference} - {definition.name} ({obj.status.replace('_', ' ')})"
+
+
+class StartApplicationForm(forms.Form):
+    dependencies = DependencyChoiceField(
+        label=_("Prerequisite applications"),
+        queryset=ApplicationInstance.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text=_(
+            "This application cannot be submitted until every selected "
+            "prerequisite is approved.",
+        ),
+    )
+
+    def __init__(self, *args, product, user, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["dependencies"].queryset = (
+            ApplicationInstance.objects.visible_to(user)
+            .filter(product=product)
+            .order_by("-updated_at", "-pk")
+        )
+
+
 class ApplicationFilterForm(forms.Form):
     status = forms.ChoiceField(label=_("Status"), required=False)
     application_type = forms.ChoiceField(label=_("Application type"), required=False)
+    product = forms.ModelChoiceField(
+        label=_("Product"),
+        queryset=Product.objects.none(),
+        required=False,
+        empty_label=_("All products"),
+    )
     query_state = forms.ChoiceField(
         label=_("Query state"),
         required=False,
@@ -36,7 +97,7 @@ class ApplicationFilterForm(forms.Form):
         ),
     )
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, product_queryset=None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         status_labels = {}
         for definition in registry.all():
@@ -50,8 +111,11 @@ class ApplicationFilterForm(forms.Form):
             ("", _("All application types")),
             *[(definition.key, definition.name) for definition in registry.all()],
         ]
+        self.fields["product"].queryset = (
+            product_queryset if product_queryset is not None else Product.objects.none()
+        )
 
-    def selected(self) -> dict[str, str]:
+    def selected(self) -> dict[str, object]:
         if not self.is_valid():
             return {}
         return {key: value for key, value in self.cleaned_data.items() if value}

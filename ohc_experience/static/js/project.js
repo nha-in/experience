@@ -1,6 +1,36 @@
 (() => {
   const selectedFiles = new WeakMap();
 
+  const toggleSecret = (toggle) => {
+    const secret = toggle.closest("[data-secret]");
+    const mask = secret?.querySelector("[data-secret-mask]");
+    const value = secret?.querySelector("[data-secret-value]");
+    if (!mask || !value) return;
+    const revealed = mask.classList.toggle("hidden");
+    value.classList.toggle("hidden", !revealed);
+    toggle
+      .querySelector("[data-icon-show]")
+      ?.classList.toggle("hidden", revealed);
+    toggle
+      .querySelector("[data-icon-hide]")
+      ?.classList.toggle("hidden", !revealed);
+    toggle.setAttribute("aria-pressed", String(revealed));
+  };
+
+  const copyValue = (copy) => {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(copy.dataset.copy).then(() => {
+      const idle = copy.querySelector("[data-icon-copy]");
+      const done = copy.querySelector("[data-icon-done]");
+      idle?.classList.add("hidden");
+      done?.classList.remove("hidden");
+      setTimeout(() => {
+        done?.classList.add("hidden");
+        idle?.classList.remove("hidden");
+      }, 1200);
+    });
+  };
+
   const fileKey = (file) => `${file.name}:${file.size}:${file.lastModified}`;
 
   const formatBytes = (bytes) => {
@@ -189,4 +219,13 @@
   document.addEventListener("htmx:afterSwap", (event) =>
     initializeUploads(event.detail.elt),
   );
+  document.addEventListener("click", (event) => {
+    const toggle = event.target.closest("[data-secret-toggle]");
+    if (toggle) {
+      toggleSecret(toggle);
+      return;
+    }
+    const copy = event.target.closest("[data-copy]");
+    if (copy) copyValue(copy);
+  });
 })();

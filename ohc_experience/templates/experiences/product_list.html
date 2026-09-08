@@ -1,0 +1,67 @@
+{% extends "layouts/app.html" %}
+
+{% load i18n %}
+
+{% block title %}
+  {% translate "Products" %}
+{% endblock title %}
+{% block page_header %}
+  <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <h1 class="ui-page-title">{% translate "Products" %}</h1>
+      <p class="ui-page-subtitle">{% translate "Keep product identity in one place and manage every related application together." %}</p>
+    </div>
+    <a class="ui-btn ui-btn--default ui-btn--size-default"
+       href="{% url 'products:create' %}"
+       hx-get="{% url 'products:create' %}"
+       hx-target="#main-content"
+       hx-select="#main-content"
+       hx-swap="outerHTML"
+       hx-push-url="true"
+       hx-indicator="#nav-progress">{% translate "Add product" %}</a>
+  </div>
+{% endblock page_header %}
+{% block content %}
+  {% if products %}
+    <div class="overflow-x-auto rounded-md border border-border bg-card">
+      <table class="w-full min-w-[680px] text-left text-sm">
+        <thead class="border-b border-border bg-muted-background text-[11px] uppercase text-soft-foreground">
+          <tr>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Product" %}</th>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Type" %}</th>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Applications" %}</th>
+            <th class="px-4 py-2.5 font-semibold">{% translate "Updated" %}</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+          {% for product in products %}
+            <tr class="hover:bg-muted-background">
+              <td class="px-4 py-3.5">
+                <a class="font-semibold text-foreground"
+                   href="{% url 'products:detail' product.slug %}"
+                   hx-get="{% url 'products:detail' product.slug %}"
+                   hx-target="#main-content"
+                   hx-select="#main-content"
+                   hx-swap="outerHTML"
+                   hx-push-url="true"
+                   hx-indicator="#nav-progress">{{ product.name }}</a>
+                <span class="mt-0.5 block max-w-xl truncate text-xs text-muted-foreground">{{ product.description }}</span>
+              </td>
+              <td class="px-4 py-3.5 text-xs text-muted-foreground">{{ product.get_product_type_display }}</td>
+              <td class="px-4 py-3.5">
+                <span class="font-medium tabular-nums">{{ product.application_count }}</span>
+                <span class="ml-1 text-xs text-soft-foreground">{% blocktranslate count count=product.active_application_count %}{{ count }} active{% plural %}{{ count }} active{% endblocktranslate %}</span>
+              </td>
+              <td class="px-4 py-3.5 text-xs text-muted-foreground">{{ product.updated_at|date:"j M Y" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="border-y border-border py-12 text-center">
+      <h2 class="text-base font-semibold">{% translate "No products yet" %}</h2>
+      <p class="mt-1 text-sm text-muted-foreground">{% translate "Add a product before starting its first application." %}</p>
+    </div>
+  {% endif %}
+{% endblock content %}

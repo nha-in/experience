@@ -4,13 +4,20 @@ from datetime import timedelta
 
 import pytest
 from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from django.utils.datastructures import MultiValueDict
 
 from ohc_experience.experiences import permission_keys
 from ohc_experience.experiences.models import ApplicationAccess
-from ohc_experience.experiences.models import ApplicationFormSubmission
+from ohc_experience.experiences.models import ApplicationDependency
+from ohc_experience.experiences.models import ApplicationInstance
+from ohc_experience.experiences.models import FormReuseScope
+from ohc_experience.experiences.models import FormSubmission
+from ohc_experience.experiences.models import Product
+from ohc_experience.experiences.models import ProductOutcome
+from ohc_experience.experiences.models import ProductType
 from ohc_experience.experiences.models import QueryStatus
 from ohc_experience.experiences.permissions import get_effective_access
 from ohc_experience.experiences.registry import registry
@@ -33,16 +40,20 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 APPLICATION_TYPE = "abdm_production_access"
-FORM_COUNT = 9
+FORM_COUNT = 11
 BASE_REQUIRED_FORM_COUNT = 8
+HEALTH_LOCKER_REQUIRED_FORM_COUNT = 9
+PROTOCOL_REQUIRED_FORM_COUNT = 10
 SCOPED_COMPLETED_FORM_COUNT = 3
 SCOPED_PROGRESS_PERCENT = 33
+PROTOCOL_PROGRESS_PERCENT = 30
 BASE_PROGRESS_PERCENT = 38
 MULTI_FILE_COUNT = 2
 RENEWED_SUBMISSION_NUMBER = 2
 EDITED_REVISION_NUMBER = 2
 EDITED_VERSION_COUNT = 2
 RENEWAL_HISTORY_VERSION_COUNT = 3
+SHARED_FORM_HISTORY_VERSION_COUNT = 3
 TOTAL_MULTI_FILE_COUNT = 4
 MAX_CERTIFICATE_FILES = 5
 APPENDED_CERTIFICATE_FILE_COUNT = 3
@@ -75,9 +86,16 @@ def actors():
 @pytest.fixture
 def application(actors):
     organisation, owner, _contributor, reviewer = actors
+    product = Product.objects.create(
+        organisation=organisation,
+        name="Test Health Platform",
+        product_type=ProductType.HMIS,
+        description="Product used by the experience engine tests.",
+        created_by=owner,
+    )
     application = create_application(
         application_type=APPLICATION_TYPE,
-        organisation=organisation,
+        product=product,
         user=owner,
     )
     ApplicationAccess.objects.create(
@@ -92,12 +110,63 @@ def application(actors):
 def complete_all_forms(application, owner) -> None:
     definition = registry.get(APPLICATION_TYPE)
     for form_definition in definition.forms:
-        ApplicationFormSubmission.objects.create(
-            application=application,
-            form_key=form_definition.key,
-            data={},
-            submitted_by=owner,
+        create_direct_submission(
+            application,
+            form_definition.key,
+            {},
+            owner,
         )
+
+
+def create_direct_submission(application, form_key, data, user):
+    form_use = application.form_uses.select_related("form").get(form_key=form_key)
+    form_use.form.submissions.filter(is_current=True).update(is_current=False)
+    latest = form_use.form.submissions.order_by(
+        "-submission_number",
+        "-revision",
+    ).first()
+    submission = FormSubmission.objects.create(
+        form=form_use.form,
+        origin_application=application,
+        form_key=form_key,
+        data=data,
+        submitted_by=user,
+        submission_number=latest.submission_number if latest else 1,
+        revision=latest.revision + 1 if latest else 1,
+    )
+    form_use.selected_submission = submission
+    form_use.save(update_fields=["selected_submission", "updated_at"])
+    return submission
+
+
+def selected_submission(application, form_key):
+    return (
+        application.form_uses.select_related("selected_submission")
+        .get(
+            form_key=form_key,
+        )
+        .selected_submission
+    )
+
+
+def form_history(application, form_key):
+    return application.form_uses.get(form_key=form_key).form.submissions.all()
+
+
+def organisation_profile_data(owner, legal_entity_name):
+    return {
+        "legal_entity_name": legal_entity_name,
+        "organisation_type": "company",
+        "registration_number": "U12345KA2024PTC123456",
+        "registered_address": "1 Original Road",
+        "city": "Bengaluru",
+        "state": "Karnataka",
+        "pincode": "560001",
+        "website": "https://original.example.in",
+        "authorised_contact_name": owner.display_name,
+        "authorised_contact_email": owner.email,
+        "authorised_contact_phone": "+91 90000 00000",
+    }
 
 
 def test_definition_exposes_static_forms_roles_permissions_and_actions():
@@ -138,6 +207,184 @@ def test_new_application_grants_owner_permissions_and_gates_forms(application, a
     assert states[0].can_submit is True
     assert states[1].visible is False
     assert states[-1].visible is False
+
+
+def test_application_materializes_scoped_forms_and_sandbox_outcome(
+    application,
+    actors,
+):
+    _organisation, owner, _contributor, _reviewer = actors
+    form_uses = {
+        item.form_key: item for item in application.form_uses.select_related("form")
+    }
+
+    assert len(form_uses) == FORM_COUNT
+    assert (
+        form_uses["organisation_profile"].form.reuse_scope
+        == FormReuseScope.ORGANISATION
+    )
+    assert form_uses["organisation_profile"].form.product is None
+    assert form_uses["application_plan"].form.reuse_scope == FormReuseScope.PRODUCT
+    assert form_uses["application_plan"].form.product == application.product
+    assert form_uses["declaration"].form.reuse_scope == FormReuseScope.APPLICATION
+
+    outcome = ProductOutcome.objects.get(
+        product=application.product,
+        source_application=application,
+        outcome_type="sandbox_credentials",
+    )
+    assert outcome.data["environment"] == "sandbox"
+    assert outcome.data["client_id"].startswith("sbx_test_health_platform_")
+    assert outcome.data["client_secret"]
+    assert outcome.issued_by == owner
+
+
+def test_new_application_reuses_forms_but_pins_its_selected_revision(
+    application,
+    actors,
+):
+    _organisation, owner, _contributor, _reviewer = actors
+    shared_profile = create_direct_submission(
+        application,
+        "organisation_profile",
+        {"legal_entity_name": "Original organisation"},
+        owner,
+    )
+    shared_plan = create_direct_submission(
+        application,
+        "application_plan",
+        {"product_version": "1.0"},
+        owner,
+    )
+    private_declaration = create_direct_submission(
+        application,
+        "declaration",
+        {"signatory_name": "First signatory"},
+        owner,
+    )
+
+    second = create_application(
+        application_type=APPLICATION_TYPE,
+        product=application.product,
+        user=owner,
+    )
+    second_context = application_context(second, owner)
+
+    assert second_context.submissions["organisation_profile"] == shared_profile
+    assert second_context.submissions["application_plan"] == shared_plan
+    assert "declaration" not in second_context.submissions
+    assert (
+        second_context.form_records["organisation_profile"]
+        == application_context(application, owner).form_records["organisation_profile"]
+    )
+    assert (
+        second_context.form_records["declaration"]
+        != application_context(application, owner).form_records["declaration"]
+    )
+    assert private_declaration.form.application_uses.count() == 1
+
+    second_plan = create_direct_submission(
+        second,
+        "application_plan",
+        {"product_version": "2.0"},
+        owner,
+    )
+
+    assert selected_submission(application, "application_plan") == shared_plan
+    assert selected_submission(second, "application_plan") == second_plan
+    shared_plan.refresh_from_db()
+    assert shared_plan.is_current is False
+    assert second_plan.revision == shared_plan.revision + 1
+
+
+def test_ohc_team_implicitly_observes_unassigned_applications(application):
+    observer = UserFactory(
+        email="observer@ohc.network",
+        is_ohc_team=True,
+        is_staff=True,
+    )
+
+    access = get_effective_access(application, observer)
+
+    assert ApplicationInstance.objects.visible_to(observer).contains(application)
+    assert access.role.key == "review_observer"
+    assert access.grant is None
+    assert access.allows(permission_keys.VIEW_APPLICATION)
+    assert access.allows(permission_keys.VIEW_QUERIES)
+    assert not access.allows(permission_keys.APPROVE_APPLICATION)
+
+
+def test_application_dependencies_are_same_product_and_acyclic(application, actors):
+    organisation, owner, _contributor, _reviewer = actors
+    dependent = create_application(
+        application_type=APPLICATION_TYPE,
+        product=application.product,
+        user=owner,
+        dependencies=[application],
+    )
+
+    assert list(dependent.dependencies.all()) == [application]
+
+    cycle = ApplicationDependency(
+        application=application,
+        depends_on=dependent,
+    )
+    with pytest.raises(ValidationError, match="cycle"):
+        cycle.full_clean()
+
+    other_product = Product.objects.create(
+        organisation=organisation,
+        name="Independent Claims Platform",
+        product_type=ProductType.CLAIMS,
+        description="A second product owned by the same organisation.",
+        created_by=owner,
+    )
+    other_application = create_application(
+        application_type=APPLICATION_TYPE,
+        product=other_product,
+        user=owner,
+    )
+    cross_product = ApplicationDependency(
+        application=dependent,
+        depends_on=other_application,
+    )
+
+    with pytest.raises(ValidationError, match="same product"):
+        cross_product.full_clean()
+    with pytest.raises(ValidationError, match="same product"):
+        create_application(
+            application_type=APPLICATION_TYPE,
+            product=application.product,
+            user=owner,
+            dependencies=[other_application],
+        )
+
+
+def test_submit_waits_for_prerequisite_approval(application, actors):
+    _organisation, owner, _contributor, _reviewer = actors
+    prerequisite = create_application(
+        application_type=APPLICATION_TYPE,
+        product=application.product,
+        user=owner,
+    )
+    ApplicationDependency.objects.create(
+        application=application,
+        depends_on=prerequisite,
+    )
+    complete_all_forms(application, owner)
+    submit = registry.get(APPLICATION_TYPE).get_action("submit")
+
+    available, reason = submit.availability(application_context(application, owner))
+
+    assert available is False
+    assert prerequisite.reference in str(reason)
+
+    prerequisite.status = "approved"
+    prerequisite.save(update_fields=["status", "updated_at"])
+    available, reason = submit.availability(application_context(application, owner))
+
+    assert available is True
+    assert reason == ""
 
 
 def test_contributor_cannot_receive_platform_permissions(application, actors):
@@ -246,15 +493,10 @@ def test_progress_uses_forms_applicable_to_the_current_scope(application, actors
     _organisation, owner, _contributor, _reviewer = actors
     for form_key, data in (
         ("organisation_profile", {}),
-        ("product_use_case", {}),
+        ("application_plan", {}),
         ("integration_scope", {"abdm_roles": ["hip", "health_locker"]}),
     ):
-        ApplicationFormSubmission.objects.create(
-            application=application,
-            form_key=form_key,
-            data=data,
-            submitted_by=owner,
-        )
+        create_direct_submission(application, form_key, data, owner)
 
     recalculate_progress(application, user=owner)
     application.refresh_from_db()
@@ -266,12 +508,12 @@ def test_progress_uses_forms_applicable_to_the_current_scope(application, actors
     )
 
     assert application.metadata["completed_forms"] == SCOPED_COMPLETED_FORM_COUNT
-    assert application.metadata["required_forms"] == FORM_COUNT
+    assert application.metadata["required_forms"] == HEALTH_LOCKER_REQUIRED_FORM_COUNT
     assert application.progress_percent == SCOPED_PROGRESS_PERCENT
     assert health_locker_state.applicable is True
     assert health_locker_state.visible is True
 
-    integration = application.submissions.get(form_key="integration_scope")
+    integration = selected_submission(application, "integration_scope")
     integration.data = {"abdm_roles": ["hip"]}
     integration.save(update_fields=["data", "updated_at"])
     recalculate_progress(application, user=owner)
@@ -287,6 +529,236 @@ def test_progress_uses_forms_applicable_to_the_current_scope(application, actors
     assert application.progress_percent == BASE_PROGRESS_PERCENT
     assert health_locker_state.applicable is False
     assert health_locker_state.visible is False
+
+
+def test_protocol_forms_are_applicable_only_when_selected(application, actors):
+    _organisation, owner, _contributor, _reviewer = actors
+    for form_key, data in (
+        ("organisation_profile", {}),
+        ("application_plan", {}),
+        (
+            "integration_scope",
+            {"abdm_roles": [], "protocols": ["nhcx", "uhi"]},
+        ),
+    ):
+        create_direct_submission(application, form_key, data, owner)
+
+    recalculate_progress(application, user=owner)
+    application.refresh_from_db()
+    context = application_context(application, owner)
+    states = {
+        state.definition.key: state
+        for state in registry.get(APPLICATION_TYPE).form_states(context)
+    }
+
+    assert application.metadata["required_forms"] == PROTOCOL_REQUIRED_FORM_COUNT
+    assert application.progress_percent == PROTOCOL_PROGRESS_PERCENT
+    assert states["nhcx_integration"].applicable is True
+    assert states["nhcx_integration"].visible is True
+    assert states["uhi_integration"].applicable is True
+    assert states["uhi_integration"].visible is True
+    assert states["health_locker_operations"].applicable is False
+
+    integration = selected_submission(application, "integration_scope")
+    integration.data = {"abdm_roles": [], "protocols": ["nhcx"]}
+    integration.save(update_fields=["data", "updated_at"])
+    recalculate_progress(application, user=owner)
+    application.refresh_from_db()
+    states = {
+        state.definition.key: state
+        for state in registry.get(APPLICATION_TYPE).form_states(
+            application_context(application, owner),
+        )
+    }
+
+    assert application.metadata["required_forms"] == (BASE_REQUIRED_FORM_COUNT + 1)
+    assert states["nhcx_integration"].applicable is True
+    assert states["uhi_integration"].applicable is False
+    assert states["uhi_integration"].visible is False
+
+
+def test_phr_and_health_locker_require_their_milestones(application, actors):
+    _organisation, owner, _contributor, _reviewer = actors
+    application.product.product_type = ProductType.PHR
+    application.product.save(update_fields=["product_type", "updated_at"])
+    form_definition = registry.get(APPLICATION_TYPE).get_form("integration_scope")
+    context = application_context(application, owner)
+    phr_form = form_definition.build_form(
+        context=context,
+        data={
+            "abdm_roles": [],
+            "protocols": ["uhi"],
+            "milestones": ["m1"],
+            "sandbox_client_id": "SBX-PHR-001",
+            "integration_approach": "direct",
+        },
+    )
+
+    assert phr_form.is_valid() is False
+    assert "PHR application requires M3" in str(phr_form.errors["milestones"])
+    assert "PHR application requires the HIU role" in str(
+        phr_form.errors["abdm_roles"],
+    )
+
+    application.product.product_type = ProductType.HEALTH_LOCKER
+    application.product.save(update_fields=["product_type", "updated_at"])
+    locker_form = form_definition.build_form(
+        context=application_context(application, owner),
+        data={
+            "abdm_roles": ["health_locker"],
+            "protocols": [],
+            "milestones": ["m1"],
+            "sandbox_client_id": "SBX-LOCKER-001",
+            "hfr_facility_ids": "IN2910000123",
+            "health_information_types": ["diagnostic_report"],
+            "integration_approach": "direct",
+        },
+    )
+
+    assert locker_form.is_valid() is False
+    assert "requires both M2 and M3" in str(locker_form.errors["milestones"])
+    assert "requires HIP, HIU, and Health locker roles" in str(
+        locker_form.errors["abdm_roles"],
+    )
+
+    application.product.product_type = ProductType.PHR
+    application.product.save(update_fields=["product_type", "updated_at"])
+    valid_phr_form = form_definition.build_form(
+        context=application_context(application, owner),
+        data={
+            "abdm_roles": ["hiu"],
+            "protocols": [],
+            "milestones": ["m3"],
+            "sandbox_client_id": "SBX-PHR-001",
+            "hfr_facility_ids": "IN2910000123",
+            "health_information_types": ["diagnostic_report"],
+            "integration_approach": "direct",
+        },
+    )
+
+    assert valid_phr_form.is_valid() is True
+
+    application.product.product_type = ProductType.HEALTH_LOCKER
+    application.product.save(update_fields=["product_type", "updated_at"])
+    valid_locker_form = form_definition.build_form(
+        context=application_context(application, owner),
+        data={
+            "abdm_roles": ["hip", "hiu", "health_locker"],
+            "protocols": [],
+            "milestones": ["m2", "m3"],
+            "sandbox_client_id": "SBX-LOCKER-001",
+            "hfr_facility_ids": "IN2910000123",
+            "health_information_types": ["diagnostic_report"],
+            "integration_approach": "direct",
+        },
+    )
+
+    assert valid_locker_form.is_valid() is True
+
+
+def test_nhcx_and_uhi_forms_save_multi_file_evidence(
+    application,
+    actors,
+    settings,
+    tmp_path,
+):
+    settings.MEDIA_ROOT = tmp_path
+    _organisation, owner, _contributor, _reviewer = actors
+    for form_key, data in (
+        ("organisation_profile", {}),
+        ("application_plan", {}),
+        (
+            "integration_scope",
+            {"abdm_roles": [], "protocols": ["nhcx", "uhi"]},
+        ),
+    ):
+        create_direct_submission(application, form_key, data, owner)
+
+    definition = registry.get(APPLICATION_TYPE)
+    context = application_context(application, owner)
+    nhcx_definition = definition.get_form("nhcx_integration")
+    nhcx_form = nhcx_definition.build_form(
+        context=context,
+        data={
+            "participant_roles": ["provider", "technology_provider"],
+            "participant_id": "NHCX-TEST-001",
+            "protocol_version": "0.9",
+            "production_callback_url": "https://claims.example.in/callback",
+            "public_key_url": "https://claims.example.in/jwks.json",
+            "claim_use_cases": ["preauthorization", "claim", "status"],
+            "claim_modes": ["cashless"],
+            "sandbox_test_reference_ids": "nhcx-test-1001",
+            "signed_encrypted_payloads": True,
+            "asynchronous_idempotency": True,
+            "fhir_validation": True,
+            "synthetic_data_only": True,
+        },
+        files=MultiValueDict(
+            {
+                "conformance_documents": [
+                    SimpleUploadedFile(
+                        "nhcx-report.pdf",
+                        b"nhcx report",
+                        content_type="application/pdf",
+                    ),
+                    SimpleUploadedFile(
+                        "nhcx-results.json",
+                        b"{}",
+                        content_type="application/json",
+                    ),
+                ],
+            },
+        ),
+    )
+    assert nhcx_form.is_valid(), nhcx_form.errors
+    nhcx_submission = save_form_submission(
+        application=application,
+        form_key=nhcx_definition.key,
+        form=nhcx_form,
+        user=owner,
+    )
+
+    uhi_definition = definition.get_form("uhi_integration")
+    uhi_form = uhi_definition.build_form(
+        context=application_context(application, owner),
+        data={
+            "participant_role": "eua_hsp",
+            "subscriber_id": "uhi.example.in",
+            "protocol_version": "0.0.1",
+            "production_callback_url": "https://care.example.in/uhi/callback",
+            "service_categories": ["teleconsultation", "appointment_booking"],
+            "supported_flows": ["discovery", "confirmation", "status"],
+            "hpr_hfr_registry_ids": "71-2345-6789-0123",
+            "sandbox_transaction_ids": "uhi-test-2001",
+            "catalog_current": True,
+            "signed_callbacks": True,
+            "consent_and_privacy": True,
+            "grievance_email": "support@example.in",
+        },
+        files=MultiValueDict(
+            {
+                "conformance_documents": [
+                    SimpleUploadedFile(
+                        "uhi-report.pdf",
+                        b"uhi report",
+                        content_type="application/pdf",
+                    ),
+                ],
+            },
+        ),
+    )
+    assert uhi_form.is_valid(), uhi_form.errors
+    uhi_submission = save_form_submission(
+        application=application,
+        form_key=uhi_definition.key,
+        form=uhi_form,
+        user=owner,
+    )
+
+    assert nhcx_submission.attachments.count() == MULTI_FILE_COUNT
+    assert len(nhcx_submission.data["conformance_documents"]) == MULTI_FILE_COUNT
+    assert uhi_submission.attachments.count() == 1
+    assert len(uhi_submission.data["conformance_documents"]) == 1
 
 
 def test_completed_form_update_policy_is_declared_per_form(application, actors):
@@ -312,19 +784,10 @@ def test_editable_form_saves_immutable_revisions(application, actors):
     form_definition = registry.get(APPLICATION_TYPE).get_form(
         "organisation_profile",
     )
-    first_data = {
-        "legal_entity_name": "Original Health Private Limited",
-        "organisation_type": "company",
-        "registration_number": "U12345KA2024PTC123456",
-        "registered_address": "1 Original Road",
-        "city": "Bengaluru",
-        "state": "Karnataka",
-        "pincode": "560001",
-        "website": "https://original.example.in",
-        "authorised_contact_name": owner.display_name,
-        "authorised_contact_email": owner.email,
-        "authorised_contact_phone": "+91 90000 00000",
-    }
+    first_data = organisation_profile_data(
+        owner,
+        "Original Health Private Limited",
+    )
     first_form = form_definition.build_form(
         context=application_context(application, owner),
         data=first_data,
@@ -361,12 +824,78 @@ def test_editable_form_saves_immutable_revisions(application, actors):
     assert updated.submission_number == first.submission_number
     assert updated.revision == EDITED_REVISION_NUMBER
     assert (
-        application.submissions.filter(form_key=form_definition.key).count()
-        == EDITED_VERSION_COUNT
+        form_history(application, form_definition.key).count() == EDITED_VERSION_COUNT
     )
     historical_rows = _submission_rows(form_definition, first)
     assert historical_rows[0]["label"] == "Historic registered name"
     assert historical_rows[0]["value"] == "Original Health Private Limited"
+
+
+def test_shared_form_updates_keep_each_application_revision_pinned(
+    application,
+    actors,
+):
+    _organisation, owner, _contributor, _reviewer = actors
+    form_definition = registry.get(APPLICATION_TYPE).get_form(
+        "organisation_profile",
+    )
+    first_form = form_definition.build_form(
+        context=application_context(application, owner),
+        data=organisation_profile_data(owner, "First legal name"),
+    )
+    assert first_form.is_valid(), first_form.errors
+    first = save_form_submission(
+        application=application,
+        form_key=form_definition.key,
+        form=first_form,
+        user=owner,
+    )
+
+    second_application = create_application(
+        application_type=APPLICATION_TYPE,
+        product=application.product,
+        user=owner,
+    )
+    assert selected_submission(second_application, form_definition.key) == first
+
+    second_form = form_definition.build_form(
+        context=application_context(second_application, owner),
+        data=organisation_profile_data(owner, "Second legal name"),
+        submission_mode="edit",
+    )
+    assert second_form.is_valid(), second_form.errors
+    second = save_form_submission(
+        application=second_application,
+        form_key=form_definition.key,
+        form=second_form,
+        user=owner,
+        submission_mode="edit",
+    )
+
+    assert selected_submission(application, form_definition.key) == first
+    assert selected_submission(second_application, form_definition.key) == second
+
+    first_edit_form = form_definition.build_form(
+        context=application_context(application, owner),
+        data=organisation_profile_data(owner, "First application correction"),
+        submission_mode="edit",
+    )
+    assert first_edit_form.is_valid(), first_edit_form.errors
+    first_correction = save_form_submission(
+        application=application,
+        form_key=form_definition.key,
+        form=first_edit_form,
+        user=owner,
+        submission_mode="edit",
+    )
+
+    assert first_correction.revision == second.revision + 1
+    assert selected_submission(application, form_definition.key) == first_correction
+    assert selected_submission(second_application, form_definition.key) == second
+    assert (
+        form_history(application, form_definition.key).count()
+        == SHARED_FORM_HISTORY_VERSION_COUNT
+    )
 
 
 def test_repeatable_form_retains_history_and_multiple_file_groups(  # noqa: PLR0915
@@ -380,10 +909,7 @@ def test_repeatable_form_retains_history_and_multiple_file_groups(  # noqa: PLR0
     complete_all_forms(application, owner)
     application.status = "approved"
     application.save(update_fields=["status", "updated_at"])
-    current = application.submissions.get(
-        form_key="security_certification",
-        is_current=True,
-    )
+    current = selected_submission(application, "security_certification")
     current.data = {
         "certificate_number": "CERT-OLD",
         "expires_on": (timezone.localdate() + timedelta(days=10)).isoformat(),
@@ -541,14 +1067,8 @@ def test_repeatable_form_retains_history_and_multiple_file_groups(  # noqa: PLR0
     assert edited.submission_number == RENEWED_SUBMISSION_NUMBER
     assert edited.revision == EDITED_REVISION_NUMBER
     assert edited.data["certificate_number"] == "ISO-EDITED-2026"
-    assert (
-        len(edited.data["certificate_documents"])
-        == APPENDED_CERTIFICATE_FILE_COUNT
-    )
-    assert (
-        len(edited.data["supporting_documents"])
-        == RETAINED_SUPPORTING_FILE_COUNT
-    )
+    assert len(edited.data["certificate_documents"]) == APPENDED_CERTIFICATE_FILE_COUNT
+    assert len(edited.data["supporting_documents"]) == RETAINED_SUPPORTING_FILE_COUNT
     assert set(
         edited.attachments.filter(
             field_key="certificate_documents",
@@ -559,32 +1079,22 @@ def test_repeatable_form_retains_history_and_multiple_file_groups(  # noqa: PLR0
         original_name=supporting_to_remove.original_name,
         is_current=True,
     ).exists()
-    assert (
-        edited.attachments.filter(is_current=True).count()
-        == TOTAL_MULTI_FILE_COUNT
-    )
-    assert (
-        renewed.attachments.filter(is_current=True).count()
-        == TOTAL_MULTI_FILE_COUNT
-    )
+    assert edited.attachments.filter(is_current=True).count() == TOTAL_MULTI_FILE_COUNT
+    assert renewed.attachments.filter(is_current=True).count() == TOTAL_MULTI_FILE_COUNT
     assert renewed.attachments.filter(pk=supporting_to_remove.pk).exists()
     history = application_context(application, owner).form_history(
         "security_certification",
     )
     assert len(history) == RENEWAL_HISTORY_VERSION_COUNT
     assert (
-        len({item.submission_number for item in history})
-        == RENEWED_SUBMISSION_NUMBER
+        len({item.submission_number for item in history}) == RENEWED_SUBMISSION_NUMBER
     )
 
 
 def test_expired_repeatable_form_is_no_longer_complete(application, actors):
     _organisation, owner, _contributor, _reviewer = actors
     complete_all_forms(application, owner)
-    certification = application.submissions.get(
-        form_key="security_certification",
-        is_current=True,
-    )
+    certification = selected_submission(application, "security_certification")
     certification.valid_until = timezone.localdate() - timedelta(days=1)
     certification.save(update_fields=["valid_until", "updated_at"])
 
@@ -623,7 +1133,7 @@ def test_admin_form_action_runs_after_completion(application, actors):
         action_key="verify_evidence",
         user=reviewer,
     )
-    submission = application.submissions.get(form_key="security_compliance")
+    submission = selected_submission(application, "security_compliance")
 
     assert str(result.message) == "Security evidence verified"
     assert submission.metadata["verified_revision"] == submission.revision
@@ -741,3 +1251,11 @@ def test_full_query_resubmission_and_approval_flow(application, actors):
     assert application.outcome["production_client_id"] == "PROD-CLIENT-1001"
     assert application.decided_by == reviewer
     assert application.events.filter(action_key="approve").exists()
+    production_outcome = ProductOutcome.objects.get(
+        product=application.product,
+        source_application=application,
+        outcome_type="production_access",
+    )
+    assert production_outcome.data["production_client_id"] == "PROD-CLIENT-1001"
+    assert production_outcome.data["approved_milestones"] == ["m1", "m2", "m3"]
+    assert production_outcome.issued_by == reviewer

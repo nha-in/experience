@@ -54,6 +54,12 @@
          {% if nav_section == 'events' %}aria-current="page"{% endif %}>{% translate "Events" %}</a>
     </li>
     <li>
+      <a id="nav-products"
+         class="ui-nav-link {% if nav_section == 'products' %}ui-nav-link--active{% endif %}"
+         href="{% url 'products:list' %}"
+         {% if nav_section == 'products' %}aria-current="page"{% endif %}>{% translate "Products" %}</a>
+    </li>
+    <li>
       <a id="nav-applications"
          class="ui-nav-link {% if nav_section == 'applications' %}ui-nav-link--active{% endif %}"
          href="{% url 'experiences:list' %}"
@@ -89,7 +95,7 @@
       {# Another origin and another tab: ordinary navigation, never boosted. #}
       <a id="nav-docs"
          class="ui-nav-link"
-         href="https://docs.ohc.network"
+         href="https://nha-in.github.io/docs/"
          target="_blank"
          rel="noopener noreferrer"
          hx-boost="false">

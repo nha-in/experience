@@ -11,10 +11,10 @@
 {% load i18n careui %}
 
 {% block title %}
-  {% translate "Create your vendor account" %}
+  {% translate "Create your ABDM partner account" %}
 {% endblock title %}
 {% block meta_description %}
-  {% translate "Create a Care Experience Hub account for your team: a private sandbox, certification tracks, a support inbox and a deployment registry." %}
+  {% translate "Create an ABDM Sandbox account for your team, manage integration evidence, and apply for production access." %}
 {% endblock meta_description %}
 {% block content %}
   {% comment %}
@@ -25,40 +25,40 @@
   {% endcomment %}
   <section class="mx-auto grid w-full max-w-[1360px] gap-10 px-5 py-12 sm:px-8 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-16 lg:px-[72px] lg:pt-16 lg:pb-[72px]">
     <div class="order-2 lg:order-1">
-      <p class="ui-eyebrow">{% translate "For Care vendors &amp; partners" %}</p>
-      <h1 class="mt-3.5 text-[30px] leading-[1.12] font-[750] tracking-[-0.025em] text-pretty sm:text-[34px] lg:text-[38px]">
-        {% translate "Everything you need to get started with Care, all managed from one place." %}
+      <p class="ui-eyebrow">{% translate "For ABDM integrators &amp; partners" %}</p>
+      <h1 class="mt-3.5 text-[30px] leading-[1.12] font-[750] tracking-normal text-pretty sm:text-[34px] lg:text-[38px]">
+        {% translate "Take your ABDM integration from sandbox to production." %}
       </h1>
       <p class="mt-4 max-w-[52ch] text-[15px] leading-[1.6] text-muted-foreground">
-        {% translate "Your sandbox, training tracks, and deployment docs, all in one account." %}
+        {% translate "Sandbox access, production applications, review queries, and decisions in one shared workspace." %}
       </p>
       <ul class="mt-7 flex flex-col gap-3.5">
         <li class="flex items-start gap-3">
           <span aria-hidden="true"
                 class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
           <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Private sandbox" %}</strong>{% translate ": your own test environment, ready the moment you sign up." %}
+            <strong class="font-semibold">{% translate "Partner sandbox" %}</strong>{% translate ": manage credentials and test your selected ABDM journeys." %}
           </span>
         </li>
         <li class="flex items-start gap-3">
           <span aria-hidden="true"
                 class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
           <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Documentation" %}</strong>{% translate ": complete guides, references, and API docs in one place." %}
+            <strong class="font-semibold">{% translate "ABDM documentation" %}</strong>{% translate ": implementation guides and protocol references close at hand." %}
           </span>
         </li>
         <li class="flex items-start gap-3">
           <span aria-hidden="true"
                 class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
           <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Deployment instructions" %}</strong>{% translate ": your path from sandbox to production." %}
+            <strong class="font-semibold">{% translate "Production applications" %}</strong>{% translate ": submit the evidence required for your product and scope." %}
           </span>
         </li>
         <li class="flex items-start gap-3">
           <span aria-hidden="true"
                 class="flex size-[22px] flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-extrabold text-primary">✓</span>
           <span class="text-sm leading-[1.5]">
-            <strong class="font-semibold">{% translate "Support system" %}</strong>{% translate ": tickets answered by the Care team, with response-time SLAs." %}
+            <strong class="font-semibold">{% translate "Review queries" %}</strong>{% translate ": resolve questions with the review team in the application record." %}
           </span>
         </li>
       </ul>
@@ -70,8 +70,8 @@
       {% include "components/messages.html" %}
       <div class="ui-card">
         <div class="ui-card-header">
-          <h2 class="ui-card-title text-[17px] font-[650] tracking-[-0.01em]">{% translate "Create your vendor account" %}</h2>
-          <p class="ui-card-description text-[13px]">{% translate "Free for all OHC partners." %}</p>
+          <h2 class="ui-card-title text-[17px] font-[650] tracking-normal">{% translate "Create your partner account" %}</h2>
+          <p class="ui-card-description text-[13px]">{% translate "Built for ABDM partners." %}</p>
         </div>
         <div class="ui-card-content">
           {% if invitation %}

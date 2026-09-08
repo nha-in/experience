@@ -1,0 +1,212 @@
+{% extends "layouts/app.html" %}
+
+{% load i18n %}
+
+{% block title %}
+  {{ product.name }}
+{% endblock title %}
+{% block page_header %}
+  <nav class="mb-3 text-xs text-soft-foreground"
+       aria-label="{% translate 'Breadcrumb' %}">
+    <a class="text-soft-foreground no-underline hover:underline"
+       href="{% url 'products:list' %}">{% translate "Products" %}</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">{{ product.name }}</span>
+  </nav>
+  <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="ui-page-title break-words">{{ product.name }}</h1>
+        <span class="ui-badge ui-badge--muted ui-badge--size-sm">{{ product.get_product_type_display }}</span>
+      </div>
+      <p class="ui-page-subtitle max-w-3xl">{{ product.description }}</p>
+    </div>
+    {% if can_edit_product %}
+      <a class="ui-btn ui-btn--outline ui-btn--size-sm shrink-0"
+         href="{% url 'products:edit' product.slug %}"
+         hx-get="{% url 'products:edit' product.slug %}"
+         hx-target="#main-content"
+         hx-select="#main-content"
+         hx-swap="outerHTML"
+         hx-push-url="true"
+         hx-indicator="#nav-progress">{% translate "Edit product" %}</a>
+    {% endif %}
+  </div>
+{% endblock page_header %}
+{% block content %}
+  <section class="mb-5 border-y border-border py-4">
+    <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <dt class="text-[11px] font-semibold uppercase text-soft-foreground">{% translate "Website" %}</dt>
+        <dd class="mt-1 truncate text-sm">
+          {% if product.website %}
+            <a class="ui-prose-link"
+               href="{{ product.website }}"
+               rel="noopener noreferrer">{{ product.website }}</a>
+          {% else %}
+            {% translate "Not provided" %}
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-[11px] font-semibold uppercase text-soft-foreground">{% translate "Current facilities" %}</dt>
+        <dd class="mt-1 text-sm tabular-nums">
+          {{ product.current_facility_count }}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-[11px] font-semibold uppercase text-soft-foreground">{% translate "Deployment regions" %}</dt>
+        <dd class="mt-1 text-sm whitespace-pre-line">
+          {{ product.deployment_regions|default:"Not provided" }}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-[11px] font-semibold uppercase text-soft-foreground">{% translate "Created by" %}</dt>
+        <dd class="mt-1 text-sm">
+          {{ product.created_by.display_name }}
+        </dd>
+      </div>
+    </dl>
+  </section>
+  {% if product_outcomes %}
+    <section class="mb-5">
+      <div class="mb-3">
+        <h2 class="text-base font-semibold">{% translate "Product outcomes" %}</h2>
+        <p class="mt-0.5 text-xs text-muted-foreground">{% translate "Structured access, credentials, and decisions issued by application workflows." %}</p>
+      </div>
+      <div class="grid gap-3 lg:grid-cols-2">
+        {% for outcome in product_outcomes %}
+          <article class="rounded-md border border-border bg-card">
+            <div class="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
+              <div>
+                <h3 class="text-sm font-semibold">{{ outcome.name }}</h3>
+                <p class="mt-0.5 text-[11px] text-soft-foreground">
+                  {% translate "Issued by" %}
+                  <a class="font-mono"
+                     href="{% url 'experiences:detail' outcome.source_application.reference %}">{{ outcome.source_application.reference }}</a>
+                  · {{ outcome.issued_at|date:"j M Y, H:i" }}
+                </p>
+              </div>
+              <span class="ui-badge {% if outcome.is_expired or outcome.status == 'expired' %}ui-badge--warning{% elif outcome.status == 'revoked' %}ui-badge--destructive{% else %}ui-badge--success{% endif %} ui-badge--size-xs">{{ outcome.get_status_display }}</span>
+            </div>
+            <dl class="grid gap-x-5 gap-y-3 px-4 py-3 sm:grid-cols-2">
+              {% for row in outcome.rows %}
+                <div class="min-w-0">
+                  <dt class="text-[10px] font-semibold uppercase text-soft-foreground">{{ row.label }}</dt>
+                  <dd class="mt-0.5 break-words text-xs">
+                    {% if row.secret %}
+                      {% include "components/secret_value.html" with value=row.value label=row.label %}
+                    {% else %}
+                      {{ row.display_value }}
+                    {% endif %}
+                  </dd>
+                </div>
+              {% endfor %}
+            </dl>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+  {% if form_records %}
+    <section class="mb-5">
+      <div class="mb-3">
+        <h2 class="text-base font-semibold">{% translate "Shared forms" %}</h2>
+        <p class="mt-0.5 text-xs text-muted-foreground">{% translate "Independent form records are reused by applications while each application keeps its selected revision." %}</p>
+      </div>
+      <div class="overflow-x-auto rounded-md border border-border bg-card">
+        <table class="w-full min-w-[680px] text-left text-sm">
+          <thead class="border-b border-border bg-muted-background text-[11px] uppercase text-soft-foreground">
+            <tr>
+              <th class="px-4 py-2.5 font-semibold">{% translate "Form" %}</th>
+              <th class="px-4 py-2.5 font-semibold">{% translate "Reuse scope" %}</th>
+              <th class="px-4 py-2.5 font-semibold">{% translate "Latest submission" %}</th>
+              <th class="px-4 py-2.5 font-semibold">{% translate "Applications" %}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% for form_record in form_records %}
+              <tr>
+                <td class="px-4 py-3">
+                  <span class="block text-xs font-semibold">{{ form_record.name }}</span>
+                  <span class="mt-0.5 block font-mono text-[11px] text-soft-foreground">{{ form_record.reference }}</span>
+                </td>
+                <td class="px-4 py-3 text-xs">{{ form_record.get_reuse_scope_display }}</td>
+                <td class="px-4 py-3 text-xs">
+                  {% if form_record.latest_submission %}
+                    <span class="ui-badge ui-badge--success ui-badge--size-xs">{% translate "Complete" %}</span>
+                    <span class="ml-1 text-soft-foreground">{% blocktranslate with revision=form_record.latest_submission.revision %}Revision {{ revision }}{% endblocktranslate %}</span>
+                  {% else %}
+                    <span class="text-soft-foreground">{% translate "Not submitted" %}</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 text-xs tabular-nums">{{ form_record.application_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+  <section>
+    <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 class="text-base font-semibold">{% translate "Applications" %}</h2>
+        <p class="mt-0.5 text-xs text-muted-foreground">{% translate "Each workflow selects reusable form revisions and keeps its own permissions, queries, decision, and prerequisites." %}</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% for definition in available_definitions %}
+          <a class="ui-btn ui-btn--default ui-btn--size-sm"
+             href="{% url 'products:start-application' product.slug definition.key %}"
+             hx-get="{% url 'products:start-application' product.slug definition.key %}"
+             hx-target="#main-content"
+             hx-select="#main-content"
+             hx-swap="outerHTML"
+             hx-push-url="true"
+             hx-indicator="#nav-progress">{% blocktranslate with name=definition.name %}Start {{ name }}{% endblocktranslate %}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% if applications %}
+      <div class="overflow-x-auto rounded-md border border-border bg-card">
+        <table class="w-full min-w-[760px] text-left text-sm">
+          <thead class="border-b border-border bg-muted-background text-[11px] uppercase text-soft-foreground">
+            <tr>
+              <th class="px-4 py-2.5 font-semibold">{% translate "Application" %}</th>
+              <th class="px-4 py-2.5 font-semibold">{% translate "Prerequisites" %}</th>
+              <th class="px-4 py-2.5 font-semibold">{% translate "Progress" %}</th>
+              <th class="px-4 py-2.5 font-semibold">{% translate "Status" %}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% for application in applications %}
+              <tr class="hover:bg-muted-background">
+                <td class="px-4 py-3.5">
+                  <a class="font-mono text-xs font-semibold"
+                     href="{% url 'experiences:detail' application.reference %}">{{ application.reference }}</a>
+                  <span class="mt-0.5 block text-xs text-muted-foreground">{{ application.definition.name }} · {{ application.metadata.product_version|default:"Version not provided" }}</span>
+                </td>
+                <td class="px-4 py-3.5 text-xs text-muted-foreground">
+                  {% for dependency in application.dependencies.all %}
+                    <span class="block font-mono">{{ dependency.reference }} · {{ dependency.status|title }}</span>
+                  {% empty %}
+                    {% translate "None" %}
+                  {% endfor %}
+                </td>
+                <td class="px-4 py-3.5 text-xs font-medium tabular-nums">{{ application.progress_percent }}%</td>
+                <td class="px-4 py-3.5">
+                  {% include "experiences/partials/status_badge.html" with status=application.status_definition %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="border-y border-border py-10 text-center">
+        <h3 class="text-sm font-semibold">{% translate "No applications for this product" %}</h3>
+        <p class="mt-1 text-xs text-muted-foreground">{% translate "Start the first workflow from the actions above." %}</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock content %}

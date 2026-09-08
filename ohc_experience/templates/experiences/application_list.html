@@ -11,16 +11,14 @@
       <h1 class="ui-page-title">{% translate "Applications" %}</h1>
       <p class="ui-page-subtitle">{% translate "Complete application packs, answer review queries, and track decisions." %}</p>
     </div>
-    {% if available_definitions %}
-      <a class="ui-btn ui-btn--default ui-btn--size-default"
-         href="{% url 'experiences:start' available_definitions.0.key %}"
-         hx-get="{% url 'experiences:start' available_definitions.0.key %}"
-         hx-target="#main-content"
-         hx-select="#main-content"
-         hx-swap="outerHTML"
-         hx-push-url="true"
-         hx-indicator="#nav-progress">{% translate "Start application" %}</a>
-    {% endif %}
+    <a class="ui-btn ui-btn--default ui-btn--size-default"
+       href="{% url 'products:list' %}"
+       hx-get="{% url 'products:list' %}"
+       hx-target="#main-content"
+       hx-select="#main-content"
+       hx-swap="outerHTML"
+       hx-push-url="true"
+       hx-indicator="#nav-progress">{% translate "Choose product" %}</a>
   </div>
 {% endblock page_header %}
 {% block content %}
@@ -52,6 +50,10 @@
         hx-swap="outerHTML"
         hx-push-url="true"
         hx-indicator="#nav-progress">
+    <div class="w-full sm:w-[220px]">
+      <label class="sr-only" for="{{ filter_form.product.id_for_label }}">{% translate "Product" %}</label>
+      <div class="ui-select-wrapper">{% ui_widget filter_form.product "ui-select--sm" %}</div>
+    </div>
     <div class="w-full sm:w-[180px]">
       <label class="sr-only" for="{{ filter_form.status.id_for_label }}">{% translate "Status" %}</label>
       <div class="ui-select-wrapper">{% ui_widget filter_form.status "ui-select--sm" %}</div>
