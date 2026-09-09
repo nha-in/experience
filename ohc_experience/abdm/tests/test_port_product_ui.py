@@ -67,7 +67,6 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
     assert selected == ["HI-CM:m1"]
-    assert b"Opens once M1 is approved" in response.content
     assert b"Same record as HI-CM M1" in response.content
 
 
@@ -153,52 +152,65 @@ def test_editing_a_product_persists_several_solution_types(environment, client):
     assert workspace.get_solution_type_display() == "Clinical HMIS, Pharmacy"
 
 
-def test_nhcx_track_is_gated_on_m1_approval():
-    shut = ProductRegistrationForm()
-    row = next(
-        row for row in shut.milestone_tracks if row["definition"].code == "NHCX"
-    )
-    assert row["locked"]
-    assert "Opens once M1 is approved" in row["lock_reason"]
-    assert not any(
-        other["locked"]
-        for other in shut.milestone_tracks
-        if other["definition"].code != "NHCX"
-    )
-    open_row = next(
-        row
-        for row in ProductRegistrationForm(approved_milestones={"m1"}).milestone_tracks
-        if row["definition"].code == "NHCX"
-    )
-    assert not open_row["locked"]
-    assert not open_row["lock_reason"]
-
-
-def test_nhcx_selection_is_refused_until_m1_is_approved():
-    payload = {
-        "name": "Claims platform",
-        "description": "Exchanges claims with payers.",
-        "category": "claims_platform",
+def uhi_payload(**overrides):
+    return {
+        "name": "Discovery app",
+        "description": "Finds and books consultations.",
+        "category": "other",
         "solution_type": ["eua"],
-        "applied_milestones": ["HI-CM:m1", "NHCX:nhcx1"],
+        "applied_milestones": ["HI-CM:m1", "UHI:uhi1"],
+        **overrides,
     }
-    forged = ProductRegistrationForm(data=payload)
-    assert not forged.is_valid()
-    assert "NHCX cannot be selected yet" in str(forged.errors["applied_milestones"])
-    allowed = ProductRegistrationForm(data=payload, approved_milestones={"m1"})
-    assert allowed.is_valid(), allowed.errors
 
 
-@pytest.mark.django_db
-def test_nhcx_opens_in_edit_product_once_m1_is_approved(environment, client):
-    client.force_login(environment["applicant"])
-    url = reverse(
-        "experiences:product-edit",
-        args=[environment["workspace"].reference],
+def test_uhi_answers_are_required_once_the_track_is_chosen():
+    form = ProductRegistrationForm(data=uhi_payload())
+    assert not form.is_valid()
+    assert "Select at least one UHI role." in str(form.errors["uhi_role"])
+    assert "Select at least one UHI service." in str(form.errors["uhi_services"])
+    answered = ProductRegistrationForm(
+        data=uhi_payload(uhi_role=["eua"], uhi_services=["teleconsultation"]),
     )
-    assert b"Opens once M1 is approved" in client.get(url).content
-    approve(environment)
-    assert b"Opens once M1 is approved" not in client.get(url).content
+    assert answered.is_valid(), answered.errors
+
+
+def test_uhi_answers_are_dropped_without_the_track():
+    form = ProductRegistrationForm(
+        data=uhi_payload(
+            applied_milestones=["HI-CM:m1"],
+            uhi_role=["eua"],
+            uhi_services=["teleconsultation"],
+            uhi_tell_us_about="Written earlier",
+        ),
+    )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["uhi_role"] == []
+    assert form.cleaned_data["uhi_services"] == []
+    assert form.cleaned_data["uhi_tell_us_about"] == ""
+
+
+def test_the_uhi_section_is_hidden_until_the_track_is_chosen():
+    from ohc_experience.experiences.templatetags.experience_ui import sections
+
+    def uhi_section(form):
+        return next(s for s in sections(form) if s["title"] == "UHI participation")
+
+    shut = uhi_section(ProductRegistrationForm())
+    assert shut["show_when"] == {
+        "field": "applied_milestones",
+        "value": "UHI:uhi1",
+        "active": False,
+    }
+    opened = uhi_section(
+        ProductRegistrationForm(initial={"applied_milestones": ["UHI:uhi1"]}),
+    )
+    assert opened["show_when"]["active"] is True
+    # Sections without a rule stay unconditional.
+    assert all(
+        s["show_when"] is None
+        for s in sections(ProductRegistrationForm())
+        if s["title"] != "UHI participation"
+    )
 
 
 @pytest.mark.django_db

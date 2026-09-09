@@ -10,8 +10,8 @@ MILESTONES = {
         MilestoneDefinition("m4", "M4", "HFR Registration", "m3"),
         MilestoneDefinition("phr1", "PHR1", "PHR application flows", "m1"),
         MilestoneDefinition("locker1", "PHR1", "Locker flows"),
-        MilestoneDefinition("uhi1", "UHI1", "UHI participant flows"),
-        MilestoneDefinition("nhcx1", "NHCX1", "Claims exchange flows"),
+        MilestoneDefinition("uhi1", "UHI1", "UHI participant flows", "m1"),
+        MilestoneDefinition("nhcx1", "NHCX1", "Claims exchange flows", "m1"),
     )
 }
 
@@ -50,7 +50,6 @@ TRACKS = (
     ),
 )
 TRACK_MAP = {track.code: track for track in TRACKS}
-TRACK_GATES = {"NHCX": "m1"}
 MILESTONE_CHOICES = [
     (
         track.name,

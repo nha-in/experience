@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 from PIL import Image
 
+from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import organisation_data
@@ -142,12 +143,15 @@ def test_shared_m1_and_independent_tracks(environment):
     assert TRACK_MAP["PHR"].keys == ("m1", "phr1")
     assert TRACK_MAP["HealthLocker"].keys == ("locker1",)
     assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
+    assert MILESTONES["uhi1"].predecessor == MILESTONES["nhcx1"].predecessor == "m1"
     assert services.milestone_locked(milestone(environment, "m2"))
     assert services.milestone_locked(milestone(environment, "phr1"))
+    assert services.milestone_locked(milestone(environment, "uhi1"))
     assert not services.milestone_locked(milestone(environment, "locker1"))
     approve(environment)
     assert not services.milestone_locked(milestone(environment, "m2"))
     assert not services.milestone_locked(milestone(environment, "phr1"))
+    assert not services.milestone_locked(milestone(environment, "uhi1"))
     assert services.milestone_locked(milestone(environment, "m3"))
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
 

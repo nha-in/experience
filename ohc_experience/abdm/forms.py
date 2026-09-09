@@ -12,8 +12,6 @@ from ohc_experience.organisations.widgets import PincodeInput
 
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
-from .catalog import TRACK_GATES
-from .catalog import TRACK_MAP
 from .catalog import TRACKS
 from .catalog import canonical_keys
 
@@ -192,8 +190,14 @@ class OrganisationForm(ReviewForm):
 
 
 class ProductRegistrationForm(ReviewForm):
-    full_width_fields = ("applied_milestones", "solution_type")
+    full_width_fields = (
+        "applied_milestones",
+        "solution_type",
+        "uhi_role",
+        "uhi_services",
+    )
     conditional_fields = {"payer_category": ("solution_type", "payers")}
+    conditional_sections = {"UHI participation": ("applied_milestones", "UHI:uhi1")}
     section_notes = {
         "Tracks and milestones": (
             "M1 approval is shared by HI-CM and PHR. "
@@ -206,6 +210,10 @@ class ProductRegistrationForm(ReviewForm):
             ("name", "description", "category", "solution_type", "payer_category"),
         ),
         ("Tracks and milestones", ("applied_milestones",)),
+        (
+            "UHI participation",
+            ("uhi_role", "uhi_services", "uhi_tell_us_about", "uhi_extra_details"),
+        ),
     )
     name = forms.CharField(label="Product name", max_length=255)
     description = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}))
@@ -248,6 +256,36 @@ class ProductRegistrationForm(ReviewForm):
         widget=forms.CheckboxSelectMultiple(attrs={"class": "ui-checkbox shrink-0"}),
         help_text="Applies when Payers is one of the solution types.",
     )
+    uhi_role = forms.MultipleChoiceField(
+        label="Role",
+        required=False,
+        choices=[
+            ("eua", "End User Applications (EUA)"),
+            ("hspa", "Health Service Provider Application (HSPA)"),
+        ],
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "ui-checkbox shrink-0"}),
+    )
+    uhi_services = forms.MultipleChoiceField(
+        label="Services",
+        required=False,
+        choices=[
+            ("blood_bank_discovery", "Blood Bank Discovery"),
+            ("physical_consultation", "Physical Consultation"),
+            ("teleconsultation", "Teleconsultation"),
+            ("pmjay_hem_find_hospital", "PMJAY HEM Find Hospital"),
+        ],
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "ui-checkbox shrink-0"}),
+    )
+    uhi_tell_us_about = forms.CharField(
+        label="Tell us about your UHI integration",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+    uhi_extra_details = forms.CharField(
+        label="Any extra details you would like to share",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
     applied_milestones = forms.MultipleChoiceField(
         label="Tracks and milestones",
         choices=MILESTONE_CHOICES,
@@ -265,25 +303,12 @@ class ProductRegistrationForm(ReviewForm):
             }
         super().__init__(*args, **kwargs)
 
-    def track_lock_reason(self, track):
-        """Why a gated track cannot be picked yet, or "" once it is open."""
-        gate = TRACK_GATES.get(track.code)
-        if not gate or gate in self.approved_milestones:
-            return ""
-        return (
-            f"Opens once {MILESTONES[gate].code} is approved. "
-            f"{MILESTONES[gate].code} is shared by the HI-CM and PHR tracks, so "
-            f"an approved PHR track satisfies this too."
-        )
-
     @property
     def milestone_tracks(self):
         selected = self["applied_milestones"].value() or []
         return [
             {
                 "definition": track,
-                "locked": bool(self.track_lock_reason(track)),
-                "lock_reason": self.track_lock_reason(track),
                 "milestones": [
                     {
                         "definition": MILESTONES[key],
@@ -305,15 +330,18 @@ class ProductRegistrationForm(ReviewForm):
                 self.add_error("payer_category", "Select at least one payer category.")
         elif cleaned.get("payer_category"):
             cleaned["payer_category"] = []
+        if "UHI:uhi1" in (cleaned.get("applied_milestones") or []):
+            if not self.draft:
+                for key, noun in (("uhi_role", "role"), ("uhi_services", "service")):
+                    if not cleaned.get(key):
+                        self.add_error(key, f"Select at least one UHI {noun}.")
+        else:
+            for key in self.sections[2][1]:
+                cleaned[key] = [] if key in {"uhi_role", "uhi_services"} else ""
         return cleaned
 
     def clean_applied_milestones(self):
         selections = self.cleaned_data["applied_milestones"]
-        for code in {value.split(":", 1)[0] for value in selections}:
-            reason = self.track_lock_reason(TRACK_MAP[code])
-            if reason:
-                msg = f"{code} cannot be selected yet. {reason}"
-                raise ValidationError(msg)
         keys = canonical_keys(selections)
         for key in keys:
             predecessor = MILESTONES[key].predecessor

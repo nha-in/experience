@@ -19,7 +19,7 @@ def test_selected_product_follows_integrator_into_account_pages(environment):  #
     data = {
         **product_data(),
         "name": "Second product",
-        "applied_milestones": ["UHI:uhi1"],
+        "applied_milestones": ["HealthLocker:locker1"],
     }
     second, form = workflows.register_product(environment["org"], user, data=data)
     assert second, form.errors
@@ -37,7 +37,7 @@ def test_selected_product_follows_integrator_into_account_pages(environment):  #
             .split('<nav id="app-nav"', 1)[1]
             .split("</nav>", 1)[0]
         )
-        assert "nav-track-uhi" in nav
+        assert "nav-track-healthlocker" in nav
         assert "nav-track-hi-cm" not in nav
 
 

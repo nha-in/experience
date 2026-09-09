@@ -91,6 +91,9 @@ def product_data(name="Medibase HMIS 4.2"):
             "HealthLocker:locker1",
             "UHI:uhi1",
         ],
+        "uhi_role": ["eua"],
+        "uhi_services": ["teleconsultation", "physical_consultation"],
+        "uhi_tell_us_about": "Discovery and teleconsultation for our clinic network.",
     }
 
 

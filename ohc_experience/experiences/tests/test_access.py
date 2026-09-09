@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.events.models import Event
 from ohc_experience.experiences import permissions
@@ -69,7 +70,8 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
     staff,
     client,
 ):
-    hicm = submit(environment, "m1")
+    approve(environment)
+    hicm = milestone(environment, "m1")
     uhi = submit(environment, "uhi1")
     grant(staff)
     client.force_login(staff)
@@ -116,6 +118,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
 
 
 def test_nhcx_grant_does_not_allow_uhi_or_hicm(environment, staff, client):
+    approve(environment)
     uhi = submit(environment, "uhi1")
     grant(staff, category="NHCX", write=True, approve=True)
     client.force_login(staff)
@@ -131,6 +134,7 @@ def test_nhcx_grant_does_not_allow_uhi_or_hicm(environment, staff, client):
 
 
 def test_review_write_and_approve_are_independent(environment, staff, client):
+    approve(environment)
     item = submit(environment, "uhi1")
     access = grant(staff, write=True)
     workflows.assign_review(item, environment["admin"], staff)
@@ -177,6 +181,7 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
 
 
 def test_read_only_assignment_and_revocation(environment, staff, client):
+    approve(environment)
     item = submit(environment, "uhi1")
     access = grant(staff)
     with pytest.raises(ValidationError):
@@ -424,15 +429,16 @@ def test_general_and_all_categories_are_explicit(environment, staff):
 def test_reused_pins_remain_visible_without_exposing_source_history(environment, staff):
     source = submit(environment, "m1")
     original = source.selected_submission
-    target = milestone(environment, "uhi1")
-    grant(staff)
+    # An ungated track, so the source can stay withdrawable rather than approved.
+    target = milestone(environment, "locker1")
+    grant(staff, category="HealthLocker")
     assert not permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     workflows.reuse_evidence(target, environment["applicant"])
     target.refresh_from_db()
     assert target.selected_submission_id == original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     # Replacing a reused pin must not break links in this application's history.
-    target = submit(environment, "uhi1")
+    target = submit(environment, "locker1")
     assert target.selected_submission_id != original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     workflows.withdraw(source, environment["applicant"])
