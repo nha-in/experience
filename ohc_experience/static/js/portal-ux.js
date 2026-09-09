@@ -82,6 +82,17 @@
   }
 
   document.addEventListener('DOMContentLoaded', initialize);
+  document.addEventListener('change', event => {
+    const input = event.target.closest('[data-permission-action]');
+    if (!input) return;
+    const row = input.closest('[data-permission-row]');
+    const read = row.querySelector('[data-permission-action="read"]');
+    if (input === read && !read.checked) {
+      row.querySelectorAll('[data-permission-action]').forEach(control => { control.checked = false; });
+    } else if (input.checked) {
+      read.checked = true;
+    }
+  });
   ['input', 'change'].forEach(type => document.addEventListener(type, event => updateForm(event.target.closest('form'))));
   window.addEventListener('beforeunload', event => {
     if (!leaving && dirtyForms().length) {

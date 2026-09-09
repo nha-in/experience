@@ -1,0 +1,99 @@
+{% extends 'experiences/base.html' %}
+
+{% load careui %}
+
+{% block portal_content %}
+  <div class="min-w-0"
+       hx-boost="true"
+       hx-target="#main-content"
+       hx-select="#main-content"
+       hx-select-oob="#app-nav"
+       hx-swap="outerHTML show:window:top">
+    <a class="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary"
+       href="{% url 'experiences:staff-list' %}">Staff</a>
+    <header class="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0"><h1 class="ui-page-title break-words">{% if staff_member %}{{ staff_member.display_name }}{% else %}New staff member{% endif %}</h1><p class="mt-1 break-all text-sm text-soft-foreground">{% if staff_member %}{{ staff_member.email }}{% else %}Portal account{% endif %}</p></div>
+      {% if staff_member %}<span class="ui-badge {% if staff_member.is_active %}ui-badge--success{% else %}ui-badge--neutral{% endif %}">{% if staff_member.is_active %}Active{% else %}Archived{% endif %}</span>{% endif %}
+    </header>
+    {% if staff_member and not staff_member.is_active %}<div class="ui-alert ui-alert--warning mb-6">This account is archived. Sign-in and portal access are disabled.</div>{% endif %}
+    <form method="post"
+          id="staff-form"
+          data-unsaved-form
+          novalidate
+          class="min-w-0">
+      {% csrf_token %}{{ form.revision }}
+      {% include 'components/form_errors.html' %}
+      <div class="grid min-w-0 gap-8 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
+        <section class="min-w-0 border-t border-border pt-5"
+                 aria-labelledby="staff-details-title">
+          <h2 id="staff-details-title" class="mb-5 text-base font-semibold">Account details</h2>
+          <div class="flex flex-col gap-5">{% ui_field form.name %}{% ui_field form.email %}{% ui_field form.phone_number %}</div>
+          <h2 class="mt-8 mb-4 text-base font-semibold">Sign-in</h2>
+          {% if staff_member %}<details class="border-t border-border pt-4"
+         {% if form.password1.errors or form.password2.errors %}open{% endif %}><summary class="min-h-11 cursor-pointer text-sm font-semibold">Change password</summary><div class="mt-3 flex flex-col gap-5">{% ui_field form.password1 %}{% ui_field form.password2 %}</div></details>
+{% else %}
+  <div class="flex flex-col gap-5">{% ui_field form.password1 %}{% ui_field form.password2 %}</div>
+{% endif %}
+</section>
+<section class="min-w-0 border-t border-border pt-5"
+         aria-labelledby="staff-permissions-title">
+  <h2 id="staff-permissions-title" class="text-base font-semibold">Portal permissions</h2>
+  <p class="mt-1 mb-5 text-xs text-soft-foreground">Read is required for write or approve. Review actions also require assignment.</p>
+  {% for group in form.permission_groups %}
+    <details class="mb-4 border-b border-border pb-4" open data-permission-group>
+      <summary class="flex min-h-11 cursor-pointer flex-wrap items-baseline gap-2 text-sm font-semibold">{{ group.label }} <span class="text-xs font-normal text-soft-foreground">{{ group.program.short_name }}</span></summary>
+      <p class="mb-3 text-xs text-soft-foreground">{% if group.area == 'review' %}Write: raise and resolve queries. Approve: approve or send back.{% elif group.area == 'support' %}Write: reply. Approve: resolve tickets.{% else %}Write: create and edit drafts. Approve: publish and unpublish.{% endif %}</p>
+      <table class="w-full table-fixed text-sm">
+        <caption class="sr-only">{{ group.program.short_name }} {{ group.label }} permissions</caption>
+        <thead>
+          <tr class="border-b border-border text-xs text-soft-foreground">
+            <th class="py-3 text-left font-medium" scope="col">Category</th>
+            <th class="w-14 text-center font-medium" scope="col">Read</th>
+            <th class="w-14 text-center font-medium" scope="col">Write</th>
+            <th class="w-16 text-center font-medium" scope="col">Approve</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in group.rows %}
+            <tr class="border-b border-soft-border last:border-0"
+                data-permission-row
+                {% if row.key.2 == '*' %}data-all-categories{% endif %}>
+              <th class="py-3 pr-2 text-left font-medium break-words" scope="row">{{ row.label }}{% if row.key.2 == '*' %}<span class="mt-1 block text-xs font-normal text-soft-foreground">{{ row.description }}</span>{% endif %}</th>
+              {% for cell in row.cells %}<td class="py-2 text-center align-top"><label class="inline-flex min-h-11 w-full cursor-pointer items-center justify-center"
+       for="{{ cell.auto_id }}"><span class="sr-only">{{ cell.label }}</span>{% ui_widget cell %}</label>{% if cell.errors %}<span id="{{ cell.auto_id }}_errors"
+      class="block break-words text-xs text-red-700">{{ cell.errors|join:' ' }}</span>{% endif %}</td>{% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  {% endfor %}
+</section>
+</div>
+<div class="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-border py-5">
+  <p class="text-xs text-soft-foreground" data-unsaved-status></p>
+  <div class="flex flex-wrap gap-3"><a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+   href="{% url 'experiences:staff-list' %}">Cancel</a><button type="submit" class="ui-btn ui-btn--default ui-btn--size-sm min-h-11">{% if staff_member %}Save changes{% else %}Create staff member{% endif %}</button></div>
+</div>
+</form>
+{% if staff_member %}
+  <section class="mt-4 border-t border-border pt-5"
+           aria-labelledby="staff-status-title">
+    <div class="flex flex-wrap items-start justify-between gap-4"><div><h2 id="staff-status-title" class="text-base font-semibold">Account status</h2><p class="mt-1 text-sm text-soft-foreground">{% if staff_member.is_active %}{{ pending_reviews }} pending review{{ pending_reviews|pluralize }}. Archiving ends active sessions and releases pending assignments.{% else %}Previous permissions are retained. Restoring enables sign-in again.{% endif %}</p></div>
+      <form method="post"
+            action="{% url 'experiences:staff-archive' staff_member.pk %}"
+            data-confirm="{% if staff_member.is_active %}Archive this account and end its active sessions? Pending reviews will be unassigned.{% else %}Restore this account with its saved portal permissions?{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="revision" value="{{ account_revision }}" />
+        <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 {% if staff_member.is_active %}text-red-700{% endif %}"
+                type="submit"
+                name="intent"
+                value="{% if staff_member.is_active %}archive{% else %}restore{% endif %}">{% if staff_member.is_active %}Archive staff member{% else %}Restore staff member{% endif %}</button>
+      </form>
+    </div>
+  </section>
+  <section class="mt-8 border-t border-border pt-5"
+           aria-labelledby="staff-history-title"><h2 id="staff-history-title" class="mb-4 text-base font-semibold">Recent account activity</h2><ol class="divide-y divide-soft-border">{% for entry in history %}<li class="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{{ entry.get_change_message }}</span><span class="text-xs text-soft-foreground">{{ entry.user.display_name }} · {{ entry.action_time|date:'j M Y, H:i' }}</span></li>{% empty %}<li class="text-sm text-soft-foreground">No recorded changes.</li>{% endfor %}</ol></section>
+{% endif %}
+</div>
+{% endblock portal_content %}

@@ -1,10 +1,20 @@
 from django.urls import path
 
+from . import event_views
+from . import staff_views
 from . import views
 
 app_name = "experiences"
 urlpatterns = [
     path("portal/", views.dashboard, name="home"),
+    path("portal/staff/", staff_views.staff_list, name="staff-list"),
+    path("portal/staff/new/", staff_views.staff_edit, name="staff-create"),
+    path("portal/staff/<int:pk>/", staff_views.staff_edit, name="staff-edit"),
+    path(
+        "portal/staff/<int:pk>/archive/",
+        staff_views.staff_archive,
+        name="staff-archive",
+    ),
     path("portal/products/", views.products, name="products"),
     path("onboarding/organisation/", views.organisation, name="organisation"),
     path("onboarding/product/", views.product_create, name="product-create"),
@@ -41,6 +51,14 @@ urlpatterns = [
     path("assess/queue/", views.queue, name="queue"),
     path("assess/review/<int:pk>/", views.review, name="review"),
     path("portal/events/", views.events, name="events"),
+    path("portal/events/manage/", event_views.event_manage, name="event-manage"),
+    path("portal/events/new/", event_views.event_edit, name="event-create"),
+    path("portal/events/<int:pk>/edit/", event_views.event_edit, name="event-edit"),
+    path(
+        "portal/events/<int:pk>/publication/",
+        event_views.event_publication,
+        name="event-publication",
+    ),
     path("portal/support/", views.support, name="support"),
     path("portal/support/<str:reference>/", views.ticket, name="ticket"),
     path(

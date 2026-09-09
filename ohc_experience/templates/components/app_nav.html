@@ -83,7 +83,7 @@
    class="ui-nav-link"
    href="{% url 'organisations:team' %}">{% include "components/nav_icon.html" with icon="team" %}Team &amp; invitations</a></li>{% endif %}
       <li><a id="nav-profile" class="ui-nav-link" href="{% url 'users:profile' %}">{% include "components/nav_icon.html" with icon="profile" %}Your profile</a></li>
-      {% if request.user.is_staff %}<li><a class="ui-nav-link" href="{% url 'admin:index' %}" hx-boost="false">Administration</a></li>{% endif %}
+      {% if request.user.is_superuser %}<li><a id="nav-staff" class="ui-nav-link {% if nav == 'staff' %}ui-nav-link--active{% endif %}" href="{% url 'experiences:staff-list' %}" {% if nav == 'staff' %}aria-current="page"{% endif %}>{% include 'components/nav_icon.html' with icon='team' %}Staff &amp; permissions</a></li>{% endif %}
       <li><a id="nav-docs"
    class="ui-nav-link"
    href="{{ experience_program.docs_url }}"
