@@ -1501,11 +1501,6 @@ def ticket(request, reference):
                         file=upload,
                         original_name=upload.name,
                     )
-                services.notify_ticket_reply(
-                    ticket,
-                    request.user,
-                    form.cleaned_data["body"],
-                )
             return redirect("experiences:ticket", reference=reference)
     return render(
         request,

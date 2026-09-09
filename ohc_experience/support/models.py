@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import ClassVar
 
 from django.conf import settings
@@ -9,6 +10,10 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+from .emails import notify_support
+
+logger = logging.getLogger(__name__)
 
 # Reference numbers start here so the first ticket does not read as TKT-1.
 REFERENCE_SEED = 2000
@@ -256,7 +261,8 @@ def post_reply(
 
     A vendor reply reopens the ticket; an OHC reply puts it on the vendor. This
     lives here rather than in a view so the vendor inbox, the OHC console and
-    the admin all move a ticket the same way.
+    the admin all move a ticket the same way. Each reply is mirrored into the
+    support email thread.
     """
     message = TicketMessage.objects.create(
         ticket=ticket,
@@ -271,6 +277,7 @@ def post_reply(
         ticket.first_responded_at = timezone.now()
         updates.append("first_responded_at")
     ticket.save(update_fields=updates)
+    _mirror_to_support(ticket, message)
     return message
 
 
@@ -283,10 +290,20 @@ def record_status_change(ticket: Ticket, author, status: str) -> TicketMessage:
         updates.append("resolved_at")
     ticket.save(update_fields=updates)
     label = Status(status).label
-    return TicketMessage.objects.create(
+    message = TicketMessage.objects.create(
         ticket=ticket,
         author=author,
         kind=TicketMessage.Kind.EVENT,
         body=str(label),
         from_ohc_team=bool(getattr(author, "is_ohc_team", False)),
     )
+    _mirror_to_support(ticket, message)
+    return message
+
+
+def _mirror_to_support(ticket: Ticket, message: TicketMessage) -> None:
+    try:
+        notify_support(ticket, message)
+    except Exception:
+        # Email must never break the ticket flow.
+        logger.exception("Failed to email support for %s", ticket.reference)

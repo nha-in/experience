@@ -29,12 +29,10 @@ from .models import Notification
 from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
-from .permissions import can_integrate
 from .permissions import eligible_reviewer
 from .permissions import require_decider
 from .permissions import require_integrator
 from .permissions import visible_reviews
-from .permissions import visible_tickets
 from .registry import get_program
 from .registry import registry
 from .services import issue_outcome
@@ -84,22 +82,6 @@ def notify_integrators(organisation, subject, body):
             for email in recipients
         ],
     )
-
-
-def notify_ticket_reply(ticket, actor, body):
-    subject = f"{get_program().short_name}: reply to {ticket.reference}"
-    if can_integrate(actor, ticket.organisation):
-        if (
-            ticket.assignee_id
-            and visible_tickets(ticket.assignee).filter(pk=ticket.pk).exists()
-        ):
-            Notification.objects.create(
-                recipient=ticket.assignee.email,
-                subject=subject,
-                body=body,
-            )
-    else:
-        notify_integrators(ticket.organisation, subject, body)
 
 
 def notify_reviewers(item, subject, body):

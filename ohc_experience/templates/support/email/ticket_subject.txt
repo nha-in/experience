@@ -1,0 +1,1 @@
+{% load i18n %}{% blocktranslate with brand=program.short_name reference=ticket.reference subject=ticket.subject %}[{{ brand }}] Support Ticket {{ reference }}: {{ subject }}{% endblocktranslate %}
