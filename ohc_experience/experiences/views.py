@@ -73,7 +73,7 @@ def _workspace(request, reference):
 
 
 def _item(request, pk):
-    query = ReviewItem.objects.select_related(
+    query = permissions.visible_reviews(request.user).select_related(
         "selected_submission",
         "form",
         "organisation",
@@ -87,7 +87,7 @@ def _item(request, pk):
     return get_object_or_404(query, pk=pk)
 
 
-def _tracks(workspace):
+def _tracks(workspace, user):
     rows = {
         milestone.key: milestone
         for milestone in workspace.product.milestones.filter(
@@ -95,7 +95,7 @@ def _tracks(workspace):
         ).select_related("application__review_item")
     }
     result = []
-    for track in workspace.definition.tracks:
+    for track in permissions.allowed_tracks(user, workspace.definition):
         tiles = []
         for key in track.keys:
             if (
@@ -156,7 +156,7 @@ def _context(request, workspace=None, **kwargs):
         "reviewer": is_reviewer,
         "workspaces": _workspaces(request.user),
         "workspace": workspace,
-        "tracks": _tracks(workspace) if workspace else [],
+        "tracks": _tracks(workspace, request.user) if workspace else [],
         "today": timezone.localdate(),
         **kwargs,
     }
@@ -187,7 +187,7 @@ def _error(request, error):
 @login_required
 def dashboard(request):
     if permissions.reviewer(request.user):
-        return redirect("experiences:assess-dashboard")
+        return redirect(permissions.staff_home(request.user))
     organisation = _organisation(request)
     if not organisation.is_onboarded:
         return redirect("experiences:organisation")
@@ -209,6 +209,7 @@ def dashboard(request):
 
 @login_required
 def products(request):
+    permissions.require_area(request.user, "review")
     return render(
         request,
         "experiences/products.html",
@@ -345,8 +346,21 @@ def product_edit(request, reference):
 def overview(request, reference):
     workspace = _workspace(request, reference)
     product = workspace.product
+    visible_items = permissions.visible_reviews(request.user)
+    if (
+        permissions.reviewer(request.user)
+        and not visible_items.filter(product=product).exists()
+    ):
+        raise Http404
+    activity = product.audit_events.all()
+    outcomes = product.outcomes.all()
+    if permissions.reviewer(request.user):
+        activity = activity.filter(item__in=visible_items)
+        outcomes = outcomes.filter(
+            source_application__in=visible_items.values("application_id"),
+        )
     organisation_review = (
-        ReviewItem.objects.filter(
+        visible_items.filter(
             organisation=product.organisation,
             kind="organisation_verification",
         )
@@ -363,20 +377,26 @@ def overview(request, reference):
             if organisation_review and organisation_review.selected_submission
             else {}
         ),
-        activity=product.audit_events.select_related("actor", "item")[:10],
-        events=Event.objects.upcoming()[:3],
+        activity=activity.select_related("actor", "item")[:10],
+        events=permissions.visible_events(request.user).upcoming()[:3],
         registered_events=set(
             EventRegistration.objects.filter(
                 user=request.user,
             ).values_list("event_id", flat=True),
         ),
-        credential=ProductCredential.objects.filter(product=product).first(),
-        outcomes=product.outcomes.exclude(
+        credential=ProductCredential.objects.filter(product=product).first()
+        if not permissions.reviewer(request.user)
+        or permissions.has_access(
+            request.user, "review", program=workspace.definition.key,
+        )
+        else None,
+        outcomes=outcomes.exclude(
             outcome_type=workspace.definition.credentials.outcome_type
             if workspace.definition.credentials
             else "",
         )[:6],
-        registration=product.review_items.filter(
+        registration=visible_items.filter(
+            product=product,
             kind="product_registration",
         ).first(),
     )
@@ -400,8 +420,17 @@ def track(request, reference, track_code):
     workspace = _workspace(request, reference)
     if track_code not in workspace.definition.track_map():
         raise Http404
+    if permissions.reviewer(request.user) and not permissions.has_access(
+        request.user,
+        "review",
+        track_code,
+        program=workspace.definition.key,
+    ):
+        raise Http404
     track_data = next(
-        row for row in _tracks(workspace) if row["definition"].code == track_code
+        row
+        for row in _tracks(workspace, request.user)
+        if row["definition"].code == track_code
     )
     selected = request.GET.get("milestone", "")
     tile = next(
@@ -530,23 +559,27 @@ def query_action(request, pk):
 
 @login_required
 def pending_queries(request):
-    query = ReviewItem.objects.filter(
-        status__in=["query_raised", "in_review"],
-    ).annotate(
-        awaiting_reply_count=Count(
-            "queries",
-            filter=Q(
-                queries__submission_id=F("selected_submission_id"),
-                queries__status="open",
+    query = (
+        permissions.visible_reviews(request.user)
+        .filter(
+            status__in=["query_raised", "in_review"],
+        )
+        .annotate(
+            awaiting_reply_count=Count(
+                "queries",
+                filter=Q(
+                    queries__submission_id=F("selected_submission_id"),
+                    queries__status="open",
+                ),
             ),
-        ),
-        unresolved_query_count=Count(
-            "queries",
-            filter=Q(
-                queries__submission_id=F("selected_submission_id"),
-                queries__status__in=["open", "answered"],
+            unresolved_query_count=Count(
+                "queries",
+                filter=Q(
+                    queries__submission_id=F("selected_submission_id"),
+                    queries__status__in=["open", "answered"],
+                ),
             ),
-        ),
+        )
     )
     if permissions.reviewer(request.user):
         query = query.filter(unresolved_query_count__gt=0)
@@ -682,7 +715,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
 
 
 def _reviewer_required(request):
-    if not permissions.reviewer(request.user):
+    if not permissions.has_area(request.user, "review"):
         msg = "This area is for reviewers."
         raise PermissionDenied(msg)
 
@@ -700,11 +733,14 @@ def _track_filter(code):
 @login_required
 def assess_dashboard(request):
     _reviewer_required(request)
-    items = ReviewItem.objects.exclude(status="draft")
+    allowed_tracks = permissions.allowed_tracks(request.user)
+    allowed_milestones = {key for track in allowed_tracks for key in track.keys}
+    items = permissions.visible_reviews(request.user).exclude(status="draft")
     pending = items.filter(status__in=["new", "in_review", "query_raised"])
     today = timezone.localdate()
     decisions = list(
         AuditEvent.objects.filter(
+            item__in=items,
             action__in=["Approved", "Sent back"],
             created_at__gte=timezone.now() - timedelta(weeks=8),
         ),
@@ -758,12 +794,14 @@ def assess_dashboard(request):
                 ).count(),
             }
             for milestone in get_program().milestones.values()
+            if milestone.key in allowed_milestones
         ],
         pending_count=pending.count(),
         new_count=pending.filter(status="new").count(),
         review_count=pending.filter(status="in_review").count(),
         query_count=pending.filter(status="query_raised").count(),
         approved_month=AuditEvent.objects.filter(
+            item__in=items,
             action="Approved",
             created_at__date__gte=today.replace(day=1),
         ).count(),
@@ -779,7 +817,7 @@ def assess_dashboard(request):
                 "code": track.code,
                 "count": pending.filter(_track_filter(track.code)).count(),
             }
-            for track in get_program().tracks
+            for track in allowed_tracks
         ],
         ageing=[
             (
@@ -809,11 +847,15 @@ def assess_dashboard(request):
 @login_required
 def queue(request):
     _reviewer_required(request)
-    query = ReviewItem.objects.exclude(status="draft").select_related(
-        "product",
-        "organisation",
-        "application",
-        "assignee",
+    query = (
+        permissions.visible_reviews(request.user)
+        .exclude(status="draft")
+        .select_related(
+            "product",
+            "organisation",
+            "application",
+            "assignee",
+        )
     )
     kind, status, assignee, track_code, search = (
         request.GET.get(key, "") for key in ("kind", "status", "assignee", "track", "q")
@@ -887,7 +929,7 @@ def queue(request):
             ),
             filters=params,
             filter_query=params.urlencode(),
-            track_choices=get_program().tracks,
+            track_choices=permissions.allowed_tracks(request.user),
         ),
     )
 
@@ -897,6 +939,10 @@ def queue(request):
 def review(request, pk):
     _reviewer_required(request)
     item = _item(request, pk)
+    actions = permissions.available_review_actions(request.user, item)
+    selected_action = request.POST.get("action", request.GET.get("action"))
+    if selected_action not in actions:
+        selected_action = next(iter(actions), "")
     if request.method == "POST":
         try:
             if request.POST.get("intent") == "assign":
@@ -928,14 +974,20 @@ def review(request, pk):
             nav="queue",
             item=item,
             can_decide=permissions.can_decide(request.user, item),
-            reviewers=get_user_model().objects.filter(
-                Q(is_ohc_team=True) | Q(is_superuser=True),
-                is_active=True,
-            ),
-            decision_action=request.POST.get(
-                "action",
-                request.GET.get("action", "approve"),
-            ),
+            can_query=permissions.can_review(request.user, item, "write"),
+            can_approve=permissions.can_review(request.user, item, "approve"),
+            reviewers=[
+                user
+                for user in get_user_model().objects.filter(
+                    Q(is_ohc_team=True) | Q(is_superuser=True),
+                    is_active=True,
+                )
+                if permissions.eligible_reviewer(user, item)
+            ]
+            if request.user.is_superuser
+            else [],
+            available_actions=actions,
+            decision_action=selected_action,
             decision_note=request.POST.get("note", ""),
             query_field=request.POST.get("field_key", request.GET.get("field", "form")),
             awaiting_reply_count=item.queries.filter(
@@ -947,14 +999,17 @@ def review(request, pk):
             )
             .exclude(status="resolved")
             .count(),
-            prior_approvals=ReviewItem.objects.filter(
+            prior_approvals=permissions.visible_reviews(request.user)
+            .filter(
                 organisation=item.organisation,
                 status="approved",
-            ).exclude(pk=item.pk)[:10],
+            )
+            .exclude(pk=item.pk)[:10],
             credential=ProductCredential.objects.filter(product=item.product).first()
             if item.product_id
+            and permissions.has_access(request.user, "review", program=item.program.key)
             else None,
-            open_tickets=Ticket.objects.filter(
+            open_tickets=permissions.visible_tickets(request.user).filter(
                 organisation=item.organisation,
                 status__in=["open", "awaiting_vendor"],
             )[:5],
@@ -968,6 +1023,7 @@ def attachment(request, pk):
     attachment = get_object_or_404(
         FormAttachment.objects.select_related("submission__form__organisation"),
         pk=pk,
+        submission__in=permissions.visible_submissions(request.user),
     )
     organisation = attachment.submission.form.organisation
     if (
@@ -988,7 +1044,11 @@ def attachment(request, pk):
 @login_required
 def submission(request, pk, submission_id):
     item = _item(request, pk)
-    snapshot = get_object_or_404(item.form.submissions, pk=submission_id)
+    snapshot = get_object_or_404(
+        permissions.visible_submissions(request.user),
+        form=item.form,
+        pk=submission_id,
+    )
     return render(
         request,
         "experiences/submission.html",
@@ -1008,6 +1068,7 @@ def submission(request, pk, submission_id):
 @login_required
 @require_http_methods(["GET", "POST"])
 def events(request):
+    permissions.require_area(request.user, "events")
     workspaces = _workspaces(request.user)
     workspace = (
         workspaces.filter(reference=request.GET.get("product")).first()
@@ -1020,7 +1081,7 @@ def events(request):
         request.session["experience_product"] = workspace.reference
     if request.method == "POST":
         event = get_object_or_404(
-            Event.objects.upcoming(),
+            permissions.visible_events(request.user).upcoming(),
             pk=request.POST.get("event"),
         )
         if request.POST.get("intent") == "cancel":
@@ -1047,8 +1108,8 @@ def events(request):
                     ),
                 )
         return redirect(request.get_full_path())
-    upcoming = Event.objects.upcoming()
-    past = Event.objects.past()
+    upcoming = permissions.visible_events(request.user).upcoming()
+    past = permissions.visible_events(request.user).past()
     if request.GET.get("kind") in Event.Kind.values:
         upcoming = upcoming.filter(kind=request.GET["kind"])
         past = past.filter(kind=request.GET["kind"])
@@ -1070,7 +1131,8 @@ def events(request):
             upcoming_count=upcoming.count(),
             past_count=past.count(),
             next_event=upcoming.first(),
-            registered_upcoming_count=Event.objects.upcoming()
+            registered_upcoming_count=permissions.visible_events(request.user)
+            .upcoming()
             .filter(
                 pk__in=registered,
             )
@@ -1085,6 +1147,7 @@ def events(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def support(request):
+    permissions.require_area(request.user, "support")
     workspaces = _workspaces(request.user)
     workspace = (
         workspaces.filter(reference=request.GET.get("product")).first()
@@ -1095,11 +1158,7 @@ def support(request):
     )
     if workspace:
         request.session["experience_product"] = workspace.reference
-    tickets = (
-        Ticket.objects.all()
-        if permissions.reviewer(request.user)
-        else Ticket.objects.filter(organisation=_organisation(request))
-    )
+    tickets = permissions.visible_tickets(request.user)
     if workspace and not permissions.reviewer(request.user):
         tickets = tickets.filter(experience_context__product=workspace.product)
     form = SupportForm(
@@ -1163,11 +1222,7 @@ def support(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def ticket(request, reference):
-    query = (
-        Ticket.objects.all()
-        if permissions.reviewer(request.user)
-        else Ticket.objects.filter(organisation__memberships__user=request.user)
-    )
+    query = permissions.visible_tickets(request.user)
     ticket = get_object_or_404(query, reference=reference)
     context = (
         TicketContext.objects.filter(ticket=ticket)
@@ -1185,10 +1240,12 @@ def ticket(request, reference):
         del form.fields[key]
     if request.method == "POST":
         if request.POST.get("intent") == "resolve":
-            if not permissions.reviewer(request.user):
+            if not permissions.can_resolve_ticket(request.user, ticket):
                 raise PermissionDenied
             record_status_change(ticket, request.user, "resolved")
             return redirect("experiences:ticket", reference=reference)
+        if not permissions.can_reply_ticket(request.user, ticket):
+            raise PermissionDenied
         if form.is_valid():
             with transaction.atomic():
                 message = post_reply(
@@ -1203,20 +1260,11 @@ def ticket(request, reference):
                         file=upload,
                         original_name=upload.name,
                     )
-                if permissions.reviewer(request.user):
-                    services.notify_integrators(
-                        ticket.organisation,
-                        f"{get_program().short_name}: reply to {ticket.reference}",
-                        form.cleaned_data["body"],
-                    )
-                elif ticket.assignee_id:
-                    Notification.objects.create(
-                        recipient=ticket.assignee.email,
-                        subject=(
-                            f"{get_program().short_name}: reply to {ticket.reference}"
-                        ),
-                        body=form.cleaned_data["body"],
-                    )
+                services.notify_ticket_reply(
+                    ticket,
+                    request.user,
+                    form.cleaned_data["body"],
+                )
             return redirect("experiences:ticket", reference=reference)
     return render(
         request,
@@ -1228,6 +1276,8 @@ def ticket(request, reference):
             nav="support",
             ticket=ticket,
             ticket_context=context,
+            can_reply=permissions.can_reply_ticket(request.user, ticket),
+            can_resolve=permissions.can_resolve_ticket(request.user, ticket),
             form=form,
         ),
     )
@@ -1236,7 +1286,11 @@ def ticket(request, reference):
 @login_required
 @never_cache
 def ticket_attachment(request, pk):
-    upload = get_object_or_404(TicketAttachment, pk=pk)
+    upload = get_object_or_404(
+        TicketAttachment,
+        pk=pk,
+        message__ticket__in=permissions.visible_tickets(request.user),
+    )
     if (
         not permissions.reviewer(request.user)
         and not upload.message.ticket.organisation.memberships.filter(

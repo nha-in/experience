@@ -13,6 +13,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--reset", action="store_true")
         parser.add_argument("--password", default="experience-demo-2026")
+        parser.add_argument(
+            "--permissions-only",
+            action="store_true",
+            help="Create demo permission accounts without resetting application data.",
+        )
 
     def handle(self, *args, **options):
         if not settings.DEBUG:
@@ -21,6 +26,7 @@ class Command(BaseCommand):
         get_program().seed_demo(
             reset=options["reset"],
             password=options["password"],
+            permissions_only=options["permissions_only"],
             stdout=self.stdout,
             style=self.style,
         )

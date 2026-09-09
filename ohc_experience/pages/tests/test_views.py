@@ -128,7 +128,7 @@ class TestPostLoginDestination:
 
 
 class TestOhcStaffLanding:
-    """An OHC member without a vendor account must never hit a bare 403."""
+    """A staff identity alone does not grant access to the reviewer console."""
 
     @pytest.fixture
     def ohc_user(self, db):
@@ -140,15 +140,14 @@ class TestOhcStaffLanding:
         response = client.get(reverse("users:redirect"))
 
         assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("experiences:assess-dashboard")
+        assert response["Location"] == reverse("experiences:home")
 
     def test_the_dashboard_redirects_to_the_console(self, client, ohc_user):
         client.force_login(ohc_user)
 
         response = client.get(reverse("dashboard"))
 
-        assert response.status_code == HTTPStatus.FOUND
-        assert response["Location"] == reverse("experiences:assess-dashboard")
+        assert response.status_code == HTTPStatus.FORBIDDEN
 
     def test_a_vendor_with_no_organisation_still_gets_403(self, client, user):
         client.force_login(user)

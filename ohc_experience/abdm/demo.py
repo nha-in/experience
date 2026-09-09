@@ -16,6 +16,7 @@ from PIL import ImageDraw
 
 from ohc_experience.events.models import Event
 from ohc_experience.experiences import workflows as services
+from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import TicketAttachment
@@ -121,6 +122,9 @@ class DemoBuilder:
         if not settings.DEBUG:
             msg = "Demo seeding is only available with DEBUG enabled."
             raise CommandError(msg)
+        if options.get("permissions_only"):
+            self.permission_accounts(options["password"])
+            return
         if options["reset"]:
             files = set(FormAttachment.objects.values_list("file", flat=True)) | set(
                 TicketAttachment.objects.values_list("file", flat=True),
@@ -141,6 +145,14 @@ class DemoBuilder:
             password,
             reviewer=True,
         )
+        for area in AccessGrant.Area.values:
+            AccessGrant.objects.update_or_create(
+                user=reviewer,
+                program="abdm",
+                area=area,
+                category="*",
+                defaults={"can_read": True, "can_write": True, "can_approve": True},
+            )
         admin = self.user(
             "admin@abdm-demo.in",
             "NHA Administrator",
@@ -267,6 +279,33 @@ class DemoBuilder:
             "Applicant: applicant@abdm-demo.in\nReviewer: reviewer@abdm-demo.in\nAdministrator: admin@abdm-demo.in",
         )
         self.stdout.write(f"Password: {password}")
+        self.permission_accounts(password)
+
+    def permission_accounts(self, password):
+        accounts = [
+            ("reviewer", "Priya Sharma", "*", AccessGrant.Area.values),
+            ("nhcx-reviewer", "NHCX Reviewer", "NHCX", ["review"]),
+            ("uhi-reviewer", "UHI Reviewer", "UHI", ["review"]),
+            ("hiecm-reviewer", "HI-CM Reviewer", "HI-CM", ["review"]),
+            ("nhcx-support", "NHCX Support", "NHCX", ["support"]),
+            ("uhi-events", "UHI Event Manager", "UHI", ["events"]),
+        ]
+        for username, name, category, areas in accounts:
+            user = self.user(f"{username}@abdm-demo.in", name, password, reviewer=True)
+            for area in areas:
+                AccessGrant.objects.get_or_create(
+                    user=user,
+                    program="abdm",
+                    area=area,
+                    category=category,
+                    defaults={"can_read": True, "can_write": True, "can_approve": True},
+                )
+            self.stdout.write(f"{user.email}: {category}, {', '.join(areas)}")
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Demo permission accounts ready; application data unchanged.",
+            ),
+        )
 
     def user(self, email, name, password, *, reviewer=False, admin=False):
         user, _ = get_user_model().objects.get_or_create(email=email)

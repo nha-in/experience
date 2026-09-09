@@ -11,6 +11,62 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 
+class AccessGrant(models.Model):
+    """Explicit staff capabilities for one program, area, and category."""
+
+    class Area(models.TextChoices):
+        REVIEW = "review", _("Reviews")
+        SUPPORT = "support", _("Support")
+        EVENTS = "events", _("Events")
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="experience_access",
+    )
+    program = models.CharField(max_length=100)
+    area = models.CharField(max_length=20, choices=Area)
+    category = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text=_("General/onboarding, a program category, or all categories."),
+    )
+    can_read = models.BooleanField(default=True)
+    can_write = models.BooleanField(default=False)
+    can_approve = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["user", "program", "area", "category"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "program", "area", "category"],
+                name="unique_experience_access_grant",
+            ),
+            models.CheckConstraint(
+                condition=Q(can_read=True) | Q(can_write=False, can_approve=False),
+                name="experience_write_approve_requires_read",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.user}: {self.program} / {self.area} / {self.category or 'General'}"
+        )
+
+    def clean(self):
+        from .registry import registry  # noqa: PLC0415
+
+        super().clean()
+        programs = {program.key: program for program in registry.programs()}
+        if self.program not in programs:
+            raise ValidationError({"program": "Choose a registered program."})
+        if self.category not in {"", "*", *programs[self.program].track_map()}:
+            raise ValidationError({"category": "Choose a category in this program."})
+        if (self.can_write or self.can_approve) and not self.can_read:
+            msg = "Write and approve permissions require read access."
+            raise ValidationError(msg)
+
+
 class Product(models.Model):
     """One organisation-owned product that can have many application workflows."""
 
@@ -571,7 +627,8 @@ class ProductWorkspace(models.Model):
 
     def get_solution_type_display(self):
         return self.definition.solution_types.get(
-            self.solution_type, self.solution_type,
+            self.solution_type,
+            self.solution_type,
         )
 
 

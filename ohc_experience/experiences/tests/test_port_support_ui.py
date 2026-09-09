@@ -15,6 +15,7 @@ from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import TicketContext
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.support.models import Ticket
+from ohc_experience.users.tests.factories import ReviewerFactory
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -381,7 +382,7 @@ def test_reviewer_can_render_tickets_and_resolve(portal_client, owner_membership
         organisation=owner_membership.organisation,
         subject="Needs review",
     )
-    portal_client.force_login(UserFactory(is_ohc_team=True))
+    portal_client.force_login(ReviewerFactory(is_ohc_team=True))
     response = portal_client.get(ticket.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     assert b"Mark resolved" in response.content

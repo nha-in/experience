@@ -21,8 +21,9 @@
             data-unsaved-form
             {% if unresolved_query_count %}data-approval-blocked="true"{% endif %}>
         {% csrf_token %}
-        <fieldset class="grid grid-cols-3 gap-1 rounded-xl bg-muted-background p-1 text-center text-sm">
+        <fieldset class="flex gap-1 rounded-xl bg-muted-background p-1 text-center text-sm [&>label]:flex-1">
           <legend class="sr-only">Review action</legend>
+          {% if can_approve %}
           <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
             <input class="sr-only"
                    type="radio"
@@ -40,6 +41,8 @@
                    {% if decision_action == 'send_back' %}checked{% endif %} />
             <span>Send back</span>
           </label>
+          {% endif %}
+          {% if can_query %}
           <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
             <input class="sr-only"
                    type="radio"
@@ -48,6 +51,7 @@
                    {% if decision_action == 'query' %}checked{% endif %} />
             <span>Raise query</span>
           </label>
+          {% endif %}
         </fieldset>
         <div data-query-controls>
           <label class="ui-label" for="field-key">Against</label>
@@ -92,7 +96,7 @@
       </form>
     {% elif item.pending %}
       <div class="mt-4 rounded-xl border border-border bg-soft-background p-4 text-sm leading-relaxed text-soft-foreground">
-        <p class="mb-1 font-semibold text-foreground">{% if item.assignee %}Assigned to another reviewer{% else %}Reviewer needed{% endif %}</p>
+        <p class="mb-1 font-semibold text-foreground">Read-only access</p>
         <p>{% if item.assignee %}{{ item.assignee.display_name }} is assigned to this review.{% else %}An administrator must assign a reviewer before a decision can be recorded.{% endif %}</p>
       </div>
     {% else %}

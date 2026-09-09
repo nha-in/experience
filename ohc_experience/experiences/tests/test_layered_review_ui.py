@@ -8,13 +8,14 @@ from ohc_experience.experiences import workflows
 from ohc_experience.experiences.tests.test_port_review_ui import (
     review_item,  # noqa: F401
 )
+from ohc_experience.users.tests.factories import ReviewerFactory
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
 
 
 def test_queue_tabs_keep_search_and_assignee_filters(client, review_item):
-    reviewer = UserFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_ohc_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     response = client.get(
@@ -35,7 +36,7 @@ def test_queue_tabs_keep_search_and_assignee_filters(client, review_item):
 
 
 def test_queue_scope_tracks_a_real_decision(client, review_item):
-    reviewer = UserFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_ohc_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     url = reverse("experiences:queue")
@@ -50,7 +51,7 @@ def test_dashboard_counts_use_current_reviewer_and_canonical_milestone(
     client,
     review_item,
 ):
-    reviewer = UserFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_ohc_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     url = reverse("experiences:assess-dashboard")

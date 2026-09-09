@@ -31,7 +31,7 @@
           <span class="text-soft-foreground">No file attached</span>
 {% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}
   </dd>
-  {% if can_decide and item.pending %}
+  {% if can_query and item.pending %}
     <a class="mt-2 inline-block text-xs font-semibold text-primary hover:underline"
        href="{{ item.get_absolute_url }}?action=query&amp;field={{ row.key|urlencode }}#decision">Query<span class="sr-only"> {{ row.label }}</span>
     </a>

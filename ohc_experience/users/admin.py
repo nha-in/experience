@@ -11,6 +11,9 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
+from ohc_experience.experiences.admin_access import AccessGrantInline
+from ohc_experience.experiences.admin_access import SuperuserAdminMixin
+
 from .forms import OhcTeamCreationForm
 from .forms import UserAdminChangeForm
 from .forms import UserAdminCreationForm
@@ -45,7 +48,12 @@ class OhcTeamFilter(admin.SimpleListFilter):
 
 
 @admin.register(User)
-class UserAdmin(auth_admin.UserAdmin):
+class UserAdmin(SuperuserAdminMixin, auth_admin.UserAdmin):
+    inlines = [AccessGrantInline]
+
+    def get_inlines(self, request, obj):
+        return self.inlines if obj else []
+
     form = UserAdminChangeForm
     add_form = UserAdminCreationForm
     fieldsets = (
@@ -56,9 +64,9 @@ class UserAdmin(auth_admin.UserAdmin):
             {
                 "fields": ("is_ohc_team",),
                 "description": _(
-                    "OHC team members work the support queue across every vendor and "
-                    "publish events. This is separate from staff status, which only "
-                    "controls access to this admin.",
+                    "Identifies a staff account. Assign review, support, and event "
+                    "access separately under Portal permissions below. Staff status "
+                    "only controls access to this admin.",
                 ),
             },
         ),
@@ -136,7 +144,7 @@ class UserAdmin(auth_admin.UserAdmin):
                 messages.success(
                     request,
                     _(
-                        "%(email)s can now work the support queue and publish events.",
+                        "%(email)s was created. Assign portal permissions below.",
                     )
                     % {"email": user.email},
                 )

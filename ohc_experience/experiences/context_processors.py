@@ -1,10 +1,9 @@
-from ohc_experience.events.models import Event
+from django.db.models import Q
+
 from ohc_experience.organisations.selectors import get_membership_for
-from ohc_experience.support.models import Ticket
 
 from . import permissions
 from .models import ProductWorkspace
-from .models import ReviewItem
 from .registry import get_program
 
 
@@ -13,6 +12,15 @@ def workspaces_for(user):
     query = ProductWorkspace.objects.select_related("product__organisation")
     if not permissions.reviewer(user):
         query = query.filter(product__organisation__memberships__user=user)
+    elif not user.is_superuser:
+        query = query.filter(
+            Q(product__in=permissions.visible_reviews(user).values("product_id"))
+            | Q(
+                product__in=permissions.visible_tickets(user).values(
+                    "experience_context__product_id",
+                ),
+            ),
+        )
     return query.order_by("product__name")
 
 
@@ -44,7 +52,7 @@ def navigation_context(request, workspace=None):
                 application__review_item__status="approved",
             ).values_list("key", flat=True),
         )
-        for track in workspace.definition.tracks:
+        for track in permissions.allowed_tracks(request.user, workspace.definition):
             keys = [
                 key
                 for key in track.keys
@@ -58,7 +66,9 @@ def navigation_context(request, workspace=None):
                         "count": len(keys),
                     },
                 )
-    tickets = Ticket.objects.filter(status__in=["open", "awaiting_vendor"])
+    tickets = permissions.visible_tickets(request.user).filter(
+        status__in=["open", "awaiting_vendor"],
+    )
     if not is_reviewer:
         tickets = tickets.filter(organisation=organisation)
         if workspace:
@@ -67,17 +77,32 @@ def navigation_context(request, workspace=None):
         "workspace": workspace,
         "workspaces": workspaces_for(request.user),
         "reviewer": is_reviewer,
+        "can_read_general": not is_reviewer
+        or permissions.has_access(
+            request.user,
+            "review",
+            program=workspace.definition.key if workspace else None,
+        ),
+        "can_read_reviews": permissions.has_area(request.user, "review"),
+        "can_read_support": not is_reviewer
+        or permissions.has_area(request.user, "support"),
+        "can_read_events": not is_reviewer
+        or permissions.has_area(request.user, "events"),
+        "can_create_events": request.user.is_staff
+        and permissions.has_area(request.user, "events", "write"),
         "organisation": organisation,
         "can_integrate": bool(
             organisation and permissions.can_integrate(request.user, organisation),
         ),
         "nav_tracks": tracks,
-        "nav_event_count": Event.objects.upcoming().count(),
+        "nav_event_count": permissions.visible_events(request.user).upcoming().count(),
         "nav_ticket_count": tickets.count(),
-        "query_count": ReviewItem.objects.filter(
+        "query_count": permissions.visible_reviews(request.user)
+        .filter(
             organisation=organisation,
             status="query_raised",
-        ).count()
+        )
+        .count()
         if organisation
         else 0,
     }

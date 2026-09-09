@@ -1,5 +1,10 @@
+from django import forms
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 
+from .admin_access import AccessGrantForm
+from .admin_access import SuperuserAdminMixin
+from .models import AccessGrant
 from .models import ApplicationDependency
 from .models import ApplicationFormUse
 from .models import ApplicationInstance
@@ -17,7 +22,21 @@ from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
 from .models import TicketContext
+from .permissions import eligible_reviewer
 from .workflows import assign_review
+
+
+class ReviewAssignmentForm(forms.ModelForm):
+    class Meta:
+        model = ReviewItem
+        fields = ["assignee"]
+
+    def clean_assignee(self):
+        assignee = self.cleaned_data["assignee"]
+        if assignee and not eligible_reviewer(assignee, self.instance):
+            msg = "Choose a reviewer with write or approve access to this category."
+            raise ValidationError(msg)
+        return assignee
 
 
 class SubmissionInline(admin.TabularInline):
@@ -46,7 +65,7 @@ class DependencyInline(admin.TabularInline):
 
 
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     list_display = ["name", "product_type", "organisation", "updated_at"]
     list_filter = ["product_type"]
     search_fields = ["name", "organisation__name", "slug"]
@@ -56,7 +75,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 
 @admin.register(FormRecord)
-class FormRecordAdmin(admin.ModelAdmin):
+class FormRecordAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     list_display = [
         "reference",
         "name",
@@ -74,7 +93,7 @@ class FormRecordAdmin(admin.ModelAdmin):
 
 
 @admin.register(FormSubmission)
-class FormSubmissionAdmin(admin.ModelAdmin):
+class FormSubmissionAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     list_display = [
         "form",
         "form_key",
@@ -90,7 +109,7 @@ class FormSubmissionAdmin(admin.ModelAdmin):
 
 
 @admin.register(ApplicationInstance)
-class ApplicationInstanceAdmin(admin.ModelAdmin):
+class ApplicationInstanceAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     list_display = [
         "reference",
         "application_type",
@@ -111,11 +130,39 @@ class ApplicationInstanceAdmin(admin.ModelAdmin):
     inlines = [FormUseInline, DependencyInline]
 
 
-admin.site.register(FormAttachment)
-admin.site.register(ProductOutcome)
+class InternalAdmin(SuperuserAdminMixin, admin.ModelAdmin):
+    pass
 
 
-class ReadOnlyAdmin(admin.ModelAdmin):
+admin.site.register(FormAttachment, InternalAdmin)
+admin.site.register(ProductOutcome, InternalAdmin)
+
+
+@admin.register(AccessGrant)
+class AccessGrantAdmin(SuperuserAdminMixin, admin.ModelAdmin):
+    form = AccessGrantForm
+    list_display = [
+        "user",
+        "program",
+        "area",
+        "category",
+        "can_read",
+        "can_write",
+        "can_approve",
+    ]
+    list_filter = [
+        "program",
+        "area",
+        "category",
+        "can_read",
+        "can_write",
+        "can_approve",
+    ]
+    search_fields = ["user__email", "user__name"]
+    autocomplete_fields = ["user"]
+
+
+class ReadOnlyAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
@@ -128,6 +175,7 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
 @admin.register(ReviewItem)
 class ReviewItemAdmin(ReadOnlyAdmin):
+    form = ReviewAssignmentForm
     list_display = ("reference", "kind", "title", "status", "assignee", "submitted_at")
     list_filter = ("kind", "status", "assignee")
     search_fields = ("organisation__name", "product__name", "application__reference")

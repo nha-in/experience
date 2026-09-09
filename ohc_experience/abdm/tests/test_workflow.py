@@ -28,6 +28,7 @@ from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
+from ohc_experience.users.tests.factories import ReviewerFactory
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -58,7 +59,7 @@ def environment(settings, tmp_path):
     cache.clear()
     applicant = UserFactory()
     admin = UserFactory(is_superuser=True, is_staff=True, is_ohc_team=True)
-    reviewer = UserFactory(is_ohc_team=True, is_staff=True)
+    reviewer = ReviewerFactory(is_ohc_team=True, is_staff=True)
     outsider = UserFactory()
     org = Organisation.objects.create(name="Test health systems")
     Membership.objects.create(organisation=org, user=applicant, role="owner")

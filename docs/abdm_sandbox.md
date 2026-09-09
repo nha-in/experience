@@ -37,6 +37,36 @@ Demo accounts all use password `experience-demo-2026`:
 | reviewer@abdm-demo.in | Assigned NHA reviewer |
 | admin@abdm-demo.in | NHA administrator; assigns reviewers |
 | new-integrator@abdm-demo.in | Organisation awaiting verification |
+| nhcx-reviewer@abdm-demo.in | Reviews: NHCX only |
+| uhi-reviewer@abdm-demo.in | Reviews: UHI only |
+| hiecm-reviewer@abdm-demo.in | Reviews: HI-CM only |
+| nhcx-support@abdm-demo.in | Support: NHCX only |
+| uhi-events@abdm-demo.in | Events: UHI only |
+
+Staff grants are independent per area (Reviews, Support, Events) and category,
+with separate read, write and approve checkboxes. Manage them in Django admin at
+Experiences > Access grants, or Users > user > Portal permissions. Only
+superusers can grant access. New staff accounts have no access by default;
+ordinary Django permissions or reviewer assignment cannot bypass the grants.
+The broad `reviewer@abdm-demo.in` demo account has explicit all-category grants;
+the category-specific accounts above do not. All use the demo password above.
+Applicant access stays organisation-based.
+
+Review write allows queries; approve allows approval/send-back. Both require
+assignment. Support write allows replies; approve allows resolution. Event
+write allows draft creation/editing in admin; approve allows publishing through
+the event list actions. Published events must be unpublished before editing.
+General/onboarding is a separate category covering organisation/product review;
+it is not implicitly granted with NHCX or UHI. See the engine guide for details.
+NHCX currently has no published milestone forms, so its review queue is empty
+until the catalog defines those forms; permission grants are already supported.
+
+To add the permission demo accounts to an existing local demo without clearing
+application data:
+
+```sh
+docker compose -f docker-compose.local.yml exec django python manage.py seed_experience_demo --permissions-only
+```
 
 `SBX-2026-00001` demonstrates an approved shared M1, an M2 query, locked M3/M4,
 a PHR1 review, a sent-back HealthLocker request and a UHI draft. The second
@@ -90,7 +120,8 @@ retired; reviewer work uses the engine's assessment screens.
 - Each canonical `Milestone` has an `ApplicationInstance`. HI-CM M1 and PHR M1
   share the same milestone and approval. HealthLocker does not require M3.
 - `ReviewItem` wraps organisation verification, product registration or exit.
-  Admins assign reviewers manually. Only the assignee or a superuser may decide.
+  Admins assign reviewers manually. The assignee needs the matching category's
+  review-write or review-approve grant; superusers can perform every action.
 - `FormRecord` remains independent. Exit requests for one product share a form
   record. `ApplicationFormUse` and `ReviewItem` pin the selected submission.
 - `FormSubmission` preserves JSON answers, field schema/version, submission

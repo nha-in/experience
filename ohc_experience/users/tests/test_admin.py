@@ -353,18 +353,6 @@ class TestVendorsAreLockedOutOfTheAdmin:
         assert response.status_code == HTTPStatus.FORBIDDEN
         assert staff_but_not_superuser.is_ohc_team is False
 
-    @pytest.mark.xfail(
-        reason=(
-            "Privilege escalation: add_ohc_member_view is gated on is_superuser, "
-            "but the grant_ohc_team action is gated only on the ordinary "
-            "users.change_user permission. Any staff account holding that "
-            "permission can grant itself is_ohc_team and read every vendor's "
-            "support queue, which is exactly what the superuser gate on the add "
-            "form exists to prevent. Fix belongs in UserAdmin.get_actions() "
-            "(users/admin.py), outside this task's surface."
-        ),
-        strict=True,
-    )
     def test_a_staff_account_with_change_permission_cannot_escalate_itself(
         self,
         sign_in,

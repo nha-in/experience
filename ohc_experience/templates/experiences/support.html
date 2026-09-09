@@ -166,7 +166,7 @@
         {% else %}
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
             <h3 class="ui-section-title">No tickets yet</h3>
-            <p class="text-sm text-muted-foreground">Open a ticket when you need help with the sandbox, APIs or certification.</p>
+            <p class="text-sm text-muted-foreground">{% if reviewer %}No tickets are available in your assigned categories.{% else %}Open a ticket when you need help with the sandbox, APIs or certification.{% endif %}</p>
             {% if not reviewer and workspace and can_integrate %}<a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
    href="?new=1&amp;product={{ workspace.reference }}">New ticket</a>{% endif %}
           </div>

@@ -10,6 +10,7 @@ from .credentials import provider
 from .models import EventRegistration
 from .models import Notification
 from .models import ProductCredential
+from .permissions import visible_events
 from .registry import get_program
 
 
@@ -67,7 +68,12 @@ def remind_event_registrations():
                 .select_related("event", "user")
                 .get(pk=registration_id)
             )
-            if registration.reminder_sent:
+            if (
+                registration.reminder_sent
+                or not visible_events(registration.user)
+                .filter(pk=registration.event_id)
+                .exists()
+            ):
                 continue
             starts_at = timezone.localtime(registration.event.starts_at)
             Notification.objects.create(

@@ -20,6 +20,7 @@ from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.registry import registry
 from ohc_experience.experiences.tests.example_program import InspectionEvidence
 from ohc_experience.experiences.tests.example_program import SupplierQuality
+from ohc_experience.users.tests.factories import ReviewerFactory
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -54,7 +55,7 @@ def test_non_abdm_lifecycle_reuse_dependencies_queries_and_outcomes(
     owner_membership,
 ):
     actor = owner_membership.user
-    reviewer = UserFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_ohc_team=True)
     admin = UserFactory(is_superuser=True)
     assert equipment.reference.startswith("QA-")
     assert equipment.product.outcomes.get(outcome_type="receipt").data["reference"]

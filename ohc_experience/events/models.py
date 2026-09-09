@@ -11,6 +11,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.experiences.registry import default_program_key
+
 
 class EventQuerySet(models.QuerySet["Event"]):
     def published(self) -> EventQuerySet:
@@ -48,6 +50,8 @@ class Event(models.Model):
         WORKSHOP = "workshop", _("Workshop")
 
     title = models.CharField(_("Title"), max_length=255)
+    program = models.CharField(max_length=100, default=default_program_key)
+    category = models.CharField(max_length=100, blank=True)
     slug = models.SlugField(_("Slug"), max_length=255, unique=True)
     kind = models.CharField(
         _("Kind"),

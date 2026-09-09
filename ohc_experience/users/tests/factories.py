@@ -33,3 +33,27 @@ class UserFactory(DjangoModelFactory[User]):
         model = User
         django_get_or_create = ["email"]
         skip_postgeneration_save = True
+
+
+class ReviewerFactory(UserFactory):
+    """An explicitly authorized test reviewer, unlike an unprivileged staff user."""
+
+    is_ohc_team = True
+
+    @post_generation
+    def portal_access(self, create, extracted, **kwargs):
+        from ohc_experience.experiences.models import AccessGrant  # noqa: PLC0415
+        from ohc_experience.experiences.registry import registry  # noqa: PLC0415
+
+        if create:
+            for program in registry.programs():
+                for area in AccessGrant.Area.values:
+                    AccessGrant.objects.create(
+                        user=self,
+                        program=program.key,
+                        area=area,
+                        category="*",
+                        can_read=True,
+                        can_write=True,
+                        can_approve=True,
+                    )

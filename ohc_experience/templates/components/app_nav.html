@@ -16,6 +16,7 @@
   <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
     <ul class="flex flex-col gap-1 text-sm">
       {% if reviewer %}
+        {% if can_read_reviews %}
         <li><a id="nav-dashboard"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'assess-dashboard' %}ui-nav-link--active{% endif %}"
    {% if nav == 'assess-dashboard' %}aria-current="page"{% endif %}
@@ -27,6 +28,7 @@
         <li><a id="nav-products"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'products' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:products' %}">{% include "components/nav_icon.html" with icon="track" %}Products</a></li>
+        {% endif %}
       {% elif not workspace %}
         <li><a id="nav-dashboard"
    class="ui-nav-link"
@@ -51,16 +53,18 @@
    href="{% url 'experiences:track' workspace.reference row.definition.code %}">{% include "components/nav_icon.html" with icon="track" %}<span class="min-w-0 flex-1 truncate">{{ row.definition.code }}</span><span class="font-mono text-[11px] text-soft-foreground">{{ row.approved }}/{{ row.count }}<span class="sr-only"> milestones approved</span></span></a></li>
         {% endfor %}
       {% endif %}
-      <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Programme</li>
+      {% if can_read_support or can_read_events or not reviewer %}<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Programme</li>{% endif %}
       {% if not reviewer %}<li><a id="nav-queries"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'queries' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:pending-queries' %}">{% include "components/nav_icon.html" with icon="queries" %}<span class="flex-1">Pending queries</span>{% if query_count %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ query_count }}</span>{% endif %}</a></li>{% endif %}
-      <li><a id="nav-events"
+      {% if can_read_events %}<li><a id="nav-events"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'events' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:events' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Events</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
-      <li><a id="nav-support"
+      {% endif %}
+      {% if can_read_support %}<li><a id="nav-support"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}</span>{% endif %}</a></li>
+      {% endif %}
       {% if can_integrate %}
         <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Product</li>
         {% if workspace %}<li><a id="nav-edit"
@@ -79,7 +83,7 @@
    class="ui-nav-link"
    href="{% url 'organisations:team' %}">{% include "components/nav_icon.html" with icon="team" %}Team &amp; invitations</a></li>{% endif %}
       <li><a id="nav-profile" class="ui-nav-link" href="{% url 'users:profile' %}">{% include "components/nav_icon.html" with icon="profile" %}Your profile</a></li>
-      {% if request.user.is_superuser %}<li><a class="ui-nav-link" href="{% url 'admin:index' %}" hx-boost="false">Administration</a></li>{% endif %}
+      {% if request.user.is_staff %}<li><a class="ui-nav-link" href="{% url 'admin:index' %}" hx-boost="false">Administration</a></li>{% endif %}
       <li><a id="nav-docs"
    class="ui-nav-link"
    href="{{ experience_program.docs_url }}"

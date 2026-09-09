@@ -14,7 +14,8 @@ not import ABDM. Implementations register ordinary Python definitions through
   attachment versioning and product-level outcome issuance.
 - `workflows.py`: transactional submission/review state changes, queries,
   assignment, prerequisite enforcement and milestone materialization.
-- `permissions.py`: integrator scope, reviewer assignment and decision access.
+- `permissions.py`: organisation scope, staff area/category grants, filtered
+  querysets, available review actions and assignment/decision access.
 - `credentials.py`: encryption, audited reveal, rotation, revocation and callback
   validation. A registered provider supplies eligibility and gateway operations.
 - `forms.py`, `fields.py`, `uploads.py`: shared form rendering and upload handling.
@@ -60,11 +61,48 @@ occurrence, revision and attachments. History renders the saved schema even when
 the Python form changes. Downloads are permission-checked and served privately
 from MinIO locally or S3 in production.
 
-Organisation memberships govern integrator access. Only assigned reviewers or
-superusers can decide. Team invitation and role constraints live in the
+Organisation memberships govern integrator access. Assigned reviewers must also
+hold the matching area/category capability; superusers have full access.
+Team invitation and role constraints live in the
 organisations app. Credentials are encrypted in `ProductCredential`, never stored
 as secrets in outcome JSON. `ApplicationDependency` rejects cross-product links,
 self references and cycles; the engine enforces prerequisite success statuses.
+
+### Staff Permissions
+
+`AccessGrant` grants a user access to a registered program, an area (`review`,
+`support`, `events`), and a category from that program's track catalog. `""` is
+General/onboarding; `"*"` explicitly includes every category. Grants are additive.
+General review access covers organisation verification and product registration.
+Category review access covers milestones selected under that track, including a
+shared milestone selected under more than one track. It does not expose other
+tracks or all revisions of a reused source form.
+
+| Area | Read | Write | Approve |
+| --- | --- | --- | --- |
+| Reviews | Queue, evidence, history, downloads | Raise and resolve queries | Approve or send back |
+| Support | Tickets and attachments | Reply | Resolve |
+| Events | Events | Create/edit drafts | Publish/unpublish |
+
+Write and approve independently require read; neither implies the other.
+Review mutations additionally require assignment (except for superusers).
+`available_review_actions(user, item)` exposes actions for the current actor.
+Use `visible_reviews`, `visible_submissions`, `visible_tickets`, and
+`visible_events` for data reads, not the staff identity helper `reviewer()`.
+Published event content is locked; an approver must unpublish it before editing.
+
+Superusers manage grants in Django admin under Experiences > Access grants or
+Users > user > Portal permissions. The user must be active and have the team
+account flag (`is_ohc_team`); `is_staff` is additionally needed to enter Django
+admin for event management. Staff identity and ordinary Django model permissions
+alone grant no portal access. Raw workflow, account and organisation admin pages
+are superuser-only; support administration is scoped/read-only for other staff.
+Applicant organisation roles and invitation limits are unchanged. Applicants
+cannot create staff grants. All new staff accounts default to no access.
+
+Migration 0006 adds grants without deleting records or granting blanket access to
+existing staff. Administrators must explicitly provision existing staff grants.
+The DEBUG-only demo seeder provisions its named demo accounts explicitly.
 
 ## Existing Databases and Tests
 

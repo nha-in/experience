@@ -6,9 +6,9 @@
   <div class="ui-card-header flex flex-wrap items-start justify-between gap-3">
     <div class="min-w-0">
       <h2 class="ui-card-title" id="submitted-form-title">Submitted form</h2>
-      <p class="ui-card-description">{% if can_decide and item.pending %}What the integrator sent. Query any field or the whole form.{% else %}The evidence provided in this saved submission.{% endif %}</p>
+      <p class="ui-card-description">{% if can_query and item.pending %}What the integrator sent. Query any field or the whole form.{% else %}The evidence provided in this saved submission.{% endif %}</p>
     </div>
-    {% if can_decide and item.pending %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-9 shrink-0"
+    {% if can_query and item.pending %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-9 shrink-0"
    href="{{ item.get_absolute_url }}?action=query&amp;field=form#decision">Query whole form</a>{% endif %}
   </div>
   {% if snapshot %}
@@ -35,7 +35,7 @@
       {% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}
       {% if row.query_open %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>{% endif %}
         </dd>
-        {% if can_decide and item.pending %}<dd><a class="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-primary no-underline hover:underline"
+        {% if can_query and item.pending %}<dd><a class="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-primary no-underline hover:underline"
    href="{{ item.get_absolute_url }}?action=query&amp;field={{ row.key|urlencode }}#decision">Query<span class="sr-only"> {{ row.label }}</span><span aria-hidden="true">↗</span></a></dd>{% endif %}
         </div>
       {% endfor %}

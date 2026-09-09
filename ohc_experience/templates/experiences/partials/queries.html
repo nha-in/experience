@@ -36,7 +36,7 @@
                   <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Send reply</button>
                 </form>
               {% endif %}
-              {% if query.status == 'answered' and can_decide %}
+              {% if query.status == 'answered' and can_query %}
                 <form class="mt-3"
                       method="post"
                       action="{% url 'experiences:query-action' query.pk %}">

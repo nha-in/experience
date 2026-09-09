@@ -29,9 +29,12 @@ from .models import Notification
 from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
+from .permissions import can_integrate
+from .permissions import eligible_reviewer
 from .permissions import require_decider
 from .permissions import require_integrator
-from .permissions import reviewer
+from .permissions import visible_reviews
+from .permissions import visible_tickets
 from .registry import get_program
 from .registry import registry
 from .services import issue_outcome
@@ -83,10 +86,25 @@ def notify_integrators(organisation, subject, body):
     )
 
 
+def notify_ticket_reply(ticket, actor, body):
+    subject = f"{get_program().short_name}: reply to {ticket.reference}"
+    if can_integrate(actor, ticket.organisation):
+        if (
+            ticket.assignee_id
+            and visible_tickets(ticket.assignee).filter(pk=ticket.pk).exists()
+        ):
+            Notification.objects.create(
+                recipient=ticket.assignee.email, subject=subject, body=body,
+            )
+    else:
+        notify_integrators(ticket.organisation, subject, body)
+
+
 def notify_reviewers(item, subject, body):
     recipients = (
         [item.assignee.email]
         if item.assignee_id
+        and visible_reviews(item.assignee).filter(pk=item.pk).exists()
         else list(
             get_user_model()
             .objects.filter(is_active=True, is_superuser=True)
@@ -508,10 +526,10 @@ def assign_review(item, actor, assignee):
     if not actor.is_superuser:
         msg = "Only administrators can assign reviewers."
         raise PermissionDenied(msg)
-    if assignee and (not assignee.is_active or not reviewer(assignee)):
-        msg = "Choose an active reviewer."
-        raise ValidationError(msg)
     item = _lock_review(item.pk)
+    if assignee and not eligible_reviewer(assignee, item):
+        msg = "Choose an active reviewer with write or approve access to this category."
+        raise ValidationError(msg)
     before = item.assignee_id
     item.assignee = assignee
     if item.status == ReviewItem.Status.NEW and assignee:
@@ -541,7 +559,7 @@ def _approve_subject(item, actor):
 @transaction.atomic
 def decide(item, actor, *, action, note="", field_key="form"):
     item = _lock_review(item.pk)
-    require_decider(actor, item)
+    require_decider(actor, item, "write" if action == "query" else "approve")
     if not item.pending:
         msg = "This item is not awaiting a decision."
         raise ValidationError(msg)
@@ -665,7 +683,7 @@ def reply_query(query, actor, body):
 def resolve_query(query, actor):
     item = _lock_review(query.item_id)
     query = ReviewQuery.objects.get(pk=query.pk)
-    require_decider(actor, item)
+    require_decider(actor, item, "write")
     if (
         query.status != "answered"
         or not item.pending

@@ -36,7 +36,7 @@
         </div>
         <p class="ui-tile-note">{{ progress.active_tracks }} active track{{ progress.active_tracks|pluralize }} · {{ progress.awaiting_review }} active review{{ progress.awaiting_review|pluralize }}. Shared milestones count once.</p>
       </section>
-      {% if experience_program.credentials %}
+      {% if experience_program.credentials and can_integrate %}
         <a class="[animation-delay:.12s] ui-tile ui-rise"
            href="{% url 'experiences:credentials' workspace.reference %}">
           <span class="ui-kicker">Callback</span>
@@ -46,14 +46,15 @@
           </span>
           <span class="ui-tile-note">{% if credential.last_checked_at %}{% if credential.last_status %}<span class="font-mono">HTTP {{ credential.last_status }}{% if credential.last_latency_ms is not None %} · {{ credential.last_latency_ms }} ms{% endif %}</span> · {% endif %}Checked {{ credential.last_checked_at|timesince }} ago{% elif credential %}Save a callback URL and test your connection.{% else %}View your credential availability and next steps.{% endif %}</span>
         </a>
-      {% else %}
+      {% elif can_integrate %}
         <a class="ui-tile ui-rise"
            href="{% url 'experiences:product-edit' workspace.reference %}"><span class="ui-kicker">Active tracks</span><span class="ui-tile-figure">{{ progress.active_tracks }}</span><span class="ui-tile-note">Choose the milestones that match your product.</span></a>
       {% endif %}
-      <a class="[animation-delay:.18s] ui-tile ui-rise"
+      {% if can_read_support %}<a class="[animation-delay:.18s] ui-tile ui-rise"
          href="{% url 'experiences:support' %}?product={{ workspace.reference|urlencode }}">
         <span class="ui-kicker">Support</span><span class="flex items-baseline gap-2"><span class="ui-tile-figure">{{ nav_ticket_count }}</span><span class="ui-figure-unit">open ticket{{ nav_ticket_count|pluralize }}</span></span><span class="ui-tile-note">Follow your questions and replies from the support team.</span>
       </a>
+      {% endif %}
     </div>
     {% if registration.status == 'sent_back' %}
       {% include 'experiences/partials/review_status.html' with item=registration %}
@@ -142,7 +143,7 @@
         {% endif %}
       </div>
       <aside class="flex min-w-0 flex-col gap-6">
-        {% if experience_program.credentials %}
+        {% if experience_program.credentials and can_read_general %}
           <section class="ui-card ui-card--layered ui-card--sm ui-rise">
             <div class="ui-card-content">
               <div class="mb-3 flex items-center justify-between gap-2">
