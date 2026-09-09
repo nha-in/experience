@@ -349,6 +349,8 @@ LOGGING = {
 }
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
+# Read literally: django-environ interprets a leading "$" as a variable reference.
+REDIS_AUTH_TOKEN = os.environ.get("REDIS_AUTH_TOKEN") or None
 REDIS_SSL = REDIS_URL.startswith("rediss://")
 
 # Celery
@@ -358,10 +360,16 @@ if USE_TZ:
     CELERY_TIMEZONE = TIME_ZONE
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#std:setting-broker_url
 CELERY_BROKER_URL = REDIS_URL
+CELERY_BROKER_PASSWORD = REDIS_AUTH_TOKEN
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#redis-backend-use-ssl
-CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE} if REDIS_SSL else None
+CELERY_BROKER_USE_SSL = (
+    {"ssl_cert_reqs": ssl.CERT_REQUIRED, "ssl_check_hostname": True}
+    if REDIS_SSL
+    else None
+)
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#std:setting-result_backend
 CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_REDIS_PASSWORD = REDIS_AUTH_TOKEN
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#redis-backend-use-ssl
 CELERY_REDIS_BACKEND_USE_SSL = CELERY_BROKER_USE_SSL
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#result-extended

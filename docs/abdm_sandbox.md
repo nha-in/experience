@@ -297,6 +297,35 @@ The previous `SANDBOX_CREDENTIAL_KEY`, `SANDBOX_CREDENTIAL_PROVIDER` and
 upgrades. Keep the same encryption key value when renaming its environment
 variable. The engine stores encrypted credentials in `ProductCredential`.
 
+### Redis authentication
+
+For authenticated ElastiCache, configure every web, Celery worker, Celery beat,
+and Flower container with:
+
+```text
+REDIS_URL=rediss://your-redis-endpoint:6379/0
+REDIS_AUTH_TOKEN=<raw Redis AUTH token injected from your secret manager>
+```
+
+`REDIS_AUTH_TOKEN` supplies the password to the Django cache, Celery broker and
+result backend, including Flower. Supply the raw token, not a URL-encoded value.
+Leave credentials out of `REDIS_URL`; if it already contains a password, that
+password takes precedence. An ACL username can be included as
+`rediss://username@your-redis-endpoint:6379/0`. Unset or empty tokens preserve the
+existing unauthenticated local configuration (`redis://redis:6379/0`). This does
+not enable authentication on the bundled Redis server itself.
+
+Use `rediss://` for TLS: ElastiCache AUTH requires encryption in transit.
+TLS connections verify the server certificate and hostname. See
+[ElastiCache AUTH](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/auth.html).
+
+Inject `REDIS_AUTH_TOKEN` using the ECS container definition's `secrets` entries,
+with `name` set to `REDIS_AUTH_TOKEN` and `valueFrom` set to your Secrets Manager
+secret ARN. Keep `REDIS_URL` in ordinary environment variables. Redeploy all
+consumers after changing or rotating the secret; existing tasks do not refresh
+injected environment variables. See
+[ECS secret injection](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/secrets-envvar-secrets-manager.html).
+
 Turnstile tokens are verified server-side, including their hostname, using
 [Cloudflare's Siteverify API](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).
 The arithmetic challenge is a local development fallback only. Production signup

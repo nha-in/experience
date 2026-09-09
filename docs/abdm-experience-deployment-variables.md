@@ -21,6 +21,7 @@ For the **application and database**, supply these values:
 | `POSTGRES_PASSWORD` | **Required** with individual database settings or the bundled PostgreSQL service. |
 | `POSTGRES_DB` | **Required** with individual database settings or the bundled PostgreSQL service. |
 | `REDIS_URL` | Shared Redis connection for cache, Celery broker/results, and temporary credential references. Django default: `redis://redis:6379/0`; **must be explicitly supplied when running Flower**. |
+| `REDIS_AUTH_TOKEN` | Optional raw Redis password for Django cache, Celery broker/results, and Flower. Leave credentials out of `REDIS_URL` when using this variable; passwords already embedded in the URL take precedence. Use `rediss://` for TLS. See [Redis authentication](abdm_sandbox.md#redis-authentication) for ECS configuration. |
 | `SENTRY_DSN` | **Must be defined** in production. Supply a valid DSN, or an empty string to disable reporting. |
 | `EXPERIENCE_CREDENTIAL_KEY` | **Required for credential encryption.** Dedicated valid Fernet key, separate from `DJANGO_SECRET_KEY`. Preserve it across deployments so existing credentials remain decryptable. |
 
