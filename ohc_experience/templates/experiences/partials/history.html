@@ -1,1 +1,47 @@
-<section class="sb-section"><h2>History</h2><ol class="sb-history">{% for event in item.history.all %}<li><span class="sb-timeline-dot" aria-hidden="true"></span><div><strong>{{ event.action }}</strong><p class="sb-muted">{{ event.actor.display_name|default:'System' }} &middot; {{ event.created_at|date:'d M Y, H:i' }} IST</p>{% if event.detail.note %}<p>{{ event.detail.note }}</p>{% endif %}{% if event.detail.question %}<p>{{ event.detail.question }}</p>{% endif %}{% if event.detail.reply %}<p>{{ event.detail.reply }}</p>{% endif %}{% if event.detail.submission_id %}<a href="{% url 'experiences:submission' item.pk event.detail.submission_id %}">View saved submission</a>{% endif %}{% if event.detail.after.items %}<details><summary>Change record</summary><dl class="sb-diff">{% for key,value in event.detail.after.items %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></details>{% endif %}</div></li>{% empty %}<li class="sb-muted">No activity yet.</li>{% endfor %}</ol></section>
+<section class="ui-card ui-card--sm mt-5">
+  <div class="ui-card-content">
+    <h2 class="mb-5 text-base font-bold">History</h2>
+    <ol class="flex flex-col">
+      {% for event in item.history.all %}
+        <li class="relative flex gap-3 border-l border-soft-border pb-5 pl-5 last:pb-0">
+          <span class="absolute top-1 -left-1 h-2 w-2 rounded-full bg-strong-border"
+                aria-hidden="true"></span>
+          <div class="min-w-0 text-sm">
+            <strong class="font-semibold">{{ event.action }}</strong>
+            <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'d M Y, H:i' }} IST</p>
+            {% if event.detail.note %}
+              <p class="mt-1.5">{{ event.detail.note|linebreaksbr }}</p>
+            {% endif %}
+            {% if event.detail.question %}
+              <p class="mt-1.5">{{ event.detail.question|linebreaksbr }}</p>
+            {% endif %}
+            {% if event.detail.reply %}
+              <p class="mt-1.5">{{ event.detail.reply|linebreaksbr }}</p>
+            {% endif %}
+            {% if event.detail.submission_id %}
+              <a class="mt-1.5 inline-block text-primary hover:underline"
+                 href="{% url 'experiences:submission' item.pk event.detail.submission_id %}">View saved submission</a>
+            {% endif %}
+            {% if event.detail.after.items %}
+              <details class="mt-2">
+                <summary class="cursor-pointer text-soft-foreground">Change record</summary>
+                <dl class="mt-2 grid gap-2 sm:grid-cols-2">
+                  {% for key,value in event.detail.after.items %}
+                    <div>
+                      <dt class="text-soft-foreground">{{ key }}</dt>
+                      <dd class="break-words">
+                        {{ value }}
+                      </dd>
+                    </div>
+                  {% endfor %}
+                </dl>
+              </details>
+            {% endif %}
+          </div>
+        </li>
+      {% empty %}
+        <li class="text-xs text-soft-foreground">No activity yet.</li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>

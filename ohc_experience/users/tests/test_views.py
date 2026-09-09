@@ -309,7 +309,7 @@ class TestSignOut:
             "Events",
             "Pending queries",
             "Support",
-            "Team settings",
+            "Team &amp; invitations",
         ):
             assert built in nav
         # Still unbuilt: these arrive with their pages, not as disabled rows.

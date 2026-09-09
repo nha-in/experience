@@ -1,0 +1,1 @@
+<span class="ui-badge ui-badge--size-sm {% if item.kind == 'organisation_verification' %}ui-badge--info{% elif item.kind == 'product_registration' %}ui-badge--neutral{% else %}ui-badge--primary{% endif %}">{{ item.get_kind_display }}</span>

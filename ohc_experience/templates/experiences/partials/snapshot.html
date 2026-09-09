@@ -1,14 +1,46 @@
 {% load experience_ui %}
+
 {% snapshot_rows snapshot item as rows %}
 {% if snapshot %}
-<div class="sb-snapshot">
-  <div class="sb-section-heading"><h2>Submitted form</h2><span class="sb-muted">Submission {{ snapshot.submission_number }} &middot; Revision {{ snapshot.revision }} &middot; Schema {{ snapshot.schema_version }}</span></div>
-  <dl class="sb-fields">
-    {% for row in rows %}<div class="sb-read-field {% if row.query_open %}sb-query-field{% endif %}">
-      <dt>{{ row.label }}{% if row.query_open %}<span class="sb-badge sb-status-query_raised">Query open</span>{% endif %}</dt>
-      <dd>{% if row.files %}{% for file in row.files %}<a class="sb-file-link" hx-boost="false" href="{% url 'experiences:attachment' file.pk %}"><span class="sb-file-type">FILE</span><span>{{ file.original_name }}</span><small>{{ file.size|filesizeformat }}</small><span aria-hidden="true">&#8595;</span></a>{% endfor %}{% elif row.file_field %}<span class="sb-muted">No file attached</span>{% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}</dd>
-      {% if can_decide and item.pending %}<a class="sb-field-query" href="{{ item.get_absolute_url }}?action=query&amp;field={{ row.key|urlencode }}#decision">Query<span class="sr-only"> {{ row.label }}</span></a>{% endif %}
-    </div>{% endfor %}
-  </dl>
+  <section class="{% if not embedded %}ui-card ui-card--sm{% endif %}">
+    <div class="{% if not embedded %}ui-card-content{% endif %}">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-bold">Submitted form</h2>
+        <span class="text-xs text-soft-foreground">Submission {{ snapshot.submission_number }} · Revision {{ snapshot.revision }} · Schema {{ snapshot.schema_version }}</span>
+      </div>
+      <dl class="grid gap-4 sm:grid-cols-2">
+        {% for row in rows %}
+          <div class="min-w-0 rounded-lg border p-4 {% if row.query_open %}border-amber-300 bg-amber-50{% else %}border-soft-border{% endif %}">
+            <dt class="mb-1.5 flex flex-wrap items-center gap-2 text-xs text-soft-foreground">{{ row.label }}{% if row.query_open %}
+              <span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>
+        {% endif %}
+      </dt>
+      <dd class="break-words text-sm leading-relaxed">
+        {% if row.files %}
+          {% for file in row.files %}
+            <a class="mb-1.5 flex items-center gap-2 rounded-lg border border-soft-border bg-soft-background p-2 text-primary no-underline hover:underline"
+               hx-boost="false"
+               href="{% url 'experiences:attachment' file.pk %}">
+              <span class="rounded bg-muted-background px-1.5 py-1 font-mono text-[11px]">FILE</span>
+              <span class="min-w-0 flex-1 break-all">{{ file.original_name }}<small class="block text-soft-foreground">{{ file.size|filesizeformat }}</small>
+              </span>
+              <span aria-hidden="true">↓</span>
+            </a>
+          {% endfor %}
+        {% elif row.file_field %}
+          <span class="text-soft-foreground">No file attached</span>
+{% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}
+  </dd>
+  {% if can_decide and item.pending %}
+    <a class="mt-2 inline-block text-xs font-semibold text-primary hover:underline"
+       href="{{ item.get_absolute_url }}?action=query&amp;field={{ row.key|urlencode }}#decision">Query<span class="sr-only"> {{ row.label }}</span>
+    </a>
+  {% endif %}
+  </div>
+{% endfor %}
+</dl>
 </div>
-{% else %}<p class="sb-empty">No form has been submitted yet.</p>{% endif %}
+</section>
+{% else %}
+<p class="py-8 text-center text-xs text-soft-foreground">No form has been submitted yet.</p>
+{% endif %}

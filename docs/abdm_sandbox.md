@@ -44,6 +44,45 @@ product awaits registration. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
 Local mail is visible at http://localhost:3550/.
 
+## Running from a shell
+
+With PostgreSQL running locally:
+
+```sh
+uv sync --frozen
+npm ci --prefix theme/static_src
+npm run build --prefix theme/static_src
+export DATABASE_URL=postgres:///ohc_experience_port
+export REDIS_URL=redis://localhost:6379/0
+export USE_DOCKER=no
+export DJANGO_SETTINGS_MODULE=config.settings.local
+createdb ohc_experience_port
+uv run python manage.py migrate
+uv run python manage.py seed_experience_demo
+uv run python manage.py runserver
+```
+
+Choose a fresh database name for the demo; omit `createdb` and seeding when
+upgrading an existing database. Without Docker, uploads use local disk and mail
+uses the console. Set `DJANGO_USE_LOCAL_MEDIA=false` to use configured object
+storage from the shell. Docker keeps its MinIO and mail service defaults.
+
+Request handlers enqueue mail in `Notification` records. Run a Celery worker and
+beat for automatic delivery, or process queued mail once with:
+
+```sh
+uv run python manage.py shell -c 'from ohc_experience.experiences.tasks import deliver_notifications; deliver_notifications()'
+```
+
+The UI from `bodhi-test` is implemented against the reusable engine's existing
+models, migrations, services and routes. Product registration defaults to HMIS,
+Clinical HMIS and HI-CM M1 for a new product; editing preserves saved choices.
+Support tickets default to Medium priority and Sandbox category, and their
+optional track is validated against the selected product's applied tracks.
+Reviewer dashboards, queues, decisions and submission history retain the engine's
+assignment and permission rules. Retired Care provisioning and OHC routes remain
+retired; reviewer work uses the engine's assessment screens.
+
 ## Model Mapping
 
 - `ProductWorkspace` extends the existing `Product` with its reference and program key,
@@ -87,14 +126,17 @@ approval notes are emailed to integrators and retained as product outcomes.
 - `/assess/dashboard/`, `/assess/queue/`, `/assess/review/<id>/`: NHA review.
 - `/portal/events/`, `/portal/support/`: registrations and support threads.
 
-The shell uses HTMX boosted links/forms with a shared `#portal` target and no
-local HTMX history cache. Upload controls retain saved files, append sequential
+The CareUI shell uses HTMX navigation with a shared `#main-content` target and
+an out-of-band `#app-nav` refresh, with local HTMX history caching disabled.
+Forms preserve ordinary POST/redirect behavior. The product switcher in the
+sidebar and breadcrumb follows the selected product into team and profile pages;
+the sidebar lists only its applied tracks, with approved/applied counts. Upload controls retain saved files, append sequential
 selections, permit removal and preserve previous revision attachments. Downloads
 are permission-checked and streamed from private object storage; object keys and
 public media URLs are not exposed. Desktop and mobile share the same templates.
 Dates are shown in Asia/Kolkata. Account settings, team management and Django
-admin remain available. Transitions between their layouts and the portal use
-full-page navigation. Retired OHC, generic application, Care provisioning, demo
+admin remain available. Team and profile pages share the same shell. Transitions to sign-in and
+administration use full-page navigation. Retired OHC, generic application, Care provisioning, demo
 and user API routes are no longer exposed.
 
 ## Production Configuration

@@ -1,7 +1,46 @@
 {% extends 'experiences/base.html' %}
+
 {% block portal_content %}
-<div class="sb-page-heading"><div><p class="sb-eyebrow">Organisation verification</p><h1>Organisation details</h1><p class="sb-muted">{{ organisation.display_name }}</p></div>{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}</div>
-{% include 'experiences/partials/review_status.html' %}
-{% if can_edit %}<form method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data" novalidate>{% csrf_token %}<input type="hidden" name="revision" value="{{ item.selected_submission_id|default:'' }}" />{% include 'experiences/partials/form.html' %}<div class="sb-actions"><button class="sb-button" type="submit">Submit for verification</button>{% if organisation.is_onboarded %}<a href="{% url 'experiences:product-create' %}">Continue to product</a>{% endif %}</div></form>{% else %}{% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}{% if not organisation.products.exists %}<a class="sb-button" href="{% url 'experiences:product-create' %}">Continue to product</a>{% endif %}{% endif %}
-{% include 'experiences/partials/queries.html' %}{% include 'experiences/partials/history.html' %}
+  <div class="mb-7 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <p class="text-[11px] font-semibold tracking-[0.1em] text-soft-foreground uppercase">Organisation verification</p>
+      <h1 class="mt-1.5 text-[28px] font-semibold leading-tight tracking-tight">Organisation details</h1>
+      <p class="mt-2 text-sm text-soft-foreground">{{ organisation.display_name }}</p>
+      <p class="mt-3 max-w-[640px] text-sm leading-relaxed text-soft-foreground">Add your legal entity details and supporting document for verification.</p>
+    </div>
+    {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+  </div>
+  <div class="max-w-[920px]">
+    {% include 'experiences/partials/review_status.html' %}
+    {% if can_edit %}
+      <form class="ui-card ui-card--sm"
+            method="post"
+            enctype="multipart/form-data"
+            hx-encoding="multipart/form-data"
+            novalidate>
+        {% csrf_token %}
+        <input type="hidden"
+               name="revision"
+               value="{{ item.selected_submission_id|default:'' }}" />
+        <div class="ui-card-content">
+          {% include 'experiences/partials/form.html' %}
+          <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
+            <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Submit for verification</button>
+            {% if organisation.is_onboarded %}
+              <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+                 href="{% url 'experiences:product-create' %}">Continue to product</a>
+            {% endif %}
+          </div>
+        </div>
+      </form>
+    {% else %}
+      {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
+      {% if not organisation.products.exists %}
+        <a class="ui-btn ui-btn--default ui-btn--size-sm mt-4 no-underline"
+           href="{% url 'experiences:product-create' %}">Continue to product</a>
+      {% endif %}
+    {% endif %}
+    {% include 'experiences/partials/queries.html' %}
+    {% include 'experiences/partials/history.html' %}
+  </div>
 {% endblock %}

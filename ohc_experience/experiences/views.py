@@ -32,17 +32,21 @@ from ohc_experience.support.models import record_status_change
 from . import credentials as credential_services
 from . import permissions
 from . import workflows as services
+from .context_processors import navigation_context
+from .context_processors import selected_workspace
+from .context_processors import workspaces_for
 from .forms import CredentialURLsForm
 from .forms import SupportForm
 from .models import AuditEvent
 from .models import EventRegistration
 from .models import Notification
 from .models import ProductCredential
-from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
 from .models import TicketAttachment
 from .models import TicketContext
+from .presentation import overview_next_step
+from .presentation import overview_progress
 from .registry import get_program
 
 
@@ -57,10 +61,7 @@ def _organisation(request):
 
 
 def _workspaces(user):
-    query = ProductWorkspace.objects.select_related("product__organisation")
-    if not permissions.reviewer(user):
-        query = query.filter(product__organisation__memberships__user=user)
-    return query.order_by("product__name")
+    return workspaces_for(user)
 
 
 def _workspace(request, reference):
@@ -139,7 +140,11 @@ def _tracks(workspace):
 
 def _context(request, workspace=None, **kwargs):
     is_reviewer = permissions.reviewer(request.user)
+    if workspace is None and not is_reviewer:
+        workspace = selected_workspace(request)
+    request.experience_navigation = navigation_context(request, workspace)
     result = {
+        **request.experience_navigation,
         "experience_program": workspace.definition if workspace else get_program(),
         "reviewer": is_reviewer,
         "workspaces": _workspaces(request.user),
@@ -333,13 +338,31 @@ def product_edit(request, reference):
 def overview(request, reference):
     workspace = _workspace(request, reference)
     product = workspace.product
+    organisation_review = (
+        ReviewItem.objects.filter(
+            organisation=product.organisation,
+            kind="organisation_verification",
+        )
+        .select_related("selected_submission")
+        .first()
+    )
     context = _context(
         request,
         workspace,
         page_title="Overview",
         nav="overview",
+        organisation_details=(
+            organisation_review.selected_submission.data
+            if organisation_review and organisation_review.selected_submission
+            else {}
+        ),
         activity=product.audit_events.select_related("actor", "item")[:10],
         events=Event.objects.upcoming()[:3],
+        registered_events=set(
+            EventRegistration.objects.filter(
+                user=request.user,
+            ).values_list("event_id", flat=True),
+        ),
         credential=ProductCredential.objects.filter(product=product).first(),
         outcomes=product.outcomes.exclude(
             outcome_type=workspace.definition.credentials.outcome_type
@@ -349,6 +372,17 @@ def overview(request, reference):
         registration=product.review_items.filter(
             kind="product_registration",
         ).first(),
+    )
+    context["progress"] = overview_progress(context["tracks"])
+    context["next_step"] = (
+        overview_next_step(
+            workspace,
+            context["tracks"],
+            organisation_review,
+            context["registration"],
+        )
+        if context["can_integrate"]
+        else None
     )
     return render(request, "experiences/overview.html", context)
 
@@ -437,7 +471,8 @@ def _integrator_item_url(item):
         return reverse("experiences:organisation")
     if item.kind == "product_registration":
         return reverse(
-            "experiences:product-edit", args=[item.product.workspace.reference],
+            "experiences:product-edit",
+            args=[item.product.workspace.reference],
         )
     key = item.application.milestone.key
     selection = next(
@@ -532,10 +567,23 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             intent = request.POST.get("intent")
             if intent == "reveal":
                 secret = credential_services.reveal(credential, request.user)
+                reveal_context = _context(
+                    request,
+                    workspace,
+                    credential=credential,
+                    form=form,
+                    nav="credentials",
+                    page_title=workspace.definition.credentials.name,
+                    demo_credentials=workspace.definition.credentials.is_demo(),
+                    secret=secret,
+                    revealed_secret=secret,
+                )
                 response = render(
                     request,
-                    "experiences/partials/secret.html",
-                    {"secret": secret},
+                    "experiences/partials/secret.html"
+                    if request.htmx and not request.htmx.boosted
+                    else "experiences/credentials.html",
+                    reveal_context,
                 )
                 response["Cache-Control"] = "no-store, private"
                 response["Vary"] = "Cookie"
@@ -578,7 +626,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             )
             return redirect("experiences:credentials", reference=reference)
         except ValidationError as error:
-            if request.POST.get("intent") == "reveal":
+            if request.POST.get("intent") == "reveal" and request.htmx:
                 return render(
                     request,
                     "experiences/partials/secret.html",
@@ -804,8 +852,17 @@ def review(request, pk):
                 Q(is_ohc_team=True) | Q(is_superuser=True),
                 is_active=True,
             ),
-            decision_action=request.GET.get("action", "approve"),
-            query_field=request.GET.get("field", "form"),
+            decision_action=request.POST.get(
+                "action",
+                request.GET.get("action", "approve"),
+            ),
+            decision_note=request.POST.get("note", ""),
+            query_field=request.POST.get("field_key", request.GET.get("field", "form")),
+            unresolved_query_count=item.queries.filter(
+                submission=item.selected_submission,
+            )
+            .exclude(status="resolved")
+            .count(),
             prior_approvals=ReviewItem.objects.filter(
                 organisation=item.organisation,
                 status="approved",
@@ -867,10 +924,16 @@ def submission(request, pk, submission_id):
 @login_required
 @require_http_methods(["GET", "POST"])
 def events(request):
+    workspaces = _workspaces(request.user)
     workspace = (
-        _workspaces(request.user).filter(reference=request.GET.get("product")).first()
-        or _workspaces(request.user).first()
+        workspaces.filter(reference=request.GET.get("product")).first()
+        or workspaces.filter(
+            reference=request.session.get("experience_product", ""),
+        ).first()
+        or workspaces.first()
     )
+    if workspace:
+        request.session["experience_product"] = workspace.reference
     if request.method == "POST":
         event = get_object_or_404(
             Event.objects.upcoming(),
@@ -929,8 +992,13 @@ def support(request):
     workspaces = _workspaces(request.user)
     workspace = (
         workspaces.filter(reference=request.GET.get("product")).first()
+        or workspaces.filter(
+            reference=request.session.get("experience_product", ""),
+        ).first()
         or workspaces.first()
     )
+    if workspace:
+        request.session["experience_product"] = workspace.reference
     tickets = (
         Ticket.objects.all()
         if permissions.reviewer(request.user)
@@ -940,9 +1008,15 @@ def support(request):
         tickets = tickets.filter(experience_context__product=workspace.product)
     if request.GET.get("status") in {"open", "awaiting_vendor", "resolved", "closed"}:
         tickets = tickets.filter(status=request.GET["status"])
+    search = request.GET.get("q", "").strip()
+    if search:
+        tickets = tickets.filter(
+            Q(subject__icontains=search) | Q(reference__icontains=search),
+        )
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
         files=request.FILES or None,
+        workspace=workspace,
     )
     if request.method == "POST":
         if not workspace:
@@ -954,6 +1028,7 @@ def support(request):
                 ticket = Ticket.objects.create(
                     organisation=workspace.product.organisation,
                     subject=form.cleaned_data["subject"],
+                    category=form.cleaned_data["category"],
                     priority=form.cleaned_data["priority"],
                     created_by=request.user,
                 )
@@ -983,7 +1058,21 @@ def support(request):
             workspace,
             page_title="Support",
             nav="support",
-            tickets=tickets.order_by("-updated_at"),
+            ticket_statuses=[
+                ("", "All tickets"),
+                ("open", "Open"),
+                (
+                    "awaiting_vendor",
+                    "Awaiting vendor"
+                    if permissions.reviewer(request.user)
+                    else "Awaiting your reply",
+                ),
+                ("resolved", "Resolved"),
+                ("closed", "Closed"),
+            ],
+            tickets=tickets.select_related("experience_context__product").order_by(
+                "-updated_at",
+            ),
             form=form,
             creating=request.GET.get("new") == "1" or request.method == "POST",
         ),
@@ -1005,11 +1094,13 @@ def ticket(request, reference):
         .first()
     )
     workspace = context.product.workspace if context else None
+    if workspace:
+        request.session["experience_product"] = workspace.reference
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
         files=request.FILES or None,
     )
-    for key in ("subject", "track", "priority"):
+    for key in ("subject", "category", "track", "priority"):
         del form.fields[key]
     if request.method == "POST":
         if request.POST.get("intent") == "resolve":

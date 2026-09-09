@@ -1,0 +1,23 @@
+<li class="grid grid-cols-2 items-center gap-3 px-5 py-5 text-sm transition-colors hover:bg-muted-background/40 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_90px_150px_120px] xl:gap-4">
+  <div class="col-span-2 min-w-0 xl:col-span-1">
+    <a class="inline-block py-1 font-semibold break-words text-foreground hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+       href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.subject }}</a>
+    <p class="mt-1 text-xs text-soft-foreground">
+      <span class="font-mono">{{ ticket.reference }}</span> · {{ ticket.get_category_display }}
+    </p>
+  </div>
+  <div class="col-span-2 min-w-0 text-soft-foreground xl:col-span-1">
+    <p class="truncate text-foreground">{{ ticket.experience_context.product.name|default:"Organisation" }}</p>
+    <p class="mt-1 text-xs">{{ ticket.experience_context.track|default:"Not track-specific" }}</p>
+  </div>
+  <div>
+    <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-sm">{{ ticket.get_priority_display }}</span>
+  </div>
+  <div>
+    <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">
+      {% if reviewer %}{{ ticket.queue_status_label }}{% else %}{{ ticket.get_status_display }}{% endif %}
+    </span>
+  </div>
+  <time class="col-span-2 text-xs text-soft-foreground xl:col-span-1"
+        datetime="{{ ticket.updated_at|date:'c' }}">{{ ticket.updated_at|date:"j M, H:i" }} IST</time>
+</li>

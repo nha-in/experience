@@ -1,9 +1,175 @@
 {% extends 'experiences/base.html' %}
+
 {% load experience_ui %}
+
 {% block portal_content %}
-<div class="sb-page-heading"><div><p class="sb-eyebrow">{{ experience_program.review_heading }}</p><h1>Reviewer dashboard</h1><p class="sb-muted">{{ today|date:'l, d F Y' }}</p></div><a class="sb-button" href="{% url 'experiences:queue' %}">Open review queue &#8594;</a></div>
-<div class="sb-metrics"><div><span>In queue</span><strong>{{ pending_count }}</strong><small>{{ new_count }} new &middot; {{ review_count }} in review</small></div><div><span>Median decision time</span><strong>{% if median_days != None %}{{ median_days }}<small> days</small>{% else %}&ndash;{% endif %}</strong><small>Last 8 weeks</small></div><div><span>Awaiting integrator</span><strong>{{ query_count }}</strong><small>Requests with open queries</small></div><div><span>Approved this month</span><strong>{{ approved_month }}</strong><small>Across all review types</small></div></div>
-<div class="sb-columns"><div><section class="sb-section"><div class="sb-section-heading"><h2>Needs a decision</h2><a href="{% url 'experiences:queue' %}?kind=mine">My queue</a></div><div class="sb-table-scroll"><table class="sb-table"><thead><tr><th>Subject</th><th>Type</th><th>Age</th><th>Assignee</th></tr></thead><tbody>{% for item in oldest %}<tr><td><a class="sb-table-title" href="{{ item.get_absolute_url }}">{{ item.title }}</a><small>{{ item.organisation.display_name }}</small></td><td>{{ item.get_kind_display }}</td><td>{{ item.age }}d</td><td>{{ item.assignee.display_name|default:'Unassigned' }}</td></tr>{% empty %}<tr><td colspan="4">No requests waiting for a decision.</td></tr>{% endfor %}</tbody></table></div></section>
-<section class="sb-section"><div class="sb-section-heading"><h2>Decisions over time</h2><span class="sb-muted">Last 8 weeks</span></div><div class="sb-chart" role="img" aria-label="Weekly approved and sent-back decisions">{% for week in weeks %}<div class="sb-chart-column"><div class="sb-chart-bars"><div class="sb-chart-approved" style="height:{{ week.approved_height }}px" title="{{ week.approved }} approved"></div><div class="sb-chart-sentback" style="height:{{ week.sent_back_height }}px" title="{{ week.sent_back }} sent back"></div></div><strong>{{ week.approved }} / {{ week.sent_back }}</strong><small>{{ week.label }}</small></div>{% endfor %}</div><p class="sb-chart-legend"><span>Approved</span><span>Sent back</span></p></section></div>
-<aside class="sb-context"><section class="sb-section"><h2>Queue by type</h2><dl class="sb-count-list">{% for row in by_type %}<div><dt>{{ row.kind|readable }}</dt><dd>{{ row.count }}</dd></div>{% empty %}<p class="sb-muted">No pending reviews.</p>{% endfor %}</dl></section><section class="sb-section"><h2>Applications by track</h2><dl class="sb-count-list">{% for row in by_track %}<div><dt>{{ row.code }}</dt><dd>{{ row.count }}</dd></div>{% empty %}<p class="sb-muted">No pending applications.</p>{% endfor %}</dl></section><section class="sb-section"><h2>Queue age</h2><dl class="sb-count-list">{% for label,count in ageing %}<div><dt>{{ label }}</dt><dd>{{ count }}</dd></div>{% endfor %}</dl></section><section class="sb-section"><h2>Reviewer load</h2><dl class="sb-count-list">{% for row in by_assignee %}<div><dt>{{ row.assignee__name|default:row.assignee__email|default:'Unassigned' }}</dt><dd>{{ row.count }}</dd></div>{% endfor %}</dl></section></aside></div>
-{% endblock %}
+  <div class="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">{{ experience_program.review_heading }}</p>
+      <h1 class="mt-2 text-[28px] font-semibold leading-tight tracking-[-0.03em]">Reviewer dashboard</h1>
+      <p class="mt-2 text-sm leading-relaxed text-soft-foreground">{{ today|date:'l, d F Y' }} · Your queue and decisions at a glance.</p>
+    </div>
+    <a class="ui-btn ui-btn--default ui-btn--size-sm min-h-11"
+       href="{% url 'experiences:queue' %}">Open review queue <span aria-hidden="true">→</span></a>
+  </div>
+  <section class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"
+           aria-label="Summary">
+    <div class="ui-card ui-card--sm border-primary/20 bg-primary/5">
+      <div class="ui-card-content">
+        <p class="min-h-10 text-sm font-medium text-primary sm:min-h-0">In queue</p>
+        <p class="mt-3 text-[36px] font-semibold leading-none tracking-[-0.04em] text-primary tabular-nums">{{ pending_count }}</p>
+        <p class="mt-3 text-xs leading-relaxed text-soft-foreground">{{ new_count }} new · {{ review_count }} in review</p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="min-h-10 text-sm font-medium text-soft-foreground sm:min-h-0">Median decision time</p>
+        <p class="mt-3 text-[36px] font-semibold leading-none tracking-[-0.04em] tabular-nums">{% if median_days != None %}{{ median_days|floatformat:'-1' }} <span class="text-sm font-normal tracking-normal text-soft-foreground">days</span>{% else %}—{% endif %}</p>
+        <p class="mt-3 text-xs leading-relaxed text-soft-foreground">Last 8 weeks</p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="min-h-10 text-sm font-medium text-soft-foreground sm:min-h-0">Awaiting integrator</p>
+        <p class="mt-3 text-[36px] font-semibold leading-none tracking-[-0.04em] tabular-nums">{{ query_count }}</p>
+        <p class="mt-3 text-xs leading-relaxed text-soft-foreground">Requests with open queries</p>
+      </div>
+    </div>
+    <div class="ui-card ui-card--sm">
+      <div class="ui-card-content">
+        <p class="min-h-10 text-sm font-medium text-soft-foreground sm:min-h-0">Approved this month</p>
+        <p class="mt-3 text-[36px] font-semibold leading-none tracking-[-0.04em] tabular-nums">{{ approved_month }}</p>
+        <p class="mt-3 text-xs leading-relaxed text-soft-foreground">Across all review types</p>
+      </div>
+    </div>
+  </section>
+  <div class="mt-6 grid items-start gap-5 xl:grid-cols-[1.4fr_1fr]">
+    <div class="flex min-w-0 flex-col gap-5">
+      <section class="ui-card ui-card--sm gap-0 overflow-hidden py-0"
+               aria-labelledby="needs-decision-title">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+          <div>
+            <h2 class="text-base font-semibold" id="needs-decision-title">Needs a decision</h2>
+            <p class="mt-1 text-xs leading-relaxed text-soft-foreground">Oldest requests ready for review.</p>
+          </div>
+          <a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
+             href="{% url 'experiences:queue' %}?kind=mine">My queue <span class="ml-1" aria-hidden="true">→</span></a>
+        </div>
+        <ul class="divide-y divide-soft-border border-t border-soft-border">
+          {% for item in oldest %}
+            <li>
+              <a class="group grid min-h-24 gap-3 px-5 py-4 transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:grid-cols-[minmax(0,1fr)_auto]"
+                 href="{{ item.get_absolute_url }}">
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold leading-relaxed group-hover:text-primary">{{ item.title }}</p>
+                  <p class="mt-0.5 text-xs leading-relaxed text-soft-foreground">{{ item.organisation.display_name }}</p>
+                  <div class="mt-2">{% include 'experiences/partials/reviewer_type.html' %}</div>
+                </div>
+                <div class="flex items-center gap-3 sm:flex-col sm:items-end sm:justify-center sm:gap-1">
+                  <span class="text-sm font-semibold tabular-nums {% if item.age > 7 %}text-red-700{% else %}text-foreground{% endif %}">{{ item.age }} day{{ item.age|pluralize }}{% if item.age > 7 %} · Needs attention{% endif %}</span>
+                  <span class="text-xs text-soft-foreground">{{ item.assignee.display_name|default:'Unassigned' }}</span>
+                </div>
+              </a>
+            </li>
+          {% empty %}
+            <li class="px-5 py-10 text-center">
+              <span class="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-primary/10 text-lg text-primary"
+                    aria-hidden="true">✓</span>
+              <p class="text-base font-semibold">No decisions waiting</p>
+              <p class="mt-2 text-sm leading-relaxed text-soft-foreground">No requests waiting for a decision.</p>
+            </li>
+          {% endfor %}
+        </ul>
+        <div class="flex flex-wrap items-center justify-between gap-2 border-t border-soft-border bg-soft-background px-5 py-3">
+          <span class="text-xs text-soft-foreground">Requests over 7 days are flagged for attention.</span>
+          <a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
+             href="{% url 'experiences:queue' %}">Full queue →</a>
+        </div>
+      </section>
+      <section class="ui-card ui-card--sm" aria-labelledby="decisions-title">
+        <div class="ui-card-content">
+          <h2 class="text-base font-semibold" id="decisions-title">Decisions over time</h2>
+          <div class="mb-6 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-soft-foreground">
+            <span>Last 8 weeks</span>
+            <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm bg-primary" aria-hidden="true"></span>Approved</span>
+            <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm bg-amber-400" aria-hidden="true"></span>Sent back</span>
+          </div>
+          <div class="grid h-[110px] grid-cols-8 items-end gap-3 border-b border-soft-border px-1"
+               role="img"
+               aria-label="Weekly approved and sent-back decisions; exact counts in the table below">
+            {% for week in weeks %}
+              <div class="flex flex-col justify-end">
+                <span class="block rounded-t-[4px] bg-amber-400"
+                      style="height: {{ week.sent_back_height }}px"
+                      title="{{ week.sent_back }} sent back"></span>
+                <span class="block bg-primary {% if not week.sent_back %}rounded-t-[4px]{% endif %}"
+                      style="height: {{ week.approved_height }}px"
+                      title="{{ week.approved }} approved"></span>
+              </div>
+            {% endfor %}
+          </div>
+          <div class="grid grid-cols-8 gap-3 px-1 pt-3 text-center text-xs leading-relaxed text-soft-foreground">
+            {% for week in weeks %}<span>{{ week.label }}</span>{% endfor %}
+          </div>
+          <table class="sr-only">
+            <caption>Decisions per week</caption>
+            <thead>
+              <tr>
+                <th scope="col">Week</th>
+                <th scope="col">Approved</th>
+                <th scope="col">Sent back</th>
+              </tr>
+            </thead>
+            <tbody>{% for week in weeks %}<tr><td>{{ week.label }}</td><td>{{ week.approved }}</td><td>{{ week.sent_back }}</td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <div class="grid min-w-0 gap-5 sm:grid-cols-2 xl:grid-cols-1">
+      <section class="ui-card ui-card--sm" aria-labelledby="by-type-title">
+        <div class="ui-card-content">
+          <h2 class="mb-4 text-base font-semibold" id="by-type-title">Queue by type</h2>
+          <dl class="flex flex-col gap-4">
+            {% for row in by_type %}
+              {% include 'experiences/partials/reviewer_breakdown.html' with label=row.kind|readable count=row.count %}
+{% empty %}<div><dt class="text-sm text-soft-foreground">No pending reviews.</dt><dd class="sr-only">0</dd></div>{% endfor %}
+  </dl>
+  </div>
+  </section>
+  <section class="ui-card ui-card--sm" aria-labelledby="by-track-title">
+    <div class="ui-card-content">
+      <h2 class="mb-4 text-base font-semibold" id="by-track-title">Applications by track</h2>
+      <dl class="flex flex-col gap-4">
+        {% for row in by_track %}
+          {% include 'experiences/partials/reviewer_breakdown.html' with label=row.code count=row.count %}
+{% empty %}<div><dt class="text-sm text-soft-foreground">No pending applications.</dt><dd class="sr-only">0</dd></div>{% endfor %}
+  </dl>
+  </div>
+  </section>
+  <section class="ui-card ui-card--sm" aria-labelledby="ageing-title">
+    <div class="ui-card-content">
+      <h2 class="mb-4 text-base font-semibold" id="ageing-title">Queue age</h2>
+      <dl class="flex flex-col gap-4">
+        {% for label,count in ageing %}
+          {% include 'experiences/partials/reviewer_breakdown.html' with attention=forloop.last %}
+        {% endfor %}
+      </dl>
+    </div>
+  </section>
+  <section class="ui-card ui-card--sm" aria-labelledby="reviewer-load-title">
+    <div class="ui-card-content">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-semibold" id="reviewer-load-title">Reviewer load</h2>
+        <a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
+           href="{% url 'experiences:queue' %}?assignee=unassigned">Unassigned →</a>
+      </div>
+      <dl class="flex flex-col gap-4 text-sm">
+        {% for row in by_assignee %}
+          <div class="flex items-center gap-3 {% if not row.assignee__email %}font-medium text-amber-800{% endif %}"><dt class="min-w-0 flex-1 break-words">{{ row.assignee__name|default:row.assignee__email|default:'Unassigned' }}</dt><dd class="font-semibold tabular-nums">{{ row.count }}</dd></div>
+{% empty %}<div><dt class="text-soft-foreground">No pending reviews.</dt><dd class="sr-only">0</dd></div>{% endfor %}
+  </dl>
+  </div>
+  </section>
+  </div>
+  </div>
+{% endblock portal_content %}

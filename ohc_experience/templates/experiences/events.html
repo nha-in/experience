@@ -1,3 +1,65 @@
-{% extends 'experiences/base.html' %}
-{% block portal_content %}<div class="sb-page-heading"><div><p class="sb-eyebrow">Learn &amp; connect</p><h1>Events</h1></div>{% if request.user.is_superuser %}<a class="sb-button secondary" href="{% url 'admin:events_event_add' %}" hx-boost="false">Publish event</a>{% endif %}</div><nav class="sb-filter-tabs"><a class="{% if period != 'past' %}active{% endif %}" href="?period=upcoming">Upcoming</a><a class="{% if period == 'past' %}active{% endif %}" href="?period=past">Past events</a></nav><form method="get" class="sb-filters"><input type="hidden" name="period" value="{{ period }}" /><label>Event type<select name="kind"><option value="">All events</option>{% for value,label in kinds %}<option value="{{ value }}" {% if request.GET.kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><button class="sb-button secondary">Filter</button></form>
-{% for event in events %}<article class="sb-event"><span class="sb-date"><strong>{{ event.starts_at|date:'d' }}</strong>{{ event.starts_at|date:'M' }}</span><div class="sb-event-body"><p class="sb-eyebrow">{{ event.get_kind_display }}</p><h2>{{ event.title }}</h2><p>{{ event.summary }}</p><p class="sb-muted">{{ event.starts_at|date:'d M Y, H:i' }} IST &middot; {{ event.location|default:'Online' }}</p>{% if event.description %}<details><summary>{% if period == 'past' %}Event materials{% else %}Event details{% endif %}</summary><p>{{ event.description|linebreaksbr }}</p></details>{% endif %}</div><div class="sb-event-action">{% if period != 'past' %}<form method="post">{% csrf_token %}<input type="hidden" name="event" value="{{ event.pk }}" />{% if event.pk in registered %}<span class="sb-badge sb-status-approved">&#10003; Registered</span><button class="sb-text-button" name="intent" value="cancel">Cancel registration</button>{% if event.join_url %}<a class="sb-button secondary" href="{{ event.join_url }}" target="_blank" rel="noopener" hx-boost="false">Join event &#8599;</a>{% endif %}{% else %}<button class="sb-button" name="intent" value="register">Register</button>{% endif %}</form>{% else %}<span class="sb-badge">Completed</span>{% endif %}</div></article>{% empty %}<div class="sb-empty"><h2>No events to show</h2></div>{% endfor %}{% endblock %}
+{% extends "experiences/base.html" %}
+
+{% block portal_content %}
+  <div class="mb-7 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <p class="text-[11px] font-bold uppercase tracking-[0.1em] text-soft-foreground">Programme</p>
+      <h1 class="mt-1.5 text-[28px] font-bold leading-tight tracking-[-0.02em]">Events</h1>
+      <p class="mt-2 text-sm text-soft-foreground">Office hours, webinars and workshops to support your integration.</p>
+    </div>
+    {% if request.user.is_superuser %}
+      <a class="ui-btn ui-btn--outline ui-btn--size-default no-underline"
+         href="{% url 'admin:events_event_add' %}"
+         hx-boost="false">Publish event</a>
+    {% endif %}
+  </div>
+  <div class="mb-3.5 flex flex-wrap items-center justify-between gap-3">
+    <nav class="inline-flex gap-1 rounded-xl border border-border bg-card p-1"
+         aria-label="Event period">
+      <a class="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {% if period != 'past' %}bg-primary/10 text-primary{% else %}text-muted-foreground hover:bg-muted-background{% endif %} no-underline"
+         href="?period=upcoming{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;kind={{ request.GET.kind|urlencode }}"
+         {% if period != 'past' %}aria-current="page"{% endif %}>Upcoming</a>
+      <a class="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {% if period == 'past' %}bg-primary/10 text-primary{% else %}text-muted-foreground hover:bg-muted-background{% endif %} no-underline"
+         href="?period=past{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;kind={{ request.GET.kind|urlencode }}"
+         {% if period == 'past' %}aria-current="page"{% endif %}>Past events</a>
+    </nav>
+    <form class="flex w-full items-center gap-2 sm:w-auto"
+          method="get"
+          hx-boost="false">
+      <input type="hidden" name="period" value="{{ period }}" />
+      {% if workspace %}
+        <input type="hidden" name="product" value="{{ workspace.reference }}" />
+      {% endif %}
+      <label class="sr-only" for="event-kind">Event type</label>
+      <div class="ui-select-wrapper min-w-0 flex-1 sm:w-60 sm:flex-none">
+        <select class="ui-select" name="kind" id="event-kind">
+          <option value="">All event types</option>
+          {% for value,label in kinds %}
+            <option value="{{ value }}"
+                    {% if request.GET.kind == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="ui-btn ui-btn--outline ui-btn--size-default" type="submit">Apply filter</button>
+    </form>
+  </div>
+  <div class="flex flex-col gap-5">
+    {% for event in events %}
+      {% include "experiences/partials/event_card.html" %}
+    {% empty %}
+      <section class="ui-card items-center px-5 py-12 text-center">
+        <h2 class="text-base font-semibold">No {% if period == 'past' %}past{% else %}upcoming{% endif %} events to show</h2>
+        <p class="mt-2 max-w-md text-sm leading-relaxed text-soft-foreground">
+          {% if request.GET.kind %}Choose another event type to see more events.{% else %}Office hours and webinars will appear here once dates are announced.{% endif %}
+        </p>
+        {% if request.GET.kind %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-default mt-5 no-underline"
+             href="?period={{ period }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}">Show all event types</a>
+        {% elif period == 'past' %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-default mt-5 no-underline"
+             href="?period=upcoming{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}">View upcoming events</a>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </div>
+{% endblock portal_content %}

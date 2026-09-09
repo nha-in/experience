@@ -1,2 +1,114 @@
-{% extends 'experiences/base.html' %}
-{% block portal_content %}<a class="sb-back" href="{% url 'experiences:support' %}">&#8592; Support</a><div class="sb-page-heading"><div><p class="sb-eyebrow">{{ ticket.reference }} &middot; {{ ticket.get_priority_display }} severity</p><h1>{{ ticket.subject }}</h1><p class="sb-muted">{{ ticket_context.product.name }} &middot; {{ ticket_context.track|default:'General' }}</p></div>{% include 'experiences/partials/status.html' with status=ticket.status label=ticket.get_status_display %}</div><div class="sb-columns"><div>{% for message in ticket.messages.all %}<article class="sb-message {% if message.from_ohc_team %}sb-staff-message{% endif %}"><div class="sb-section-heading"><strong>{{ message.author.display_name|default:'System' }}{% if message.from_ohc_team %} &middot; {{ experience_program.reviewer_name }}{% endif %}</strong><small>{{ message.created_at|date:'d M Y, H:i' }} IST</small></div><p>{{ message.body|linebreaksbr }}</p>{% for file in message.attachments.all %}<a class="sb-file-link" href="{% url 'experiences:ticket-attachment' file.pk %}" hx-boost="false">{{ file.original_name }} &#8595;</a>{% endfor %}</article>{% endfor %}<form method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data">{% csrf_token %}{% include 'experiences/partials/form.html' %}<div class="sb-actions"><button class="sb-button" type="submit">Send reply</button></div></form></div><aside class="sb-context"><section class="sb-section"><h2>Ticket details</h2><dl class="sb-mini-dl"><dt>Opened by</dt><dd>{{ ticket.created_by.display_name }}</dd><dt>Assigned to</dt><dd>{{ ticket.assignee.display_name|default:'Integration desk' }}</dd><dt>Product</dt><dd>{{ ticket_context.product.name }}</dd><dt>Track</dt><dd>{{ ticket_context.track|default:'General' }}</dd></dl>{% if reviewer and ticket.status != 'resolved' %}<form method="post">{% csrf_token %}<button class="sb-button secondary" name="intent" value="resolve">Mark resolved</button></form>{% endif %}</section><section class="sb-section"><h2>Related documentation</h2><a href="{{ experience_program.docs_url }}" target="_blank" rel="noopener" hx-boost="false">Integration guides &#8599;</a></section></aside></div>{% endblock %}
+{% extends "experiences/base.html" %}
+
+{% load careui %}
+
+{% block portal_content %}
+  <a class="mb-4 inline-block text-sm text-soft-foreground hover:underline"
+     href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">← Support</a>
+  <div class="mb-7 flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+      <p class="font-mono text-xs text-soft-foreground">{{ ticket.reference }} · {{ ticket.get_category_display }}</p>
+      <h1 class="mt-1.5 text-[28px] font-bold leading-tight tracking-[-0.02em] break-words">{{ ticket.subject }}</h1>
+      <p class="mt-2 text-xs text-soft-foreground">{{ ticket_context.product.name|default:ticket.organisation.display_name }} · {{ ticket_context.track|default:"Not track-specific" }}</p>
+    </div>
+    <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">
+      {% if reviewer %}{{ ticket.queue_status_label }}{% else %}{{ ticket.get_status_display }}{% endif %}
+    </span>
+  </div>
+  {% if ticket.status == 'awaiting_vendor' and not reviewer %}
+    <div class="ui-alert ui-alert--warning mb-6" role="status">
+      <p class="flex-1">The integration desk is waiting for your reply.</p>
+      <a class="font-semibold underline underline-offset-4" href="#reply-form">Write a reply</a>
+    </div>
+  {% endif %}
+  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+    <section class="flex min-w-0 flex-col gap-5" aria-label="Ticket conversation">
+      {% for message in ticket.messages.all %}
+        {% include "experiences/partials/support_message.html" %}
+      {% endfor %}
+      <form id="reply-form"
+            class="ui-card scroll-mt-6"
+            method="post"
+            enctype="multipart/form-data"
+            hx-boost="false">
+        {% csrf_token %}
+        <div class="ui-card-content flex flex-col gap-5">
+          <h2 class="text-base font-semibold">Reply to this ticket</h2>
+          {% if form.errors %}
+            <div class="ui-alert ui-alert--destructive" role="alert">
+              <p>Your reply has not been sent. Check the fields below and try again.</p>
+            </div>
+          {% endif %}
+          {% include "components/form_errors.html" %}
+          {% ui_field form.body label="Your reply" extra_class="min-h-36" %}
+          {% ui_field form.attachments %}
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border pt-3.5">
+            <p class="text-xs text-soft-foreground">
+              {% if ticket.status == 'resolved' or ticket.status == 'closed' %}Sending a reply will reopen this ticket.{% elif reviewer %}Your reply is visible to the organisation's team.{% else %}Your reply is shared with the integration desk.{% endif %}
+            </p>
+            <button class="ui-btn ui-btn--default ui-btn--size-default w-full sm:w-auto"
+                    type="submit">Send reply</button>
+          </div>
+        </div>
+      </form>
+    </section>
+    <aside class="flex min-w-0 flex-col gap-5">
+      <section class="ui-card">
+        <div class="ui-card-content">
+          <h2 class="mb-4 text-base font-semibold">Ticket details</h2>
+          <dl class="grid grid-cols-[90px_minmax(0,1fr)] gap-x-2 gap-y-4 text-sm">
+            <dt class="text-soft-foreground">Priority</dt>
+            <dd>
+              <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-sm">{{ ticket.get_priority_display }}</span>
+            </dd>
+            <dt class="text-soft-foreground">Category</dt>
+            <dd>
+              {{ ticket.get_category_display }}
+            </dd>
+            <dt class="text-soft-foreground">Opened by</dt>
+            <dd class="break-words">
+              {{ ticket.created_by.display_name|default:"Removed user" }}
+            </dd>
+            <dt class="text-soft-foreground">Assigned to</dt>
+            <dd class="break-words">
+              {{ ticket.assignee.display_name|default:"Integration desk" }}
+            </dd>
+            <dt class="text-soft-foreground">Product</dt>
+            <dd class="break-words">
+              {{ ticket_context.product.name|default:"—" }}
+            </dd>
+            <dt class="text-soft-foreground">Track</dt>
+            <dd>
+              {{ ticket_context.track|default:"Not track-specific" }}
+            </dd>
+            <dt class="text-soft-foreground">Created</dt>
+            <dd>
+              {{ ticket.created_at|date:"j M Y" }}
+            </dd>
+          </dl>
+          {% if reviewer and ticket.status != 'resolved' %}
+            <form class="mt-4 border-t border-soft-border pt-3.5"
+                  method="post"
+                  hx-boost="false">
+              {% csrf_token %}
+              <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+                      name="intent"
+                      value="resolve"
+                      type="submit">Mark resolved</button>
+            </form>
+          {% endif %}
+        </div>
+      </section>
+      <section class="ui-card">
+        <div class="ui-card-content text-sm">
+          <h2 class="mb-3 text-base font-semibold">Related documentation</h2>
+          <a class="text-primary hover:underline"
+             href="{{ experience_program.docs_url }}"
+             target="_blank"
+             rel="noopener noreferrer"
+             hx-boost="false">Integration guides ↗</a>
+        </div>
+      </section>
+    </aside>
+  </div>
+{% endblock portal_content %}

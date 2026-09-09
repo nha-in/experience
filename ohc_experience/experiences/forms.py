@@ -2,6 +2,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.support.models import Category
+
 from .fields import MultipleFileField
 from .registry import get_program
 from .uploads import validate_pdf
@@ -120,9 +122,15 @@ class CredentialURLsForm(forms.Form):
 
 class SupportForm(forms.Form):
     subject = forms.CharField(max_length=255)
+    category = forms.ChoiceField(
+        choices=Category.choices,
+        initial=Category.SANDBOX,
+        required=False,
+    )
     track = forms.ChoiceField(required=False)
     priority = forms.ChoiceField(
         choices=[("low", "Low"), ("medium", "Medium"), ("high", "High")],
+        initial="medium",
     )
     body = forms.CharField(label="Message", widget=forms.Textarea(attrs={"rows": 5}))
     attachments = MultipleFileField(
@@ -132,10 +140,22 @@ class SupportForm(forms.Form):
         accept=".pdf",
     )
 
-    def __init__(self, *args, program=None, **kwargs):
+    def __init__(self, *args, program=None, workspace=None, **kwargs):
         super().__init__(*args, **kwargs)
-        program = program or get_program()
+        program = program or (workspace.definition if workspace else get_program())
+        applied = (
+            {value.split(":", 1)[0] for value in workspace.applied_milestones}
+            if workspace
+            else None
+        )
         self.fields["track"].choices = [
-            ("", "General"),
-            *((track.code, track.name) for track in program.tracks),
+            ("", "Not track-specific"),
+            *(
+                (track.code, f"{track.code} · {track.name}")
+                for track in program.tracks
+                if applied is None or track.code in applied
+            ),
         ]
+
+    def clean_category(self):
+        return self.cleaned_data["category"] or Category.SANDBOX

@@ -97,7 +97,7 @@
 }
 
 /* ==========================================================================
-   careui tokens — ported verbatim from ohcnetwork/careui src/index.css.
+   CareUI semantic tokens — the portal uses a calm teal and slate palette.
    Semantic tokens resolve against Tailwind's built-in color scales, so both
    light and dark re-resolve automatically. Never hardcode a hex in a template;
    use the token utilities (bg-card, text-muted-foreground, border-border, …).
@@ -109,76 +109,89 @@
   --font-geist-mono: "Geist Mono Variable", monospace;
   --font-size-scale: 1;
 
-  /* Primary palette — emerald */
-  --primary-50: var(--color-emerald-50);
-  --primary-100: var(--color-emerald-100);
-  --primary-200: var(--color-emerald-200);
-  --primary-300: var(--color-emerald-300);
-  --primary-400: var(--color-emerald-400);
-  --primary-500: var(--color-emerald-500);
-  --primary-600: var(--color-emerald-600);
-  --primary-700: var(--color-emerald-700);
-  --primary-800: var(--color-emerald-800);
-  --primary-900: var(--color-emerald-900);
-  --primary-950: var(--color-emerald-950);
+  /* Brand palette — teal */
+  --primary-50: #effaf7;
+  --primary-100: #d9f1e9;
+  --primary-200: #b5e1d3;
+  --primary-300: #82c9b6;
+  --primary-400: #4aa88e;
+  --primary-500: #258670;
+  --primary-600: #14715d;
+  --primary-700: #0e5d4e;
+  --primary-800: #104b40;
+  --primary-900: #113f37;
+  --primary-950: #062820;
 
   --radius: 0.625rem;
 
   --background: var(--color-white);
-  --soft-background: var(--color-neutral-50);
-  --muted-background: var(--color-neutral-100);
-  --strong-background: var(--color-neutral-200);
+  --soft-background: #f4f7f8;
+  --muted-background: #edf2f3;
+  --strong-background: #e2e9ec;
 
-  --muted: var(--color-neutral-100);
+  --muted: #edf2f3;
 
-  --foreground: var(--color-neutral-950);
-  --muted-foreground: var(--color-neutral-700);
-  --soft-foreground: var(--color-neutral-600);
-  --disabled-foreground: var(--color-neutral-300);
-  --placeholder-foreground: var(--color-neutral-500);
+  --foreground: #1d2d35;
+  --muted-foreground: #41545e;
+  --soft-foreground: #596d77;
+  --disabled-foreground: #9eafb6;
+  --placeholder-foreground: #657880;
   --inverse-foreground: var(--color-white);
 
   --card: var(--color-white);
-  --card-foreground: var(--color-neutral-950);
+  --card-foreground: #1d2d35;
 
   --popover: var(--color-white);
   --popover-foreground: var(--color-neutral-950);
 
-  --primary: var(--primary-800);
-  --primary-foreground: var(--primary-50);
+  --primary: var(--primary-700);
+  --primary-foreground: #ffffff;
 
-  --secondary: var(--color-neutral-100);
-  --secondary-foreground: var(--color-neutral-900);
+  --secondary: #edf2f3;
+  --secondary-foreground: #293f4b;
 
-  --accent: var(--color-neutral-100);
-  --accent-foreground: var(--color-neutral-900);
+  --accent: #e8f2ef;
+  --accent-foreground: #0e5d4e;
 
   --destructive: var(--color-red-600);
   --destructive-foreground: var(--color-red-50);
 
-  --soft-border: var(--color-neutral-100);
-  --border: var(--color-neutral-200);
-  --strong-border: var(--color-neutral-300);
-  --stronger-border: var(--color-neutral-400);
+  --soft-border: #eaf0f1;
+  --border: #dfe7e9;
+  --strong-border: #bdcbd1;
+  --stronger-border: #8a9da6;
   --inverse-border: var(--color-white);
 
-  --input: var(--color-neutral-300);
-  --ring: --alpha(var(--color-indigo-500) / 75%);
+  --input: #82959e;
+  --ring: #258670;
 
-  --chart-1: var(--color-orange-600);
+  --chart-1: #c28b32;
   --chart-2: var(--primary-600);
-  --chart-3: var(--color-cyan-900);
-  --chart-4: var(--color-amber-400);
-  --chart-5: var(--color-yellow-500);
+  --chart-3: #5a74a4;
+  --chart-4: #7b8f69;
+  --chart-5: #9279a9;
 
-  --sidebar: var(--color-neutral-100);
-  --sidebar-foreground: var(--color-neutral-950);
-  --sidebar-primary: var(--primary-800);
-  --sidebar-primary-foreground: var(--primary-50);
-  --sidebar-accent: var(--color-neutral-200);
-  --sidebar-accent-foreground: var(--color-neutral-950);
-  --sidebar-border: var(--color-neutral-200);
-  --sidebar-ring: var(--color-indigo-400);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #293f4b;
+  --sidebar-primary: var(--primary-700);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e7f3ef;
+  --sidebar-accent-foreground: #0e5d4e;
+  --sidebar-border: #dfe7e9;
+  --sidebar-ring: #258670;
+  --status-success-bg: #eff8f3;
+  --status-success-border: #c8e5d3;
+  --status-success-text: #246343;
+  --status-info-bg: #eff3fb;
+  --status-info-border: #d4dff3;
+  --status-info-text: #385887;
+  --status-warning-bg: #fff8eb;
+  --status-warning-border: #eed9ab;
+  --status-warning-text: #865918;
+  --status-danger-bg: #fdf1f0;
+  --status-danger-border: #efccca;
+  --status-danger-text: #a13737;
+  --shadow-surface: 0 2px 4px -3px rgb(29 45 53 / 12%);
 }
 
 .dark {
@@ -238,6 +251,19 @@
   --sidebar-accent-foreground: var(--color-neutral-50);
   --sidebar-border: --alpha(var(--color-white) / 12%);
   --sidebar-ring: var(--color-indigo-400);
+  --status-success-bg: #16392d;
+  --status-success-border: #315b45;
+  --status-success-text: #a8dabc;
+  --status-info-bg: #1c2b44;
+  --status-info-border: #344b6f;
+  --status-info-text: #b9cbed;
+  --status-warning-bg: #3d301b;
+  --status-warning-border: #675332;
+  --status-warning-text: #edcf96;
+  --status-danger-bg: #421f22;
+  --status-danger-border: #68363b;
+  --status-danger-text: #f0b1b1;
+  --shadow-surface: none;
 }
 
 @theme inline {

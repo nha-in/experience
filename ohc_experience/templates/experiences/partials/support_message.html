@@ -1,0 +1,29 @@
+{% if message.is_event %}
+  <p class="flex flex-wrap items-center gap-2 px-2 py-1 text-xs text-soft-foreground">
+    <span class="size-1.5 rounded-full bg-muted-foreground" aria-hidden="true"></span>{{ message.author.display_name|default:"System" }} · {{ message.body }}<time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }} IST</time>
+  </p>
+{% else %}
+  <article class="ui-card {% if message.from_ohc_team %}bg-primary/5 ring-primary/15{% endif %}">
+    <div class="ui-card-content">
+      <div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
+        <span class="ui-avatar size-9 text-sm {% if message.from_ohc_team %}ui-avatar--primary{% else %}bg-muted-background text-muted-foreground{% endif %}"
+              aria-hidden="true">{{ message.author.display_name|first|default:"S" }}</span>
+        <strong>{{ message.author.display_name|default:"System" }}</strong>
+        {% if message.from_ohc_team %}
+          <span class="ui-badge ui-badge--info ui-badge--size-sm">{{ experience_program.reviewer_name }}</span>
+        {% endif %}
+        <time class="ml-auto text-xs text-soft-foreground"
+              datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M Y, H:i" }} IST</time>
+      </div>
+      <div class="text-sm leading-relaxed break-words">{{ message.body|linebreaksbr }}</div>
+      {% for file in message.attachments.all %}
+        <a class="mt-4 flex min-h-11 min-w-0 items-center gap-3 rounded-xl border border-soft-border bg-card px-4 py-3 text-sm font-medium text-primary hover:bg-muted-background hover:underline"
+           href="{% url 'experiences:ticket-attachment' file.pk %}"
+           hx-boost="false">
+          <span aria-hidden="true">↓</span>
+          <span class="break-all">{{ file.original_name }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </article>
+{% endif %}

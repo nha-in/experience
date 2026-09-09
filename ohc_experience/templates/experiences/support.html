@@ -1,3 +1,143 @@
-{% extends 'experiences/base.html' %}
-{% block portal_content %}<div class="sb-page-heading"><div><p class="sb-eyebrow">Integration desk</p><h1>Support</h1><p class="sb-muted">{{ workspace.product.name|default:'All products' }}</p></div>{% if not reviewer and workspace %}<a class="sb-button" href="?new=1&amp;product={{ workspace.reference }}">New ticket</a>{% endif %}</div>
-{% if creating %}<form method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data">{% csrf_token %}{% include 'experiences/partials/form.html' %}<div class="sb-actions"><button class="sb-button" type="submit">Create ticket</button><a href="{% url 'experiences:support' %}">Cancel</a></div></form>{% else %}<nav class="sb-filter-tabs"><a href="?">All tickets</a><a href="?status=open">Open</a><a href="?status=awaiting_vendor">Awaiting your reply</a><a href="?status=resolved">Resolved</a></nav><div class="sb-table-scroll"><table class="sb-table"><thead><tr><th>Ticket</th><th>Product / track</th><th>Severity</th><th>Status</th><th>Updated</th></tr></thead><tbody>{% for ticket in tickets %}<tr><td><a class="sb-table-title" href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.subject }}</a><small>{{ ticket.reference }}</small></td><td>{{ ticket.experience_context.product.name }}<small>{{ ticket.experience_context.track|default:'General' }}</small></td><td>{{ ticket.get_priority_display }}</td><td>{% include 'experiences/partials/status.html' with status=ticket.status label=ticket.get_status_display %}</td><td>{{ ticket.updated_at|date:'d M, H:i' }}</td></tr>{% empty %}<tr><td colspan="5" class="sb-empty">No support tickets.</td></tr>{% endfor %}</tbody></table></div>{% endif %}{% endblock %}
+{% extends "experiences/base.html" %}
+
+{% load careui %}
+
+{% block portal_content %}
+  <div class="mb-7 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <p class="text-[11px] font-bold uppercase tracking-[0.1em] text-soft-foreground">Programme</p>
+      <h1 class="mt-1.5 text-[28px] font-bold leading-tight tracking-[-0.02em]">
+        {% if creating %}New support ticket{% else %}Support{% endif %}
+      </h1>
+      <p class="mt-2 text-sm text-soft-foreground">
+        {% if creating %}
+          Share the details so we can help you move forward.
+        {% else %}
+          Get help, follow replies and keep your integration moving.
+        {% endif %}
+      </p>
+    </div>
+    {% if not creating and not reviewer and workspace and can_integrate %}
+      <a class="ui-btn ui-btn--default ui-btn--size-default no-underline"
+         href="?new=1&amp;product={{ workspace.reference }}">New ticket</a>
+    {% endif %}
+  </div>
+  {% if creating %}
+    <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <form class="ui-card"
+            method="post"
+            enctype="multipart/form-data"
+            hx-boost="false">
+        {% csrf_token %}
+        <div class="ui-card-content flex flex-col gap-5">
+          <h2 class="text-base font-semibold">Tell us what happened</h2>
+          {% if form.errors %}
+            <div class="ui-alert ui-alert--destructive" role="alert">
+              <p>Please check the highlighted fields. Your ticket has not been sent yet.</p>
+            </div>
+          {% endif %}
+          {% include "components/form_errors.html" %}
+          {% if workspace %}
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm">
+              <span class="text-muted-foreground">Product</span>
+              <span class="font-semibold">{{ workspace.product.name }}</span>
+              <span class="font-mono text-xs text-muted-foreground">{{ workspace.reference }}</span>
+            </div>
+          {% endif %}
+          {% ui_field form.subject placeholder="A short summary of the issue" %}
+          <div class="grid gap-5 sm:grid-cols-2">
+            {% ui_field form.category %}
+            {% ui_field form.priority %}
+          </div>
+          {% ui_field form.track help_text="Choose a track this product applied for, or leave this ticket not track-specific." %}
+          {% ui_field form.body help_text="Include the steps, expected result and any error messages." extra_class="min-h-36" %}
+          {% ui_field form.attachments help_text="Attach up to five PDF files to help us investigate." %}
+          <div class="flex flex-col-reverse gap-3 border-t border-soft-border pt-5 sm:flex-row sm:items-center sm:justify-end">
+            <a class="ui-btn ui-btn--ghost ui-btn--size-default no-underline"
+               href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Cancel</a>
+            <button class="ui-btn ui-btn--default ui-btn--size-default" type="submit">Create ticket</button>
+          </div>
+        </div>
+      </form>
+      <aside class="ui-card">
+        <div class="ui-card-content text-sm leading-relaxed">
+          <h2 class="text-base font-semibold">A useful support request</h2>
+          <ul class="mt-4 space-y-3 text-muted-foreground">
+            <li>Describe what you expected and what happened instead.</li>
+            <li>Include the error message and steps to reproduce it.</li>
+            <li>Add the relevant track and supporting PDFs.</li>
+          </ul>
+          <a class="mt-3 inline-block font-semibold text-primary hover:underline"
+             href="{{ experience_program.docs_url }}"
+             target="_blank"
+             rel="noopener noreferrer"
+             hx-boost="false">Integration documentation ↗</a>
+        </div>
+      </aside>
+    </div>
+  {% else %}
+    <section class="ui-card gap-0 overflow-hidden py-0"
+             aria-label="Support tickets">
+      <div class="flex flex-col gap-4 border-b border-soft-border p-4 sm:p-5">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="text-base font-semibold">{% if workspace and not reviewer %}{{ workspace.product.name }}{% else %}All conversations{% endif %}</h2>
+          <span class="text-xs text-muted-foreground">{{ tickets|length }} ticket{{ tickets|length|pluralize }}</span>
+        </div>
+        <nav class="flex flex-wrap gap-1.5" aria-label="Ticket status">
+          {% for value,label in ticket_statuses %}
+            <a class="inline-flex min-h-11 items-center rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {% if request.GET.status|default:'' == value %}border-primary/20 bg-primary/10 text-primary{% else %}border-transparent text-muted-foreground hover:border-border hover:bg-muted-background hover:text-foreground{% endif %} no-underline"
+               href="?status={{ value }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;q={{ request.GET.q|urlencode }}"
+               {% if request.GET.status|default:'' == value %}aria-current="page"{% endif %}>{{ label }}</a>
+          {% endfor %}
+        </nav>
+        <form class="flex min-w-0 flex-wrap items-center gap-2"
+              method="get"
+              role="search"
+              hx-boost="false">
+          {% if workspace %}
+            <input type="hidden" name="product" value="{{ workspace.reference }}" />
+          {% endif %}
+          {% if request.GET.status %}
+            <input type="hidden" name="status" value="{{ request.GET.status }}" />
+          {% endif %}
+          <label class="sr-only" for="ticket-search">Search tickets</label>
+          <input class="ui-input min-w-0 flex-1"
+                 id="ticket-search"
+                 type="search"
+                 name="q"
+                 value="{{ request.GET.q }}"
+                 placeholder="Search subject or ticket ID" />
+          <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Search</button>
+        </form>
+      </div>
+      <div class="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_90px_150px_120px] gap-4 border-b border-soft-border bg-soft-background px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-soft-foreground xl:grid"
+           aria-hidden="true">
+        <span>Ticket</span>
+        <span>Product / track</span>
+        <span>Priority</span>
+        <span>Status</span>
+        <span>Updated</span>
+      </div>
+      <ul class="divide-y divide-soft-border">
+        {% for ticket in tickets %}
+          {% include "experiences/partials/support_ticket_row.html" %}
+        {% empty %}
+          <li class="px-6 py-14 text-center">
+            <h2 class="text-base font-semibold">No support tickets to show</h2>
+            <p class="mt-2 text-sm text-soft-foreground">
+              {% if request.GET.q or request.GET.status %}Try another search or ticket status.{% else %}Open a ticket when you need help with your integration.{% endif %}
+            </p>
+            {% if request.GET.q or request.GET.status %}
+              <a class="ui-btn ui-btn--outline ui-btn--size-default mt-5 no-underline"
+                 href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Clear filters</a>
+            {% elif not reviewer and workspace and can_integrate %}
+              <a class="ui-btn ui-btn--default ui-btn--size-default mt-5 no-underline"
+                 href="?new=1&amp;product={{ workspace.reference }}">Create your first ticket</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="border-t border-soft-border px-4 py-2.5 text-xs text-soft-foreground">{{ tickets|length }} ticket{{ tickets|length|pluralize }}</div>
+    </section>
+  {% endif %}
+{% endblock portal_content %}

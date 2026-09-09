@@ -1,0 +1,6 @@
+{% comment %}
+  One breadcrumb section ahead of the leaf, "/ Support": what a page puts in
+  layouts/app.html's crumb_root block. Context: label.
+{% endcomment %}
+<span class="opacity-50" aria-hidden="true">/</span>
+<span class="truncate">{{ label }}</span>

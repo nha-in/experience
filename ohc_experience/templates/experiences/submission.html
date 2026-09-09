@@ -1,2 +1,16 @@
 {% extends 'experiences/base.html' %}
-{% block portal_content %}<div class="sb-page-heading"><div><p class="sb-eyebrow">Immutable submission history</p><h1>{{ item.form.name }}</h1><p class="sb-muted">Saved by {{ snapshot.submitted_by.display_name }} on {{ snapshot.submitted_at|date:'d M Y, H:i' }} IST</p></div></div>{% include 'experiences/partials/snapshot.html' %}{% endblock %}
+
+{% block portal_content %}
+  <div class="mb-6">
+    <a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
+       href="{% if reviewer %}{{ item.get_absolute_url }}{% elif workspace %}{{ workspace.get_absolute_url }}{% else %}{% url 'experiences:organisation' %}{% endif %}">‹ {% if reviewer %}Back to review{% elif workspace %}Back to product{% else %}Organisation details{% endif %}</a>
+    <p class="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Submission history</p>
+    <h1 class="mt-2 text-[28px] font-semibold leading-tight tracking-[-0.03em]">{{ item.form.name }}</h1>
+    <p class="mt-3 text-sm leading-relaxed text-soft-foreground">Saved by {{ snapshot.submitted_by.display_name }} on {{ snapshot.submitted_at|date:'d M Y, H:i' }} IST</p>
+  </div>
+  <div class="mb-6 rounded-xl border border-primary/15 bg-primary/5 px-5 py-4 text-sm leading-relaxed">
+    <p class="font-semibold text-primary">Saved submission · Read-only</p>
+    <p class="mt-1 text-soft-foreground">This saved submission is a permanent record of what was provided at that time. Later edits do not change this record.</p>
+  </div>
+  {% include 'experiences/partials/snapshot.html' %}
+{% endblock portal_content %}

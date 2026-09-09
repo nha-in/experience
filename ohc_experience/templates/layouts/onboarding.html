@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% load i18n %}
+
+{% block body %}
+  <div class="flex min-h-screen flex-col bg-background text-foreground">
+    <header class="border-b border-border bg-card">
+      <div class="mx-auto flex min-h-[76px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-8">
+        <a href="{% url 'home' %}"
+           class="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+           aria-label="{% translate 'Home' %}">{% include "components/brand.html" %}</a>
+        <div class="flex shrink-0 items-center gap-3 text-sm">
+          {% if request.user.is_authenticated %}
+            <span class="hidden max-w-[24ch] truncate text-muted-foreground md:inline">{{ request.user.email }}</span>
+            <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+              {% csrf_token %}
+              <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-default">{% translate "Sign out" %}</button>
+            </form>
+          {% else %}
+            <a class="ui-btn ui-btn--outline ui-btn--size-default no-underline"
+               href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+    <main id="main-content"
+          class="flex-1 px-4 pt-7 pb-12 sm:px-6 sm:pt-10 sm:pb-16">
+      <div class="mx-auto mb-7 max-w-[640px] sm:mb-8">
+        {% include "components/messages.html" %}
+        {% if not invitation %}
+          <ol class="grid grid-cols-3 gap-3"
+              aria-label="{% translate 'Onboarding steps' %}">
+            <li class="flex flex-col items-center gap-2 text-center text-xs sm:flex-row sm:text-sm {% if onboarding_step == 'organisation' or onboarding_step == 2 or onboarding_step == 'product' or onboarding_step == 3 %}text-primary{% else %}font-semibold text-primary{% endif %}"
+                {% if not onboarding_step or onboarding_step == 'account' or onboarding_step == 1 %}aria-current="step"{% endif %}>
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"
+                    aria-hidden="true">{% if onboarding_step == 'organisation' or onboarding_step == 2 or onboarding_step == 'product' or onboarding_step == 3 %}✓{% else %}1{% endif %}</span>
+              <span>{% translate "Account" %}</span>
+            </li>
+            <li class="flex flex-col items-center gap-2 text-center text-xs sm:flex-row sm:text-sm {% if onboarding_step == 'organisation' or onboarding_step == 2 or onboarding_step == 'product' or onboarding_step == 3 %}font-semibold text-primary{% else %}text-muted-foreground{% endif %}"
+                {% if onboarding_step == 'organisation' or onboarding_step == 2 %}aria-current="step"{% endif %}>
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold {% if onboarding_step == 'organisation' or onboarding_step == 2 or onboarding_step == 'product' or onboarding_step == 3 %}border-primary bg-primary text-primary-foreground{% else %}border-border bg-card{% endif %}"
+                    aria-hidden="true">{% if onboarding_step == 'product' or onboarding_step == 3 %}✓{% else %}2{% endif %}</span>
+              <span>{% translate "Organisation" %}</span>
+            </li>
+            <li class="flex flex-col items-center gap-2 text-center text-xs sm:flex-row sm:text-sm {% if onboarding_step == 'product' or onboarding_step == 3 %}font-semibold text-primary{% else %}text-muted-foreground{% endif %}"
+                {% if onboarding_step == 'product' or onboarding_step == 3 %}aria-current="step"{% endif %}>
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold {% if onboarding_step == 'product' or onboarding_step == 3 %}border-primary bg-primary text-primary-foreground{% else %}border-border bg-card{% endif %}"
+                    aria-hidden="true">3</span>
+              <span>{% translate "Product" %}</span>
+            </li>
+          </ol>
+        {% endif %}
+      </div>
+      {% block onboarding_content %}
+      {% endblock onboarding_content %}
+    </main>
+  </div>
+{% endblock body %}

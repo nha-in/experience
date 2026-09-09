@@ -190,3 +190,111 @@
     initializeUploads(event.detail.elt),
   );
 })();
+
+
+(() => {
+  function updateSubmission(form) {
+    const button = form.querySelector('[data-request-submit]');
+    const reason = form.querySelector('[data-submit-reason]');
+    if (!button) return;
+    const missingFields = [...form.querySelectorAll('[required]')].some(input => !input.checkValidity());
+    const missingFiles = [...form.querySelectorAll('[data-required-upload]')].some(field => {
+      const input = field.querySelector('input[type="file"]');
+      const retained = [...field.querySelectorAll('[data-existing-file-remove]')].some(checkbox => !checkbox.checked);
+      return !input?.files.length && !retained;
+    });
+    const blocked = form.dataset.reviewBlocked === 'true';
+    button.disabled = blocked || missingFields || missingFiles;
+    if (reason) reason.textContent = blocked ? 'Required approvals are pending.' : button.disabled ? 'Complete all required fields and documents.' : '';
+  }
+
+  function updateDecision(form) {
+    const action = form.querySelector('[name="action"]:checked')?.value || 'approve';
+    const note = form.querySelector('[name="note"]');
+    const labels = { approve: ['Decision note', 'Record approval'], send_back: ['Reason for sending back', 'Send back to integrator'], query: ['Question', 'Send query'] };
+    const label = form.querySelector('[data-decision-label]');
+    if (label) label.textContent = labels[action][0];
+    const button = form.querySelector('[data-decision-submit]');
+    if (button) { button.textContent = labels[action][1]; button.disabled = action === 'approve' && form.dataset.approvalBlocked === 'true'; }
+    if (note) note.required = action !== 'approve';
+    form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
+    form.querySelectorAll('[data-approval-controls]').forEach(el => { el.hidden = action !== 'approve'; });
+  }
+
+  function initialize(scope = document) {
+    scope.querySelectorAll?.('[data-review-form]').forEach(updateSubmission);
+    scope.querySelectorAll?.('[data-decision-form]').forEach(updateDecision);
+    scope.querySelectorAll?.('[data-revealed-secret]').forEach(secret => {
+      if (secret.dataset.maskScheduled) return;
+      secret.dataset.maskScheduled = 'true';
+      setTimeout(() => { if (secret.isConnected) hideSecret(secret.closest('[data-secret-container], #secret-value')); }, 30000);
+    });
+  }
+
+  function hideSecret(root) {
+    if (!root) return;
+    const masked = document.createElement('span');
+    masked.textContent = 'Hidden. Reload to reveal again.';
+    root.replaceChildren(masked);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => initialize());
+  document.addEventListener('htmx:afterSettle', () => initialize());
+  document.addEventListener('change', event => {
+    const switcher = event.target.closest('[data-product-switch]');
+    if (switcher) {
+      switcher.form.requestSubmit();
+    }
+    const decision = event.target.closest('[data-decision-form]');
+    if (decision) updateDecision(decision);
+    const form = event.target.closest('[data-review-form]');
+    if (form) updateSubmission(form);
+  });
+  document.addEventListener('input', event => {
+    const form = event.target.closest('[data-review-form]');
+    if (form) updateSubmission(form);
+  });
+  document.addEventListener('drop', event => {
+    const form = event.target.closest('[data-review-form]');
+    if (form) setTimeout(() => updateSubmission(form), 0);
+  });
+  document.addEventListener('click', event => {
+    const hide = event.target.closest('[data-hide-secret]');
+    if (hide) hideSecret(hide.closest('[data-secret-container], #secret-value'));
+    const form = event.target.closest('[data-review-form]');
+    if (form) setTimeout(() => updateSubmission(form), 0);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) document.querySelectorAll('[data-revealed-secret]').forEach(secret => hideSecret(secret.closest('[data-secret-container], #secret-value')));
+  });
+})();
+
+// Copy controls use only values already visible to the authorised account.
+document.addEventListener("click", async (event) => {
+  const copy = event.target.closest("[data-copy], [data-copy-value]");
+  if (!copy || !navigator.clipboard) return;
+  try {
+    await navigator.clipboard.writeText(copy.dataset.copy ?? copy.dataset.copyValue);
+    const idle = copy.querySelector("[data-icon-copy]");
+    const done = copy.querySelector("[data-icon-done]");
+    idle?.classList.add("hidden");
+    done?.classList.remove("hidden");
+    const label = copy.getAttribute("aria-label");
+    const visibleLabel = copy.querySelector("[data-copy-label]");
+    const originalLabel = visibleLabel?.textContent;
+    if (visibleLabel) visibleLabel.textContent = "Copied";
+    copy.setAttribute("aria-label", "Copied");
+    setTimeout(() => {
+      idle?.classList.remove("hidden");
+      done?.classList.add("hidden");
+      if (label) copy.setAttribute("aria-label", label);
+      if (visibleLabel) visibleLabel.textContent = originalLabel;
+    }, 1600);
+  } catch { copy.setAttribute("aria-label", "Copy unavailable; select and copy the value"); }
+});
+
+// These confirmations also apply to ordinary POSTs without HTMX boosting.
+document.addEventListener("submit", (event) => {
+  const message = event.target.dataset.confirm;
+  if (message && !window.confirm(message)) event.preventDefault();
+});

@@ -67,14 +67,16 @@ def test_dashboard_uses_current_portal():
     )
 
 
-def test_navigation_between_portal_and_settings_uses_full_pages(
+def test_navigation_between_portal_and_settings_uses_shared_shell(
     client,
     owner_membership,
 ):
     client.force_login(owner_membership.user)
     response = client.get(reverse("experiences:products"))
     assert response.status_code == HTTPStatus.OK
-    assert f'href="{reverse("organisations:team")}" hx-boost="false"' in response.text
+    assert f'href="{reverse("organisations:team")}"' in response.text
+    assert 'hx-select-oob="#app-nav"' in response.text
+    assert 'hx-target="#main-content"' in response.text
     response = client.get(reverse("organisations:team"))
     assert response.status_code == HTTPStatus.OK
     assert (

@@ -8,6 +8,7 @@ from ohc_experience.experiences.uploads import validate_upload_size
 
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
+from .catalog import TRACKS
 from .catalog import canonical_keys
 
 
@@ -116,6 +117,35 @@ class ProductRegistrationForm(ReviewForm):
         choices=MILESTONE_CHOICES,
         widget=forms.CheckboxSelectMultiple,
     )
+
+    def __init__(self, *args, **kwargs):
+        # Defaults belong to new registrations, never a saved or bound form.
+        if not args and kwargs.get("data") is None and kwargs.get("initial") is None:
+            kwargs["initial"] = {
+                "category": "hmis",
+                "solution_type": "clinical_hmis",
+                "applied_milestones": ["HI-CM:m1"],
+            }
+        super().__init__(*args, **kwargs)
+
+    @property
+    def milestone_tracks(self):
+        selected = self["applied_milestones"].value() or []
+        return [
+            {
+                "definition": track,
+                "milestones": [
+                    {
+                        "definition": MILESTONES[key],
+                        "value": f"{track.code}:{key}",
+                        "selected": f"{track.code}:{key}" in selected,
+                        "shared": track.code == "PHR" and key == "m1",
+                    }
+                    for key in track.keys
+                ],
+            }
+            for track in TRACKS
+        ]
 
     def clean_applied_milestones(self):
         selections = self.cleaned_data["applied_milestones"]

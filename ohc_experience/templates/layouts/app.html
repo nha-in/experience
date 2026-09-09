@@ -1,47 +1,58 @@
 {% extends "base.html" %}
 
 {% comment %}
-  Signed-in shell: a 228px sidebar rail beside a soft-canvas content column,
-  exactly as the hub mockups draw it.
+  Signed-in shell, as the prototype draws it: a 248px sidebar rail, a 64px
+  top bar (breadcrumb, environment pill, the person's initials) and a
+  soft-canvas content column.
 
   Below md the rail is replaced by a sticky top bar and a slide-in drawer. The
   drawer is a checkbox + label so it works with JavaScript disabled; the script
   at the bottom only adds Escape-to-close and closes it after a tap on a link.
 
-  Blocks: page_header (title row above the content), content.
-  Context:  nav_section — set by the view to light the right nav item.
+  The top bar opens with the product switcher (components/product_switcher.html)
+  on every page of the shell, then the breadcrumb.
+
+  Blocks: crumb_root (a section ahead of the leaf, "Support" on a ticket:
+          include components/crumb.html; empty by default), crumb_leaf
+          (defaults follow nav_section), page_header (title row above the
+          content), content.
+  Context: nav_section — set by the view to light the right nav item.
 
   <main id="main-content"> is the boost target: the shell's navigation asks htmx
   to keep just that element out of an ordinary whole-page response and swap it
   in (components/app_nav.html spells the contract out). So the id has to stay,
   and everything that changes from page to page has to live inside it — which
-  is also why #flash-messages sits here rather than outside the main column.
-  The views know none of this; they keep returning whole pages — including the
-  pages that are not this shell, which the script at the bottom hands back to
-  the browser rather than swapping into a sidebar they do not belong in.
+  is also why #flash-messages and the breadcrumb sit here rather than outside
+  the main column. The views know none of this; they keep returning whole
+  pages — including the pages that are not this shell, which the script at the
+  bottom hands back to the browser rather than swapping into a sidebar they do
+  not belong in.
 
   Dismissing an alert is wired once for every shell in base.html.
 {% endcomment %}
 {% load i18n %}
 
 {% block body %}
-  <div class="flex min-h-screen flex-col md:flex-row">
+  <div id="portal"
+       class="flex min-h-screen flex-col md:flex-row"
+       hx-history="false">
     <input type="checkbox"
            id="app-drawer"
-           class="peer sr-only"
-           aria-hidden="true"
-           tabindex="-1" />
+           class="peer sr-only md:hidden"
+           aria-label="Toggle navigation"
+           aria-controls="app-sidebar" />
     <!-- Mobile top bar -->
     <header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card px-4 md:hidden">
       <a href="{% url 'dashboard' %}"
          class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
-        {% include "components/brand.html" with size="sm" %}
+        {% include "components/brand.html" %}
       </a>
       <label for="app-drawer"
-             class="ui-btn ui-btn--ghost ui-btn--size-icon-sm no-underline"
+             class="ui-btn ui-btn--ghost size-11 px-0 no-underline [&_svg]:size-5"
              role="button"
              tabindex="0"
              aria-controls="app-sidebar"
+             aria-expanded="false"
              aria-label="{% translate 'Open navigation' %}">
         <svg viewBox="0 0 24 24"
              fill="none"
@@ -55,17 +66,17 @@
     </header>
     <!-- Scrim: only interactive once the drawer is open -->
     <label for="app-drawer"
-           class="invisible fixed inset-0 z-30 bg-foreground/40 opacity-0 transition-opacity duration-200 peer-checked:visible peer-checked:opacity-100 md:hidden"
+           class="invisible fixed inset-0 z-30 bg-foreground/40 opacity-0 transition-opacity duration-200 motion-reduce:transition-none peer-checked:visible peer-checked:opacity-100 md:hidden"
            aria-hidden="true"></label>
     <aside id="app-sidebar"
-           class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar px-3 pt-4 pb-4 transition-transform duration-200 peer-checked:translate-x-0 md:static md:w-[228px] md:shrink-0 md:translate-x-0 md:pt-[18px]">
-      <div class="mb-4 flex items-center justify-between px-2.5">
+           class="invisible fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar px-3 pt-5 pb-4 transition-transform duration-200 motion-reduce:transition-none peer-checked:visible peer-checked:translate-x-0 md:visible md:sticky md:top-0 md:h-screen md:w-[248px] md:shrink-0 md:translate-x-0">
+      <div class="mb-6 flex items-start justify-between px-1.5">
         <a href="{% url 'dashboard' %}"
            class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
           {% include "components/brand.html" with size="sm" %}
         </a>
         <label for="app-drawer"
-               class="ui-btn ui-btn--ghost ui-btn--size-icon-xs no-underline md:hidden"
+               class="ui-btn ui-btn--ghost size-11 px-0 no-underline md:hidden [&_svg]:size-5"
                role="button"
                tabindex="0"
                aria-label="{% translate 'Close navigation' %}">
@@ -82,14 +93,66 @@
       {% include "components/app_nav.html" %}
     </aside>
     <div class="flex min-w-0 flex-1 flex-col bg-soft-background">
-      <main id="main-content"
-            class="flex-1 px-4 pt-6 pb-12 sm:px-6 md:pt-7 md:pb-12">
-        <div class="mx-auto w-full max-w-[1120px]">
-          {% include "components/messages.html" %}
-          {% block page_header %}
-          {% endblock page_header %}
-          {% block content %}
-          {% endblock content %}
+      <main id="main-content" class="flex flex-1 flex-col">
+        <div class="hidden h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-8 md:flex">
+          <nav hx-boost="true"
+               hx-target="#main-content"
+               hx-select="#main-content"
+               hx-select-oob="#app-nav"
+               hx-swap="outerHTML show:window:top"
+               hx-push-url="true"
+               class="flex min-w-0 items-center gap-1.5 text-sm text-soft-foreground"
+               aria-label="{% translate 'Breadcrumb' %}">
+            {% if workspace %}
+              {% include "components/product_switcher.html" with variant="bar" %}
+            {% else %}
+              <span class="truncate">{% translate "Sandbox" %}</span>
+            {% endif %}
+            {% block crumb_root %}
+            {% endblock crumb_root %}
+            <span class="opacity-50" aria-hidden="true">/</span>
+            <span class="truncate font-medium text-foreground">
+              {% block crumb_leaf %}
+                {% if page_title %}{{ page_title }}{% elif nav_section == "overview" %}
+                  {% translate "Overview" %}
+                {% elif nav_section == "credentials" %}
+                  {% translate "Credentials" %}
+                {% elif nav_section == "track" %}
+                  {{ nav_track }}
+                {% elif nav_section == "events" %}
+                  {% translate "Events" %}
+                {% elif nav_section == "support" %}
+                  {% translate "Support" %}
+                {% elif nav_section == "edit" %}
+                  {% translate "Edit product" %}
+                {% elif nav_section == "settings" %}
+                  {% translate "Settings" %}
+                {% else %}
+                  {% translate "Product" %}
+                {% endif %}
+              {% endblock crumb_leaf %}
+            </span>
+          </nav>
+          <div class="ml-auto flex items-center gap-2">
+            <span class="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-soft-background px-2.5 text-xs text-soft-foreground">
+              {% include "components/status_dot.html" with variant="success" %}
+              {{ experience_program.environment_name }}
+            </span>
+            <span class="mx-0.5 h-5 w-px bg-border" aria-hidden="true"></span>
+            <a class="ui-avatar ui-avatar--muted size-8 text-xs no-underline"
+               href="{% url 'users:profile' %}"
+               title="{{ request.user.display_name }}"
+               aria-label="{% translate 'Your profile' %}">{{ request.user.display_name|slice:":2"|upper }}</a>
+          </div>
+        </div>
+        <div class="flex-1 px-4 py-6 sm:px-7 lg:px-8 lg:py-8">
+          <div class="mx-auto w-full max-w-[1200px]">
+            {% include "components/messages.html" %}
+            {% block page_header %}
+            {% endblock page_header %}
+            {% block content %}
+            {% endblock content %}
+          </div>
         </div>
       </main>
     </div>
@@ -99,13 +162,80 @@
   <script>
     (() => {
       const drawer = document.getElementById("app-drawer");
-      if (!drawer) return;
       const sidebar = document.getElementById("app-sidebar");
+      const trigger = document.querySelector('label[aria-controls="app-sidebar"]');
+      const mobile = window.matchMedia("(max-width: 767px)");
+      let wasOpen = false;
+      if (!drawer) return;
+      const sync = () => {
+        const open = drawer.checked && mobile.matches;
+        trigger?.setAttribute("aria-expanded", String(open));
+        document.getElementById("main-content").inert = open;
+        trigger.closest("header").inert = open;
+        document.documentElement.style.overflow = open ? "hidden" : "";
+        if (open) {
+          sidebar.setAttribute("role", "dialog");
+          sidebar.setAttribute("aria-modal", "true");
+          sidebar.setAttribute("aria-label", "Navigation");
+          if (!wasOpen) sidebar.querySelector('label[for="app-drawer"]').focus();
+        } else {
+          sidebar.removeAttribute("role");
+          sidebar.removeAttribute("aria-modal");
+          sidebar.removeAttribute("aria-label");
+        }
+        wasOpen = open;
+      };
+      const close = (restoreFocus = false) => {
+        drawer.checked = false;
+        sync();
+        if (restoreFocus) trigger?.focus();
+      };
+      drawer.addEventListener("change", () => {
+        sync();
+        if (!drawer.checked) trigger?.focus();
+      });
+      mobile.addEventListener("change", () => {
+        if (!mobile.matches) drawer.checked = false;
+        sync();
+      });
       document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && drawer.checked) drawer.checked = false;
+        if ((event.key === "Enter" || event.key === " ") && event.target.matches("label[for=app-drawer]")) {
+          event.preventDefault();
+          drawer.checked = !drawer.checked;
+          sync();
+          if (!drawer.checked) trigger?.focus();
+        }
+        if (event.key === "Escape" && drawer.checked) close(true);
+        if (event.key === "Tab" && drawer.checked && mobile.matches) {
+          const focusable = [...sidebar.querySelectorAll('a[href], button, input, select, textarea, summary, [tabindex="0"]')]
+            .filter((element) => !element.disabled && element.getClientRects().length);
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
       });
       sidebar?.addEventListener("click", (event) => {
-        if (event.target.closest("a")) drawer.checked = false;
+        if (event.target.closest("a")) close();
+      });
+    })();
+    // The product switcher is a native <details>, which only ever closes
+    // from its own summary: close an open one on a click anywhere else or on
+    // Escape, the way a menu is expected to behave.
+    (() => {
+      const openSwitchers = () => document.querySelectorAll("details[data-popover][open]");
+      document.addEventListener("click", (event) => {
+        openSwitchers().forEach((popover) => {
+          if (!popover.contains(event.target)) popover.removeAttribute("open");
+        });
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") openSwitchers().forEach((popover) => popover.removeAttribute("open"));
       });
     })();
     // A boosted nav click is answered by whatever the server decides to send,

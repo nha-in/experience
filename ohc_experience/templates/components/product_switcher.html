@@ -1,0 +1,59 @@
+{% comment %}
+  The product switcher: the current product's name as a native <details>
+  disclosure listing the organisation's other products and the registration
+  link. Opening another product's overview is what makes it current
+  (the engine remembers the selected workspace in the session), so every entry is a plain
+  link and the whole thing works with scripting off. layouts/app.html closes
+  an open one on a click elsewhere or on Escape.
+
+  variant "bar": the first crumb of the top bar on wide screens; the list
+  floats below the name. variant "card": the product card at the head of the
+  rail, at every width; the list floats below the card, over the rail. That
+  is why app_nav.html keeps the card above the rail's scroll region: a
+  floating panel inside it would be clipped.
+
+  Context: workspace, workspaces, organisation, can_integrate,
+  variant.
+{% endcomment %}
+{% load i18n %}
+
+<details class="group relative {% if variant == 'card' %}rounded-xl border border-sidebar-border bg-soft-background{% else %}min-w-0{% endif %}"
+         id="product-switcher{% if variant == 'card' %}-card{% endif %}"
+         data-popover>
+  <summary class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden {% if variant == 'card' %}px-3 py-3{% else %}-mx-1 px-1 py-0.5 hover:bg-muted-background{% endif %}"
+           title="{% translate 'Switch product' %}">
+    {% if variant == "card" %}
+      <span class="ui-avatar ui-avatar--primary size-9 rounded-lg text-xs"
+            aria-hidden="true">{{ organisation.initials|default:workspace.product.name|slice:":2"|upper }}</span>
+      <span class="min-w-0 flex-1 leading-tight">
+        <span class="block truncate text-sm font-semibold">{{ workspace.product.name }}</span>
+        <span class="mt-1 block font-mono text-xs text-soft-foreground">{{ workspace.reference }}</span>
+      </span>
+    {% else %}
+      <span class="truncate">{{ workspace.product.name }}</span>
+    {% endif %}
+    <span class="shrink-0 text-xs text-soft-foreground transition-transform group-open:rotate-180"
+          aria-hidden="true">▾</span>
+    <span class="sr-only">{% translate "Switch product" %}</span>
+  </summary>
+  <ul class="absolute top-full z-40 mt-1.5 flex flex-col gap-px rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-lg {% if variant == 'card' %}right-0 left-0{% else %}left-0 min-w-[280px]{% endif %}"
+      aria-label="{% translate 'Products' %}">
+    {% for item in workspaces %}
+      {% if item.pk != workspace.pk %}
+        <li>
+          <a class="ui-nav-link block py-2.5 text-sm no-underline"
+             href="{{ item.get_absolute_url }}">
+            <span class="block truncate font-medium">{{ item.product.name }}</span>
+            <span class="mt-1 block font-mono text-xs text-soft-foreground">{{ item.reference }}</span>
+          </a>
+        </li>
+      {% endif %}
+    {% endfor %}
+    {% if can_integrate %}
+      <li {% if workspaces|length > 1 %}class="mt-px border-t border-border pt-px"{% endif %}>
+        <a class="ui-nav-link block py-2.5 text-sm no-underline"
+           href="{% url 'experiences:product-create' %}">{% translate "Register another product" %}</a>
+      </li>
+    {% endif %}
+  </ul>
+</details>

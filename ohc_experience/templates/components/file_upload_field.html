@@ -1,6 +1,7 @@
 {% load i18n %}
 
-<div data-file-upload
+<div class="rounded-xl focus-within:ring-2 focus-within:ring-primary/30 focus-within:ring-offset-4"
+     data-file-upload
      data-multiple="{% if is_multiple_file %}true{% else %}false{% endif %}"
      data-max-files="{{ max_files|default_if_none:'' }}"
      data-remove-label="{% translate 'Remove file' %}"
@@ -17,8 +18,7 @@
         <span class="font-normal text-soft-foreground">({% translate "optional" %})</span>
       {% endif %}
     </label>
-    <span class="text-[11px] tabular-nums text-soft-foreground"
-          data-file-summary>
+    <span class="text-xs tabular-nums text-soft-foreground" data-file-summary>
       {% if max_files %}
         {% blocktranslate with count=existing_files|length maximum=max_files %}{{ count }} of {{ maximum }} files{% endblocktranslate %}
       {% else %}
@@ -27,14 +27,14 @@
     </span>
   </div>
   {% if existing_files %}
-    <div class="mt-2 overflow-hidden rounded-md border border-border bg-muted-background/30">
+    <div class="mt-2 overflow-hidden rounded-xl border border-border bg-muted-background/30">
       <div class="flex items-center justify-between border-b border-border px-3 py-2">
-        <span class="text-[11px] font-semibold uppercase text-soft-foreground">{% translate "Saved files" %}</span>
+        <span class="text-sm font-semibold uppercase text-soft-foreground">{% translate "Saved files" %}</span>
         <span class="ui-badge ui-badge--success ui-badge--size-xs">{% translate "Attached" %}</span>
       </div>
       <ul class="divide-y divide-border" data-existing-files>
         {% for attachment in existing_files %}
-          <li class="flex min-h-12 items-center gap-2.5 px-3 py-2"
+          <li class="flex min-h-14 items-center gap-2.5 px-3 py-2"
               data-existing-file>
             <input class="peer sr-only"
                    id="{{ field.auto_id }}_existing_{{ attachment.pk }}"
@@ -43,7 +43,7 @@
                    value="{{ attachment.pk }}"
                    data-existing-file-remove
                    {% if attachment.pk in removed_file_ids %}checked{% endif %} />
-            <span class="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-card text-muted-foreground peer-checked:opacity-50"
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground peer-checked:opacity-50"
                   aria-hidden="true">
               <svg viewBox="0 0 24 24"
                    class="size-4"
@@ -55,12 +55,12 @@
               </svg>
             </span>
             <span class="min-w-0 flex-1 peer-checked:opacity-50 peer-checked:line-through">
-              <a class="block truncate text-xs font-medium"
+              <a class="block truncate text-sm font-medium"
                  hx-boost="false"
                  href="{% url 'experiences:attachment' attachment.pk %}">{{ attachment.original_name }}</a>
-              <span class="block text-[11px] text-soft-foreground">{{ attachment.size|filesizeformat }}</span>
+              <span class="block text-xs text-soft-foreground">{{ attachment.size|filesizeformat }}</span>
             </span>
-            <label class="ui-btn ui-btn--ghost ui-btn--size-icon-xs shrink-0 cursor-pointer"
+            <label class="ui-btn ui-btn--ghost ui-btn--size-icon-sm shrink-0 cursor-pointer"
                    for="{{ field.auto_id }}_existing_{{ attachment.pk }}"
                    data-existing-file-toggle
                    title="{% if attachment.pk in removed_file_ids %}{% translate 'Keep file' %}{% else %}{% translate 'Remove file' %}{% endif %}">
@@ -81,17 +81,17 @@
                 <path d="M9 14 4 9l5-5" />
                 <path d="M4 9h10a6 6 0 0 1 6 6v1" />
               </svg>
-              <span class="sr-only">{% translate "Toggle file removal" %}</span>
+              <span class="sr-only">{% translate "Toggle file removal" %}: {{ attachment.original_name }}</span>
             </label>
           </li>
         {% endfor %}
       </ul>
     </div>
   {% endif %}
-  <label class="mt-2 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted-background/20 px-4 py-4 text-center transition-colors hover:border-primary/60 hover:bg-primary/5"
+  <label class="mt-2 flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-strong-border bg-soft-background/60 px-4 py-4 text-center transition-colors hover:border-primary/60 hover:bg-primary/5"
          for="{{ field.id_for_label }}"
          data-file-dropzone>
-    <span class="flex size-8 items-center justify-center rounded-md border border-border bg-card text-muted-foreground"
+    <span class="flex size-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground"
           aria-hidden="true">
       <svg viewBox="0 0 24 24"
            class="size-4"
@@ -102,7 +102,7 @@
         <path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" />
       </svg>
     </span>
-    <span class="mt-2 text-xs font-semibold">
+    <span class="mt-2 text-sm font-semibold">
       {% if is_multiple_file %}
         {% translate "Add files" %}
       {% elif existing_files %}
@@ -111,20 +111,20 @@
         {% translate "Choose file" %}
       {% endif %}
     </span>
-    <span class="mt-0.5 text-[11px] text-soft-foreground">
+    <span class="mt-0.5 text-xs text-soft-foreground">
       {% if is_multiple_file %}
         {% translate "Choose several at once or drop them here" %}
       {% else %}
         {% translate "Choose a file or drop it here" %}
       {% endif %}
     </span>
-    {% if accepted_types %}<span class="mt-0.5 font-mono text-[10px] text-soft-foreground">{{ accepted_types }}</span>{% endif %}
+    {% if accepted_types %}<span class="mt-0.5 font-mono text-xs text-soft-foreground">{{ accepted_types }}</span>{% endif %}
   </label>
   {{ field }}
-  <div class="mt-2 hidden overflow-hidden rounded-md border border-primary/25 bg-primary/5"
+  <div class="mt-2 hidden overflow-hidden rounded-xl border border-primary/25 bg-primary/5"
        data-selected-files>
     <div class="flex items-center justify-between border-b border-primary/15 px-3 py-2">
-      <span class="text-[11px] font-semibold uppercase text-primary">{% translate "Ready to upload" %}</span>
+      <span class="text-sm font-semibold uppercase text-primary">{% translate "Ready to upload" %}</span>
       <span class="ui-badge ui-badge--muted ui-badge--size-xs"
             data-selected-count></span>
     </div>

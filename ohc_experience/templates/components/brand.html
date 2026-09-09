@@ -1,12 +1,15 @@
-{% comment %}
-  The "ABDM | Experience Hub" wordmark. Sizes: default (header) and sm (sidebar).
-  Context: size ("default"|"sm"), href (optional — renders a link when given).
-{% endcomment %}
-{% load i18n %}
-
-<span class="flex items-baseline gap-2.5">
-  <span class="font-extrabold tracking-normal text-primary {% if size == 'sm' %}text-lg{% else %}text-[19px]{% endif %}">ABDM</span>
-  <span class="font-semibold text-soft-foreground {% if size == 'sm' %}text-[11.5px]{% else %}border-l border-border pl-2.5 text-xs{% endif %}">
-    {% translate "Experience Hub" %}
+<span class="flex items-center gap-2.5">
+  <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"
+        aria-hidden="true">
+    <svg class="size-6"
+         viewBox="0 0 24 24"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="1.7"
+         stroke-linecap="round"
+         stroke-linejoin="round">
+      <path d="M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3M4 16v3a1 1 0 0 0 1 1h3m8 0h3a1 1 0 0 0 1-1v-3M8 12h8m-4-4v8" />
+    </svg>
   </span>
+  <span class="flex min-w-0 flex-col leading-tight"><span class="text-lg font-bold tracking-tight text-foreground">{{ experience_program.short_name }}</span><span class="mt-0.5 text-xs font-medium text-soft-foreground">{{ experience_program.brand_line_2 }}</span></span>
 </span>

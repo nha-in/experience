@@ -1,8 +1,39 @@
 {% if item.status == 'approved' %}
-  <div class="sb-notice success"><strong>&#10003; Approved</strong><p>{{ item.decided_at|date:'d M Y, H:i' }} IST by {{ item.decided_by.display_name }}</p>{% if item.decision_note %}<p>{{ item.decision_note|linebreaksbr }}</p>{% endif %}{% if item.definition.approval_notice %}<p>{{ item.definition.approval_notice }}</p>{% endif %}</div>
+  <div class="ui-alert ui-alert--success mb-5" role="status">
+    <div class="flex-1">
+      <strong>Approved</strong>
+      <p class="mt-1 text-xs">{{ item.decided_at|date:'d M Y, H:i' }} IST by {{ item.decided_by.display_name }}</p>
+      {% if item.decision_note %}
+        <p class="mt-2">{{ item.decision_note|linebreaksbr }}</p>
+      {% endif %}
+      {% if item.definition.approval_notice %}
+        <p class="mt-2">{{ item.definition.approval_notice }}</p>
+      {% endif %}
+    </div>
+  </div>
 {% elif item.status == 'sent_back' %}
-  <div class="sb-notice warning"><strong>Sent back for changes</strong><p>{{ item.decided_at|date:'d M Y, H:i' }} IST by {{ item.decided_by.display_name }}</p><p>{{ item.decision_note|linebreaksbr }}</p></div>
+  <div class="ui-alert ui-alert--warning mb-5" role="status">
+    <div class="flex-1">
+      <strong>Sent back for changes</strong>
+      <p class="mt-1 text-xs">{{ item.decided_at|date:'d M Y, H:i' }} IST by {{ item.decided_by.display_name }}</p>
+      <p class="mt-2">{{ item.decision_note|linebreaksbr }}</p>
+    </div>
+  </div>
 {% elif item.pending %}
-  <div class="sb-notice {% if item.status == 'query_raised' %}warning{% else %}info{% endif %}"><strong>{% if item.status == 'query_raised' %}Your response is needed{% else %}Under review{% endif %}</strong><p>Submitted {{ item.submitted_at|date:'d M Y, H:i' }} IST. Withdraw the request to edit its form.</p></div>
-  {% if can_integrate %}<form method="post" action="{% url 'experiences:withdraw' item.pk %}" class="sb-inline-form" hx-confirm="Withdraw this request and unlock the submitted form?">{% csrf_token %}<button class="sb-button secondary" type="submit">Withdraw request</button></form>{% endif %}
+  <div class="ui-alert {% if item.status == 'query_raised' %}ui-alert--warning{% else %}ui-alert--info{% endif %} mb-5"
+       role="status">
+    <div class="flex-1">
+      <strong>{% if item.status == 'query_raised' %}Your response is needed{% else %}Under review{% endif %}</strong>
+      <p class="mt-1 text-xs">Submitted {{ item.submitted_at|date:'d M Y, H:i' }} IST. Withdraw the request to edit its form.</p>
+      {% if can_integrate %}
+        <form method="post"
+              action="{% url 'experiences:withdraw' item.pk %}"
+              class="mt-3"
+              hx-confirm="Withdraw this request and unlock the submitted form?">
+          {% csrf_token %}
+          <button class="ui-btn ui-btn--outline ui-btn--size-sm" type="submit">Withdraw request</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
 {% endif %}

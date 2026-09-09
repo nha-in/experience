@@ -1,0 +1,260 @@
+from datetime import timedelta
+from http import HTTPStatus
+
+import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
+from django.utils import timezone
+
+from ohc_experience.abdm.demo import product_data
+from ohc_experience.events.models import Event
+from ohc_experience.experiences import workflows
+from ohc_experience.experiences.forms import SupportForm
+from ohc_experience.experiences.models import EventRegistration
+from ohc_experience.experiences.models import Notification
+from ohc_experience.experiences.models import TicketContext
+from ohc_experience.organisations.tests.factories import MembershipFactory
+from ohc_experience.support.models import Ticket
+from ohc_experience.users.tests.factories import UserFactory
+
+pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def portal_workspaces(owner_membership):
+    result = []
+    for name, milestones in (
+        ("Alpha HMIS", ["HI-CM:m1"]),
+        ("Zeta Locker", ["HealthLocker:locker1"]),
+    ):
+        data = product_data(name)
+        data["applied_milestones"] = milestones
+        workspace, form = workflows.register_product(
+            owner_membership.organisation,
+            owner_membership.user,
+            data=data,
+        )
+        assert workspace, form.errors
+        workspace.refresh_from_db()
+        result.append(workspace)
+    return result
+
+
+@pytest.fixture
+def portal_client(client, owner_membership, portal_workspaces):
+    client.force_login(owner_membership.user)
+    session = client.session
+    session["experience_product"] = portal_workspaces[1].reference
+    session.save()
+    return client
+
+
+def test_ticket_defaults_and_applied_track_choices(portal_workspaces):
+    form = SupportForm(workspace=portal_workspaces[0])
+    assert form["priority"].value() == "medium"
+    assert form["category"].value() == "sandbox"
+    assert [value for value, _label in form.fields["track"].choices] == ["", "HI-CM"]
+    assert form.fields["track"].choices[0][1] == "Not track-specific"
+
+
+@pytest.mark.parametrize("track", ["PHR", "NHCX", "HealthLocker", "unknown"])
+def test_ticket_refuses_unapplied_track(portal_workspaces, track):
+    form = SupportForm(
+        workspace=portal_workspaces[0],
+        data={
+            "subject": "Help",
+            "priority": "medium",
+            "body": "Details",
+            "track": track,
+        },
+    )
+    assert not form.is_valid()
+    assert "track" in form.errors
+
+
+@pytest.mark.parametrize("route", ["experiences:support", "experiences:events"])
+def test_programme_pages_keep_current_product(portal_client, portal_workspaces, route):
+    response = portal_client.get(reverse(route))
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["workspace"] == portal_workspaces[1]
+    assert f"product={portal_workspaces[1].reference}".encode() in response.content
+    response = portal_client.get(
+        reverse(route),
+        {"product": portal_workspaces[0].reference},
+    )
+    assert response.context["workspace"] == portal_workspaces[0]
+    assert portal_client.session["experience_product"] == portal_workspaces[0].reference
+
+
+def test_support_ignores_another_organisations_product(
+    portal_client,
+    portal_workspaces,
+):
+    membership = MembershipFactory()
+    other, form = workflows.register_product(
+        membership.organisation,
+        membership.user,
+        data=product_data("Private product"),
+    )
+    assert other, form.errors
+    response = portal_client.get(
+        reverse("experiences:support"),
+        {"product": other.reference},
+    )
+    assert response.context["workspace"] == portal_workspaces[1]
+    assert b"Private product" not in response.content
+
+
+def test_ticket_create_saves_category_and_scopes_product(
+    portal_client,
+    portal_workspaces,
+):
+    response = portal_client.post(
+        reverse("experiences:support"),
+        {
+            "subject": "Callback rejects the request",
+            "category": "api",
+            "priority": "medium",
+            "track": "HealthLocker",
+            "body": "The callback returns an unexpected status.",
+        },
+    )
+    ticket = Ticket.objects.get()
+    assert response.status_code == HTTPStatus.FOUND
+    assert ticket.category == "api"
+    assert ticket.experience_context.product == portal_workspaces[1].product
+    assert ticket.experience_context.track == "HealthLocker"
+    assert ticket.messages.get().body == "The callback returns an unexpected status."
+
+
+def test_ticket_creation_error_keeps_form_and_does_not_write(portal_client):
+    response = portal_client.post(
+        reverse("experiences:support"),
+        {
+            "subject": "Help",
+            "category": "bad",
+            "priority": "medium",
+            "track": "HI-CM",
+            "body": "Details",
+        },
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert "category" in response.context["form"].errors
+    assert "track" in response.context["form"].errors
+    assert b"New support ticket" in response.content
+    assert not Ticket.objects.exists()
+
+
+def test_ticket_reply_needs_no_category_and_keeps_downloads(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        subject="Existing ticket",
+        created_by=owner_membership.user,
+        category="api",
+    )
+    TicketContext.objects.create(ticket=ticket, product=portal_workspaces[0].product)
+    upload = SimpleUploadedFile(
+        "diagnostic.pdf",
+        b"%PDF-1.4\n%%EOF",
+        content_type="application/pdf",
+    )
+    response = portal_client.post(
+        ticket.get_absolute_url(),
+        {"body": "More details", "attachments": upload},
+    )
+    assert response.status_code == HTTPStatus.FOUND
+    message = ticket.messages.get()
+    assert message.body == "More details"
+    assert message.attachments.get().original_name == "diagnostic.pdf"
+    response = portal_client.get(ticket.get_absolute_url())
+    assert response.status_code == HTTPStatus.OK
+    assert b"diagnostic.pdf" in response.content
+    assert portal_client.session["experience_product"] == portal_workspaces[0].reference
+    assert set(response.context["form"].fields) == {"body", "attachments"}
+    ticket.refresh_from_db()
+    assert ticket.category == "api"
+
+
+def test_support_search_keeps_workspace_and_status(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    for workspace, subject, status in (
+        (portal_workspaces[0], "Callback on another product", "open"),
+        (portal_workspaces[1], "Callback investigation", "open"),
+        (portal_workspaces[1], "Callback fixed", "resolved"),
+        (portal_workspaces[1], "Other issue", "open"),
+    ):
+        ticket = Ticket.objects.create(
+            organisation=owner_membership.organisation,
+            subject=subject,
+            status=status,
+        )
+        TicketContext.objects.create(ticket=ticket, product=workspace.product)
+    response = portal_client.get(
+        reverse("experiences:support"),
+        {"q": "callback", "status": "open"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert [ticket.subject for ticket in response.context["tickets"]] == [
+        "Callback investigation",
+    ]
+
+
+def test_event_register_cancel_and_filter_keep_product(
+    portal_client,
+    portal_workspaces,
+):
+    event = Event.objects.create(
+        title="Integration office hours",
+        kind="office_hours",
+        starts_at=timezone.now() + timedelta(days=2),
+        published_at=timezone.now(),
+        join_url="https://example.org/event",
+        description="Bring your integration questions.",
+    )
+    url = reverse("experiences:events")
+    response = portal_client.post(
+        url,
+        {"event": event.pk, "intent": "register"},
+        follow=True,
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["workspace"] == portal_workspaces[1]
+    assert EventRegistration.objects.filter(event=event).exists()
+    assert Notification.objects.filter(subject__contains=event.title).count() == 1
+    assert b"Cancel registration" in response.content
+    assert b"Join event" in response.content
+    response = portal_client.get(url, {"kind": "webinar"})
+    assert event not in response.context["events"]
+    response = portal_client.post(
+        url,
+        {"event": event.pk, "intent": "cancel"},
+        follow=True,
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert not EventRegistration.objects.filter(event=event).exists()
+
+
+def test_reviewer_can_render_tickets_and_resolve(portal_client, owner_membership):
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        subject="Needs review",
+    )
+    portal_client.force_login(UserFactory(is_ohc_team=True))
+    response = portal_client.get(ticket.get_absolute_url())
+    assert response.status_code == HTTPStatus.OK
+    assert b"Mark resolved" in response.content
+    response = portal_client.post(
+        ticket.get_absolute_url(),
+        {"intent": "resolve"},
+        follow=True,
+    )
+    assert response.status_code == HTTPStatus.OK
+    ticket.refresh_from_db()
+    assert ticket.status == "resolved"

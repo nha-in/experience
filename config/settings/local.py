@@ -58,7 +58,7 @@ DEBUG_TOOLBAR_CONFIG = {
 }
 # https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#internal-ips
 INTERNAL_IPS = ["127.0.0.1", "10.0.2.2"]
-if env("USE_DOCKER") == "yes":
+if env("USE_DOCKER", default="no") == "yes":
     import socket
 
     hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
@@ -112,3 +112,11 @@ STORAGES = {
 }
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# Shell development uses disk uploads and console mail without Docker services.
+if env.bool("DJANGO_USE_LOCAL_MEDIA", default=env("USE_DOCKER", default="no") != "yes"):
+    STORAGES["default"] = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    }
+if env("USE_DOCKER", default="no") != "yes":
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

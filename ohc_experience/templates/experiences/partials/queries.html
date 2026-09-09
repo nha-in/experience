@@ -1,10 +1,54 @@
+{% load experience_ui %}
+
 {% if item.queries.exists %}
-<section class="sb-section"><div class="sb-section-heading"><h2>Queries</h2><span class="sb-muted">{{ item.queries.count }} total</span></div>
-{% for query in item.queries.all %}<article class="sb-query"><div class="sb-section-heading"><strong>{{ query.field_key }}</strong><span class="sb-badge sb-status-{{ query.status }}">{{ query.get_status_display }}</span></div><p>{{ query.question|linebreaksbr }}</p><p class="sb-muted">{{ query.raised_by.display_name }} &middot; {{ query.raised_at|date:'d M Y, H:i' }} IST</p>
-{% if query.submission_id != item.selected_submission_id %}<p class="sb-muted">Earlier submission</p>{% endif %}
-{% if query.reply %}<blockquote><p>{{ query.reply|linebreaksbr }}</p><small>{{ query.replied_by.display_name }} &middot; {{ query.replied_at|date:'d M Y, H:i' }}</small></blockquote>{% endif %}
-{% if query.submission_id == item.selected_submission_id and item.pending %}
-{% if query.status == 'open' and can_integrate %}<form method="post" action="{% url 'experiences:query-action' query.pk %}">{% csrf_token %}<label for="reply-{{ query.pk }}">Your reply</label><textarea id="reply-{{ query.pk }}" name="body" rows="3" required maxlength="10000"></textarea><button class="sb-button" type="submit">Send reply</button></form>{% endif %}
-{% if query.status == 'answered' and can_decide %}<form method="post" action="{% url 'experiences:query-action' query.pk %}">{% csrf_token %}<input type="hidden" name="intent" value="resolve" /><button class="sb-button secondary" type="submit">Mark resolved</button></form>{% endif %}
-{% endif %}</article>{% endfor %}
-</section>{% endif %}
+  <section class="ui-card ui-card--sm mt-5 scroll-mt-20" id="queries">
+    <div class="ui-card-content">
+      <div class="mb-3 flex items-center justify-between gap-2">
+        <h2 class="text-base font-bold">Queries</h2>
+        <span class="text-xs text-soft-foreground">{{ item.queries.count }} total</span>
+      </div>
+      <div class="flex flex-col gap-3">
+        {% for query in item.queries.all %}
+          <article class="rounded-xl border border-soft-border p-5"
+                   id="query-{{ query.pk }}">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <strong class="text-sm font-semibold">{{ query.field_key|readable }}</strong>
+              {% include 'experiences/partials/status.html' with status=query.status label=query.get_status_display %}
+            </div>
+            <p class="text-sm leading-relaxed">{{ query.question|linebreaksbr }}</p>
+            <p class="mt-1.5 text-xs text-soft-foreground">{{ query.raised_by.display_name }} · {{ query.raised_at|date:'d M Y, H:i' }} IST{% if query.submission_id != item.selected_submission_id %} · Earlier submission{% endif %}
+            </p>
+            {% if query.reply %}
+              <blockquote class="mt-3 rounded-lg bg-soft-background p-4">
+                <p class="text-sm leading-relaxed">{{ query.reply|linebreaksbr }}</p>
+                <p class="mt-1 text-xs text-soft-foreground">{{ query.replied_by.display_name }} · {{ query.replied_at|date:'d M Y, H:i' }} IST</p>
+              </blockquote>
+            {% endif %}
+            {% if query.submission_id == item.selected_submission_id and item.pending %}
+              {% if query.status == 'open' and can_integrate %}
+                <form class="mt-3"
+                      method="post"
+                      action="{% url 'experiences:query-action' query.pk %}">
+                  {% csrf_token %}
+                  <label class="ui-label" for="reply-{{ query.pk }}">Your reply</label>
+                  <textarea class="ui-textarea mt-1 mb-2 min-h-36" id="reply-{{ query.pk }}" name="body" rows="4" required maxlength="10000">
+</textarea>
+                  <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Send reply</button>
+                </form>
+              {% endif %}
+              {% if query.status == 'answered' and can_decide %}
+                <form class="mt-3"
+                      method="post"
+                      action="{% url 'experiences:query-action' query.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="intent" value="resolve" />
+                  <button class="ui-btn ui-btn--outline ui-btn--size-sm" type="submit">Mark resolved</button>
+                </form>
+              {% endif %}
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+{% endif %}

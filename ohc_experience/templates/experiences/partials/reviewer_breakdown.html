@@ -1,0 +1,9 @@
+<div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2">
+  <dt class="text-sm leading-relaxed {% if attention and count %}font-medium text-red-700{% endif %}">{{ label }}</dt>
+  <dd class="text-sm font-semibold tabular-nums {% if attention and count %}text-red-700{% endif %}">{{ count }}</dd>
+  <dd class="col-span-2 h-1.5 overflow-hidden rounded-full bg-muted-background"
+      aria-hidden="true">
+    <span class="block h-full rounded-full {% if attention and count %}bg-red-500{% else %}bg-primary{% endif %}"
+          style="width: {% widthratio count pending_count 100 %}%"></span>
+  </dd>
+</div>

@@ -122,3 +122,16 @@ def ui_field(  # noqa: PLR0913, PLR0917
 @register.simple_tag
 def ui_non_field_errors(form) -> dict:
     return form.non_field_errors()
+
+
+@register.filter
+def dot_class(variant) -> str:
+    """The status-dot colour for a badge variant (success, info, warning...)."""
+    return {
+        "success": "bg-emerald-500",
+        "primary": "bg-emerald-500",
+        "info": "bg-sky-500",
+        "warning": "bg-amber-500",
+        "destructive": "bg-red-500",
+        "neutral": "bg-neutral-300",
+    }.get(str(variant), "bg-neutral-300")

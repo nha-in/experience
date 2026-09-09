@@ -1,7 +1,52 @@
 {% extends 'experiences/base.html' %}
+
 {% block portal_content %}
-<div class="sb-page-heading"><div><p class="sb-eyebrow">Product registration</p><h1>{{ page_title }}</h1><p class="sb-muted">{{ organisation.display_name }}</p></div>{% if workspace %}<span class="sb-id">{{ workspace.reference }}</span>{% endif %}</div>
-{% if item %}{% include 'experiences/partials/review_status.html' %}{% endif %}
-{% if not item or can_edit %}<form method="post" novalidate>{% csrf_token %}<input type="hidden" name="revision" value="{{ item.selected_submission_id|default:'' }}" />{% include 'experiences/partials/form.html' %}<div class="sb-actions"><button class="sb-button" type="submit">{% if item %}Submit changes for review{% else %}Register product{% endif %}</button>{% if workspace %}<a href="{{ workspace.get_absolute_url }}">Cancel</a>{% endif %}</div></form>{% else %}{% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}{% endif %}
-{% if item %}{% include 'experiences/partials/queries.html' %}{% include 'experiences/partials/history.html' %}{% endif %}
+  <div class="mb-7 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <p class="text-[11px] font-semibold tracking-[0.1em] text-soft-foreground uppercase">Product registration</p>
+      <h1 class="mt-1.5 text-[28px] font-semibold leading-tight tracking-tight">{{ page_title }}</h1>
+      <p class="mt-2 text-sm text-soft-foreground">{{ organisation.display_name }}</p>
+      <p class="mt-3 max-w-[640px] text-sm leading-relaxed text-soft-foreground">Tell us what you are building, then choose the milestones for your integration.</p>
+    </div>
+    {% if item %}
+      <span class="font-mono text-xs text-soft-foreground">{{ workspace.reference }}</span>
+    {% endif %}
+  </div>
+  <div class="max-w-[920px]">
+    {% if item %}
+      {% include 'experiences/partials/review_status.html' %}
+    {% endif %}
+    {% if not item or can_edit %}
+      <form id="product-form"
+            class="ui-card ui-card--sm"
+            method="post"
+            novalidate>
+        {% csrf_token %}
+        <input type="hidden"
+               name="revision"
+               value="{{ item.selected_submission_id|default:'' }}" />
+        <div class="ui-card-content">
+          {% include 'experiences/partials/form.html' %}
+          <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
+            {% if item %}
+              <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+                 href="{{ workspace.get_absolute_url }}">Cancel</a>
+            {% endif %}
+            <p class="min-w-[180px] flex-1 text-xs leading-relaxed text-soft-foreground">
+              {% if item %}Changes are submitted for review.{% else %}Register a product to start its milestone applications.{% endif %}
+            </p>
+            <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">
+              {% if item %}Submit changes for review{% else %}Register product{% endif %}
+            </button>
+          </div>
+        </div>
+      </form>
+    {% else %}
+      {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
+    {% endif %}
+    {% if item %}
+      {% include 'experiences/partials/queries.html' %}
+      {% include 'experiences/partials/history.html' %}
+    {% endif %}
+  </div>
 {% endblock %}

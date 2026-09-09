@@ -1,8 +1,58 @@
 {% extends 'experiences/base.html' %}
+
 {% block portal_content %}
-<div class="sb-page-heading"><div><p class="sb-eyebrow">{{ experience_program.review_heading }}</p><h1>Review queue</h1><p class="sb-muted">{{ page.paginator.count }} request{{ page.paginator.count|pluralize }} &middot; Oldest first</p></div></div>
-<nav class="sb-filter-tabs" aria-label="Review type"><a class="{% if not filters.kind %}active{% endif %}" href="?">All</a>{% for value,label in kinds %}<a class="{% if filters.kind == value %}active{% endif %}" href="?kind={{ value }}">{{ label }}</a>{% endfor %}<a class="{% if filters.kind == 'mine' %}active{% endif %}" href="?kind=mine">Mine</a></nav>
-<form method="get" class="sb-filters" hx-get="{% url 'experiences:queue' %}" hx-trigger="change, submit" hx-push-url="true"><input type="hidden" name="kind" value="{{ filters.kind }}" /><label>Search<input name="q" value="{{ filters.q }}" placeholder="Product or organisation" /></label><label>Status<select name="status"><option value="">All statuses</option>{% for value,label in statuses %}{% if value != 'draft' %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select></label><label>Track<select name="track"><option value="">All tracks</option>{% for track in track_choices %}<option {% if filters.track == track.code %}selected{% endif %}>{{ track.code }}</option>{% endfor %}</select></label><label>Assignee<select name="assignee"><option value="">All reviewers</option><option value="unassigned" {% if filters.assignee == 'unassigned' %}selected{% endif %}>Unassigned</option>{% for user in reviewers %}<option value="{{ user.pk }}" {% if filters.assignee == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.display_name }}</option>{% endfor %}</select></label><button class="sb-button secondary" type="submit">Filter</button></form>
-<div class="sb-table-scroll"><table class="sb-table"><thead><tr><th>Type</th><th>Subject</th><th>Milestone</th><th>Submitted</th><th>Age</th><th>Assignee</th><th>Status</th></tr></thead><tbody>{% for item in page %}<tr class="{% if item.status == 'query_raised' %}sb-query-row{% endif %}"><td><span class="sb-type">{{ item.get_kind_display }}</span></td><td><a class="sb-table-title" href="{{ item.get_absolute_url }}">{{ item.title }}</a><small>{{ item.organisation.display_name }} &middot; {{ item.reference }}</small></td><td>{{ item.application.milestone.definition.code|default:'-' }}</td><td>{{ item.submitted_at|date:'d M Y' }}</td><td>{{ item.age }}d</td><td>{{ item.assignee.display_name|default:'Unassigned' }}</td><td>{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}</td></tr>{% empty %}<tr><td colspan="7" class="sb-empty">No reviews match these filters.</td></tr>{% endfor %}</tbody></table></div>
-<div class="sb-pagination"><span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span><div>{% if page.has_previous %}<a class="sb-button secondary" href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}{% if page.has_next %}<a class="sb-button secondary" href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</div></div>
-{% endblock %}
+  <div id="review-queue">
+    <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div class="min-w-0">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">{{ experience_program.review_heading }}</p>
+        <h1 class="mt-2 flex flex-wrap items-center gap-3 text-[28px] font-semibold leading-tight tracking-[-0.03em]">Review queue <span class="inline-flex min-w-10 items-center justify-center rounded-full bg-primary/10 px-3 py-1 text-base font-semibold tracking-normal text-primary tabular-nums">{{ page.paginator.count }}</span></h1>
+        <p class="mt-2 max-w-3xl text-sm leading-relaxed text-soft-foreground">Review submissions and keep each request moving. Your decisions and queries are recorded and shared with the integrator.</p>
+      </div>
+    </div>
+    <nav class="mb-5 flex flex-wrap items-center gap-2"
+         aria-label="Review type"
+         hx-boost="true"
+         hx-target="#review-queue"
+         hx-select="#review-queue"
+         hx-swap="outerHTML"
+         hx-push-url="true">
+      <a class="inline-flex min-h-11 items-center rounded-full px-4 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary {% if not filters.kind %}bg-primary font-semibold text-primary-foreground{% else %}border border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5{% endif %}"
+         href="?status={{ filters.status|urlencode }}&amp;track={{ filters.track|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}"
+         {% if not filters.kind %}aria-current="page"{% endif %}>All</a>
+      {% for value,label in kinds %}<a class="inline-flex min-h-11 items-center rounded-full px-4 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary {% if filters.kind == value %}bg-primary font-semibold text-primary-foreground{% else %}border border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5{% endif %}"
+   href="?kind={{ value }}&amp;status={{ filters.status|urlencode }}&amp;track={{ filters.track|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}"
+   {% if filters.kind == value %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+      <a class="inline-flex min-h-11 items-center rounded-full px-4 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary {% if filters.kind == 'mine' %}bg-primary font-semibold text-primary-foreground{% else %}border border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5{% endif %}"
+         href="?kind=mine&amp;status={{ filters.status|urlencode }}&amp;track={{ filters.track|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}"
+         {% if filters.kind == 'mine' %}aria-current="page"{% endif %}>Mine</a>
+    </nav>
+    <form method="get"
+          class="mb-5 grid items-end gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
+          hx-get="{% url 'experiences:queue' %}"
+          hx-target="#review-queue"
+          hx-select="#review-queue"
+          hx-swap="outerHTML"
+          hx-trigger="change, submit"
+          hx-push-url="true">
+      <input type="hidden" name="kind" value="{{ filters.kind }}" />
+      <div>
+        <label class="ui-label" for="queue-search">Search</label><input class="ui-input"
+       id="queue-search"
+       name="q"
+       value="{{ filters.q }}"
+       placeholder="Product or organisation"
+       type="search" />
+      </div>
+      <div><label class="ui-label" for="queue-status">Status</label><div class="ui-select-wrapper"><select class="ui-select" id="queue-status" name="status"><option value="">All statuses</option>{% for value,label in statuses %}{% if value != 'draft' %}<option value="{{ value }}"
+        {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select></div></div>
+      <div><label class="ui-label" for="queue-track">Track</label><div class="ui-select-wrapper"><select class="ui-select" id="queue-track" name="track"><option value="">All tracks</option>{% for track in track_choices %}<option value="{{ track.code }}"
+        {% if filters.track == track.code %}selected{% endif %}>{{ track.code }}</option>{% endfor %}</select></div></div>
+      <div><label class="ui-label" for="queue-assignee">Assignee</label><div class="ui-select-wrapper"><select class="ui-select" id="queue-assignee" name="assignee"><option value="">All reviewers</option><option value="unassigned"
+        {% if filters.assignee == 'unassigned' %}selected{% endif %}>Unassigned</option>{% for user in reviewers %}<option value="{{ user.pk }}"
+        {% if filters.assignee == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.display_name }}</option>{% endfor %}</select></div></div>
+      <div class="flex items-center gap-2"><button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Apply filters</button>{% if filter_query %}<a class="inline-flex min-h-11 items-center text-sm font-medium text-soft-foreground hover:text-primary hover:underline"
+   href="{% url 'experiences:queue' %}">Clear</a>{% endif %}</div>
+    </form>
+    {% include 'experiences/partials/reviewer_queue_results.html' %}
+  </div>
+{% endblock portal_content %}

@@ -1,21 +1,86 @@
-{% extends 'experiences/base.html' %}
-{% load static careui %}
-{% block portal_content %}
-<div class="sb-signup-brand"><img src="{% static 'images/abdm-logo.png' %}" alt="ABDM" width="102" height="58" /><img src="{% static 'images/nha-logo.png' %}" alt="National Health Authority" width="138" height="46" /></div>
-<div class="sb-page-heading"><div><p class="sb-eyebrow">ABDM Developer Sandbox</p><h1>Create your integrator account</h1><p class="sb-muted">Already registered? <a href="{% url 'account_login' %}" hx-boost="false">Sign in</a></p></div></div>
-{% if invitation %}<div class="sb-notice info">You are joining <strong>{{ invitation.organisation.name }}</strong> as {{ invitation.get_role_display }}.</div>{% endif %}
-<form method="post" action="{% url 'account_signup' %}" hx-boost="false" class="sb-signup-form">
-  {% csrf_token %}
-  {% if form.non_field_errors %}<div class="sb-notice error">{{ form.non_field_errors }}</div>{% endif %}
-  <div class="sb-form-grid">
-    {% ui_field form.name label='Your name' %}
-    {% ui_field form.email label='Work email' %}
-    {% if form.organisation %}{% ui_field form.organisation label='Name of the entity' %}{% ui_field form.organisation_type %}{% endif %}
-    <div class="sb-full">{% ui_field form.password1 label='Password' help_text='At least 12 characters.' %}</div>
-    {% if form.password2 %}<div class="sb-full">{% ui_field form.password2 %}</div>{% endif %}
-    {% if form.captcha %}<div class="sb-full">{% if form.turnstile_site_key %}<div class="cf-turnstile" data-sitekey="{{ form.turnstile_site_key }}" data-response-field-name="captcha"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{% for error in form.captcha.errors %}<p class="sb-notice error">{{ error }}</p>{% endfor %}{% else %}{% ui_field form.captcha %}{% endif %}</div>{% endif %}
+{% extends "layouts/onboarding.html" %}
+
+{% load careui %}
+
+{% block title %}Create your account | {{ experience_program.name|default:"Developer Sandbox" }}{% endblock title %}
+{% block onboarding_content %}
+  <div class="mx-auto max-w-[640px]">
+    <section class="ui-card gap-0 py-0" aria-labelledby="signup-title">
+      <div class="border-b border-soft-border px-6 pt-7 pb-6 sm:px-8 sm:pt-8">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">{% if invitation %}Your team is waiting{% else %}Get started{% endif %}</p>
+        <h1 class="mt-3 text-[28px] font-semibold leading-tight tracking-[-0.025em]"
+            id="signup-title">{% if invitation %}Join your organisation{% else %}Create your integrator account{% endif %}</h1>
+        <p class="mt-3 text-sm leading-relaxed text-muted-foreground">{% if invitation %}Create an account with your invited email address to join the team.{% else %}Your account gives you one place to register products, track reviews and get integration support.{% endif %}</p>
+      </div>
+      <form method="post"
+            action="{% url 'account_signup' %}"
+            hx-boost="false"
+            class="flex flex-col gap-6 px-6 py-6 sm:px-8 sm:py-7">
+        {% csrf_token %}
+        {% if invitation %}
+          <div class="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3.5 text-sm leading-relaxed">
+            You are joining <strong>{{ invitation.organisation.name }}</strong> as {{ invitation.get_role_display }}.
+          </div>
+        {% endif %}
+        {% if form.errors %}
+          <div class="ui-alert ui-alert--destructive" role="alert">
+            <div>
+              <p class="font-semibold">A few details need your attention</p>
+              {% if form.non_field_errors %}{{ form.non_field_errors }}{% else %}<p class="mt-1">Check the highlighted fields below to continue.</p>{% endif %}
+            </div>
+          </div>
+        {% endif %}
+        <fieldset class="flex flex-col gap-4">
+          <legend class="mb-4 text-base font-semibold">About you</legend>
+          {% ui_field form.name label="Full name" %}
+          <div class="grid gap-4 sm:grid-cols-2">
+            {% ui_field form.email label="Work email" %}
+            {% if form.mobile_number %}
+              {% ui_field form.mobile_number %}
+            {% endif %}
+          </div>
+        </fieldset>
+        {% if form.organisation %}
+          <fieldset class="flex flex-col gap-4 border-t border-soft-border pt-6">
+            <legend class="float-left mb-4 w-full text-base font-semibold">Your organisation</legend>
+            <div class="clear-both grid gap-4 sm:grid-cols-2">
+              {% ui_field form.organisation label="Organisation name" %}
+              {% ui_field form.organisation_type %}
+            </div>
+          </fieldset>
+        {% endif %}
+        <fieldset class="flex flex-col gap-4 border-t border-soft-border pt-6">
+          <legend class="float-left mb-4 w-full text-base font-semibold">Secure your account</legend>
+          <div class="clear-both">{% ui_field form.password1 label="Password" help_text="Use at least 12 characters. Avoid common words and personal details." %}</div>
+          {% if form.password2 %}
+            {% ui_field form.password2 label="Confirm password" %}
+          {% endif %}
+          {% if form.captcha %}
+            <div>
+              {% if form.turnstile_site_key %}
+                <div class="cf-turnstile"
+                     data-sitekey="{{ form.turnstile_site_key }}"
+                     data-response-field-name="captcha"></div>
+                <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+                        async
+                        defer></script>
+                {% for error in form.captcha.errors %}<p class="ui-error mt-2" role="alert">{{ error }}</p>{% endfor %}
+              {% else %}
+                {% ui_field form.captcha %}
+              {% endif %}
+            </div>
+          {% endif %}
+        </fieldset>
+        {{ redirect_field }}
+        <div class="border-t border-soft-border pt-6">
+          <button class="ui-btn ui-btn--default ui-btn--size-lg min-h-12 w-full"
+                  type="submit">{% if invitation %}Create account and join team{% else %}Create account{% endif %}</button>
+          <p class="mt-3 text-center text-xs leading-relaxed text-muted-foreground">We'll email you a verification link to confirm your address.</p>
+        </div>
+      </form>
+    </section>
+    <p class="mt-6 text-center text-sm text-muted-foreground">Already have an account? <a class="inline-flex min-h-11 items-center font-semibold text-primary underline-offset-4 hover:underline"
+    href="{% url 'account_login' %}"
+    hx-boost="false">Sign in</a></p>
   </div>
-  {{ redirect_field }}
-  <div class="sb-actions"><button class="sb-button" type="submit">Create account</button></div>
-</form>
-{% endblock %}
+{% endblock onboarding_content %}

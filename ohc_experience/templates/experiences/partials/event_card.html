@@ -1,0 +1,56 @@
+<article class="ui-card gap-0 py-0" id="event-{{ event.pk }}">
+  <div class="grid gap-5 p-5 sm:grid-cols-[64px_minmax(0,1fr)] xl:grid-cols-[64px_minmax(0,1fr)_180px] sm:p-6">
+    <time class="flex h-[72px] w-16 shrink-0 flex-col items-center justify-center rounded-xl border border-primary/15 bg-primary/5 text-primary"
+          datetime="{{ event.starts_at|date:'c' }}">
+      <span class="text-xs font-semibold uppercase">{{ event.starts_at|date:"M" }}</span>
+      <span class="text-[28px] font-bold leading-tight">{{ event.starts_at|date:"d" }}</span>
+    </time>
+    <div class="min-w-0">
+      <p class="text-[11px] font-bold uppercase tracking-[0.08em] text-soft-foreground">{{ event.get_kind_display }}</p>
+      <h2 class="mt-1.5 text-base font-bold leading-snug break-words">{{ event.title }}</h2>
+      {% if event.summary %}
+        <p class="mt-2 text-sm leading-relaxed text-soft-foreground">{{ event.summary }}</p>
+      {% endif %}
+      <p class="mt-3 text-sm text-muted-foreground">{{ event.starts_at|date:"j M Y, H:i" }}{% if event.ends_at %}–{{ event.ends_at|date:"H:i" }}{% endif %} IST · {{ event.location|default:"Online" }}</p>
+      {% if event.description %}
+        <details class="mt-4 rounded-xl border border-soft-border px-4 text-sm">
+          <summary class="cursor-pointer py-3 font-medium text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            {% if period == 'past' %}Event materials{% else %}Event details{% endif %}
+          </summary>
+          <div class="border-t border-soft-border pt-3 pb-4 leading-relaxed break-words text-muted-foreground">{{ event.description|linebreaksbr }}</div>
+        </details>
+      {% endif %}
+    </div>
+    <div class="sm:col-start-2 xl:col-start-auto">
+      {% if period != 'past' %}
+        <form class="flex flex-wrap items-center gap-3 xl:flex-col xl:items-stretch"
+              method="post"
+              hx-boost="false">
+          {% csrf_token %}
+          <input type="hidden" name="event" value="{{ event.pk }}" />
+          {% if event.pk in registered %}
+            <span class="ui-badge ui-badge--success ui-badge--size-sm self-start">✓ Registered</span>
+            {% if event.join_url %}
+              <a class="ui-btn ui-btn--default ui-btn--size-default no-underline"
+                 href="{{ event.join_url }}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 hx-boost="false">Join event ↗</a>
+            {% endif %}
+            <button class="ui-btn ui-btn--ghost ui-btn--size-sm min-h-11"
+                    type="submit"
+                    name="intent"
+                    value="cancel">Cancel registration</button>
+          {% else %}
+            <button class="ui-btn ui-btn--default ui-btn--size-default"
+                    type="submit"
+                    name="intent"
+                    value="register">Register</button>
+          {% endif %}
+        </form>
+      {% else %}
+        <span class="ui-badge ui-badge--neutral ui-badge--size-sm">Completed</span>
+      {% endif %}
+    </div>
+  </div>
+</article>
