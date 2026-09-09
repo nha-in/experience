@@ -6,8 +6,8 @@
       <div class="ui-rise min-w-0">
         <a class="ui-hero-back min-h-9" href="{{ workspace.get_absolute_url }}"><span aria-hidden="true">‹</span> Back to product</a>
         <p class="ui-hero-eyebrow">Product certification</p>
-        <h1 class="ui-hero-title">WASA certification</h1>
-        <p class="ui-hero-lede">Keep {{ workspace.product.name }}'s WASA up to date. An approved certificate can be reused across its milestones until expiry.</p>
+        <h1 class="ui-hero-title">WASA</h1>
+        <p class="ui-hero-lede">Manage {{ workspace.product.name }}'s certificate and submit a renewal before it expires.</p>
         <p class="mt-3 font-mono text-xs text-soft-foreground">{{ workspace.reference }}</p>
       </div>
     </div>
@@ -15,20 +15,20 @@
 {% endblock portal_hero %}
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
-  <div class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+  <div class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
     <aside class="min-w-0 xl:col-start-2 xl:row-start-1">
       {% include 'experiences/partials/product_wasa_card.html' with certification_page=True %}
     </aside>
     <div class="ui-rise min-w-0 xl:col-start-1 xl:row-start-1">
-      <section class="ui-card ui-card--layered">
+      <section class="ui-card">
         <div class="ui-card-header">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="ui-card-title">{% if item.pending %}WASA review{% elif certification.current %}Renew WASA{% else %}Submit WASA{% endif %}</h2>
-            {% if item %}
+            <h2 class="ui-card-title">{% if item.pending %}WASA review{% elif certification.current %}Renew certificate{% else %}Submit certificate{% endif %}</h2>
+            {% if item and not item.pending and item.status != 'sent_back' %}
               {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
             {% endif %}
           </div>
-          <p class="ui-card-description">{% if item.pending %}Your submission is with the review team. Follow any questions below.{% else %}Provide the audit details, expiry date and certificate. You can save a draft and return later.{% endif %}</p>
+          <p class="ui-card-description">{% if item.pending %}Your submission is with the review team. Follow any questions below.{% else %}Add the audit details, expiry date and certificate for review.{% endif %}</p>
           {% if item %}<p class="mt-2 font-mono text-xs text-soft-foreground">{{ item.application.reference }}</p>{% endif %}
         </div>
         <div class="ui-card-content">
@@ -53,8 +53,7 @@
               {% include 'experiences/partials/form.html' %}
               <div class="mt-8 flex flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm font-medium">Save your progress or request review</p>
-                  <p class="mt-1 text-xs leading-relaxed text-soft-foreground">Submitting locks this form for review. Approval updates your product's WASA.</p>
+                  <p class="text-xs leading-relaxed text-soft-foreground">Approval updates your product's WASA certificate.</p>
                   <p class="mt-1.5 text-xs text-soft-foreground"
                      data-unsaved-status
                      aria-live="polite">Changes are saved when you save a draft.</p>
@@ -89,53 +88,57 @@
       </section>
       {% if item %}
         {% include 'experiences/partials/queries.html' %}
-        {% include 'experiences/partials/history.html' %}
       {% endif %}
-      {% if certification_reviews %}
-        <section class="ui-card ui-card--sm mt-5" aria-labelledby="wasa-history-title">
-          <div class="ui-card-content">
-            <h2 class="mb-4 text-base font-bold" id="wasa-history-title">WASA submissions</h2>
-            <ul class="divide-y divide-soft-border">
-              {% for review in certification_reviews %}
-                <li class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-                  <div class="min-w-0">
-                    <p class="font-mono text-xs font-semibold">{{ review.reference }}</p>
-                    <p class="mt-1 text-xs text-soft-foreground">{% if review.submitted_at %}Submitted {{ review.submitted_at|date:'j M Y' }}{% else %}Draft started {{ review.created_at|date:'j M Y' }}{% endif %}</p>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-3">
-                    {% include 'experiences/partials/status.html' with status=review.status label=review.get_status_display %}
-                    {% if review.selected_submission %}<a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
-   href="{% url 'experiences:submission' review.pk review.selected_submission_id %}">View submission</a>{% endif %}
-                  </div>
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        </section>
-      {% endif %}
-      {% if certification.history %}
-        <section class="ui-card ui-card--sm mt-5"
-                 aria-labelledby="wasa-approvals-title">
-          <div class="ui-card-content">
-            <h2 class="mb-4 text-base font-bold" id="wasa-approvals-title">Approved certificates</h2>
-            <p class="mb-4 text-xs leading-relaxed text-soft-foreground">Certificates approved through milestones and WASA reviews. Each approval keeps its original evidence.</p>
-            <ul class="divide-y divide-soft-border">
-              {% for approval in certification.history %}
-                <li class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-                  <div class="min-w-0">
-                    <p class="text-sm font-semibold">{{ approval.data.wasa_agency }}</p>
-                    <p class="mt-1 text-xs text-soft-foreground">Approved {{ approval.issued_at|date:'j M Y' }} · {% if approval.valid_until %}Expiry {{ approval.valid_until|date:'j M Y' }}{% else %}Expiry needs verification{% endif %}</p>
-                    <p class="mt-1 text-xs text-soft-foreground">{{ approval.source_application.title }}</p>
-                  </div>
-                  {% if approval.source_application.review_item and approval.data.submission_id %}
-                    <a class="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold text-primary hover:underline"
-                       href="{% url 'experiences:submission' approval.source_application.review_item.pk approval.data.submission_id %}">View evidence</a>
-                  {% endif %}
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        </section>
+      {% if item or certification_reviews or certification.history %}
+        <details class="mt-5 border-t border-soft-border pt-2">
+          <summary class="min-h-11 cursor-pointer rounded-md py-2.5 text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">WASA history</summary>
+          {% if item %}
+            {% include 'experiences/partials/history.html' %}
+          {% endif %}
+          {% if certification_reviews %}
+            <section class="mt-5" aria-labelledby="wasa-history-title">
+              <h2 class="mb-2 text-sm font-semibold" id="wasa-history-title">WASA submissions</h2>
+              <ul class="divide-y divide-soft-border">
+                {% for review in certification_reviews %}
+                  <li class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                      <p class="font-mono text-xs font-semibold">{{ review.reference }}</p>
+                      <p class="mt-1 text-xs text-soft-foreground">{% if review.submitted_at %}Submitted {{ review.submitted_at|date:'j M Y' }}{% else %}Draft started {{ review.created_at|date:'j M Y' }}{% endif %}</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                      {% include 'experiences/partials/status.html' with status=review.status label=review.get_status_display %}
+                      {% if review.selected_submission %}
+                        <a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                           href="{% url 'experiences:submission' review.pk review.selected_submission_id %}">View submission</a>
+                      {% endif %}
+                    </div>
+                  </li>
+                {% endfor %}
+              </ul>
+            </section>
+          {% endif %}
+          {% if certification.history %}
+            <section class="mt-5 border-t border-soft-border pt-5"
+                     aria-labelledby="wasa-approvals-title">
+              <h2 class="mb-2 text-sm font-semibold" id="wasa-approvals-title">Approved certificates</h2>
+              <ul class="divide-y divide-soft-border">
+                {% for approval in certification.history %}
+                  <li class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                      <p class="break-words text-sm font-semibold">{{ approval.data.wasa_agency }}</p>
+                      <p class="mt-1 text-xs text-soft-foreground">Approved {{ approval.issued_at|date:'j M Y' }} · {% if approval.valid_until %}Expiry {{ approval.valid_until|date:'j M Y' }}{% else %}Expiry needs verification{% endif %}</p>
+                      <p class="mt-1 text-xs text-soft-foreground">{{ approval.source_application.title }}</p>
+                    </div>
+                    {% if approval.source_application.review_item and approval.data.submission_id %}
+                      <a class="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                         href="{% url 'experiences:submission' approval.source_application.review_item.pk approval.data.submission_id %}">View evidence</a>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </section>
+          {% endif %}
+        </details>
       {% endif %}
     </div>
   </div>

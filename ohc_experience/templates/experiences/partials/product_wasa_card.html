@@ -1,54 +1,34 @@
-<section class="ui-card ui-card--layered ui-card--sm ui-rise"
-         aria-labelledby="product-wasa-title">
+<section class="ui-card ui-card--sm" aria-labelledby="product-wasa-title">
   <div class="ui-card-content">
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h2 class="text-base font-bold" id="product-wasa-title">WASA certification</h2>
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="text-sm font-semibold" id="product-wasa-title">WASA</h2>
       <span class="ui-badge ui-badge--{{ certification.tone }} ui-badge--size-xs">{{ certification.status_label }}</span>
     </div>
     {% if certification.valid_until %}
-      <p class="text-xs text-soft-foreground">{% if certification.status == 'expired' %}Expired on{% elif certification.status == 'revoked' %}Certificate expiry{% else %}Valid until{% endif %}</p>
-      <p class="mt-1 text-[26px] leading-8 font-extrabold tracking-tight tabular-nums">{{ certification.valid_until|date:'j M Y' }}</p>
+      <p class="mt-2 text-sm text-soft-foreground">{% if certification.status == 'expired' %}Expired on{% elif certification.status == 'revoked' %}Certificate expiry{% else %}Valid until{% endif %} <span class="tabular-nums">{{ certification.valid_until|date:'j M Y' }}</span></p>
     {% elif certification.status == 'needs_verification' %}
-      <p class="text-sm leading-relaxed text-soft-foreground">Your earlier WASA has no verified expiry date. Submit a certificate with its validity details for review.</p>
-    {% elif certification.review.pending %}
-      <p class="text-sm leading-relaxed text-soft-foreground">Your WASA submission is under review. Once approved, it will be available across this product's milestones.</p>
-    {% elif certification.review.status == 'sent_back' %}
-      <p class="text-sm leading-relaxed text-soft-foreground">Your WASA submission needs changes. Update the certificate details and submit it for review again.</p>
-    {% elif certification.review %}
-      <p class="text-sm leading-relaxed text-soft-foreground">Your WASA draft is saved. Complete the certificate details and submit it for review.</p>
-    {% else %}
-      <p class="text-sm leading-relaxed text-soft-foreground">Submit WASA here or with a milestone. Once approved, it is available across this product's milestones.</p>
+      <p class="mt-2 text-sm text-soft-foreground">Submit the certificate's expiry date for review.</p>
+    {% elif not certification.review %}
+      <p class="mt-2 text-sm text-soft-foreground">Add a certificate for this product.</p>
     {% endif %}
-    {% if certification.agency or certification.audit_date %}
-      <dl class="mt-4 grid grid-cols-[72px_1fr] gap-x-3 gap-y-2.5 text-sm">
-        {% if certification.agency %}<dt class="text-soft-foreground">Agency</dt><dd class="min-w-0 break-words">{{ certification.agency }}</dd>{% endif %}
-        {% if certification.audit_date %}<dt class="text-soft-foreground">Audit date</dt><dd class="tabular-nums">{{ certification.audit_date|date:'j M Y' }}</dd>{% endif %}
-      </dl>
-    {% endif %}
-    {% if certification.status == 'expiring' %}
-      <p class="mt-3 text-xs leading-relaxed text-amber-800">Renew soon so your next milestone can be approved without a gap.</p>
-    {% elif certification.status == 'expired' or certification.status == 'revoked' %}
-      <p class="mt-3 text-xs leading-relaxed text-amber-800">An approved, valid certificate is required before your next milestone can be approved.</p>
-    {% endif %}
-    {% if certification.certificate %}
-      <a class="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline"
-         href="{% url 'experiences:attachment' certification.certificate.pk %}"
-         hx-boost="false">View certificate <span aria-hidden="true">↓</span></a>
-    {% endif %}
-    {% if certification.review %}
-      <div class="mt-4 rounded-lg border border-soft-border bg-soft-background px-3 py-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="text-xs font-semibold">{% if certification.current %}Renewal{% else %}WASA submission{% endif %}</p>
-          {% include 'experiences/partials/status.html' with status=certification.review.status label=certification.review.get_status_display %}
-        </div>
-        {% if certification.current and certification.pending_review %}
-          <p class="mt-2 text-xs leading-relaxed text-soft-foreground">{% if certification.status == 'valid' or certification.status == 'expiring' %}Your existing certificate stays available until it expires. This renewal takes effect after approval.{% else %}Submitting a renewal does not extend your previous certificate's validity. The new certificate becomes available after approval.{% endif %}</p>
-        {% endif %}
+    {% if certification.review and not certification_page %}
+      <div class="mt-2 flex flex-wrap items-center gap-2">
+        <span class="text-xs text-soft-foreground">{% if certification.current %}Renewal{% else %}Submission{% endif %}</span>
+        {% include 'experiences/partials/status.html' with status=certification.review.status label=certification.review.get_status_display %}
       </div>
     {% endif %}
-    {% if can_integrate and not certification_page %}
-      <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-4 w-full"
-         href="{% url 'experiences:product-certification' workspace.reference %}">{% if certification.review.pending %}View WASA review{% elif certification.review %}Continue WASA submission{% else %}{{ certification.action_label }}{% endif %}<span aria-hidden="true">→</span></a>
+    {% if certification_page %}
+      {% if certification.agency %}
+        <p class="mt-2 break-words text-xs text-soft-foreground">{{ certification.agency }}</p>
+      {% endif %}
+      {% if certification.certificate %}
+        <a class="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+           href="{% url 'experiences:attachment' certification.certificate.pk %}"
+           hx-boost="false">View certificate</a>
+      {% endif %}
+    {% elif can_integrate %}
+      <a class="mt-1 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+         href="{% url 'experiences:product-certification' workspace.reference %}">{% if certification.review.pending %}View review{% elif certification.review %}Continue submission{% elif certification.status == 'valid' %}Manage{% elif certification.status == 'needs_verification' %}Update WASA{% else %}{{ certification.action_label }}{% endif %}<span aria-hidden="true">→</span></a>
     {% endif %}
   </div>
 </section>

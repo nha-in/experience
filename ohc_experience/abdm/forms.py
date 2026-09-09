@@ -362,8 +362,7 @@ class WasaReviewForm(ReviewForm):
     )
     section_notes = {
         "WASA audit": (
-            "Submit the certificate covering this product and its stated expiry date. "
-            "An approved certificate can be used for this product's milestones."
+            "Upload your certificate and enter the expiry date stated on it."
         ),
     }
     wasa_agency = forms.ChoiceField(
@@ -432,6 +431,11 @@ class WasaReviewForm(ReviewForm):
 
 class ExitEvidenceForm(WasaReviewForm):
     full_width_fields = ("use_product_wasa",)
+    section_notes = {
+        "WASA audit": (
+            "The certificate must cover the application and version being submitted."
+        ),
+    }
     sections = (
         ("Sandbox testing", ("start_date", "end_date", "tentative_demo_date")),
         (
@@ -462,9 +466,9 @@ class ExitEvidenceForm(WasaReviewForm):
         widget=forms.DateInput(attrs={"type": "date"}),
     )
     use_product_wasa = forms.BooleanField(
-        label="Use approved product WASA",
+        label="Use an approved certificate",
         required=False,
-        help_text="Clear this to submit a new certificate for review.",
+        help_text="Uncheck to upload a new certificate for review.",
     )
     wasa_source_submission = forms.IntegerField(
         label="Approved WASA submission",

@@ -45,10 +45,6 @@
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'credentials' %}ui-nav-link--active{% endif %}"
    {% if nav == 'credentials' %}aria-current="page"{% endif %}
    href="{% url 'experiences:credentials' workspace.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}Credentials &amp; outcomes</a></li>{% endif %}
-        {% if can_integrate and experience_program.certification_application %}<li><a id="nav-certification"
-   class="ui-nav-link flex items-center gap-2.5 {% if nav == 'certification' %}ui-nav-link--active{% endif %}"
-   {% if nav == 'certification' %}aria-current="page"{% endif %}
-   href="{% url 'experiences:product-certification' workspace.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}WASA certification</a></li>{% endif %}
         {% if nav_tracks %}<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Tracks</li>{% endif %}
         {% for row in nav_tracks %}
           <li><a id="nav-track-{{ row.definition.code|slugify }}"
@@ -71,6 +67,10 @@
   {% endif %}
   {% if can_integrate %}
     <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Product</li>
+    {% if workspace and not reviewer and experience_program.certification_application %}<li><a id="nav-certification"
+   class="ui-nav-link flex items-center gap-2.5 {% if nav == 'certification' %}ui-nav-link--active{% endif %}"
+   {% if nav == 'certification' %}aria-current="page"{% endif %}
+   href="{% url 'experiences:product-certification' workspace.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}WASA</a></li>{% endif %}
     {% if workspace %}<li><a id="nav-edit"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'edit' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:product-edit' workspace.reference %}">{% include "components/nav_icon.html" with icon="edit" %}Edit product</a></li>{% endif %}

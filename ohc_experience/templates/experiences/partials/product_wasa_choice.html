@@ -1,58 +1,61 @@
 {% load careui %}
 
 {% if form.wasa_reuse_available or field.value or form.latest_product_wasa %}
-  <div class="rounded-xl border border-primary-200 bg-primary-50/60 px-4 py-4">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div class="min-w-0">
-        <p class="text-sm font-semibold">{% if form.product_wasa.valid %}Approved WASA for this product{% else %}Selected WASA needs replacement{% endif %}</p>
-        {% if form.product_wasa.valid_until %}
-          <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{{ form.product_wasa.agency }} · {% if form.product_wasa.valid_until < today %}Expired{% else %}Valid until{% endif %} {{ form.product_wasa.valid_until|date:'j M Y' }}</p>
-        {% else %}
-          <p class="mt-1 text-xs leading-relaxed text-amber-800">A valid approved certificate is unavailable. Upload a new certificate below.</p>
-        {% endif %}
-        {% if not form.product_wasa.valid and form.product_wasa.valid_until %}<p class="mt-2 text-xs leading-relaxed text-amber-800">{{ form.product_wasa.status_label }}. {% if form.latest_product_wasa %}Choose the latest approved certificate below, or clear the reuse option to upload a replacement.{% else %}Clear the option below and submit a new certificate.{% endif %}</p>{% endif %}
-      </div>
-      {% if form.product_wasa.certificate %}
-        <a class="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary hover:underline"
-           href="{% url 'experiences:attachment' form.product_wasa.certificate.pk %}"
-           hx-boost="false">View certificate <span aria-hidden="true">↓</span></a>
+  <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+    <p class="text-sm {% if not form.product_wasa.valid %}text-amber-800{% else %}text-muted-foreground{% endif %}">
+      {% if form.product_wasa.valid %}
+        Approved certificate <span aria-hidden="true">·</span> Valid until {{ form.product_wasa.valid_until|date:'j M Y' }}
+      {% elif form.product_wasa.valid_until %}
+        {{ form.product_wasa.status_label }} certificate <span aria-hidden="true">·</span> Expiry {{ form.product_wasa.valid_until|date:'j M Y' }}
+      {% else %}
+        Select a valid certificate or upload a new one.
       {% endif %}
-    </div>
-    <div class="mt-3 border-t border-primary-200 pt-3">{% ui_field field %}</div>
-    {% if form.latest_product_wasa %}
-      <fieldset class="mt-4 flex flex-col gap-2" data-wasa-source-options>
-        <legend class="mb-2 text-xs font-semibold">Choose the approved certificate to use</legend>
-        <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-primary-200 bg-card px-3 py-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
-          <input class="mt-0.5 size-4 shrink-0 accent-primary"
-                 type="radio"
-                 name="wasa_source_submission"
-                 value="{{ form.product_wasa.source_submission.pk|default:form.wasa_source_submission.value }}"
-                 checked />
-          <span class="min-w-0 text-sm"><strong class="block font-semibold">Keep selected certificate</strong><span class="mt-1 block text-xs text-soft-foreground">{{ form.product_wasa.agency|default:'Previously selected WASA' }}{% if form.product_wasa.valid_until %} · Expiry {{ form.product_wasa.valid_until|date:'j M Y' }}{% endif %}{% if not form.product_wasa.valid %} · {{ form.product_wasa.status_label|default:'Unavailable' }}{% endif %}</span></span>
-        </label>
-        <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-primary-200 bg-card px-3 py-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
-          <input class="mt-0.5 size-4 shrink-0 accent-primary"
-                 type="radio"
-                 name="wasa_source_submission"
-                 value="{{ form.latest_product_wasa.source_submission.pk }}" />
-          <span class="min-w-0 text-sm"><strong class="block font-semibold">Use latest approved WASA</strong><span class="mt-1 block text-xs text-soft-foreground">{{ form.latest_product_wasa.agency }} · Valid until {{ form.latest_product_wasa.valid_until|date:'j M Y' }}</span></span>
-        </label>
-      </fieldset>
-      {% if form.latest_product_wasa.certificate %}<a class="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
-   href="{% url 'experiences:attachment' form.latest_product_wasa.certificate.pk %}"
-   hx-boost="false"
-   data-wasa-source-options>View latest approved certificate <span aria-hidden="true">↓</span></a>{% endif %}
+    </p>
+    {% if form.product_wasa.certificate %}
+      <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
+         href="{% url 'experiences:attachment' form.product_wasa.certificate.pk %}"
+         hx-boost="false">View certificate</a>
     {% endif %}
-    <p class="mt-2 text-xs leading-relaxed text-soft-foreground">This milestone keeps a record of the certificate it uses. A new certificate becomes available to your product after approval.</p>
-    <noscript>
-      <p class="mt-2 text-xs text-soft-foreground">After changing this option, save a draft to update the certificate fields.</p>
-      <button type="submit"
-              name="intent"
-              value="draft"
-              class="ui-btn ui-btn--outline ui-btn--size-sm mt-2"
-              formnovalidate>Apply certificate choice</button>
-    </noscript>
   </div>
-{% else %}
-  <p class="text-sm leading-relaxed text-soft-foreground">No valid, approved product WASA is available. Submit a certificate below; once approved, it can be reused in later milestones.</p>
+  <details class="mt-1"
+           {% if not field.value or not form.product_wasa.valid or form.latest_product_wasa or field.errors %}open{% endif %}>
+    <summary class="w-fit cursor-pointer rounded-md py-2 text-xs font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Certificate options</summary>
+    <div class="mt-2 border-l-2 border-soft-border pl-4">
+      {% ui_field field %}
+      {% if form.latest_product_wasa %}
+        <fieldset class="mt-3 flex flex-col gap-1" data-wasa-source-options>
+          <legend class="mb-1 text-xs font-semibold">Approved certificate</legend>
+          <label class="flex min-h-11 cursor-pointer items-start gap-3 py-2">
+            <input class="mt-0.5 size-4 shrink-0 accent-primary"
+                   type="radio"
+                   name="wasa_source_submission"
+                   value="{{ form.product_wasa.source_submission.pk|default:form.wasa_source_submission.value }}"
+                   checked />
+            <span class="text-sm">Previously selected <span class="block text-xs text-soft-foreground">{{ form.product_wasa.agency|default:'WASA certificate' }}{% if form.product_wasa.valid_until %} · Expiry {{ form.product_wasa.valid_until|date:'j M Y' }}{% endif %}{% if not form.product_wasa.valid %} · {{ form.product_wasa.status_label|default:'Unavailable' }}{% endif %}</span></span>
+          </label>
+          <label class="flex min-h-11 cursor-pointer items-start gap-3 py-2">
+            <input class="mt-0.5 size-4 shrink-0 accent-primary"
+                   type="radio"
+                   name="wasa_source_submission"
+                   value="{{ form.latest_product_wasa.source_submission.pk }}" />
+            <span class="text-sm">Latest approved <span class="block text-xs text-soft-foreground">{{ form.latest_product_wasa.agency }} · Valid until {{ form.latest_product_wasa.valid_until|date:'j M Y' }}</span></span>
+          </label>
+        </fieldset>
+        {% if form.latest_product_wasa.certificate %}
+          <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
+             href="{% url 'experiences:attachment' form.latest_product_wasa.certificate.pk %}"
+             hx-boost="false"
+             data-wasa-source-options>View latest certificate</a>
+        {% endif %}
+      {% endif %}
+      <noscript>
+        <p class="mt-2 text-xs text-soft-foreground">Save a draft after changing your certificate choice.</p>
+        <button type="submit"
+                name="intent"
+                value="draft"
+                class="ui-btn ui-btn--outline ui-btn--size-sm mt-2"
+                formnovalidate>Apply certificate choice</button>
+      </noscript>
+    </div>
+  </details>
 {% endif %}
