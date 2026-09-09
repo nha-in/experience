@@ -62,6 +62,10 @@
     @apply relative -mt-11;
   }
 
+  #main-content:has(.ui-hero) #flash-messages:has(.ui-alert) {
+    @apply pt-6;
+  }
+
   #flash-messages:has(.ui-alert) ~ .ui-float {
     @apply mt-0;
   }
