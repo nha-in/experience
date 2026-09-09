@@ -12,14 +12,17 @@
       {% endif %}
       <div class="grid gap-3.5 sm:grid-cols-2">
         {% for field in section.fields %}
+          {% with rule=form|show_when:field.name %}
           <div class="min-w-0 {% if field.name in form.full_width_fields or field.name == 'description' or field.name == 'name' or field.name == 'registered_address' %}sm:col-span-2{% endif %}"
-               {% if field.name in form.required_uploads %}data-required-upload="{{ field.name }}"{% endif %}>
+               {% if field.name in form.required_uploads %}data-required-upload="{{ field.name }}"{% endif %}
+               {% if rule %}data-show-when-field="{{ rule.field }}" data-show-when-value="{{ rule.value }}"{% if not rule.active %} hidden{% endif %}{% endif %}>
             {% if field.name == 'applied_milestones' and form.milestone_tracks %}
               {% include 'experiences/partials/product_milestone_picker.html' %}
             {% else %}
               {% ui_field field %}
             {% endif %}
           </div>
+          {% endwith %}
         {% endfor %}
       </div>
       {% if not form.milestone_tracks %}

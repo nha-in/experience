@@ -77,6 +77,11 @@ def is_checkbox(field: BoundField) -> bool:
 
 
 @register.filter
+def is_checkbox_group(field: BoundField) -> bool:
+    return isinstance(field.field.widget, forms.CheckboxSelectMultiple)
+
+
+@register.filter
 def is_select(field: BoundField) -> bool:
     return isinstance(field.field.widget, _SELECT_WIDGETS)
 

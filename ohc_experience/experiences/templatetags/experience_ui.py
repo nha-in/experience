@@ -39,6 +39,19 @@ def sections(form):
     ]
 
 
+@register.filter
+def show_when(form, name):
+    """A field's visibility rule, resolved against what is currently answered."""
+    rule = getattr(form, "conditional_fields", {}).get(name)
+    if not rule:
+        return None
+    controller, value = rule
+    current = form[controller].value() or []
+    if isinstance(current, str):
+        current = [current]
+    return {"field": controller, "value": value, "active": value in current}
+
+
 @register.simple_tag
 def snapshot_rows(snapshot, item=None):
     if not snapshot:

@@ -61,7 +61,7 @@ class EquipmentRegistration(ApplicationFormDefinition):
             item,
             actor,
             product_values=SupplierQuality.product_values(data),
-            solution_type="equipment",
+            solution_type=["equipment"],
             selections=data["checks"],
         )
 

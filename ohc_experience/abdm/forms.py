@@ -11,6 +11,8 @@ from ohc_experience.organisations.widgets import PincodeInput
 
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
+from .catalog import TRACK_GATES
+from .catalog import TRACK_MAP
 from .catalog import TRACKS
 from .catalog import canonical_keys
 
@@ -189,16 +191,19 @@ class OrganisationForm(ReviewForm):
 
 
 class ProductRegistrationForm(ReviewForm):
-    full_width_fields = ("applied_milestones",)
+    full_width_fields = ("applied_milestones", "solution_type")
+    conditional_fields = {"payer_category": ("solution_type", "payers")}
     section_notes = {
         "Tracks and milestones": (
             "M1 approval is shared by HI-CM and PHR. "
             "Select each preceding milestone in the same track."
         ),
     }
-    section_badges = {"Tracks and milestones": (("NHCX", "No milestones published"),)}
     sections = (
-        ("Product details", ("name", "description", "category", "solution_type")),
+        (
+            "Product details",
+            ("name", "description", "category", "solution_type", "payer_category"),
+        ),
         ("Tracks and milestones", ("applied_milestones",)),
     )
     name = forms.CharField(label="Product name", max_length=255)
@@ -213,13 +218,36 @@ class ProductRegistrationForm(ReviewForm):
             ("other", "Other"),
         ],
     )
-    solution_type = forms.ChoiceField(
-        label="Solution type applying for",
+    solution_type = forms.MultipleChoiceField(
+        label="Solution types applying for",
+        # An integrator is routinely several of these at once, so this is a set.
         choices=[
             ("clinical_hmis", "Clinical HMIS"),
-            ("eua", "EUA"),
+            ("hmis", "HMIS"),
+            ("govt_hmis", "Government HMIS"),
+            ("lmis", "LMIS"),
+            ("phr", "PHR"),
+            ("govt_phr", "Government PHR"),
             ("health_locker", "Health Locker"),
+            ("eua", "End user application (EUA)"),
+            ("govt_program", "Government programme"),
+            ("healthtech", "Healthtech"),
+            ("insurance", "Insurance"),
+            ("payers", "Payers"),
+            ("providers", "Providers"),
+            ("pharmacy", "Pharmacy"),
+            ("telemedicine", "Telemedicine"),
+            ("other", "Other"),
         ],
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "ui-checkbox shrink-0"}),
+    )
+    payer_category = forms.MultipleChoiceField(
+        label="Payer categories",
+        # Only meaningful alongside Payers, so it stays hidden until that is picked.
+        required=False,
+        choices=[("tpa", "TPA"), ("insurance_company", "Insurance company")],
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "ui-checkbox shrink-0"}),
+        help_text="Applies when Payers is one of the solution types.",
     )
     applied_milestones = forms.MultipleChoiceField(
         label="Tracks and milestones",
@@ -227,15 +255,29 @@ class ProductRegistrationForm(ReviewForm):
         widget=forms.CheckboxSelectMultiple,
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, approved_milestones=(), **kwargs):
+        # Gated tracks stay shut unless the caller proves the gate is met, so a
+        # registration with no product behind it never opens one.
+        self.approved_milestones = set(approved_milestones)
         # Defaults belong to new registrations, never a saved or bound form.
         if not args and kwargs.get("data") is None and kwargs.get("initial") is None:
             kwargs["initial"] = {
                 "category": "hmis",
-                "solution_type": "clinical_hmis",
+                "solution_type": ["clinical_hmis"],
                 "applied_milestones": ["HI-CM:m1"],
             }
         super().__init__(*args, **kwargs)
+
+    def track_lock_reason(self, track):
+        """Why a gated track cannot be picked yet, or "" once it is open."""
+        gate = TRACK_GATES.get(track.code)
+        if not gate or gate in self.approved_milestones:
+            return ""
+        return (
+            f"Opens once {MILESTONES[gate].code} is approved. "
+            f"{MILESTONES[gate].code} is shared by the HI-CM and PHR tracks, so "
+            f"an approved PHR track satisfies this too."
+        )
 
     @property
     def milestone_tracks(self):
@@ -243,6 +285,8 @@ class ProductRegistrationForm(ReviewForm):
         return [
             {
                 "definition": track,
+                "locked": bool(self.track_lock_reason(track)),
+                "lock_reason": self.track_lock_reason(track),
                 "milestones": [
                     {
                         "definition": MILESTONES[key],
@@ -256,8 +300,26 @@ class ProductRegistrationForm(ReviewForm):
             for track in TRACKS
         ]
 
+    def clean(self):
+        cleaned = super().clean()
+        solutions = cleaned.get("solution_type") or []
+        if "payers" in solutions:
+            if not cleaned.get("payer_category") and not self.draft:
+                self.add_error("payer_category", "Select at least one payer category.")
+        elif cleaned.get("payer_category"):
+            # Meaningless without Payers. Drop it rather than block someone who
+            # changed their mind; the previous answer survives in the snapshot.
+            cleaned["payer_category"] = []
+        return cleaned
+
     def clean_applied_milestones(self):
         selections = self.cleaned_data["applied_milestones"]
+        # A disabled checkbox is a hint, not a gate; refuse a forged post too.
+        for code in {value.split(":", 1)[0] for value in selections}:
+            reason = self.track_lock_reason(TRACK_MAP[code])
+            if reason:
+                msg = f"{code} cannot be selected yet. {reason}"
+                raise ValidationError(msg)
         keys = canonical_keys(selections)
         for key in keys:
             predecessor = MILESTONES[key].predecessor
@@ -275,7 +337,7 @@ class ProductRegistrationForm(ReviewForm):
 class ExitEvidenceForm(ReviewForm):
     sections = (
         ("Sandbox testing", ("start_date", "end_date", "tentative_demo_date")),
-        ("WASA audit", ("wasa_agency", "wasa_date")),
+        ("WASA audit", ("wasa_agency", "wasa_date", "wasa_certificate")),
         (
             "Functional testing",
             ("functional_certificate", "functional_report", "supporting_evidence"),
@@ -297,6 +359,12 @@ class ExitEvidenceForm(ReviewForm):
         label="WASA audit date",
         widget=forms.DateInput(attrs={"type": "date"}),
     )
+    wasa_certificate = forms.FileField(
+        label="WASA certificate",
+        required=False,
+        validators=[validate_pdf],
+        widget=forms.FileInput(attrs={"accept": ".pdf"}),
+    )
     functional_certificate = forms.FileField(
         label="Functional testing certificate",
         required=False,
@@ -316,7 +384,11 @@ class ExitEvidenceForm(ReviewForm):
         accept=".pdf",
         validators=[validate_pdf],
     )
-    required_uploads = ("functional_certificate", "functional_report")
+    required_uploads = (
+        "wasa_certificate",
+        "functional_certificate",
+        "functional_report",
+    )
 
     def clean(self):
         cleaned = super().clean()

@@ -600,7 +600,7 @@ class ProductWorkspace(models.Model):
     )
     reference = models.CharField(max_length=32, unique=True)
     experience_type = models.CharField(max_length=100)
-    solution_type = models.CharField(max_length=40, blank=True)
+    solution_type = models.JSONField(default=list, blank=True)
     applied_milestones = models.JSONField(default=list)
     registration_status = models.CharField(
         max_length=24,
@@ -626,10 +626,8 @@ class ProductWorkspace(models.Model):
         return get_program(self.experience_type)
 
     def get_solution_type_display(self):
-        return self.definition.solution_types.get(
-            self.solution_type,
-            self.solution_type,
-        )
+        labels = self.definition.solution_types
+        return ", ".join(labels.get(key, key) for key in self.solution_type)
 
 
 class Milestone(models.Model):

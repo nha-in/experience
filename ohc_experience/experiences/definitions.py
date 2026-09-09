@@ -32,6 +32,11 @@ class ApplicationFormDefinition:
         return {}
 
     @classmethod
+    def form_kwargs(cls, item):
+        """Extra constructor arguments, e.g. product state a field gates on."""
+        return {}
+
+    @classmethod
     def submission_block_reason(cls, item):
         return ""
 

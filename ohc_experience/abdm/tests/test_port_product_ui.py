@@ -33,7 +33,7 @@ class Inputs(HTMLParser):
 def test_registration_defaults_only_apply_to_new_unbound_forms():
     new = ProductRegistrationForm()
     assert new["category"].value() == "hmis"
-    assert new["solution_type"].value() == "clinical_hmis"
+    assert new["solution_type"].value() == ["clinical_hmis"]
     assert new["applied_milestones"].value() == ["HI-CM:m1"]
     assert not ProductRegistrationForm(initial={})["applied_milestones"].value()
     saved = ProductRegistrationForm(
@@ -63,8 +63,140 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
     assert selected == ["HI-CM:m1"]
-    assert b"No milestones published yet" in response.content
+    # Nothing is approved on a brand new product, so NHCX stays shut.
+    assert b"Opens once M1 is approved" in response.content
     assert b"Same record as HI-CM M1" in response.content
+
+
+def test_solution_type_accepts_several_values():
+    form = ProductRegistrationForm(
+        data={
+            "name": "Claims platform",
+            "description": "Exchanges claims with payers.",
+            "category": "claims_platform",
+            "solution_type": ["payers", "providers"],
+            "payer_category": ["tpa"],
+            "applied_milestones": ["HI-CM:m1"],
+        },
+    )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["solution_type"] == ["payers", "providers"]
+
+
+def payer_payload(**overrides):
+    return {
+        "name": "Claims platform",
+        "description": "Exchanges claims with payers.",
+        "category": "claims_platform",
+        "applied_milestones": ["HI-CM:m1"],
+        **overrides,
+    }
+
+
+def test_payer_category_is_required_once_payers_is_chosen():
+    form = ProductRegistrationForm(data=payer_payload(solution_type=["payers"]))
+    assert not form.is_valid()
+    assert "Select at least one payer category." in str(form.errors["payer_category"])
+
+
+def test_payer_category_is_dropped_when_payers_is_not_chosen():
+    # Changing your mind should not be blocked; the answer simply stops applying.
+    form = ProductRegistrationForm(
+        data=payer_payload(solution_type=["clinical_hmis"], payer_category=["tpa"]),
+    )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["payer_category"] == []
+
+
+def test_a_draft_may_leave_payer_category_unanswered():
+    form = ProductRegistrationForm(
+        data=payer_payload(solution_type=["payers"]),
+        draft=True,
+    )
+    assert form.is_valid(), form.errors
+
+
+def test_payer_category_starts_hidden_and_opens_with_payers():
+    from ohc_experience.experiences.templatetags.experience_ui import show_when
+
+    shut = show_when(ProductRegistrationForm(), "payer_category")
+    assert shut == {"field": "solution_type", "value": "payers", "active": False}
+    opened = show_when(
+        ProductRegistrationForm(initial={"solution_type": ["payers"]}),
+        "payer_category",
+    )
+    assert opened["active"] is True
+    assert show_when(ProductRegistrationForm(), "name") is None
+
+
+@pytest.mark.django_db
+def test_editing_a_product_persists_several_solution_types(environment, client):
+    client.force_login(environment["applicant"])
+    workspace = environment["workspace"]
+    item = workspace.product.review_items.get(kind="product_registration")
+    payload = dict(item.selected_submission.data)
+    payload["solution_type"] = ["clinical_hmis", "pharmacy"]
+    payload["revision"] = str(item.selected_submission_id or "")
+    payload["intent"] = "submit"
+    response = client.post(
+        reverse("experiences:product-edit", args=[workspace.reference]),
+        payload,
+        follow=True,
+    )
+    assert response.status_code == 200
+    workspace.refresh_from_db()
+    assert workspace.solution_type == ["clinical_hmis", "pharmacy"]
+    assert workspace.get_solution_type_display() == "Clinical HMIS, Pharmacy"
+
+
+def test_nhcx_track_is_gated_on_m1_approval():
+    shut = ProductRegistrationForm()
+    row = next(
+        row for row in shut.milestone_tracks if row["definition"].code == "NHCX"
+    )
+    assert row["locked"]
+    assert "Opens once M1 is approved" in row["lock_reason"]
+    # Every other track is unaffected by the gate.
+    assert not any(
+        other["locked"]
+        for other in shut.milestone_tracks
+        if other["definition"].code != "NHCX"
+    )
+    open_row = next(
+        row
+        for row in ProductRegistrationForm(approved_milestones={"m1"}).milestone_tracks
+        if row["definition"].code == "NHCX"
+    )
+    assert not open_row["locked"]
+    assert not open_row["lock_reason"]
+
+
+def test_nhcx_selection_is_refused_until_m1_is_approved():
+    payload = {
+        "name": "Claims platform",
+        "description": "Exchanges claims with payers.",
+        "category": "claims_platform",
+        "solution_type": ["eua"],
+        "applied_milestones": ["HI-CM:m1", "NHCX:nhcx1"],
+    }
+    # A disabled checkbox is only a hint; a forged post must still be refused.
+    forged = ProductRegistrationForm(data=payload)
+    assert not forged.is_valid()
+    assert "NHCX cannot be selected yet" in str(forged.errors["applied_milestones"])
+    allowed = ProductRegistrationForm(data=payload, approved_milestones={"m1"})
+    assert allowed.is_valid(), allowed.errors
+
+
+@pytest.mark.django_db
+def test_nhcx_opens_in_edit_product_once_m1_is_approved(environment, client):
+    client.force_login(environment["applicant"])
+    url = reverse(
+        "experiences:product-edit",
+        args=[environment["workspace"].reference],
+    )
+    assert b"Opens once M1 is approved" in client.get(url).content
+    approve(environment)
+    assert b"Opens once M1 is approved" not in client.get(url).content
 
 
 @pytest.mark.django_db

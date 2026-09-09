@@ -41,6 +41,7 @@ def pdf(name="test.pdf"):
 def files():
     return MultiValueDict(
         {
+            "wasa_certificate": [pdf("wasa.pdf")],
             "functional_certificate": [pdf("certificate.pdf")],
             "functional_report": [pdf("report.pdf")],
         },
@@ -125,7 +126,7 @@ def test_shared_m1_and_independent_tracks(environment):
     assert product.milestones.filter(key="m1").count() == 1
     assert TRACK_MAP["PHR"].keys == ("m1", "phr1")
     assert TRACK_MAP["HealthLocker"].keys == ("locker1",)
-    assert not TRACK_MAP["NHCX"].keys
+    assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
     assert services.milestone_locked(milestone(environment, "m2"))
     assert services.milestone_locked(milestone(environment, "phr1"))
     assert not services.milestone_locked(milestone(environment, "locker1"))

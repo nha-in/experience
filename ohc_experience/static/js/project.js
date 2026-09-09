@@ -304,3 +304,31 @@ document.addEventListener("click", async (event) => {
     }, 1600);
   } catch { copy.setAttribute("aria-label", "Copy unavailable; select and copy the value"); }
 });
+
+// A field that only applies to one answer stays out of the way until it is given.
+// The server renders the correct initial state, so this only tracks live edits
+// and the form still works, and is still enforced, without any of it.
+(() => {
+  const syncConditionalFields = (root) => {
+    const scope = root instanceof Element ? root : document;
+    scope.querySelectorAll("[data-show-when-field]").forEach((target) => {
+      const form = target.closest("form");
+      if (!form) return;
+      const { showWhenField: name, showWhenValue: value } = target.dataset;
+      const answered = [...form.querySelectorAll(`[name="${name}"]`)].some(
+        (input) =>
+          input.value === value &&
+          (input.type === "checkbox" || input.type === "radio" ? input.checked : true),
+      );
+      target.hidden = !answered;
+    });
+  };
+  document.addEventListener("change", (event) => {
+    const form = event.target.closest?.("form");
+    if (form) syncConditionalFields(form);
+  });
+  document.addEventListener("DOMContentLoaded", () => syncConditionalFields(document));
+  document.body?.addEventListener?.("htmx:afterSwap", (event) =>
+    syncConditionalFields(event.target),
+  );
+})();

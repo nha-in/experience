@@ -163,6 +163,7 @@ def build_form(item, *, data=None, files=None, draft=False):
         initial=initial,
         existing_files=dict(existing),
         draft=draft,
+        **item.definition.form_kwargs(item),
     )
     form.schema_version = item.definition.schema_version
     return form

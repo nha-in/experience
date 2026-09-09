@@ -75,7 +75,7 @@ def product_data(name="Medibase HMIS 4.2"):
         "name": name,
         "description": "Hospital information management, patient records and connected health services.",
         "category": "hmis",
-        "solution_type": "clinical_hmis",
+        "solution_type": ["clinical_hmis"],
         "applied_milestones": [
             "HI-CM:m1",
             "HI-CM:m2",
@@ -103,6 +103,9 @@ def evidence_data():
 def evidence_files():
     return MultiValueDict(
         {
+            "wasa_certificate": [
+                demo_pdf("wasa-certificate.pdf", "WASA certificate"),
+            ],
             "functional_certificate": [demo_pdf()],
             "functional_report": [
                 demo_pdf("functional-report.pdf", "Functional testing report"),
@@ -241,7 +244,7 @@ class DemoBuilder:
             data={
                 **product_data("Medibase Health Locker"),
                 "category": "health_locker",
-                "solution_type": "health_locker",
+                "solution_type": ["health_locker"],
                 "applied_milestones": ["HealthLocker:locker1"],
             },
         )
