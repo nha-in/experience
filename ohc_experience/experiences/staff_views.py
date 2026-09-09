@@ -40,8 +40,16 @@ def staff_list(request):
     if status != "all":
         staff = staff.filter(is_active=status == "active")
     page = Paginator(
-        staff.prefetch_related("experience_access").order_by("name", "email", "pk"), 20,
+        staff.prefetch_related("experience_access").order_by("name", "email", "pk"),
+        20,
     ).get_page(request.GET.get("page"))
+    for member in page:
+        member.staff_initials = "".join(
+            part[0] for part in member.display_name.split()[:2]
+        ).upper()
+        member.portal_grants = [
+            grant for grant in member.experience_access.all() if grant.can_read
+        ]
     return render(
         request,
         "experiences/staff_list.html",

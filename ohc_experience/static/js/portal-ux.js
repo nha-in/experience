@@ -35,6 +35,11 @@
   }
 
   function initialize() {
+    document.querySelectorAll('[data-permission-group]').forEach(updatePermissionSummary);
+    document.querySelectorAll('[data-permission-toggle]').forEach(button => {
+      button.hidden = false;
+      updatePermissionToggle(button);
+    });
     document.querySelectorAll(formSelector).forEach(form => {
       if (!initialValues.has(form)) {
         initialValues.set(form, formValues(form));
@@ -82,6 +87,33 @@
   }
 
   document.addEventListener('DOMContentLoaded', initialize);
+  function updatePermissionSummary(group) {
+    const summary = group.querySelector('[data-permission-summary]');
+    if (!summary) return;
+    const all = group.querySelector('[data-all-categories] [data-permission-action="read"]');
+    const count = group.querySelectorAll('[data-permission-action="read"]:checked').length;
+    summary.textContent = all?.checked ? 'All categories' : count ? `${count} categor${count === 1 ? 'y' : 'ies'}` : 'No access';
+    summary.classList.toggle('has-access', count > 0);
+  }
+
+  function updatePermissionToggle(button) {
+    const groups = [...button.closest('form').querySelectorAll('[data-permission-group]')];
+    const expanded = groups.length > 0 && groups.every(group => group.open);
+    button.textContent = expanded ? 'Collapse all' : 'Expand all';
+    button.setAttribute('aria-expanded', String(expanded));
+  }
+
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-permission-toggle]');
+    if (!button) return;
+    const expand = button.getAttribute('aria-expanded') !== 'true';
+    button.closest('form').querySelectorAll('[data-permission-group]').forEach(group => { group.open = expand; });
+    updatePermissionToggle(button);
+  });
+  document.addEventListener('toggle', event => {
+    if (!event.target.matches('[data-permission-group]')) return;
+    event.target.closest('form')?.querySelectorAll('[data-permission-toggle]').forEach(updatePermissionToggle);
+  }, true);
   document.addEventListener('change', event => {
     const input = event.target.closest('[data-permission-action]');
     if (!input) return;
@@ -92,6 +124,8 @@
     } else if (input.checked) {
       read.checked = true;
     }
+    const group = input.closest('[data-permission-group]');
+    if (group) updatePermissionSummary(group);
   });
   ['input', 'change'].forEach(type => document.addEventListener(type, event => updateForm(event.target.closest('form'))));
   window.addEventListener('beforeunload', event => {
