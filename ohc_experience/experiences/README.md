@@ -44,13 +44,17 @@ Implementations contain no models, migrations, URL configuration or views:
 4. Subclass `ProgramDefinition` with the organisation form, product and milestone
    application types, milestone/track catalog, product-field mapping and branding.
    Catalog dependencies are validated and materialized in topological order.
+   Optional `supplementary_applications` register independent review flows;
+   `certification_application` selects the product's renewable certification flow.
 5. Register the dotted program class in settings and select its key as the portal.
    Optionally supply a `CredentialDefinition` provider and demo builder.
 
 Form hooks run inside the engine transaction: `initial_data` supplies defaults;
 `submission_block_reason` gates final submission; `on_submit` projects validated
 answers; `on_approve` returns structured outcomes; `on_send_back` updates domain
-state. External provider calls cannot roll back with the database, so integrations
+state. `snapshot_valid_until` stores the submitted evidence's expiry, while
+`approval_block_reason` rechecks validity immediately before approval.
+External provider calls cannot roll back with the database, so integrations
 must implement idempotency and reconciliation.
 
 The current product/milestone portal reviews one form per review item. The record
@@ -82,6 +86,11 @@ General review access covers organisation verification and product registration.
 Category review access covers milestones selected under that track, including a
 shared milestone selected under more than one track. It does not expose other
 tracks or all revisions of a reused source form.
+General review access also covers the program's product certification requests.
+Renewals use a fresh application after each approval, preserving prior decisions
+and outcomes. Approved attachments reused by a milestone are copied as file
+references into its own submission, keeping its history and download permissions
+independent of the source review.
 
 | Area | Read | Write | Approve |
 | --- | --- | --- | --- |

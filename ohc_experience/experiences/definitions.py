@@ -41,6 +41,15 @@ class ApplicationFormDefinition:
         return ""
 
     @classmethod
+    def approval_block_reason(cls, item):
+        """Recheck time-sensitive evidence immediately before a decision."""
+        return ""
+
+    @classmethod
+    def snapshot_valid_until(cls, form):
+        """Optional validity date for this exact submission revision."""
+
+    @classmethod
     def on_submit(cls, item, data, actor):
         """Project validated answers into implementation-specific state."""
 
@@ -158,6 +167,8 @@ class ProgramDefinition:
     organisation_form: ClassVar[type[ApplicationFormDefinition]]
     product_application: ClassVar[type[ApplicationDefinition]]
     milestone_application: ClassVar[type[ApplicationDefinition]]
+    supplementary_applications: ClassVar[tuple[type[ApplicationDefinition], ...]] = ()
+    certification_application: ClassVar[type[ApplicationDefinition] | None] = None
     milestones: ClassVar[dict[str, MilestoneDefinition]] = {}
     tracks: ClassVar[tuple[TrackDefinition, ...]] = ()
     credentials: ClassVar[type[CredentialDefinition] | None] = None
@@ -167,6 +178,12 @@ class ProgramDefinition:
     def validate(cls):
         if not cls.key or len(cls.track_map()) != len(cls.tracks):
             msg = "Programs require a key and uniquely named tracks."
+            raise ImproperlyConfigured(msg)
+        if (
+            cls.certification_application
+            and cls.certification_application not in cls.supplementary_applications
+        ):
+            msg = "The certification application must be registered as supplementary."
             raise ImproperlyConfigured(msg)
         for key, milestone in cls.milestones.items():
             if key != milestone.key or (
@@ -186,6 +203,11 @@ class ProgramDefinition:
     @classmethod
     def product_values(cls, data):
         return {key: data[key] for key in ("name", "description", "product_type")}
+
+    @classmethod
+    def certification_context(cls, product):
+        """Optional product certification summary supplied by the program."""
+        return {}
 
     @classmethod
     def milestone_keys(cls, selections):

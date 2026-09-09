@@ -195,13 +195,42 @@
 
 
 (() => {
+  function updateWasaFields(form) {
+    const choice = form.querySelector('[name="use_product_wasa"]');
+    if (!choice) return;
+    form.querySelectorAll('[data-wasa-source-options]').forEach(options => {
+      options.hidden = !choice.checked;
+    });
+    form.querySelectorAll('[data-wasa-upload]').forEach(field => {
+      field.hidden = choice.checked;
+      field.querySelectorAll('input, select, textarea').forEach(input => {
+        input.disabled = choice.checked;
+        if (['wasa_agency', 'wasa_date', 'wasa_valid_until'].includes(input.name)) {
+          input.required = !choice.checked;
+        }
+      });
+      if (field.dataset.wasaFromProduct === 'true') {
+        const savedFiles = field.querySelector('[data-existing-files]');
+        if (savedFiles) savedFiles.parentElement.hidden = true;
+        field.querySelectorAll('[data-existing-file-remove]').forEach(input => {
+          input.checked = true;
+          input.disabled = true;
+        });
+        const summary = field.querySelector('[data-file-summary]');
+        if (summary) summary.textContent = 'Upload a new certificate';
+      }
+    });
+  }
+
   function updateSubmission(form) {
+    updateWasaFields(form);
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');
     if (!button) return;
     const missingFields = [...form.querySelectorAll('input, select, textarea')].filter(input => !input.disabled && !input.validity.valid);
     const missingFiles = [...form.querySelectorAll('[data-required-upload]')].filter(field => {
       const input = field.querySelector('input[type="file"]');
+      if (input?.disabled || field.hidden) return false;
       const retained = [...field.querySelectorAll('[data-existing-file-remove]')].some(checkbox => !checkbox.checked);
       return !input?.files.length && !retained;
     });

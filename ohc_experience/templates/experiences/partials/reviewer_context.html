@@ -18,40 +18,55 @@
         <dt class="ui-kicker pt-0.5">Callback</dt>
         <dd class="min-w-0 leading-relaxed">
           {% if not can_read_general %}<span class="text-muted-foreground">Requires general review access.</span>
-          {% elif credential %}
-            <span class="ui-badge ui-badge--size-xs {% if not credential.last_checked_at %}ui-badge--neutral{% elif credential.consecutive_failures %}ui-badge--warning{% else %}ui-badge--success{% endif %}">{% if not credential.last_checked_at %}Not checked{% elif credential.consecutive_failures %}Unreachable{% else %}Reachable{% endif %}</span>
-            <span class="text-xs text-muted-foreground">{% if credential.last_status %}HTTP {{ credential.last_status }}{% endif %}{% if credential.last_latency_ms != None %} · {{ credential.last_latency_ms }} ms{% endif %}{% if credential.last_checked_at %} · Checked {{ credential.last_checked_at|date:'j M Y, H:i' }}{% endif %}</span>
-            <span class="mt-1 block font-mono text-xs break-all text-soft-foreground">{{ credential.client_id }}</span>
-          {% elif item.product %}
-            <span class="text-muted-foreground">No credentials issued.</span>
-            {% if progress %}
-              <span class="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {% for system in progress %}
-                  <span class="ui-badge ui-badge--{{ system.variant }} ui-badge--size-xs">{{ system.label }}: {{ system.display }}</span>
-                {% endfor %}
-              </span>
-            {% endif %}
-            {% if can_retry_provisioning %}
-              <form class="mt-2"
-                    method="post"
-                    data-confirm="Retry provisioning for this product? Systems already set up are left alone."
-                    hx-confirm="Retry provisioning for this product? Systems already set up are left alone.">
-                {% csrf_token %}
-                <button type="submit"
-                        class="ui-btn ui-btn--outline ui-btn--size-sm"
-                        name="intent"
-                        value="retry_provisioning">Retry provisioning</button>
-              </form>
-            {% endif %}
-          {% else %}<span class="text-muted-foreground">Not a product item.</span>{% endif %}
+        {% elif credential %}
+          <span class="ui-badge ui-badge--size-xs {% if not credential.last_checked_at %}ui-badge--neutral{% elif credential.consecutive_failures %}ui-badge--warning{% else %}ui-badge--success{% endif %}">{% if not credential.last_checked_at %}Not checked{% elif credential.consecutive_failures %}Unreachable{% else %}Reachable{% endif %}</span>
+          <span class="text-xs text-muted-foreground">{% if credential.last_status %}HTTP {{ credential.last_status }}{% endif %}{% if credential.last_latency_ms != None %} · {{ credential.last_latency_ms }} ms{% endif %}{% if credential.last_checked_at %} · Checked {{ credential.last_checked_at|date:'j M Y, H:i' }}{% endif %}</span>
+          <span class="mt-1 block font-mono text-xs break-all text-soft-foreground">{{ credential.client_id }}</span>
+        {% elif item.product %}
+          <span class="text-muted-foreground">No credentials issued.</span>
+          {% if progress %}
+            <span class="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {% for system in progress %}
+                <span class="ui-badge ui-badge--{{ system.variant }} ui-badge--size-xs">{{ system.label }}: {{ system.display }}</span>
+              {% endfor %}
+            </span>
+          {% endif %}
+          {% if can_retry_provisioning %}
+            <form class="mt-2"
+                  method="post"
+                  data-confirm="Retry provisioning for this product? Systems already set up are left alone."
+                  hx-confirm="Retry provisioning for this product? Systems already set up are left alone.">
+              {% csrf_token %}
+              <button type="submit"
+                      class="ui-btn ui-btn--outline ui-btn--size-sm"
+                      name="intent"
+                      value="retry_provisioning">Retry provisioning</button>
+            </form>
+          {% endif %}
+        {% else %}<span class="text-muted-foreground">Not a product item.</span>{% endif %}
+      </dd>
+    </div>
+    {% if certification %}
+      <div class="grid gap-x-5 gap-y-2 border-t border-soft-border py-3 sm:grid-cols-[196px_minmax(0,1fr)]">
+        <dt class="ui-kicker pt-0.5">Product WASA</dt>
+        <dd class="min-w-0 text-sm leading-relaxed">
+          <span class="ui-badge ui-badge--{{ certification.tone }} ui-badge--size-xs">{{ certification.status_label }}</span>
+          {% if certification.valid_until %}<span class="ml-1 text-xs text-muted-foreground">Expiry {{ certification.valid_until|date:'j M Y' }}</span>{% endif %}
+          {% if certification.agency %}<span class="mt-1 block text-xs text-soft-foreground">{{ certification.agency }}</span>{% endif %}
+          {% if certification.pending_review %}<span class="mt-1 block text-xs text-soft-foreground">{% if certification.current %}Renewal{% else %}WASA submission{% endif %} under review</span>{% endif %}
+          {% if certification.certificate %}<a class="mt-1 inline-flex min-h-9 items-center text-xs font-semibold text-primary hover:underline"
+   href="{% url 'experiences:attachment' certification.certificate.pk %}"
+   hx-boost="false">View approved certificate</a>{% endif %}
         </dd>
       </div>
-      {% if can_read_support %}<div class="grid gap-x-5 gap-y-2 border-t border-soft-border pt-3 sm:grid-cols-[196px_minmax(0,1fr)]">
+    {% endif %}
+    {% if can_read_support %}
+      <div class="grid gap-x-5 gap-y-2 border-t border-soft-border pt-3 sm:grid-cols-[196px_minmax(0,1fr)]">
         <dt class="ui-kicker pt-0.5">Open support tickets</dt>
         <dd><ul class="flex flex-col gap-2.5">{% for ticket in open_tickets %}<li class="flex flex-wrap items-baseline gap-x-2 gap-y-1"><a class="font-mono text-xs font-semibold text-primary no-underline hover:underline"
    href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.reference }}</a><span class="text-xs text-soft-foreground">{{ ticket.get_priority_display }}</span><span>{{ ticket.subject }}</span></li>{% empty %}<li class="text-muted-foreground">No open tickets.</li>{% endfor %}</ul></dd>
       </div>
-      {% endif %}
-    </dl>
-  </div>
+    {% endif %}
+  </dl>
+</div>
 </section>

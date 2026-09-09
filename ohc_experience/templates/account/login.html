@@ -16,7 +16,7 @@
   {% if ACCOUNT_ALLOW_REGISTRATION %}
     <span class="marketing-auth-headerhint">{% translate "New to the sandbox?" %}</span>
     {% url 'account_signup' as signup_fallback %}
-    <a class="marketing-button marketing-button--primary"
+    <a class="marketing-button marketing-button--primary marketing-button--small"
        href="{% firstof signup_url signup_fallback %}">{% translate "Create an account" %}</a>
   {% endif %}
 {% endblock header_action %}

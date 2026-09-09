@@ -56,6 +56,7 @@ def test_retired_models_and_tables_are_removed(app_label, model):
 
 def test_only_current_applications_are_registered():
     assert {definition.key for definition in registry.all()} == {
+        "abdm_wasa_review",
         get_program().product_application.key,
         get_program().milestone_application.key,
     }

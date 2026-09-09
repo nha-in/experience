@@ -1,5 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
@@ -14,6 +15,10 @@ from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
 from .catalog import TRACKS
 from .catalog import canonical_keys
+from .wasa import WASA_FIELDS
+from .wasa import approved_wasa_submission
+from .wasa import certificate_context
+from .wasa import current_wasa
 
 
 class OrganisationForm(ReviewForm):
@@ -198,10 +203,14 @@ class ProductRegistrationForm(ReviewForm):
     )
     conditional_fields = {"payer_category": ("solution_type", "payers")}
     conditional_sections = {"UHI participation": ("applied_milestones", "UHI:uhi1")}
+    track_sections = {"UHI participation": "UHI"}
     section_notes = {
         "Tracks and milestones": (
             "M1 approval is shared by HI-CM and PHR. "
             "Select each preceding milestone in the same track."
+        ),
+        "UHI participation": (
+            "Choose at least one role and service for your UHI integration."
         ),
     }
     sections = (
@@ -356,10 +365,98 @@ class ProductRegistrationForm(ReviewForm):
         return selections
 
 
-class ExitEvidenceForm(ReviewForm):
+class WasaReviewForm(ReviewForm):
+    sections = (
+        (
+            "WASA audit",
+            ("wasa_agency", "wasa_date", "wasa_valid_until", "wasa_certificate"),
+        ),
+    )
+    section_notes = {
+        "WASA audit": (
+            "Submit the certificate covering this product and its stated expiry date. "
+            "An approved certificate can be used for this product's milestones."
+        ),
+    }
+    wasa_agency = forms.ChoiceField(
+        label="WASA audit agency name",
+        choices=[("", "Select an audit agency")],
+        error_messages={"invalid_choice": "Select an audit agency from the list."},
+    )
+    wasa_date = forms.DateField(
+        label="WASA audit date",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    wasa_valid_until = forms.DateField(
+        label="WASA valid until",
+        help_text="Enter the expiry date stated on the certificate.",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    wasa_certificate = forms.FileField(
+        label="WASA certificate",
+        required=False,
+        validators=[validate_pdf],
+        widget=forms.FileInput(attrs={"accept": ".pdf"}),
+    )
+    required_uploads = ("wasa_certificate",)
+
+    def __init__(self, *args, product=None, **kwargs):
+        self.product = product
+        super().__init__(*args, **kwargs)
+        self._agency_choices()
+
+    def _agency_choices(self):
+        # Earlier submissions accepted free text. Only their own saved value is
+        # retained; a posted value cannot extend the administrator's agency list.
+        previous_agency = self.initial.get("wasa_agency")
+        field = self.fields["wasa_agency"]
+        field.choices = [
+            ("", "Select an audit agency"),
+            *CertificationAgency.objects.filter(
+                program="abdm",
+                is_active=True,
+            ).values_list("name", "name"),
+        ]
+        if previous_agency and not field.valid_value(previous_agency):
+            field.choices = [
+                *field.choices,
+                (previous_agency, f"{previous_agency} (previously saved)"),
+            ]
+
+    def clean(self):
+        cleaned = super().clean()
+        audit_date = cleaned.get("wasa_date")
+        expiry = cleaned.get("wasa_valid_until")
+        if audit_date and audit_date > timezone.localdate():
+            self.add_error("wasa_date", "The audit date cannot be in the future.")
+        if audit_date and expiry and expiry < audit_date:
+            self.add_error(
+                "wasa_valid_until",
+                "The expiry date must be on or after the audit date.",
+            )
+        elif expiry and expiry < timezone.localdate() and not self.draft:
+            self.add_error(
+                "wasa_valid_until",
+                "This certificate has expired. Submit a renewed WASA certificate.",
+            )
+        return cleaned
+
+
+class ExitEvidenceForm(WasaReviewForm):
+    full_width_fields = ("use_product_wasa",)
     sections = (
         ("Sandbox testing", ("start_date", "end_date", "tentative_demo_date")),
-        ("WASA audit", ("wasa_agency", "wasa_date", "wasa_certificate")),
+        (
+            "WASA audit",
+            (
+                "use_product_wasa",
+                "wasa_source_submission",
+                "wasa_agency",
+                "wasa_date",
+                "wasa_valid_until",
+                "wasa_certificate",
+            ),
+        ),
         (
             "Functional testing",
             ("functional_certificate", "functional_report", "supporting_evidence"),
@@ -376,20 +473,15 @@ class ExitEvidenceForm(ReviewForm):
     tentative_demo_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}),
     )
-    wasa_agency = forms.ChoiceField(
-        label="WASA audit agency name",
-        choices=[("", "Select an audit agency")],
-        error_messages={"invalid_choice": "Select an audit agency from the list."},
-    )
-    wasa_date = forms.DateField(
-        label="WASA audit date",
-        widget=forms.DateInput(attrs={"type": "date"}),
-    )
-    wasa_certificate = forms.FileField(
-        label="WASA certificate",
+    use_product_wasa = forms.BooleanField(
+        label="Use approved product WASA",
         required=False,
-        validators=[validate_pdf],
-        widget=forms.FileInput(attrs={"accept": ".pdf"}),
+        help_text="Clear this to submit a new certificate for review.",
+    )
+    wasa_source_submission = forms.IntegerField(
+        label="Approved WASA submission",
+        required=False,
+        widget=forms.HiddenInput,
     )
     functional_certificate = forms.FileField(
         label="Functional testing certificate",
@@ -416,27 +508,104 @@ class ExitEvidenceForm(ReviewForm):
         "functional_report",
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        *args,
+        wasa_source_submission=None,
+        prefer_product_wasa=None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        # Earlier submissions accepted free text. Keep that saved answer available
-        # on its own form; posted values must never extend the agency list.
-        previous_agency = self.initial.get("wasa_agency")
-        field = self.fields["wasa_agency"]
-        field.choices = [
-            ("", "Select an audit agency"),
-            *CertificationAgency.objects.filter(
-                program="abdm",
-                is_active=True,
-            ).values_list("name", "name"),
-        ]
-        if previous_agency and not field.valid_value(previous_agency):
-            field.choices = [
-                *field.choices,
-                (previous_agency, f"{previous_agency} (previously saved)"),
-            ]
+        saved_reuse = bool(self.initial.get("use_product_wasa"))
+        source = wasa_source_submission
+        if self.is_bound:
+            reuse = self.fields["use_product_wasa"].widget.value_from_datadict(
+                self.data,
+                self.files,
+                self.add_prefix("use_product_wasa"),
+            )
+            if reuse:
+                source = approved_wasa_submission(
+                    self.product,
+                    self.data.get(self.add_prefix("wasa_source_submission")),
+                )
+            elif source:
+                self.data = self.data.copy()
+                self.data[self.add_prefix("wasa_source_submission")] = source.pk
+        else:
+            # Never change an existing submission's choice implicitly.
+            if prefer_product_wasa is None:
+                prefer_product_wasa = not self.initial
+            reuse = bool(source) if prefer_product_wasa else saved_reuse
+            self.initial["use_product_wasa"] = reuse
+            if source:
+                self.initial["wasa_source_submission"] = source.pk
+        self.wasa_source = source if reuse else None
+        display_source = source or wasa_source_submission
+        self.product_wasa = certificate_context(display_source)
+        valid_source = bool(
+            display_source
+            and approved_wasa_submission(self.product, display_source.pk),
+        )
+        self.product_wasa.update(
+            valid=valid_source,
+            status_label=(
+                "Approved"
+                if valid_source
+                else "Expired"
+                if display_source and display_source.is_expired
+                else "Unavailable"
+            ),
+        )
+        current = current_wasa(self.product) if self.product else None
+        latest = approved_wasa_submission(
+            self.product,
+            current.data.get("submission_id") if current else None,
+        )
+        self.latest_product_wasa = (
+            certificate_context(latest)
+            if latest and display_source and latest.pk != display_source.pk
+            else None
+        )
+        self.wasa_reuse_available = bool(display_source)
+        if reuse:
+            self._use_approved_wasa(source)
+        elif saved_reuse:
+            # Changing away from reuse requires its own newly uploaded evidence.
+            self.existing_files.pop("wasa_certificate", None)
+
+    def _use_approved_wasa(self, source):
+        for key in WASA_FIELDS:
+            self.fields[key].disabled = True
+            self.fields[key].required = False
+            self.initial[key] = source.data.get(key) if source else None
+        self.fields["wasa_certificate"].disabled = True
+        self.existing_files["wasa_certificate"] = (
+            list(
+                source.attachments.filter(
+                    field_key="wasa_certificate",
+                    is_current=True,
+                ),
+            )
+            if source
+            else []
+        )
+        self.removed_file_ids["wasa_certificate"] = set()
+        self._agency_choices()
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("use_product_wasa"):
+            if not self.wasa_source:
+                self.add_error(
+                    "use_product_wasa",
+                    "Select a valid, approved WASA certificate for this product "
+                    "or submit a new certificate.",
+                )
+            else:
+                cleaned["wasa_source_submission"] = self.wasa_source.pk
+        else:
+            cleaned["wasa_source_submission"] = None
         start, end, demo = (
             cleaned.get(key)
             for key in ("start_date", "end_date", "tentative_demo_date")

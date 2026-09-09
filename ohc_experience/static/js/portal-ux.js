@@ -191,6 +191,7 @@
       const form = jump.closest('form');
       const missing = [...form.querySelectorAll('input, select, textarea')].find(input => !input.disabled && !input.validity.valid);
       const upload = [...form.querySelectorAll('[data-required-upload]')].find(field =>
+        !field.hidden && !field.querySelector('input[type="file"]')?.disabled &&
         !field.querySelector('input[type="file"]')?.files.length &&
         ![...field.querySelectorAll('[data-existing-file-remove]')].some(input => !input.checked));
       focusElement(missing || upload?.querySelector('input[type="file"]'));

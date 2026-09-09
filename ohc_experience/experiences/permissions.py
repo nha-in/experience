@@ -96,6 +96,11 @@ def review_scope(program, category):
         kind=ReviewItem.Kind.PRODUCT,
     )
     product_program = Q(product__workspace__experience_type=program.key)
+    if program.certification_application:
+        general |= product_program & Q(
+            kind=ReviewItem.Kind.APPLICATION,
+            application__application_type=program.certification_application.key,
+        )
     if category == "*":
         return general | product_program
     if not category:
@@ -143,7 +148,8 @@ def visible_submissions(user):
         action="Reused product evidence",
     ).annotate(
         submission_pk=Cast(
-            KeyTextTransform("submission_id", "detail"), BigIntegerField(),
+            KeyTextTransform("submission_id", "detail"),
+            BigIntegerField(),
         ),
     )
     # Reuse grants access to current and historical pins, not the source's history.

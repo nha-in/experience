@@ -105,6 +105,7 @@ def evidence_data():
         "tentative_demo_date": (today + timedelta(days=10)).isoformat(),
         "wasa_agency": _demo_agency(),
         "wasa_date": (today - timedelta(days=12)).isoformat(),
+        "wasa_valid_until": (today + timedelta(days=180)).isoformat(),
     }
 
 

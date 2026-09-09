@@ -36,6 +36,7 @@ def sections(form):
             "note": getattr(form, "section_notes", {}).get(title, ""),
             "badges": getattr(form, "section_badges", {}).get(title, ()),
             "show_when": _rule(form, rules.get(title)),
+            "track": getattr(form, "track_sections", {}).get(title),
         }
         for title, keys in getattr(form, "sections", [("", list(form.fields))])
     ]

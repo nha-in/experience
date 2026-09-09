@@ -50,7 +50,11 @@ class ExperienceRegistry:
             msg = f"Program {program.key!r} is already registered."
             raise ImproperlyConfigured(msg)
         self.register_form(program.organisation_form)
-        for definition in (program.product_application, program.milestone_application):
+        for definition in (
+            program.product_application,
+            program.milestone_application,
+            *program.supplementary_applications,
+        ):
             self.register(definition)
         self._programs[program.key] = program
         return program

@@ -6,37 +6,42 @@
 {% endif %}
 <div class="flex flex-col gap-6">
   {% for section in form|sections %}
-    <fieldset class="border-b border-soft-border pb-6 last:border-0 last:pb-0"
-              {% if section.show_when %}data-show-when-field="{{ section.show_when.field }}" data-show-when-value="{{ section.show_when.value }}"{% if not section.show_when.active %} hidden{% endif %}{% endif %}>
-      {% if section.title %}
-        <legend class="ui-field-legend mb-3.5">{{ section.title }}</legend>
-      {% endif %}
-      <div class="grid gap-3.5 sm:grid-cols-2">
-        {% for field in section.fields %}
-          {% with rule=form|show_when:field.name %}
-          <div class="min-w-0 {% if field.name in form.full_width_fields or field.name == 'description' or field.name == 'name' or field.name == 'registered_address' %}sm:col-span-2{% endif %}"
-               {% if field.name in form.required_uploads %}data-required-upload="{{ field.name }}"{% endif %}
-               {% if rule %}data-show-when-field="{{ rule.field }}" data-show-when-value="{{ rule.value }}"{% if not rule.active %} hidden{% endif %}{% endif %}>
-            {% if field.name == 'applied_milestones' and form.milestone_tracks %}
-              {% include 'experiences/partials/product_milestone_picker.html' %}
+    {% if not section.track %}
+      <fieldset class="border-b border-soft-border pb-6 last:border-0 last:pb-0" {% if section.show_when %}data-show-when-field="{{ section.show_when.field }}" data-show-when-value="{{ section.show_when.value }}"{% if not section.show_when.active %} hidden{% endif %}{% endif %}>
+        {% if section.title %}
+          <legend class="ui-field-legend mb-3.5">{{ section.title }}</legend>
+        {% endif %}
+        <div class="grid gap-3.5 sm:grid-cols-2">
+          {% for field in section.fields %}
+            {% if field.is_hidden %}
+              {% if field.name != 'wasa_source_submission' or not form.latest_product_wasa %}{{ field }}{% endif %}
             {% else %}
-              {% ui_field field %}
+              {% with rule=form|show_when:field.name %}
+                <div class="min-w-0 {% if field.name in form.full_width_fields or field.name == 'description' or field.name == 'name' or field.name == 'registered_address' %}sm:col-span-2{% endif %}" {% if field.name in form.required_uploads %}data-required-upload="{{ field.name }}"{% endif %} {% if form.use_product_wasa and field.name == 'wasa_agency' or form.use_product_wasa and field.name == 'wasa_date' or form.use_product_wasa and field.name == 'wasa_valid_until' or form.use_product_wasa and field.name == 'wasa_certificate' %}data-wasa-upload{% if form.use_product_wasa.value %} data-wasa-from-product="true"{% endif %}{% endif %} {% if rule %}data-show-when-field="{{ rule.field }}" data-show-when-value="{{ rule.value }}"{% if not rule.active %} hidden{% endif %}{% endif %}>
+                  {% if field.name == 'applied_milestones' and form.milestone_tracks %}
+                    {% include 'experiences/partials/product_milestone_picker.html' %}
+                  {% elif field.name == 'use_product_wasa' %}
+                    {% include 'experiences/partials/product_wasa_choice.html' %}
+                  {% else %}
+                    {% ui_field field %}
+                  {% endif %}
+                </div>
+              {% endwith %}
             {% endif %}
-          </div>
-          {% endwith %}
-        {% endfor %}
-      </div>
-      {% if not form.milestone_tracks %}
-        {% for label,badge in section.badges %}
-          <p class="mt-3 text-xs text-soft-foreground">
-            {{ label }} <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{{ badge }}</span>
-          </p>
-        {% endfor %}
-      {% endif %}
-      {% if section.note %}
-        <p class="mt-3 text-xs leading-relaxed text-soft-foreground">{{ section.note }}</p>
-      {% endif %}
-    </fieldset>
+          {% endfor %}
+        </div>
+        {% if not form.milestone_tracks %}
+          {% for label,badge in section.badges %}
+            <p class="mt-3 text-xs text-soft-foreground">
+              {{ label }} <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{{ badge }}</span>
+            </p>
+          {% endfor %}
+        {% endif %}
+        {% if section.note %}
+          <p class="mt-3 text-xs leading-relaxed text-soft-foreground">{{ section.note }}</p>
+        {% endif %}
+      </fieldset>
+    {% endif %}
   {% endfor %}
 </div>
 {% if approved_selections %}

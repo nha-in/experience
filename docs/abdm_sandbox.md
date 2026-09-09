@@ -15,8 +15,11 @@ app; migrations adopt its existing tables and preserve admin permission grants.
 
 ## Local Demo
 
-Configure `LGD_API_KEY` in `.envs/.local/.django` before starting the container
-and seeding organisations. Shell runs need the same server environment variable.
+Configure `LGD_API_KEY` in the Git-ignored root `.env` before starting the container
+and seeding organisations. Local Docker services read this bind-mounted file;
+it is excluded from image builds. Keep secrets out of the tracked
+`.envs/.local/.django`. Native shell runs can set `DJANGO_READ_DOT_ENV_FILE=true`
+to load the same file, or supply `LGD_API_KEY` in their environment.
 The demo's PIN code is validated against LGD, so seeding needs working API access;
 only automated tests substitute controlled lookup fixtures. There is no built-in
 PIN mapping or fake fallback. See [Organisation address lookup](#organisation-address-lookup)

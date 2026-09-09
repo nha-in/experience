@@ -94,7 +94,9 @@ def notify_ticket_reply(ticket, actor, body):
             and visible_tickets(ticket.assignee).filter(pk=ticket.pk).exists()
         ):
             Notification.objects.create(
-                recipient=ticket.assignee.email, subject=subject, body=body,
+                recipient=ticket.assignee.email,
+                subject=subject,
+                body=body,
             )
     else:
         notify_integrators(ticket.organisation, subject, body)
@@ -196,6 +198,7 @@ def _snapshot(item, form, actor, *, completed):
         field_schema=form_field_schema(form),
         schema_version=form.schema_version,
         metadata={"complete": completed},
+        valid_until=item.definition.snapshot_valid_until(form),
         status="completed" if completed else "needs_changes",
         submission_number=number,
         revision=revision,
@@ -433,6 +436,44 @@ def save_review_form(  # noqa: PLR0913
 
 
 @transaction.atomic
+def certification_review(product, actor):
+    """Continue an open certification request, or begin a new review cycle."""
+    require_integrator(actor, product.organisation)
+    Organisation.objects.select_for_update().get(pk=product.organisation_id)
+    definition = product.workspace.definition.certification_application
+    if definition is None:
+        msg = "This program does not offer product certification reviews."
+        raise ValidationError(msg)
+    existing = (
+        product.review_items.filter(application__application_type=definition.key)
+        .exclude(status=ReviewItem.Status.APPROVED)
+        .order_by("-created_at", "-pk")
+        .first()
+    )
+    if existing:
+        return existing
+    application = create_application(
+        application_type=definition.key,
+        product=product,
+        user=actor,
+    )
+    use = application.form_uses.get()
+    # Renewals share their form identity, but start with fresh evidence. Never
+    # turn the previous certificate into a newly submitted renewal by default.
+    use.selected_submission = None
+    use.save(update_fields=["selected_submission", "updated_at"])
+    item = ReviewItem.objects.create(
+        kind=ReviewItem.Kind.APPLICATION,
+        organisation=product.organisation,
+        product=product,
+        application=application,
+        form=use.form,
+    )
+    audit(actor=actor, action="Certification review started", item=item)
+    return item
+
+
+@transaction.atomic
 def register_product(organisation, actor, *, data, program=None):
     require_integrator(actor, organisation)
     organisation = Organisation.objects.select_for_update().get(pk=organisation.pk)
@@ -557,6 +598,19 @@ def _approve_subject(item, actor):
         issue_outcome(application=item.application, actor=actor, outcome=outcome)
 
 
+def _validate_approval(item):
+    reason = item.definition.approval_block_reason(item)
+    if reason:
+        raise ValidationError(reason)
+    if (
+        item.queries.filter(submission=item.selected_submission)
+        .exclude(status="resolved")
+        .exists()
+    ):
+        msg = "Resolve all queries on this submission before approving."
+        raise ValidationError(msg)
+
+
 @transaction.atomic
 def decide(item, actor, *, action, note="", field_key="form"):
     item = _lock_review(item.pk)
@@ -598,16 +652,8 @@ def decide(item, actor, *, action, note="", field_key="form"):
             detail={"query_id": query.pk, "field": field_key, "question": note},
         )
     else:
-        if (
-            action == "approve"
-            and item.queries.filter(submission=item.selected_submission)
-            .exclude(status="resolved")
-            .exists()
-        ):
-            msg = "Resolve all queries on this submission before approving."
-            raise ValidationError(
-                msg,
-            )
+        if action == "approve":
+            _validate_approval(item)
         item.status = (
             ReviewItem.Status.APPROVED
             if action == "approve"

@@ -35,6 +35,11 @@ urlpatterns = [
         name="credentials",
     ),
     path(
+        "products/<str:reference>/certification/",
+        views.product_certification,
+        name="product-certification",
+    ),
+    path(
         "products/<str:reference>/tracks/<str:track_code>/",
         views.track,
         name="track",

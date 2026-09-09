@@ -9,6 +9,7 @@ belong to `experiences`.
 - `definitions.py`: form/application identities, ABDM eligibility and review hooks,
   product mappings, structured approval outcomes and portal labels.
 - `gateway.py`: ABDM credential eligibility and provider/demo integration.
+- `wasa.py`: approved product WASA selection, expiry checks and review outcomes.
 - `demo.py`: the ABDM data builder invoked by `seed_experience_demo`.
 - `tests/`: domain-specific regression coverage.
 
@@ -61,3 +62,36 @@ deactivation, and submission history keeps its original names. The name remains
 in the submission's JSON snapshot; changing the master table does not rewrite
 historical evidence. Use deactivation to retire an agency; admin deletion is
 disabled. Demo resets preserve this table and use an active agency from it.
+
+## Product WASA lifecycle
+
+WASA can be submitted with milestone exit evidence or independently from the
+product's **WASA certification** section. Independent submissions use the
+`abdm_wasa_review` application and the product-scoped `abdm_wasa` form. Each
+renewal creates a separate application and review item while retaining the
+existing form submission history. Drafts, sent-back submissions and pending
+renewals do not replace the approved product certificate.
+
+Approving a new certificate issues a `ProductOutcome` of type `wasa_approval`.
+Its data pins the reviewed `submission_id`, agency, audit date and explicit
+`wasa_valid_until`; its `valid_until` also stores that expiry date. No validity
+period is inferred. `current_wasa(product)` selects the latest audit date, then
+approval time and outcome ID, so approving older evidence later cannot replace
+a newer certificate. A revoked current certificate remains visible as revoked;
+it does not silently fall back to an earlier certificate. Expiry is evaluated
+against the portal's local date, including at the final approval decision.
+
+New milestones default to the approved, unexpired product certificate when one
+is available. Their snapshots retain its `wasa_source_submission` and a copy of
+the certificate attachment. The server resolves that reference through approved
+outcomes belonging to the same product and copies the approved audit details;
+posted replacement details cannot alter a reused certificate. A milestone that
+has saved a source retains that exact pin after a subsequent renewal. Approving
+a milestone that reuses WASA does not issue another WASA outcome. Clearing the
+reuse choice allows a new certificate to be submitted for review.
+
+Existing approved milestone evidence without a product WASA outcome is shown
+as **Expiry needs verification** and cannot be reused as a valid product
+certificate. Historical milestone evidence and approvals remain intact. This
+feature uses existing application, submission, attachment and outcome tables;
+it requires no database migration or historical date backfill.

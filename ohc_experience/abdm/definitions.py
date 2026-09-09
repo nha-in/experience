@@ -15,7 +15,12 @@ from .catalog import TRACKS
 from .forms import ExitEvidenceForm
 from .forms import OrganisationForm
 from .forms import ProductRegistrationForm
+from .forms import WasaReviewForm
 from .gateway import ABDMCredentials
+from .wasa import preferred_wasa_submission
+from .wasa import wasa_approval_block_reason
+from .wasa import wasa_approval_outcomes
+from .wasa import wasa_context
 
 
 class OrganisationVerification(ApplicationFormDefinition):
@@ -75,6 +80,25 @@ class ExitEvidence(ApplicationFormDefinition):
     )
 
     @classmethod
+    def form_kwargs(cls, item):
+        return {
+            "product": item.product,
+            "wasa_source_submission": preferred_wasa_submission(item),
+            "prefer_product_wasa": (
+                not item.selected_submission
+                or item.selected_submission.origin_application_id != item.application_id
+            ),
+        }
+
+    @classmethod
+    def snapshot_valid_until(cls, form):
+        return form.cleaned_data.get("wasa_valid_until")
+
+    @classmethod
+    def approval_block_reason(cls, item):
+        return wasa_approval_block_reason(item)
+
+    @classmethod
     def submission_block_reason(cls, item):
         if (
             not item.organisation.is_verified
@@ -106,7 +130,38 @@ class ExitEvidence(ApplicationFormDefinition):
                     ),
                 },
             ),
+            *wasa_approval_outcomes(item),
         )
+
+
+class WasaReview(ApplicationFormDefinition):
+    key = "abdm_wasa"
+    name = "WASA certification"
+    form_class = WasaReviewForm
+    reuse_scope = FormReuseScope.PRODUCT
+    request_label = "WASA review"
+    submit_label = "Submit WASA for review"
+    submitted_message = "WASA submitted for review."
+    approval_notice = (
+        "Approval makes this certificate available for the product's milestones "
+        "until its stated expiry date."
+    )
+
+    @classmethod
+    def form_kwargs(cls, item):
+        return {"product": item.product}
+
+    @classmethod
+    def snapshot_valid_until(cls, form):
+        return form.cleaned_data.get("wasa_valid_until")
+
+    @classmethod
+    def approval_block_reason(cls, item):
+        return wasa_approval_block_reason(item)
+
+    @classmethod
+    def on_approve(cls, item, actor):
+        return wasa_approval_outcomes(item)
 
 
 class ProductRegistration(ApplicationFormDefinition):
@@ -164,6 +219,13 @@ class SandboxProduct(ApplicationDefinition):
     forms = (ProductRegistration,)
 
 
+class WasaCertification(ApplicationDefinition):
+    key = "abdm_wasa_review"
+    name = "WASA certification review"
+    reference_prefix = "WASA"
+    forms = (WasaReview,)
+
+
 class ABDM(ProgramDefinition):
     key = "abdm"
     name = "ABDM Developer Sandbox"
@@ -186,6 +248,8 @@ class ABDM(ProgramDefinition):
     organisation_form = OrganisationVerification
     product_application = SandboxProduct
     milestone_application = SandboxExit
+    supplementary_applications = (WasaCertification,)
+    certification_application = WasaCertification
     milestones = MILESTONES
     tracks = TRACKS
     credentials = ABDMCredentials
@@ -194,6 +258,10 @@ class ABDM(ProgramDefinition):
         ("government", "Government"),
         ("sole_proprietor", "Sole proprietor"),
     )
+
+    @classmethod
+    def certification_context(cls, product):
+        return wasa_context(product)
 
     @classmethod
     def product_values(cls, data):

@@ -17,15 +17,15 @@
     <ul class="flex flex-col gap-1 text-sm">
       {% if reviewer %}
         {% if can_read_reviews %}
-        <li><a id="nav-dashboard"
+          <li><a id="nav-dashboard"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'assess-dashboard' %}ui-nav-link--active{% endif %}"
    {% if nav == 'assess-dashboard' %}aria-current="page"{% endif %}
    href="{% url 'experiences:assess-dashboard' %}">{% include "components/nav_icon.html" with icon="overview" %}Dashboard</a></li>
-        <li><a id="nav-queue"
+          <li><a id="nav-queue"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'queue' %}ui-nav-link--active{% endif %}"
    {% if nav == 'queue' %}aria-current="page"{% endif %}
    href="{% url 'experiences:queue' %}">{% include "components/nav_icon.html" with icon="queue" %}Review queue</a></li>
-        <li><a id="nav-products"
+          <li><a id="nav-products"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'products' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:products' %}">{% include "components/nav_icon.html" with icon="track" %}Products</a></li>
         {% endif %}
@@ -45,6 +45,10 @@
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'credentials' %}ui-nav-link--active{% endif %}"
    {% if nav == 'credentials' %}aria-current="page"{% endif %}
    href="{% url 'experiences:credentials' workspace.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}Credentials &amp; outcomes</a></li>{% endif %}
+        {% if can_integrate and experience_program.certification_application %}<li><a id="nav-certification"
+   class="ui-nav-link flex items-center gap-2.5 {% if nav == 'certification' %}ui-nav-link--active{% endif %}"
+   {% if nav == 'certification' %}aria-current="page"{% endif %}
+   href="{% url 'experiences:product-certification' workspace.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}WASA certification</a></li>{% endif %}
         {% if nav_tracks %}<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Tracks</li>{% endif %}
         {% for row in nav_tracks %}
           <li><a id="nav-track-{{ row.definition.code|slugify }}"
@@ -60,48 +64,51 @@
       {% if can_read_events %}<li><a id="nav-events"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'events' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:events' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Events</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
-      {% endif %}
-      {% if can_read_support %}<li><a id="nav-support"
+    {% endif %}
+    {% if can_read_support %}<li><a id="nav-support"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}</span>{% endif %}</a></li>
-      {% endif %}
-      {% if can_integrate %}
-        <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Product</li>
-        {% if workspace %}<li><a id="nav-edit"
+  {% endif %}
+  {% if can_integrate %}
+    <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Product</li>
+    {% if workspace %}<li><a id="nav-edit"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'edit' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:product-edit' workspace.reference %}">{% include "components/nav_icon.html" with icon="edit" %}Edit product</a></li>{% endif %}
-        <li><a id="nav-register"
+    <li><a id="nav-register"
    class="ui-nav-link flex items-center gap-2.5"
    href="{% url 'experiences:product-create' %}">{% include "components/nav_icon.html" with icon="add" %}{% if workspace %}Register another product{% else %}Register a product{% endif %}</a></li>
-        <li><a id="nav-organisation"
+    <li><a id="nav-organisation"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'organisation' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:organisation' %}">{% include "components/nav_icon.html" with icon="organisation" %}Organisation</a></li>
-      {% endif %}
-    </ul>
-    <ul class="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3 text-sm">
-      {% if current_organisation and not reviewer %}<li><a id="nav-settings"
+  {% endif %}
+</ul>
+<ul class="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3 text-sm">
+  {% if current_organisation and not reviewer %}<li><a id="nav-settings"
    class="ui-nav-link"
    href="{% url 'organisations:team' %}">{% include "components/nav_icon.html" with icon="team" %}Team &amp; invitations</a></li>{% endif %}
-      <li><a id="nav-profile" class="ui-nav-link" href="{% url 'users:profile' %}">{% include "components/nav_icon.html" with icon="profile" %}Your profile</a></li>
-      {% if request.user.is_superuser %}<li><a id="nav-staff" class="ui-nav-link {% if nav == 'staff' %}ui-nav-link--active{% endif %}" href="{% url 'experiences:staff-list' %}" {% if nav == 'staff' %}aria-current="page"{% endif %}>{% include 'components/nav_icon.html' with icon='team' %}Staff &amp; permissions</a></li>{% endif %}
-      <li><a id="nav-docs"
+  <li><a id="nav-profile" class="ui-nav-link" href="{% url 'users:profile' %}">{% include "components/nav_icon.html" with icon="profile" %}Your profile</a></li>
+  {% if request.user.is_superuser %}<li><a id="nav-staff"
+   class="ui-nav-link {% if nav == 'staff' %}ui-nav-link--active{% endif %}"
+   href="{% url 'experiences:staff-list' %}"
+   {% if nav == 'staff' %}aria-current="page"{% endif %}>{% include 'components/nav_icon.html' with icon='team' %}Staff &amp; permissions</a></li>{% endif %}
+  <li><a id="nav-docs"
    class="ui-nav-link"
    href="{{ experience_program.docs_url }}"
    target="_blank"
    rel="noopener noreferrer"
    hx-boost="false">{% include "components/nav_icon.html" with icon="docs" %}Documentation <span aria-hidden="true">↗</span></a></li>
-    </ul>
-  </div>
-  <div class="mt-2.5 flex items-center gap-2 border-t border-sidebar-border px-2 pt-3">
-    <span class="ui-avatar ui-avatar--primary size-9 text-xs"
-          aria-hidden="true">{{ request.user.display_name|slice:":2"|upper }}</span>
-    <span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold">{{ request.user.display_name }}</span><span class="block truncate text-xs text-soft-foreground">{{ request.user.email }}</span></span>
-    <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
-      {% csrf_token %}
-      <button class="ui-btn ui-btn--ghost ui-btn--size-icon-xs"
-              type="submit"
-              aria-label="Sign out"
-              title="Sign out">{% include "components/nav_icon.html" with icon="logout" %}</button>
-    </form>
-  </div>
+</ul>
+</div>
+<div class="mt-2.5 flex items-center gap-2 border-t border-sidebar-border px-2 pt-3">
+  <span class="ui-avatar ui-avatar--primary size-9 text-xs"
+        aria-hidden="true">{{ request.user.display_name|slice:":2"|upper }}</span>
+  <span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold">{{ request.user.display_name }}</span><span class="block truncate text-xs text-soft-foreground">{{ request.user.email }}</span></span>
+  <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+    {% csrf_token %}
+    <button class="ui-btn ui-btn--ghost ui-btn--size-icon-xs"
+            type="submit"
+            aria-label="Sign out"
+            title="Sign out">{% include "components/nav_icon.html" with icon="logout" %}</button>
+  </form>
+</div>
 </nav>

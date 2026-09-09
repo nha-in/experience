@@ -187,6 +187,28 @@ def _error(request, error):
     messages.error(request, " ".join(error.messages))
 
 
+def _certification_context(request, product):
+    program = product.workspace.definition
+    if permissions.reviewer(request.user) and not permissions.has_access(
+        request.user,
+        "review",
+        program=program.key,
+    ):
+        return {}
+    context = program.certification_context(product)
+    certificate = context.get("certificate")
+    if (
+        certificate
+        and not permissions.visible_submissions(request.user)
+        .filter(
+            pk=certificate.submission_id,
+        )
+        .exists()
+    ):
+        context = {**context, "certificate": None}
+    return context
+
+
 @login_required
 def dashboard(request):
     if permissions.reviewer(request.user):
@@ -370,6 +392,11 @@ def overview(request, reference):
         .select_related("selected_submission")
         .first()
     )
+    certification = _certification_context(request, product)
+    if certification.get("current"):
+        outcomes = outcomes.exclude(
+            outcome_type=certification["current"].outcome_type,
+        )
     context = _context(
         request,
         workspace,
@@ -404,6 +431,7 @@ def overview(request, reference):
             product=product,
             kind="product_registration",
         ).first(),
+        certification=certification,
     )
     context["progress"] = overview_progress(context["tracks"])
     context["next_step"] = (
@@ -417,6 +445,90 @@ def overview(request, reference):
         else None
     )
     return render(request, "experiences/overview.html", context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def product_certification(request, reference):
+    workspace = _workspace(request, reference)
+    product = workspace.product
+    permissions.require_integrator(request.user, product.organisation)
+    definition = workspace.definition.certification_application
+    if definition is None:
+        raise Http404
+    reviews = product.review_items.filter(
+        application__application_type=definition.key,
+    ).order_by("-created_at", "-pk")
+
+    def revision():
+        latest = reviews.first()
+        return (
+            f"{latest.pk}:{latest.status}:{latest.selected_submission_id or ''}"
+            if latest
+            else ""
+        )
+
+    certification = _certification_context(request, product)
+    item = certification.get("review")
+    form = (
+        services.build_form(item)
+        if item
+        else definition.forms[0].form_class(product=product)
+    )
+    if request.method == "POST":
+        try:
+            intent = request.POST.get("intent")
+            if intent not in {"draft", "submit"}:
+                msg = "Choose a valid form action."
+                raise ValidationError(msg)  # noqa: TRY301
+            with transaction.atomic():
+                type(product.organisation).objects.select_for_update().get(
+                    pk=product.organisation_id,
+                )
+                if request.POST.get("certification_revision", "") != revision():
+                    msg = (
+                        "This WASA request has changed. Reload the page before saving."
+                    )
+                    raise ValidationError(msg)  # noqa: TRY301
+                item = services.certification_review(product, request.user)
+                item, form, saved = services.save_review_form(
+                    item,
+                    request.user,
+                    data=request.POST,
+                    files=request.FILES,
+                    submit=intent == "submit",
+                    expected_revision=request.POST.get("revision", ""),
+                )
+            if saved:
+                messages.success(
+                    request,
+                    "WASA submitted for review."
+                    if intent == "submit"
+                    else "Draft saved.",
+                )
+                return redirect(
+                    "experiences:product-certification",
+                    workspace.reference,
+                )
+        except ValidationError as error:
+            _error(request, error)
+        certification = _certification_context(request, product)
+    return render(
+        request,
+        "experiences/certification.html",
+        _context(
+            request,
+            workspace,
+            page_title="WASA certification",
+            nav="certification",
+            item=item,
+            form=form,
+            certification=certification,
+            certification_revision=revision(),
+            certification_reviews=reviews.select_related("selected_submission"),
+            can_edit=not item or item.editable,
+        ),
+    )
 
 
 @login_required
@@ -513,6 +625,12 @@ def _integrator_item_url(item):
     if item.kind == "product_registration":
         return reverse(
             "experiences:product-edit",
+            args=[item.product.workspace.reference],
+        )
+    certification = item.program.certification_application
+    if certification and item.application.application_type == certification.key:
+        return reverse(
+            "experiences:product-certification",
             args=[item.product.workspace.reference],
         )
     key = item.application.milestone.key
@@ -1044,6 +1162,9 @@ def review(request, pk):
             else None,
             progress=provisioning_progress(item.product) if item.product_id else [],
             can_retry_provisioning=_can_retry_provisioning(request.user, item),
+            certification=_certification_context(request, item.product)
+            if item.product_id
+            else {},
             open_tickets=permissions.visible_tickets(request.user).filter(
                 organisation=item.organisation,
                 status__in=["open", "awaiting_vendor"],
