@@ -6,9 +6,9 @@
   product), then the account links and the person's card at the foot.
   Shared by the desktop rail and the mobile drawer so the two never drift.
 
-  Switching products lives in the top bar (components/product_switcher.html).
-  The top bar is hidden on phones, so there the product card at the head of
-  the drawer is the same switcher; on wider screens it is a plain card.
+  The product card at the head of the rail is a product switcher
+  (components/product_switcher.html), the same one the top bar carries; the
+  top bar is hidden on phones, so the card is the only one there.
 
   Every product link points at `current_product` (abdm.context_processors):
   the product this person last opened, or the organisation's first. With no
@@ -42,17 +42,12 @@
      hx-swap="outerHTML"
      hx-push-url="true"
      hx-indicator="#nav-progress">
+  {% if current_product %}
+    {# Above the scrolling list, so the switcher's panel can float over it. #}
+    <div class="mb-3">{% include "components/product_switcher.html" with variant="card" %}</div>
+  {% endif %}
   <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
     {% if current_product %}
-      <div class="mb-3 hidden items-center gap-2.5 rounded-[10px] border border-sidebar-border bg-background px-2.5 py-2 md:flex">
-        <span class="ui-avatar ui-avatar--primary size-[26px] rounded-[7px] text-[10px]"
-              aria-hidden="true">{{ current_organisation.initials|default:current_product.name|slice:":2"|upper }}</span>
-        <span class="min-w-0 leading-tight">
-          <span class="block truncate text-[11.5px] font-semibold">{{ current_product.name }}</span>
-          <span class="block font-mono text-[9.5px] text-soft-foreground">{{ current_product.sandbox_id }}</span>
-        </span>
-      </div>
-      <div class="mb-3 md:hidden">{% include "components/product_switcher.html" with variant="card" %}</div>
       <ul class="flex flex-col gap-px">
         <li>
           <a id="nav-overview"

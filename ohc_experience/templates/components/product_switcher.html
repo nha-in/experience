@@ -7,16 +7,17 @@
   an open one on a click elsewhere or on Escape.
 
   variant "bar": the first crumb of the top bar on wide screens; the list
-  floats below the name. variant "card": the drawer's product card on phones;
-  the list opens in flow, because the rail scrolls and would clip a floating
-  one.
+  floats below the name. variant "card": the product card at the head of the
+  rail, at every width; the list floats below the card, over the rail. That
+  is why app_nav.html keeps the card above the rail's scroll region: a
+  floating panel inside it would be clipped.
 
   Context: current_product, organisation_products, current_organisation,
   variant.
 {% endcomment %}
 {% load i18n %}
 
-<details class="group {% if variant == 'card' %}rounded-[10px] border border-sidebar-border bg-background{% else %}relative min-w-0{% endif %}"
+<details class="group relative {% if variant == 'card' %}rounded-[10px] border border-sidebar-border bg-background{% else %}min-w-0{% endif %}"
          id="product-switcher{% if variant == 'card' %}-card{% endif %}"
          data-popover>
   <summary class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden {% if variant == 'card' %}px-2.5 py-2{% else %}-mx-1 px-1 py-0.5 hover:bg-muted-background{% endif %}"
@@ -35,7 +36,7 @@
           aria-hidden="true">▾</span>
     <span class="sr-only">{% translate "Switch product" %}</span>
   </summary>
-  <ul class="{% if variant == 'card' %}flex flex-col gap-px border-t border-sidebar-border p-1{% else %}absolute top-full left-0 z-40 mt-1.5 flex min-w-[240px] flex-col gap-px rounded-[10px] border border-border bg-popover p-1 text-popover-foreground shadow-md{% endif %}"
+  <ul class="absolute top-full z-40 mt-1.5 flex flex-col gap-px rounded-[10px] border border-border bg-popover p-1 text-popover-foreground shadow-md {% if variant == 'card' %}right-0 left-0{% else %}left-0 min-w-[240px]{% endif %}"
       aria-label="{% translate 'Products' %}">
     {% for item in organisation_products %}
       {% if item.pk != current_product.pk %}

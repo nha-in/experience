@@ -607,8 +607,19 @@ class TestShellNavigation:
             html.index('id="nav-edit"') : html.index('id="nav-new-product"')
         ]
         assert "<details" not in product_section
-        # The drawer's product card carries the same control for phones.
-        assert 'id="product-switcher-card"' in html
+        # The rail's product card is the same control, at every width: it is
+        # the first thing in the nav and nothing hides it on wide screens.
+        rail_start = html.index('<nav id="app-nav"')
+        rail_head = html[rail_start : html.index('id="nav-overview"')]
+        assert 'id="product-switcher-card"' in rail_head
+        assert "md:hidden" not in rail_head
+        assert "md:flex" not in rail_head
+        # Its list floats over the rail rather than pushing it down: the card
+        # sits above the scroll region, and the panel is positioned.
+        card_at = rail_head.index('id="product-switcher-card"')
+        assert card_at < rail_head.index("overflow-y-auto")
+        panel = rail_head[card_at:]
+        assert "absolute" in panel[panel.index("<ul") : panel.index("</ul>")]
 
     def test_the_switcher_is_there_on_pages_that_are_not_about_a_product(
         self,
