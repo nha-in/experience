@@ -23,7 +23,11 @@ from .registry import get_program
 
 def can_edit_event(user, event):
     return permissions.has_access(
-        user, "events", event.category, "write", event.program,
+        user,
+        "events",
+        event.category,
+        "write",
+        event.program,
     ) and (user.is_superuser or not event.is_published)
 
 
@@ -43,10 +47,12 @@ class EventForm(forms.ModelForm):
         ]
         widgets = {
             "starts_at": forms.DateTimeInput(
-                format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"},
+                format="%Y-%m-%dT%H:%M",
+                attrs={"type": "datetime-local"},
             ),
             "ends_at": forms.DateTimeInput(
-                format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"},
+                format="%Y-%m-%dT%H:%M",
+                attrs={"type": "datetime-local"},
             ),
             "description": forms.Textarea(attrs={"rows": 4}),
         }
@@ -94,7 +100,11 @@ def event_manage(request):
     for event in page:
         event.can_edit = can_edit_event(request.user, event)
         event.can_publish = permissions.has_access(
-            request.user, "events", event.category, "approve", event.program,
+            request.user,
+            "events",
+            event.category,
+            "approve",
+            event.program,
         )
     return render(
         request,
@@ -117,7 +127,8 @@ def event_edit(request, pk=None):
     with transaction.atomic():
         event = (
             get_object_or_404(
-                permissions.visible_events(request.user).select_for_update(), pk=pk,
+                permissions.visible_events(request.user).select_for_update(),
+                pk=pk,
             )
             if pk
             else Event()
@@ -164,10 +175,15 @@ def event_edit(request, pk=None):
 def event_publication(request, pk):
     with transaction.atomic():
         event = get_object_or_404(
-            permissions.visible_events(request.user).select_for_update(), pk=pk,
+            permissions.visible_events(request.user).select_for_update(),
+            pk=pk,
         )
         if not permissions.has_access(
-            request.user, "events", event.category, "approve", event.program,
+            request.user,
+            "events",
+            event.category,
+            "approve",
+            event.program,
         ):
             raise PermissionDenied
         action = request.POST.get("intent")
@@ -181,6 +197,7 @@ def event_publication(request, pk):
             "Event published" if action == "publish" else "Event unpublished",
         )
     messages.success(
-        request, "Event published." if action == "publish" else "Event unpublished.",
+        request,
+        "Event published." if action == "publish" else "Event unpublished.",
     )
     return redirect("experiences:event-manage")

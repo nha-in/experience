@@ -63,7 +63,9 @@ class UserSignupView(SignupView):
         context = super().get_context_data(**kwargs)
         context["invitation"] = self.get_invitation()
         context.update(
-            page_title="Create account", onboarding=True, onboarding_step="account",
+            page_title="Create account",
+            onboarding=True,
+            onboarding_step="account",
         )
         return context
 

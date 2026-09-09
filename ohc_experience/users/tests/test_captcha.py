@@ -28,7 +28,8 @@ def test_local_challenge_requires_correct_unexpired_answer(signup_request, setti
     VerificationForm(request=signup_request)
     first, second, _ = signup_request.session["signup_challenge"]
     assert VerificationForm(
-        data={"captcha": first + second}, request=signup_request,
+        data={"captcha": first + second},
+        request=signup_request,
     ).is_valid()
     assert not VerificationForm(data={"captcha": -1}, request=signup_request).is_valid()
     form = VerificationForm(data={"captcha": first + second}, request=signup_request)
@@ -40,7 +41,8 @@ def test_production_cannot_fall_back_to_local_challenge(signup_request, settings
     settings.DEBUG = False
     signup_request.session["signup_challenge"] = [2, 3, time.time()]
     assert not VerificationForm(
-        data={"captcha": "5"}, request=signup_request,
+        data={"captcha": "5"},
+        request=signup_request,
     ).is_valid()
 
 
@@ -53,7 +55,10 @@ def test_production_cannot_fall_back_to_local_challenge(signup_request, settings
     ],
 )
 def test_turnstile_validates_server_response_and_hostname(
-    signup_request, settings, response, valid,
+    signup_request,
+    settings,
+    response,
+    valid,
 ):
     settings.TURNSTILE_SITE_KEY = "test-site"
     settings.TURNSTILE_SECRET_KEY = "test-secret"  # noqa: S105 - mocked provider key
@@ -62,7 +67,8 @@ def test_turnstile_validates_server_response_and_hostname(
         return_value=io.BytesIO(json.dumps(response).encode()),
     ):
         form = VerificationForm(
-            data={"captcha": "response-token"}, request=signup_request,
+            data={"captcha": "response-token"},
+            request=signup_request,
         )
         assert form.is_valid() is valid
 
@@ -72,6 +78,7 @@ def test_turnstile_connection_failure_is_not_accepted(signup_request, settings):
     settings.TURNSTILE_SECRET_KEY = "test-secret"  # noqa: S105 - mocked provider key
     with patch("ohc_experience.users.captcha.urlopen", side_effect=TimeoutError):
         form = VerificationForm(
-            data={"captcha": "response-token"}, request=signup_request,
+            data={"captcha": "response-token"},
+            request=signup_request,
         )
         assert not form.is_valid()

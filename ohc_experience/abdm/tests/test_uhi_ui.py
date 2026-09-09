@@ -69,6 +69,8 @@ def test_recorded_uhi_answers_remain_editable_after_invalid_submission(
     assert page.context["can_edit"]
     assert b'name="uhi_role"' in page.content
     assert b"Participation recorded" in page.content
+    assert b"Update participation" in page.content
+    assert b'value="draft"' not in page.content
     assert b"Submitting sends this milestone for review" not in page.content
 
     invalid = client.post(
@@ -79,6 +81,8 @@ def test_recorded_uhi_answers_remain_editable_after_invalid_submission(
     assert invalid.context["can_edit"]
     assert "uhi_role" in invalid.context["form"].errors
     assert b'name="uhi_role"' in invalid.content
+    assert b"Update participation" in invalid.content
+    assert b'value="draft"' not in invalid.content
 
     saved = client.post(
         url,
@@ -93,6 +97,43 @@ def test_recorded_uhi_answers_remain_editable_after_invalid_submission(
     item.refresh_from_db()
     assert item.status == "approved"
     assert item.selected_submission.data["uhi_role"] == ["hspa"]
+
+
+def test_draft_post_cannot_reopen_recorded_uhi_participation(environment, client):
+    approve(environment)
+    item = submit(environment, "uhi1")
+    client.force_login(environment["applicant"])
+    snapshot_id = item.selected_submission_id
+    snapshot_count = item.form.submissions.count()
+    previous_data = item.selected_submission.data
+    decision_time = item.decided_at
+    application_decision_time = item.application.decided_at
+    event_count = item.history.count()
+
+    page = client.post(
+        f"{uhi_url(environment)}?milestone=uhi1",
+        {
+            **uhi_data(),
+            "uhi_role": ["hspa"],
+            "intent": "draft",
+            "revision": snapshot_id,
+        },
+    )
+
+    assert page.status_code == 200
+    assert (
+        b"Submit your updated answers to keep participation recorded." in page.content
+    )
+    assert b"Update participation" in page.content
+    assert b'value="draft"' not in page.content
+    item.refresh_from_db()
+    assert item.status == item.application.status == "approved"
+    assert item.selected_submission_id == snapshot_id
+    assert item.selected_submission.data == previous_data
+    assert item.form.submissions.count() == snapshot_count
+    assert item.decided_at == decision_time
+    assert item.application.decided_at == application_decision_time
+    assert item.history.count() == event_count
 
 
 def test_uhi_history_keeps_original_form_title_after_form_upgrade(

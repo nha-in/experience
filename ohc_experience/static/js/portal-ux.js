@@ -189,12 +189,21 @@
     const jump = event.target.closest('[data-submit-missing]');
     if (jump) {
       const form = jump.closest('form');
-      const missing = [...form.querySelectorAll('input, select, textarea')].find(input => !input.disabled && !input.validity.valid);
+      const available = input => !input.matches(':disabled') && !input.closest('[hidden]');
+      const missing = [...form.querySelectorAll('input, select, textarea')].find(input => available(input) && !input.validity.valid);
+      const missingGroup = [...form.querySelectorAll('[data-required-checkbox-group]')].find(group => {
+        const choices = [...group.querySelectorAll('input[type="checkbox"]')].filter(available);
+        return choices.length > 0 && !choices.some(input => input.checked);
+      });
       const upload = [...form.querySelectorAll('[data-required-upload]')].find(field =>
-        !field.hidden && !field.querySelector('input[type="file"]')?.disabled &&
+        field.querySelector('input[type="file"]') && available(field.querySelector('input[type="file"]')) &&
         !field.querySelector('input[type="file"]')?.files.length &&
         ![...field.querySelectorAll('[data-existing-file-remove]')].some(input => !input.checked));
-      focusElement(missing || upload?.querySelector('input[type="file"]'));
+      const groupChoice = [...(missingGroup?.querySelectorAll('input[type="checkbox"]') || [])].find(available);
+      const first = [missing, groupChoice, upload?.querySelector('input[type="file"]')].filter(Boolean).sort(
+        (left, right) => left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1,
+      )[0];
+      focusElement(first);
     }
   });
 

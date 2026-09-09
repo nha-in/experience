@@ -7,11 +7,11 @@ env:
 
 on:
   pull_request:
-    branches: ['main']
+    branches: ['main', 'testing_new']
     paths-ignore: ['docs/**']
 
   push:
-    branches: ['main']
+    branches: ['main', 'testing_new']
     paths-ignore: ['docs/**']
 
 concurrency:
@@ -32,6 +32,9 @@ jobs:
       # Consider using pre-commit.ci for open source project
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
+
+      - name: Run browser behavior tests
+        run: node --test tests/*.test.cjs
 
   # With no caching at all the entire ci process takes 3m to complete!
   pytest:

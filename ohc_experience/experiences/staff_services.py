@@ -78,7 +78,12 @@ def save_staff(actor, data, *, pk=None):
     before = (
         list(
             user.experience_access.values(
-                "program", "area", "category", "can_read", "can_write", "can_approve",
+                "program",
+                "area",
+                "category",
+                "can_read",
+                "can_write",
+                "can_approve",
             ),
         )
         if user
@@ -86,7 +91,10 @@ def save_staff(actor, data, *, pk=None):
     )
     created = user is None
     user = user or get_user_model()(
-        is_ohc_team=True, is_staff=False, is_superuser=False, is_active=True,
+        is_ohc_team=True,
+        is_staff=False,
+        is_superuser=False,
+        is_active=True,
     )
     old_email = user.email
     for field in ("name", "email", "phone_number"):
@@ -100,7 +108,9 @@ def save_staff(actor, data, *, pk=None):
     # Provisioned staff addresses are asserted by the superadmin, not public signup.
     EmailAddress.objects.filter(user=user).exclude(email=user.email).delete()
     EmailAddress.objects.update_or_create(
-        user=user, email=user.email, defaults={"primary": True, "verified": True},
+        user=user,
+        email=user.email,
+        defaults={"primary": True, "verified": True},
     )
     programs = [program.key for program in registry.programs()]
     user.experience_access.filter(program__in=programs).delete()
@@ -133,13 +143,17 @@ def set_staff_active(actor, pk, *, active, revision):
     if not active:
         revoke_sessions(user)
         for item in ReviewItem.objects.filter(
-            assignee=user, status__in=["new", "in_review", "query_raised"],
+            assignee=user,
+            status__in=["new", "in_review", "query_raised"],
         ):
             assign_review(item, actor, None)
         Ticket.objects.filter(
-            assignee=user, status__in=["open", "awaiting_vendor"],
+            assignee=user,
+            status__in=["open", "awaiting_vendor"],
         ).update(assignee=None)
     staff_log(
-        actor, user, "Staff account restored" if active else "Staff account archived",
+        actor,
+        user,
+        "Staff account restored" if active else "Staff account archived",
     )
     return user

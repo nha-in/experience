@@ -399,6 +399,19 @@ def project_product(item, actor, *, product_values, solution_type, selections):
         )
 
 
+def _require_editable_submission(item, *, submit):
+    if not can_edit_review(item):
+        msg = "Withdraw this request before editing the submitted form."
+        raise ValidationError(msg)
+    if (
+        item.status == ReviewItem.Status.APPROVED
+        and item.definition.auto_approve
+        and not submit
+    ):
+        msg = "Submit your updated answers to keep participation recorded."
+        raise ValidationError(msg)
+
+
 @transaction.atomic
 def save_review_form(  # noqa: PLR0913
     item,
@@ -411,11 +424,7 @@ def save_review_form(  # noqa: PLR0913
 ):
     item = _lock_review(item.pk)
     require_integrator(actor, item.organisation)
-    if not can_edit_review(item):
-        msg = "Withdraw this request before editing the submitted form."
-        raise ValidationError(
-            msg,
-        )
+    _require_editable_submission(item, submit=submit)
     if expected_revision is not None and str(item.selected_submission_id or "") != str(
         expected_revision,
     ):

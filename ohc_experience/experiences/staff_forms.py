@@ -148,14 +148,16 @@ class StaffForm(forms.Form):
             key.startswith("access_") and key not in self.fields for key in self.data
         ):
             self.add_error(
-                None, "The permission catalog changed. Reload before saving.",
+                None,
+                "The permission catalog changed. Reload before saving.",
             )
         password = data.get("password1")
         if password != data.get("password2"):
             self.add_error("password2", "The passwords do not match.")
         if password:
             candidate = get_user_model()(
-                email=data.get("email", ""), name=data.get("name", ""),
+                email=data.get("email", ""),
+                name=data.get("name", ""),
             )
             try:
                 validate_password(password, candidate)
@@ -167,7 +169,8 @@ class StaffForm(forms.Form):
                 read.name,
             ):
                 self.add_error(
-                    read.name, "Read is required for write or approve access.",
+                    read.name,
+                    "Read is required for write or approve access.",
                 )
         return data
 
@@ -180,7 +183,9 @@ class StaffForm(forms.Form):
                 **{
                     f"can_{action}": self.cleaned_data[cell.name]
                     for action, cell in zip(
-                        ("read", "write", "approve"), row["cells"], strict=True,
+                        ("read", "write", "approve"),
+                        row["cells"],
+                        strict=True,
                     )
                 },
             }

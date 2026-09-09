@@ -279,6 +279,29 @@ def test_upgrade_prefers_latest_coherent_application_answers(environment, legacy
     assert snapshot.metadata["source_submission_id"] == source.pk
 
 
+@pytest.mark.parametrize("source_kind", ["application", "registration"])
+def test_upgrade_preserves_deliberately_cleared_answers(legacy_uhi, source_kind):
+    registration = legacy_uhi.product.review_items.get(kind="product_registration")
+    next_snapshot(registration, uhi_data())
+    item = legacy_uhi if source_kind == "application" else registration
+    next_snapshot(item, uhi_data())
+    cleared = {
+        "uhi_role": [],
+        "uhi_services": [],
+        "uhi_tell_us_about": "",
+        "uhi_extra_details": "",
+    }
+    source = next_snapshot(item, cleared)
+    next_snapshot(item, {"description": "UHI questions moved to participation."})
+
+    run_upgrade()
+
+    legacy_uhi.refresh_from_db()
+    snapshot = legacy_uhi.selected_submission
+    assert snapshot.data == cleared
+    assert snapshot.metadata["source_submission_id"] == source.pk
+
+
 @pytest.mark.parametrize("has_snapshot", [True, False])
 def test_upgrade_without_answers_starts_empty_and_can_be_submitted(
     environment,

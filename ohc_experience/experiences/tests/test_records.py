@@ -23,7 +23,9 @@ pytestmark = pytest.mark.django_db
 def register_test_program(monkeypatch):
     for attribute in ("_definitions", "_forms", "_programs"):
         monkeypatch.setattr(
-            default_registry, attribute, dict(getattr(default_registry, attribute)),
+            default_registry,
+            attribute,
+            dict(getattr(default_registry, attribute)),
         )
     default_registry.register_program(SupplierQuality)
 
