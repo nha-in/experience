@@ -496,10 +496,6 @@ class ApplicationDefinition:
         return next((item for item in cls.statuses if item.key == key), cls.statuses[0])
 
     @classmethod
-    def get_permission(cls, key: str) -> PermissionDefinition | None:
-        return next((item for item in cls.permissions if item.key == key), None)
-
-    @classmethod
     def get_role(cls, key: str) -> RoleDefinition | None:
         return next((item for item in cls.roles if item.key == key), None)
 

@@ -7,7 +7,6 @@ how to describe itself: a badge variant, a label, whether it is editable.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from typing import ClassVar
 
 from django.conf import settings
@@ -21,9 +20,6 @@ from django.utils.translation import gettext_lazy as _
 from . import tracks
 from .crypto import decrypt_secret
 from .crypto import encrypt_secret
-
-if TYPE_CHECKING:
-    from datetime import timedelta
 
 WHOLE_FORM = "form"
 
@@ -404,10 +400,6 @@ class ComplianceRecord(models.Model):
     def review_item(self):
         return getattr(self, "review", None)
 
-    def unlock_prerequisite(self) -> tracks.Milestone | None:
-        """The milestone whose approval opens this one, on the track it sits in."""
-        return tracks.previous_milestone(self.track, self.milestone)
-
 
 class ReviewItemQuerySet(models.QuerySet["ReviewItem"]):
     def open(self) -> ReviewItemQuerySet:
@@ -627,20 +619,6 @@ class ReviewItem(models.Model):
     @property
     def is_withdrawn(self) -> bool:
         return self.status == self.Status.WITHDRAWN
-
-    @property
-    def time_to_decision(self) -> timedelta | None:
-        if not self.decided_on:
-            return None
-        return (
-            timezone.make_aware(
-                timezone.datetime.combine(
-                    self.decided_on,
-                    timezone.datetime.min.time(),
-                ),
-            )
-            - self.submitted_on
-        )
 
 
 class ReviewQuery(models.Model):

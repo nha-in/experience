@@ -15,8 +15,6 @@ from ohc_experience.organisations.models import Role
 from . import captcha
 from .models import User
 
-MIN_PASSWORD_LENGTH = 12
-
 
 class UserAdminChangeForm(admin_forms.UserChangeForm):
     class Meta(admin_forms.UserChangeForm.Meta):

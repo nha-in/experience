@@ -49,10 +49,6 @@ from .services import resolve_query
 from .services import save_form_submission
 
 
-def _status_for(application):
-    return registry.get(application.application_type).get_status(application.status)
-
-
 def _redirect_for_request(request, url: str):
     if request.htmx:
         return HttpResponseClientRedirect(url)

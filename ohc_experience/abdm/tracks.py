@@ -271,10 +271,6 @@ def previous_milestone(track: Track, milestone: Milestone) -> Milestone | None:
     return track.milestones[index - 1] if index else None
 
 
-def all_milestone_keys() -> list[str]:
-    return [milestone.key for track in TRACKS for milestone in track.milestones]
-
-
 def validate_selection(keys: Iterable[str]) -> tuple[set[str], set[str]]:
     """Resolve a checkbox selection to canonical record keys and applied tracks.
 

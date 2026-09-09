@@ -22,8 +22,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   # psycopg dependencies
   libpq-dev \
   gettext \
-  wait-for-it \
-  nodejs
+  wait-for-it
 
 ENV PATH="/opt/venv/bin:$PATH"
 

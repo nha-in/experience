@@ -8,13 +8,9 @@ from django.views.generic import RedirectView
 
 from ohc_experience.users.views import user_signup_view
 
-from .api import api
-
 urlpatterns = [
     # Landing page, about, dashboard
     path("", include("ohc_experience.pages.urls")),
-    # The htmx idiom reference that shipped with the htmx setup.
-    path("htmx-demo/", include("ohc_experience.pages.demo_urls")),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
@@ -42,13 +38,6 @@ urlpatterns = [
     # ...
     # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
-]
-
-
-# API URLS
-urlpatterns += [
-    # API base url
-    path("api/", api.urls),
 ]
 
 if settings.DEBUG:

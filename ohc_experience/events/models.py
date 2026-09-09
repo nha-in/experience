@@ -139,10 +139,6 @@ class Event(models.Model):
     def has_materials(self) -> bool:
         return bool(self.materials_url or self.recording_url)
 
-    @property
-    def registration_count(self) -> int:
-        return self.registrations.count()
-
     def is_registered(self, user) -> bool:
         if not getattr(user, "is_authenticated", False):
             return False

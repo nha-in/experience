@@ -101,7 +101,7 @@ class ProductForm(forms.ModelForm):
         from . import tracks  # noqa: PLC0415
 
         keys = set(self.cleaned_data["milestones"])
-        canonical, applied = tracks.validate_selection(keys)
+        canonical, _applied = tracks.validate_selection(keys)
         for key in self.locked_keys:
             if key not in canonical:
                 track_code, code = tracks.parse_key(key)
@@ -113,8 +113,6 @@ class ProductForm(forms.ModelForm):
                     "why": self.locked_reasons[key].lower(),
                 }
                 raise forms.ValidationError(msg)
-        self.canonical_milestones = canonical
-        self.applied_tracks = applied
         return sorted(keys)
 
     def product_data(self) -> dict:

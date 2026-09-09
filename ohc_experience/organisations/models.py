@@ -46,9 +46,6 @@ ROLE_ORDER = [Role.OWNER, Role.ADMIN, Role.DEVELOPER, Role.SUPPORT]
 
 
 class OrganisationQuerySet(models.QuerySet["Organisation"]):
-    def for_user(self, user) -> OrganisationQuerySet:
-        return self.filter(memberships__user=user)
-
     def for_console(self) -> OrganisationQuerySet:
         """The OHC console's list: undecided vendors first, then alphabetical.
 
@@ -576,10 +573,6 @@ class Sandbox(models.Model):
         return f"Sandbox for {self.organisation} ({self.status})"
 
     @property
-    def is_ready(self) -> bool:
-        return self.status == self.Status.READY
-
-    @property
     def is_pending(self) -> bool:
         return self.status in {self.Status.REQUESTED, self.Status.PROVISIONING}
 
@@ -592,14 +585,6 @@ class Sandbox(models.Model):
             self.Status.READY: "success",
             self.Status.FAILED: "destructive",
         }.get(self.status, "neutral")
-
-    @property
-    def server(self) -> str:
-        return (self.result or {}).get("server", "")
-
-    @property
-    def facility(self) -> dict:
-        return (self.result or {}).get("facility", {})
 
     @property
     def credentials(self) -> list:

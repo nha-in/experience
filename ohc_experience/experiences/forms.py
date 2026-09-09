@@ -120,10 +120,3 @@ class ApplicationAccessForm(forms.Form):
             for permission in definition.permissions
             if permission.key in allowed_permission_keys
         ]
-
-
-class InternalNoteForm(forms.Form):
-    body = forms.CharField(
-        label=_("Internal note"),
-        widget=forms.Textarea(attrs={"rows": 4}),
-    )

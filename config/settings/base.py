@@ -87,30 +87,15 @@ DJANGO_APPS = [
 ]
 
 TAILWIND_APP_NAME = "theme"
-
-NPM_BIN_PATH = env(
-    "NPM_BIN_PATH",
-    default="/usr/bin/node",
-)
-
-# Build Tailwind with the standalone pytailwindcss binary rather than npm.
-# The deploy environment (DigitalOcean's Python buildpack) has no node/npm, and
-# django-tailwind only falls back to the binary when theme/static_src/package.json
-# is absent -- which it no longer is. See tailwind/management/commands/tailwind.py.
-TAILWIND_USE_STANDALONE_BINARY = env.bool(
-    "TAILWIND_USE_STANDALONE_BINARY",
-    default=True,
-)
+# theme/static_src carries no package.json, so django-tailwind builds the
+# stylesheet with the standalone pytailwindcss binary; no node/npm is needed.
 
 THIRD_PARTY_APPS = [
-    "crispy_forms",
-    "crispy_bootstrap5",
     "allauth",
     "allauth.account",
     "allauth.mfa",
     "allauth.socialaccount",
     "django_celery_beat",
-    "corsheaders",
     "django_htmx",
     "tailwind",
     "theme",
@@ -178,7 +163,6 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -246,15 +230,6 @@ TEMPLATES = [
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#form-renderer
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
-
-# http://django-crispy-forms.readthedocs.io/en/latest/install.html#template-packs
-CRISPY_TEMPLATE_PACK = "bootstrap5"
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-
-# FIXTURES
-# ------------------------------------------------------------------------------
-# https://docs.djangoproject.com/en/dev/ref/settings/#fixture-dirs
-FIXTURE_DIRS = (str(APPS_DIR / "fixtures"),)
 
 # SECURITY
 # ------------------------------------------------------------------------------

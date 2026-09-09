@@ -36,7 +36,6 @@ pytestmark = pytest.mark.django_db
 
 SEEDED_TICKETS = 8
 SEEDED_EVENTS = 4
-SEEDED_ACCOUNTS = 3
 # Seven of the eight threads get an OHC reply; one is still waiting.
 ANSWERED_TICKETS = 7
 RESOLVED_TICKETS = 4

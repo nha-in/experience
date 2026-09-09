@@ -219,10 +219,6 @@ class Ticket(models.Model):
         return self.status in Status.active()
 
     @property
-    def vendor_status_label(self) -> str:
-        return self.get_status_display()
-
-    @property
     def queue_status_label(self) -> str:
         """The same state, read from the Care team's side of the conversation."""
         if self.status == Status.AWAITING_VENDOR:

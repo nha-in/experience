@@ -58,7 +58,3 @@ def get_effective_access(application, user) -> EffectiveAccess:
         )
         permissions.update(set(grant.direct_permissions) & audience_permissions)
     return EffectiveAccess(role, frozenset(permissions & known), grant)
-
-
-def has_application_permission(application, user, permission: str) -> bool:
-    return get_effective_access(application, user).allows(permission)

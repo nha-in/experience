@@ -34,7 +34,6 @@ PRODUCT_DATA = {
     "solution_type": Product.SolutionType.CLINICAL_HMIS,
     "milestones": ["HI-CM:M1", "HI-CM:M2", "PHR:PHR1"],
 }
-RECORD_COUNT = 3
 
 
 @pytest.fixture

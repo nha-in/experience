@@ -119,8 +119,3 @@ def ui_field(  # noqa: PLR0913, PLR0917
         else 1,
         "accepted_types": field.field.widget.attrs.get("accept", ""),
     }
-
-
-@register.simple_tag
-def ui_non_field_errors(form) -> dict:
-    return form.non_field_errors()
