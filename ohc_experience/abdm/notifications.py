@@ -2,72 +2,26 @@
 
 Integrator mail goes to the organisation's owner and admins (and its technical
 contact, when one is on file). Reviewer mail goes to the item's assignee when
-there is one, else to ``ABDM_REVIEW_INBOX``, else to every active reviewer.
-Each function renders a subject/body pair from ``templates/abdm/email``.
-
-Delivery goes through ``deliver``, which logs a failed send rather than
-raising: an email is never the reason a registration or a reply is lost.
+there is one, else to the review team (``core.mail.team_recipients``). Each
+function renders a subject/body pair from ``templates/abdm/email``; delivery
+goes through ``core.mail.deliver``, which logs a failed send rather than
+raising.
 """
 
 from __future__ import annotations
 
-import logging
-
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.contrib.sites.models import Site
-from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
-from ohc_experience.organisations.models import MANAGER_ROLES
-
-logger = logging.getLogger(__name__)
-
-
-def deliver(subject: str, body: str, recipients: list[str]) -> None:
-    """Send one email, and never let a mail outage undo what prompted it.
-
-    Every email here is a courtesy copy of something the portal has already
-    recorded — the queue, the thread and the credentials page all show it —
-    so a delivery failure is logged for the operators and the request that
-    triggered it carries on.
-    """
-    try:
-        send_mail(subject, body, None, recipients, fail_silently=False)
-    except Exception:
-        logger.exception("Could not send %r to %s", subject, recipients)
-
-
-def absolute_url(path: str) -> str:
-    domain = Site.objects.get_current().domain
-    scheme = "http" if settings.DEBUG else "https"
-    return f"{scheme}://{domain}{path}"
-
-
-def integrator_recipients(organisation) -> list[str]:
-    emails = list(
-        organisation.memberships.filter(role__in=MANAGER_ROLES).values_list(
-            "user__email",
-            flat=True,
-        ),
-    )
-    if organisation.technical_contact_email:
-        emails.append(organisation.technical_contact_email)
-    return sorted({email for email in emails if email})
+from ohc_experience.core.mail import absolute_url
+from ohc_experience.core.mail import deliver
+from ohc_experience.core.mail import team_recipients
+from ohc_experience.organisations.selectors import notification_recipients
 
 
 def reviewer_recipients(item=None) -> list[str]:
     if item is not None and item.assignee_id and item.assignee.email:
         return [item.assignee.email]
-    if settings.ABDM_REVIEW_INBOX:
-        return [settings.ABDM_REVIEW_INBOX]
-    return list(
-        get_user_model()
-        .objects.filter(is_ohc_team=True, is_active=True)
-        .exclude(email="")
-        .order_by("email")
-        .values_list("email", flat=True),
-    )
+    return team_recipients()
 
 
 def _send(stem: str, context: dict, recipients: list[str]) -> None:
@@ -96,7 +50,7 @@ def notify_item_approved(item) -> None:
     _send(
         "item_approved",
         {"item": item, "organisation": item.organisation},
-        integrator_recipients(item.organisation),
+        notification_recipients(item.organisation),
     )
 
 
@@ -104,7 +58,7 @@ def notify_item_sent_back(item, reason: str) -> None:
     _send(
         "item_sent_back",
         {"item": item, "organisation": item.organisation, "reason": reason},
-        integrator_recipients(item.organisation),
+        notification_recipients(item.organisation),
     )
 
 
@@ -112,7 +66,7 @@ def notify_query_raised(query) -> None:
     _send(
         "query_raised",
         {"query": query, "item": query.item, "organisation": query.item.organisation},
-        integrator_recipients(query.item.organisation),
+        notification_recipients(query.item.organisation),
     )
 
 
@@ -136,7 +90,7 @@ def notify_credentials_issued(product) -> None:
     _send(
         "credentials_issued",
         {"product": product, "organisation": product.organisation},
-        integrator_recipients(product.organisation),
+        notification_recipients(product.organisation),
     )
 
 
@@ -144,5 +98,5 @@ def notify_callback_failing(product) -> None:
     _send(
         "callback_failing",
         {"product": product, "credential": product.credential},
-        integrator_recipients(product.organisation),
+        notification_recipients(product.organisation),
     )

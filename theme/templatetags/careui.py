@@ -95,8 +95,7 @@ def ui_field(  # noqa: PLR0913, PLR0917
         field.field.widget.attrs["placeholder"] = placeholder
     is_file = isinstance(field.field.widget, forms.FileInput)
     is_multiple_file = bool(
-        is_file
-        and getattr(field.field.widget, "allow_multiple_selected", False),
+        is_file and getattr(field.field.widget, "allow_multiple_selected", False),
     )
     form = field.form
     return {
@@ -114,8 +113,19 @@ def ui_field(  # noqa: PLR0913, PLR0917
             field.name,
             set(),
         ),
-        "max_files": getattr(field.field, "max_files", None)
-        if is_multiple_file
-        else 1,
+        "max_files": getattr(field.field, "max_files", None) if is_multiple_file else 1,
         "accepted_types": field.field.widget.attrs.get("accept", ""),
     }
+
+
+@register.filter
+def dot_class(variant) -> str:
+    """The status-dot colour for a badge variant (success, info, warning...)."""
+    return {
+        "success": "bg-emerald-500",
+        "primary": "bg-emerald-500",
+        "info": "bg-sky-500",
+        "warning": "bg-amber-500",
+        "destructive": "bg-red-500",
+        "neutral": "bg-neutral-300",
+    }.get(str(variant), "bg-neutral-300")

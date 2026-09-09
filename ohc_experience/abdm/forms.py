@@ -5,10 +5,11 @@ from __future__ import annotations
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from .uploads import PDF
-from .uploads import PDF_MAX_MB
-from .uploads import ModelFileFormMixin
-from .uploads import validate_upload
+from ohc_experience.experiences.uploads import PDF
+from ohc_experience.experiences.uploads import PDF_MAX_MB
+from ohc_experience.experiences.uploads import validate_upload
+
+from .uploads import PortalFileFormMixin
 
 
 class QueryReplyForm(forms.Form):
@@ -164,7 +165,7 @@ class CallbackUrlsForm(forms.Form):
         return self._https_only("bridge_url")
 
 
-class ExitRequestForm(ModelFileFormMixin, forms.ModelForm):
+class ExitRequestForm(PortalFileFormMixin, forms.ModelForm):
     """The exit request form (design doc 5.6): dates, WASA, the two PDFs.
 
     Every field is optional so a draft can be saved half-done; "Request for

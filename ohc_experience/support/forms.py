@@ -7,9 +7,9 @@ from django.utils.translation import gettext_lazy as _
 
 from ohc_experience.abdm.models import Product
 from ohc_experience.abdm.tracks import TRACK_CHOICES
-from ohc_experience.abdm.uploads import DOCUMENTS
-from ohc_experience.abdm.uploads import PDF_MAX_MB
-from ohc_experience.abdm.uploads import validate_upload
+from ohc_experience.experiences.uploads import DOCUMENTS
+from ohc_experience.experiences.uploads import PDF_MAX_MB
+from ohc_experience.experiences.uploads import validate_upload
 
 from .models import Category
 from .models import Priority
@@ -182,7 +182,7 @@ class TicketCreateForm(AttachmentMixin, forms.ModelForm):
             return value
         try:
             return self.fields["product"].queryset.get(pk=int(value))
-        except (TypeError, ValueError, Product.DoesNotExist):
+        except TypeError, ValueError, Product.DoesNotExist:
             return None
 
 

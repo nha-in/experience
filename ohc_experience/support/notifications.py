@@ -4,22 +4,22 @@ from __future__ import annotations
 
 from django.template.loader import render_to_string
 
-from ohc_experience.abdm.notifications import absolute_url
-from ohc_experience.abdm.notifications import deliver
-from ohc_experience.abdm.notifications import integrator_recipients
-from ohc_experience.abdm.notifications import reviewer_recipients
+from ohc_experience.core.mail import absolute_url
+from ohc_experience.core.mail import deliver
+from ohc_experience.core.mail import team_recipients
+from ohc_experience.organisations.selectors import notification_recipients
 
 
 def _recipients(message) -> list[str]:
     ticket = message.ticket
     if message.from_ohc_team:
-        emails = set(integrator_recipients(ticket.organisation))
+        emails = set(notification_recipients(ticket.organisation))
         if ticket.created_by and ticket.created_by.email:
             emails.add(ticket.created_by.email)
         return sorted(emails)
     if ticket.assignee and ticket.assignee.email:
         return [ticket.assignee.email]
-    return reviewer_recipients()
+    return team_recipients()
 
 
 def notify_reply(message) -> None:

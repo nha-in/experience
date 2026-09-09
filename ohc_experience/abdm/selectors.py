@@ -14,6 +14,7 @@ from .models import ReviewHistory
 from .models import ReviewItem
 from .services import WRITER_ROLES
 from .tracks import TRACKS
+from .uploads import document_url
 
 ACTIVITY_LIMIT = 12
 
@@ -122,20 +123,14 @@ def _row(key, label, value="", *, url="", mono=False, file=False) -> dict:  # no
     }
 
 
-def _document_url(kind: str, pk: int, field: str) -> str:
-    from django.urls import reverse  # noqa: PLC0415
-
-    return reverse("products:document", kwargs={"kind": kind, "pk": pk, "field": field})
-
-
 def _organisation_sections(organisation) -> list[dict]:
     logo_url = (
-        _document_url("organisation", organisation.pk, "logo")
+        document_url("organisation", organisation.pk, "logo")
         if organisation.logo
         else ""
     )
-    document_url = (
-        _document_url("organisation", organisation.pk, "verification_document")
+    verification_url = (
+        document_url("organisation", organisation.pk, "verification_document")
         if organisation.verification_document
         else ""
     )
@@ -192,8 +187,8 @@ def _organisation_sections(organisation) -> list[dict]:
                 _row(
                     "verification_document",
                     "Supporting document",
-                    "Download" if document_url else "",
-                    url=document_url,
+                    "Download" if verification_url else "",
+                    url=verification_url,
                     file=True,
                 ),
             ],
@@ -241,12 +236,12 @@ def _exit_request_sections(record) -> list[dict]:
         return date_format(value, "j M Y") if value else ""
 
     certificate_url = (
-        _document_url("compliance", record.pk, "functional_certificate")
+        document_url("compliance", record.pk, "functional_certificate")
         if record.functional_certificate
         else ""
     )
     report_url = (
-        _document_url("compliance", record.pk, "functional_report")
+        document_url("compliance", record.pk, "functional_report")
         if record.functional_report
         else ""
     )

@@ -7,12 +7,12 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from ohc_experience.abdm.uploads import DOCUMENTS
-from ohc_experience.abdm.uploads import IMAGE_MAX_MB
-from ohc_experience.abdm.uploads import IMAGES
-from ohc_experience.abdm.uploads import PDF_MAX_MB
-from ohc_experience.abdm.uploads import ModelFileFormMixin
-from ohc_experience.abdm.uploads import validate_upload
+from ohc_experience.abdm.uploads import PortalFileFormMixin
+from ohc_experience.experiences.uploads import DOCUMENTS
+from ohc_experience.experiences.uploads import IMAGE_MAX_MB
+from ohc_experience.experiences.uploads import IMAGES
+from ohc_experience.experiences.uploads import PDF_MAX_MB
+from ohc_experience.experiences.uploads import validate_upload
 
 from .models import Invitation
 from .models import Membership
@@ -39,7 +39,7 @@ DOCUMENT_NUMBER_PATTERNS = {
 PINCODE_PATTERN = re.compile(r"^[1-9][0-9]{5}$")
 
 
-class OrganisationProfileForm(ModelFileFormMixin, forms.ModelForm):
+class OrganisationProfileForm(PortalFileFormMixin, forms.ModelForm):
     """The organisation details form: identity, registered address, document.
 
     Used by onboarding step 2 and by Settings → Organisation. Every field the

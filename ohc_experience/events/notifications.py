@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from django.template.loader import render_to_string
 
-from ohc_experience.abdm.notifications import absolute_url
-from ohc_experience.abdm.notifications import deliver
+from ohc_experience.core.mail import absolute_url
+from ohc_experience.core.mail import deliver
 
 
 def _send(stem: str, registration) -> None:

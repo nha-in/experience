@@ -82,7 +82,7 @@ def mail_outage(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
         msg = "[Errno 8] nodename nor servname provided, or not known"
         raise OSError(msg)
 
-    monkeypatch.setattr("ohc_experience.abdm.notifications.send_mail", refuse)
+    monkeypatch.setattr("ohc_experience.core.mail.send_mail", refuse)
     return attempts
 
 
