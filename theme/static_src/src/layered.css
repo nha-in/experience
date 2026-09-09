@@ -306,7 +306,7 @@
   }
 
   .ui-station-rail {
-    @apply absolute top-[13px] right-2 left-9 h-0.5 bg-border;
+    @apply pointer-events-none absolute top-[13px] right-2 left-9 h-0.5 bg-border;
   }
 
   .ui-station--done > .ui-station-rail {
@@ -319,26 +319,26 @@
     background: var(--station-surface);
   }
 
-  .ui-station--idle > .ui-station-dot {
+  .ui-station--idle .ui-station-dot {
     @apply border-solid border-strong-border;
   }
 
-  .ui-station--done > .ui-station-dot {
+  .ui-station--done .ui-station-dot {
     @apply border-0 bg-primary;
     box-shadow: 0 0 0 3px var(--station-surface);
   }
 
-  .ui-station--current > .ui-station-dot {
+  .ui-station--current .ui-station-dot {
     @apply border-0 bg-card;
     box-shadow: 0 0 0 2.5px var(--primary), 0 0 0 5.5px var(--station-surface);
   }
 
-  .ui-station--current > .ui-station-dot::after {
+  .ui-station--current .ui-station-dot::after {
     content: "";
     @apply size-2 rounded-full bg-primary;
   }
 
-  .ui-station--current > .ui-station-dot::before {
+  .ui-station--current .ui-station-dot::before {
     content: "";
     @apply absolute -inset-[3px] rounded-full border-2 border-primary/55;
     animation: l-pulse 2.4s ease-out infinite;
@@ -346,6 +346,15 @@
 
   .ui-station-link {
     @apply block min-w-0 pr-3 text-foreground no-underline transition-colors hover:text-primary;
+  }
+
+  .ui-station-target {
+    @apply flex min-w-0 flex-col rounded-md no-underline;
+    gap: inherit;
+  }
+
+  .ui-station-target:hover .ui-station-link {
+    @apply text-primary;
   }
 
   .ui-station-code {
@@ -400,7 +409,7 @@
     @apply top-[14px];
   }
 
-  .ui-stepper--lg .ui-station--current > .ui-station-dot::after {
+  .ui-stepper--lg .ui-station--current .ui-station-dot::after {
     @apply size-2.5;
   }
 
@@ -425,11 +434,11 @@
     @apply top-[5px] h-[3px];
   }
 
-  .ui-stepper--sm .ui-station--current > .ui-station-dot {
+  .ui-stepper--sm .ui-station--current .ui-station-dot {
     box-shadow: 0 0 0 2px var(--primary), 0 0 0 4px var(--station-surface);
   }
 
-  .ui-stepper--sm .ui-station--current > .ui-station-dot::after {
+  .ui-stepper--sm .ui-station--current .ui-station-dot::after {
     @apply size-1.5;
   }
 
@@ -538,7 +547,7 @@
   .ui-rise,
   .ui-meter-fill,
   .ui-station--done > .ui-station-rail,
-  .ui-station--current > .ui-station-dot::before,
+  .ui-station--current .ui-station-dot::before,
   .ui-ring-fill,
   .ui-live::before {
     animation: none !important;
