@@ -4,6 +4,8 @@
 .gitignore
 .gitlab-ci.yml
 .idea
+.claude/
+.codex/
 .pre-commit-config.yaml
 .readthedocs.yml
 .travis.yml
@@ -12,6 +14,10 @@ venv
 .envs/
 .env
 .venv/
+**/.env
+**/.envs/
+**/.venv/
+**/venv/
 **/__pycache__/
 **/node_modules/
 theme/static/css/dist/
