@@ -98,3 +98,40 @@ The following details how to deploy this application.
 ### Docker
 
 See detailed [cookiecutter-django Docker documentation](https://cookiecutter-django.readthedocs.io/en/latest/3-deployment/deployment-with-docker.html).
+
+### GitHub Container Registry
+
+The [Publish sandbox image workflow](.github/workflows/publish-image.yml) builds
+`compose/production/django/Dockerfile` for `linux/amd64` and `linux/arm64`, then
+publishes one multi-platform image to `ghcr.io/nha-in/sandbox`. It runs on
+pushes to `testing_new` (the current default branch), pushes of `v*` tags, or
+manually from **Actions → Publish sandbox image → Run workflow**. Branch pushes
+that only change `docs/**` are skipped.
+
+Published tags include:
+
+- Default branch: `testing_new`, `latest`, and `latest-<run-number>`.
+- Releases: the Git tag (for example, `v1.2.3`) and its semantic version (`1.2.3`).
+  Tags without a hyphen also update `production-latest`; prerelease tags such as
+  `v1.2.3-rc.1` do not update that alias.
+- Every build: `sha-<full-commit-sha>`. Manual runs on other branches also publish
+  a branch-name tag without updating `latest`.
+
+The workflow uses the automatic `GITHUB_TOKEN` with `contents: read` and
+`packages: write`; no additional build secrets are required. The repository must
+be allowed to publish packages. If the package already exists, grant this
+repository Actions access in the package settings. See the
+[GitHub Container Registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+for authentication and package access.
+
+After a successful default-branch build, pull the image with:
+
+```bash
+docker pull ghcr.io/nha-in/sandbox:latest
+```
+
+Authenticate to `ghcr.io` first if the package is private. The same image supports
+the Django app (`/start`), Celery worker (`/start-celeryworker`), Celery beat
+(`/start-celerybeat`), and Flower (`/start-flower`), using the runtime environment
+from the production Compose configuration. This workflow publishes the app image;
+deployment remains a separate step.
