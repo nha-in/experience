@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+import pytest
 from django import forms
 from django.template.loader import render_to_string
 
@@ -10,6 +11,7 @@ from ohc_experience.experiences.templatetags.experience_product_ui import (
 )
 
 
+@pytest.mark.django_db
 def test_readiness_uses_required_schema_fields_and_saved_attachments():
     form = ExitEvidenceForm(
         initial={"wasa_agency": "Saved audit agency"},
@@ -29,6 +31,7 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
     assert any(row["field_id"] == "id_wasa_certificate" for row in readiness["rows"])
 
 
+@pytest.mark.django_db
 def test_unsaved_fields_do_not_count_towards_saved_readiness():
     form = ExitEvidenceForm(
         data={"wasa_agency": "Unsaved edit"},

@@ -9,6 +9,9 @@ from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.core.management.color import no_style
+from django.db import connection
+from django.db import transaction
 from django.utils import timezone
 from django.utils.datastructures import MultiValueDict
 from PIL import Image
@@ -17,6 +20,7 @@ from PIL import ImageDraw
 from ohc_experience.events.models import Event
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import TicketAttachment
@@ -95,9 +99,42 @@ def evidence_data():
         "start_date": (today - timedelta(days=45)).isoformat(),
         "end_date": (today - timedelta(days=5)).isoformat(),
         "tentative_demo_date": (today + timedelta(days=10)).isoformat(),
-        "wasa_agency": "SecureStack Audit Services (demo)",
+        "wasa_agency": _demo_agency(),
         "wasa_date": (today - timedelta(days=12)).isoformat(),
     }
+
+
+def _demo_agency():
+    agency = (
+        CertificationAgency.objects.filter(program="abdm", is_active=True)
+        .order_by("sort_order", "name", "pk")
+        .values_list("name", flat=True)
+        .first()
+    )
+    if agency is None:
+        msg = (
+            "No active ABDM certification agency is available. Add or activate an "
+            "agency in Django admin before seeding the demo. No data has been changed."
+        )
+        raise CommandError(msg)
+    return agency
+
+
+@transaction.atomic
+def _reset_demo_database():
+    agencies = list(CertificationAgency.objects.values())
+    call_command("flush", interactive=False)
+    CertificationAgency.objects.bulk_create(
+        [CertificationAgency(**agency) for agency in agencies],
+    )
+    # Insertion updates automatic timestamps; restore the administrator's originals.
+    CertificationAgency.objects.bulk_update(
+        [CertificationAgency(**agency) for agency in agencies],
+        ["created_at", "updated_at"],
+    )
+    with connection.cursor() as cursor:
+        for sql in connection.ops.sequence_reset_sql(no_style(), [CertificationAgency]):
+            cursor.execute(sql)
 
 
 def evidence_files():
@@ -147,11 +184,12 @@ class DemoBuilder:
             self.permission_accounts(options["password"])
             return
         _verify_demo_location()
+        _demo_agency()
         if options["reset"]:
             files = set(FormAttachment.objects.values_list("file", flat=True)) | set(
                 TicketAttachment.objects.values_list("file", flat=True),
             )
-            call_command("flush", interactive=False)
+            _reset_demo_database()
             for name in files:
                 if name:
                     default_storage.delete(name)
@@ -235,7 +273,7 @@ class DemoBuilder:
         services.save_review_form(
             draft,
             applicant,
-            data={"wasa_agency": "SecureStack Audit Services (demo)"},
+            data={"wasa_agency": evidence_data()["wasa_agency"]},
             submit=False,
         )
         services.register_product(

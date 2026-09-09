@@ -318,6 +318,24 @@ The source flow was traced in the supplied `ABDM.zip` archive under
 The current implementation preserves the lookup behavior and adds explicit
 selection for ambiguous results, retry feedback and server validation.
 
+## WASA certification agencies
+
+The agency dropdown uses the `CertificationAgency` database table. Apply
+migrations with `python manage.py migrate`; migrations 0007–0008 create the table
+and import all 255 options from the old portal as initial ABDM entries.
+
+Superusers manage the list in Django admin under **Experiences → Certification
+agencies**, normally at `/admin/experiences/certificationagency/`. They can add or
+rename entries, set display order and deactivate/reactivate them. The dropdown
+reads active ABDM entries on each request, so edits require no code deployment.
+Deletion through admin is disabled; deactivate agencies that should no longer
+be offered for new selections.
+
+Submitted forms keep their recorded agency names. A saved name remains available
+on that form after an agency is renamed or deactivated. Demo resets preserve
+the administrator-maintained table; demo creation requires at least one active
+ABDM agency. The legacy list is seed data, with no automatic external refresh.
+
 ## Verification
 
 ```sh

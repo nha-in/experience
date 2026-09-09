@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 
 from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
+from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.uploads import validate_pdf
 from ohc_experience.experiences.uploads import validate_upload_size
 from ohc_experience.organisations.lgd import LGDLookupError
@@ -354,7 +355,11 @@ class ExitEvidenceForm(ReviewForm):
     tentative_demo_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}),
     )
-    wasa_agency = forms.CharField(label="WASA audit agency name", max_length=255)
+    wasa_agency = forms.ChoiceField(
+        label="WASA audit agency name",
+        choices=[("", "Select an audit agency")],
+        error_messages={"invalid_choice": "Select an audit agency from the list."},
+    )
     wasa_date = forms.DateField(
         label="WASA audit date",
         widget=forms.DateInput(attrs={"type": "date"}),
@@ -389,6 +394,25 @@ class ExitEvidenceForm(ReviewForm):
         "functional_certificate",
         "functional_report",
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Earlier submissions accepted free text. Keep that saved answer available
+        # on its own form; posted values must never extend the agency list.
+        previous_agency = self.initial.get("wasa_agency")
+        field = self.fields["wasa_agency"]
+        field.choices = [
+            ("", "Select an audit agency"),
+            *CertificationAgency.objects.filter(
+                program="abdm",
+                is_active=True,
+            ).values_list("name", "name"),
+        ]
+        if previous_agency and not field.valid_value(previous_agency):
+            field.choices = [
+                *field.choices,
+                (previous_agency, f"{previous_agency} (previously saved)"),
+            ]
 
     def clean(self):
         cleaned = super().clean()

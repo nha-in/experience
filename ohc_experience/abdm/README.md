@@ -40,3 +40,24 @@ demo seeding, and no credential is sent to the browser.
 See [Organisation address lookup](../../docs/abdm_sandbox.md#organisation-address-lookup)
 for configuration bounds, the legacy source trace and the verified sandbox
 response contract.
+
+## WASA certification agency
+
+The exit-evidence dropdown reads active ABDM rows from the engine's
+`CertificationAgency` table each time a form is built. Superusers manage names,
+active status and display order in Django admin under **Experiences →
+Certification agencies** (`/admin/experiences/certificationagency/` with the
+default admin URL). Changes take effect without a code deployment or restart.
+
+Migrations 0007–0008 create the table and seed the 255 options from the supplied
+legacy frontend's `src/constants/security-audit-agencies.js` once, preserving
+their original order and exact values. Run `python manage.py migrate` before
+serving the updated forms. The seed is the old portal's list; subsequent updates
+are managed by administrators. There is no live external feed or static fallback.
+
+New selections must be active entries in the ABDM list. Previously saved agency
+names remain available on their existing forms, including after a rename or
+deactivation, and submission history keeps its original names. The name remains
+in the submission's JSON snapshot; changing the master table does not rewrite
+historical evidence. Use deactivation to retire an agency; admin deletion is
+disabled. Demo resets preserve this table and use an active agency from it.

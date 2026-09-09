@@ -8,7 +8,8 @@ not import ABDM. Implementations register ordinary Python definitions through
 
 - `models.py`: products, independent forms, immutable submission revisions,
   application/form links, dependencies, outcomes, workspaces, milestones,
-  reviews, queries, append-only audit events, credentials and notifications.
+  reviews, queries, append-only audit events, credentials, notifications and
+  program-specific certification agency lists maintained by administrators.
 - `definitions.py`, `registry.py`: implementation contracts and registration.
 - `services.py`: record creation, scoped form reuse, submission/schema snapshots,
   attachment versioning and product-level outcome issuance.
@@ -24,6 +25,10 @@ not import ABDM. Implementations register ordinary Python definitions through
 
 Accounts, organisation membership, support tickets and events retain their
 existing apps. Neither they nor the engine import a concrete implementation.
+
+`CertificationAgency` is shared reference data keyed by program. Superusers manage
+its name, active status and ordering in Django admin. Implementations query their
+own program's active entries; submitted answers remain immutable name snapshots.
 
 ## Implementing a Program
 

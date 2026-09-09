@@ -207,7 +207,7 @@ def test_withdraw_and_resubmit_preserves_original_fields_and_files(environment):
     item, form, saved = services.save_review_form(
         item,
         environment["applicant"],
-        data={**evidence_data(), "wasa_agency": "Updated agency"},
+        data={**evidence_data(), "wasa_agency": "M/s A3S Tech & Company"},
         submit=True,
     )
     assert saved, form.errors
@@ -230,7 +230,7 @@ def test_reuse_pins_revision_without_mutating_approved_application(environment):
     second, form, saved = services.save_review_form(
         second,
         environment["applicant"],
-        data={**evidence_data(), "wasa_agency": "Different agency"},
+        data={**evidence_data(), "wasa_agency": "M/s ANB Solutions Private Limited"},
         submit=True,
     )
     assert saved, form.errors
@@ -285,7 +285,7 @@ def test_stale_form_cannot_overwrite_teammate(environment):
     services.save_review_form(
         item,
         environment["applicant"],
-        data={"wasa_agency": "Draft"},
+        data={"wasa_agency": evidence_data()["wasa_agency"]},
     )
     with pytest.raises(ValidationError, match="teammate"):
         services.save_review_form(
@@ -329,7 +329,10 @@ def test_date_and_pdf_validation_and_required_documents():
     form = ExitEvidenceForm(data={**data, "end_date": "2000-01-01"}, files=files())
     assert not form.is_valid()
     assert "end_date" in form.errors
-    assert ExitEvidenceForm(data={"wasa_agency": "Agency"}, draft=True).is_valid()
+    assert ExitEvidenceForm(
+        data={"wasa_agency": evidence_data()["wasa_agency"]},
+        draft=True,
+    ).is_valid()
 
 
 def test_phr_requires_m1_but_not_m3_and_locker_is_independent():
@@ -509,7 +512,7 @@ def test_sent_back_draft_retains_reason_and_decision_history(environment, client
     item, form, saved = services.save_review_form(
         item,
         environment["applicant"],
-        data={"wasa_agency": "Revised agency"},
+        data={"wasa_agency": "M/s A3S Tech & Company"},
     )
     assert saved, form.errors
     assert item.status == "sent_back"
