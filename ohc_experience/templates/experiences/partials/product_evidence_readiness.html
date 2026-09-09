@@ -4,14 +4,18 @@
 <aside class="ui-card ui-card--layered ui-card--sm gap-3.5"
        aria-labelledby="readiness-title">
   <div class="ui-card-content flex items-center gap-3.5">
-    <div class="ui-ring">
+    <div class="ui-ring"
+         role="img"
+         aria-label="{{ readiness.completed }} of {{ readiness.total }} required items saved">
       <svg viewBox="0 0 88 88" width="88" height="88" aria-hidden="true">
         <circle class="ui-ring-track" cx="44" cy="44" r="38" fill="none" stroke-width="8" />
-        <circle class="ui-ring-fill" cx="44" cy="44" r="38" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="{{ readiness.arc }} 238.76" />
+        <circle class="ui-ring-fill" cx="44" cy="44" r="38" fill="none" stroke-width="8" stroke-linecap="round" stroke-opacity="{% if readiness.completed %}1{% else %}0{% endif %}" stroke-dasharray="{{ readiness.arc }} 238.76" />
       </svg>
-      <span class="ui-ring-label">
-        <span class="text-[26px] leading-7 font-extrabold tracking-[-0.03em] tabular-nums">{{ readiness.completed }}</span>
-        <span class="self-end pb-1 text-[13px] font-semibold text-soft-foreground">/{{ readiness.total }}</span>
+      <span class="ui-ring-label" aria-hidden="true">
+        <span class="inline-flex items-baseline gap-0.5 whitespace-nowrap tabular-nums">
+          <span class="text-[26px] leading-none font-extrabold tracking-[-0.03em]">{{ readiness.completed }}</span>
+          <span class="text-[13px] leading-none font-semibold text-soft-foreground">/ {{ readiness.total }}</span>
+        </span>
       </span>
     </div>
     <div class="min-w-0">

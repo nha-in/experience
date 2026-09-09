@@ -22,7 +22,7 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float flex flex-col gap-6">
-    <div class="grid gap-4 sm:grid-cols-3" aria-label="Summary">
+    <div class="grid gap-4 lg:grid-cols-3" aria-label="Summary">
       <a class="ui-tile ui-rise [animation-delay:.06s]"
          href="{% url 'experiences:queue' %}?scope=open">
         <span class="ui-kicker">In queue</span><span class="ui-tile-figure">{{ pending_count }}</span>
@@ -96,7 +96,7 @@
 <div class="flex flex-wrap items-center gap-3 border-t border-soft-border bg-soft-background px-6 py-2.5 text-xs text-soft-foreground"><span>Showing {{ oldest|length }} of {{ pending_count }}</span><a class="ml-auto inline-flex min-h-9 items-center font-semibold text-primary no-underline hover:underline"
    href="{% url 'experiences:queue' %}?scope=open">Full queue <span class="ml-1" aria-hidden="true">→</span></a></div>
   </section>
-  <div class="grid items-start gap-6 md:grid-cols-2 xl:grid-cols-3">
+  <div class="grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">
     <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.28s]"
              aria-labelledby="by-track-title">
       <div class="ui-card-header">
@@ -117,7 +117,7 @@
       <div class="ui-card-content"><dl class="flex flex-col">{% for row in approved_by_milestone %}<div class="grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><dt class="truncate font-mono font-semibold" title="{{ row.name }}">{{ row.label }}</dt><dd class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
       style="width: {% widthratio row.count approved_month 100 %}%"></span></dd><dd class="text-right font-bold tabular-nums">{{ row.count }}</dd></div>{% empty %}<div><dt class="text-sm text-muted-foreground">Nothing approved yet this month.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div>
     </section>
-    <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 md:col-span-2 xl:col-span-1 [animation-delay:.4s]"
+    <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 lg:col-span-2 xl:col-span-1 [animation-delay:.4s]"
              aria-labelledby="decisions-title">
       <div class="ui-card-header">
         <h2 class="ui-card-title" id="decisions-title">Decisions over the last 8 weeks</h2>
@@ -142,7 +142,7 @@
       </div>
     </section>
   </div>
-  <div class="grid items-start gap-6 md:grid-cols-3">
+  <div class="grid items-start gap-6 lg:grid-cols-3">
     <section class="ui-card ui-card--layered ui-card--sm"
              aria-labelledby="by-type-title">
       <div class="ui-card-header">
