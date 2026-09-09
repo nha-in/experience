@@ -150,6 +150,12 @@ ABDM_GATEWAY_URL = env(
     default=env("SANDBOX_GATEWAY_URL", default="https://dev.abdm.gov.in/gateway"),
 )
 
+# Legacy DHIS handoff protocol. Keys must be supplied through deployment secrets.
+ABDM_DHIS_URL = env("ABDM_DHIS_URL", default="https://dhis.abdm.gov.in/DHIS/")
+ABDM_DHIS_JWT_SECRET = env("ABDM_DHIS_JWT_SECRET", default="")
+ABDM_DHIS_AES_KEY = env("ABDM_DHIS_AES_KEY", default="")
+ABDM_DHIS_AES_IV = env("ABDM_DHIS_AES_IV", default="")
+
 # Server-only Local Government Directory lookup for organisation addresses.
 LGD_API_URL = env(
     "LGD_API_URL",

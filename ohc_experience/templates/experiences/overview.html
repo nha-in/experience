@@ -108,6 +108,9 @@
    href="{% url 'experiences:track' workspace.reference row.definition.code %}"><strong class="block font-semibold">{{ row.definition.code }}</strong><span class="mt-1 block text-xs text-soft-foreground">{{ row.definition.name }}{% if not row.definition.keys %} · No milestones published{% elif not row.tiles %} · Not applied{% endif %}</span></a>{% endfor %}</div></details>
           </div>
         </section>
+        {% for handoff in handoffs %}
+          {% include 'experiences/partials/product_handoff.html' %}
+        {% endfor %}
         <section class="ui-card ui-card--layered ui-rise">
           <div class="ui-card-header">
             <h2 class="ui-card-title">Recent activity</h2>
