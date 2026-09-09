@@ -1,0 +1,61 @@
+{% comment %}
+  One station on a milestone stepper (Layered): the rail to the next station,
+  the dot, and the code / name / status label linking to the milestone on its
+  track page. An alias milestone says which record it shares. Shared by the overview's Tracks card and the track hero so the
+  two can never drift.
+
+  State comes from the record: approved → done, locked → locked, none →
+  idle (not applied), anything else → current, which is the one station per
+  track that is being worked (open, in progress, under review, query raised).
+
+  Context: entry ({milestone, record}), product, track, forloop (from the
+  including loop), selected (optional — the tile the track page has open).
+{% endcomment %}
+{% load i18n %}
+
+{% with record=entry.record milestone=entry.milestone %}
+  <li class="ui-station {% if not record %}ui-station--idle{% elif record.is_approved %}ui-station--done{% elif record.is_locked %}ui-station--locked{% else %}ui-station--current{% endif %}">
+    {% if not forloop.last %}<span class="ui-station-rail" aria-hidden="true"></span>{% endif %}
+    <span class="ui-station-dot" aria-hidden="true">
+      {% if record and record.is_approved %}
+        <svg viewBox="0 0 24 24"
+             class="size-3"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="3"
+             stroke-linecap="round"
+             stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      {% endif %}
+    </span>
+    <a class="ui-station-link"
+       href="{% url 'products:track' product.sandbox_id track.code %}?milestone={{ milestone.code }}"
+       {% if selected and selected.milestone.code == milestone.code %}aria-current="true"{% endif %}>
+      <span class="ui-station-code">{{ milestone.code }}</span>
+      <span class="ui-station-name">
+        {{ milestone.name }}
+        {% if milestone.is_alias %}
+          <span class="ui-station-alias">{% translate "Shared with HI-CM M1" %}</span>
+        {% endif %}
+      </span>
+      <span class="ui-station-status">
+        {% if not record %}
+          {% translate "Not applied" %}
+        {% elif record.is_approved %}
+          {% blocktranslate with date=record.approved_on|date:"j M" %}Approved · {{ date }}{% endblocktranslate %}
+        {% elif record.is_locked %}
+          {% translate "Locked" %}
+        {% elif record.status == "query_raised" %}
+          {% translate "Query raised · reply needed" %}
+        {% elif record.is_under_review %}
+          {% translate "Under review · with NHA" %}
+        {% elif record.was_sent_back %}
+          {% translate "Sent back · waiting on you" %}
+        {% else %}
+          {{ record.get_status_display }} · {% translate "waiting on you" %}
+        {% endif %}
+      </span>
+    </a>
+  </li>
+{% endwith %}

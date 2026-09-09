@@ -1,7 +1,9 @@
 {% comment %}
-  The inbox's results: the table on md+, the same tickets as a stacked list
-  below it, and the pager. This whole element is what htmx swaps when a filter
-  changes or a pager link is followed, so its id is the hx-target.
+  The inbox's results (Layered): the table on md+, the same tickets as a
+  stacked list below it, and the pager. This whole element is what htmx swaps
+  when a filter changes or a pager link is followed, so its id is the
+  hx-target. It renders inside the inbox card that ticket_list.html draws, so
+  it carries no card of its own.
 
   Three states, and they say different things on purpose: tickets to show, a
   filter that matched nothing, and an organisation that has never opened one.
@@ -13,87 +15,76 @@
 
 <div id="ticket-results">
   {% if tickets %}
-    <div class="ui-card">
-      <div class="ui-card-content ui-card-bleed">
-        <div class="hidden md:block">
-          <table class="ui-table">
-            <caption class="sr-only">{% translate "Your support tickets" %}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{% translate "Ticket" %}</th>
-                <th scope="col">{% translate "Subject" %}</th>
-                <th scope="col">{% translate "Category" %}</th>
-                <th scope="col">{% translate "Priority" %}</th>
-                <th scope="col">{% translate "Status" %}</th>
-                <th scope="col" class="text-right">{% translate "Updated" %}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for ticket in tickets %}
-                {% include "support/partials/ticket_row.html" %}
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <!-- Below md the same tickets as a stacked list -->
-        <ul class="flex flex-col md:hidden">
+    <div class="hidden md:block">
+      <table class="ui-grid-table">
+        <caption class="sr-only">{% translate "Your support tickets" %}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{% translate "Subject" %}</th>
+            <th scope="col">{% translate "Priority" %}</th>
+            <th scope="col">{% translate "Status" %}</th>
+            <th scope="col" class="text-right">{% translate "Updated" %}</th>
+          </tr>
+        </thead>
+        <tbody>
           {% for ticket in tickets %}
-            {% include "support/partials/ticket_card.html" %}
+            {% include "support/partials/ticket_row.html" %}
           {% endfor %}
-        </ul>
-      </div>
-      {% if is_paginated %}
-        <div class="ui-card-footer flex-wrap justify-between gap-3 border-t border-border pt-4">
-          <span class="text-[12.5px] text-soft-foreground">
-            {% blocktranslate with first=page_obj.start_index last=page_obj.end_index total=paginator.count %}Showing {{ first }}–{{ last }} of {{ total }}{% endblocktranslate %}
-          </span>
-          <nav class="flex gap-1.5" aria-label="{% translate 'Ticket pages' %}">
-            {% if page_obj.has_previous %}
-              <a class="ui-btn ui-btn--outline ui-btn--size-xs"
-                 href="?page={{ page_obj.previous_page_number }}{% if filter_querystring %}&amp;{{ filter_querystring }}{% endif %}"
-                 hx-get="?page={{ page_obj.previous_page_number }}{% if filter_querystring %}&amp;{{ filter_querystring }}{% endif %}"
-                 hx-target="#ticket-results"
-                 hx-swap="outerHTML"
-                 hx-push-url="true"
-                 hx-indicator="#nav-progress">{% translate "Previous" %}</a>
-            {% else %}
-              <span class="ui-btn ui-btn--outline ui-btn--size-xs opacity-50"
-                    aria-disabled="true">{% translate "Previous" %}</span>
-            {% endif %}
-            {% if page_obj.has_next %}
-              <a class="ui-btn ui-btn--outline ui-btn--size-xs"
-                 href="?page={{ page_obj.next_page_number }}{% if filter_querystring %}&amp;{{ filter_querystring }}{% endif %}"
-                 hx-get="?page={{ page_obj.next_page_number }}{% if filter_querystring %}&amp;{{ filter_querystring }}{% endif %}"
-                 hx-target="#ticket-results"
-                 hx-swap="outerHTML"
-                 hx-push-url="true"
-                 hx-indicator="#nav-progress">{% translate "Next" %}</a>
-            {% else %}
-              <span class="ui-btn ui-btn--outline ui-btn--size-xs opacity-50"
-                    aria-disabled="true">{% translate "Next" %}</span>
-            {% endif %}
-          </nav>
-        </div>
-      {% endif %}
+        </tbody>
+      </table>
     </div>
+    <!-- Below md the same tickets as a stacked list -->
+    <ul class="flex flex-col border-t border-soft-border md:hidden">
+      {% for ticket in tickets %}
+        {% include "support/partials/ticket_card.html" %}
+      {% endfor %}
+    </ul>
+    {% if is_paginated %}
+      <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3"
+           aria-label="{% translate 'Ticket pages' %}">
+        {% if page_obj.has_previous %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+             href="?page={{ page_obj.previous_page_number }}{% if filter_querystring %}&amp;{{ filter_querystring }}{% endif %}"
+             hx-get="?page={{ page_obj.previous_page_number }}{% if filter_querystring %}&amp;{{ filter_querystring }}{% endif %}"
+             hx-target="#ticket-results"
+             hx-swap="outerHTML"
+             hx-push-url="true"
+             hx-indicator="#nav-progress">{% translate "Previous" %}</a>
+        {% else %}
+          <span class="ui-btn ui-btn--outline ui-btn--size-xs opacity-50"
+                aria-disabled="true">{% translate "Previous" %}</span>
+        {% endif %}
+        <span class="text-xs text-soft-foreground tabular-nums">
+          {% blocktranslate with first=page_obj.start_index last=page_obj.end_index total=paginator.count %}Showing {{ first }}–{{ last }} of {{ total }}{% endblocktranslate %}
+        </span>
+        {% if page_obj.has_next %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+             href="?page={{ page_obj.next_page_number }}{% if filter_querystring %}&amp;{{ filter_querystring }}{% endif %}"
+             hx-get="?page={{ page_obj.next_page_number }}{% if filter_querystring %}&amp;{{ filter_querystring }}{% endif %}"
+             hx-target="#ticket-results"
+             hx-swap="outerHTML"
+             hx-push-url="true"
+             hx-indicator="#nav-progress">{% translate "Next" %}</a>
+        {% else %}
+          <span class="ui-btn ui-btn--outline ui-btn--size-xs opacity-50"
+                aria-disabled="true">{% translate "Next" %}</span>
+        {% endif %}
+      </nav>
+    {% endif %}
   {% elif has_filters %}
-    <div class="ui-card">
-      <div class="ui-card-content flex flex-col items-start gap-3">
-        <p class="text-[13.5px] leading-relaxed text-muted-foreground">{% translate "No tickets match these filters." %}</p>
-        <a class="ui-btn ui-btn--secondary ui-btn--size-sm"
-           href="{% url 'support:list' %}">{% translate "Clear filters" %}</a>
-      </div>
+    <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
+      <p class="text-sm text-muted-foreground">{% translate "No tickets match these filters." %}</p>
+      <a class="ui-btn ui-btn--secondary ui-btn--size-sm no-underline"
+         href="{% url 'support:list' %}">{% translate "Clear filters" %}</a>
     </div>
   {% else %}
-    <div class="ui-card">
-      <div class="ui-card-content flex flex-col items-start gap-3">
-        <h2 class="ui-section-title">{% translate "No tickets yet" %}</h2>
-        <p class="text-[13.5px] leading-relaxed text-muted-foreground">
-          {% translate "Nothing has been raised from your organisation. Open a ticket when you hit something in the sandbox, the APIs, certification or a deployment." %}
-        </p>
-        <a class="ui-btn ui-btn--default ui-btn--size-sm"
-           href="{% url 'support:create' %}">{% translate "New ticket" %}</a>
-      </div>
+    <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
+      <h3 class="ui-section-title">{% translate "No tickets yet" %}</h3>
+      <p class="text-sm text-muted-foreground">
+        {% translate "Nothing has been raised from your organisation. Open a ticket when you hit something in the sandbox, the APIs, certification or a deployment." %}
+      </p>
+      <a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
+         href="{% url 'support:create' %}">{% translate "New ticket" %}</a>
     </div>
   {% endif %}
 </div>

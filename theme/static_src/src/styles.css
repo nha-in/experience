@@ -179,6 +179,20 @@
   --sidebar-accent-foreground: var(--color-neutral-950);
   --sidebar-border: var(--color-neutral-200);
   --sidebar-ring: var(--color-indigo-400);
+
+  /* Layered (round 3) — the three tokens beyond careui. The hero wash is a
+     soft emerald gradient with a brighter pool top-right; the hairline
+     closes the band; the shadow lifts cards off the canvas with a long,
+     faint emerald tail. --hero-surface is the flat colour under the wash,
+     for the rings around stepper stations that sit on it. */
+  --hero-wash: radial-gradient(640px 240px at 100% 0%, --alpha(var(--primary-200) / 42%), transparent 70%),
+  linear-gradient(180deg, oklch(96.4% 0.026 165) 0%, oklch(97.6% 0.012 165) 100%);
+  --hero-hairline: --alpha(var(--primary-700) / 14%);
+  --hero-surface: oklch(97.3% 0.014 165);
+  --layered-shadow: 0 0 0 1px --alpha(var(--foreground) / 7%), 0 1px 2px rgb(0 0 0 / 0.04),
+  0 16px 40px -24px --alpha(var(--primary-900) / 25%);
+  --layered-shadow-hover: 0 0 0 1px --alpha(var(--foreground) / 9%), 0 2px 4px rgb(0 0 0 / 0.04),
+  0 24px 48px -24px --alpha(var(--primary-900) / 35%);
 }
 
 .dark {
@@ -238,6 +252,15 @@
   --sidebar-accent-foreground: var(--color-neutral-50);
   --sidebar-border: --alpha(var(--color-white) / 12%);
   --sidebar-ring: var(--color-indigo-400);
+
+  --hero-wash: radial-gradient(640px 240px at 100% 0%, --alpha(var(--primary-400) / 12%), transparent 70%),
+  linear-gradient(180deg, var(--color-neutral-900) 0%, var(--color-neutral-950) 100%);
+  --hero-hairline: --alpha(var(--primary-400) / 18%);
+  --hero-surface: var(--color-neutral-900);
+  --layered-shadow: 0 0 0 1px --alpha(var(--color-white) / 9%), 0 1px 2px rgb(0 0 0 / 0.4),
+  0 16px 40px -24px rgb(0 0 0 / 0.6);
+  --layered-shadow-hover: 0 0 0 1px --alpha(var(--color-white) / 14%), 0 2px 4px rgb(0 0 0 / 0.4),
+  0 24px 48px -24px rgb(0 0 0 / 0.7);
 }
 
 @theme inline {
@@ -319,6 +342,11 @@
   --color-primary-800: var(--primary-800);
   --color-primary-900: var(--primary-900);
   --color-primary-950: var(--primary-950);
+
+  /* Layered: shadow-layered / shadow-layered-hover for one-off use in templates. */
+  --shadow-layered: var(--layered-shadow);
+  --shadow-layered-hover: var(--layered-shadow-hover);
+  --color-hero-surface: var(--hero-surface);
 }
 
 @layer base {
@@ -348,6 +376,7 @@
 }
 
 @import "./careui.css";
+@import "./layered.css";
 
 @layer components {
   /* Skip link — visible only when focused via keyboard. */

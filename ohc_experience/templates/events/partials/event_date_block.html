@@ -1,16 +1,17 @@
 {% comment %}
-  The date block from the prototype — month over day in a bordered box. The
-  events list, an event's page and the overview card all include this one
-  file, so the three can never drift apart.
+  The date block (Layered) — day over month in a tinted square. The events
+  list, an event's page, the overview card and the events hero all include
+  this one file, so none of them can drift.
 
   It is a real <time> rather than decoration: the rows beside it say the weekday
   and the hour, so without the month and day here a screen reader would never
   hear which date an event falls on.
 
-  Context: event.
+  Context: event, size ("sm" for the 44px block, "solid" for the hero's filled
+  one; default 56px), past (muted tint for sessions that have run).
 {% endcomment %}
-<time class="flex w-11 shrink-0 flex-col items-center rounded-[10px] border border-soft-border bg-soft-background py-1.5 text-center"
+<time class="ui-dateblock {% if size == 'sm' %}ui-dateblock--sm{% elif size == 'solid' %}ui-dateblock--solid{% endif %} {% if past %}ui-dateblock--past{% endif %}"
       datetime="{{ event.starts_at|date:'c' }}">
-  <span class="text-[9px] font-bold tracking-[0.07em] text-soft-foreground uppercase">{{ event.starts_at|date:"M" }}</span>
-  <span class="text-base leading-[1.15] font-bold">{{ event.starts_at|date:"j" }}</span>
+  <span class="ui-dateblock-day">{{ event.starts_at|date:"d" }}</span>
+  <span class="ui-dateblock-month">{{ event.starts_at|date:"M" }}</span>
 </time>

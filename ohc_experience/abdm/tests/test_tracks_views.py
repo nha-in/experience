@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from http import HTTPStatus
 
 import pytest
@@ -36,7 +37,8 @@ def exit_data() -> dict:
         "end_date": today.isoformat(),
         "demo_date": today.isoformat(),
         "wasa_agency": "Example CERT-In auditor",
-        "wasa_date": today.isoformat(),
+        "wasa_issued_on": today.isoformat(),
+        "wasa_valid_until": (today + timedelta(days=365)).isoformat(),
     }
 
 
@@ -208,7 +210,8 @@ class TestTrackPage:
         assert response.status_code == HTTPStatus.OK
         assert response.context["nav_section"] == "track"
         assert response.context["nav_track"] == "HI-CM"
-        assert "0 of 2 milestones approved" in html
+        assert response.context["approved_count"] == 0
+        assert "of 2 milestones approved" in html
         assert 'id="exit-form"' in html
         assert "Request for exit needs:" in html
         assert "M3" in html

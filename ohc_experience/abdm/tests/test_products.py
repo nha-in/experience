@@ -309,7 +309,7 @@ class TestProductViews:
         assert response.status_code == HTTPStatus.OK
         assert response.context["onboarding_step"] == 3  # noqa: PLR2004
         assert "HFR registration" in html
-        assert "No milestones published yet." in html
+        assert "NHA has not published milestones for this track yet." in html
         assert "Same record as HI-CM M1" in html
 
     def test_onboarding_step_three_needs_the_organisation_step_first(
@@ -405,10 +405,13 @@ class TestProductViews:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["nav_section"] == "overview"
-        assert "1 of 1 milestones approved" not in html
-        assert "0 of 2 milestones approved" in html
-        assert "M1 · Open" in html
-        assert "M2 · Locked" in html
+        assert "1 of 1 approved" not in html
+        assert "0 of 2 approved" in html
+        # Each milestone is a station on the track's stepper: M1 is the one
+        # being worked, M2 is still locked behind it.
+        assert "Open · waiting on you" in html
+        assert 'class="ui-station ui-station--current"' in html
+        assert 'class="ui-station ui-station--locked"' in html
         assert "Submitted for review" in html
         assert "Issued once the organisation is verified." in html
         nav = html[html.index('<nav id="app-nav"') : html.index("</nav>")]

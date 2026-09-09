@@ -1,49 +1,49 @@
 {% comment %}
-  The Tracks card on the overview, as the prototype draws it: one row per
-  applied track (code, "n of m approved", a chip per milestone, Open), and a
-  footer strip naming the tracks not applied for.
+  The Tracks card on the overview, Layered: one milestone stepper per applied
+  track — approved stations filled, the station being worked pulsing, locked
+  ones dashed — with "n of m approved · next Mx" on the right, and a footer
+  strip naming the tracks not applied for.
 
   Context: product, track_summaries, tracks.
 {% endcomment %}
 {% load i18n %}
 
-<section class="ui-card ui-card--sm gap-0 py-0" aria-labelledby="tracks-title">
-  <div class="flex items-center justify-between gap-2 px-[18px] pt-3.5 pb-3">
-    <h2 class="text-[12.5px] font-bold" id="tracks-title">{% translate "Tracks" %}</h2>
-    <span class="text-[11px] text-soft-foreground">{% translate "One exit request per milestone" %}</span>
+<section class="ui-card ui-card--layered gap-4" aria-labelledby="tracks-title">
+  <div class="ui-card-header">
+    <h2 class="ui-card-title" id="tracks-title">{% translate "Tracks" %}</h2>
+    <p class="ui-card-description">{% translate "Every track this product has applied a milestone on." %}</p>
   </div>
   {% if track_summaries %}
-    <ul class="flex flex-col">
+    <div class="ui-card-content flex flex-col">
       {% for summary in track_summaries %}
-        <li class="flex flex-col gap-2.5 border-t border-soft-border px-[18px] py-3 sm:flex-row sm:items-center sm:gap-3.5">
-          <div class="w-[150px] shrink-0">
-            <a class="font-mono text-xs font-bold no-underline hover:underline"
+        <div class="border-t border-soft-border py-4 first:border-t-0 first:pt-1 last:pb-0">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <a class="font-mono text-sm font-semibold text-foreground no-underline hover:text-primary"
                href="{% url 'products:track' product.sandbox_id summary.track.code %}">{{ summary.track.code }}</a>
-            <span class="mt-0.5 block text-[10.5px] text-soft-foreground">
-              {% blocktranslate with approved=summary.approved applied=summary.applied %}{{ approved }} of {{ applied }} milestones approved{% endblocktranslate %}
+            <span class="text-xs text-soft-foreground tabular-nums">
+              {% blocktranslate with approved=summary.approved applied=summary.applied %}{{ approved }} of {{ applied }} approved{% endblocktranslate %}
+              {% for entry in summary.entries %}
+                {% if entry.record and not entry.record.is_approved and not entry.record.is_locked %}
+                  · {% translate "next" %}
+                  <a class="font-mono font-semibold text-primary no-underline hover:underline"
+                     href="{% url 'products:track' product.sandbox_id summary.track.code %}?milestone={{ entry.milestone.code }}">{{ entry.milestone.code }}</a>
+                {% endif %}
+              {% endfor %}
             </span>
           </div>
-          <div class="flex flex-1 flex-wrap gap-1.5">
+          <ol class="ui-stepper ui-stepper--grid mt-2.5"
+              aria-label="{{ summary.track.code }} {% translate 'milestones' %}">
             {% for entry in summary.entries %}
-              {% if entry.record %}
-                <a class="inline-flex h-6 items-center gap-1.5 rounded-[7px] border border-soft-border bg-soft-background px-2 text-[10.5px] text-foreground no-underline hover:border-stronger-border"
-                   href="{% url 'products:track' product.sandbox_id summary.track.code %}?milestone={{ entry.milestone.code }}"
-                   title="{{ entry.milestone.code }} · {{ entry.record.get_status_display }}">
-                  {% include "components/status_dot.html" with variant=entry.record.status_variant %}
-                  <span class="font-mono font-bold">{{ entry.milestone.code }}</span> · {{ entry.record.get_status_display }}
-                </a>
-              {% endif %}
+              {% include "abdm/partials/milestone_station.html" with track=summary.track %}
             {% endfor %}
-          </div>
-          <a class="shrink-0 text-[11px] font-semibold text-primary no-underline hover:underline"
-             href="{% url 'products:track' product.sandbox_id summary.track.code %}">{% translate "Open" %}</a>
-        </li>
+          </ol>
+        </div>
       {% endfor %}
-    </ul>
+    </div>
   {% else %}
-    <p class="border-t border-soft-border px-[18px] py-6 text-center text-[12.5px] text-soft-foreground">{% translate "No tracks applied for yet." %}</p>
+    <p class="ui-card-content py-2 text-sm text-muted-foreground">{% translate "No tracks applied for yet." %}</p>
   {% endif %}
-  <div class="flex flex-wrap items-center gap-2 border-t border-soft-border bg-soft-background px-[18px] py-2.5 text-[11px] text-soft-foreground">
+  <div class="flex flex-wrap items-center gap-2 border-t border-soft-border bg-soft-background px-6 py-2.5 text-xs text-soft-foreground -mb-[22px]">
     <span>
       {% translate "Not applied:" %}
       {% for track in tracks %}{% if track.code not in product.applied_tracks %}{{ track.code }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}

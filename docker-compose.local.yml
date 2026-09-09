@@ -26,7 +26,7 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     ports:
-      - '8000:8000'
+      - '${DJANGO_PORT:-8000}:8000'
     command: /start
 
   postgres:
@@ -40,6 +40,8 @@ services:
       - ohc_experience_local_postgres_data_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
+    ports:
+      - '${POSTGRES_HOST_PORT:-5432}:5432'
 
   mailtrap-local:
     image: docker.io/mailtrap/mailtrap-local:latest
@@ -119,5 +121,5 @@ services:
     image: ohc_experience_local_flower
     container_name: ohc_experience_local_flower
     ports:
-      - '5555:5555'
+      - '${FLOWER_PORT:-5555}:5555'
     command: /start-flower

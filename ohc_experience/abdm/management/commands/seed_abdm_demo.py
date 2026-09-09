@@ -973,7 +973,8 @@ class Command(BaseCommand):
             record.save()
             return
         record.wasa_agency = "Arcline Security Assurance"
-        record.wasa_date = start + timedelta(days=20)
+        record.wasa_issued_on = start + timedelta(days=20)
+        record.wasa_valid_until = record.wasa_issued_on + timedelta(days=365)
         record.functional_certificate.save(
             f"ft-certificate-{spec.milestone.lower()}.pdf",
             ContentFile(PDF_STUB),

@@ -14,9 +14,15 @@
 
   Blocks: crumb_root (a section ahead of the leaf, "Support" on a ticket:
           include components/crumb.html; empty by default), crumb_leaf
-          (defaults follow nav_section), page_header (title row above the
-          content), content.
+          (defaults follow nav_section), hero (full-width band above the column),
+          canvas_padding (top padding of the column; pt-6 by default, pt-0
+          under a hero), page_header (title row above the content), content.
   Context: nav_section — set by the view to light the right nav item.
+
+  Layered (round 3): a page may fill the hero block with a full-width band
+  that sits above the 1120px column, and set the canvas_padding block to
+  pt-0 so its first card (class ui-float) pulls up into the band. Both blocks
+  live inside #main-content so a boosted swap carries the hero with the page.
 
   <main id="main-content"> is the boost target: the shell's navigation asks htmx
   to keep just that element out of an ordinary whole-page response and swap it
@@ -136,7 +142,9 @@
                aria-label="{% translate 'Your profile' %}">{{ request.user.initials }}</a>
           </div>
         </div>
-        <div class="flex-1 px-4 pt-6 pb-12 sm:px-[26px]">
+        {% block hero %}
+        {% endblock hero %}
+        <div class="flex-1 px-4 pb-12 sm:px-[26px] {% block canvas_padding %}pt-6{% endblock canvas_padding %}">
           <div class="mx-auto w-full max-w-[1120px]">
             {% include "components/messages.html" %}
             {% block page_header %}

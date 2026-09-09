@@ -23,6 +23,11 @@ from .crypto import encrypt_secret
 
 WHOLE_FORM = "form"
 
+#: How long a WASA certificate is taken to last. The issue date fills the
+#: expiry this many days ahead, in the form and in the browser; either can be
+#: overridden by typing a different date.
+WASA_VALIDITY_DAYS = 365
+
 
 class ProductQuerySet(models.QuerySet["Product"]):
     def for_organisation(self, organisation) -> ProductQuerySet:
@@ -291,7 +296,14 @@ class ComplianceRecord(models.Model):
     end_date = models.DateField(_("Sandbox testing end"), null=True, blank=True)
     demo_date = models.DateField(_("Tentative demo date"), null=True, blank=True)
     wasa_agency = models.CharField(_("WASA audit agency"), max_length=255, blank=True)
-    wasa_date = models.DateField(_("WASA date"), null=True, blank=True)
+    # The certificate has a life, not a date: when the auditor issued it and
+    # when it lapses. WASA_VALIDITY is how far apart those are by default.
+    wasa_issued_on = models.DateField(
+        _("WASA certificate issued on"),
+        null=True,
+        blank=True,
+    )
+    wasa_valid_until = models.DateField(_("WASA valid until"), null=True, blank=True)
     functional_certificate = models.FileField(
         _("Functional testing certificate"),
         upload_to="abdm/compliance/%Y/%m/",
@@ -383,7 +395,8 @@ class ComplianceRecord(models.Model):
             ("end_date", _("Sandbox testing end")),
             ("demo_date", _("Tentative demo date")),
             ("wasa_agency", _("WASA audit agency")),
-            ("wasa_date", _("WASA date")),
+            ("wasa_issued_on", _("WASA certificate issued on")),
+            ("wasa_valid_until", _("WASA valid until")),
             ("functional_certificate", _("Functional testing certificate")),
             ("functional_report", _("Functional testing report")),
         ]

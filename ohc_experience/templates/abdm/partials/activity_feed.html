@@ -1,35 +1,34 @@
 {% comment %}
-  Recent activity: the history entries on this product's review items and on
-  the organisation's verification, newest first — the audit record, as the
-  prototype labels it.
+  Recent activity, Layered: one row per history entry — the actor's initials
+  (a dashed ring for the system), what happened, who and when. The audit
+  record, as the prototype labels it.
 
   Context: activity (ReviewHistory rows).
 {% endcomment %}
 {% load i18n %}
 
-<section class="ui-card ui-card--sm" aria-labelledby="activity-title">
+<section class="ui-card ui-card--layered" aria-labelledby="activity-title">
+  <div class="ui-card-header flex-row items-center justify-between">
+    <h2 class="ui-card-title" id="activity-title">{% translate "Recent activity" %}</h2>
+    <span class="text-xs text-soft-foreground">{% translate "Audit record" %}</span>
+  </div>
   <div class="ui-card-content">
-    <div class="mb-3 flex items-center justify-between gap-2">
-      <h2 class="text-[12.5px] font-bold" id="activity-title">{% translate "Recent activity" %}</h2>
-      <span class="text-[11px] text-soft-foreground">{% translate "Audit record" %}</span>
-    </div>
     {% if activity %}
-      <ol class="flex flex-col gap-[11px]">
+      <ol class="ui-feed">
         {% for entry in activity %}
-          <li class="flex items-start gap-[11px]">
-            <span class="mt-[5px]">{% include "components/status_dot.html" with variant=entry.variant %}</span>
-            <div class="min-w-0 flex-1">
-              <p class="text-xs leading-[1.4] break-words">
-                {{ entry.title }}
-                {% if entry.description %}<span class="text-soft-foreground">· {{ entry.description|truncatechars:120 }}</span>{% endif %}
-              </p>
-              <p class="text-[10.5px] text-soft-foreground">{{ entry.item.title }} · {{ entry.actor_label }} · {{ entry.created_at|date:"j M Y, H:i" }}</p>
-            </div>
+          <li class="ui-feed-row">
+            <span class="ui-feed-avatar {% if not entry.actor %}ui-feed-avatar--system{% endif %}"
+                  aria-hidden="true">{% if entry.actor %}{{ entry.actor.initials }}{% else %}S{% endif %}</span>
+            <span class="ui-feed-body">
+              {{ entry.item.title }} <span class="text-soft-foreground">·</span> {{ entry.title }}
+              {% if entry.description %}<span class="block text-xs text-soft-foreground">{{ entry.description|truncatechars:120 }}</span>{% endif %}
+            </span>
+            <span class="ui-feed-meta">{{ entry.actor_label }} · {{ entry.created_at|date:"j M Y, H:i" }}</span>
           </li>
         {% endfor %}
       </ol>
     {% else %}
-      <p class="text-xs leading-[1.5] text-soft-foreground">{% translate "Nothing has happened yet. Submissions, decisions and queries will appear here." %}</p>
+      <p class="text-sm text-muted-foreground">{% translate "Nothing has happened yet. Submissions, decisions and queries will appear here." %}</p>
     {% endif %}
   </div>
 </section>

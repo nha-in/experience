@@ -1,9 +1,12 @@
 {% extends "layouts/ohc.html" %}
 
 {% comment %}
-  Review detail (design doc 5.11). Everything a decision can change lives in
-  partials/review_workspace.html, which every POST renders back; this page
-  only sets the breadcrumb leaf and includes it.
+  Review detail (design doc 5.11), Layered. The hero — back link, subject,
+  status and age badges, the identity line, who it is assigned to, and the
+  item's history as a straight timeline — is partials/review_hero.html;
+  everything a decision can change lives in partials/review_workspace.html.
+  Every POST renders both back: the workspace as the target, the hero out of
+  band, so the timeline and badges move with the decision.
 
   Context: see abdm.assess_views.review_context.
 {% endcomment %}
@@ -15,6 +18,10 @@
 {% block crumb_leaf %}
   {{ item.reference }}
 {% endblock crumb_leaf %}
+{% block hero %}
+  {% include "abdm/assess/partials/review_hero.html" %}
+{% endblock hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block content %}
   {% include "abdm/assess/partials/review_workspace.html" %}
 {% endblock content %}

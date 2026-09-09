@@ -43,11 +43,15 @@
       <span class="text-[10.5px] text-soft-foreground">{% translate "Certificate from a CERT-In empanelled auditor" %}</span>
     </legend>
     <div class="grid gap-3.5 sm:grid-cols-2">
-      <div>
+      <div class="sm:col-span-2">
         {% translate "Audit agency name" as agency_label %}
         {% ui_field form.wasa_agency label=agency_label %}
       </div>
-      <div>{% ui_field form.wasa_date %}</div>
+      <div>{% ui_field form.wasa_issued_on %}</div>
+      <div>
+        {% translate "Filled in a year ahead; change it if the certificate says otherwise." as valid_hint %}
+        {% ui_field form.wasa_valid_until help_text=valid_hint %}
+      </div>
     </div>
   </fieldset>
   <fieldset class="flex flex-col gap-3">

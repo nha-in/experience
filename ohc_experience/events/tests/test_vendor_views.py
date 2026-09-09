@@ -372,8 +372,10 @@ class TestWorksWithoutJavaScript:
         register_url = reverse("events:registration", args=[event.slug, "register"])
         assert f'action="{register_url}"' in body
         assert body.count("csrfmiddlewaretoken") == body.count('method="post"')
-        # Past events collapse with the browser's own widget, not a script.
-        assert "<details" in body
+        # Past sessions are listed under the upcoming ones — no script, and
+        # nothing behind a disclosure the browser has to open.
+        assert "Past" in body
+        assert "This event has ended." in body
 
     def test_an_event_page_is_plain_html(
         self,

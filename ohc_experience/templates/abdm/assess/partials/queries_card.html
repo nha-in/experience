@@ -1,46 +1,47 @@
 {% comment %}
-  Every query on the item, as the prototype draws it: which field, its
-  status, the question, who asked and when, the integrator's reply, and
-  Mark resolved once it is answered.
+  Every query on the item (Layered): which field, its status, the question,
+  who asked and when, the integrator's reply as an indented quote, and Mark
+  resolved once it is answered.
 
   Context: item, queries.
 {% endcomment %}
 {% load i18n %}
 
-<section class="ui-card ui-card--sm" aria-labelledby="queries-title">
+<section class="ui-card ui-card--layered ui-card--sm"
+         aria-labelledby="queries-title">
+  <div class="ui-card-header flex-row items-center justify-between">
+    <h2 class="ui-card-title" id="queries-title">{% translate "Queries" %}</h2>
+    <span class="font-mono text-xs text-soft-foreground">{{ queries|length }}</span>
+  </div>
   <div class="ui-card-content">
-    <div class="mb-[11px] flex items-center justify-between gap-2">
-      <h2 class="text-xs font-bold" id="queries-title">{% translate "Queries" %}</h2>
-      <span class="font-mono text-[10.5px] text-soft-foreground">{{ queries|length }}</span>
-    </div>
     {% if queries %}
       <ol class="flex flex-col gap-3">
         {% for query in queries %}
-          <li class="rounded-[9px] border border-soft-border bg-soft-background px-3 py-2.5">
-            <div class="flex items-center gap-[7px]">
-              <span class="rounded-[5px] bg-muted-background px-[7px] py-0.5 text-[9.5px] font-bold text-soft-foreground">{{ query.against_label }}</span>
-              <span class="ml-auto text-[10.5px] font-semibold {% if query.is_open %}text-amber-800{% elif query.is_answered %}text-sky-900{% else %}text-primary-700{% endif %}">
-                {% if query.is_open %}
-                  {% translate "Awaiting integrator" %}
-                {% elif query.is_answered %}
-                  {% translate "Answered" %}
-                {% else %}
-                  {% translate "Resolved" %}
-                {% endif %}
-              </span>
+          <li class="rounded-xl bg-hero-surface/70 px-4 py-3.5 ring-1 ring-primary/10">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="ui-badge ui-badge--neutral ui-badge--size-sm bg-card">{{ query.against_label }}</span>
+              {% if query.is_open %}
+                <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Awaiting integrator" %}</span>
+              {% elif query.is_answered %}
+                <span class="ui-badge ui-badge--info ui-badge--size-sm">{% translate "Answered" %}</span>
+              {% else %}
+                <span class="ui-badge ui-badge--success ui-badge--size-sm">{% translate "Resolved" %}</span>
+              {% endif %}
             </div>
-            <p class="mt-1.5 text-[11.5px] leading-[1.5] break-words">{{ query.question|linebreaksbr }}</p>
-            <p class="mt-1 text-[10px] text-soft-foreground">{{ query.raised_by.display_name|default:"—" }} · {{ query.raised_at|date:"j M Y, H:i" }}</p>
+            <p class="mt-2.5 text-sm break-words">{{ query.question|linebreaksbr }}</p>
+            <p class="mt-1 text-xs text-soft-foreground">
+              {% blocktranslate with name=query.raised_by.display_name|default:"—" date=query.raised_at|date:"j M Y, H:i" %}Raised by {{ name }} on {{ date }}{% endblocktranslate %}
+            </p>
             {% if query.reply %}
-              <div class="mt-2 rounded-[7px] border border-soft-border bg-background px-2.5 py-2">
-                <p class="text-[10px] text-soft-foreground">
-                  {% blocktranslate with name=query.replied_by.display_name date=query.replied_at|date:"j M Y, H:i" %}Integrator · {{ name }} · {{ date }}{% endblocktranslate %}
+              <div class="mt-3 border-l-2 border-primary/35 pl-3">
+                <p class="text-sm break-words">{{ query.reply|linebreaksbr }}</p>
+                <p class="mt-1 text-xs text-soft-foreground">
+                  {% blocktranslate with name=query.replied_by.display_name date=query.replied_at|date:"j M Y, H:i" %}Answered by {{ name }} on {{ date }}{% endblocktranslate %}
                 </p>
-                <p class="mt-0.5 text-[11.5px] leading-[1.5] break-words">{{ query.reply|linebreaksbr }}</p>
               </div>
             {% endif %}
             {% if query.is_answered %}
-              <form class="mt-2"
+              <form class="mt-3"
                     method="post"
                     action="{% url 'assess:query-resolve' item.reference query.pk %}"
                     hx-post="{% url 'assess:query-resolve' item.reference query.pk %}"
@@ -49,16 +50,17 @@
                     hx-disabled-elt="find button"
                     hx-indicator="#nav-progress">
                 {% csrf_token %}
-                <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-xs">{% translate "Mark resolved" %}</button>
+                <button type="submit"
+                        class="ui-btn ui-btn--outline ui-btn--size-xs bg-card shadow-md">{% translate "Mark resolved" %}</button>
               </form>
             {% elif query.is_open %}
-              <p class="mt-2 text-[10.5px] text-soft-foreground">{% translate "Waiting for the integrator." %}</p>
+              <p class="mt-2.5 text-xs text-soft-foreground">{% translate "Waiting for the integrator." %}</p>
             {% endif %}
           </li>
         {% endfor %}
       </ol>
     {% else %}
-      <p class="text-[11px] leading-[1.5] text-soft-foreground">{% translate "No queries raised on this form." %}</p>
+      <p class="text-sm text-muted-foreground">{% translate "No queries raised on this form." %}</p>
     {% endif %}
   </div>
 </section>

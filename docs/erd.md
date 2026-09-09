@@ -200,7 +200,8 @@ erDiagram
     date end_date
     date demo_date
     varchar wasa_agency "web application security assessor"
-    date wasa_date
+    date wasa_issued_on
+    date wasa_valid_until "issued_on + 365 by default"
     varchar functional_certificate "file"
     varchar functional_report "file"
     timestamptz submitted_on

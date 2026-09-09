@@ -1,3 +1,4 @@
-{% comment %}htmx response for a review action: the workspace, plus the flash out of band.{% endcomment %}
+{% comment %}htmx response for a review action: the workspace, the hero and the flash out of band.{% endcomment %}
 {% include "abdm/assess/partials/review_workspace.html" %}
+{% include "abdm/assess/partials/review_hero.html" with oob=True %}
 {% include "components/messages.html" with oob=True %}

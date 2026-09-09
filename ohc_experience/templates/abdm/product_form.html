@@ -1,7 +1,9 @@
 {% extends "layouts/app.html" %}
 
 {% comment %}
-  Register another product, or edit one, inside the shell.
+  Register another product, or edit one, inside the shell (Layered): the hero
+  carries the back link, the title and — when editing — how many milestones
+  are selected and how many of those are locked; the form floats under it.
 
   Context: form, form_layout ("create" | "edit"), product (edit only), tracks,
   form_tracks, can_write, nav_section.
@@ -22,22 +24,57 @@
     {% translate "Register a product" %}
   {% endif %}
 {% endblock crumb_leaf %}
-{% block page_header %}
-  <div class="mx-auto mb-4 w-full max-w-[700px]">
-    <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "Product" %}</p>
-    {% if form_layout == "edit" %}
-      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">{% translate "Edit product" %}</h1>
-      <p class="mt-1.5 max-w-[560px] text-[12.5px] leading-[1.55] text-soft-foreground">
-        {% translate "Changes to name, description and category apply immediately. Adding a track or milestone opens it for exit requests; NHA is notified of the change. Approved milestones and ones under review stay locked." %}
-      </p>
-    {% else %}
-      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">{% translate "Register a product" %}</h1>
-      <p class="mt-1.5 max-w-[560px] text-[12.5px] leading-[1.55] text-soft-foreground">
-        {% translate "One product per application. Choose the tracks and milestones it will complete in the sandbox; each becomes its own exit request once credentials are issued." %}
-      </p>
-    {% endif %}
+{% block hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        {% if form_layout == "edit" %}
+          <a class="ui-hero-back"
+             href="{% url 'products:overview' product.sandbox_id %}">
+            <svg viewBox="0 0 24 24"
+                 class="size-3"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2.5"
+                 stroke-linecap="round"
+                 stroke-linejoin="round"
+                 aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            {{ product.name }}
+          </a>
+          <h1 class="ui-hero-title">{% translate "Edit product" %}</h1>
+          <p class="mt-2.5 font-mono text-[12.5px] text-muted-foreground">{{ product.sandbox_id }}</p>
+          <p class="ui-hero-lede">
+            {% translate "Changes to name, description and category apply immediately. Adding a track or milestone opens it for exit requests; NHA is notified of the change. Approved milestones and ones under review stay locked." %}
+          </p>
+        {% else %}
+          <p class="ui-hero-eyebrow">{% translate "Product" %}</p>
+          <h1 class="ui-hero-title">{% translate "Register a product" %}</h1>
+          <p class="ui-hero-lede">
+            {% translate "One product per application. Choose the tracks and milestones it will complete in the sandbox; each becomes its own exit request once credentials are issued." %}
+          </p>
+        {% endif %}
+      </div>
+      {% if form_layout == "edit" %}
+        <div class="ui-rise" style="animation-delay: .05s">
+          <span class="ui-kicker block">{% translate "Milestones selected" %}</span>
+          <span class="mt-1 flex items-baseline gap-2.5">
+            <span class="ui-figure text-[40px]">{{ form.selected_keys|length }}</span>
+            <span class="ui-figure-unit">{% blocktranslate count counter=product.applied_tracks|length %}across {{ counter }} track{% plural %}across {{ counter }} tracks{% endblocktranslate %}</span>
+          </span>
+          {% if form.locked_keys %}
+            <span class="mt-1 block text-xs text-green-800">
+              {% blocktranslate count counter=form.locked_keys|length %}{{ counter }} approved or under review · cannot be removed{% plural %}{{ counter }} approved or under review · cannot be removed{% endblocktranslate %}
+            </span>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
   </div>
-{% endblock page_header %}
+{% endblock hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block content %}
-  <div class="mx-auto w-full max-w-[700px]">{% include "abdm/partials/product_form.html" %}</div>
+  <div class="ui-float ui-rise w-full max-w-[760px]"
+       style="animation-delay: .1s">{% include "abdm/partials/product_form.html" %}</div>
 {% endblock content %}

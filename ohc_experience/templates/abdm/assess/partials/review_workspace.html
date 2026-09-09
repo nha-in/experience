@@ -1,10 +1,10 @@
 {% comment %}
-  Everything about a review item that a decision can change, as the prototype
-  draws it: the header (back link, reference, type tag, title, submitted /
-  age / assignee line, status badge), the submitted form with its Query
-  actions and the integrator context on the left, the decision panel, the
-  queries and the history on the right. review_detail.html includes this file
-  and every POST renders it back aimed at #review-workspace.
+  Everything about a review item that a decision can change (Layered): the
+  submitted form with its Query actions, the integrator context, the queries
+  and the history on the left; the decision panel sticky on the right. The
+  header moved into partials/review_hero.html. review_detail.html includes
+  this file and every POST renders it back aimed at #review-workspace, with
+  the hero riding along out of band.
 
   Context: item, sections, queries, open_query_count, history, approve_form,
   send_back_form, query_form, assign_form, can_assign, decision_tab,
@@ -12,66 +12,14 @@
 {% endcomment %}
 {% load i18n careui %}
 
-<div id="review-workspace">
-  <div class="mb-3.5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-    <div class="min-w-0">
-      <div class="mb-2 flex flex-wrap items-center gap-2">
-        <a class="text-[11px] font-semibold text-primary no-underline hover:underline"
-           href="{% url 'assess:queue' %}">‹ {% translate "Review queue" %}</a>
-        <span class="font-mono text-[11px] text-soft-foreground">{{ item.reference }}</span>
-        <span class="ui-badge ui-badge--{{ item.type_variant }} ui-badge--size-xs">{{ item.get_item_type_display }}</span>
-        {% if item.resubmission_count %}
-          <span class="ui-badge ui-badge--neutral ui-badge--size-xs">
-            {% blocktranslate count counter=item.resubmission_count %}resubmitted once{% plural %}resubmitted {{ counter }} times{% endblocktranslate %}
-          </span>
-        {% endif %}
-      </div>
-      <h1 class="text-[19px] font-bold tracking-[-0.02em] break-words text-foreground">
-        {{ item.subject_label }} ·
-        {% if item.is_exit_request %}
-          {{ item.title }}
-        {% else %}
-          {{ item.title|lower }}
-        {% endif %}
-      </h1>
-      <p class="mt-1.5 text-[11.5px] break-words text-soft-foreground">
-        {% if item.product %}
-          {{ item.organisation.name }} · <span class="font-mono">{{ item.product.sandbox_id }}</span>
-        {% else %}
-          {% translate "New organisation account" %}
-        {% endif %}
-        · {% blocktranslate with date=item.submitted_on|date:"j M Y" %}submitted {{ date }}{% endblocktranslate %}
-        · <span class="{% if item.needs_attention %}font-semibold text-red-700{% endif %}">
-        {% blocktranslate count counter=item.age_days %}{{ counter }} day in queue{% plural %}{{ counter }} days in queue{% endblocktranslate %}
-        </span>
-        · {% if item.assignee %}{% blocktranslate with name=item.assignee.display_name %}assigned to {{ name }}{% endblocktranslate %}{% else %}{% translate "unassigned" %}{% endif %}
-      </p>
-    </div>
-    <div class="flex shrink-0 flex-wrap items-center gap-2 lg:pt-6">
-      <span class="ui-badge ui-badge--{{ item.status_variant }} ui-badge--size-sm">{{ item.get_status_display }}</span>
-      {% if item.status == "new" %}
-        <form method="post"
-              action="{% url 'assess:review-start' item.reference %}"
-              hx-post="{% url 'assess:review-start' item.reference %}"
-              hx-target="#review-workspace"
-              hx-swap="outerHTML"
-              hx-disabled-elt="find button"
-              hx-indicator="#nav-progress">
-          {% csrf_token %}
-          <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-xs">{% translate "Start review" %}</button>
-        </form>
-      {% endif %}
-    </div>
+<div id="review-workspace"
+     class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+  <div class="flex min-w-0 flex-col gap-6">
+    <div class="ui-rise" style="animation-delay: .1s">{% include "abdm/assess/partials/submitted_form.html" %}</div>
+    <div class="ui-rise" style="animation-delay: .16s">{% include "abdm/assess/partials/integrator_context.html" %}</div>
+    <div class="ui-rise" style="animation-delay: .22s">{% include "abdm/assess/partials/queries_card.html" %}</div>
+    <div class="ui-rise" style="animation-delay: .28s">{% include "abdm/assess/partials/history_card.html" %}</div>
   </div>
-  <div class="flex flex-col items-start gap-3.5 xl:flex-row">
-    <div class="flex min-w-0 flex-1 flex-col gap-3.5 xl:w-auto">
-      {% include "abdm/assess/partials/submitted_form.html" %}
-      {% include "abdm/assess/partials/integrator_context.html" %}
-    </div>
-    <div class="flex w-full shrink-0 flex-col gap-3 xl:w-[322px]">
-      {% include "abdm/assess/partials/decision_panel.html" %}
-      {% include "abdm/assess/partials/queries_card.html" %}
-      {% include "abdm/assess/partials/history_card.html" %}
-    </div>
-  </div>
+  <div class="ui-rise flex flex-col gap-4 xl:sticky xl:top-6"
+       style="animation-delay: .14s">{% include "abdm/assess/partials/decision_panel.html" %}</div>
 </div>

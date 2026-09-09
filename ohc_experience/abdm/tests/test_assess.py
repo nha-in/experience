@@ -439,12 +439,12 @@ class TestReviewDetail:
     def test_a_query_action_preselects_the_field(self, sign_in, reviewer, exit_item):
         response = sign_in(reviewer).get(
             review_url(exit_item),
-            {"tab": "query", "field": "wasa_date", "label": "WASA date"},
+            {"tab": "query", "field": "wasa_issued_on", "label": "WASA issued on"},
         )
 
         assert response.context["decision_tab"] == "query"
-        assert response.context["query_form"]["field_key"].value() == "wasa_date"
-        assert "WASA date" in response.content.decode()
+        assert response.context["query_form"]["field_key"].value() == "wasa_issued_on"
+        assert "WASA issued on" in response.content.decode()
 
     def test_approving_from_the_page_without_scripting(
         self,

@@ -1,6 +1,8 @@
 {% comment %}
-  One inbox row for the md+ table. The stacked equivalent for narrow screens is
-  ticket_card.html; ticket_results.html draws both from the same list.
+  One inbox row for the md+ table (Layered): the subject with its reference
+  and category underneath, priority, status, updated. A ticket awaiting the
+  vendor's reply is tinted so the row that needs them stands out. The stacked
+  equivalent for narrow screens is ticket_card.html.
 
   Colour comes from Ticket.status_variant / .priority_variant so the vendor
   inbox and the OHC queue can never drift apart.
@@ -9,21 +11,22 @@
 {% endcomment %}
 {% load i18n %}
 
-<tr>
-  <td class="font-mono text-[12.5px] whitespace-nowrap text-soft-foreground">{{ ticket.reference }}</td>
+<tr class="{% if ticket.status == 'awaiting_vendor' %}bg-orange-50/60 hover:bg-orange-50{% endif %}">
   <td>
-    <a class="font-semibold no-underline hover:underline"
+    <a class="font-semibold text-foreground no-underline hover:text-primary"
        href="{{ ticket.get_absolute_url }}">{{ ticket.subject }}</a>
+    <span class="mt-0.5 block text-xs text-soft-foreground">
+      <span class="font-mono">{{ ticket.reference }}</span> · {{ ticket.get_category_display }}
+      {% if ticket.track %}· <span class="font-mono">{{ ticket.track }}</span>{% endif %}
+    </span>
   </td>
-  <td class="text-muted-foreground">{{ ticket.get_category_display }}</td>
-  <td>
-    <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-sm">{{ ticket.get_priority_display }}</span>
-  </td>
-  <td>
+  <td class="align-top text-muted-foreground">{{ ticket.get_priority_display }}</td>
+  <td class="align-top">
     <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{{ ticket.get_status_display }}</span>
   </td>
-  <td class="text-right text-[12.5px] whitespace-nowrap text-soft-foreground">
-    <time datetime="{{ ticket.updated_at|date:'c' }}">
+  <td class="text-right align-top whitespace-nowrap text-muted-foreground tabular-nums">
+    <time datetime="{{ ticket.updated_at|date:'c' }}"
+          title="{{ ticket.updated_at|date:'j M Y, H:i' }}">
       {% blocktranslate with ago=ticket.updated_at|timesince %}{{ ago }} ago{% endblocktranslate %}
     </time>
   </td>

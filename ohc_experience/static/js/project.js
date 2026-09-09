@@ -227,3 +227,52 @@
     });
   });
 })();
+
+
+// Dates that fill another date a fixed span later — the WASA certificate's
+// issue date filling its expiry a year out (abdm/forms.py sets the contract as
+// data-fills / data-fills-days, so this knows nothing about that form).
+//
+// It only ever pre-fills. A date the person typed themselves is never
+// overwritten: the target is marked when we write it, and the mark is dropped
+// the moment they edit it. With scripting off nothing happens here and the
+// form's clean() applies the same default on save.
+(() => {
+  if (window.ohcDateFillWired) return;
+  window.ohcDateFillWired = true;
+
+  const AUTOFILLED = "dateFilled";
+
+  const shift = (value, days) => {
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return "";
+    date.setDate(date.getDate() + days);
+    return date.toISOString().slice(0, 10);
+  };
+
+  document.addEventListener("change", (event) => {
+    const source = event.target.closest?.("[data-fills]");
+    if (!source) return;
+    const target = document.querySelector(source.dataset.fills);
+    if (!target) return;
+    // Their date, not ours — leave it alone.
+    if (target.value && target.dataset[AUTOFILLED] !== "1") return;
+    if (!source.value) {
+      if (target.dataset[AUTOFILLED] === "1") {
+        target.value = "";
+        delete target.dataset[AUTOFILLED];
+      }
+      return;
+    }
+    const filled = shift(source.value, Number(source.dataset.fillsDays) || 0);
+    if (!filled) return;
+    target.value = filled;
+    target.dataset[AUTOFILLED] = "1";
+  });
+
+  // Once they touch it, it is theirs.
+  document.addEventListener("input", (event) => {
+    const target = event.target;
+    if (target?.dataset?.[AUTOFILLED] === "1") delete target.dataset[AUTOFILLED];
+  });
+})();

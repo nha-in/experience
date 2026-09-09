@@ -258,7 +258,12 @@ def _exit_request_sections(record) -> list[dict]:
             "title": "WASA",
             "rows": [
                 _row("wasa_agency", "WASA audit agency", record.wasa_agency),
-                _row("wasa_date", "WASA date", day(record.wasa_date)),
+                _row("wasa_issued_on", "WASA issued on", day(record.wasa_issued_on)),
+                _row(
+                    "wasa_valid_until",
+                    "WASA valid until",
+                    day(record.wasa_valid_until),
+                ),
             ],
         },
         {

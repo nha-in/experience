@@ -1,0 +1,53 @@
+{% comment %}
+  The readiness rail beside an editable exit request (Layered): a ring gauge
+  of how many of the eight required fields are saved, and the checklist with
+  a link into the form for each one still missing. Pure template arithmetic:
+  widthratio against a negative width yields the complement, so "filled"
+  needs no view code.
+
+  Context: record (editable ComplianceRecord).
+{% endcomment %}
+{% load i18n %}
+
+{% with missing=record.missing_fields|length %}
+  {% widthratio missing 8 -8 as neg_done %}
+  {% widthratio missing 8 -239 as neg_arc %}
+  <aside class="ui-card ui-card--layered ui-card--sm gap-3.5"
+         aria-labelledby="readiness-title">
+    <div class="ui-card-content flex items-center gap-3.5">
+      <div class="ui-ring">
+        <svg viewBox="0 0 88 88" width="88" height="88" aria-hidden="true">
+          <circle class="ui-ring-track" cx="44" cy="44" r="38" fill="none" stroke-width="8" />
+          <circle class="ui-ring-fill" cx="44" cy="44" r="38" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="{{ neg_arc|add:239 }} 238.76" />
+        </svg>
+        <span class="ui-ring-label">
+          <span class="text-[26px] leading-7 font-extrabold tracking-[-0.03em] tabular-nums">{{ neg_done|add:8 }}</span>
+          <span class="self-end pb-1 text-[13px] font-semibold text-soft-foreground">/8</span>
+        </span>
+      </div>
+      <div class="min-w-0">
+        <h2 class="text-[15px] leading-5 font-bold tracking-[-0.01em]"
+            id="readiness-title">{% translate "Ready to request exit?" %}</h2>
+        <p class="mt-1 text-xs text-muted-foreground">
+          {% if missing %}
+            <strong class="font-semibold text-foreground">{% blocktranslate count counter=missing %}{{ counter }} item still needed{% plural %}{{ counter }} items still needed{% endblocktranslate %}</strong>
+            {% translate "before you can request exit." %}
+          {% else %}
+            {% translate "Everything is in place — request exit from the form." %}
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <ul class="ui-card-content flex flex-col text-[13px]">
+      {% include "abdm/partials/exit_readiness_row.html" with done=record.start_date field="id_start_date" label=_("Sandbox testing start date") %}
+      {% include "abdm/partials/exit_readiness_row.html" with done=record.end_date field="id_end_date" label=_("Sandbox testing end date") %}
+      {% include "abdm/partials/exit_readiness_row.html" with done=record.demo_date field="id_demo_date" label=_("Tentative demo date") %}
+      {% include "abdm/partials/exit_readiness_row.html" with done=record.wasa_agency field="id_wasa_agency" label=_("WASA audit agency") %}
+      {% include "abdm/partials/exit_readiness_row.html" with done=record.wasa_issued_on field="id_wasa_issued_on" label=_("WASA certificate issued on") %}
+      {% include "abdm/partials/exit_readiness_row.html" with done=record.wasa_valid_until field="id_wasa_valid_until" label=_("WASA valid until") %}
+      {% include "abdm/partials/exit_readiness_row.html" with done=record.functional_certificate field="id_functional_certificate" label=_("Functional testing certificate") %}
+      {% include "abdm/partials/exit_readiness_row.html" with done=record.functional_report field="id_functional_report" label=_("Functional testing report") %}
+    </ul>
+    <p class="ui-card-content text-xs text-soft-foreground">{% translate "Save the draft to count a field as done; Request for exit sits under the form." %}</p>
+  </aside>
+{% endwith %}

@@ -1,11 +1,16 @@
 {% extends "layouts/ohc.html" %}
 
 {% comment %}
-  The review queue (design doc 5.10), as the prototype draws it: the count in
-  the title, chips with their counts on the right, then the table. The chips
-  are links carrying the filter in the query string, so a narrowed queue is a
-  URL; htmx only saves the reload by swapping #queue-results, which is the
-  fragment this page includes.
+  The review queue (design doc 5.10), Layered: the hero carries the filter
+  chips as big-number tabs — each chip's count is real (queue_chip_counts) —
+  and the scope switch (Open · Decided · Everything) under the title; the
+  table floats beneath. The tabs are links carrying the filter in the query
+  string, so a narrowed queue is a URL; htmx only saves the reload by swapping
+  #queue-results, which is the fragment this page includes.
+
+  The tabs live outside #queue-results, so each boosted click also picks the
+  hero out of the same response out of band (hx-select-oob) — that is what
+  moves the underline and the counts along with the table.
 
   Context: items, page_obj, paginator, is_paginated, chips, chip_counts,
   scopes, chip, scope, filter_query.
@@ -15,46 +20,54 @@
 {% block title %}
   {% translate "Review queue" %} · {% translate "Certification desk" %}
 {% endblock title %}
-{% block page_header %}
-  <div class="mb-3.5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-    <div class="min-w-0">
-      <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "Review queue" %}</p>
-      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">
-        {% if scope == "decided" %}
-          {% blocktranslate count counter=paginator.count %}{{ counter }} decided item{% plural %}{{ counter }} decided items{% endblocktranslate %}
-        {% elif scope == "all" %}
-          {% blocktranslate count counter=paginator.count %}{{ counter }} item, open and decided{% plural %}{{ counter }} items, open and decided{% endblocktranslate %}
-        {% else %}
-          {% blocktranslate count counter=paginator.count %}{{ counter }} item awaiting a decision{% plural %}{{ counter }} items awaiting a decision{% endblocktranslate %}
-        {% endif %}
-      </h1>
-      <p class="mt-1.5 max-w-[620px] text-[12.5px] leading-[1.55] text-soft-foreground">
-        {% translate "Exit requests, organisation verifications and product registrations. Every decision, query and send-back is recorded on the item and shown to the integrator." %}
-      </p>
-    </div>
-    <div class="flex flex-wrap items-center gap-[7px]"
-         role="group"
-         aria-label="{% translate 'Filter the queue' %}"
-         hx-boost="true"
-         hx-target="#queue-results"
-         hx-select="#queue-results"
-         hx-swap="outerHTML"
-         hx-push-url="true"
-         hx-indicator="#nav-progress">
-      {% for value, label in chips %}
-        <a class="rounded-lg px-[11px] py-[5px] text-[11px] no-underline {% if value == chip %}bg-foreground font-semibold text-background{% else %}border border-border bg-card text-soft-foreground hover:border-stronger-border{% endif %}"
-           href="?chip={{ value }}&amp;scope={{ scope }}"
-           {% if value == chip %}aria-current="true"{% endif %}>{{ label }} · {{ chip_counts|dict_get:value }}</a>
-      {% endfor %}
-      <span class="mx-1 h-4 w-px bg-border" aria-hidden="true"></span>
-      {% for value, label in scopes %}
-        <a class="text-[11px] {% if value == scope %}font-semibold text-foreground{% else %}text-soft-foreground hover:text-foreground{% endif %}"
-           href="?chip={{ chip }}&amp;scope={{ value }}"
-           {% if value == scope %}aria-current="true"{% endif %}>{{ label }}</a>
-      {% endfor %}
+{% block hero %}
+  <div id="queue-hero" class="ui-hero pb-[72px]">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        <p class="ui-hero-eyebrow">{% translate "NHA certification desk" %}</p>
+        <h1 class="ui-hero-title">{% translate "Review queue" %}</h1>
+        <p class="ui-hero-lede">
+          {% translate "Exit requests, organisation verifications and product registrations. Every decision, query and send-back is recorded on the item and shown to the integrator." %}
+        </p>
+        <nav class="mt-3.5 flex flex-wrap items-center gap-1"
+             aria-label="{% translate 'Scope' %}"
+             hx-boost="true"
+             hx-target="#queue-results"
+             hx-select="#queue-results"
+             hx-select-oob="#queue-hero"
+             hx-swap="outerHTML"
+             hx-push-url="true"
+             hx-indicator="#nav-progress">
+          {% for value, label in scopes %}
+            <a class="ui-pill"
+               href="?chip={{ chip }}&amp;scope={{ value }}"
+               {% if value == scope %}aria-current="page"{% endif %}>{{ label }}</a>
+          {% endfor %}
+        </nav>
+      </div>
+      <nav class="ui-rise flex flex-wrap items-end gap-x-7 gap-y-3"
+           style="animation-delay: .05s"
+           aria-label="{% translate 'Filter the queue' %}"
+           hx-boost="true"
+           hx-target="#queue-results"
+           hx-select="#queue-results"
+           hx-select-oob="#queue-hero"
+           hx-swap="outerHTML"
+           hx-push-url="true"
+           hx-indicator="#nav-progress">
+        {% for value, label in chips %}
+          <a class="ui-tabstat"
+             href="?chip={{ value }}&amp;scope={{ scope }}"
+             {% if value == chip %}aria-current="page"{% endif %}>
+            <span class="ui-kicker">{{ label }}</span>
+            <span class="ui-figure">{{ chip_counts|dict_get:value }}</span>
+          </a>
+        {% endfor %}
+      </nav>
     </div>
   </div>
-{% endblock page_header %}
+{% endblock hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block content %}
   {% include "abdm/assess/partials/queue_results.html" %}
 {% endblock content %}

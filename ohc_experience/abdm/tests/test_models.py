@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
@@ -22,7 +24,7 @@ from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
 
-MISSING_FIELD_COUNT = 7
+MISSING_FIELD_COUNT = 8
 
 
 class TestReferences:
@@ -91,7 +93,8 @@ class TestComplianceRecord:
             end_date=today,
             demo_date=today,
             wasa_agency="Example Auditors",
-            wasa_date=today,
+            wasa_issued_on=today,
+            wasa_valid_until=today + timedelta(days=365),
             functional_certificate=ContentFile(b"%PDF-1.4", name="certificate.pdf"),
             functional_report=ContentFile(b"%PDF-1.4", name="report.pdf"),
         )

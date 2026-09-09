@@ -1,28 +1,30 @@
 {% comment %}
-  Every event on the item, newest first, as the prototype draws it: a dot,
-  what happened, who and when.
+  Every event on the item, newest first (Layered): the actor's initials (a
+  dashed ring for the system), what happened, who and when.
 
   Context: history.
 {% endcomment %}
 {% load i18n %}
 
-<section class="ui-card ui-card--sm" aria-labelledby="history-title">
+<section class="ui-card ui-card--layered ui-card--sm"
+         aria-labelledby="history-title">
+  <div class="ui-card-header">
+    <h2 class="ui-card-title" id="history-title">{% translate "History" %}</h2>
+  </div>
   <div class="ui-card-content">
-    <h2 class="mb-[11px] text-xs font-bold" id="history-title">{% translate "History" %}</h2>
-    <ol class="flex flex-col gap-[9px]">
+    <ol class="ui-feed">
       {% for entry in history %}
-        <li class="flex items-start gap-[9px]">
-          <span class="mt-[5px]">{% include "components/status_dot.html" with variant=entry.variant %}</span>
-          <div class="min-w-0 flex-1">
-            <p class="text-[11.5px] leading-[1.4] break-words">
-              {{ entry.title }}
-              {% if entry.description %}<span class="text-soft-foreground">· {{ entry.description|truncatechars:140 }}</span>{% endif %}
-            </p>
-            <p class="text-[10px] text-soft-foreground">{{ entry.actor_label }} · {{ entry.created_at|date:"j M Y, H:i" }}</p>
-          </div>
+        <li class="ui-feed-row">
+          <span class="ui-feed-avatar {% if not entry.actor %}ui-feed-avatar--system{% endif %}"
+                aria-hidden="true">{% if entry.actor %}{{ entry.actor.initials }}{% else %}S{% endif %}</span>
+          <span class="ui-feed-body">
+            {{ entry.title }}
+            {% if entry.description %}<span class="block text-xs text-soft-foreground">{{ entry.description|truncatechars:140 }}</span>{% endif %}
+          </span>
+          <span class="ui-feed-meta">{{ entry.actor_label }} · {{ entry.created_at|date:"j M Y, H:i" }}</span>
         </li>
       {% empty %}
-        <li class="text-[11px] text-soft-foreground">{% translate "No history yet." %}</li>
+        <li class="text-sm text-muted-foreground">{% translate "No history yet." %}</li>
       {% endfor %}
     </ol>
   </div>

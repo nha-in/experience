@@ -1,7 +1,9 @@
 {% extends "layouts/app.html" %}
 
 {% comment %}
-  Screen 1g — the support inbox.
+  Screen 1g — the support inbox (Layered): the hero carries the ticket count
+  as the big figure, the median first response and New ticket; the inbox card
+  floats under it with the filter row in its header.
 
   The filter row is a real <form method="get"> with a submit button, so with
   scripting off changing a picker and pressing "Apply" reloads the page with
@@ -10,9 +12,9 @@
   the plain form would have produced — so a swapped view and a reloaded one are
   the same page, and Previous/Next keep working either way.
 
-  The count sits in the filter row rather than above the table, as the mockup
-  draws it, so it cannot ride along inside the swapped region: it comes back
-  out of band instead, from the one file that defines it.
+  The count sits in the filter row rather than above the table, so it cannot
+  ride along inside the swapped region: it comes back out of band instead,
+  from the one file that defines it.
 
   Context: tickets, page_obj, paginator, is_paginated, filter_form,
            has_filters, filter_querystring, median_first_response.
@@ -22,50 +24,75 @@
 {% block title %}
   {% translate "Support inbox" %}
 {% endblock title %}
-{% block page_header %}
-  <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-    <div class="min-w-0">
-      <h1 class="ui-page-title">{% translate "Support inbox" %}</h1>
-      <p class="ui-page-subtitle">
-        {% if median_first_response %}
-          {% blocktranslate with duration=median_first_response %}Median first response over the last 30 days: {{ duration }}.{% endblocktranslate %}
-        {% else %}
-          {% translate "Too few answered tickets in the last 30 days to report a median first response yet." %}
-        {% endif %}
-      </p>
+{% block hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        <p class="ui-hero-eyebrow">{% if current_product %}{{ current_product.name }}{% else %}{% translate "Programme" %}{% endif %}</p>
+        <h1 class="ui-hero-title">{% translate "Support" %}</h1>
+        <p class="ui-hero-lede">
+          {% translate "Raise a ticket and track NHA's replies." %}
+          {% if median_first_response %}
+            {% blocktranslate with duration=median_first_response %}Median first response over the last 30 days: {{ duration }}.{% endblocktranslate %}
+          {% else %}
+            {% translate "Too few answered tickets in the last 30 days to report a median first response yet." %}
+          {% endif %}
+        </p>
+      </div>
+      <div class="ui-rise flex flex-wrap items-end gap-x-9 gap-y-4"
+           style="animation-delay: .05s">
+        <div>
+          <span class="ui-kicker block">
+            {% if has_filters %}
+              {% translate "Matching" %}
+            {% else %}
+              {% translate "Tickets" %}
+            {% endif %}
+          </span>
+          <span class="ui-figure mt-0.5 block">{{ paginator.count }}</span>
+        </div>
+        {# TODO(backend): per-status counts (awaiting your reply · open · resolved) as hero figures. #}
+        <a class="ui-btn ui-btn--default ui-btn--size-sm mb-1 no-underline"
+           href="{% url 'support:create' %}">{% translate "New ticket" %}</a>
+      </div>
     </div>
-    <a class="ui-btn ui-btn--default ui-btn--size-default"
-       href="{% url 'support:create' %}">{% translate "New ticket" %}</a>
   </div>
-{% endblock page_header %}
+{% endblock hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block content %}
-  <form class="mb-3.5 flex flex-wrap items-end gap-2.5"
-        method="get"
-        action="{% url 'support:list' %}"
-        hx-get="{% url 'support:list' %}"
-        hx-target="#ticket-results"
-        hx-swap="outerHTML"
-        hx-trigger="change, submit"
-        hx-push-url="true"
-        hx-indicator="#nav-progress">
-    <div class="w-[calc(50%-0.3125rem)] sm:w-[170px]">
-      <label class="sr-only" for="{{ filter_form.status.id_for_label }}">{% translate "Filter by status" %}</label>
-      <div class="ui-select-wrapper">{% ui_widget filter_form.status "ui-select--sm" %}</div>
-    </div>
-    <div class="w-[calc(50%-0.3125rem)] sm:w-[170px]">
-      <label class="sr-only" for="{{ filter_form.category.id_for_label }}">{% translate "Filter by category" %}</label>
-      <div class="ui-select-wrapper">{% ui_widget filter_form.category "ui-select--sm" %}</div>
-    </div>
-    <div class="w-[calc(50%-0.3125rem)] sm:w-[160px]">
-      <label class="sr-only" for="{{ filter_form.priority.id_for_label }}">{% translate "Filter by priority" %}</label>
-      <div class="ui-select-wrapper">{% ui_widget filter_form.priority "ui-select--sm" %}</div>
-    </div>
-    <button class="ui-btn ui-btn--outline ui-btn--size-sm"
-            type="submit"
-            data-filter-submit>{% translate "Apply filters" %}</button>
-    {% include "support/partials/ticket_count.html" %}
-  </form>
-  {% include "support/partials/ticket_results.html" %}
+  <section class="ui-float ui-card ui-card--layered ui-rise gap-0 py-0"
+           style="animation-delay: .1s"
+           aria-labelledby="tickets-title">
+    <form class="flex flex-wrap items-center gap-2.5 px-6 pt-4 pb-3.5"
+          method="get"
+          action="{% url 'support:list' %}"
+          hx-get="{% url 'support:list' %}"
+          hx-target="#ticket-results"
+          hx-swap="outerHTML"
+          hx-trigger="change, submit"
+          hx-push-url="true"
+          hx-indicator="#nav-progress">
+      <h2 class="mr-2 text-[15px] leading-[22px] font-semibold"
+          id="tickets-title">{% translate "Your tickets" %}</h2>
+      <div class="w-[calc(50%-0.3125rem)] sm:w-[170px]">
+        <label class="sr-only" for="{{ filter_form.status.id_for_label }}">{% translate "Filter by status" %}</label>
+        <div class="ui-select-wrapper">{% ui_widget filter_form.status "ui-select--sm" %}</div>
+      </div>
+      <div class="w-[calc(50%-0.3125rem)] sm:w-[170px]">
+        <label class="sr-only" for="{{ filter_form.category.id_for_label }}">{% translate "Filter by category" %}</label>
+        <div class="ui-select-wrapper">{% ui_widget filter_form.category "ui-select--sm" %}</div>
+      </div>
+      <div class="w-[calc(50%-0.3125rem)] sm:w-[160px]">
+        <label class="sr-only" for="{{ filter_form.priority.id_for_label }}">{% translate "Filter by priority" %}</label>
+        <div class="ui-select-wrapper">{% ui_widget filter_form.priority "ui-select--sm" %}</div>
+      </div>
+      <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+              type="submit"
+              data-filter-submit>{% translate "Apply filters" %}</button>
+      {% include "support/partials/ticket_count.html" %}
+    </form>
+    {% include "support/partials/ticket_results.html" %}
+  </section>
   <script>
     // Progressive enhancement, and only that: with htmx on the page the filter
     // form refreshes itself the moment a picker changes, so the Apply button is

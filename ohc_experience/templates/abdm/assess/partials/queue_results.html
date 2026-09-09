@@ -1,72 +1,85 @@
 {% comment %}
-  The queue's rows, as the prototype draws them: Type · Subject · Track ·
-  Submitted · Age · Assignee · Status, plus the footer with the count and the
-  pager. queue.html includes this file and the chips swap the same file back
-  in, so a filtered list and a reloaded page are the same markup.
+  The queue's rows (Layered): Subject · Organisation · Item · Status ·
+  Submitted · Age (with a meter against the 14-day attention window) ·
+  Assignee, plus the footer with the count and the pager. queue.html includes
+  this file and the tabs swap the same file back in, so a filtered list and a
+  reloaded page are the same markup.
 
-  Context: items, page_obj, paginator, is_paginated, filter_query, chip, scope,
-  attention days come from each item's needs_attention.
+  Context: items, page_obj, paginator, is_paginated, filter_query, chip, scope;
+  attention comes from each item's needs_attention.
 {% endcomment %}
 {% load i18n %}
 
-<div id="queue-results">
-  <div class="ui-card ui-card--sm gap-0 py-0">
+<div id="queue-results" class="ui-float">
+  <div class="ui-card ui-card--layered ui-rise gap-0 py-0"
+       style="animation-delay: .1s">
+    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-6 pt-3.5 pb-3 text-xs text-soft-foreground">
+      <span>
+        {% if scope == "decided" %}
+          {% blocktranslate count counter=paginator.count %}{{ counter }} decided item{% plural %}{{ counter }} decided items{% endblocktranslate %}
+        {% elif scope == "all" %}
+          {% blocktranslate count counter=paginator.count %}{{ counter }} item, open and decided{% plural %}{{ counter }} items, open and decided{% endblocktranslate %}
+        {% else %}
+          {% blocktranslate count counter=paginator.count %}{{ counter }} item awaiting a decision{% plural %}{{ counter }} items awaiting a decision{% endblocktranslate %}
+        {% endif %}
+      </span>
+      <span>{% translate "Sorted oldest first" %}</span>
+    </div>
     {% if items %}
       <div class="hidden overflow-x-auto md:block">
-        <table class="w-full min-w-[820px] text-left">
+        <table class="ui-grid-table min-w-[860px]">
           <thead>
-            <tr class="text-[9.5px] font-bold tracking-[0.07em] text-soft-foreground uppercase">
-              <th scope="col" class="px-[18px] py-2.5 pr-3 font-bold">{% translate "Type" %}</th>
-              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Subject" %}</th>
-              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Track" %}</th>
-              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Submitted" %}</th>
-              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Age" %}</th>
-              <th scope="col" class="py-2.5 pr-3 font-bold">{% translate "Assignee" %}</th>
-              <th scope="col" class="py-2.5 pr-[18px] font-bold">{% translate "Status" %}</th>
+            <tr>
+              <th scope="col">{% translate "Subject" %}</th>
+              <th scope="col">{% translate "Organisation" %}</th>
+              <th scope="col">{% translate "Item" %}</th>
+              <th scope="col">{% translate "Status" %}</th>
+              <th scope="col">{% translate "Submitted" %}</th>
+              <th scope="col">{% translate "Age" %}</th>
+              <th scope="col">{% translate "Assignee" %}</th>
             </tr>
           </thead>
           <tbody>
             {% for item in items %}
-              <tr class="border-t border-soft-border">
-                <td class="px-[18px] py-[11px] pr-3">
-                  <span class="ui-badge ui-badge--{{ item.type_variant }} ui-badge--size-xs">{{ item.get_item_type_display }}</span>
-                  <span class="mt-1 block font-mono text-[10px] text-soft-foreground">{{ item.reference }}</span>
-                </td>
-                <td class="max-w-[300px] py-[11px] pr-3">
-                  <a class="block truncate text-xs font-semibold hover:underline"
+              <tr>
+                <td>
+                  <a class="font-semibold text-foreground no-underline hover:text-primary"
                      href="{{ item.get_absolute_url }}">{{ item.subject_label }}</a>
-                  <span class="block truncate text-[10.5px] text-soft-foreground">
-                    {% if item.product %}
-                      {{ item.organisation.name }}
-                    {% else %}
-                      {{ item.title }}
-                    {% endif %}
+                  <span class="block font-mono text-xs text-soft-foreground">{% if item.product %}{{ item.product.sandbox_id }} · {% endif %}{{ item.reference }}</span>
+                </td>
+                <td class="text-muted-foreground">{{ item.organisation.name }}</td>
+                <td>
+                  <span class="ui-badge ui-badge--{{ item.type_variant }} ui-badge--size-xs">{{ item.get_item_type_display }}</span>
+                  {% if item.track_code %}
+                    <span class="mt-1 block whitespace-nowrap"><span class="font-mono text-xs text-soft-foreground">{{ item.track_code }} · {{ item.milestone_code }}</span></span>
+                  {% elif item.product %}
+                    <span class="mt-1 block font-mono text-xs text-soft-foreground">{{ item.product.applied_tracks|join:", " }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="ui-badge ui-badge--{{ item.status_variant }} ui-badge--size-sm">{{ item.get_status_display }}</span>
+                </td>
+                <td class="whitespace-nowrap text-muted-foreground tabular-nums">{{ item.submitted_on|date:"j M Y" }}</td>
+                <td>
+                  <span class="flex items-center gap-2">
+                    <span class="ui-meter ui-meter--thin w-14 shrink-0" aria-hidden="true">
+                      <span class="ui-meter-fill {% if item.needs_attention %}ui-meter-fill--danger{% else %}ui-meter-fill--muted{% endif %}"
+                            style="width: {% widthratio item.age_days 14 100 %}%"></span>
+                    </span>
+                    <span class="whitespace-nowrap tabular-nums {% if item.needs_attention %}font-semibold text-red-700{% else %}text-muted-foreground{% endif %}">
+                      {% blocktranslate count counter=item.age_days %}{{ counter }} day{% plural %}{{ counter }} days{% endblocktranslate %}
+                    </span>
                   </span>
                 </td>
-                <td class="py-[11px] pr-3 font-mono text-[11px] whitespace-nowrap">
-                  {% if item.track_code %}
-                    {{ item.track_code }} · {{ item.milestone_code }}
-                  {% elif item.product %}
-                    {{ item.product.applied_tracks|join:", " }}
-                  {% else %}
-                    <span class="text-soft-foreground">—</span>
-                  {% endif %}
-                </td>
-                <td class="py-[11px] pr-3 text-[11px] whitespace-nowrap text-soft-foreground">{{ item.submitted_on|date:"j M Y" }}</td>
-                <td class="py-[11px] pr-3 font-mono text-[11px] font-semibold whitespace-nowrap {% if item.needs_attention %}text-red-700{% endif %}">
-                  {% blocktranslate count counter=item.age_days %}{{ counter }} day{% plural %}{{ counter }} days{% endblocktranslate %}
-                </td>
-                <td class="max-w-[140px] truncate py-[11px] pr-3 text-[11px] whitespace-nowrap text-soft-foreground">
-                  {% if item.assignee %}
-                    {{ item.assignee.display_name }}
-                  {% else %}
-                    {% translate "Unassigned" %}
-                  {% endif %}
-                </td>
-                <td class="py-[11px] pr-[18px]">
-                  <span class="flex items-center gap-1.5 text-[10.5px] font-semibold whitespace-nowrap">
-                    {% include "components/status_dot.html" with variant=item.status_variant %}
-                    {{ item.get_status_display }}
+                <td>
+                  <span class="flex items-center gap-2 whitespace-nowrap">
+                    {% if item.assignee %}
+                      <span class="ui-feed-avatar" aria-hidden="true">{{ item.assignee.initials }}</span>
+                      <span class="text-[13px]">{{ item.assignee.display_name }}</span>
+                    {% else %}
+                      <span class="ui-feed-avatar ui-feed-avatar--system" aria-hidden="true"></span>
+                      <span class="text-[13px] text-soft-foreground">{% translate "Unassigned" %}</span>
+                    {% endif %}
                   </span>
                 </td>
               </tr>
@@ -76,21 +89,18 @@
       </div>
       <ul class="flex flex-col md:hidden">
         {% for item in items %}
-          <li class="flex flex-col gap-2 border-t border-soft-border px-[18px] py-3.5 first:border-t-0">
+          <li class="flex flex-col gap-2 border-t border-soft-border px-6 py-3.5">
             <div class="flex flex-wrap items-center gap-2">
               <span class="ui-badge ui-badge--{{ item.type_variant }} ui-badge--size-xs">{{ item.get_item_type_display }}</span>
-              <span class="font-mono text-[10.5px] text-soft-foreground">{{ item.reference }}</span>
+              <span class="font-mono text-xs text-soft-foreground">{{ item.reference }}</span>
             </div>
-            <a class="text-xs font-semibold break-words hover:underline"
+            <a class="text-sm font-semibold break-words text-foreground no-underline hover:underline"
                href="{{ item.get_absolute_url }}">{{ item.subject_label }}</a>
-            <div class="flex flex-wrap items-center gap-2 text-[10.5px]">
-              <span class="flex items-center gap-1.5 font-semibold">
-                {% include "components/status_dot.html" with variant=item.status_variant %}
-                {{ item.get_status_display }}
-              </span>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="ui-badge ui-badge--{{ item.status_variant }} ui-badge--size-sm">{{ item.get_status_display }}</span>
               {% if item.track_code %}<span class="font-mono">{{ item.track_code }} · {{ item.milestone_code }}</span>{% endif %}
             </div>
-            <div class="text-[10.5px] text-soft-foreground">
+            <div class="text-xs text-soft-foreground">
               {% blocktranslate count counter=item.age_days %}{{ counter }} day old{% plural %}{{ counter }} days old{% endblocktranslate %}
               · {% if item.assignee %}{{ item.assignee.display_name }}{% else %}{% translate "Unassigned" %}{% endif %}
             </div>
@@ -98,7 +108,7 @@
         {% endfor %}
       </ul>
     {% else %}
-      <p class="px-[18px] py-10 text-center text-[12.5px] text-soft-foreground">
+      <p class="border-t border-soft-border px-6 py-10 text-center text-sm text-muted-foreground">
         {% if chip or scope != "open" %}
           {% translate "Nothing matches this filter." %}
         {% else %}
@@ -106,39 +116,39 @@
         {% endif %}
       </p>
     {% endif %}
-    <div class="flex flex-wrap items-center gap-2.5 border-t border-soft-border bg-soft-background px-[18px] py-2.5 text-[11px] text-soft-foreground">
-      <span>
+    <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3"
+         aria-label="{% translate 'Queue pages' %}">
+      {% if is_paginated and page_obj.has_previous %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+           href="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}"
+           hx-get="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}"
+           hx-target="#queue-results"
+           hx-swap="outerHTML"
+           hx-push-url="true"
+           hx-indicator="#nav-progress">{% translate "Previous" %}</a>
+      {% else %}
+        <span class="ui-btn ui-btn--outline ui-btn--size-xs opacity-50"
+              aria-disabled="true">{% translate "Previous" %}</span>
+      {% endif %}
+      <span class="text-xs text-soft-foreground tabular-nums">
         {% if paginator.count %}
-          {% blocktranslate with first=page_obj.start_index last=page_obj.end_index total=paginator.count %}Showing {{ first }}–{{ last }} of {{ total }}{% endblocktranslate %}
+          {% blocktranslate with page=page_obj.number pages=paginator.num_pages total=paginator.count %}Page {{ page }} of {{ pages }} · {{ total }} items{% endblocktranslate %}
         {% else %}
           {% translate "Showing 0 items" %}
         {% endif %}
-        · {% translate "sorted by age" %}
       </span>
-      {% if is_paginated %}
-        <span class="ml-auto flex gap-1">
-          {% if page_obj.has_previous %}
-            <a class="rounded-md border border-border px-2 py-0.5 no-underline hover:border-stronger-border"
-               href="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}"
-               hx-get="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}"
-               hx-target="#queue-results"
-               hx-swap="outerHTML"
-               hx-push-url="true"
-               hx-indicator="#nav-progress">{% translate "Previous" %}</a>
-          {% endif %}
-          <span class="rounded-md bg-foreground px-2 py-0.5 font-semibold text-background">{{ page_obj.number }}</span>
-          <span class="px-1 py-0.5">/ {{ paginator.num_pages }}</span>
-          {% if page_obj.has_next %}
-            <a class="rounded-md border border-border px-2 py-0.5 no-underline hover:border-stronger-border"
-               href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}"
-               hx-get="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}"
-               hx-target="#queue-results"
-               hx-swap="outerHTML"
-               hx-push-url="true"
-               hx-indicator="#nav-progress">{% translate "Next" %}</a>
-          {% endif %}
-        </span>
+      {% if is_paginated and page_obj.has_next %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+           href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}"
+           hx-get="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}"
+           hx-target="#queue-results"
+           hx-swap="outerHTML"
+           hx-push-url="true"
+           hx-indicator="#nav-progress">{% translate "Next" %}</a>
+      {% else %}
+        <span class="ui-btn ui-btn--outline ui-btn--size-xs opacity-50"
+              aria-disabled="true">{% translate "Next" %}</span>
       {% endif %}
-    </div>
+    </nav>
   </div>
 </div>

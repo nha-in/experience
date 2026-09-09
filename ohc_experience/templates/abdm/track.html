@@ -1,9 +1,11 @@
 {% extends "layouts/app.html" %}
 
 {% comment %}
-  One track (design doc 5.6), as the prototype draws it: the header with the
-  approved count on the right, the milestone tiles, and the selected
-  milestone's exit request card below them.
+  One track (design doc 5.6), Layered: the hero carries the track's name and
+  description, the big "n of m milestones approved" figure with what comes
+  next, and the milestone journey as a stepper; under it the selected
+  milestone's exit request card, with the readiness rail beside it while the
+  form is still editable.
 
   Three empty states: the track was not applied for, the track has no
   published milestones (NHCX), and — inside the detail card — a tile the
@@ -20,40 +22,71 @@
 {% block crumb_root %}
   {% include "components/crumb.html" with label=_("Tracks") %}
 {% endblock crumb_root %}
-{% block page_header %}
-  <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-    <div class="min-w-0">
-      <p class="text-[9.5px] font-bold tracking-[0.1em] text-soft-foreground uppercase">{% translate "Track" %}</p>
-      <h1 class="mt-1.5 text-xl font-bold tracking-[-0.02em]">
-        {{ track.code }} <span class="font-medium text-soft-foreground">· {{ track.name }}</span>
-      </h1>
-      <p class="mt-1.5 max-w-[640px] text-[12.5px] leading-[1.55] text-soft-foreground">{{ track.description }}</p>
-    </div>
-    <div class="flex shrink-0 flex-col items-start gap-1 lg:items-end lg:pt-6">
-      <span class="font-mono text-[11px] font-semibold {% if track_applied %}text-primary-700{% else %}text-soft-foreground{% endif %}">
+{% block hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner {% if track_applied %}lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,660px)] lg:items-end{% endif %}">
+      <div class="ui-rise min-w-0">
+        <p class="ui-hero-eyebrow">{% translate "Track" %}</p>
+        <h1 class="ui-hero-title">{{ track.code }} <span class="font-semibold text-muted-foreground">· {{ track.name }}</span></h1>
+        <p class="ui-hero-lede">{{ track.description }}</p>
         {% if track_applied %}
-          {% blocktranslate with approved=approved_count applied=applied_count %}{{ approved }} of {{ applied }} milestones approved{% endblocktranslate %}
-        {% elif track.has_milestones %}
-          {% translate "Not applied for" %}
+          <div class="mt-6 flex items-baseline gap-2.5">
+            <span class="ui-figure ui-figure--xl">{{ approved_count }}</span>
+            <span class="text-[15px] font-semibold text-muted-foreground">
+              {% blocktranslate count counter=applied_count %}of {{ counter }} milestone approved{% plural %}of {{ counter }} milestones approved{% endblocktranslate %}
+            </span>
+          </div>
+          <p class="mt-2.5 text-[13px] text-muted-foreground">
+            {% for entry in entries %}
+              {% if entry.record and not entry.record.is_approved and not entry.record.is_locked %}
+                {% translate "Next:" %}
+                <a class="font-semibold text-primary no-underline hover:underline"
+                   href="{% url 'products:track' product.sandbox_id track.code %}?milestone={{ entry.milestone.code }}"><span class="font-mono">{{ entry.milestone.code }}</span> {{ entry.milestone.name }}</a>
+                ·
+                {% if entry.record.status == "query_raised" %}
+                  {% translate "reply needed" %}
+                {% elif entry.record.is_under_review %}
+                  {% translate "with the NHA reviewer" %}
+                {% else %}
+                  {% translate "waiting on you" %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {% if approved_count == applied_count %}
+              {% translate "Every applied milestone on this track is approved." %}
+            {% endif %}
+            <a class="ml-1 text-soft-foreground hover:underline"
+               href="{{ track.docs_url }}"
+               target="_blank"
+               rel="noopener noreferrer">{% translate "NHA milestone documentation" %} <span aria-hidden="true">↗</span></a>
+          </p>
         {% else %}
-          {% translate "No milestones published" %}
+          <p class="mt-6 flex items-baseline gap-2.5">
+            <span class="ui-figure text-soft-foreground">
+              {% if track.has_milestones %}
+                {% translate "Not applied for" %}
+              {% else %}
+                {% translate "No milestones published" %}
+              {% endif %}
+            </span>
+          </p>
         {% endif %}
-      </span>
-      <a class="text-[11px] text-soft-foreground hover:underline"
-         href="{{ track.docs_url }}"
-         target="_blank"
-         rel="noopener noreferrer">{% translate "NHA milestone documentation" %} <span aria-hidden="true">↗</span></a>
+      </div>
+      {% if track_applied %}
+        {% include "abdm/partials/milestone_tiles.html" %}
+      {% endif %}
     </div>
   </div>
-{% endblock page_header %}
+{% endblock hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block content %}
   {% if not track.has_milestones %}
-    <div class="ui-card ui-card--sm items-center px-5 py-11 text-center">
-      <h2 class="text-sm font-semibold">
+    <div class="ui-float ui-card ui-card--layered items-center px-5 py-11 text-center">
+      <h2 class="text-[15px] font-semibold">
         {% translate "No milestones published yet" %}
         <span class="font-normal text-soft-foreground">· {{ track.code }}</span>
       </h2>
-      <p class="max-w-[460px] text-xs leading-[1.55] text-soft-foreground">
+      <p class="max-w-[460px] text-sm text-muted-foreground">
         {% blocktranslate with code=track.code %}NHA publishes each track's milestones and exit requirements here. Products can apply for {{ code }} once the first milestone is live; until then, keep an eye on the events NHA runs for it.{% endblocktranslate %}
       </p>
       <div class="flex flex-wrap justify-center gap-2">
@@ -66,11 +99,11 @@
       </div>
     </div>
   {% elif not track_applied %}
-    <div class="ui-card ui-card--sm items-center px-5 py-11 text-center">
-      <h2 class="text-sm font-semibold">
+    <div class="ui-float ui-card ui-card--layered items-center px-5 py-11 text-center">
+      <h2 class="text-[15px] font-semibold">
         {% blocktranslate with name=product.name code=track.code %}{{ name }} has not applied for the {{ code }} track{% endblocktranslate %}
       </h2>
-      <p class="max-w-[460px] text-xs leading-[1.55] text-soft-foreground">
+      <p class="max-w-[460px] text-sm text-muted-foreground">
         {% translate "Not applied for. Add its milestones on the product form; NHA reviews the change and the track opens here with its exit request forms." %}
       </p>
       <div>
@@ -79,7 +112,13 @@
       </div>
     </div>
   {% else %}
-    {% include "abdm/partials/milestone_tiles.html" %}
-    {% include "abdm/partials/milestone_detail.html" %}
+    <div class="ui-float grid items-start gap-6 {% if record and record.is_editable %}lg:grid-cols-[minmax(0,1fr)_300px]{% endif %}">
+      <div class="ui-rise min-w-0" style="animation-delay: .1s">{% include "abdm/partials/milestone_detail.html" %}</div>
+      {% if record and record.is_editable %}
+        <div class="ui-rise lg:sticky lg:top-6" style="animation-delay: .2s">
+          {% include "abdm/partials/exit_readiness.html" %}
+        </div>
+      {% endif %}
+    </div>
   {% endif %}
 {% endblock content %}

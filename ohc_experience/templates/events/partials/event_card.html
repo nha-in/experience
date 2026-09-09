@@ -1,25 +1,25 @@
 {% comment %}
-  One upcoming event as a row in the list card, as the prototype draws it:
-  the date block, the title with its kind tag, the when-and-where line, and
-  the registration control on the right. Only the title is a link; the
-  control sits beside it as its own form, so nothing interactive nests inside
-  anything else interactive.
+  One event as a row in the list card (Layered): the date block, the title
+  with its kind tag, the when-and-where line, the summary, and the
+  registration control on the right — or, for a past session, its materials.
+  Only the title is a link; the control sits beside it as its own form, so
+  nothing interactive nests inside anything else interactive.
 
-  Context: event, registered_ids.
+  Context: event, registered_ids, past (a session that has run).
 {% endcomment %}
 {% load i18n %}
 
-<li class="flex items-center gap-3.5 border-t border-soft-border px-[18px] py-3.5 first:border-t-0">
+<li class="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-x-4 gap-y-3 border-t border-soft-border px-6 py-4 transition-colors sm:grid-cols-[56px_minmax(0,1fr)_auto] {% if not past %}hover:bg-primary-50/40{% endif %}">
   {% include "events/partials/event_date_block.html" %}
-  <div class="min-w-0 flex-1">
-    <div class="mb-1 flex flex-wrap items-center gap-2">
-      <h3 class="text-[12.5px] leading-[1.4] font-semibold tracking-[-0.01em] break-words">
-        <a class="text-foreground no-underline hover:underline"
+  <div class="min-w-0">
+    <div class="flex flex-wrap items-center gap-2">
+      <h3 class="text-[15px] leading-[22px] font-semibold break-words {% if past %}text-muted-foreground{% endif %}">
+        <a class="text-inherit no-underline hover:underline"
            href="{% url 'events:detail' event.slug %}">{{ event.title }}</a>
       </h3>
-      <span class="rounded-[5px] bg-muted-background px-[7px] py-0.5 text-[9.5px] font-bold text-soft-foreground uppercase">{{ event.get_kind_display }}</span>
+      <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{{ event.get_kind_display }}</span>
     </div>
-    <p class="text-[11px] leading-[1.5] break-words text-soft-foreground">
+    <p class="mt-0.5 text-[13px] leading-[18px] {% if past %}text-soft-foreground{% else %}text-muted-foreground{% endif %}">
       {% include "events/partials/event_when.html" %}
       ·
       {% if event.is_online %}
@@ -27,11 +27,31 @@
       {% else %}
         {{ event.location }}
       {% endif %}
-      {% if event.summary %}· {{ event.summary }}{% endif %}
     </p>
+    {% if event.summary %}
+      <p class="mt-1.5 text-sm break-words {% if past %}text-soft-foreground{% else %}text-muted-foreground{% endif %}">{{ event.summary }}</p>
+    {% endif %}
   </div>
-  <div class="shrink-0">
-    {% if event.pk in registered_ids %}
+  <div class="col-span-2 sm:col-span-1 sm:justify-self-end">
+    {% if past %}
+      <div class="flex flex-wrap items-center gap-2 text-xs text-soft-foreground">
+        {% if event.materials_url %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+             href="{{ event.materials_url }}"
+             target="_blank"
+             rel="noopener noreferrer">{% translate "Slides" %} <span aria-hidden="true">↗</span></a>
+        {% endif %}
+        {% if event.recording_url %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+             href="{{ event.recording_url }}"
+             target="_blank"
+             rel="noopener noreferrer">{% translate "Recording" %} <span aria-hidden="true">↗</span></a>
+        {% endif %}
+        {% if not event.has_materials %}
+          <span>{% translate "This event has ended." %}</span>
+        {% endif %}
+      </div>
+    {% elif event.pk in registered_ids %}
       {% include "events/partials/registration_control.html" with is_registered=True compact=True %}
     {% else %}
       {% include "events/partials/registration_control.html" with is_registered=False compact=True %}

@@ -26,9 +26,15 @@
     </dd>
   </div>
   <div>
-    <dt class="text-[10.5px] text-soft-foreground">{% translate "WASA date" %}</dt>
+    <dt class="text-[10.5px] text-soft-foreground">{% translate "WASA issued on" %}</dt>
     <dd class="mt-0.5 text-[12.5px]">
-      {{ record.wasa_date|date:"j M Y"|default:"—" }}
+      {{ record.wasa_issued_on|date:"j M Y"|default:"—" }}
+    </dd>
+  </div>
+  <div>
+    <dt class="text-[10.5px] text-soft-foreground">{% translate "WASA valid until" %}</dt>
+    <dd class="mt-0.5 text-[12.5px]">
+      {{ record.wasa_valid_until|date:"j M Y"|default:"—" }}
     </dd>
   </div>
   <div>

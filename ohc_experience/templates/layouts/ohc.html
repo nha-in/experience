@@ -15,9 +15,14 @@
   components/app_nav.html for the full contract; ohc/partials/console_nav.html
   is the same idea with #ohc-nav as its out-of-band id.
 
-  Blocks: crumb_leaf, page_header, content.
+  Blocks: crumb_leaf, hero, canvas_padding, page_header, content.
   Context: nav_section — "dashboard", "review-queue", "queue", "organisations"
   or "events", set by each view.
+
+  Layered (round 3): a page may fill the hero block with a full-width band
+  that sits above the 1120px column, and set the canvas_padding block to
+  pt-0 so its first card (class ui-float) pulls up into the band. Both blocks
+  live inside #main-content so a boosted swap carries the hero with the page.
 {% endcomment %}
 {% load i18n %}
 
@@ -114,7 +119,9 @@
                   aria-hidden="true">{{ request.user.initials }}</span>
           </div>
         </div>
-        <div class="flex-1 px-4 pt-6 pb-12 sm:px-[26px]">
+        {% block hero %}
+        {% endblock hero %}
+        <div class="flex-1 px-4 pb-12 sm:px-[26px] {% block canvas_padding %}pt-6{% endblock canvas_padding %}">
           <div class="mx-auto w-full max-w-[1120px]">
             {% include "components/messages.html" %}
             {% block page_header %}

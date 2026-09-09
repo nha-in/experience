@@ -114,16 +114,16 @@ class TestDashboardPage:
         assert response.context["nav_section"] == "dashboard"
         for heading in (
             "In queue",
-            "Median time to decision",
-            "Queries awaiting integrator",
+            "Unassigned",
             "Approved this month",
             "Needs a decision",
             "Decisions over the last 8 weeks",
-            "Queue by type",
             "Exit requests by track",
-            "Ageing",
-            "Reviewer load",
+            "Approved by milestone",
         ):
             assert heading in html
+        # The median is a sentence under the queue split rather than a card of
+        # its own; ageing and reviewer load read off the Needs-a-decision table.
+        assert "Median 3 days to a decision" in html
         assert "12 days" in html
         assert "Nandita Shah" in html

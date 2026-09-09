@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
@@ -183,7 +185,8 @@ class ExitRequestForm(PortalFileFormMixin, forms.ModelForm):
             "end_date",
             "demo_date",
             "wasa_agency",
-            "wasa_date",
+            "wasa_issued_on",
+            "wasa_valid_until",
             "functional_certificate",
             "functional_report",
         ]
@@ -191,14 +194,22 @@ class ExitRequestForm(PortalFileFormMixin, forms.ModelForm):
             "start_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "end_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "demo_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "wasa_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "wasa_issued_on": forms.DateInput(
+                attrs={"type": "date"},
+                format="%Y-%m-%d",
+            ),
+            "wasa_valid_until": forms.DateInput(
+                attrs={"type": "date"},
+                format="%Y-%m-%d",
+            ),
         }
         labels = {
             "start_date": _("Start date"),
             "end_date": _("End date"),
             "demo_date": _("Tentative demo date"),
             "wasa_agency": _("WASA audit agency"),
-            "wasa_date": _("WASA date"),
+            "wasa_issued_on": _("Issue date"),
+            "wasa_valid_until": _("Valid up to"),
             "functional_certificate": _("Functional testing certificate"),
             "functional_report": _("Functional testing report"),
         }
@@ -215,6 +226,18 @@ class ExitRequestForm(PortalFileFormMixin, forms.ModelForm):
             "placeholder",
             _("CERT-In empanelled auditor"),
         )
+        # Picking an issue date fills the expiry a year out. The contract is
+        # declarative so project.js needs to know nothing about this form; the
+        # browser only pre-fills, and clean() does the same thing with
+        # scripting off.
+        from .models import WASA_VALIDITY_DAYS  # noqa: PLC0415
+
+        self.fields["wasa_issued_on"].widget.attrs.update(
+            {
+                "data-fills": "#id_wasa_valid_until",
+                "data-fills-days": str(WASA_VALIDITY_DAYS),
+            },
+        )
 
     def _pdf(self, name: str):
         upload = self.cleaned_data.get(name)
@@ -228,10 +251,30 @@ class ExitRequestForm(PortalFileFormMixin, forms.ModelForm):
         return self._pdf("functional_report")
 
     def clean(self):
+        """Order the two date pairs, and derive the certificate's expiry.
+
+        The browser pre-fills ``wasa_valid_until`` when an issue date is
+        picked, but that is only a convenience: with scripting off nothing
+        fills, so the same default is applied here. A date the person typed
+        themselves is left alone.
+        """
+        from .models import WASA_VALIDITY_DAYS  # noqa: PLC0415
+
         cleaned = super().clean()
         start, end = cleaned.get("start_date"), cleaned.get("end_date")
         if start and end and end < start:
             self.add_error("end_date", _("The end date has to follow the start date."))
+
+        issued = cleaned.get("wasa_issued_on")
+        valid_until = cleaned.get("wasa_valid_until")
+        if issued and not valid_until:
+            valid_until = issued + timedelta(days=WASA_VALIDITY_DAYS)
+            cleaned["wasa_valid_until"] = valid_until
+        if issued and valid_until and valid_until <= issued:
+            self.add_error(
+                "wasa_valid_until",
+                _("The certificate cannot expire on or before the day it was issued."),
+            )
         return cleaned
 
 
