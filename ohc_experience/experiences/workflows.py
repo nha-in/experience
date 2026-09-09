@@ -171,6 +171,38 @@ def build_form(item, *, data=None, files=None, draft=False):
     return form
 
 
+def _complete_submission(item, actor):
+    resubmitting = item.submitted_at is not None
+    item.resubmission_count += int(resubmitting)
+    item.submitted_at = timezone.now()
+    if item.definition.auto_approve:
+        _auto_approve(item, actor)
+    else:
+        _request_review(item, resubmitting=resubmitting)
+    audit(
+        actor=actor,
+        action="Resubmitted for review" if resubmitting else "Requested review",
+        item=item,
+    )
+
+
+def _request_review(item, *, resubmitting):
+    item.status = (
+        ReviewItem.Status.IN_REVIEW
+        if resubmitting or item.assignee_id
+        else ReviewItem.Status.NEW
+    )
+    item.decided_at = None
+    item.decided_by = None
+    item.decision_note = ""
+    _set_application_status(item, "under_review")
+    notify_reviewers(
+        item,
+        f"{item.program.short_name}: {item.reference} received",
+        f"{item.title} is ready for review.",
+    )
+
+
 def _snapshot(item, form, actor, *, completed):
     record = FormRecord.objects.select_for_update().get(pk=item.form_id)
     old = item.selected_submission
@@ -336,7 +368,7 @@ def project_product(item, actor, *, product_values, solution_type, selections):
             ),
         )
         application = create_application(
-            application_type=program.milestone_application.key,
+            application_type=program.application_for(key).key,
             product=product,
             user=actor,
         )
@@ -405,28 +437,7 @@ def save_review_form(  # noqa: PLR0913
         item.definition.on_submit(item, form.cleaned_data, actor)
     _snapshot(item, form, actor, completed=submit)
     if submit:
-        resubmitting = item.submitted_at is not None
-        item.resubmission_count += int(resubmitting)
-        item.submitted_at = timezone.now()
-        item.status = (
-            ReviewItem.Status.IN_REVIEW
-            if resubmitting or item.assignee_id
-            else ReviewItem.Status.NEW
-        )
-        item.decided_at = None
-        item.decided_by = None
-        item.decision_note = ""
-        _set_application_status(item, "under_review")
-        notify_reviewers(
-            item,
-            f"{item.program.short_name}: {item.reference} received",
-            f"{item.title} is ready for review.",
-        )
-        audit(
-            actor=actor,
-            action="Resubmitted for review" if resubmitting else "Requested review",
-            item=item,
-        )
+        _complete_submission(item, actor)
     else:
         if item.status != ReviewItem.Status.SENT_BACK:
             item.status = ReviewItem.Status.DRAFT
@@ -609,6 +620,23 @@ def _validate_approval(item):
     ):
         msg = "Resolve all queries on this submission before approving."
         raise ValidationError(msg)
+
+
+def _auto_approve(item, actor):
+    """Submitting is the decision. Nobody is asked, but the record still lands
+    in the queue so a reviewer can read it."""
+    _validate_approval(item)
+    item.status = ReviewItem.Status.APPROVED
+    item.decided_at = timezone.now()
+    item.decided_by = None
+    item.decision_note = ""
+    _set_application_status(item, "approved")
+    _approve_subject(item, actor)
+    notify_reviewers(
+        item,
+        f"{item.program.short_name}: {item.reference} recorded",
+        f"{item.title} needs no decision and has been recorded.",
+    )
 
 
 @transaction.atomic

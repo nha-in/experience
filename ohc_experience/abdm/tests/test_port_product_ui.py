@@ -9,7 +9,9 @@ from django.urls import reverse
 
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import product_data
+from ohc_experience.abdm.demo import uhi_data
 from ohc_experience.abdm.forms import ProductRegistrationForm
+from ohc_experience.abdm.forms import UhiParticipationForm
 from ohc_experience.abdm.tests import test_workflow as workflow_fixtures
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import files
@@ -158,59 +160,31 @@ def uhi_payload(**overrides):
         "description": "Finds and books consultations.",
         "category": "other",
         "solution_type": ["eua"],
-        "applied_milestones": ["HI-CM:m1", "UHI:uhi1"],
+        "applied_milestones": ["HI-CM:m1", "UHI:m1", "UHI:uhi1"],
         **overrides,
     }
 
 
-def test_uhi_answers_are_required_once_the_track_is_chosen():
+def test_registration_no_longer_asks_about_uhi():
+    """Participation is its own request now, not a corner of registration."""
     form = ProductRegistrationForm(data=uhi_payload())
-    assert not form.is_valid()
-    assert "Select at least one UHI role." in str(form.errors["uhi_role"])
-    assert "Select at least one UHI service." in str(form.errors["uhi_services"])
-    answered = ProductRegistrationForm(
-        data=uhi_payload(uhi_role=["eua"], uhi_services=["teleconsultation"]),
-    )
-    assert answered.is_valid(), answered.errors
 
-
-def test_uhi_answers_are_dropped_without_the_track():
-    form = ProductRegistrationForm(
-        data=uhi_payload(
-            applied_milestones=["HI-CM:m1"],
-            uhi_role=["eua"],
-            uhi_services=["teleconsultation"],
-            uhi_tell_us_about="Written earlier",
-        ),
-    )
     assert form.is_valid(), form.errors
-    assert form.cleaned_data["uhi_role"] == []
-    assert form.cleaned_data["uhi_services"] == []
-    assert form.cleaned_data["uhi_tell_us_about"] == ""
+    assert not [name for name in form.fields if name.startswith("uhi_")]
 
 
-def test_the_uhi_section_is_hidden_until_the_track_is_chosen():
-    from ohc_experience.experiences.templatetags.experience_ui import sections
+def test_uhi_participation_requires_a_role_and_a_service():
+    form = UhiParticipationForm(data={"uhi_tell_us_about": "Teleconsultation."})
 
-    def uhi_section(form):
-        return next(s for s in sections(form) if s["title"] == "UHI participation")
+    assert not form.is_valid()
+    assert "uhi_role" in form.errors
+    assert "uhi_services" in form.errors
 
-    shut = uhi_section(ProductRegistrationForm())
-    assert shut["show_when"] == {
-        "field": "applied_milestones",
-        "value": "UHI:uhi1",
-        "active": False,
-    }
-    opened = uhi_section(
-        ProductRegistrationForm(initial={"applied_milestones": ["UHI:uhi1"]}),
-    )
-    assert opened["show_when"]["active"] is True
-    # Sections without a rule stay unconditional.
-    assert all(
-        s["show_when"] is None
-        for s in sections(ProductRegistrationForm())
-        if s["title"] != "UHI participation"
-    )
+
+def test_uhi_participation_accepts_the_answers_legacy_collected():
+    form = UhiParticipationForm(data=uhi_data())
+
+    assert form.is_valid(), form.errors
 
 
 @pytest.mark.django_db

@@ -42,6 +42,15 @@ See [Organisation address lookup](../../docs/abdm_sandbox.md#organisation-addres
 for configuration bounds, the legacy source trace and the verified sandbox
 response contract.
 
+## UHI participation
+
+Product registration selects the UHI track and milestones. Role, service and
+optional detail questions belong to the separate UHI application, which opens
+after the prerequisite approvals. UHI shares M1 with HI-CM and PHR. Submitting
+the UHI application records participation without a reviewer decision or
+exit-evidence uploads. The application remains visible to reviewers, and WASA
+exit reviews retain their normal approval process.
+
 ## WASA certification agency
 
 The exit-evidence dropdown reads active ABDM rows from the engine's
@@ -81,8 +90,9 @@ a newer certificate. A revoked current certificate remains visible as revoked;
 it does not silently fall back to an earlier certificate. Expiry is evaluated
 against the portal's local date, including at the final approval decision.
 
-New milestones default to the approved, unexpired product certificate when one
-is available. Their snapshots retain its `wasa_source_submission` and a copy of
+New exit-evidence milestones default to the approved, unexpired product
+certificate when one is available. Their snapshots retain its
+`wasa_source_submission` and a copy of
 the certificate attachment. The server resolves that reference through approved
 outcomes belonging to the same product and copies the approved audit details;
 posted replacement details cannot alter a reused certificate. A milestone that

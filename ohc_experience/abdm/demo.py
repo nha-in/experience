@@ -89,11 +89,18 @@ def product_data(name="Medibase HMIS 4.2"):
             "PHR:m1",
             "PHR:phr1",
             "HealthLocker:locker1",
+            "UHI:m1",
             "UHI:uhi1",
         ],
+    }
+
+
+def uhi_data():
+    return {
         "uhi_role": ["eua"],
         "uhi_services": ["teleconsultation", "physical_consultation"],
         "uhi_tell_us_about": "Discovery and teleconsultation for our clinic network.",
+        "uhi_extra_details": "",
     }
 
 
@@ -274,13 +281,8 @@ class DemoBuilder:
         self.exit(workspace, "m2", applicant, admin, reviewer, "query")
         self.exit(workspace, "phr1", applicant, admin, reviewer, "review")
         self.exit(workspace, "locker1", applicant, admin, reviewer, "sent_back")
-        draft = workspace.product.milestones.get(key="uhi1").application.review_item
-        services.save_review_form(
-            draft,
-            applicant,
-            data={"wasa_agency": evidence_data()["wasa_agency"]},
-            submit=False,
-        )
+        uhi = workspace.product.milestones.get(key="uhi1").application.review_item
+        services.save_review_form(uhi, applicant, data=uhi_data(), submit=True)
         self.register_product(
             org,
             applicant,

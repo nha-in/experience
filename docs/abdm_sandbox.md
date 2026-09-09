@@ -91,7 +91,7 @@ docker compose -f docker-compose.local.yml exec django python manage.py seed_exp
 ```
 
 `SBX-2026-00001` demonstrates an approved shared M1, an M2 query, locked M3/M4,
-a PHR1 review, a sent-back HealthLocker request and a UHI draft. The second
+a PHR1 review, a sent-back HealthLocker request and a recorded UHI application. The second
 product awaits registration. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
 Local mail is visible at http://localhost:3550/.

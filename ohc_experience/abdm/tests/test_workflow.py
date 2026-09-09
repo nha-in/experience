@@ -19,6 +19,7 @@ from ohc_experience.abdm.catalog import TRACK_MAP
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
+from ohc_experience.abdm.demo import uhi_data
 from ohc_experience.abdm.forms import ExitEvidenceForm
 from ohc_experience.abdm.forms import OrganisationForm
 from ohc_experience.abdm.forms import ProductRegistrationForm
@@ -28,6 +29,7 @@ from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.models import ProvisionedResource
 from ohc_experience.integrations.models import ProvisionedResourceState
@@ -115,11 +117,13 @@ def milestone(environment, key="m1"):
 
 
 def submit(environment, key="m1"):
+    """UHI participation answers a different form and needs no attachments."""
+    uhi = key == "uhi1"
     item, form, saved = services.save_review_form(
         milestone(environment, key),
         environment["applicant"],
-        data=evidence_data(),
-        files=files(),
+        data=uhi_data() if uhi else evidence_data(),
+        files=None if uhi else files(),
         submit=True,
     )
     assert saved, form.errors
@@ -154,6 +158,65 @@ def test_shared_m1_and_independent_tracks(environment):
     assert not services.milestone_locked(milestone(environment, "uhi1"))
     assert services.milestone_locked(milestone(environment, "m3"))
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
+
+
+def test_uhi_lists_m1_so_the_prerequisite_is_pickable_in_place(environment):
+    """As PHR does. M1 is one shared record, so approving it completes it here."""
+    assert TRACK_MAP["UHI"].keys == ("m1", "uhi1")
+    product = environment["workspace"].product
+    assert product.milestones.filter(key="m1").count() == 1
+
+    approve(environment)
+
+    assert product.milestones.get(key="m1").application.status == "approved"
+
+
+def test_uhi_participation_is_recorded_rather_than_decided(environment):
+    """Legacy never reviewed UHI, so submitting is the whole process."""
+    approve(environment)
+
+    item = submit(environment, "uhi1")
+
+    assert item.status == ReviewItem.Status.APPROVED
+    assert item.decided_at is not None
+    assert item.decided_by is None
+    assert item.application.status == "approved"
+    assert item.selected_submission.data["uhi_role"] == ["eua"]
+
+
+def test_a_recorded_uhi_application_still_reaches_the_queue(environment, client):
+    approve(environment)
+    item = submit(environment, "uhi1")
+    client.force_login(environment["admin"])
+
+    page = client.get(reverse("experiences:queue"), HTTP_HX_REQUEST="true")
+
+    assert item in list(page.context["page"])
+
+
+def test_nobody_decides_a_uhi_application_twice(environment):
+    approve(environment)
+    item = submit(environment, "uhi1")
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+
+    with pytest.raises(ValidationError, match="not awaiting a decision"):
+        services.decide(item, environment["reviewer"], action="approve")
+
+
+def test_uhi_answers_can_be_corrected_after_recording(environment):
+    approve(environment)
+    item = submit(environment, "uhi1")
+
+    item, form, saved = services.save_review_form(
+        item,
+        environment["applicant"],
+        data={**uhi_data(), "uhi_role": ["hspa"]},
+        submit=True,
+    )
+
+    assert saved, form.errors
+    assert item.selected_submission.data["uhi_role"] == ["hspa"]
+    assert item.status == ReviewItem.Status.APPROVED
 
 
 def test_cannot_forge_locked_or_unregistered_exit(environment):
