@@ -1,6 +1,6 @@
 # ABDM Experience — Deployment Environment Variables
 
-Prepared: 10 September 2026. Reviewed against source revision: `0736eff`.
+Prepared: 10 September 2026. Reviewed against source revision: `65645e8`.
 
 This document lists the application and deployment environment variables supported by the current repository. It contains variable names, public code defaults, and configuration guidance; it contains no deployed credentials or secret values.
 
@@ -10,7 +10,7 @@ For the **application and database**, supply these values:
 
 | Variable | Requirement / value |
 | --- | --- |
-| `DJANGO_SETTINGS_MODULE` | Set to `config.settings.production` for web, Celery worker, Celery beat, Flower, and management commands. Management commands and Celery otherwise default to local settings. |
+| `DJANGO_SETTINGS_MODULE` | Production image default: `config.settings.production`, used by web, Celery worker, Celery beat, Flower, and management commands. Set it explicitly when running production processes outside that image; management commands and Celery otherwise default to local settings. `config.settings.build` is only for offline asset creation and verification, never runtime serving. |
 | `DJANGO_SECRET_KEY` | **Required.** Strong, persistent Django secret. |
 | `DJANGO_ALLOWED_HOSTS` | Set comma-separated application hostnames without schemes or paths. Code default: `*`. |
 | `DJANGO_ADMIN_URL` | **Required.** Admin path, e.g. `admin/`. |
@@ -168,7 +168,7 @@ These **optional controls** tune application behavior, security, monitoring, bui
 | `DJANGO_SECURE_HSTS_PRELOAD` | `True`. |
 | `DJANGO_SECURE_CONTENT_TYPE_NOSNIFF` | `True`. |
 | `CONN_MAX_AGE` | `60` seconds. Database connection reuse. |
-| `COMPRESS_ENABLED` | `True`. Static compression setting and startup command switch. |
+| `COMPRESS_ENABLED` | `True`. Controls runtime use of compressed assets. The image's `/build-static` script explicitly enables compression when generating offline assets; `/start` does not build or compress assets. Keep the production default to use the baked compressor manifest. |
 | `DJANGO_SENTRY_LOG_LEVEL` | `20` (INFO). |
 | `SENTRY_ENVIRONMENT` | `production`. |
 | `SENTRY_TRACES_SAMPLE_RATE` | `0.0`. |
@@ -188,7 +188,7 @@ These **optional controls** tune application behavior, security, monitoring, bui
 
 Flower also directly requires `REDIS_URL`, listed with the core settings above.
 
-Source: `config/settings/base.py`, `config/settings/production.py`, `compose/production/django/start`, `compose/production/django/celery/flower/start`.
+Source: `config/settings/base.py`, `config/settings/production.py`, `config/settings/static_assets.py`, `compose/production/django/build-static`, `compose/production/django/start`, `compose/production/django/celery/flower/start`.
 
 These **legacy names** remain in configuration for compatibility:
 
@@ -226,13 +226,13 @@ For **deployment configuration placement and remaining setup**:
 1. Production Compose loads `.envs/.production/.django` and `.envs/.production/.postgres` into Django, worker, beat, and Flower. PostgreSQL loads only `.postgres`; the AWS helper loads only `.django`. Put all five PostgreSQL variables in `.postgres` and application/integration variables in `.django`. These production env files were absent from the audited checkout.
 2. The Docker build excludes `.env` and `.envs`. Production Compose does not automatically inject the root `.env` contents into application containers. Supply values through the production env files or the hosting platform's runtime environment.
 3. Use the same production settings, database, shared Redis, and encryption key for web and background workers. Configure email settings on both the web process and worker. Run only one Celery beat scheduler.
-4. `/start` collects static files, optionally compresses them, and starts Gunicorn. It does **not** run database migrations. Run `python manage.py migrate` with production settings as a separate deployment step.
+4. The image build runs `/build-static` with `config.settings.build` to collect static files, generate offline compression assets, compile translations, and verify the resulting assets without a live database or production secrets. `/start` only starts Gunicorn using those baked assets; it does **not** build assets or run database migrations. Do not mount an empty volume over `/app/staticfiles` or `/app/theme`. Run `python manage.py migrate` with production settings as a separate deployment step.
 5. The stock Gunicorn command binds to `0.0.0.0:5000`; it does not read a `PORT` variable. Configure the hosting service to route to port `5000`, or change the startup command.
 6. Traefik's web/Flower hostnames and certificate contact email are hardcoded in `compose/production/traefik/traefik.yml`. Update them for the deployed domain; `DJANGO_ALLOWED_HOSTS` alone does not change routing. The app expects the proxy's `X-Forwarded-Proto` to identify HTTPS.
 7. `CSRF_TRUSTED_ORIGINS` and SMTP connection settings are not mapped from environment variables in production settings. Adding those environment names alone does not configure Django. The default mail path is the Global Email API.
 8. Environment values do not create the required database, Redis service, private bucket, approved email templates, Turnstile registration, Keycloak service client, WSO2 APIs/key manager, or HIE-CM access. Those resources and network routes must exist for their features to operate.
 9. The GHCR publishing workflow uses the automatic `GITHUB_TOKEN`; no extra manually supplied build secret is configured. `APP_HOME` is an optional Docker build argument (default `/app`), while `UV_COMPILE_BYTECODE`, `UV_LINK_MODE`, `UV_PYTHON_DOWNLOADS`, and `PATH` are preset image/build settings, not required application runtime inputs.
 
-Source: `docker-compose.production.yml`, `.dockerignore`, `compose/production/django/Dockerfile`, `compose/production/django/start`, `compose/production/traefik/traefik.yml`, `.github/workflows/publish-image.yml`.
+Source: `docker-compose.production.yml`, `.dockerignore`, `compose/production/django/Dockerfile`, `compose/production/django/build-static`, `config/settings/build.py`, `compose/production/django/start`, `compose/production/traefik/traefik.yml`, `.github/workflows/publish-image.yml`.
 
 Scope: repository-defined runtime variables and deployment-script inputs at the revision above. This inventory does not claim to enumerate every environment variable recognized internally by PostgreSQL, Redis, Gunicorn, AWS CLI, Python, or the hosting platform. No live service connectivity or credential validity was tested when preparing it.
