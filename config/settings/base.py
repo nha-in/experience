@@ -87,6 +87,8 @@ DJANGO_APPS = [
 ]
 
 TAILWIND_APP_NAME = "theme"
+# Must match the Node build output copied into the production image.
+TAILWIND_CSS_PATH = "css/dist/styles.css"
 
 NPM_BIN_PATH = env(
     "NPM_BIN_PATH",

@@ -11,6 +11,8 @@ venv
 .git
 .envs/
 .venv/
+.env
+staticfiles/
 **/__pycache__/
 **/node_modules/
 theme/static/css/dist/

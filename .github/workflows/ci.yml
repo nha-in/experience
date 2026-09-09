@@ -19,6 +19,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  production-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build production image and verify assets
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: compose/production/django/Dockerfile
+          load: true
+          tags: experience-production:ci
+          cache-from: type=gha,scope=production-assets
+          cache-to: type=gha,scope=production-assets,mode=max
+      - name: Verify assets in a read-only container without services
+        # Placeholder settings are only for offline verification, not deployment.
+        run: |
+          for compression in true false; do
+            docker run --rm --read-only --network none \
+              --entrypoint python \
+              -e COMPRESS_ENABLED="$compression" \
+              -e DATABASE_URL=sqlite:///:memory: \
+              -e DJANGO_SECRET_KEY=offline-assets-smoke-test-not-a-real-secret \
+              -e DJANGO_AWS_ACCESS_KEY_ID= \
+              -e DJANGO_AWS_SECRET_ACCESS_KEY= \
+              -e DJANGO_AWS_STORAGE_BUCKET_NAME=unused-assets-smoke-test \
+              -e DJANGO_ADMIN_URL=admin/ \
+              -e RESEND_API_KEY= \
+              -e SENTRY_DSN= \
+              experience-production:ci \
+              -m compose.production.django.verify_static
+          done
+
   linter:
     runs-on: ubuntu-latest
     steps:
