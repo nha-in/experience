@@ -219,9 +219,42 @@ scope; the reviewer query inbox also includes received replies awaiting resoluti
 ## Production Configuration
 
 The production Docker image builds Tailwind CSS from the checked-in templates
-and lockfile, then copies the stylesheet into the Python image. No local Node
-dependencies or prebuilt stylesheet are required; startup collects the generated
-CSS alongside the bundled fonts and other static files.
+and npm lockfile, then runs `collectstatic`, offline compression, and an asset
+smoke check during the image build. The final image includes the generated CSS,
+bundled fonts, hashed static manifest, and compressor manifest in
+`/app/staticfiles`. No local Node dependencies, prebuilt stylesheet, runtime
+asset compilation, database, or production secrets are needed to build assets.
+Host `staticfiles/` and generated CSS are excluded from the Docker context.
+
+Build from the repository root:
+
+```sh
+docker build -f compose/production/django/Dockerfile -t experience-production .
+```
+
+The existing [Publish sandbox image workflow](../.github/workflows/publish-image.yml)
+builds this same Dockerfile for AMD64 and ARM64 and publishes to
+`ghcr.io/nha-in/sandbox`. It includes the asset build and verification, so no
+additional production image build job is required.
+
+For AWS ECS, deploy a new task revision using the published image's new tag or
+digest (or your existing ECR mirror); existing tasks do not pick up changed images automatically
+([ECS task image configuration](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#container_definition_image)).
+Build for the task's CPU architecture (`linux/amd64` for X86_64 or
+`linux/arm64` for ARM64). Use `DJANGO_SETTINGS_MODULE=config.settings.production` (the
+image default), container port `5000`, and the default `/start` command. The
+existing `/entrypoint` expects `POSTGRES_HOST`, `POSTGRES_PORT`, and
+`POSTGRES_USER` alongside your normal database configuration. ECS command
+overrides that start Gunicorn directly also have the same baked assets. Do not
+mount an empty volume over `/app/staticfiles` or `/app/theme`, and do not run
+`collectstatic` in a separate task expecting to populate another task's filesystem.
+
+WhiteNoise serves `/static/` through Gunicorn, so route that path to the same
+ECS service through the load balancer. S3 is used for private uploads, not these
+public assets. See the [WhiteNoise deployment guide](https://whitenoise.readthedocs.io/en/stable/django.html).
+The `config.settings.build` settings are strictly for offline asset creation
+and verification, never for serving the application. The Dockerfile's asset
+check runs during each publishing build without a database or runtime secrets.
 
 Use the production Compose stack with its Django, Celery worker, Celery beat,
 PostgreSQL and Redis services. Supply normal Django HTTPS, host, database

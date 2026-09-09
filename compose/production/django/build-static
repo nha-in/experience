@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+export DJANGO_SETTINGS_MODULE=config.settings.build
+export DATABASE_URL=sqlite:///:memory:
+export COMPRESS_ENABLED=true
+
+python /app/manage.py collectstatic --noinput --clear
+python /app/manage.py compress --force
+python /app/manage.py compilemessages --ignore=.venv --verbosity=0
+python -m compose.production.django.verify_static

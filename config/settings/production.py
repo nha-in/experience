@@ -12,6 +12,11 @@ from .base import DATABASES
 from .base import INSTALLED_APPS
 from .base import REDIS_URL
 from .base import env
+from .static_assets import COMPRESS_ENABLED  # noqa: F401
+from .static_assets import COMPRESS_FILTERS  # noqa: F401
+from .static_assets import COMPRESS_OFFLINE  # noqa: F401
+from .static_assets import COMPRESS_URL  # noqa: F401
+from .static_assets import STATICFILES_STORAGE_BACKEND
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -115,7 +120,7 @@ STORAGES = {
         },
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": STATICFILES_STORAGE_BACKEND,
     },
 }
 MEDIA_URL = f"https://{aws_s3_domain}/media/"
@@ -150,23 +155,6 @@ EMAIL_BACKEND = env(
     "DJANGO_EMAIL_BACKEND",
     default="ohc_experience.core.mail.queue.QueuedGlobalEmailBackend",
 )
-
-# django-compressor
-# ------------------------------------------------------------------------------
-# https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_ENABLED
-COMPRESS_ENABLED = env.bool("COMPRESS_ENABLED", default=True)
-# https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_URL
-COMPRESS_URL = STATIC_URL  # noqa: F405
-# https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_OFFLINE
-COMPRESS_OFFLINE = True  # Offline compression is required when using Whitenoise
-# https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_FILTERS
-COMPRESS_FILTERS = {
-    "css": [
-        "compressor.filters.css_default.CssAbsoluteFilter",
-        "compressor.filters.cssmin.rCSSMinFilter",
-    ],
-    "js": ["compressor.filters.jsmin.JSMinFilter"],
-}
 
 # LOGGING
 # ------------------------------------------------------------------------------

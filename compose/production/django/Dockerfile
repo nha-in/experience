@@ -4,12 +4,13 @@ FROM node:22-bookworm-slim AS frontend-build-stage
 WORKDIR /app
 
 COPY theme/static_src/package.json theme/static_src/package-lock.json ./theme/static_src/
-RUN npm ci --prefix theme/static_src
+RUN npm ci --include=dev --prefix theme/static_src
 
 COPY theme/static_src ./theme/static_src
 COPY theme/templatetags ./theme/templatetags
 COPY ohc_experience ./ohc_experience
-RUN npm run build --prefix theme/static_src
+RUN npm run build --prefix theme/static_src \
+  && test -s theme/static/css/dist/styles.css
 
 # define an alias for the specific python version used in this file.
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS python-build-stage
@@ -72,6 +73,8 @@ RUN chmod +x /entrypoint
 COPY --chown=django:django ./compose/production/django/start /start
 RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
+COPY --chown=django:django ./compose/production/django/build-static /build-static
+RUN sed -i 's/\r$//g' /build-static && chmod +x /build-static
 COPY --chown=django:django ./compose/production/django/celery/worker/start /start-celeryworker
 RUN sed -i 's/\r$//g' /start-celeryworker
 RUN chmod +x /start-celeryworker
@@ -98,8 +101,10 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 USER django
 
-RUN DATABASE_URL="postgres://dummy" \
-  DJANGO_SETTINGS_MODULE="config.settings.test" \
-  python manage.py compilemessages
+# No database, Redis, S3 credentials, or runtime secrets are needed to build assets.
+RUN /build-static
+
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
 
 ENTRYPOINT ["/entrypoint"]
+CMD ["/start"]
