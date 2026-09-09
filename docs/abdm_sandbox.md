@@ -249,6 +249,19 @@ overrides that start Gunicorn directly also have the same baked assets. Do not
 mount an empty volume over `/app/staticfiles` or `/app/theme`, and do not run
 `collectstatic` in a separate task expecting to populate another task's filesystem.
 
+Set the ALB health-check path to `/ping/` on container port `5000`, expecting
+HTTP `200`. This public liveness endpoint returns plain `OK` without checking
+the database or other services. Only this exact path bypasses HTTPS redirects,
+host validation, and session/authentication middleware so private-IP probes work.
+
+The production Beat command `/start-celerybeat` runs
+`python /app/manage.py migrate --noinput` before starting the scheduler. Migration
+failure stops startup. Run one Beat task, prevent overlapping Beat replacements,
+and deploy its new image on every release that includes migrations. This gates
+Beat only, not the web or worker services: use backward-compatible migrations or
+sequence their deployment after migrations complete. The Beat database user needs
+permission to apply schema changes. Local Beat startup is unchanged.
+
 WhiteNoise serves `/static/` through Gunicorn, so route that path to the same
 ECS service through the load balancer. S3 is used for private uploads, not these
 public assets. See the [WhiteNoise deployment guide](https://whitenoise.readthedocs.io/en/stable/django.html).

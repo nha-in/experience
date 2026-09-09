@@ -5,9 +5,11 @@ from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
 
+from ohc_experience.core.health import ping
 from ohc_experience.users.views import user_signup_view
 
 urlpatterns = [
+    path("ping/", ping, name="ping"),
     path("", include("ohc_experience.experiences.urls")),
     # Landing page and dashboard alias
     path("", include("ohc_experience.pages.urls")),
