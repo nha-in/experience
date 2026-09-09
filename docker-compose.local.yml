@@ -92,7 +92,7 @@ services:
   # and switch INTEGRATION_IDP over in .envs/.local/.django to provision against
   # a real Admin API instead of the in-process fake.
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0
+    image: quay.io/keycloak/keycloak:26.7
     container_name: ohc_experience_local_keycloak
     profiles: ['keycloak']
     environment:
