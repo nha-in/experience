@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from ohc_experience.experiences.definitions import ApplicationDefinition
 from ohc_experience.experiences.definitions import ApplicationFormDefinition
+from ohc_experience.experiences.definitions import ApplicationSet
 from ohc_experience.experiences.definitions import MilestoneDefinition
 from ohc_experience.experiences.definitions import OutcomeDefinition
 from ohc_experience.experiences.definitions import ProgramDefinition
@@ -111,8 +112,10 @@ class SupplierQuality(ProgramDefinition):
     short_name = "Quality"
     product_reference_prefix = "QA"
     organisation_form = SupplierVerification
-    product_application = EquipmentApplication
-    milestone_application = InspectionApplication
+    applications = ApplicationSet(
+        product=EquipmentApplication,
+        milestone=InspectionApplication,
+    )
     # Intentionally not in dependency order.
     milestones = {
         "release": MilestoneDefinition("release", "REL", "Release", "inspection"),

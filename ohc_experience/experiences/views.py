@@ -309,7 +309,7 @@ def product_create(request):
         return redirect("experiences:organisation")
     form = (
         get_program()
-        .product_application.forms[0]
+        .applications.product.forms[0]
         .form_class(
             data=request.POST if request.method == "POST" else None,
         )
@@ -513,7 +513,7 @@ def product_certification(request, reference):
     workspace = _workspace(request, reference)
     product = workspace.product
     permissions.require_integrator(request.user, product.organisation)
-    definition = workspace.definition.certification_application
+    definition = workspace.definition.applications.certification
     if definition is None:
         raise Http404
     reviews = product.review_items.filter(
@@ -697,7 +697,7 @@ def _integrator_item_url(item):
             "experiences:product-edit",
             args=[item.product.workspace.reference],
         )
-    certification = item.program.certification_application
+    certification = item.program.applications.certification
     if certification and item.application.application_type == certification.key:
         return reverse(
             "experiences:product-certification",

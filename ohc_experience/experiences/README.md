@@ -44,8 +44,8 @@ Implementations contain no models, migrations, URL configuration or views:
 4. Subclass `ProgramDefinition` with the organisation form, product and milestone
    application types, milestone/track catalog, product-field mapping and branding.
    Catalog dependencies are validated and materialized in topological order.
-   Optional `supplementary_applications` register independent review flows;
-   `certification_application` selects the product's renewable certification flow.
+   `ApplicationSet` names the product and milestone applications, an optional
+   `certification` flow, and per-milestone `overrides`.
 5. Register the dotted program class in settings and select its key as the portal.
    Optionally supply a `CredentialDefinition` provider and demo builder.
 

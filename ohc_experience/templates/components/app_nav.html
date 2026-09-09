@@ -67,7 +67,7 @@
   {% endif %}
   {% if can_integrate %}
     <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Product</li>
-    {% if workspace and not reviewer and experience_program.certification_application %}<li><a id="nav-certification"
+    {% if workspace and not reviewer and experience_program.applications.certification %}<li><a id="nav-certification"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'certification' %}ui-nav-link--active{% endif %}"
    {% if nav == 'certification' %}aria-current="page"{% endif %}
    href="{% url 'experiences:product-certification' workspace.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}WASA</a></li>{% endif %}

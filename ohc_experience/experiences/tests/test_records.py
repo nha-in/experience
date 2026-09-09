@@ -43,7 +43,7 @@ def product(owner_membership):
 
 def start(product, user=None):
     return create_application(
-        application_type=SupplierQuality.milestone_application.key,
+        application_type=SupplierQuality.applications.milestone.key,
         product=product,
         user=user or product.created_by,
     )

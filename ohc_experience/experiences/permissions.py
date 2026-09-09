@@ -96,10 +96,10 @@ def review_scope(program, category):
         kind=ReviewItem.Kind.PRODUCT,
     )
     product_program = Q(product__workspace__experience_type=program.key)
-    if program.certification_application:
+    if program.applications.certification:
         general |= product_program & Q(
             kind=ReviewItem.Kind.APPLICATION,
-            application__application_type=program.certification_application.key,
+            application__application_type=program.applications.certification.key,
         )
     if category == "*":
         return general | product_program

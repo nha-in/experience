@@ -460,7 +460,7 @@ def certification_review(product, actor):
     """Continue an open certification request, or begin a new review cycle."""
     require_integrator(actor, product.organisation)
     Organisation.objects.select_for_update().get(pk=product.organisation_id)
-    definition = product.workspace.definition.certification_application
+    definition = product.workspace.definition.applications.certification
     if definition is None:
         msg = "This program does not offer product certification reviews."
         raise ValidationError(msg)
@@ -498,7 +498,7 @@ def register_product(organisation, actor, *, data, program=None):
     require_integrator(actor, organisation)
     organisation = Organisation.objects.select_for_update().get(pk=organisation.pk)
     program = program or get_program()
-    definition = program.product_application
+    definition = program.applications.product
     form = definition.forms[0].form_class(data=data)
     if not form.is_valid():
         return None, form

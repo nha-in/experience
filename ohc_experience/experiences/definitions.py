@@ -94,6 +94,31 @@ class ApplicationDefinition:
 
 
 @dataclass(frozen=True)
+class ApplicationSet:
+    """The application types a program registers, by the role each one plays."""
+
+    product: type[ApplicationDefinition]
+    milestone: type[ApplicationDefinition]
+    certification: type[ApplicationDefinition] | None = None
+    #: Milestones whose request is not the usual exit evidence.
+    overrides: dict[str, type[ApplicationDefinition]] = field(default_factory=dict)
+
+    def all(self) -> tuple[type[ApplicationDefinition], ...]:
+        return tuple(
+            dict.fromkeys(
+                item
+                for item in (
+                    self.product,
+                    self.milestone,
+                    self.certification,
+                    *self.overrides.values(),
+                )
+                if item is not None
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class OutcomeDefinition:
     key: str
     name: str
@@ -204,12 +229,7 @@ class ProgramDefinition:
     product_types: ClassVar[dict[str, str]] = {}
     solution_types: ClassVar[dict[str, str]] = {}
     organisation_form: ClassVar[type[ApplicationFormDefinition]]
-    product_application: ClassVar[type[ApplicationDefinition]]
-    milestone_application: ClassVar[type[ApplicationDefinition]]
-    supplementary_applications: ClassVar[tuple[type[ApplicationDefinition], ...]] = ()
-    certification_application: ClassVar[type[ApplicationDefinition] | None] = None
-    #: Milestones whose request is not the usual exit evidence.
-    milestone_applications: ClassVar[dict[str, type[ApplicationDefinition]]] = {}
+    applications: ClassVar[ApplicationSet]
     milestones: ClassVar[dict[str, MilestoneDefinition]] = {}
     tracks: ClassVar[tuple[TrackDefinition, ...]] = ()
     credentials: ClassVar[type[CredentialDefinition] | None] = None
@@ -240,18 +260,18 @@ class ProgramDefinition:
 
     @classmethod
     def application_for(cls, milestone_key):
-        return cls.milestone_applications.get(milestone_key, cls.milestone_application)
+        return cls.applications.overrides.get(
+            milestone_key,
+            cls.applications.milestone,
+        )
 
     @classmethod
     def validate(cls):
         if not cls.key or len(cls.track_map()) != len(cls.tracks):
             msg = "Programs require a key and uniquely named tracks."
             raise ImproperlyConfigured(msg)
-        if (
-            cls.certification_application
-            and cls.certification_application not in cls.supplementary_applications
-        ):
-            msg = "The certification application must be registered as supplementary."
+        if not cls.applications.overrides.keys() <= cls.milestones.keys():
+            msg = "Application overrides must name a milestone in the catalog."
             raise ImproperlyConfigured(msg)
         for key, milestone in cls.milestones.items():
             if key != milestone.key or (

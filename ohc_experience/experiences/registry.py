@@ -50,15 +50,7 @@ class ExperienceRegistry:
             msg = f"Program {program.key!r} is already registered."
             raise ImproperlyConfigured(msg)
         self.register_form(program.organisation_form)
-        applications = dict.fromkeys(
-            (
-                program.product_application,
-                program.milestone_application,
-                *program.milestone_applications.values(),
-                *program.supplementary_applications,
-            ),
-        )
-        for definition in applications:
+        for definition in program.applications.all():
             self.register(definition)
         self._programs[program.key] = program
         return program

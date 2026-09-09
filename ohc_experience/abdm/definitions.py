@@ -2,6 +2,7 @@ from django.utils import timezone
 
 from ohc_experience.experiences.definitions import ApplicationDefinition
 from ohc_experience.experiences.definitions import ApplicationFormDefinition
+from ohc_experience.experiences.definitions import ApplicationSet
 from ohc_experience.experiences.definitions import OutcomeDefinition
 from ohc_experience.experiences.definitions import ProgramDefinition
 from ohc_experience.experiences.models import FormReuseScope
@@ -282,11 +283,12 @@ class ABDM(ProgramDefinition):
     product_types = dict(ProductRegistrationForm.base_fields["category"].choices)
     solution_types = dict(ProductRegistrationForm.base_fields["solution_type"].choices)
     organisation_form = OrganisationVerification
-    product_application = SandboxProduct
-    milestone_application = SandboxExit
-    supplementary_applications = (WasaCertification,)
-    certification_application = WasaCertification
-    milestone_applications = {"uhi1": UhiApplication}
+    applications = ApplicationSet(
+        product=SandboxProduct,
+        milestone=SandboxExit,
+        certification=WasaCertification,
+        overrides={"uhi1": UhiApplication},
+    )
     milestones = MILESTONES
     tracks = TRACKS
     credentials = ABDMCredentials
