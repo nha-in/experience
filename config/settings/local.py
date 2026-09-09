@@ -113,10 +113,13 @@ STORAGES = {
 # Your stuff...
 # ------------------------------------------------------------------------------
 
-# Shell development uses disk uploads and console mail without Docker services.
+# Shell development defaults to disk uploads and console mail.
 if env.bool("DJANGO_USE_LOCAL_MEDIA", default=env("USE_DOCKER", default="no") != "yes"):
     STORAGES["default"] = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     }
 if env("USE_DOCKER", default="no") != "yes":
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    EMAIL_BACKEND = env(
+        "DJANGO_EMAIL_BACKEND",
+        default="django.core.mail.backends.console.EmailBackend",
+    )
