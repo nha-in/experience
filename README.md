@@ -18,7 +18,7 @@ Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getti
 
 ### Setting Up Your Users
 
-- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
+- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Native development prints the verification email in your console by default; if you enable SMTP, open the [Mailtrap Local inbox](#email-server) instead. Copy the verification link into your browser to verify the user's email.
 
 - To create a **superuser account**, use this command:
 
@@ -77,12 +77,22 @@ uv run celery -A config.celery_app worker -B -l info
 
 ### Email Server
 
-In development, it is often nice to be able to see emails that are being sent from your application. For that reason local SMTP server [Mailtrap Local](https://github.com/mailtrap/mailtrap-local) with a web interface is available as docker container.
+[Mailtrap Local](https://github.com/mailtrap/mailtrap-local) captures development email in a local web inbox. It starts with the Docker development stack, or you can start just the mail service:
 
-Container mailtrap-local will start automatically when you will run all docker containers.
-Please check [cookiecutter-django Docker documentation](https://cookiecutter-django.readthedocs.io/en/latest/2-local-development/developing-locally-docker.html) for more details how to start all containers.
+```bash
+docker compose -f docker-compose.local.yml up -d mailtrap-local
+```
 
-With Mailtrap Local running, to view messages that are sent by your application, open your browser and go to `http://127.0.0.1:3550`
+For Django running inside Docker, local settings use SMTP at `mailtrap-local:3535`. A native Django process (`USE_DOCKER=no`) prints email to the console by default. To send its email to Mailtrap Local instead, start or restart the process with an explicit SMTP backend and the host address:
+
+```bash
+USE_DOCKER=no \
+EMAIL_HOST=127.0.0.1 \
+DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend \
+uv run python manage.py runserver
+```
+
+Local settings already use SMTP port `3535`. These email settings retain native development's disk uploads. Open [the Mailtrap Local inbox](http://127.0.0.1:3550) to read verification and other development emails. If you run a separate Celery worker for email tasks, restart it with the same email environment variables.
 
 ### Sentry
 
