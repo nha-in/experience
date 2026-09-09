@@ -560,3 +560,104 @@
     padding-bottom: 20px;
   }
 }
+
+/* Registration has more fields than the other account screens. */
+.marketing-shell .marketing-auth--signup {
+  padding-top: 28px;
+  padding-bottom: 24px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-story {
+  padding-top: 16px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-panel {
+  padding: 24px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-panel-heading {
+  margin-bottom: 16px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-panel-eyebrow {
+  margin-bottom: 8px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-panel-heading h1 {
+  font-size: 30px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-panel-heading > p:not(.marketing-auth-panel-eyebrow) {
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-form {
+  gap: 12px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-fieldset {
+  gap: 12px;
+  padding-bottom: 14px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-fieldset legend {
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-field-grid {
+  gap: 12px;
+}
+
+.marketing-shell .marketing-auth--signup .ui-label {
+  margin-bottom: 4px;
+}
+
+.marketing-shell .marketing-auth--signup :is(.ui-input, .ui-select) {
+  height: 44px;
+  min-height: 44px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-submit p {
+  margin-top: 8px;
+}
+
+.marketing-shell .marketing-auth--signup .marketing-auth-after {
+  padding-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .marketing-shell .marketing-auth--signup {
+    padding-top: 24px;
+  }
+  .marketing-shell .marketing-auth--signup .marketing-auth-layout {
+    gap: 24px;
+  }
+  .marketing-shell .marketing-auth--signup .marketing-auth-story {
+    padding-top: 0;
+  }
+  .marketing-shell .marketing-auth--signup .marketing-auth-story-title {
+    margin-top: 12px;
+    font-size: 36px;
+  }
+  .marketing-shell .marketing-auth--signup .marketing-auth-story-lede {
+    margin-top: 12px;
+  }
+  .marketing-shell .marketing-auth--signup .marketing-auth-steps {
+    margin-top: 16px;
+  }
+  .marketing-shell .marketing-auth--signup .marketing-auth-steps li {
+    gap: 6px;
+    padding-top: 10px;
+  }
+}
+
+@media (max-width: 540px) {
+  .marketing-shell .marketing-auth--signup .marketing-auth-panel {
+    padding: 22px 20px;
+  }
+  .marketing-shell .marketing-auth--signup .marketing-auth-panel-heading h1 {
+    font-size: 28px;
+  }
+}
