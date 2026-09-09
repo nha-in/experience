@@ -145,14 +145,11 @@ ADMIN_URL = env("DJANGO_ADMIN_URL")
 # ------------------------------------------------------------------------------
 # https://anymail.readthedocs.io/en/stable/installation/#installing-anymail
 INSTALLED_APPS += ["anymail"]
-# https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
-# https://anymail.readthedocs.io/en/stable/installation/#anymail-settings-reference
-# https://anymail.readthedocs.io/en/stable/esps/resend/
-EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
-ANYMAIL = {
-    "RESEND_API_KEY": env("RESEND_API_KEY"),
-    "RESEND_API_URL": env("RESEND_API_URL", default="https://api.resend.com/"),
-}
+# All production mail enters the durable outbox before gateway delivery.
+EMAIL_BACKEND = env(
+    "DJANGO_EMAIL_BACKEND",
+    default="ohc_experience.core.mail.queue.QueuedGlobalEmailBackend",
+)
 
 # django-compressor
 # ------------------------------------------------------------------------------

@@ -245,7 +245,30 @@ class AuditAdmin(ReadOnlyAdmin):
 
 @admin.register(Notification)
 class NotificationAdmin(ReadOnlyAdmin):
-    list_display = ("recipient", "subject", "sent_at", "attempts", "last_error")
+    list_display = (
+        "recipient",
+        "subject",
+        "delivery_status",
+        "accepted_at",
+        "failed_at",
+        "next_attempt_at",
+        "attempts",
+        "last_error",
+    )
+    list_filter = ("sent_at", "failed_at")
+    search_fields = ("recipient", "subject", "request_id", "provider_message_id")
+
+    @admin.display(description="Status")
+    def delivery_status(self, obj):
+        if obj.sent_at:
+            return "Accepted"
+        if obj.failed_at or obj.attempts >= 5:  # noqa: PLR2004
+            return "Needs review"
+        return "Pending"
+
+    @admin.display(description="Accepted at", ordering="sent_at")
+    def accepted_at(self, obj):
+        return obj.sent_at
 
 
 for model in (

@@ -298,7 +298,17 @@ EMAIL_BACKEND = env(
     default="django.core.mail.backends.smtp.EmailBackend",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
-EMAIL_TIMEOUT = 5
+EMAIL_TIMEOUT = env.float("DJANGO_EMAIL_TIMEOUT", default=5)
+
+# Internal Global Email API. The URL includes the full /email/send path.
+# Empty defaults prevent accidental use of an unapproved gateway/template.
+ANYMAIL = {
+    "GLOBAL_EMAIL_API_URL": env("GLOBAL_EMAIL_API_URL", default=""),
+    "GLOBAL_EMAIL_TEMPLATE_ID": env("GLOBAL_EMAIL_TEMPLATE_ID", default=""),
+    "GLOBAL_EMAIL_ORIGIN": env("GLOBAL_EMAIL_ORIGIN", default="abha"),
+    "GLOBAL_EMAIL_SENDER": env("GLOBAL_EMAIL_SENDER", default="NHASMS"),
+}
+GLOBAL_EMAIL_TEMPLATE_IDS = env.json("GLOBAL_EMAIL_TEMPLATE_IDS", default={})
 
 # ADMIN
 # ------------------------------------------------------------------------------

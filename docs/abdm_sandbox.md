@@ -116,8 +116,11 @@ upgrading an existing database. Without Docker, uploads use local disk and mail
 uses the console. Set `DJANGO_USE_LOCAL_MEDIA=false` to use configured object
 storage from the shell. Docker keeps its MinIO and mail service defaults.
 
-Request handlers enqueue mail in `Notification` records. Run a Celery worker and
-beat for automatic delivery, or process queued mail once with:
+Workflow handlers enqueue mail in `Notification` records. The production
+[Global Email integration](global_email.md) also queues account emails and
+organisation invitations, using Anymail and the documented ABDM/NIC gateway.
+Run a Celery worker and beat for automatic delivery, or process queued mail once
+with:
 
 ```sh
 uv run python manage.py shell -c 'from ohc_experience.experiences.tasks import deliver_notifications; deliver_notifications()'
@@ -267,7 +270,8 @@ Celery beat delivers queued emails every minute, checks public HTTPS callbacks
 every 15 minutes, and checks event reminders hourly. Three consecutive callback
 failures trigger a notification. The callback checker blocks private/reserved IPs,
 validates HTTPS certificates and does not follow redirects. Run only one beat
-scheduler; inspect unsent `Notification` rows for delivery failures (five attempts).
+scheduler; inspect unsent `Notification` rows for delivery failures (up to five
+attempts with backoff; uncertain Global Email outcomes require review).
 
 ## Organisation address lookup
 

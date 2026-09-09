@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -971,13 +973,34 @@ class ProductCredential(models.Model):
 
 
 class Notification(models.Model):
+    request_id = models.UUIDField(default=uuid4, unique=True, editable=False)
     recipient = models.EmailField()
+    from_email = models.CharField(max_length=254, blank=True)
+    cc = models.JSONField(default=list, blank=True)
     subject = models.CharField(max_length=255)
     body = models.TextField()
+    template_id = models.CharField(max_length=255, blank=True)
+    content_type = models.CharField(
+        max_length=8,
+        choices=[("info", "Information"), ("otp", "OTP")],
+        default="info",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
     sent_at = models.DateTimeField(null=True, blank=True)
+    failed_at = models.DateTimeField(null=True, blank=True)
     attempts = models.PositiveSmallIntegerField(default=0)
     last_error = models.CharField(max_length=255, blank=True)
+    provider_message_id = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["next_attempt_at"],
+                condition=Q(sent_at__isnull=True, failed_at__isnull=True),
+                name="notification_pending_due",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.subject} to {self.recipient}"

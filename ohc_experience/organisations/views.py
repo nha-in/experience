@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
@@ -18,6 +18,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import FormView
 
+from ohc_experience.core.mail import apply_gateway_template
 from ohc_experience.users.permissions import is_ohc_team
 
 from .forms import InvitationForm
@@ -374,12 +375,7 @@ class InvitationAcceptView(View):
 
 
 def send_invitation_email(request: HttpRequest, invitation: Invitation) -> None:
-    """Email the invite link.
-
-    A plain function rather than a Celery task: the hub sends a handful of these
-    a day, and a failed send should surface in the request rather than vanish
-    into a worker log.
-    """
+    """Send or enqueue the invite using the configured Django mail backend."""
     context = {
         "invitation": invitation,
         "organisation": invitation.organisation,
@@ -391,10 +387,11 @@ def send_invitation_email(request: HttpRequest, invitation: Invitation) -> None:
         context,
     ).strip()
     body = render_to_string("organisations/email/invitation_body.txt", context)
-    send_mail(
+    message = EmailMessage(
         subject=subject,
-        message=body,
+        body=body,
         from_email=None,
-        recipient_list=[invitation.email],
-        fail_silently=False,
+        to=[invitation.email],
     )
+    apply_gateway_template(message, "organisation_invitation")
+    message.send(fail_silently=False)
