@@ -141,6 +141,11 @@ and user API routes are no longer exposed.
 
 ## Production Configuration
 
+The production Docker image builds Tailwind CSS from the checked-in templates
+and lockfile, then copies the stylesheet into the Python image. No local Node
+dependencies or prebuilt stylesheet are required; startup collects the generated
+CSS alongside the bundled fonts and other static files.
+
 Use the production Compose stack with its Django, Celery worker, Celery beat,
 PostgreSQL and Redis services. Supply normal Django HTTPS, host, database
 and email settings plus the following secrets in deployment configuration:

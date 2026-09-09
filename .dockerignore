@@ -12,3 +12,6 @@ venv
 .envs/
 .venv/
 **/__pycache__/
+**/node_modules/
+theme/static/css/dist/
+ohc_experience/media/

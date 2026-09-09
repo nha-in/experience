@@ -1,3 +1,15 @@
+# Build the stylesheet from the checked-in templates and locked dependencies.
+FROM node:22-bookworm-slim AS frontend-build-stage
+
+WORKDIR /app
+
+COPY theme/static_src/package.json theme/static_src/package-lock.json ./theme/static_src/
+RUN npm ci --prefix theme/static_src
+
+COPY theme/static_src ./theme/static_src
+COPY theme/templatetags ./theme/templatetags
+COPY ohc_experience ./ohc_experience
+RUN npm run build --prefix theme/static_src
 
 # define an alias for the specific python version used in this file.
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS python-build-stage
@@ -76,6 +88,7 @@ RUN chmod +x /start-flower
 
 # Copy the application from the builder
 COPY --from=python-build-stage --chown=django:django ${APP_HOME} ${APP_HOME}
+COPY --from=frontend-build-stage --chown=django:django /app/theme/static/css/dist/ ${APP_HOME}/theme/static/css/dist/
 
 # make django owner of the WORKDIR directory as well.
 RUN chown django:django ${APP_HOME}
