@@ -76,10 +76,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = env.bool(
 )
 
 
-# https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html#settings
-AWS_ACCESS_KEY_ID = env("DJANGO_AWS_ACCESS_KEY_ID")
-# https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html#settings
-AWS_SECRET_ACCESS_KEY = env("DJANGO_AWS_SECRET_ACCESS_KEY")
+# Only override the SDK's credential chain when explicit keys are configured.
+_aws_access_key_id = env("DJANGO_AWS_ACCESS_KEY_ID", default=None) or None
+_aws_secret_access_key = env("DJANGO_AWS_SECRET_ACCESS_KEY", default=None) or None
 # https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html#settings
 AWS_STORAGE_BUCKET_NAME = env("DJANGO_AWS_STORAGE_BUCKET_NAME")
 # https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html#settings
@@ -107,8 +106,6 @@ STORAGES = {
     "default": {
         "BACKEND": "storages.backends.s3.S3Storage",
         "OPTIONS": {
-            "access_key": AWS_ACCESS_KEY_ID,
-            "secret_key": AWS_SECRET_ACCESS_KEY,
             "bucket_name": AWS_STORAGE_BUCKET_NAME,
             "region_name": AWS_S3_REGION_NAME,
             "endpoint_url": AWS_S3_ENDPOINT_URL,
@@ -123,6 +120,11 @@ STORAGES = {
         "BACKEND": STATICFILES_STORAGE_BACKEND,
     },
 }
+if _aws_access_key_id or _aws_secret_access_key:
+    STORAGES["default"]["OPTIONS"].update(
+        access_key=_aws_access_key_id,
+        secret_key=_aws_secret_access_key,
+    )
 MEDIA_URL = f"https://{aws_s3_domain}/media/"
 
 # EMAIL

@@ -266,9 +266,18 @@ and email settings plus the following secrets in deployment configuration:
 | `ABDM_CREDENTIAL_PROVIDER` | Dotted Python callable implementing real gateway provisioning. Required before issuing any real credentials. |
 | `ABDM_GATEWAY_URL` | Approved sandbox gateway endpoint, if using the local demo provider. |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Registered Cloudflare Turnstile site keys for the deployed hostname. |
-| `DJANGO_AWS_ACCESS_KEY_ID`, `DJANGO_AWS_SECRET_ACCESS_KEY` | Credentials scoped to the upload bucket. |
+| `DJANGO_AWS_ACCESS_KEY_ID`, `DJANGO_AWS_SECRET_ACCESS_KEY` | Optional explicit credentials. Omit both when using an ECS task role. |
 | `DJANGO_AWS_STORAGE_BUCKET_NAME`, `DJANGO_AWS_S3_REGION_NAME` | Private S3 bucket and region. |
 | `DJANGO_AWS_S3_ENDPOINT_URL` | Optional S3-compatible endpoint. Local settings use MinIO. |
+
+For ECS role-based S3 access, attach the upload permissions to the task's
+`taskRoleArn`, not only its `executionRoleArn`. Leave both `DJANGO_AWS_*` key
+variables unset and remove any stale `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+or `AWS_SESSION_TOKEN` overrides so the SDK can obtain and refresh task-role
+credentials. Keep the bucket name and region configured; no S3 endpoint override
+is needed for AWS S3. The bucket remains private and download URLs stay signed.
+See [ECS task IAM roles](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html)
+and [django-storages authentication](https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html#authentication-settings).
 
 The previous `SANDBOX_CREDENTIAL_KEY`, `SANDBOX_CREDENTIAL_PROVIDER` and
 `SANDBOX_GATEWAY_URL` environment names remain fallbacks during deployment
