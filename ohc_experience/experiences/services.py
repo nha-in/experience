@@ -197,6 +197,8 @@ def _choice_schema(choices) -> list[dict[str, Any]]:
 
 
 def form_field_schema(form) -> list[dict[str, Any]]:
+    # Hidden values are stored with the submission but are not applicant answers
+    # to display or offer as reviewer query targets.
     return [
         {
             "key": name,
@@ -208,6 +210,7 @@ def form_field_schema(form) -> list[dict[str, Any]]:
             else [],
         }
         for name, field in form.fields.items()
+        if not field.widget.is_hidden
     ]
 
 

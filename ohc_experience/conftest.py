@@ -60,3 +60,24 @@ def sign_in(client: Client) -> Callable[[User], Client]:
         return client
 
     return _sign_in
+
+
+@pytest.fixture
+def lgd_lookup(monkeypatch):
+    """Keep workflow/demo tests independent of the live LGD service."""
+    locations = [
+        {
+            "state": "KARNATAKA",
+            "state_code": "29",
+            "district": "BENGALURU URBAN",
+            "district_code": "525",
+        },
+    ]
+
+    def lookup(pincode):
+        return locations if pincode == "560001" else []
+
+    monkeypatch.setattr("ohc_experience.abdm.forms.lookup_pincode", lookup)
+    monkeypatch.setattr("ohc_experience.abdm.demo.lookup_pincode", lookup)
+    monkeypatch.setattr("ohc_experience.organisations.lgd.lookup_pincode", lookup)
+    return locations

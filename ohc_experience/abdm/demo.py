@@ -21,6 +21,8 @@ from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import TicketAttachment
 from ohc_experience.experiences.models import TicketContext
+from ohc_experience.organisations.lgd import LGDLookupError
+from ohc_experience.organisations.lgd import lookup_pincode
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.support.models import Ticket
@@ -113,6 +115,22 @@ def evidence_files():
     )
 
 
+def _verify_demo_location():
+    try:
+        demo_locations = lookup_pincode("560001")
+    except LGDLookupError as exc:
+        msg = (
+            "LGD lookup is unavailable. Configure LGD_API_KEY and verify API "
+            "access before seeding the demo. No data has been changed."
+        )
+        raise CommandError(msg) from exc
+    if not demo_locations:
+        msg = (
+            "LGD returned no location for the demo PIN code. No data has been changed."
+        )
+        raise CommandError(msg)
+
+
 class DemoBuilder:
     def __init__(self, stdout, style):
         self.stdout = stdout
@@ -125,6 +143,7 @@ class DemoBuilder:
         if options.get("permissions_only"):
             self.permission_accounts(options["password"])
             return
+        _verify_demo_location()
         if options["reset"]:
             files = set(FormAttachment.objects.values_list("file", flat=True)) | set(
                 TicketAttachment.objects.values_list("file", flat=True),

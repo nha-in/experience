@@ -5,6 +5,9 @@ from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
 from ohc_experience.experiences.uploads import validate_pdf
 from ohc_experience.experiences.uploads import validate_upload_size
+from ohc_experience.organisations.lgd import LGDLookupError
+from ohc_experience.organisations.lgd import lookup_pincode
+from ohc_experience.organisations.widgets import PincodeInput
 
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
@@ -59,9 +62,28 @@ class OrganisationForm(ReviewForm):
         regex=r"^[1-9][0-9]{5}$",
         label="PIN code",
         error_messages={"invalid": "Enter a six-digit Indian PIN code."},
+        widget=PincodeInput,
     )
-    state = forms.CharField(max_length=120)
-    district = forms.CharField(max_length=120)
+    state = forms.CharField(
+        max_length=120,
+        widget=forms.Select(attrs={"data-lgd-state": ""}),
+    )
+    district = forms.CharField(
+        max_length=120,
+        widget=forms.Select(attrs={"data-lgd-district": ""}),
+    )
+    state_lgd_code = forms.CharField(
+        label="State LGD code",
+        required=False,
+        disabled=True,
+        widget=forms.HiddenInput,
+    )
+    district_lgd_code = forms.CharField(
+        label="District LGD code",
+        required=False,
+        disabled=True,
+        widget=forms.HiddenInput,
+    )
     verification_document_type = forms.ChoiceField(
         label="Document type",
         choices=[("PAN", "PAN"), ("GSTIN", "GSTIN"), ("CIN", "CIN")],
@@ -77,6 +99,93 @@ class OrganisationForm(ReviewForm):
         widget=forms.FileInput(attrs={"accept": ".pdf"}),
     )
     required_uploads = ("supporting_document",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.locations = []
+        self.location_error = ""
+        if self.is_bound:
+            self._load_locations()
+        self._location_choices()
+
+    def _load_locations(self):
+        try:
+            pincode = self.fields["pincode"].clean(
+                self.data.get(self.add_prefix("pincode")),
+            )
+        except ValidationError:
+            return  # The field reports its own format/required error.
+        if not pincode:
+            return
+        try:
+            self.locations = lookup_pincode(pincode)
+        except LGDLookupError as error:
+            self.location_error = str(error)
+            return
+        if not self.locations:
+            self.location_error = "No state or district was found for this PIN code."
+            return
+
+        # Fill unique matches on the server as well, including without JavaScript.
+        # Accept the casing of older saved addresses, but store LGD's names.
+        self.data = self.data.copy()
+        candidates = self.locations
+        for name in ("state", "district"):
+            key = self.add_prefix(name)
+            posted = str(self.data.get(key, "")).strip()
+            options = {location[name] for location in candidates}
+            canonical = next(
+                (value for value in options if value.casefold() == posted.casefold()),
+                "",
+            )
+            if canonical:
+                self.data[key] = canonical
+            elif not posted and len(options) == 1:
+                self.data[key] = next(iter(options))
+            candidates = [
+                location
+                for location in candidates
+                if location[name] == self.data.get(key)
+            ]
+
+    def _location_choices(self):
+        for name in ("state", "district"):
+            values = sorted({location[name] for location in self.locations})
+            if not self.is_bound:
+                initial = self.initial.get(name)
+                if initial:
+                    values = [initial]
+            self.fields[name].widget.choices = [
+                ("", "Select a state" if name == "state" else "Select a district"),
+                *((value, value) for value in values),
+            ]
+
+    def clean(self):
+        cleaned = super().clean()
+        # Codes are always derived from this PIN's response, never from POST or
+        # from an earlier submission whose PIN may have changed.
+        cleaned["state_lgd_code"] = cleaned["district_lgd_code"] = ""
+        if self.location_error:
+            self.add_error("pincode", self.location_error)
+            return cleaned
+        if not cleaned.get("pincode") or not self.locations:
+            return cleaned
+        state = cleaned.get("state")
+        district = cleaned.get("district")
+        matches = [
+            location
+            for location in self.locations
+            if location["state"] == state and location["district"] == district
+        ]
+        if len(matches) == 1:
+            cleaned["state_lgd_code"] = matches[0]["state_code"]
+            cleaned["district_lgd_code"] = matches[0]["district_code"]
+        elif state and district:
+            self.add_error(
+                "district",
+                "Select a state and district returned for this PIN code.",
+            )
+        return cleaned
 
 
 class ProductRegistrationForm(ReviewForm):

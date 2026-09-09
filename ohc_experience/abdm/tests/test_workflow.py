@@ -48,7 +48,7 @@ def files():
 
 
 @pytest.fixture
-def environment(settings, tmp_path):
+def environment(settings, tmp_path, lgd_lookup):
     settings.STORAGES = {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
         "staticfiles": {
@@ -575,7 +575,8 @@ def test_support_members_cannot_reply_or_withdraw(environment, client):
     client.force_login(supporter)
     response = client.get(
         reverse(
-            "experiences:track", args=[environment["workspace"].reference, "HI-CM"],
+            "experiences:track",
+            args=[environment["workspace"].reference, "HI-CM"],
         ),
     )
     assert response.status_code == 200

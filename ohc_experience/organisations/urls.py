@@ -4,6 +4,11 @@ from . import views
 
 app_name = "organisations"
 urlpatterns = [
+    path(
+        "organisations/locations/pincode/",
+        views.PincodeLookupView.as_view(),
+        name="pincode-lookup",
+    ),
     path("settings/team/", views.TeamView.as_view(), name="team"),
     path(
         "settings/team/members/<int:pk>/role/",

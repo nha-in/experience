@@ -5,7 +5,9 @@ from typing import TYPE_CHECKING
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -20,6 +22,8 @@ from ohc_experience.users.permissions import is_ohc_team
 
 from .forms import InvitationForm
 from .forms import MembershipRoleForm
+from .lgd import LGDLookupError
+from .lgd import lookup_pincode
 from .models import Invitation
 from .models import Membership
 from .models import Role
@@ -31,6 +35,32 @@ if TYPE_CHECKING:
 
 # Where an invite token waits while an invited person signs up or signs in.
 INVITATION_SESSION_KEY = "pending_invitation_token"
+
+
+class PincodeLookupView(LoginRequiredMixin, View):
+    """Resolve an organisation member's PIN without exposing the provider key."""
+
+    http_method_names = ["get"]
+
+    def get(self, request: HttpRequest) -> JsonResponse:
+        if get_membership_for(request.user) is None:
+            return JsonResponse(
+                {"error": _("You are not a member of any organisation.")},
+                status=403,
+            )
+        pincode = request.GET.get("pincode", "").strip()
+        try:
+            locations = lookup_pincode(pincode)
+        except ValidationError as exc:
+            return JsonResponse({"error": exc.messages[0]}, status=400)
+        except LGDLookupError as exc:
+            return JsonResponse({"error": str(exc)}, status=503)
+        if not locations:
+            return JsonResponse(
+                {"error": _("No state or district was found for this PIN code.")},
+                status=404,
+            )
+        return JsonResponse({"pincode": pincode, "locations": locations})
 
 
 class OrganisationMixin(LoginRequiredMixin):

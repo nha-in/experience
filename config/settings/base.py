@@ -130,11 +130,13 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # A separate Fernet key is required in production; local development derives one.
 EXPERIENCE_CREDENTIAL_KEY = env(
-    "EXPERIENCE_CREDENTIAL_KEY", default=env("SANDBOX_CREDENTIAL_KEY", default=""),
+    "EXPERIENCE_CREDENTIAL_KEY",
+    default=env("SANDBOX_CREDENTIAL_KEY", default=""),
 )
 EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = False
 ABDM_CREDENTIAL_PROVIDER = env(
-    "ABDM_CREDENTIAL_PROVIDER", default=env("SANDBOX_CREDENTIAL_PROVIDER", default=""),
+    "ABDM_CREDENTIAL_PROVIDER",
+    default=env("SANDBOX_CREDENTIAL_PROVIDER", default=""),
 )
 ABDM_ALLOW_DEMO_CREDENTIALS = False
 SANDBOX_SIGNUP_CAPTCHA = True
@@ -144,6 +146,15 @@ ABDM_GATEWAY_URL = env(
     "ABDM_GATEWAY_URL",
     default=env("SANDBOX_GATEWAY_URL", default="https://dev.abdm.gov.in/gateway"),
 )
+
+# Server-only Local Government Directory lookup for organisation addresses.
+LGD_API_URL = env(
+    "LGD_API_URL",
+    default="https://apissbx.abdm.gov.in/global/api/v3/internal/lgd",
+)
+LGD_API_KEY = env("LGD_API_KEY", default="")
+LGD_API_TIMEOUT = env.float("LGD_API_TIMEOUT", default=5.0)
+LGD_CACHE_TTL = env.int("LGD_CACHE_TTL", default=3600)
 
 # MIGRATIONS
 # ------------------------------------------------------------------------------
