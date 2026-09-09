@@ -91,12 +91,29 @@ Use `visible_reviews`, `visible_submissions`, `visible_tickets`, and
 `visible_events` for data reads, not the staff identity helper `reviewer()`.
 Published event content is locked; an approver must unpublish it before editing.
 
-Superusers manage grants in Django admin under Experiences > Access grants or
-Users > user > Portal permissions. The user must be active and have the team
-account flag (`is_ohc_team`); `is_staff` is additionally needed to enter Django
-admin for event management. Staff identity and ordinary Django model permissions
-alone grant no portal access. Raw workflow, account and organisation admin pages
-are superuser-only; support administration is scoped/read-only for other staff.
+Superadmins manage accounts and grants in the portal at `/portal/staff/` through
+Staff & permissions. The directory supports search, pagination, active/archived
+filters, account creation, profile/password changes and a category matrix for
+each registered program and area. Only active superusers may access these routes
+or call the management services. Applicant and superadmin accounts cannot be
+edited or archived through this interface. Stale forms cannot overwrite a newer
+account or permission change. Management changes are recorded in Django's
+existing `LogEntry` audit store; password input is never logged.
+
+New staff use `is_ohc_team=True`, `is_staff=False`, `is_superuser=False`. A
+superadmin sets the initial password, and the provisioned work email is marked
+verified. Duplicate emails, including another user's allauth addresses, are
+rejected case-insensitively. Passwords use the configured Django validators.
+Archiving sets `is_active=False`, deletes the account's database-backed sessions,
+and releases pending review and support assignments. Evidence, decisions, audit
+history and grants remain intact. Restore reactivates the saved grants but cannot
+revive deleted sessions. Password/email changes also end existing sessions.
+
+Staff can manage events at `/portal/events/manage/` with their existing scoped
+event permissions; `is_staff` is not required. Portal navigation no longer links
+to Django admin. The technical admin endpoint still exists separately for
+maintenance, with its existing authorization checks. Staff identity and ordinary
+Django model permissions alone grant no portal access.
 Applicant organisation roles and invitation limits are unchanged. Applicants
 cannot create staff grants. All new staff accounts default to no access.
 

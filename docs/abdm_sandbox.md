@@ -44,9 +44,11 @@ Demo accounts all use password `experience-demo-2026`:
 | uhi-events@abdm-demo.in | Events: UHI only |
 
 Staff grants are independent per area (Reviews, Support, Events) and category,
-with separate read, write and approve checkboxes. Manage them in Django admin at
-Experiences > Access grants, or Users > user > Portal permissions. Only
-superusers can grant access. New staff accounts have no access by default;
+with separate read, write and approve checkboxes. Superadmins manage staff and
+permissions at `/portal/staff/` using the Staff & permissions navigation entry.
+They can create/edit staff accounts, set passwords, search/filter the directory,
+archive/restore staff, and edit permissions without using Django admin.
+New staff accounts are portal-only and have no access by default;
 ordinary Django permissions or reviewer assignment cannot bypass the grants.
 The broad `reviewer@abdm-demo.in` demo account has explicit all-category grants;
 the category-specific accounts above do not. All use the demo password above.
@@ -54,12 +56,20 @@ Applicant access stays organisation-based.
 
 Review write allows queries; approve allows approval/send-back. Both require
 assignment. Support write allows replies; approve allows resolution. Event
-write allows draft creation/editing in admin; approve allows publishing through
-the event list actions. Published events must be unpublished before editing.
+write allows draft creation/editing at `/portal/events/manage/`; approve allows
+publishing through that page's actions. Published events must be unpublished before editing.
 General/onboarding is a separate category covering organisation/product review;
 it is not implicitly granted with NHCX or UHI. See the engine guide for details.
 NHCX currently has no published milestone forms, so its review queue is empty
 until the catalog defines those forms; permission grants are already supported.
+
+Archiving disables login, ends existing sessions and releases pending review and
+support assignments, without deleting the user's history or grants. Restoring
+reactivates saved permissions but requires a new sign-in. Superadmin accounts
+are protected from edit/archive in this interface. Account changes are audited;
+passwords are validated and never logged. No database reset or new schema
+migration is needed for the staff portal. The technical Django admin endpoint
+remains separate for maintenance and is no longer linked from the portal.
 
 To add the permission demo accounts to an existing local demo without clearing
 application data:

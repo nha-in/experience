@@ -45,9 +45,10 @@
            href="?period=past&amp;kind={{ request.GET.kind|urlencode }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
            {% if period == 'past' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ past_count|default:0 }}</span><span class="ui-kicker">Past events</span></a>
       </nav>
-      {% if can_create_events %}<a class="ui-btn ui-btn--outline ui-btn--size-sm mb-2 no-underline"
-   href="{% url 'admin:events_event_add' %}"
-   hx-boost="false">Publish event</a>{% endif %}
+      <div class="mb-2 flex flex-wrap gap-2">
+        {% if can_manage_events %}<a class="ui-btn ui-btn--outline ui-btn--size-sm" href="{% url 'experiences:event-manage' %}">Manage events</a>{% endif %}
+        {% if can_create_events %}<a class="ui-btn ui-btn--default ui-btn--size-sm" href="{% url 'experiences:event-create' %}">{% include 'components/nav_icon.html' with icon='add' %}New event</a>{% endif %}
+      </div>
     </div>
     {% if events %}
       <ul class="flex flex-col">

@@ -88,8 +88,8 @@ def navigation_context(request, workspace=None):
         or permissions.has_area(request.user, "support"),
         "can_read_events": not is_reviewer
         or permissions.has_area(request.user, "events"),
-        "can_create_events": request.user.is_staff
-        and permissions.has_area(request.user, "events", "write"),
+        "can_create_events": permissions.has_area(request.user, "events", "write"),
+        "can_manage_events": permissions.has_area(request.user, "events"),
         "organisation": organisation,
         "can_integrate": bool(
             organisation and permissions.can_integrate(request.user, organisation),
