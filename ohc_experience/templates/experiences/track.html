@@ -8,7 +8,7 @@
         <h1 class="ui-hero-title">
           {{ track.definition.code }} <span class="font-semibold text-muted-foreground">· {{ track.definition.name }}</span>
         </h1>
-        <p class="ui-hero-lede">{{ track.definition.description }}</p>
+        <p class="ui-hero-lede">{{ track.definition.description }}{% if track.shared_note %} {{ track.shared_note }}{% endif %}</p>
         {% if track.tiles %}
           <div class="mt-6 flex items-baseline gap-2.5">
             <span class="ui-figure ui-figure--xl">{{ track.approved }}</span>
@@ -41,11 +41,7 @@
         <ol class="ui-stepper ui-stepper--lg ui-rise w-full xl:w-auto [animation-delay:.05s]"
             aria-label="Milestones">
           {% for choice in track.tiles %}
-            {% if track.definition.code == 'PHR' and choice.definition.key == 'm1' %}
-              {% include 'experiences/partials/milestone_station.html' with tile=choice selected_key=tile.definition.key final=forloop.last shared_label='Shared with HI-CM M1' %}
-            {% else %}
-              {% include 'experiences/partials/milestone_station.html' with tile=choice selected_key=tile.definition.key final=forloop.last shared_label='' %}
-            {% endif %}
+            {% include 'experiences/partials/milestone_station.html' with tile=choice selected_key=tile.definition.key final=forloop.last shared_label=choice.shared_label %}
           {% endfor %}
         </ol>
       {% endif %}

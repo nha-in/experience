@@ -1,1 +1,1 @@
-{% if item.application.milestone %}<span class="font-mono text-xs text-soft-foreground">{% for track in experience_program.tracks %}{% if item.application.milestone.key in track.keys %}{{ track.code }} · {% endif %}{% endfor %}{{ item.application.milestone.definition.code }}</span>{% endif %}
+{% if item.application.milestone %}<span class="font-mono text-xs text-soft-foreground">{% for code in item.application.milestone.track_codes %}{{ code }} · {% endfor %}{{ item.application.milestone.definition.code }}</span>{% endif %}

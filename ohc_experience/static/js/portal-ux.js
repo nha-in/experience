@@ -127,6 +127,35 @@
     const group = input.closest('[data-permission-group]');
     if (group) updatePermissionSummary(group);
   });
+  // Selecting a milestone pulls in the ones it depends on; clearing one drops
+  // whatever depended on it. The form re-checks this on submit regardless.
+  const milestone = (form, value) => form.querySelector(`[data-milestone][value="${CSS.escape(value)}"]`);
+
+  function selectMilestone(form, value) {
+    const input = milestone(form, value);
+    if (!input || input.checked) return;
+    input.checked = true;
+    if (input.dataset.milestonePredecessor) selectMilestone(form, input.dataset.milestonePredecessor);
+  }
+
+  function clearDependents(form, value) {
+    form.querySelectorAll(`[data-milestone-predecessor="${CSS.escape(value)}"]`).forEach(dependent => {
+      if (!dependent.checked) return;
+      dependent.checked = false;
+      clearDependents(form, dependent.value);
+    });
+  }
+
+  document.addEventListener('change', event => {
+    const input = event.target.closest('[data-milestone]');
+    if (!input) return;
+    const form = input.closest('form');
+    if (input.checked) {
+      if (input.dataset.milestonePredecessor) selectMilestone(form, input.dataset.milestonePredecessor);
+    } else {
+      clearDependents(form, input.value);
+    }
+  });
   ['input', 'change'].forEach(type => document.addEventListener(type, event => updateForm(event.target.closest('form'))));
   window.addEventListener('beforeunload', event => {
     if (!leaving && dirtyForms().length) {

@@ -69,7 +69,7 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
     assert selected == ["HI-CM:m1"]
-    assert b"Same record as HI-CM M1" in response.content
+    assert b"Shared with: HI-CM, UHI and NHCX" in response.content
 
 
 def test_solution_type_accepts_several_values():

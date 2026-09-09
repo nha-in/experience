@@ -34,22 +34,24 @@
                          name="{{ field.html_name }}"
                          value="{{ milestone.value }}" />
                 {% endif %}
-                <input class="ui-checkbox shrink-0" type="checkbox" id="milestone-{{ milestone.value|slugify }}" {% if milestone.value in approved_selections %}checked disabled aria-describedby="milestone-{{ milestone.value|slugify }}-why"{% else %}name="{{ field.html_name }}" value="{{ milestone.value }}" {% if milestone.selected %}checked{% endif %} {% endif %} />
+                <input class="ui-checkbox shrink-0" type="checkbox" id="milestone-{{ milestone.value|slugify }}" {% if milestone.value in approved_selections %}checked disabled aria-describedby="milestone-{{ milestone.value|slugify }}-why"{% else %}name="{{ field.html_name }}" value="{{ milestone.value }}" data-milestone data-milestone-predecessor="{{ milestone.predecessor }}" {% if milestone.selected %}checked{% endif %} {% endif %} />
                 <label class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-sm select-none {% if milestone.value in approved_selections %}text-soft-foreground{% else %}cursor-pointer{% endif %}"
                        for="milestone-{{ milestone.value|slugify }}">
                   <span class="w-11 shrink-0 font-mono text-xs font-semibold text-soft-foreground">{{ milestone.definition.code }}</span>
-                  <span class="min-w-0 flex-1 {% if milestone.selected %}font-medium{% endif %}">{{ milestone.definition.name }}{% if milestone.shared %}
-                    <span class="block text-xs text-soft-foreground">Same record as HI-CM M1</span>
-            {% endif %}
-          </span>
-          {% if milestone.value in approved_selections %}
-            <span class="ui-badge ui-badge--success ui-badge--size-xs"
-                  id="milestone-{{ milestone.value|slugify }}-why">Approved · cannot be removed</span>
-          {% endif %}
-          </label>
+                  <span class="min-w-0 flex-1 {% if milestone.selected %}font-medium{% endif %}">
+                    {{ milestone.definition.name }}
+                    {% if milestone.shared_with %}
+                      <span class="block text-xs text-soft-foreground">Shared with: {{ milestone.shared_with }}</span>
+                    {% endif %}
+                  </span>
+                  {% if milestone.value in approved_selections %}
+                    <span class="ui-badge ui-badge--success ui-badge--size-xs"
+                          id="milestone-{{ milestone.value|slugify }}-why">Approved · cannot be removed</span>
+                  {% endif %}
+                </label>
+              </div>
+            {% endfor %}
           </div>
-        {% endfor %}
-      </div>
     {% else %}
       <p class="border-t border-soft-border pt-2.5 text-xs text-soft-foreground">No milestones published yet. This track will open for applications once they are available.</p>
     {% endif %}

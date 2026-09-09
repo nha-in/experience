@@ -30,6 +30,7 @@ from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.models import ReviewItem
+from ohc_experience.experiences.registry import get_program
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.models import ProvisionedResource
 from ohc_experience.integrations.models import ProvisionedResourceState
@@ -146,7 +147,7 @@ def test_shared_m1_and_independent_tracks(environment):
     assert product.milestones.filter(key="m1").count() == 1
     assert TRACK_MAP["PHR"].keys == ("m1", "phr1")
     assert TRACK_MAP["HealthLocker"].keys == ("locker1",)
-    assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
+    assert TRACK_MAP["NHCX"].keys == ("m1", "nhcx1")
     assert MILESTONES["uhi1"].predecessor == MILESTONES["nhcx1"].predecessor == "m1"
     assert services.milestone_locked(milestone(environment, "m2"))
     assert services.milestone_locked(milestone(environment, "phr1"))
@@ -169,6 +170,65 @@ def test_uhi_lists_m1_so_the_prerequisite_is_pickable_in_place(environment):
     approve(environment)
 
     assert product.milestones.get(key="m1").application.status == "approved"
+
+
+def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
+    """No track owns M1. Every track that lists it names the rest."""
+    program = get_program()
+
+    assert set(program.shared_with("m1", "PHR")) == {"HI-CM", "UHI", "NHCX"}
+    assert set(program.shared_with("m1", "HI-CM")) == {"PHR", "UHI", "NHCX"}
+    assert program.shared_with("locker1", "HealthLocker") == ()
+    assert MILESTONES["locker1"].code == "HL1"
+
+
+def test_a_tracks_description_names_its_shared_milestones(environment, client):
+    """The sentence was hand-written on three tracks and stale on all three."""
+    program = get_program()
+    assert program.shared_note("PHR") == "M1 is shared with HI-CM, UHI and NHCX."
+    assert program.shared_note("HI-CM") == "M1 is shared with UHI, NHCX and PHR."
+    assert program.shared_note("HealthLocker") == ""
+    client.force_login(environment["applicant"])
+
+    html = client.get(
+        reverse("experiences:track", args=[environment["workspace"].reference, "PHR"]),
+    ).content.decode()
+
+    assert "M1 is shared with HI-CM, UHI and NHCX." in html
+
+
+def test_a_track_cannot_list_a_milestone_without_its_predecessor():
+    """The rule that would have caught NHCX listing nhcx1 without m1."""
+    program = get_program()
+    for track in program.tracks:
+        for key in track.keys:
+            predecessor = program.milestones[key].predecessor
+            assert not predecessor or predecessor in track.keys, (track.code, key)
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        ("PHR", "Shared with HI-CM and UHI"),
+        ("UHI", "Shared with HI-CM and PHR"),
+        ("HI-CM", "Shared with UHI and PHR"),
+    ],
+)
+def test_the_shared_m1_note_follows_the_catalogue_not_a_hardcoded_track(
+    environment,
+    client,
+    code,
+    expected,
+):
+    """The tile names only the tracks this product applied for. NHCX shares M1 in
+    the catalogue, so the track description names it, but no tile does."""
+    client.force_login(environment["applicant"])
+
+    html = client.get(
+        reverse("experiences:track", args=[environment["workspace"].reference, code]),
+    ).content.decode()
+
+    assert f'<span class="ui-station-alias">{expected}</span>' in html
 
 
 def test_uhi_participation_is_recorded_rather_than_decided(environment):

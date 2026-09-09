@@ -104,6 +104,24 @@ class OutcomeDefinition:
     status: str = "active"
 
 
+def readable_list(names):
+    """["a", "b", "c"] -> "a, b and c"."""
+    names = list(names)
+    if not names:
+        return ""
+    *rest, last = names
+    return f"{', '.join(rest)} and {last}" if rest else last
+
+
+def shared_tracks(tracks, milestone_key, track_code=""):
+    """The other tracks listing this milestone."""
+    return tuple(
+        track.code
+        for track in tracks
+        if track.code != track_code and milestone_key in track.keys
+    )
+
+
 @dataclass(frozen=True)
 class MilestoneDefinition:
     key: str
@@ -180,6 +198,28 @@ class ProgramDefinition:
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     @classmethod
+    def tracks_with(cls, milestone_key):
+        return tuple(track for track in cls.tracks if milestone_key in track.keys)
+
+    @classmethod
+    def shared_with(cls, milestone_key, track_code=""):
+        return shared_tracks(cls.tracks, milestone_key, track_code)
+
+    @classmethod
+    def shared_note(cls, track_code):
+        """ "M1 is shared with UHI and PHR." Empty when this track shares nothing."""
+        track = cls.track_map().get(track_code)
+        if track is None:
+            return ""
+        sentences = []
+        for key in track.keys:
+            others = cls.shared_with(key, track_code)
+            if others:
+                code = cls.milestones[key].code
+                sentences.append(f"{code} is shared with {readable_list(others)}.")
+        return " ".join(sentences)
+
+    @classmethod
     def application_for(cls, milestone_key):
         return cls.milestone_applications.get(milestone_key, cls.milestone_application)
 
@@ -203,6 +243,15 @@ class ProgramDefinition:
         if any(key not in cls.milestones for track in cls.tracks for key in track.keys):
             msg = "Track milestones must exist in the catalog."
             raise ImproperlyConfigured(msg)
+        for track in cls.tracks:
+            for key in track.keys:
+                predecessor = cls.milestones[key].predecessor
+                if predecessor and predecessor not in track.keys:
+                    msg = (
+                        f"Track {track.code!r} lists {key!r} without its "
+                        f"predecessor {predecessor!r}, which can never unlock."
+                    )
+                    raise ImproperlyConfigured(msg)
         try:
             cls.ordered_milestones()
         except CycleError as error:

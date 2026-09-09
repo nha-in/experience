@@ -23,6 +23,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
 from ohc_experience.events.models import Event
+from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.integrations.selectors import provisioning_can_be_retried
@@ -107,6 +108,14 @@ def _tracks(workspace, user):
             ):
                 continue
             milestone = rows[key]
+            definition = workspace.definition.milestones[key]
+            # Only tracks this product actually applied for: naming one it never
+            # chose is noise. The registration note carries the catalogue-wide fact.
+            shared = [
+                code
+                for code in workspace.definition.shared_with(key, track.code)
+                if f"{code}:{key}" in workspace.applied_milestones
+            ]
             item = milestone.application.review_item
             locked = services.milestone_locked(item)
             status = "locked" if locked else item.status
@@ -123,9 +132,12 @@ def _tracks(workspace, user):
                 {
                     "milestone": milestone,
                     "item": item,
-                    "definition": workspace.definition.milestones[key],
+                    "definition": definition,
                     "status": status,
                     "label": label,
+                    "shared_label": f"Shared with {readable_list(shared)}"
+                    if shared
+                    else "",
                     "reply_needed": item.status == "query_raised"
                     and item.queries.filter(
                         submission_id=item.selected_submission_id,
@@ -141,6 +153,7 @@ def _tracks(workspace, user):
         result.append(
             {
                 "definition": track,
+                "shared_note": workspace.definition.shared_note(track.code),
                 "tiles": tiles,
                 "approved": sum(tile["status"] == "approved" for tile in tiles),
             },

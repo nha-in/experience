@@ -2,6 +2,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from ohc_experience.experiences.definitions import readable_list
+from ohc_experience.experiences.definitions import shared_tracks
 from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
 from ohc_experience.experiences.models import CertificationAgency
@@ -197,12 +199,7 @@ class OrganisationForm(ReviewForm):
 class ProductRegistrationForm(ReviewForm):
     full_width_fields = ("applied_milestones", "solution_type")
     conditional_fields = {"payer_category": ("solution_type", "payers")}
-    section_notes = {
-        "Tracks and milestones": (
-            "M1 approval is shared by HI-CM, PHR and UHI. "
-            "Select each preceding milestone in the same track."
-        ),
-    }
+
     sections = (
         (
             "Product details",
@@ -279,7 +276,14 @@ class ProductRegistrationForm(ReviewForm):
                         "definition": MILESTONES[key],
                         "value": f"{track.code}:{key}",
                         "selected": f"{track.code}:{key}" in selected,
-                        "shared": track.code == "PHR" and key == "m1",
+                        "shared_with": readable_list(
+                            shared_tracks(TRACKS, key, track.code),
+                        ),
+                        "predecessor": (
+                            f"{track.code}:{MILESTONES[key].predecessor}"
+                            if MILESTONES[key].predecessor in track.keys
+                            else ""
+                        ),
                     }
                     for key in track.keys
                 ],

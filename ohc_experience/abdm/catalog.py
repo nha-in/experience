@@ -9,7 +9,7 @@ MILESTONES = {
         MilestoneDefinition("m3", "M3", "HIU services", "m2"),
         MilestoneDefinition("m4", "M4", "HFR Registration", "m3"),
         MilestoneDefinition("phr1", "PHR1", "PHR application flows", "m1"),
-        MilestoneDefinition("locker1", "PHR1", "Locker flows"),
+        MilestoneDefinition("locker1", "HL1", "Health locker flows"),
         MilestoneDefinition("uhi1", "UHI1", "UHI participation", "m1"),
         MilestoneDefinition("nhcx1", "NHCX1", "Claims exchange flows", "m1"),
     )
@@ -26,20 +26,19 @@ TRACKS = (
     TrackDefinition(
         "UHI",
         "Unified Health Interface",
-        "Discovery and delivery of digital health services. M1 is shared with HI-CM.",
+        "Discovery and delivery of digital health services.",
         ("m1", "uhi1"),
     ),
     TrackDefinition(
         "NHCX",
         "National Health Claims Exchange",
         "Claims and pre-authorisation exchange between payers and providers.",
-        ("nhcx1",),
+        ("m1", "nhcx1"),
     ),
     TrackDefinition(
         "PHR",
         "Personal Health Records",
-        "ABHA identity and personal health record application flows. "
-        "M1 is shared with HI-CM.",
+        "ABHA identity and personal health record application flows.",
         ("m1", "phr1"),
     ),
     TrackDefinition(

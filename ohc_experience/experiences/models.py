@@ -695,6 +695,13 @@ class Milestone(models.Model):
     def definition(self):
         return self.product.workspace.definition.milestones[self.key]
 
+    @property
+    def track_codes(self):
+        return [
+            track.code
+            for track in self.product.workspace.definition.tracks_with(self.key)
+        ]
+
 
 class ReviewItem(models.Model):
     class Kind(models.TextChoices):
