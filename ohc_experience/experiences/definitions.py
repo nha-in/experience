@@ -22,6 +22,9 @@ class ApplicationFormDefinition:
     form_class: ClassVar[type]
     allow_approved_updates: ClassVar[bool] = False
     allow_reuse: ClassVar[bool] = False
+    #: Submitting is the whole process — no reviewer decides it. The item still
+    #: reaches the queue, so the record is visible.
+    auto_approve: ClassVar[bool] = False
     request_label = "application"
     submit_label = "Submit application"
     submitted_message = "Application submitted."
@@ -158,10 +161,16 @@ class ProgramDefinition:
     organisation_form: ClassVar[type[ApplicationFormDefinition]]
     product_application: ClassVar[type[ApplicationDefinition]]
     milestone_application: ClassVar[type[ApplicationDefinition]]
+    #: Milestones whose request is not the usual exit evidence.
+    milestone_applications: ClassVar[dict[str, type[ApplicationDefinition]]] = {}
     milestones: ClassVar[dict[str, MilestoneDefinition]] = {}
     tracks: ClassVar[tuple[TrackDefinition, ...]] = ()
     credentials: ClassVar[type[CredentialDefinition] | None] = None
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
+
+    @classmethod
+    def application_for(cls, milestone_key):
+        return cls.milestone_applications.get(milestone_key, cls.milestone_application)
 
     @classmethod
     def validate(cls):

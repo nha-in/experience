@@ -15,6 +15,7 @@ from .catalog import TRACKS
 from .forms import ExitEvidenceForm
 from .forms import OrganisationForm
 from .forms import ProductRegistrationForm
+from .forms import UhiParticipationForm
 from .gateway import ABDMCredentials
 
 
@@ -150,6 +151,40 @@ class ProductRegistration(ApplicationFormDefinition):
         )
 
 
+class UhiParticipation(ApplicationFormDefinition):
+    key = "sandbox_uhi_participation"
+    name = "UHI participation"
+    form_class = UhiParticipationForm
+    auto_approve = True
+    allow_approved_updates = True
+    request_label = "UHI application"
+    submit_label = "Submit UHI application"
+    submitted_message = "UHI application recorded."
+    approval_notice = (
+        "UHI participation is recorded rather than assessed. NHA contacts you "
+        "directly about onboarding."
+    )
+
+    @classmethod
+    def submission_block_reason(cls, item):
+        if (
+            not item.organisation.is_verified
+            or item.product.workspace.registration_status != "registered"
+        ):
+            return (
+                "Organisation verification and product registration must be "
+                "approved before applying for UHI."
+            )
+        return ""
+
+
+class UhiApplication(ApplicationDefinition):
+    key = "abdm_uhi_participation"
+    name = "UHI participation"
+    reference_prefix = "UHI"
+    forms = (UhiParticipation,)
+
+
 class SandboxExit(ApplicationDefinition):
     key = "abdm_sandbox_exit"
     name = "ABDM sandbox milestone exit"
@@ -186,6 +221,7 @@ class ABDM(ProgramDefinition):
     organisation_form = OrganisationVerification
     product_application = SandboxProduct
     milestone_application = SandboxExit
+    milestone_applications = {"uhi1": UhiApplication}
     milestones = MILESTONES
     tracks = TRACKS
     credentials = ABDMCredentials

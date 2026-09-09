@@ -10,9 +10,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 
+from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
-from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.events.models import Event
 from ohc_experience.experiences import permissions
@@ -72,19 +72,23 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
 ):
     approve(environment)
     hicm = milestone(environment, "m1")
-    uhi = submit(environment, "uhi1")
-    grant(staff)
+    # HealthLocker, because it is the one track whose milestone is neither shared
+    # with another track nor recorded without a decision.
+    locker = submit(environment, "locker1")
+    grant(staff, category="HealthLocker")
     client.force_login(staff)
     response = client.get(reverse("experiences:queue"), HTTP_HX_REQUEST="true")
-    assert list(response.context["page"]) == [uhi]
-    assert [track.code for track in response.context["track_choices"]] == ["UHI"]
+    assert list(response.context["page"]) == [locker]
+    assert [track.code for track in response.context["track_choices"]] == [
+        "HealthLocker",
+    ]
     response = client.get(reverse("experiences:assess-dashboard"))
     assert response.context["pending_count"] == 1
     assert response.context["approved_month"] == 0
     assert b'id="nav-support"' not in response.content
     assert b'id="nav-events"' not in response.content
     assert client.get(hicm.get_absolute_url()).status_code == 404
-    assert client.get(uhi.get_absolute_url()).status_code == 200
+    assert client.get(locker.get_absolute_url()).status_code == 200
     assert (
         client.get(
             reverse(
@@ -94,7 +98,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
         ).status_code
         == 404
     )
-    for item, expected in [(hicm, 404), (uhi, 200)]:
+    for item, expected in [(hicm, 404), (locker, 200)]:
         upload = FormAttachment.objects.filter(
             submission=item.selected_submission,
         ).first()
@@ -106,7 +110,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
             client.get(
                 reverse(
                     "experiences:submission",
-                    args=[uhi.pk, item.selected_submission_id],
+                    args=[locker.pk, item.selected_submission_id],
                 ),
             ).status_code
             == expected
@@ -135,8 +139,8 @@ def test_nhcx_grant_does_not_allow_uhi_or_hicm(environment, staff, client):
 
 def test_review_write_and_approve_are_independent(environment, staff, client):
     approve(environment)
-    item = submit(environment, "uhi1")
-    access = grant(staff, write=True)
+    item = submit(environment, "locker1")
+    access = grant(staff, category="HealthLocker", write=True)
     workflows.assign_review(item, environment["admin"], staff)
     client.force_login(staff)
     page = client.get(item.get_absolute_url())

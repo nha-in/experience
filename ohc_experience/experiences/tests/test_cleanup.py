@@ -55,9 +55,11 @@ def test_retired_models_and_tables_are_removed(app_label, model):
 
 
 def test_only_current_applications_are_registered():
+    program = get_program()
     assert {definition.key for definition in registry.all()} == {
-        get_program().product_application.key,
-        get_program().milestone_application.key,
+        program.product_application.key,
+        program.milestone_application.key,
+        *(item.key for item in program.milestone_applications.values()),
     }
 
 

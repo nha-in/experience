@@ -13,8 +13,8 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
-from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import approve
+from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.events.models import Event
 from ohc_experience.experiences import permissions
@@ -421,10 +421,14 @@ def test_archive_releases_pending_assignments_and_preserves_evidence(
     environment, staff,
 ):
     AccessGrant.objects.create(
-        user=staff, program="abdm", area="review", category="UHI", can_approve=True,
+        user=staff,
+        program="abdm",
+        area="review",
+        category="HealthLocker",
+        can_approve=True,
     )
     approve(environment)
-    item = submit(environment, "uhi1")
+    item = submit(environment, "locker1")
     submission_id = item.selected_submission_id
     workflows.assign_review(item, environment["admin"], staff)
     ticket = Ticket.objects.create(
