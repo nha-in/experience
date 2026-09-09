@@ -30,7 +30,7 @@ class ProvisionedResource(models.Model):
         on_delete=models.PROTECT,
         related_name="provisioned_resources",
     )
-    system = models.CharField(max_length=20, choices=ProvisionedSystem.choices)
+    system = models.CharField(max_length=20, choices=ProvisionedSystem)
     external_ref = models.CharField(max_length=255)
     #: The handle a person sees, where it differs from the one we call the API
     #: with. Only Keycloak has both: `external_ref` is the internal UUID that
@@ -41,7 +41,7 @@ class ProvisionedResource(models.Model):
     secret_ref = models.CharField(max_length=255, blank=True)
     state = models.CharField(
         max_length=20,
-        choices=ProvisionedResourceState.choices,
+        choices=ProvisionedResourceState,
         default=ProvisionedResourceState.ACTIVE,
     )
 

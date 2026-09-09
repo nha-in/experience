@@ -73,7 +73,8 @@ class EventAdmin(admin.ModelAdmin):
                     data["program"],
                 ):
                     self.add_error(
-                        "category", "You do not have write access to this category.",
+                        "category",
+                        "You do not have write access to this category.",
                     )
                 return data
 
@@ -82,7 +83,11 @@ class EventAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         if not permissions.has_access(
-            request.user, "events", obj.category, "write", obj.program,
+            request.user,
+            "events",
+            obj.category,
+            "write",
+            obj.program,
         ):
             raise PermissionDenied
         if change:

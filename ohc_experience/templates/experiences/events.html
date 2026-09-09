@@ -46,8 +46,10 @@
            {% if period == 'past' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ past_count|default:0 }}</span><span class="ui-kicker">Past events</span></a>
       </nav>
       <div class="mb-2 flex flex-wrap gap-2">
-        {% if can_manage_events %}<a class="ui-btn ui-btn--outline ui-btn--size-sm" href="{% url 'experiences:event-manage' %}">Manage events</a>{% endif %}
-        {% if can_create_events %}<a class="ui-btn ui-btn--default ui-btn--size-sm" href="{% url 'experiences:event-create' %}">{% include 'components/nav_icon.html' with icon='add' %}New event</a>{% endif %}
+        {% if can_manage_events %}<a class="ui-btn ui-btn--outline ui-btn--size-sm"
+   href="{% url 'experiences:event-manage' %}">Manage events</a>{% endif %}
+        {% if can_create_events %}<a class="ui-btn ui-btn--default ui-btn--size-sm"
+   href="{% url 'experiences:event-create' %}">{% include 'components/nav_icon.html' with icon='add' %}New event</a>{% endif %}
       </div>
     </div>
     {% if events %}

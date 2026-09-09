@@ -227,17 +227,34 @@
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');
     if (!button) return;
-    const missingFields = [...form.querySelectorAll('input, select, textarea')].filter(input => !input.disabled && !input.validity.valid);
+    const available = input => !input.matches(':disabled') && !input.closest('[hidden]');
+    const missingFields = [...form.querySelectorAll('input, select, textarea')].filter(input => available(input) && !input.validity.valid);
+    const missingGroups = [...form.querySelectorAll('[data-required-checkbox-group]')].filter(group => {
+      const choices = [...group.querySelectorAll('input[type="checkbox"]')].filter(available);
+      return choices.length > 0 && !choices.some(input => input.checked);
+    });
     const missingFiles = [...form.querySelectorAll('[data-required-upload]')].filter(field => {
       const input = field.querySelector('input[type="file"]');
-      if (input?.disabled || field.hidden) return false;
+      if (!input || !available(input)) return false;
       const retained = [...field.querySelectorAll('[data-existing-file-remove]')].some(checkbox => !checkbox.checked);
       return !input?.files.length && !retained;
     });
-    const missing = new Set([...missingFields.map(input => input.name), ...missingFiles.map(field => field.dataset.requiredUpload)]).size;
+    const missing = new Set([
+      ...missingFields.map(input => input.name),
+      ...missingGroups.map(group => group.dataset.requiredCheckboxGroup),
+      ...missingFiles.map(field => field.dataset.requiredUpload),
+    ]).size;
     const blocked = form.dataset.reviewBlocked === 'true';
+    const autoApprove = form.dataset.autoApprove === 'true';
+    const approvedUpdate = form.dataset.approvedUpdates === 'true';
+    const action = approvedUpdate ? 'submit your update' : autoApprove ? 'record participation' : 'request review';
+    const canSaveDraft = !approvedUpdate && form.querySelector('[name="intent"][value="draft"]:not(:disabled)');
     button.disabled = blocked || missing > 0;
-    if (reason) reason.textContent = blocked ? 'Required approvals are pending. You can still save a draft.' : missing ? `${missing} ${missing === 1 ? 'field needs' : 'fields need'} attention before you can request review.` : 'All required fields are complete. Ready to request review.';
+    if (reason) reason.textContent = blocked
+      ? `Required approvals are pending.${canSaveDraft ? ' You can still save a draft.' : ''}`
+      : missing
+        ? `${missing} ${missing === 1 ? 'field needs' : 'fields need'} attention before you can ${action}.`
+        : `All required fields are complete. Ready to ${action}.`;
     const jump = form.querySelector('[data-submit-missing]');
     if (jump) jump.hidden = missing === 0;
   }
@@ -289,7 +306,8 @@
     const decision = event.target.closest('[data-decision-form]');
     if (decision) updateDecision(decision);
     const form = event.target.closest('[data-review-form]');
-    if (form) updateSubmission(form);
+    // Conditional fields are synchronized by another change listener below.
+    if (form) queueMicrotask(() => updateSubmission(form));
   });
   document.addEventListener('input', event => {
     const form = event.target.closest('[data-review-form]');

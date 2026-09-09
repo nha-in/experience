@@ -1,4 +1,7 @@
-<fieldset id="{{ field.auto_id }}" class="scroll-mt-6" tabindex="-1">
+<fieldset id="{{ field.auto_id }}"
+          class="scroll-mt-6"
+          tabindex="-1"
+          {% if submit_required %}data-required-checkbox-group="{{ field.html_name }}"{% endif %}>
   <legend class="ui-label">{{ label }}</legend>
   <div class="mt-1.5 flex flex-wrap gap-x-6 gap-y-2.5">
     {% for choice in field %}

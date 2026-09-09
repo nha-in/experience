@@ -69,7 +69,9 @@ def _answer_source(submissions, application_id, product_id):
     )
     for queryset in candidates:
         for snapshot in queryset.order_by("-submitted_at", "-pk").iterator():
-            if any(snapshot.data.get(key) for key in UHI_FIELDS):
+            # Present-but-empty answers are a deliberate saved draft. Only scan
+            # past snapshots whose schema no longer contained any UHI fields.
+            if any(key in snapshot.data for key in UHI_FIELDS):
                 return snapshot
     return None
 

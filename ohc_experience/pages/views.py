@@ -39,11 +39,7 @@ def resolve_post_login_destination(user) -> str:
     """
     membership = get_membership_for(user)
     if membership is None:
-        return (
-            "experiences:home"
-            if is_ohc_team(user) or user.is_superuser
-            else "home"
-        )
+        return "experiences:home" if is_ohc_team(user) or user.is_superuser else "home"
     if not membership.organisation.is_onboarded:
         return "experiences:organisation"
     return "experiences:home"

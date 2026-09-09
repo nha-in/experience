@@ -118,6 +118,11 @@ def ui_field(  # noqa: PLR0913, PLR0917
         "field": _style(field, extra_class),
         "label": label or field.label,
         "help_text": help_text or field.help_text,
+        "submit_required": (
+            form.base_fields.get(field.name, field.field).required
+            if getattr(form, "draft", False)
+            else field.field.required
+        ),
         # The mockups mark nothing as required — almost every field is. Flag the
         # exceptions instead, which is both closer to the design and the clearer
         # convention.

@@ -139,6 +139,8 @@
                     hx-encoding="multipart/form-data"
                     novalidate
                     data-review-form
+                    {% if item.definition.auto_approve %}data-auto-approve="true"{% endif %}
+                    {% if item.definition.auto_approve and item.status == 'approved' %}data-approved-updates="true"{% endif %}
                     {% if submission_blocked %}data-review-blocked="true"{% endif %}>
                 {% csrf_token %}
                 <input type="hidden"
@@ -148,11 +150,11 @@
                 <div id="evidence-actions"
                      class="mt-8 flex scroll-mt-6 flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
                   <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium">{% if item.definition.auto_approve %}Save your progress or record participation{% else %}Save your progress or request review{% endif %}</p>
-                    <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">{% if item.definition.auto_approve %}Submitting records your participation. You can return to update your answers.{% else %}Drafts stay editable. Submitting sends this milestone for review and locks the form.{% endif %}</p>
+                    <p class="text-sm font-medium">{% if item.definition.auto_approve and item.status == 'approved' %}Update recorded participation{% elif item.definition.auto_approve %}Save your progress or record participation{% else %}Save your progress or request review{% endif %}</p>
+                    <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">{% if item.definition.auto_approve and item.status == 'approved' %}Submit your changes to update the recorded answers. Your participation stays recorded.{% elif item.definition.auto_approve %}Submitting records your participation. You can return to update your answers.{% else %}Drafts stay editable. Submitting sends this milestone for review and locks the form.{% endif %}</p>
                     <p class="mt-1.5 text-xs text-soft-foreground"
                        data-unsaved-status
-                       aria-live="polite">Changes are saved when you save a draft.</p>
+                       aria-live="polite">{% if item.definition.auto_approve and item.status == 'approved' %}Changes are saved when you submit your update.{% else %}Changes are saved when you save a draft.{% endif %}</p>
                     <p class="mt-1.5 text-xs font-medium text-amber-800"
                        id="evidence-submit-reason"
                        data-submit-reason
@@ -163,17 +165,19 @@
                             hidden>Go to first incomplete field</button>
                   </div>
                   <div class="flex flex-col gap-2 sm:flex-row">
-                    <button class="ui-btn ui-btn--outline ui-btn--size-sm"
-                            type="submit"
-                            name="intent"
-                            value="draft"
-                            formnovalidate>Save draft</button>
+                    {% if not item.definition.auto_approve or item.status != 'approved' %}
+                      <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+                              type="submit"
+                              name="intent"
+                              value="draft"
+                              formnovalidate>Save draft</button>
+                    {% endif %}
                     <button class="ui-btn ui-btn--default ui-btn--size-sm"
                             type="submit"
                             name="intent"
                             value="submit"
                             aria-describedby="evidence-submit-reason"
-                            data-request-submit>{{ item.definition.submit_label }}</button>
+                            data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% else %}{{ item.definition.submit_label }}{% endif %}</button>
                   </div>
                 </div>
               </form>

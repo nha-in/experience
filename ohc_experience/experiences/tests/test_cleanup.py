@@ -82,7 +82,6 @@ def test_navigation_between_portal_and_settings_uses_shared_shell(
     assert 'hx-target="#main-content"' in response.text
     response = client.get(reverse("organisations:team"))
     assert response.status_code == HTTPStatus.OK
-    assert (
-        f'href="{reverse("experiences:organisation")}" hx-boost="false"'
-        in response.text
+    assert f'href="{reverse("experiences:organisation")}" hx-boost="false"' in " ".join(
+        response.text.split(),
     )
