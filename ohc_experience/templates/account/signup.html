@@ -1,86 +1,147 @@
-{% extends "layouts/onboarding.html" %}
+{% extends "account/base_entrance.html" %}
 
-{% load careui %}
+{% load careui i18n %}
 
 {% block title %}Create your account | {{ experience_program.name|default:"Developer Sandbox" }}{% endblock title %}
-{% block onboarding_content %}
-  <div class="mx-auto max-w-[640px]">
-    <section class="ui-card gap-0 py-0" aria-labelledby="signup-title">
-      <div class="border-b border-soft-border px-6 pt-7 pb-6 sm:px-8 sm:pt-8">
-        <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">{% if invitation %}Your team is waiting{% else %}Get started{% endif %}</p>
-        <h1 class="mt-3 text-[28px] font-semibold leading-tight tracking-[-0.025em]"
-            id="signup-title">{% if invitation %}Join your organisation{% else %}Create your integrator account{% endif %}</h1>
-        <p class="mt-3 text-sm leading-relaxed text-muted-foreground">{% if invitation %}Create an account with your invited email address to join the team.{% else %}Your account gives you one place to register products, track reviews and get integration support.{% endif %}</p>
+{% block header_action %}
+  <span class="marketing-auth-headerhint">{% translate "Already have an account?" %}</span>
+  <a class="marketing-button" href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+{% endblock header_action %}
+{% block entrance_layout_class %}marketing-auth--signup{% endblock entrance_layout_class %}
+{% block entrance_eyebrow %}
+  {% if invitation %}
+    {% translate "Build with your team" %}
+  {% else %}
+    {% translate "Start your integration" %}
+  {% endif %}
+{% endblock entrance_eyebrow %}
+{% block entrance_story_title %}
+  {% if invitation %}
+    {% translate "One team." %} <span>{% translate "One workspace." %}</span>
+  {% else %}
+    {% translate "Your path to" %} <span>{% translate "connected care." %}</span>
+  {% endif %}
+{% endblock entrance_story_title %}
+{% block entrance_story_lede %}
+  {% if invitation %}
+    {% translate "Join your organisation's sandbox workspace to work on products, evidence and reviews together." %}
+  {% else %}
+    {% translate "Create your account, verify your organisation and register a product. Then follow your integration from the sandbox through review." %}
+  {% endif %}
+{% endblock entrance_story_lede %}
+{% block entrance_story_body %}
+  {% if invitation %}
+    <div class="marketing-auth-context">
+      <span class="marketing-auth-context-label">{% translate "Your invitation" %}</span>
+      <p>{% translate "Use the email address your team invited. Your account will be connected to their existing organisation." %}</p>
+    </div>
+  {% else %}
+    <ol class="marketing-auth-steps" aria-label="Registration progress">
+      <li aria-current="step">
+        <span class="marketing-auth-step-number" aria-hidden="true">01</span>
+        <div><strong>{% translate "Account" %}</strong><span>{% translate "Create your login and confirm your email." %}</span></div>
+      </li>
+      <li>
+        <span class="marketing-auth-step-number" aria-hidden="true">02</span>
+        <div><strong>{% translate "Organisation" %}</strong><span>{% translate "Submit your organisation details for verification." %}</span></div>
+      </li>
+      <li>
+        <span class="marketing-auth-step-number" aria-hidden="true">03</span>
+        <div><strong>{% translate "Product" %}</strong><span>{% translate "Register your product and choose its milestones." %}</span></div>
+      </li>
+    </ol>
+  {% endif %}
+{% endblock entrance_story_body %}
+{% block entrance_panel_eyebrow %}
+  <p class="marketing-auth-panel-eyebrow">
+    {% if invitation %}
+      {% translate "Your team is waiting" %}
+    {% else %}
+      {% translate "Step 01 · Account" %}
+    {% endif %}
+  </p>
+{% endblock entrance_panel_eyebrow %}
+{% block entrance_title %}
+  {% if invitation %}
+    {% translate "Join your organisation." %}
+  {% else %}
+    {% translate "Create your account." %}
+  {% endif %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% if invitation %}
+    {% translate "Create an account with your invited email address to join the team." %}
+  {% else %}
+    {% translate "Start with your work details. You'll verify your organisation in the next step." %}
+  {% endif %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <form method="post"
+        action="{% url 'account_signup' %}"
+        hx-boost="false"
+        class="marketing-auth-form marketing-auth-signup-form">
+    {% csrf_token %}
+    {% if invitation %}
+      <div class="marketing-auth-invitation">
+        {% blocktranslate with organisation=invitation.organisation.name role=invitation.get_role_display %}You are joining <strong>{{ organisation }}</strong> as {{ role }}.{% endblocktranslate %}
       </div>
-      <form method="post"
-            action="{% url 'account_signup' %}"
-            hx-boost="false"
-            class="flex flex-col gap-6 px-6 py-6 sm:px-8 sm:py-7">
-        {% csrf_token %}
-        {% if invitation %}
-          <div class="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3.5 text-sm leading-relaxed">
-            You are joining <strong>{{ invitation.organisation.name }}</strong> as {{ invitation.get_role_display }}.
-          </div>
+    {% endif %}
+    {% include "components/form_errors.html" %}
+    <fieldset class="marketing-auth-fieldset">
+      <legend>{% translate "About you" %}</legend>
+      {% ui_field form.name label="Full name" %}
+      <div class="marketing-auth-field-grid">
+        {% ui_field form.email label="Work email" %}
+        {% if form.mobile_number %}
+          {% ui_field form.mobile_number %}
         {% endif %}
-        {% if form.errors %}
-          <div class="ui-alert ui-alert--destructive" role="alert">
-            <div>
-              <p class="font-semibold">A few details need your attention</p>
-              {% if form.non_field_errors %}{{ form.non_field_errors }}{% else %}<p class="mt-1">Check the highlighted fields below to continue.</p>{% endif %}
-            </div>
-          </div>
-        {% endif %}
-        <fieldset class="flex flex-col gap-4">
-          <legend class="mb-4 text-base font-semibold">About you</legend>
-          {% ui_field form.name label="Full name" %}
-          <div class="grid gap-4 sm:grid-cols-2">
-            {% ui_field form.email label="Work email" %}
-            {% if form.mobile_number %}
-              {% ui_field form.mobile_number %}
-            {% endif %}
-          </div>
-        </fieldset>
-        {% if form.organisation %}
-          <fieldset class="flex flex-col gap-4 border-t border-soft-border pt-6">
-            <legend class="float-left mb-4 w-full text-base font-semibold">Your organisation</legend>
-            <div class="clear-both grid gap-4 sm:grid-cols-2">
-              {% ui_field form.organisation label="Organisation name" %}
-              {% ui_field form.organisation_type %}
-            </div>
-          </fieldset>
-        {% endif %}
-        <fieldset class="flex flex-col gap-4 border-t border-soft-border pt-6">
-          <legend class="float-left mb-4 w-full text-base font-semibold">Secure your account</legend>
-          <div class="clear-both">{% ui_field form.password1 label="Password" help_text="Use at least 12 characters. Avoid common words and personal details." %}</div>
-          {% if form.password2 %}
-            {% ui_field form.password2 label="Confirm password" %}
-          {% endif %}
-          {% if form.captcha %}
-            <div>
-              {% if form.turnstile_site_key %}
-                <div class="cf-turnstile"
-                     data-sitekey="{{ form.turnstile_site_key }}"
-                     data-response-field-name="captcha"></div>
-                <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-                        async
-                        defer></script>
-                {% for error in form.captcha.errors %}<p class="ui-error mt-2" role="alert">{{ error }}</p>{% endfor %}
-              {% else %}
-                {% ui_field form.captcha %}
-              {% endif %}
-            </div>
-          {% endif %}
-        </fieldset>
-        {{ redirect_field }}
-        <div class="border-t border-soft-border pt-6">
-          <button class="ui-btn ui-btn--default ui-btn--size-lg min-h-12 w-full"
-                  type="submit">{% if invitation %}Create account and join team{% else %}Create account{% endif %}</button>
-          <p class="mt-3 text-center text-xs leading-relaxed text-muted-foreground">We'll email you a verification link to confirm your address.</p>
+      </div>
+    </fieldset>
+    {% if form.organisation %}
+      <fieldset class="marketing-auth-fieldset">
+        <legend>{% translate "Your organisation" %}</legend>
+        <div class="marketing-auth-field-grid">
+          {% ui_field form.organisation label="Organisation name" %}
+          {% ui_field form.organisation_type %}
         </div>
-      </form>
-    </section>
-    <p class="mt-6 text-center text-sm text-muted-foreground">Already have an account? <a class="inline-flex min-h-11 items-center font-semibold text-primary underline-offset-4 hover:underline"
-    href="{% url 'account_login' %}"
-    hx-boost="false">Sign in</a></p>
-  </div>
-{% endblock onboarding_content %}
+      </fieldset>
+    {% endif %}
+    <fieldset class="marketing-auth-fieldset">
+      <legend>{% translate "Secure your account" %}</legend>
+      {% ui_field form.password1 label="Password" help_text="Use at least 12 characters. Avoid common words and personal details." %}
+      {% if form.password2 %}
+        {% ui_field form.password2 label="Confirm password" %}
+      {% endif %}
+      {% if form.captcha %}
+        <div>
+          {% if form.turnstile_site_key %}
+            <div class="cf-turnstile"
+                 id="{{ form.captcha.auto_id }}"
+                 tabindex="-1"
+                 data-sitekey="{{ form.turnstile_site_key }}"
+                 data-size="compact"
+                 data-theme="light"
+                 data-response-field-name="captcha"></div>
+            <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+                    async
+                    defer></script>
+            <div id="{{ form.captcha.auto_id }}_errors">
+              {% for error in form.captcha.errors %}<p class="ui-error" role="alert">{{ error }}</p>{% endfor %}
+            </div>
+          {% else %}
+            {% ui_field form.captcha %}
+          {% endif %}
+        </div>
+      {% endif %}
+    </fieldset>
+    {{ redirect_field }}
+    <div class="marketing-auth-submit">
+      <button class="ui-btn ui-btn--default ui-btn--size-lg ui-btn--block"
+              type="submit">{% if invitation %}{% translate "Create account and join team" %}{% else %}{% translate "Create account" %}{% endif %}<span aria-hidden="true">→</span></button>
+      <p>{% translate "We'll email you a verification link to confirm your address." %}</p>
+    </div>
+  </form>
+{% endblock entrance_body %}
+{% block entrance_after %}
+  <p>{% translate "Already have an account?" %} <a href="{% url 'account_login' %}" hx-boost="false">{% translate "Sign in" %}</a></p>
+{% endblock entrance_after %}

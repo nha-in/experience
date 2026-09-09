@@ -1,0 +1,70 @@
+{% load static i18n %}
+
+<footer class="marketing-footer">
+  <div class="marketing-container">
+    <div class="marketing-footer-grid">
+      <div class="marketing-footer-about">
+        <div class="marketing-footer-logos">
+          <img src="{% static 'images/marketing/nha-logo-trim.png' %}"
+               alt="{% translate 'National Health Authority' %}"
+               width="132"
+               height="48"
+               loading="lazy" />
+          <img src="{% static 'images/marketing/abdm-logo-trim.png' %}"
+               alt="{% translate 'Ayushman Bharat Digital Mission' %}"
+               width="102"
+               height="56"
+               loading="lazy" />
+        </div>
+        <p>{% translate "The ABDM Developer Sandbox is operated by the National Health Authority, Ministry of Health and Family Welfare, Government of India." %}</p>
+        <a href="https://abdm.gov.in/">{% translate "National Health Authority" %} <span aria-hidden="true">↗</span></a>
+        <a href="mailto:abdm@nha.gov.in">abdm@nha.gov.in</a>
+      </div>
+      <nav aria-label="{% translate 'Developer links' %}">
+        <h2 class="marketing-eyebrow">{% translate "Developers" %}</h2>
+        <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">{% translate "Documentation" %}</a>
+        <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/api">{% translate "API reference" %}</a>
+        <a href="{% url 'home' %}#ai">{% translate "Build with AI" %}</a>
+        <a href="https://abdm-docs.dev.eka.care/docs/whats-new">{% translate "What’s new" %}</a>
+        <a href="https://abdm-docs.dev.eka.care/docs/support">{% translate "Support" %}</a>
+        <a href="https://github.com/nha-in">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+      <nav aria-label="{% translate 'Important links' %}">
+        <h2 class="marketing-eyebrow">{% translate "Important links" %}</h2>
+        <a href="https://www.mohfw.gov.in/">{% translate "Ministry of Health & Family Welfare" %}</a>
+        <a href="https://abha.abdm.gov.in/">{% translate "Ayushman Bharat Health Account" %}</a>
+        <a href="https://nhpr.abdm.gov.in/">{% translate "Healthcare Professionals Registry" %}</a>
+        <a href="https://facility.abdm.gov.in/">{% translate "Health Facility Registry" %}</a>
+        <a href="https://grievance.abdm.gov.in/">{% translate "Grievance portal" %}</a>
+      </nav>
+    </div>
+    <div class="marketing-footer-bottom">
+      <p>© {% now "Y" %} {% translate "National Health Authority, Government of India." %}<br />{% translate "Use synthetic data for sandbox testing." %}</p>
+      <div class="marketing-partners">
+        <span>{% translate "Built in open source with" %}</span>
+        <div>
+          <img src="{% static 'images/marketing/egov-logo-trim.png' %}"
+               alt="eGov Foundation"
+               width="68"
+               height="28"
+               loading="lazy" />
+          <img src="{% static 'images/marketing/ohc-logo-trim.png' %}"
+               alt="Open Healthcare Network"
+               width="74"
+               height="28"
+               loading="lazy" />
+          <img src="{% static 'images/marketing/eka-care-logo-trim.png' %}"
+               alt="eka.care"
+               width="74"
+               height="28"
+               loading="lazy" />
+          <img src="{% static 'images/marketing/kyrocare-logo-trim.png' %}"
+               alt="Kyrocare"
+               width="74"
+               height="28"
+               loading="lazy" />
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>

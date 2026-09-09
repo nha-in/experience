@@ -1,55 +1,85 @@
 {% extends "layouts/marketing.html" %}
 
-{% comment %}
-  The shell every signed-out allauth screen sits in.
-
-  allauth's own templates all extend "account/base_entrance.html", so shadowing
-  it here is what pulls the whole authentication flow into the hub's marketing
-  chrome instead of allauth's bare scaffolding.
-
-  Blocks:
-    head_title      — allauth's own title block, mapped onto base.html's title
-    entrance_width  — max width of the column (default 480px, login uses 420px)
-    entrance_title  — the h1 inside the card
-    entrance_lede   — the one-paragraph explanation under it
-    entrance_body   — the form or actions
-    entrance_after  — anything below the card (footer links)
-    entrance        — replaces the card wholesale
-{% endcomment %}
 {% load i18n %}
 
+{% comment %}
+  Shared public account shell. Keep the entrance blocks compatible with every
+  allauth state; their forms, tokens and redirects remain in the child screens.
+{% endcomment %}
 {% block title %}
   {% block head_title %}
     {% translate "Your account" %}
   {% endblock head_title %}
 {% endblock title %}
 {% block content %}
-  {% comment %}
-    layouts/marketing.html does not render Django messages, and allauth talks to
-    people almost entirely through them ("Confirmation email sent", "You have
-    signed out"), so the entrance shell renders them itself.
-  {% endcomment %}
-  <div class="mx-auto w-full px-4 py-10 sm:px-6 sm:py-14 {% block entrance_width %}max-w-[480px]{% endblock entrance_width %}">
-    {% include "components/messages.html" %}
-    {% block entrance %}
-      <div class="ui-card">
-        <div class="ui-card-header">
-          <h1 class="text-[19px] leading-snug font-[650] tracking-[-0.01em] text-foreground">
-            {% block entrance_title %}
-            {% endblock entrance_title %}
-          </h1>
-          <p class="ui-card-description text-[13px] leading-[1.55]">
-            {% block entrance_lede %}
-            {% endblock entrance_lede %}
-          </p>
-        </div>
-        <div class="ui-card-content flex flex-col gap-4">
-          {% block entrance_body %}
-          {% endblock entrance_body %}
-        </div>
+  <div class="marketing-auth {% block entrance_layout_class %}{% endblock entrance_layout_class %}">
+    <div class="marketing-auth-layout">
+      <aside class="marketing-auth-story" aria-labelledby="auth-story-title">
+        <p class="marketing-auth-eyebrow">
+          <span aria-hidden="true"></span>
+          {% block entrance_eyebrow %}
+            {% translate "ABDM developer sandbox" %}
+          {% endblock entrance_eyebrow %}
+        </p>
+        <h2 id="auth-story-title" class="marketing-auth-story-title">
+          {% block entrance_story_title %}
+            {% translate "Build on India's" %} <span>{% translate "health data network." %}</span>
+          {% endblock entrance_story_title %}
+        </h2>
+        <p class="marketing-auth-story-lede">
+          {% block entrance_story_lede %}
+            {% translate "Your workspace for sandbox integration, evidence and review. One place to move your product towards production." %}
+          {% endblock entrance_story_lede %}
+        </p>
+        {% block entrance_story_body %}
+          <div class="marketing-auth-context">
+            <span class="marketing-auth-context-label">{% translate "From sandbox to production" %}</span>
+            <p>{% translate "Build and test. Share your evidence. Follow every review with your team." %}</p>
+            <a href="{{ experience_program.docs_url }}"
+               target="_blank"
+               rel="noopener noreferrer">{% translate "Explore the documentation" %} <span aria-hidden="true">↗</span></a>
+          </div>
+        {% endblock entrance_story_body %}
+      </aside>
+      <div class="marketing-auth-form-column {% block entrance_width %}{% endblock entrance_width %}">
+        <div class="marketing-auth-feedback">{% include "components/messages.html" %}</div>
+        {% block entrance %}
+          <section class="marketing-auth-panel" aria-labelledby="auth-title">
+            <header class="marketing-auth-panel-heading">
+              {% block entrance_panel_eyebrow %}
+                <p class="marketing-auth-panel-eyebrow">{% translate "Your sandbox account" %}</p>
+              {% endblock entrance_panel_eyebrow %}
+              <h1 id="auth-title">
+                {% block entrance_title %}
+                {% endblock entrance_title %}
+              </h1>
+              <p>
+                {% block entrance_lede %}
+                {% endblock entrance_lede %}
+              </p>
+            </header>
+            <div class="marketing-auth-panel-body">
+              {% block entrance_body %}
+              {% endblock entrance_body %}
+            </div>
+          </section>
+          <div class="marketing-auth-after">
+            {% block entrance_after %}
+            {% endblock entrance_after %}
+          </div>
+        {% endblock entrance %}
       </div>
-      {% block entrance_after %}
-      {% endblock entrance_after %}
-    {% endblock entrance %}
+    </div>
   </div>
 {% endblock content %}
+{% block marketing_footer %}
+  <footer class="marketing-auth-footer">
+    <div>
+      <span>{{ experience_program.name|default:"ABDM Developer Sandbox" }}</span>
+      <span>{{ experience_program.footer_note|default:"Synthetic data only" }}</span>
+    </div>
+    <a href="{{ experience_program.docs_url }}"
+       target="_blank"
+       rel="noopener noreferrer">{% translate "Documentation" %} <span aria-hidden="true">↗</span></a>
+  </footer>
+{% endblock marketing_footer %}
