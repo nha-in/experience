@@ -1,6 +1,7 @@
 from .base import *  # noqa: F403
 from .base import INSTALLED_APPS
 from .base import MIDDLEWARE
+from .base import REDIS_URL
 from .base import env
 
 # GENERAL
@@ -8,6 +9,8 @@ from .base import env
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = True
 ABDM_ALLOW_DEMO_CREDENTIALS = True
+# No VPN and no provider key locally, so PIN lookups come from the stand-in.
+LGD_PROVIDER = "ohc_experience.organisations.lgd_local.lookup"
 EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
 SECRET_KEY = env(
@@ -20,10 +23,15 @@ ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
 # CACHES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#caches
+# Redis rather than locmem: the local integration adapters keep their state here,
+# and the chain parks the Keycloak secret here between two of its steps. Both
+# cross process boundaries — web to worker, and one prefork child to the next —
+# which per-process memory silently breaks.
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
     },
 }
 
@@ -120,3 +128,12 @@ if env.bool("DJANGO_USE_LOCAL_MEDIA", default=env("USE_DOCKER", default="no") !=
     }
 if env("USE_DOCKER", default="no") != "yes":
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# INTEGRATIONS
+# ------------------------------------------------------------------------------
+# Named so the local gateway has something to subscribe to offline.
+WSO2_API_NAMES = {
+    "abdm": tuple(
+        env.list("WSO2_SANDBOX_API_NAMES", default=["HealthIdAPI", "GatewayAPI"]),
+    ),
+}

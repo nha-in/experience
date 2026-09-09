@@ -6,7 +6,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from .credentials import check_callback
-from .credentials import provider
 from .models import EventRegistration
 from .models import Notification
 from .models import ProductCredential
@@ -19,8 +18,7 @@ def monitor_callbacks():
     for credential in ProductCredential.objects.filter(
         status="active",
     ).exclude(callback_url=""):
-        if not provider(credential.product).eligibility_error(credential.product):
-            check_callback(credential)
+        check_callback(credential)
 
 
 @shared_task

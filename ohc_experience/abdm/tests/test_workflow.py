@@ -8,6 +8,7 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import DatabaseError
 from django.test import Client
 from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
@@ -26,6 +27,14 @@ from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.integrations.local import fail_next
+from ohc_experience.integrations.models import ProvisionedResource
+from ohc_experience.integrations.models import ProvisionedResourceState
+from ohc_experience.integrations.ports import ExternalSystem
+from ohc_experience.integrations.selectors import awaiting_provisioning
+from ohc_experience.integrations.selectors import provisioning_can_be_retried
+from ohc_experience.integrations.services import provision_inline
+from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.users.tests.factories import ReviewerFactory
@@ -36,6 +45,11 @@ pytestmark = pytest.mark.django_db
 
 def pdf(name="test.pdf"):
     return SimpleUploadedFile(name, b"%PDF-1.4\n%%EOF", content_type="application/pdf")
+
+
+def stored_secret(product):
+    credential = ProductCredential.objects.get(product=product)
+    return credentials.cipher().decrypt(credential.encrypted_secret.encode()).decode()
 
 
 def files():
@@ -78,6 +92,7 @@ def environment(settings, tmp_path, lgd_lookup):
     org.refresh_from_db()
     workspace, form = services.register_product(org, applicant, data=product_data())
     assert workspace, form.errors
+    provision_inline(workspace.product)
     registration = workspace.product.review_items.get(kind="product_registration")
     services.assign_review(registration, admin, reviewer)
     services.decide(registration, reviewer, action="approve")
@@ -351,9 +366,10 @@ def test_credentials_encrypted_audited_rate_limited_and_not_in_outcomes(
     environment,
     client,
 ):
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    product = environment["workspace"].product
+    credential = ProductCredential.objects.get(product=product)
     plain = credentials.cipher().decrypt(credential.encrypted_secret.encode()).decode()
-    outcome = credential.product.outcomes.get(outcome_type="sandbox_credentials")
+    outcome = product.outcomes.get(outcome_type="sandbox_credentials")
     assert plain not in str(outcome.data)
     assert plain not in credential.encrypted_secret
     url = reverse("experiences:credentials", args=[environment["workspace"].reference])
@@ -375,12 +391,37 @@ def test_credentials_encrypted_audited_rate_limited_and_not_in_outcomes(
     assert client.post(url, {"intent": "reveal"}).status_code == 403
 
 
-def test_revoke_removes_secret_and_reveal_permission(environment):
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
-    credentials.revoke(credential, environment["applicant"])
+def test_rotation_replaces_the_stored_secret(environment):
+    product = environment["workspace"].product
+    credential = ProductCredential.objects.get(product=product)
+    first = credentials.reveal(credential, environment["applicant"])
+
+    credentials.rotate(credential, environment["applicant"])
+
     credential.refresh_from_db()
+    assert credentials.reveal(credential, environment["applicant"]) != first
+
+
+def test_revoke_switches_every_system_off_and_closes_the_panel(
+    environment,
+    django_capture_on_commit_callbacks,
+):
+    product = environment["workspace"].product
+    credential = ProductCredential.objects.get(product=product)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        credentials.revoke(credential, environment["applicant"])
+
+    credential.refresh_from_db()
+    assert credential.status == "revoked"
     assert credential.encrypted_secret == ""
-    with pytest.raises(ValidationError, match="active"):
+    assert set(
+        ProvisionedResource.objects.filter(product=product).values_list(
+            "state",
+            flat=True,
+        ),
+    ) == {ProvisionedResourceState.DISABLED}
+    with pytest.raises(ValidationError, match="no longer active"):
         credentials.reveal(credential, environment["applicant"])
 
 
@@ -603,16 +644,149 @@ def test_review_mutation_requires_csrf(environment):
     assert item.pending
 
 
-def test_credential_issuance_checks_current_organisation_not_cached_instance(
-    environment,
-):
-    product = environment["workspace"].product
-    assert product.organisation.is_verified
-    Organisation.objects.filter(pk=product.organisation_id).update(
-        verification_status="pending",
+def _pending_organisation(environment):
+    """An organisation back in verification, with a product registered anyway."""
+    org = environment["org"]
+    Organisation.objects.filter(pk=org.pk).update(verification_status="pending")
+    org.refresh_from_db()
+    workspace, form = services.register_product(
+        org,
+        environment["applicant"],
+        data=product_data("Second product"),
     )
-    with pytest.raises(ValidationError, match="verified organisation"):
-        credentials.issue_credentials(product, environment["applicant"])
+    assert workspace, form.errors
+    return org, workspace.product
+
+
+def test_registering_before_verification_provisions_nothing_yet(environment):
+    _org, product = _pending_organisation(environment)
+
+    assert awaiting_provisioning(product)
+    assert not ProvisionedResource.objects.filter(product=product).exists()
+    assert not ProductCredential.objects.filter(product=product).exists()
+
+
+def test_verification_starts_the_products_it_held_back(environment):
+    """The only thing that rescues a product registered while pending."""
+    org, product = _pending_organisation(environment)
+    item = org.review_items.get(kind="organisation_verification")
+    services.save_review_form(
+        item,
+        environment["applicant"],
+        data=organisation_data(),
+        files={"supporting_document": pdf()},
+        submit=True,
+    )
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+
+    services.decide(item, environment["reviewer"], action="approve", note="Verified.")
+
+    assert not awaiting_provisioning(product)
+
+
+def test_verification_leaves_an_already_started_product_alone(environment):
+    """Re-approval must not open a second attempt for a live product."""
+    first = environment["workspace"].product
+    org, _second = _pending_organisation(environment)
+    runs_before = first.provisioning_runs.count()
+    item = org.review_items.get(kind="organisation_verification")
+    services.save_review_form(
+        item,
+        environment["applicant"],
+        data=organisation_data(),
+        files={"supporting_document": pdf()},
+        submit=True,
+    )
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+
+    services.decide(item, environment["reviewer"], action="approve", note="Verified.")
+
+    assert first.provisioning_runs.count() == runs_before
+
+
+def _failed_registration(environment):
+    """A product whose chain died, and the review item a reviewer sees it on."""
+    fail_next(ExternalSystem.KEYCLOAK, "create_client", retryable=False)
+    _org, product = _pending_organisation(environment)
+    start_provisioning(product)
+    provision_inline(product)
+    return product, product.review_items.get(kind="product_registration")
+
+
+def test_a_reviewer_can_restart_a_failed_chain(environment, client):
+    product, item = _failed_registration(environment)
+    assert provisioning_can_be_retried(product)
+    client.force_login(environment["reviewer"])
+
+    response = client.post(
+        reverse("experiences:review", args=[item.pk]),
+        {"intent": "retry_provisioning"},
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
+
+
+def test_the_retry_is_not_offered_once_there_is_nothing_to_retry(environment, client):
+    registration = environment["workspace"].product.review_items.get(
+        kind="product_registration",
+    )
+    client.force_login(environment["reviewer"])
+
+    html = client.get(
+        reverse("experiences:review", args=[registration.pk]),
+    ).content.decode()
+
+    assert "retry_provisioning" not in html
+
+
+def test_a_reviewer_cannot_force_a_retry_the_ledger_does_not_want(
+    environment,
+    client,
+):
+    """The button is hidden on a healthy product; posting the intent anyway fails."""
+    registration = environment["workspace"].product.review_items.get(
+        kind="product_registration",
+    )
+    client.force_login(environment["reviewer"])
+
+    response = client.post(
+        reverse("experiences:review", args=[registration.pk]),
+        {"intent": "retry_provisioning"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_an_integrator_cannot_restart_a_chain(environment, client):
+    _product, item = _failed_registration(environment)
+    client.force_login(environment["applicant"])
+
+    response = client.post(
+        reverse("experiences:review", args=[item.pk]),
+        {"intent": "retry_provisioning"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_a_rotation_that_cannot_be_stored_says_so(environment):
+    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    before = stored_secret(environment["workspace"].product)
+
+    with (
+        patch.object(
+            ProductCredential,
+            "save",
+            side_effect=DatabaseError("connection lost"),
+        ),
+        pytest.raises(ValidationError, match="Rotate again"),
+    ):
+        credentials.rotate(credential, environment["applicant"])
+
+    credential.refresh_from_db()
+    assert stored_secret(environment["workspace"].product) == before
 
 
 def test_pdf_validation_keeps_upload_readable_without_network_access():

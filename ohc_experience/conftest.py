@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from ohc_experience.integrations.local import reset_local_state
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.users.tests.factories import UserFactory
@@ -22,6 +23,12 @@ if TYPE_CHECKING:
 def media_storage(settings, tmpdir) -> None:
     """Keep anything uploaded during a test inside that test's tmpdir."""
     settings.MEDIA_ROOT = tmpdir.strpath
+
+
+@pytest.fixture(autouse=True)
+def _reset_local_integrations() -> None:
+    """Their state is cache-backed, so it would otherwise leak between tests."""
+    reset_local_state()
 
 
 @pytest.fixture

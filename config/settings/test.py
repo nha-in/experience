@@ -34,6 +34,23 @@ TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#media-url
 MEDIA_URL = "http://media.testserver/"
+# CELERY
+# ------------------------------------------------------------------------------
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+
+# INTEGRATIONS
+# ------------------------------------------------------------------------------
+# Pinned, not inherited: .envs/.local/.django may point a port at a real system,
+# and a test run must never reach one.
+INTEGRATION_PORTS = {
+    "IDP": "ohc_experience.integrations.local.LocalIdpAdmin",
+    "API_GATEWAY": "ohc_experience.integrations.local.LocalApiGateway",
+    "BRIDGE_REGISTRY": "ohc_experience.integrations.local.LocalBridgeRegistry",
+}
+# The local adapters stand in for all three systems; these are the names they know.
+WSO2_API_NAMES = {"abdm": ("HealthIdAPI", "GatewayAPI")}
+
 # Your stuff...
 # ------------------------------------------------------------------------------
 ABDM_ALLOW_DEMO_CREDENTIALS = True

@@ -25,6 +25,7 @@ from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import TicketAttachment
 from ohc_experience.experiences.models import TicketContext
+from ohc_experience.integrations.services import provision_inline
 from ohc_experience.organisations.lgd import LGDLookupError
 from ohc_experience.organisations.lgd import lookup_pincode
 from ohc_experience.organisations.models import Membership
@@ -251,7 +252,7 @@ class DemoBuilder:
             note="Organisation identity verified for sandbox participation.",
         )
         org.refresh_from_db()
-        workspace, form = services.register_product(org, applicant, data=product_data())
+        workspace, form = self.register_product(org, applicant, data=product_data())
         if not workspace:
             raise CommandError(str(form.errors))
         registration = workspace.product.review_items.get(
@@ -276,7 +277,7 @@ class DemoBuilder:
             data={"wasa_agency": evidence_data()["wasa_agency"]},
             submit=False,
         )
-        services.register_product(
+        self.register_product(
             org,
             applicant,
             data={
@@ -366,6 +367,13 @@ class DemoBuilder:
                 "Demo permission accounts ready; application data unchanged.",
             ),
         )
+
+    def register_product(self, org, applicant, *, data):
+        """Registers, then runs the chain inline — a seed waits for no worker."""
+        workspace, form = services.register_product(org, applicant, data=data)
+        if workspace:
+            provision_inline(workspace.product)
+        return workspace, form
 
     def user(self, email, name, password, *, reviewer=False, admin=False):
         user, _ = get_user_model().objects.get_or_create(email=email)

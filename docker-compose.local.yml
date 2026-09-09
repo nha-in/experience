@@ -26,7 +26,7 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     ports:
-      - '8000:8000'
+      - '${DJANGO_HOST_PORT:-8010}:8000'
     command: /start
 
   postgres:
@@ -84,6 +84,24 @@ services:
       /usr/bin/mc mb --ignore-existing local/ohc-experience-media;
       /usr/bin/mc anonymous set none local/ohc-experience-media;
       "
+
+  # Profiled, so an ordinary `just up` does not pay for it. Start it with
+  # `docker compose -f docker-compose.local.yml --profile keycloak up -d keycloak`
+  # and switch INTEGRATION_IDP over in .envs/.local/.django to provision against
+  # a real Admin API instead of the in-process fake.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: ohc_experience_local_keycloak
+    profiles: ['keycloak']
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: 'true'
+    command: ['start-dev', '--import-realm', '--http-port=8080']
+    volumes:
+      - ./compose/local/keycloak:/opt/keycloak/data/import:z
+    ports:
+      - '8080:8080'
 
   celeryworker:
     <<: *django

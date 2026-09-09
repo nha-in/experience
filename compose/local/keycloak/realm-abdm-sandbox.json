@@ -1,0 +1,63 @@
+{
+  "realm": "abdm-sandbox",
+  "enabled": true,
+  "displayName": "ABDM Sandbox (local)",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      { "name": "bridge", "description": "ABDM bridge registration" },
+      { "name": "hip", "description": "Health Information Provider" },
+      { "name": "hiu", "description": "Health Information User" },
+      { "name": "healthId", "description": "Clients interacting with Health Account Service (HAS)" },
+      { "name": "health_locker", "description": "Health Locker" },
+      { "name": "phr", "description": "Personal Health Record" },
+      { "name": "hfr", "description": "Health Facility Registry" },
+      { "name": "hp_id", "description": "Healthcare Professional ID" },
+      { "name": "OIDC", "description": "Call OIDC APIs on healthid" },
+      { "name": "HidAbhaSearch", "description": "ABHA search" },
+      { "name": "DIGI_DOCTOR", "description": "Digi Doctor" },
+      { "name": "HIP_PAYER", "description": "HIP payer" },
+      { "name": "HIU_PAYER", "description": "HIU payer" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sandbox-provisioner",
+      "name": "Sandbox provisioner (Admin API)",
+      "description": "The only account the portal uses to manage integrator clients. Service account only: no browser flow, no password grant, no redirect URIs.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-development-only",
+      "redirectUris": [],
+      "webOrigins": []
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-sandbox-provisioner",
+      "enabled": true,
+      "serviceAccountClientId": "sandbox-provisioner",
+      "clientRoles": {
+        "realm-management": [
+          "manage-clients",
+          "view-clients",
+          "query-clients",
+          "view-realm",
+          "manage-users"
+        ]
+      }
+    }
+  ]
+}

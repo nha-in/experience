@@ -25,6 +25,9 @@ from django.views.decorators.http import require_POST
 from ohc_experience.events.models import Event
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormSubmission
+from ohc_experience.integrations.selectors import provisioning_can_be_retried
+from ohc_experience.integrations.selectors import provisioning_progress
+from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
@@ -387,7 +390,9 @@ def overview(request, reference):
         credential=ProductCredential.objects.filter(product=product).first()
         if not permissions.reviewer(request.user)
         or permissions.has_access(
-            request.user, "review", program=workspace.definition.key,
+            request.user,
+            "review",
+            program=workspace.definition.key,
         )
         else None,
         outcomes=outcomes.exclude(
@@ -622,34 +627,40 @@ def credentials(request, reference):  # noqa: C901, PLR0912
         if credential
         else None,
     )
+
+    def _secret_response(secret):
+        """A revealed secret leaves no copy in a cache or a shared proxy."""
+        response = render(
+            request,
+            "experiences/partials/secret.html"
+            if request.htmx and not request.htmx.boosted
+            else "experiences/credentials.html",
+            _context(
+                request,
+                workspace,
+                credential=credential,
+                form=form,
+                nav="credentials",
+                page_title=workspace.definition.credentials.name,
+                demo_credentials=workspace.definition.credentials.is_demo(),
+                progress=provisioning_progress(workspace.product),
+                secret=secret,
+                revealed_secret=secret,
+            ),
+        )
+        response["Cache-Control"] = "no-store, private"
+        response["Vary"] = "Cookie"
+        return response
+
     if request.method == "POST":
         if not credential:
             raise Http404
         try:
             intent = request.POST.get("intent")
             if intent == "reveal":
-                secret = credential_services.reveal(credential, request.user)
-                reveal_context = _context(
-                    request,
-                    workspace,
-                    credential=credential,
-                    form=form,
-                    nav="credentials",
-                    page_title=workspace.definition.credentials.name,
-                    demo_credentials=workspace.definition.credentials.is_demo(),
-                    secret=secret,
-                    revealed_secret=secret,
+                return _secret_response(
+                    credential_services.reveal(credential, request.user),
                 )
-                response = render(
-                    request,
-                    "experiences/partials/secret.html"
-                    if request.htmx and not request.htmx.boosted
-                    else "experiences/credentials.html",
-                    reveal_context,
-                )
-                response["Cache-Control"] = "no-store, private"
-                response["Vary"] = "Cookie"
-                return response
             if intent == "rotate":
                 credential_services.rotate(credential, request.user)
             elif intent == "revoke":
@@ -675,6 +686,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                             form=form,
                             nav="credentials",
                             page_title=workspace.definition.credentials.name,
+                            progress=provisioning_progress(workspace.product),
                         ),
                     )
             else:
@@ -710,6 +722,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             nav="credentials",
             page_title=workspace.definition.credentials.name,
             demo_credentials=workspace.definition.credentials.is_demo(),
+            progress=provisioning_progress(workspace.product),
         ),
     )
 
@@ -934,6 +947,20 @@ def queue(request):
     )
 
 
+def _can_retry_provisioning(user, item):
+    """A failed chain is an operational fault, so the console owns the re-run.
+
+    Its usual causes — a gateway outage, a missing API-name list — are ones only
+    an operator can clear, and a button the integrator cannot act on is worse
+    than none.
+    """
+    return bool(
+        item.product_id
+        and permissions.has_access(user, "review", program=item.program.key)
+        and provisioning_can_be_retried(item.product),
+    )
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def review(request, pk):
@@ -953,6 +980,12 @@ def review(request, pk):
                     else None
                 )
                 services.assign_review(item, request.user, assignee)
+            elif request.POST.get("intent") == "retry_provisioning":
+                if not _can_retry_provisioning(request.user, item):
+                    raise PermissionDenied
+                start_provisioning(item.product, started_by=request.user)
+                messages.success(request, "Provisioning restarted.")
+                return redirect(item)
             else:
                 services.decide(
                     item,
@@ -1009,6 +1042,8 @@ def review(request, pk):
             if item.product_id
             and permissions.has_access(request.user, "review", program=item.program.key)
             else None,
+            progress=provisioning_progress(item.product) if item.product_id else [],
+            can_retry_provisioning=_can_retry_provisioning(request.user, item),
             open_tickets=permissions.visible_tickets(request.user).filter(
                 organisation=item.organisation,
                 status__in=["open", "awaiting_vendor"],

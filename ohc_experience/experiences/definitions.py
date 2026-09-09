@@ -109,7 +109,7 @@ class TrackDefinition:
 
 
 class CredentialDefinition:
-    """A provider supplies values and policy; the engine secures their lifecycle."""
+    """A program supplies policy and copy; the chain provisions, the engine shows."""
 
     name = "Integration credentials"
     outcome_type = "integration_credentials"
@@ -122,16 +122,16 @@ class CredentialDefinition:
     handoff_notice = ""
 
     @classmethod
+    def gateway_url(cls):
+        return ""
+
+    @classmethod
     def is_demo(cls):
         return False
 
     @classmethod
     def eligibility_error(cls, product):
         return ""
-
-    @classmethod
-    def provision(cls, product, operation):
-        raise NotImplementedError
 
 
 class ProgramDefinition:

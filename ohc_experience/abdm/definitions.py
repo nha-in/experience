@@ -1,7 +1,5 @@
 from django.utils import timezone
 
-from ohc_experience.experiences.credentials import issue_credentials
-from ohc_experience.experiences.credentials import suspend_organisation_credentials
 from ohc_experience.experiences.definitions import ApplicationDefinition
 from ohc_experience.experiences.definitions import ApplicationFormDefinition
 from ohc_experience.experiences.definitions import OutcomeDefinition
@@ -9,6 +7,8 @@ from ohc_experience.experiences.definitions import ProgramDefinition
 from ohc_experience.experiences.models import FormReuseScope
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.workflows import project_product
+from ohc_experience.integrations.selectors import awaiting_provisioning
+from ohc_experience.integrations.services import start_provisioning
 
 from .catalog import MILESTONES
 from .catalog import TRACKS
@@ -46,7 +46,6 @@ class OrganisationVerification(ApplicationFormDefinition):
         org.verification_status = "pending"
         org.verified_at = None
         org.save()
-        suspend_organisation_credentials(org, actor)
 
     @classmethod
     def on_approve(cls, item, actor):
@@ -54,7 +53,8 @@ class OrganisationVerification(ApplicationFormDefinition):
         for product in item.organisation.products.filter(
             workspace__experience_type=ABDM.key,
         ):
-            issue_credentials(product, actor)
+            if awaiting_provisioning(product):
+                start_provisioning(product, started_by=actor)
         return ()
 
     @classmethod
@@ -210,7 +210,7 @@ class ABDM(ProgramDefinition):
     @classmethod
     def on_product_created(cls, product, actor):
         if product.organisation.is_verified:
-            issue_credentials(product, actor)
+            start_provisioning(product, started_by=actor)
 
     @classmethod
     def seed_demo(cls, **options):

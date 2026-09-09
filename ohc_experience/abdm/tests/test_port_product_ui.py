@@ -8,13 +8,17 @@ import pytest
 from django.urls import reverse
 
 from ohc_experience.abdm.demo import evidence_data
+from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.forms import ProductRegistrationForm
 from ohc_experience.abdm.tests import test_workflow as workflow_fixtures
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
-from ohc_experience.experiences import credentials
-from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.abdm.tests.test_workflow import stored_secret
+from ohc_experience.experiences import workflows
+from ohc_experience.integrations.local import fail_next
+from ohc_experience.integrations.ports import ExternalSystem
+from ohc_experience.integrations.services import provision_inline
 
 environment = workflow_fixtures.environment
 
@@ -115,7 +119,9 @@ def test_a_draft_may_leave_payer_category_unanswered():
 
 
 def test_payer_category_starts_hidden_and_opens_with_payers():
-    from ohc_experience.experiences.templatetags.experience_ui import show_when
+    from ohc_experience.experiences.templatetags.experience_ui import (  # noqa: PLC0415
+        show_when,
+    )
 
     shut = show_when(ProductRegistrationForm(), "payer_category")
     assert shut == {"field": "solution_type", "value": "payers", "active": False}
@@ -260,8 +266,7 @@ def test_track_draft_uploads_and_withdrawn_snapshot_remain_editable(
 @pytest.mark.django_db
 @pytest.mark.parametrize("htmx", [False, True])
 def test_credential_reveal_preserves_full_page_fallback(environment, client, htmx):
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
-    plain = credentials.cipher().decrypt(credential.encrypted_secret.encode()).decode()
+    plain = stored_secret(environment["workspace"].product)
     client.force_login(environment["applicant"])
     url = reverse("experiences:credentials", args=[environment["workspace"].reference])
     assert plain not in client.get(url).content.decode()
@@ -275,3 +280,25 @@ def test_credential_reveal_preserves_full_page_fallback(environment, client, htm
     assert "no-store" in response["Cache-Control"]
     assert b"data-secret-container" in response.content
     assert (b'id="callback-card"' in response.content) is not htmx
+
+
+@pytest.mark.django_db
+def test_a_pending_panel_shows_what_each_system_is_doing(environment, client):
+    """ "No credentials yet" and "the bridge never happened" must not look alike."""
+    fail_next(ExternalSystem.HIECM, "create_bridge", retryable=False)
+    workspace, form = workflows.register_product(
+        environment["org"],
+        environment["applicant"],
+        data=product_data("Second product"),
+    )
+    assert workspace, form.errors
+    provision_inline(workspace.product)
+    client.force_login(environment["applicant"])
+
+    html = client.get(
+        reverse("experiences:credentials", args=[workspace.reference]),
+    ).content.decode()
+
+    assert "Provisioning in progress" in html
+    assert "Identity" in html
+    assert "Bridge" in html
