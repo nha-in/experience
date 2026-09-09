@@ -63,7 +63,6 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
     assert selected == ["HI-CM:m1"]
-    # Nothing is approved on a brand new product, so NHCX stays shut.
     assert b"Opens once M1 is approved" in response.content
     assert b"Same record as HI-CM M1" in response.content
 
@@ -100,7 +99,6 @@ def test_payer_category_is_required_once_payers_is_chosen():
 
 
 def test_payer_category_is_dropped_when_payers_is_not_chosen():
-    # Changing your mind should not be blocked; the answer simply stops applying.
     form = ProductRegistrationForm(
         data=payer_payload(solution_type=["clinical_hmis"], payer_category=["tpa"]),
     )
@@ -156,7 +154,6 @@ def test_nhcx_track_is_gated_on_m1_approval():
     )
     assert row["locked"]
     assert "Opens once M1 is approved" in row["lock_reason"]
-    # Every other track is unaffected by the gate.
     assert not any(
         other["locked"]
         for other in shut.milestone_tracks
@@ -179,7 +176,6 @@ def test_nhcx_selection_is_refused_until_m1_is_approved():
         "solution_type": ["eua"],
         "applied_milestones": ["HI-CM:m1", "NHCX:nhcx1"],
     }
-    # A disabled checkbox is only a hint; a forged post must still be refused.
     forged = ProductRegistrationForm(data=payload)
     assert not forged.is_valid()
     assert "NHCX cannot be selected yet" in str(forged.errors["applied_milestones"])

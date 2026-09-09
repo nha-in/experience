@@ -305,9 +305,6 @@ document.addEventListener("click", async (event) => {
   } catch { copy.setAttribute("aria-label", "Copy unavailable; select and copy the value"); }
 });
 
-// A field that only applies to one answer stays out of the way until it is given.
-// The server renders the correct initial state, so this only tracks live edits
-// and the form still works, and is still enforced, without any of it.
 (() => {
   const syncConditionalFields = (root) => {
     const scope = root instanceof Element ? root : document;

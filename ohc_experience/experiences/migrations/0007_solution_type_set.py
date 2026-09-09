@@ -1,8 +1,3 @@
-# Hand-written: an integrator is routinely several solution types at once, so
-# the scalar column becomes a set. Existing values are rewritten as JSON text
-# first, otherwise Postgres cannot cast varchar to jsonb and the migration
-# would fail on any populated row.
-
 import json
 
 from django.db import migrations
@@ -20,7 +15,6 @@ def to_list(apps, schema_editor):
 def to_scalar(apps, schema_editor):
     workspace = apps.get_model("experiences", "ProductWorkspace")
     for pk, value in workspace.objects.values_list("pk", "solution_type"):
-        # Reverses in either shape: the field may already be text again.
         if isinstance(value, str):
             try:
                 value = json.loads(value)

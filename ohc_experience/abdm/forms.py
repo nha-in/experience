@@ -221,7 +221,6 @@ class ProductRegistrationForm(ReviewForm):
     )
     solution_type = forms.MultipleChoiceField(
         label="Solution types applying for",
-        # An integrator is routinely several of these at once, so this is a set.
         choices=[
             ("clinical_hmis", "Clinical HMIS"),
             ("hmis", "HMIS"),
@@ -244,7 +243,6 @@ class ProductRegistrationForm(ReviewForm):
     )
     payer_category = forms.MultipleChoiceField(
         label="Payer categories",
-        # Only meaningful alongside Payers, so it stays hidden until that is picked.
         required=False,
         choices=[("tpa", "TPA"), ("insurance_company", "Insurance company")],
         widget=forms.CheckboxSelectMultiple(attrs={"class": "ui-checkbox shrink-0"}),
@@ -257,8 +255,6 @@ class ProductRegistrationForm(ReviewForm):
     )
 
     def __init__(self, *args, approved_milestones=(), **kwargs):
-        # Gated tracks stay shut unless the caller proves the gate is met, so a
-        # registration with no product behind it never opens one.
         self.approved_milestones = set(approved_milestones)
         # Defaults belong to new registrations, never a saved or bound form.
         if not args and kwargs.get("data") is None and kwargs.get("initial") is None:
@@ -308,14 +304,11 @@ class ProductRegistrationForm(ReviewForm):
             if not cleaned.get("payer_category") and not self.draft:
                 self.add_error("payer_category", "Select at least one payer category.")
         elif cleaned.get("payer_category"):
-            # Meaningless without Payers. Drop it rather than block someone who
-            # changed their mind; the previous answer survives in the snapshot.
             cleaned["payer_category"] = []
         return cleaned
 
     def clean_applied_milestones(self):
         selections = self.cleaned_data["applied_milestones"]
-        # A disabled checkbox is a hint, not a gate; refuse a forged post too.
         for code in {value.split(":", 1)[0] for value in selections}:
             reason = self.track_lock_reason(TRACK_MAP[code])
             if reason:

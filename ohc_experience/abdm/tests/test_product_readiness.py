@@ -27,7 +27,6 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
     assert readiness["missing"] == 5  # noqa: PLR2004
     assert all(row["field_id"] != "id_supporting_evidence" for row in readiness["rows"])
     assert any(row["field_id"] == "id_wasa_date" for row in readiness["rows"])
-    # The WASA certificate is required but unsaved here, so it reads as missing.
     assert any(row["field_id"] == "id_wasa_certificate" for row in readiness["rows"])
 
 
