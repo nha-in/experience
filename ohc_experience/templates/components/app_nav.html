@@ -1,9 +1,14 @@
 {% comment %}
   Sidebar navigation for the integrator shell, in the prototype's shape: the
-  product card, Overview and Credentials, TRACKS with an approved/applied
-  counter per track, PROGRAMME (Events, Support, each with a counter), PRODUCT
-  (Edit product), then the account links and the person's card at the foot.
+  product card, Overview and Credentials, TRACKS (the tracks the product
+  applied for, with an approved/applied counter each), PROGRAMME (Events,
+  Support, each with a counter), PRODUCT (Edit product, Register another
+  product), then the account links and the person's card at the foot.
   Shared by the desktop rail and the mobile drawer so the two never drift.
+
+  Switching products lives in the top bar (components/product_switcher.html).
+  The top bar is hidden on phones, so there the product card at the head of
+  the drawer is the same switcher; on wider screens it is a plain card.
 
   Every product link points at `current_product` (abdm.context_processors):
   the product this person last opened, or the organisation's first. With no
@@ -39,7 +44,7 @@
      hx-indicator="#nav-progress">
   <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
     {% if current_product %}
-      <div class="mb-3 flex items-center gap-2.5 rounded-[10px] border border-sidebar-border bg-background px-2.5 py-2">
+      <div class="mb-3 hidden items-center gap-2.5 rounded-[10px] border border-sidebar-border bg-background px-2.5 py-2 md:flex">
         <span class="ui-avatar ui-avatar--primary size-[26px] rounded-[7px] text-[10px]"
               aria-hidden="true">{{ current_organisation.initials|default:current_product.name|slice:":2"|upper }}</span>
         <span class="min-w-0 leading-tight">
@@ -47,6 +52,7 @@
           <span class="block font-mono text-[9.5px] text-soft-foreground">{{ current_product.sandbox_id }}</span>
         </span>
       </div>
+      <div class="mb-3 md:hidden">{% include "components/product_switcher.html" with variant="card" %}</div>
       <ul class="flex flex-col gap-px">
         <li>
           <a id="nav-overview"
@@ -65,18 +71,13 @@
         {% for row in nav_tracks %}
           <li>
             <a id="nav-track-{{ row.track.code|slugify }}"
-               class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'track' and nav_track == row.track.code %}ui-nav-link--active{% elif not row.applied %}text-placeholder-foreground{% endif %}"
+               class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'track' and nav_track == row.track.code %}ui-nav-link--active{% endif %}"
                href="{% url 'products:track' current_product.sandbox_id row.track.code %}"
                {% if nav_section == 'track' and nav_track == row.track.code %}aria-current="page"{% endif %}>
               <span class="min-w-0 flex-1 truncate">{{ row.track.code }}</span>
               <span class="font-mono text-[9.5px] text-soft-foreground">
-                {% if row.applied %}
-                  {{ row.approved }}/{{ row.count }}
-                  <span class="sr-only">{% translate "milestones approved" %}</span>
-                {% else %}
-                  <span aria-hidden="true">—</span>
-                  <span class="sr-only">{% translate "(not applied)" %}</span>
-                {% endif %}
+                {{ row.approved }}/{{ row.count }}
+                <span class="sr-only">{% translate "milestones approved" %}</span>
               </span>
             </a>
           </li>
@@ -115,27 +116,6 @@
              href="{% url 'products:edit' current_product.sandbox_id %}"
              {% if nav_section == 'edit' %}aria-current="page"{% endif %}>{% translate "Edit product" %}</a>
         </li>
-        {% if organisation_products|length > 1 %}
-          <li>
-            <details class="group">
-              <summary class="ui-nav-link ui-nav-dot flex cursor-pointer list-none items-center gap-2.5 py-[7px] text-[12.5px] [&::-webkit-details-marker]:hidden">
-                <span class="min-w-0 flex-1">{% translate "Switch product" %}</span>
-                <span class="text-[10px] text-soft-foreground transition-transform group-open:rotate-180"
-                      aria-hidden="true">▾</span>
-              </summary>
-              <ul class="mt-px flex flex-col gap-px pl-4">
-                {% for item in organisation_products %}
-                  {% if item.pk != current_product.pk %}
-                    <li>
-                      <a class="ui-nav-link block truncate py-1.5 text-[12px]"
-                         href="{% url 'products:overview' item.sandbox_id %}">{{ item.name }}</a>
-                    </li>
-                  {% endif %}
-                {% endfor %}
-              </ul>
-            </details>
-          </li>
-        {% endif %}
         <li>
           <a id="nav-new-product"
              class="ui-nav-link ui-nav-dot flex items-center gap-2.5 py-[7px] text-[12.5px] {% if nav_section == 'product-form' %}ui-nav-link--active{% endif %}"

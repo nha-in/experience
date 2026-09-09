@@ -38,7 +38,8 @@ for the integrator side and `vaidya@nha.gov.in` for the certification desk.
 
 Running `runserver` straight from a shell, without the MinIO container, set
 `DJANGO_USE_LOCAL_MEDIA=yes` so uploads (verification documents, functional
-testing PDFs, ticket attachments) land in `MEDIA_ROOT` instead.
+testing PDFs, ticket attachments) land in `MEDIA_ROOT` instead. There is no
+mail server outside Docker either, so every email is printed to that shell.
 
 The stylesheet is built from `theme/static_src` and committed; rebuild it after
 changing templates:

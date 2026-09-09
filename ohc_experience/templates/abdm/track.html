@@ -18,7 +18,7 @@
   {{ track.code }} · {{ product.name }}
 {% endblock title %}
 {% block crumb_root %}
-  {% translate "Tracks" %}
+  {% include "components/crumb.html" with label=_("Tracks") %}
 {% endblock crumb_root %}
 {% block page_header %}
   <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">

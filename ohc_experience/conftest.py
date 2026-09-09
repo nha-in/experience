@@ -70,6 +70,23 @@ def product(owner_membership: Membership):
 
 
 @pytest.fixture
+def mail_outage(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
+    """Every email fails the way it does on a machine with no mail server.
+
+    Hands back the attempted sends, so a test can check the portal did try.
+    """
+    attempts: list[tuple] = []
+
+    def refuse(*args, **kwargs):
+        attempts.append(args)
+        msg = "[Errno 8] nodename nor servname provided, or not known"
+        raise OSError(msg)
+
+    monkeypatch.setattr("ohc_experience.abdm.notifications.send_mail", refuse)
+    return attempts
+
+
+@pytest.fixture
 def sign_in(client: Client) -> Callable[[User], Client]:
     """Sign a user into the shared test client and hand the client back."""
 

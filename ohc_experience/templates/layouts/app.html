@@ -9,9 +9,13 @@
   drawer is a checkbox + label so it works with JavaScript disabled; the script
   at the bottom only adds Escape-to-close and closes it after a tap on a link.
 
-  Blocks: crumb_root / crumb_leaf (the breadcrumb in the top bar; defaults
-          follow nav_section), page_header (title row above the content),
-          content.
+  The top bar opens with the product switcher (components/product_switcher.html)
+  on every page of the shell, then the breadcrumb.
+
+  Blocks: crumb_root (a section ahead of the leaf, "Support" on a ticket:
+          include components/crumb.html; empty by default), crumb_leaf
+          (defaults follow nav_section), page_header (title row above the
+          content), content.
   Context: nav_section — set by the view to light the right nav item.
 
   <main id="main-content"> is the boost target: the shell's navigation asks htmx
@@ -90,15 +94,13 @@
         <div class="hidden h-[50px] shrink-0 items-center gap-3 border-b border-border bg-card px-[22px] md:flex">
           <nav class="flex min-w-0 items-center gap-1.5 text-[11.5px] text-soft-foreground"
                aria-label="{% translate 'Breadcrumb' %}">
-            <span class="truncate">
-              {% block crumb_root %}
-                {% if current_product %}
-                  {{ current_product.name }}
-                {% else %}
-                  {% translate "Sandbox" %}
-                {% endif %}
-              {% endblock crumb_root %}
-            </span>
+            {% if current_product %}
+              {% include "components/product_switcher.html" with variant="bar" %}
+            {% else %}
+              <span class="truncate">{% translate "Sandbox" %}</span>
+            {% endif %}
+            {% block crumb_root %}
+            {% endblock crumb_root %}
             <span class="opacity-50" aria-hidden="true">/</span>
             <span class="truncate font-mono text-foreground">
               {% block crumb_leaf %}
@@ -158,6 +160,20 @@
       });
       sidebar?.addEventListener("click", (event) => {
         if (event.target.closest("a")) drawer.checked = false;
+      });
+    })();
+    // The product switcher is a native <details>, which only ever closes
+    // from its own summary: close an open one on a click anywhere else or on
+    // Escape, the way a menu is expected to behave.
+    (() => {
+      const openSwitchers = () => document.querySelectorAll("details[data-popover][open]");
+      document.addEventListener("click", (event) => {
+        openSwitchers().forEach((popover) => {
+          if (!popover.contains(event.target)) popover.removeAttribute("open");
+        });
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") openSwitchers().forEach((popover) => popover.removeAttribute("open"));
       });
     })();
     // A boosted nav click is answered by whatever the server decides to send,

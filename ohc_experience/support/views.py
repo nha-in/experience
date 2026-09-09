@@ -29,6 +29,8 @@ from django.views.generic import CreateView
 from django.views.generic import DetailView
 from django.views.generic import ListView
 
+from ohc_experience.abdm.context_processors import pick_current_product
+from ohc_experience.abdm.models import Product
 from ohc_experience.organisations.views import OrganisationMixin
 
 from .forms import TicketCreateForm
@@ -127,17 +129,58 @@ class TicketListView(SupportMixin, ListView):
 
 
 class TicketCreateView(SupportMixin, CreateView):
-    """The new-ticket form. A plain page: there is nothing here to swap."""
+    """The new-ticket form.
+
+    One fragment is live: the Track picker follows the product picker, so a
+    change there asks this same URL, with `product` and `track` in the query
+    string, for the picker redrawn with that product's tracks. The rest is a
+    plain page.
+    """
 
     model = Ticket
     form_class = TicketCreateForm
     template_name = "support/ticket_form.html"
+    # The page includes this fragment; htmx swaps the same file back in.
+    partial_template_name = "support/partials/track_field.html"
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        # A boosted nav click is an htmx request too, and wants the whole
+        # page; only the product picker asks for the Track picker alone.
+        if request.htmx and not request.htmx.boosted:
+            self.object = None
+            return render(
+                request,
+                self.partial_template_name,
+                {"form": self.get_form()},
+            )
+        return super().get(request, *args, **kwargs)
 
     def get_form_kwargs(self) -> dict:
         kwargs = super().get_form_kwargs()
         # The product picker lists this organisation's products only.
         kwargs["organisation"] = self.organisation
         return kwargs
+
+    def get_initial(self) -> dict:
+        initial = super().get_initial()
+        query = self.request.GET
+        if "product" in query:
+            # The picker's own choice. Blank is "Not product-specific", which
+            # must not fall back to the sidebar's product.
+            if query["product"]:
+                initial["product"] = query["product"]
+        else:
+            # A fresh form: a ticket is most often about the product the
+            # sidebar points at.
+            product = pick_current_product(
+                self.request,
+                list(Product.objects.for_organisation(self.organisation)),
+            )
+            if product is not None:
+                initial["product"] = product.pk
+        if "track" in query:
+            initial["track"] = query["track"]
+        return initial
 
     def form_valid(self, form: TicketCreateForm):
         ticket = form.save(commit=False)

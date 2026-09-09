@@ -4,9 +4,14 @@ Integrator mail goes to the organisation's owner and admins (and its technical
 contact, when one is on file). Reviewer mail goes to the item's assignee when
 there is one, else to ``ABDM_REVIEW_INBOX``, else to every active reviewer.
 Each function renders a subject/body pair from ``templates/abdm/email``.
+
+Delivery goes through ``deliver``, which logs a failed send rather than
+raising: an email is never the reason a registration or a reply is lost.
 """
 
 from __future__ import annotations
+
+import logging
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -15,6 +20,22 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
 from ohc_experience.organisations.models import MANAGER_ROLES
+
+logger = logging.getLogger(__name__)
+
+
+def deliver(subject: str, body: str, recipients: list[str]) -> None:
+    """Send one email, and never let a mail outage undo what prompted it.
+
+    Every email here is a courtesy copy of something the portal has already
+    recorded — the queue, the thread and the credentials page all show it —
+    so a delivery failure is logged for the operators and the request that
+    triggered it carries on.
+    """
+    try:
+        send_mail(subject, body, None, recipients, fail_silently=False)
+    except Exception:
+        logger.exception("Could not send %r to %s", subject, recipients)
 
 
 def absolute_url(path: str) -> str:
@@ -55,7 +76,7 @@ def _send(stem: str, context: dict, recipients: list[str]) -> None:
     context = {**context, "portal_url": absolute_url("/")}
     subject = render_to_string(f"abdm/email/{stem}_subject.txt", context).strip()
     body = render_to_string(f"abdm/email/{stem}_body.txt", context)
-    send_mail(subject, body, None, recipients, fail_silently=False)
+    deliver(subject, body, recipients)
 
 
 def _item_url(item) -> str:

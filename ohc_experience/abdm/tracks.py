@@ -227,6 +227,9 @@ TRACKS: tuple[Track, ...] = (HI_CM, UHI, NHCX, PHR, HEALTH_LOCKER)
 FORM_TRACKS: tuple[Track, ...] = (HI_CM, PHR, HEALTH_LOCKER, UHI, NHCX)
 TRACKS_BY_CODE: dict[str, Track] = {track.code: track for track in TRACKS}
 TRACK_CHOICES: list[tuple[str, str]] = [(track.code, track.code) for track in TRACKS]
+# What a new product applies for until the integrator says otherwise: every
+# ABDM integration starts with ABHA, and PHR's first tile is this same record.
+DEFAULT_MILESTONE_KEY = HI_CM.milestones[0].key
 
 
 def get_track(code: str) -> Track:

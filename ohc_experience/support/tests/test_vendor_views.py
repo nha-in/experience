@@ -20,6 +20,8 @@ from django.contrib.messages import get_messages
 from django.urls import reverse
 from django.utils import timezone
 
+from ohc_experience.abdm.context_processors import SESSION_PRODUCT_KEY
+from ohc_experience.abdm.tests.factories import ProductFactory
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.support.models import Category
 from ohc_experience.support.models import Priority
@@ -747,3 +749,201 @@ def test_an_invalid_new_ticket_redraws_the_form(
     assert response.status_code == HTTPStatus.OK
     assert not Ticket.objects.exists()
     assert response.context["form"].errors
+
+
+def test_a_mail_outage_does_not_undo_a_new_ticket(
+    vendor_client: Client,
+    mail_outage: list[tuple],
+    caplog: pytest.LogCaptureFixture,
+):
+    UserFactory.create(email="desk@nha.gov.in", is_ohc_team=True)
+
+    response = vendor_client.post(
+        CREATE_URL,
+        {
+            "subject": "Callback never received after a consent request",
+            "category": Category.API,
+            "priority": Priority.HIGH,
+            "body": "The gateway accepted the request and nothing came back.",
+        },
+    )
+
+    ticket = Ticket.objects.get()
+    assert mail_outage, "the desk copy was never attempted"
+    assert response.status_code == HTTPStatus.FOUND
+    assert response["Location"] == detail_url(ticket)
+    assert ticket.messages.count() == 1
+    assert "Could not send" in caplog.text
+
+
+def test_the_new_ticket_form_defaults_to_the_current_product(
+    vendor_client: Client,
+    owner_membership: Membership,
+):
+    ProductFactory.create(organisation=owner_membership.organisation)
+    second = ProductFactory.create(organisation=owner_membership.organisation)
+    session = vendor_client.session
+    session[SESSION_PRODUCT_KEY] = second.sandbox_id
+    session.save()
+
+    response = vendor_client.get(CREATE_URL)
+
+    assert response.context["form"]["product"].value() == second.pk
+
+
+def test_the_new_ticket_form_falls_back_to_the_first_product(
+    vendor_client: Client,
+    owner_membership: Membership,
+):
+    first = ProductFactory.create(organisation=owner_membership.organisation)
+    ProductFactory.create(organisation=owner_membership.organisation)
+
+    response = vendor_client.get(CREATE_URL)
+
+    assert response.context["form"]["product"].value() == first.pk
+
+
+def test_the_new_ticket_form_stays_generic_without_products(vendor_client: Client):
+    response = vendor_client.get(CREATE_URL)
+
+    assert response.context["form"]["product"].value() is None
+
+
+# ── The Track picker follows the product ───────────────────────────────────
+
+ALL_TRACKS = ["", "HI-CM", "UHI", "NHCX", "PHR", "HealthLocker"]
+
+
+def track_options(response: HttpResponse) -> list[str]:
+    return [value for value, _label in response.context["form"].fields["track"].choices]
+
+
+def uhi_product(organisation: Organisation):
+    return ProductFactory.create(
+        organisation=organisation,
+        applied_tracks=["UHI"],
+        applied_milestones=["UHI:UHI1"],
+    )
+
+
+def test_the_track_picker_offers_only_the_chosen_products_tracks(
+    vendor_client: Client,
+    owner_membership: Membership,
+):
+    ProductFactory.create(organisation=owner_membership.organisation)
+
+    response = vendor_client.get(CREATE_URL)
+
+    assert track_options(response) == ["", "HI-CM"]
+
+
+def test_the_track_picker_offers_every_track_without_a_product(
+    vendor_client: Client,
+    owner_membership: Membership,
+):
+    ProductFactory.create(organisation=owner_membership.organisation)
+
+    # "Not product-specific" comes back as a blank product, not a missing one.
+    response = vendor_client.get(CREATE_URL, {"product": ""})
+
+    assert track_options(response) == ALL_TRACKS
+    assert not response.context["form"]["product"].value()
+
+
+def test_changing_the_product_redraws_the_track_picker(
+    vendor_client: Client,
+    owner_membership: Membership,
+):
+    ProductFactory.create(organisation=owner_membership.organisation)
+    uhi = uhi_product(owner_membership.organisation)
+
+    response = vendor_client.get(
+        CREATE_URL,
+        {"product": uhi.pk, "track": "UHI"},
+        headers=HTMX_HEADERS,
+    )
+
+    body = fragment_of(response)
+    assert response.status_code == HTTPStatus.OK
+    assert "<!DOCTYPE" not in body
+    assert 'id="track-field"' in body
+    assert track_options(response) == ["", "UHI"]
+    assert response.context["form"]["track"].value() == "UHI"
+
+
+def test_a_track_the_new_product_is_not_on_is_dropped_by_the_redraw(
+    vendor_client: Client,
+    owner_membership: Membership,
+):
+    uhi = uhi_product(owner_membership.organisation)
+
+    response = vendor_client.get(
+        CREATE_URL,
+        {"product": uhi.pk, "track": "HI-CM"},
+        headers=HTMX_HEADERS,
+    )
+
+    assert track_options(response) == ["", "UHI"]
+    assert not response.context["form"]["track"].value()
+
+
+def test_a_boosted_visit_to_the_new_ticket_form_gets_the_whole_page(
+    vendor_client: Client,
+):
+    response = vendor_client.get(
+        CREATE_URL,
+        headers={"HX-Request": "true", "HX-Boosted": "true"},
+    )
+    body = response.content.decode()
+
+    assert 'id="main-content"' in body
+    assert 'id="track-field"' in body
+
+
+def test_a_track_the_product_is_not_on_is_refused(
+    vendor_client: Client,
+    owner_membership: Membership,
+):
+    product = ProductFactory.create(organisation=owner_membership.organisation)
+
+    response = vendor_client.post(
+        CREATE_URL,
+        {
+            "subject": "UHI search returns nothing",
+            "category": Category.API,
+            "priority": Priority.HIGH,
+            "product": product.pk,
+            "track": "UHI",
+            "body": "Every search comes back empty.",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert not Ticket.objects.exists()
+    assert "not on this track" in str(response.context["form"].errors["track"])
+    # The form is redrawn with the product's own tracks, not with every track.
+    assert track_options(response) == ["", "HI-CM"]
+
+
+def test_a_track_the_product_is_on_is_recorded(
+    vendor_client: Client,
+    owner_membership: Membership,
+):
+    product = ProductFactory.create(organisation=owner_membership.organisation)
+
+    response = vendor_client.post(
+        CREATE_URL,
+        {
+            "subject": "Care context linking fails",
+            "category": Category.API,
+            "priority": Priority.HIGH,
+            "product": product.pk,
+            "track": "HI-CM",
+            "body": "The link request is rejected with a 400.",
+        },
+    )
+
+    ticket = Ticket.objects.get()
+    assert response.status_code == HTTPStatus.FOUND
+    assert ticket.product == product
+    assert ticket.track == "HI-CM"

@@ -37,20 +37,31 @@ ONBOARDING_STEPS = (
 
 
 def nav_tracks(product) -> list[dict[str, Any]]:
-    """One row per track: applied?, approved, applied count."""
+    """One row per track the product applied for: approved and applied counts.
+
+    The rail follows the product rather than the catalogue: a track it is not
+    on is left out, and Edit product is where one is added.
+    """
+    if product is None:
+        return []
     rows = []
-    for track in TRACKS:
-        applied = product is not None and product.has_track(track.code)
-        approved, count = product.approved_count(track) if applied else (0, 0)
-        rows.append(
-            {
-                "track": track,
-                "applied": applied,
-                "approved": approved,
-                "count": count,
-            },
-        )
+    for track in product.tracks:
+        approved, count = product.approved_count(track)
+        rows.append({"track": track, "approved": approved, "count": count})
     return rows
+
+
+def pick_current_product(
+    request: HttpRequest,
+    products: list[Product],
+) -> Product | None:
+    """The product the rail points at: last opened in this session, else the first."""
+    session = getattr(request, "session", None)
+    wanted = session.get(SESSION_PRODUCT_KEY) if session is not None else None
+    product = next((item for item in products if item.sandbox_id == wanted), None)
+    if product is None and products:
+        product = products[0]
+    return product
 
 
 def current_product(request: HttpRequest) -> dict[str, Any]:
@@ -73,12 +84,12 @@ def current_product(request: HttpRequest) -> dict[str, Any]:
             "nav_event_count": 0,
             "nav_ticket_count": 0,
         }
-    products = list(Product.objects.for_organisation(organisation))
-    session = getattr(request, "session", None)
-    wanted = session.get(SESSION_PRODUCT_KEY) if session is not None else None
-    product = next((item for item in products if item.sandbox_id == wanted), None)
-    if product is None and products:
-        product = products[0]
+    products = list(
+        Product.objects.for_organisation(organisation).prefetch_related(
+            "compliance_records",
+        ),
+    )
+    product = pick_current_product(request, products)
     return {
         **common,
         "current_product": product,

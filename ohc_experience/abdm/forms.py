@@ -25,7 +25,8 @@ class ProductForm(forms.ModelForm):
     """Register or edit a product: identity plus the milestones applied for.
 
     Milestones are checkboxes grouped by track (see the milestone_checkboxes
-    partial).
+    partial). A new product starts with HI-CM M1 ticked
+    (tracks.DEFAULT_MILESTONE_KEY); an existing one starts with its own.
     In edit mode a milestone whose exit request is approved or under review is
     locked: its checkbox is disabled and a hidden input keeps it in the
     submission, and the service refuses to drop it either way.
@@ -71,6 +72,8 @@ class ProductForm(forms.ModelForm):
                     self.locked_reasons[record.key] = str(_("Under review"))
             if not self.is_bound:
                 self.initial.setdefault("milestones", self.instance_keys())
+        elif not self.is_bound:
+            self.initial.setdefault("milestones", [tracks.DEFAULT_MILESTONE_KEY])
 
     def instance_keys(self) -> list[str]:
         """Checkbox keys for the product's records, alias tiles included."""

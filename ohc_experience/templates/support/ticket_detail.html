@@ -24,7 +24,7 @@
   {{ ticket.reference }} · {{ ticket.subject }}
 {% endblock title %}
 {% block crumb_root %}
-  {% translate "Support" %}
+  {% include "components/crumb.html" with label=_("Support") %}
 {% endblock crumb_root %}
 {% block crumb_leaf %}
   {{ ticket.reference }}

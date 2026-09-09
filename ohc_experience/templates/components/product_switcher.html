@@ -1,0 +1,56 @@
+{% comment %}
+  The product switcher: the current product's name as a native <details>
+  disclosure listing the organisation's other products and the registration
+  link. Opening another product's overview is what makes it current
+  (ProductMixin remembers the last product opened), so every entry is a plain
+  link and the whole thing works with scripting off. layouts/app.html closes
+  an open one on a click elsewhere or on Escape.
+
+  variant "bar": the first crumb of the top bar on wide screens; the list
+  floats below the name. variant "card": the drawer's product card on phones;
+  the list opens in flow, because the rail scrolls and would clip a floating
+  one.
+
+  Context: current_product, organisation_products, current_organisation,
+  variant.
+{% endcomment %}
+{% load i18n %}
+
+<details class="group {% if variant == 'card' %}rounded-[10px] border border-sidebar-border bg-background{% else %}relative min-w-0{% endif %}"
+         id="product-switcher{% if variant == 'card' %}-card{% endif %}"
+         data-popover>
+  <summary class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden {% if variant == 'card' %}px-2.5 py-2{% else %}-mx-1 px-1 py-0.5 hover:bg-muted-background{% endif %}"
+           title="{% translate 'Switch product' %}">
+    {% if variant == "card" %}
+      <span class="ui-avatar ui-avatar--primary size-[26px] rounded-[7px] text-[10px]"
+            aria-hidden="true">{{ current_organisation.initials|default:current_product.name|slice:":2"|upper }}</span>
+      <span class="min-w-0 flex-1 leading-tight">
+        <span class="block truncate text-[11.5px] font-semibold">{{ current_product.name }}</span>
+        <span class="block font-mono text-[9.5px] text-soft-foreground">{{ current_product.sandbox_id }}</span>
+      </span>
+    {% else %}
+      <span class="truncate">{{ current_product.name }}</span>
+    {% endif %}
+    <span class="shrink-0 text-[10px] text-soft-foreground transition-transform group-open:rotate-180"
+          aria-hidden="true">▾</span>
+    <span class="sr-only">{% translate "Switch product" %}</span>
+  </summary>
+  <ul class="{% if variant == 'card' %}flex flex-col gap-px border-t border-sidebar-border p-1{% else %}absolute top-full left-0 z-40 mt-1.5 flex min-w-[240px] flex-col gap-px rounded-[10px] border border-border bg-popover p-1 text-popover-foreground shadow-md{% endif %}"
+      aria-label="{% translate 'Products' %}">
+    {% for item in organisation_products %}
+      {% if item.pk != current_product.pk %}
+        <li>
+          <a class="ui-nav-link block py-1.5 text-[12px] no-underline"
+             href="{% url 'products:overview' item.sandbox_id %}">
+            <span class="block truncate font-medium">{{ item.name }}</span>
+            <span class="block font-mono text-[9.5px] text-soft-foreground">{{ item.sandbox_id }}</span>
+          </a>
+        </li>
+      {% endif %}
+    {% endfor %}
+    <li {% if organisation_products|length > 1 %}class="mt-px border-t border-border pt-px"{% endif %}>
+      <a class="ui-nav-link block py-1.5 text-[12px] no-underline"
+         href="{% url 'products:new' %}">{% translate "Register another product" %}</a>
+    </li>
+  </ul>
+</details>

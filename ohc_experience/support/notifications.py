@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
 from ohc_experience.abdm.notifications import absolute_url
+from ohc_experience.abdm.notifications import deliver
 from ohc_experience.abdm.notifications import integrator_recipients
 from ohc_experience.abdm.notifications import reviewer_recipients
 
@@ -39,4 +39,4 @@ def notify_reply(message) -> None:
     }
     subject = render_to_string("support/email/reply_subject.txt", context).strip()
     body = render_to_string("support/email/reply_body.txt", context)
-    send_mail(subject, body, None, recipients, fail_silently=False)
+    deliver(subject, body, recipients)

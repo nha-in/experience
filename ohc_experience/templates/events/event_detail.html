@@ -12,7 +12,7 @@
   {{ event.title }} · {% translate "Events" %}
 {% endblock title %}
 {% block crumb_root %}
-  {% translate "Programme" %}
+  {% include "components/crumb.html" with label=_("Programme") %}
 {% endblock crumb_root %}
 {% block page_header %}
   <div class="mb-5">

@@ -1,0 +1,20 @@
+{% comment %}
+  The Track picker on its own, so htmx can redraw it when the product picker
+  changes: the choices are the chosen product's tracks (TicketCreateForm).
+  The trigger listens to the product <select> from here, so the wiring
+  travels with the element being swapped and survives the swap; hx-include
+  sends both pickers, so a track still valid for the new product stays
+  selected. With scripting off the picker keeps the tracks it was drawn
+  with, and the form validates the pair on submit either way.
+
+  Context: form (TicketCreateForm).
+{% endcomment %}
+{% load careui %}
+
+<div id="track-field"
+     hx-get="{% url 'support:create' %}"
+     hx-trigger="change from:#id_product"
+     hx-include="#id_product, #id_track"
+     hx-target="this"
+     hx-swap="outerHTML"
+     hx-indicator="#nav-progress">{% ui_field form.track %}</div>

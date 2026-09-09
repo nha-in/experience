@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
 from ohc_experience.abdm.notifications import absolute_url
+from ohc_experience.abdm.notifications import deliver
 
 
 def _send(stem: str, registration) -> None:
@@ -18,7 +18,7 @@ def _send(stem: str, registration) -> None:
     }
     subject = render_to_string(f"events/email/{stem}_subject.txt", context).strip()
     body = render_to_string(f"events/email/{stem}_body.txt", context)
-    send_mail(subject, body, None, [registration.user.email], fail_silently=False)
+    deliver(subject, body, [registration.user.email])
 
 
 def notify_registration(registration) -> None:

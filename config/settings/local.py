@@ -31,6 +31,14 @@ CACHES = {
 EMAIL_HOST = env("EMAIL_HOST", default="mailtrap-local")
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-port
 EMAIL_PORT = 3535
+# Outside the compose stack there is no mail server to reach: `runserver`
+# straight from a shell prints every email to its console instead. Docker
+# keeps base.py's SMTP backend, pointed at the mailtrap-local container.
+if env("USE_DOCKER") != "yes":
+    EMAIL_BACKEND = env(
+        "DJANGO_EMAIL_BACKEND",
+        default="django.core.mail.backends.console.EmailBackend",
+    )
 
 # WhiteNoise
 # ------------------------------------------------------------------------------

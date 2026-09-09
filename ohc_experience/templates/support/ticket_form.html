@@ -1,9 +1,9 @@
 {% extends "layouts/app.html" %}
 
 {% comment %}
-  New ticket. One plain form: there is no fragment of this page worth swapping,
-  and a submitted ticket leaves the screen for its thread, so htmx is not used
-  here at all.
+  New ticket. One fragment is live: the Track picker follows the product
+  picker (support/partials/track_field.html). The rest is a plain form, and a
+  submitted ticket leaves the screen for its thread.
 
   Context: form (TicketCreateForm, with this organisation's products).
 {% endcomment %}
@@ -42,7 +42,7 @@
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
               {% ui_field form.product %}
-              {% ui_field form.track %}
+              {% include "support/partials/track_field.html" %}
             </div>
             {% ui_field form.linked_facility %}
             {% ui_field form.body %}

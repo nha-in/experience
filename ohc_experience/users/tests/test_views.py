@@ -373,14 +373,12 @@ class TestSignOut:
         )
         nav = html[html.index('<nav id="app-nav"') : html.index("</nav>")]
 
+        # Of the tracks, only the one the product applied for: the rail
+        # follows the product (see abdm's TestShellNavigation).
         for built in (
             "Overview",
             "Credentials",
             "HI-CM",
-            "UHI",
-            "NHCX",
-            "PHR",
-            "HealthLocker",
             "Events",
             "Support",
             "Edit product",

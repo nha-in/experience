@@ -64,11 +64,19 @@ class Product(models.Model):
     sandbox_id = models.CharField(_("Sandbox id"), max_length=20, unique=True)
     name = models.CharField(_("Product name"), max_length=255)
     description = models.TextField(_("Description"))
-    category = models.CharField(_("Category"), max_length=20, choices=Category)
+    # Both default to the common case, a clinical HMIS, so the registration
+    # form opens on a sensible answer rather than a blank to pick through.
+    category = models.CharField(
+        _("Category"),
+        max_length=20,
+        choices=Category,
+        default=Category.HMIS,
+    )
     solution_type = models.CharField(
         _("Solution type applying for"),
         max_length=20,
         choices=SolutionType,
+        default=SolutionType.CLINICAL_HMIS,
     )
     # Track codes and canonical milestone keys ("HI-CM:M1"), see tracks.py.
     applied_tracks = models.JSONField(_("Applied tracks"), default=list, blank=True)

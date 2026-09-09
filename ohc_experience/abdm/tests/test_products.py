@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from http import HTTPStatus
 
 import pytest
@@ -132,6 +133,24 @@ class TestRegisterProduct:
         )
 
         assert not hasattr(product, "credential")
+
+    @pytest.mark.usefixtures("reviewer")
+    def test_a_mail_outage_does_not_undo_the_registration(
+        self,
+        owner_membership,
+        mail_outage,
+        caplog,
+    ):
+        product = services.register_product(
+            organisation=owner_membership.organisation,
+            user=owner_membership.user,
+            data=PRODUCT_DATA,
+        )
+
+        assert mail_outage, "the reviewer copy was never attempted"
+        assert Product.objects.filter(pk=product.pk).exists()
+        assert ReviewItem.objects.filter(product=product).exists()
+        assert "Could not send" in caplog.text
 
 
 class TestUpdateProduct:
@@ -393,14 +412,13 @@ class TestProductViews:
         assert "Submitted for review" in html
         assert "Issued once the organisation is verified." in html
         nav = html[html.index('<nav id="app-nav"') : html.index("</nav>")]
+        # Of the tracks, the two this product applied for; the rail follows
+        # the product (TestShellNavigation covers the ones left out).
         for label in (
             "Overview",
             "Credentials",
             "HI-CM",
-            "UHI",
-            "NHCX",
             "PHR",
-            "HealthLocker",
             "Events",
             "Support",
             "Edit product",
@@ -482,3 +500,124 @@ class TestProductViews:
             data=PRODUCT_DATA,
         )
         assert refused.status_code == HTTPStatus.FORBIDDEN
+
+    @pytest.mark.usefixtures("reviewer")
+    def test_registering_is_not_lost_when_the_notification_fails(
+        self,
+        sign_in,
+        owner_membership,
+        mail_outage,
+    ):
+        response = sign_in(owner_membership.user).post(
+            reverse("products:new"),
+            data=PRODUCT_DATA,
+            headers={"HX-Request": "true"},
+        )
+
+        product = Product.objects.get()
+        assert mail_outage, "the reviewer copy was never attempted"
+        assert response.status_code == HTTPStatus.OK
+        assert response["HX-Redirect"] == product.get_absolute_url()
+
+    @pytest.mark.usefixtures("product")
+    def test_the_new_product_form_has_sensible_defaults(
+        self,
+        sign_in,
+        owner_membership,
+    ):
+        response = sign_in(owner_membership.user).get(reverse("products:new"))
+        html = response.content.decode()
+
+        assert response.status_code == HTTPStatus.OK
+        assert '<option value="hmis" selected>' in html
+        assert '<option value="clinical_hmis" selected>' in html
+        assert "---------" not in html
+        assert re.search(r'value="HI-CM:M1"\s+checked', html)
+        assert not re.search(r'value="HI-CM:M2"\s+checked', html)
+
+
+class TestProductFormDefaults:
+    def test_a_new_product_starts_on_hmis_and_hi_cm_m1(self):
+        form = ProductForm()
+
+        assert form["category"].initial == Product.Category.HMIS
+        assert form["solution_type"].initial == Product.SolutionType.CLINICAL_HMIS
+        assert form.selected_keys == {"HI-CM:M1"}
+
+    def test_an_existing_product_keeps_its_own_milestones(self):
+        product = ProductFactory.create(
+            applied_tracks=["UHI"],
+            applied_milestones=["UHI:UHI1"],
+        )
+
+        form = ProductForm(instance=product)
+
+        assert form.selected_keys == {"UHI:UHI1"}
+
+
+class TestShellNavigation:
+    """The rail and the top bar follow the product: its tracks, and a switcher."""
+
+    @pytest.fixture
+    def product(self, owner_membership) -> Product:
+        return services.register_product(
+            organisation=owner_membership.organisation,
+            user=owner_membership.user,
+            data=PRODUCT_DATA,
+        )
+
+    def test_the_rail_lists_only_the_tracks_the_product_applied_for(
+        self,
+        sign_in,
+        owner_membership,
+        product,
+    ):
+        response = sign_in(owner_membership.user).get(product.get_absolute_url())
+        html = response.content.decode()
+
+        assert 'id="nav-track-hi-cm"' in html
+        assert 'id="nav-track-phr"' in html
+        assert 'id="nav-track-uhi"' not in html
+        assert 'id="nav-track-nhcx"' not in html
+        assert 'id="nav-track-healthlocker"' not in html
+        assert "(not applied)" not in html
+
+    def test_the_top_bar_switches_between_the_organisations_products(
+        self,
+        sign_in,
+        owner_membership,
+        product,
+    ):
+        other = services.register_product(
+            organisation=owner_membership.organisation,
+            user=owner_membership.user,
+            data={**PRODUCT_DATA, "name": "Arogya LMIS", "milestones": ["UHI:UHI1"]},
+        )
+
+        response = sign_in(owner_membership.user).get(product.get_absolute_url())
+        html = response.content.decode()
+
+        start = html.index('id="product-switcher"')
+        switcher = html[start : html.index("</details>", start)]
+        assert "Arogya LMIS" in switcher
+        assert other.get_absolute_url() in switcher
+        assert reverse("products:new") in switcher
+        # The old dropdown under PRODUCT is gone; the switcher is the one place.
+        product_section = html[
+            html.index('id="nav-edit"') : html.index('id="nav-new-product"')
+        ]
+        assert "<details" not in product_section
+        # The drawer's product card carries the same control for phones.
+        assert 'id="product-switcher-card"' in html
+
+    def test_the_switcher_is_there_on_pages_that_are_not_about_a_product(
+        self,
+        sign_in,
+        owner_membership,
+        product,
+    ):
+        response = sign_in(owner_membership.user).get(reverse("support:list"))
+        html = response.content.decode()
+
+        assert 'id="product-switcher"' in html
+        assert product.name in html

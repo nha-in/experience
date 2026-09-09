@@ -72,8 +72,25 @@ class AttachmentMixin:
         return upload
 
 
+def track_choices(product) -> list[tuple[str, str]]:
+    """The Track picker's options: the product's own tracks, or every track."""
+    tracks = (
+        TRACK_CHOICES
+        if product is None
+        else [(track.code, track.code) for track in product.tracks]
+    )
+    return [("", _("Not track-specific")), *tracks]
+
+
 class TicketCreateForm(AttachmentMixin, forms.ModelForm):
-    """Open a ticket: the subject line and the first message, in one form."""
+    """Open a ticket: the subject line and the first message, in one form.
+
+    The Track picker follows the product: with one chosen it offers only the
+    tracks that product applied for, and refuses any other on submit. Without
+    one it offers every track. The view redraws the picker through htmx when
+    the product changes; with scripting off the form validates the pair on
+    submit either way.
+    """
 
     body = forms.CharField(
         label=_("What is happening?"),
@@ -142,7 +159,31 @@ class TicketCreateForm(AttachmentMixin, forms.ModelForm):
             f"{product.name} ({product.sandbox_id})"
         )
         self.fields["linked_facility"].required = False
+        product = self.chosen_product()
+        self.fields["track"].choices = track_choices(product)
+        if product is not None:
+            self.fields["track"].error_messages["invalid_choice"] = _(
+                "That product is not on this track. Pick one of its tracks, "
+                "or leave it blank.",
+            )
+        offered = {value for value, _label in self.fields["track"].choices}
+        if not self.is_bound and self.initial.get("track") not in offered:
+            # A redraw for another product: a track it is not on is dropped
+            # rather than drawn as a selection the picker cannot show.
+            self.initial.pop("track", None)
         self.order_fields(self.field_order)
+
+    def chosen_product(self):
+        """The product the ticket is about: as posted, else as pre-filled."""
+        value = (
+            self.data.get("product") if self.is_bound else self.initial.get("product")
+        )
+        if isinstance(value, Product):
+            return value
+        try:
+            return self.fields["product"].queryset.get(pk=int(value))
+        except (TypeError, ValueError, Product.DoesNotExist):
+            return None
 
 
 class TicketReplyForm(AttachmentMixin, forms.Form):
