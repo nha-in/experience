@@ -35,6 +35,11 @@ urlpatterns = [
         name="credentials",
     ),
     path(
+        "products/<str:reference>/handoffs/<slug:handoff_key>/",
+        views.product_handoff,
+        name="product-handoff",
+    ),
+    path(
         "products/<str:reference>/certification/",
         views.product_certification,
         name="product-certification",

@@ -457,7 +457,54 @@ def overview(request, reference):
         if context["can_integrate"]
         else None
     )
+    context["handoffs"] = []
+    if context["can_integrate"]:
+        for key, definition in workspace.definition.handoffs.items():
+            options = [
+                option
+                for option in definition.options(product, actor=request.user)
+                if option["enabled"]
+            ]
+            if options:
+                context["handoffs"].append(
+                    {"key": key, "definition": definition, "options": options},
+                )
     return render(request, "experiences/overview.html", context)
+
+
+@login_required
+@never_cache
+@require_POST
+def product_handoff(request, reference, handoff_key):
+    workspace = _workspace(request, reference)
+    product = workspace.product
+    permissions.require_integrator(request.user, product.organisation)
+    definition = workspace.definition.handoffs.get(handoff_key)
+    if definition is None:
+        raise Http404
+    option = request.POST.get("option", "")
+    available = {row["key"] for row in definition.options(product, actor=request.user)}
+    try:
+        url = definition.create_url(product, option=option, actor=request.user)
+    except ValidationError as error:
+        _error(request, error)
+        result = "blocked"
+        response = redirect(workspace.get_absolute_url())
+    else:
+        result = "created"
+        response = redirect(url)
+    services.audit(
+        actor=request.user,
+        product=product,
+        action=f"{definition.name} handoff {result}",
+        detail={
+            "handoff": handoff_key,
+            "option": option if option in available else "",
+            "result": result,
+        },
+    )
+    response["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 @login_required

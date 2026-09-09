@@ -164,6 +164,24 @@ class CredentialDefinition:
         return ""
 
 
+class ProductHandoffDefinition:
+    """A program-owned external handoff, initiated through the product portal."""
+
+    name = "Continue to external service"
+    description = ""
+    action_label = "Continue"
+
+    @classmethod
+    def options(cls, product, *, actor):
+        """Return key, label, enabled and reason rows without creating tokens."""
+        return ()
+
+    @classmethod
+    def create_url(cls, product, *, option, actor):
+        """Recheck permission and eligibility, then return the destination URL."""
+        raise NotImplementedError
+
+
 class ProgramDefinition:
     """Code-defined product workflow, catalog and portal presentation."""
 
@@ -195,6 +213,7 @@ class ProgramDefinition:
     milestones: ClassVar[dict[str, MilestoneDefinition]] = {}
     tracks: ClassVar[tuple[TrackDefinition, ...]] = ()
     credentials: ClassVar[type[CredentialDefinition] | None] = None
+    handoffs: ClassVar[dict[str, type[ProductHandoffDefinition]]] = {}
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     @classmethod

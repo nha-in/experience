@@ -12,6 +12,7 @@ from ohc_experience.integrations.services import start_provisioning
 
 from .catalog import MILESTONES
 from .catalog import TRACKS
+from .dhis import DHISHandoff
 from .forms import ExitEvidenceForm
 from .forms import OrganisationForm
 from .forms import ProductRegistrationForm
@@ -289,6 +290,7 @@ class ABDM(ProgramDefinition):
     milestones = MILESTONES
     tracks = TRACKS
     credentials = ABDMCredentials
+    handoffs = {"dhis": DHISHandoff}
     signup_organisation_choices = (
         ("private_company", "Company"),
         ("government", "Government"),

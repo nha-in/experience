@@ -1,0 +1,26 @@
+<section class="ui-card ui-card--layered ui-rise"
+         aria-labelledby="handoff-{{ handoff.key }}-heading">
+  <div class="ui-card-header">
+    <h2 class="ui-card-title" id="handoff-{{ handoff.key }}-heading">{{ handoff.definition.name }}</h2>
+    <p class="ui-card-description">{{ handoff.definition.description }}</p>
+  </div>
+  <div class="ui-card-content">
+    <div class="divide-y divide-soft-border">
+      {% for option in handoff.options %}
+        <form class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+              method="post"
+              action="{% url 'experiences:product-handoff' workspace.reference handoff.key %}">
+          {% csrf_token %}
+          <h3 class="min-w-0 text-sm font-semibold">{{ option.label }}</h3>
+          <button class="ui-btn ui-btn--outline ui-btn--size-sm shrink-0"
+                  type="submit"
+                  name="option"
+                  value="{{ option.key }}"
+                  aria-label="{{ handoff.definition.action_label }} as {{ option.label }}">
+            {{ handoff.definition.action_label }} <span aria-hidden="true">↗</span>
+          </button>
+        </form>
+      {% endfor %}
+    </div>
+  </div>
+</section>
