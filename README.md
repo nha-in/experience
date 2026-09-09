@@ -108,6 +108,10 @@ pushes to `testing_new` (the current default branch), pushes of `v*` tags, or
 manually from **Actions → Publish sandbox image → Run workflow**. Branch pushes
 that only change `docs/**` are skipped.
 
+This is the only production image build-and-push workflow. Its Dockerfile builds
+Tailwind, collects static assets, and verifies the generated CSS, fonts, and
+manifests before publishing. No separate Tailwind or production-assets job is needed.
+
 Published tags include:
 
 - Default branch: `testing_new`, `latest`, and `latest-<run-number>`.
