@@ -1,7 +1,5 @@
 from django.utils import timezone
 
-from ohc_experience.experiences.credentials import issue_credentials
-from ohc_experience.experiences.credentials import suspend_organisation_credentials
 from ohc_experience.experiences.definitions import ApplicationDefinition
 from ohc_experience.experiences.definitions import ApplicationFormDefinition
 from ohc_experience.experiences.definitions import OutcomeDefinition
@@ -9,13 +7,21 @@ from ohc_experience.experiences.definitions import ProgramDefinition
 from ohc_experience.experiences.models import FormReuseScope
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.workflows import project_product
+from ohc_experience.integrations.selectors import awaiting_provisioning
+from ohc_experience.integrations.services import start_provisioning
 
 from .catalog import MILESTONES
 from .catalog import TRACKS
 from .forms import ExitEvidenceForm
 from .forms import OrganisationForm
 from .forms import ProductRegistrationForm
+from .forms import UhiParticipationForm
+from .forms import WasaReviewForm
 from .gateway import ABDMCredentials
+from .wasa import preferred_wasa_submission
+from .wasa import wasa_approval_block_reason
+from .wasa import wasa_approval_outcomes
+from .wasa import wasa_context
 
 
 class OrganisationVerification(ApplicationFormDefinition):
@@ -46,7 +52,6 @@ class OrganisationVerification(ApplicationFormDefinition):
         org.verification_status = "pending"
         org.verified_at = None
         org.save()
-        suspend_organisation_credentials(org, actor)
 
     @classmethod
     def on_approve(cls, item, actor):
@@ -54,7 +59,8 @@ class OrganisationVerification(ApplicationFormDefinition):
         for product in item.organisation.products.filter(
             workspace__experience_type=ABDM.key,
         ):
-            issue_credentials(product, actor)
+            if awaiting_provisioning(product):
+                start_provisioning(product, started_by=actor)
         return ()
 
     @classmethod
@@ -73,6 +79,25 @@ class ExitEvidence(ApplicationFormDefinition):
     approval_notice = (
         "Production credentials are issued separately by the gateway team."
     )
+
+    @classmethod
+    def form_kwargs(cls, item):
+        return {
+            "product": item.product,
+            "wasa_source_submission": preferred_wasa_submission(item),
+            "prefer_product_wasa": (
+                not item.selected_submission
+                or item.selected_submission.origin_application_id != item.application_id
+            ),
+        }
+
+    @classmethod
+    def snapshot_valid_until(cls, form):
+        return form.cleaned_data.get("wasa_valid_until")
+
+    @classmethod
+    def approval_block_reason(cls, item):
+        return wasa_approval_block_reason(item)
 
     @classmethod
     def submission_block_reason(cls, item):
@@ -106,7 +131,38 @@ class ExitEvidence(ApplicationFormDefinition):
                     ),
                 },
             ),
+            *wasa_approval_outcomes(item),
         )
+
+
+class WasaReview(ApplicationFormDefinition):
+    key = "abdm_wasa"
+    name = "WASA certification"
+    form_class = WasaReviewForm
+    reuse_scope = FormReuseScope.PRODUCT
+    request_label = "WASA review"
+    submit_label = "Submit WASA for review"
+    submitted_message = "WASA submitted for review."
+    approval_notice = (
+        "Approval makes this certificate available for the product's milestones "
+        "until its stated expiry date."
+    )
+
+    @classmethod
+    def form_kwargs(cls, item):
+        return {"product": item.product}
+
+    @classmethod
+    def snapshot_valid_until(cls, form):
+        return form.cleaned_data.get("wasa_valid_until")
+
+    @classmethod
+    def approval_block_reason(cls, item):
+        return wasa_approval_block_reason(item)
+
+    @classmethod
+    def on_approve(cls, item, actor):
+        return wasa_approval_outcomes(item)
 
 
 class ProductRegistration(ApplicationFormDefinition):
@@ -114,6 +170,16 @@ class ProductRegistration(ApplicationFormDefinition):
     name = "Product registration"
     form_class = ProductRegistrationForm
     allow_approved_updates = True
+
+    @classmethod
+    def form_kwargs(cls, item):
+        return {
+            "approved_milestones": set(
+                item.product.milestones.filter(
+                    application__status="approved",
+                ).values_list("key", flat=True),
+            ),
+        }
 
     @classmethod
     def on_submit(cls, item, data, actor):
@@ -140,6 +206,40 @@ class ProductRegistration(ApplicationFormDefinition):
         )
 
 
+class UhiParticipation(ApplicationFormDefinition):
+    key = "sandbox_uhi_participation"
+    name = "UHI participation"
+    form_class = UhiParticipationForm
+    auto_approve = True
+    allow_approved_updates = True
+    request_label = "UHI application"
+    submit_label = "Submit UHI application"
+    submitted_message = "UHI application recorded."
+    approval_notice = (
+        "UHI participation is recorded rather than assessed. NHA contacts you "
+        "directly about onboarding."
+    )
+
+    @classmethod
+    def submission_block_reason(cls, item):
+        if (
+            not item.organisation.is_verified
+            or item.product.workspace.registration_status != "registered"
+        ):
+            return (
+                "Organisation verification and product registration must be "
+                "approved before applying for UHI."
+            )
+        return ""
+
+
+class UhiApplication(ApplicationDefinition):
+    key = "abdm_uhi_participation"
+    name = "UHI participation"
+    reference_prefix = "UHI"
+    forms = (UhiParticipation,)
+
+
 class SandboxExit(ApplicationDefinition):
     key = "abdm_sandbox_exit"
     name = "ABDM sandbox milestone exit"
@@ -152,6 +252,13 @@ class SandboxProduct(ApplicationDefinition):
     name = "ABDM product registration"
     reference_prefix = "REG"
     forms = (ProductRegistration,)
+
+
+class WasaCertification(ApplicationDefinition):
+    key = "abdm_wasa_review"
+    name = "WASA certification review"
+    reference_prefix = "WASA"
+    forms = (WasaReview,)
 
 
 class ABDM(ProgramDefinition):
@@ -176,6 +283,9 @@ class ABDM(ProgramDefinition):
     organisation_form = OrganisationVerification
     product_application = SandboxProduct
     milestone_application = SandboxExit
+    supplementary_applications = (WasaCertification,)
+    certification_application = WasaCertification
+    milestone_applications = {"uhi1": UhiApplication}
     milestones = MILESTONES
     tracks = TRACKS
     credentials = ABDMCredentials
@@ -184,6 +294,10 @@ class ABDM(ProgramDefinition):
         ("government", "Government"),
         ("sole_proprietor", "Sole proprietor"),
     )
+
+    @classmethod
+    def certification_context(cls, product):
+        return wasa_context(product)
 
     @classmethod
     def product_values(cls, data):
@@ -200,7 +314,7 @@ class ABDM(ProgramDefinition):
     @classmethod
     def on_product_created(cls, product, actor):
         if product.organisation.is_verified:
-            issue_credentials(product, actor)
+            start_provisioning(product, started_by=actor)
 
     @classmethod
     def seed_demo(cls, **options):

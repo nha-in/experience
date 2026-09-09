@@ -15,6 +15,18 @@ app; migrations adopt its existing tables and preserve admin permission grants.
 
 ## Local Demo
 
+Configure `LGD_API_KEY` in the Git-ignored root `.env` before starting the container
+and seeding organisations. Local Docker services read this bind-mounted file;
+it is excluded from image builds. Keep secrets out of the tracked
+`.envs/.local/.django`. Native shell runs can set `DJANGO_READ_DOT_ENV_FILE=true`
+to load the same file, or supply `LGD_API_KEY` in their environment.
+The demo's PIN code is validated against LGD, so seeding needs working API access;
+only automated tests substitute controlled lookup fixtures. There is no built-in
+PIN mapping or fake fallback. See [Organisation address lookup](#organisation-address-lookup)
+for the service settings. Seeding checks the demo PIN before changing data,
+including before a `--reset`; an unavailable or empty lookup aborts that check.
+The `--permissions-only` mode does not need LGD access.
+
 ```sh
 docker compose -f docker-compose.local.yml up -d --build
 docker compose -f docker-compose.local.yml exec django python manage.py migrate
@@ -79,7 +91,7 @@ docker compose -f docker-compose.local.yml exec django python manage.py seed_exp
 ```
 
 `SBX-2026-00001` demonstrates an approved shared M1, an M2 query, locked M3/M4,
-a PHR1 review, a sent-back HealthLocker request and a UHI draft. The second
+a PHR1 review, a sent-back HealthLocker request and a recorded UHI application. The second
 product awaits registration. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
 Local mail is visible at http://localhost:3550/.
@@ -107,8 +119,11 @@ upgrading an existing database. Without Docker, uploads use local disk and mail
 uses the console. Set `DJANGO_USE_LOCAL_MEDIA=false` to use configured object
 storage from the shell. Docker keeps its MinIO and mail service defaults.
 
-Request handlers enqueue mail in `Notification` records. Run a Celery worker and
-beat for automatic delivery, or process queued mail once with:
+Workflow handlers enqueue mail in `Notification` records. The production
+[Global Email integration](global_email.md) also queues account emails and
+organisation invitations, using Anymail and the documented ABDM/NIC gateway.
+Run a Celery worker and beat for automatic delivery, or process queued mail once
+with:
 
 ```sh
 uv run python manage.py shell -c 'from ohc_experience.experiences.tasks import deliver_notifications; deliver_notifications()'
@@ -286,7 +301,75 @@ Celery beat delivers queued emails every minute, checks public HTTPS callbacks
 every 15 minutes, and checks event reminders hourly. Three consecutive callback
 failures trigger a notification. The callback checker blocks private/reserved IPs,
 validates HTTPS certificates and does not follow redirects. Run only one beat
-scheduler; inspect unsent `Notification` rows for delivery failures (five attempts).
+scheduler; inspect unsent `Notification` rows for delivery failures (up to five
+attempts with backoff; uncertain Global Email outcomes require review).
+
+## Organisation address lookup
+
+Organisation registration and editing use the six-digit Indian PIN code to look
+up State and District through the ABDM Local Government Directory (LGD) service.
+One distinct state/district match fills both fields automatically. Multiple
+locality records for the same LGD code pair count as one match; when a PIN maps
+to multiple state/district pairs, the applicant selects the applicable result.
+Changing the PIN clears its previous location. An unknown PIN needs correction,
+while a service failure retains the entered PIN and offers a retry.
+
+The server validates the PIN and selected location on every form submission,
+using the authoritative LGD result or its bounded cache. Browser autofill and
+submitted names or codes cannot bypass this validation. Lookup failures prevent
+saving an unverified location. Canonical State and District names and their LGD
+codes are stored in the form's existing JSON answers. This requires no database
+migration; historical submissions retain their recorded values and schema.
+The metadata keys are `state_lgd_code` and `district_lgd_code`.
+
+| Environment setting | Default and purpose |
+| --- | --- |
+| `LGD_API_KEY` | Required server-side API key. Supply through the deployment's secret configuration; never include it in templates, JavaScript or committed files. |
+| `LGD_API_URL` | `https://apissbx.abdm.gov.in/global/api/v3/internal/lgd`. Override with the approved HTTPS LGD base for the deployment. |
+| `LGD_API_TIMEOUT` | `5.0` seconds per provider connection/read operation; must be greater than zero and at most 30. |
+| `LGD_CACHE_TTL` | `3600` seconds; allowed range 0–86400. Set 0 to disable caching. Each worker caches at most 512 PIN results; provider failures are not cached. |
+
+The server calls `GET {LGD_API_URL}/search?pinCode={PIN}&view=All` with the
+`apikey`, `REQUEST-ID` and `TIMESTAMP` headers. Timestamps use UTC with exactly
+three fractional digits and a trailing `Z`. The provider returns an array with
+`stateName`, `stateCode`, `districtName`, `districtCode` and locality fields;
+the application keeps the distinct state/district code pairs. Credentials and
+provider error bodies are not returned to the browser.
+
+A live sandbox check on 9 September 2026 returned HTTP 200 for PIN `560001`,
+with `KARNATAKA` / state code `29` and `BENGALURU URBAN` / district code `525`.
+The millisecond UTC timestamp format was verified against that service. This
+check establishes the sandbox contract used here; deployment credentials remain
+environment-specific.
+
+The source flow was traced in the supplied `ABDM.zip` archive under
+`FE_source_code_abdm-sandbox/sandbox-website/src/`:
+
+- `store/actions/common-action.js`: `getStateDistrictVillage` calls `/search`.
+- `hooks/use-axios.js`: supplies the LGD API key, request ID and timestamp.
+- `pages/sandbox-updated-registration/components/organization-registration-form.js`:
+  fills State and District from the first result after six PIN digits.
+
+The current implementation preserves the lookup behavior and adds explicit
+selection for ambiguous results, retry feedback and server validation.
+
+## WASA certification agencies
+
+The agency dropdown uses the `CertificationAgency` database table. Apply
+migrations with `python manage.py migrate`; migrations 0007–0008 create the table
+and import all 255 options from the old portal as initial ABDM entries.
+
+Superusers manage the list in Django admin under **Experiences → Certification
+agencies**, normally at `/admin/experiences/certificationagency/`. They can add or
+rename entries, set display order and deactivate/reactivate them. The dropdown
+reads active ABDM entries on each request, so edits require no code deployment.
+Deletion through admin is disabled; deactivate agencies that should no longer
+be offered for new selections.
+
+Submitted forms keep their recorded agency names. A saved name remains available
+on that form after an agency is renamed or deactivated. Demo resets preserve
+the administrator-maintained table; demo creation requires at least one active
+ABDM agency. The legacy list is seed data, with no automatic external refresh.
 
 ## Verification
 
@@ -302,6 +385,9 @@ resubmission history, schema snapshots, multi-file append/removal, CSRF,
 credential encryption and reveal limits, callback address validation, queue
 filters, legacy-route protection, and file type/size validation. Signup tests cover
 local challenge expiry and remote CAPTCHA verification failures.
+Organisation lookup tests use controlled provider responses to cover autofill,
+ambiguous matches, invalid and unknown PINs, service failures, and server-side
+location validation without requiring live credentials.
 
 Engine tests additionally run an unrelated supplier-quality implementation and
 verify that Django starts without importing ABDM. The upgrade preserves current

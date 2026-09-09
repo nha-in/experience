@@ -197,6 +197,8 @@ def _choice_schema(choices) -> list[dict[str, Any]]:
 
 
 def form_field_schema(form) -> list[dict[str, Any]]:
+    # Hidden values are stored with the submission but are not applicant answers
+    # to display or offer as reviewer query targets.
     return [
         {
             "key": name,
@@ -208,21 +210,32 @@ def form_field_schema(form) -> list[dict[str, Any]]:
             else [],
         }
         for name, field in form.fields.items()
+        if not field.widget.is_hidden
     ]
 
 
 def clone_current_attachments(*, source, destination, form) -> None:
-    if source is None:
-        return
     file_fields = {
         name
         for name, field in form.fields.items()
         if isinstance(field, forms.FileField)
     }
-    for attachment in source.attachments.filter(
-        field_key__in=file_fields,
-        is_current=True,
-    ):
+    # A validated form may reuse an approved attachment from another form (for
+    # example, a product certificate). Clone its reference into this revision so
+    # historical evidence and download permissions remain local to the review.
+    existing = getattr(form, "existing_files", None)
+    if existing is not None:
+        attachments = [
+            attachment for key in file_fields for attachment in existing.get(key, [])
+        ]
+    elif source is not None:
+        attachments = source.attachments.filter(
+            field_key__in=file_fields,
+            is_current=True,
+        )
+    else:
+        return
+    for attachment in attachments:
         form_field = form.fields[attachment.field_key]
         removed_ids = getattr(form, "removed_file_ids", {}).get(
             attachment.field_key,

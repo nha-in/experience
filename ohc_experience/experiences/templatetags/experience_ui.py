@@ -28,15 +28,33 @@ def outcome_rows(outcome):
 
 @register.filter
 def sections(form):
+    rules = getattr(form, "conditional_sections", {})
     return [
         {
             "title": title,
             "fields": [form[key] for key in keys if key in form.fields],
             "note": getattr(form, "section_notes", {}).get(title, ""),
             "badges": getattr(form, "section_badges", {}).get(title, ()),
+            "show_when": _rule(form, rules.get(title)),
         }
         for title, keys in getattr(form, "sections", [("", list(form.fields))])
     ]
+
+
+def _rule(form, rule):
+    """Resolve a (controlling field, value) rule against what is answered now."""
+    if not rule:
+        return None
+    controller, value = rule
+    current = form[controller].value() or []
+    if isinstance(current, str):
+        current = [current]
+    return {"field": controller, "value": value, "active": value in current}
+
+
+@register.filter
+def show_when(form, name):
+    return _rule(form, getattr(form, "conditional_fields", {}).get(name))
 
 
 @register.simple_tag

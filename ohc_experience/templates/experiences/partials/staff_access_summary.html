@@ -1,2 +1,14 @@
-{% if member.is_superuser %}<span class="ui-badge ui-badge--info ui-badge--size-xs">Superadmin</span><span class="ml-1 text-xs text-soft-foreground">Protected account</span>
-{% else %}<ul class="flex flex-col gap-1 text-xs">{% for access in member.experience_access.all %}{% if access.can_read %}<li><span class="font-medium">{{ access.get_area_display }}</span> · {% if access.category == '*' %}All categories{% else %}{{ access.category|default:'General / onboarding' }}{% endif %} <span class="text-soft-foreground">({{ access.program }})</span></li>{% endif %}{% empty %}<li class="text-soft-foreground">No portal access</li>{% endfor %}</ul>{% endif %}
+{% if member.is_superuser %}
+  <span class="staff-admin-role">Superadmin</span>
+  <span class="staff-access-note">Full portal access · Protected account</span>
+{% else %}
+  <ul class="staff-access-list">
+    {% for access in member.portal_grants %}
+      <li>
+        <span class="staff-access-area">{{ access.get_area_display }}</span>
+        <span class="staff-access-category">{% if access.category == '*' %}All categories{% else %}{{ access.category|default:'General / onboarding' }}{% endif %}</span>
+        <span class="staff-access-program">{{ access.program|upper }}</span>
+      </li>
+{% empty %}<li class="staff-access-note">No portal access assigned</li>{% endfor %}
+  </ul>
+{% endif %}

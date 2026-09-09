@@ -1,0 +1,15 @@
+{% load i18n %}
+
+<div data-pincode-field>
+  {% include "django/forms/widgets/input.html" %}
+  <p id="{{ widget.lookup_status_id }}"
+     class="mt-2 text-sm text-muted-foreground"
+     role="status"
+     aria-live="polite"
+     aria-atomic="true"
+     data-pincode-status>{% translate "Enter a six-digit PIN code to look up the state and district." %}</p>
+  <button type="button"
+          class="ui-btn ui-btn--outline mt-2"
+          data-pincode-retry
+          hidden>{% translate "Retry lookup" %}</button>
+</div>

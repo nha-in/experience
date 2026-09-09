@@ -9,6 +9,9 @@ from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.core.management.color import no_style
+from django.db import connection
+from django.db import transaction
 from django.utils import timezone
 from django.utils.datastructures import MultiValueDict
 from PIL import Image
@@ -17,10 +20,14 @@ from PIL import ImageDraw
 from ohc_experience.events.models import Event
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import TicketAttachment
 from ohc_experience.experiences.models import TicketContext
+from ohc_experience.integrations.services import provision_inline
+from ohc_experience.organisations.lgd import LGDLookupError
+from ohc_experience.organisations.lgd import lookup_pincode
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.support.models import Ticket
@@ -73,7 +80,7 @@ def product_data(name="Medibase HMIS 4.2"):
         "name": name,
         "description": "Hospital information management, patient records and connected health services.",
         "category": "hmis",
-        "solution_type": "clinical_hmis",
+        "solution_type": ["clinical_hmis"],
         "applied_milestones": [
             "HI-CM:m1",
             "HI-CM:m2",
@@ -82,8 +89,18 @@ def product_data(name="Medibase HMIS 4.2"):
             "PHR:m1",
             "PHR:phr1",
             "HealthLocker:locker1",
+            "UHI:m1",
             "UHI:uhi1",
         ],
+    }
+
+
+def uhi_data():
+    return {
+        "uhi_role": ["eua"],
+        "uhi_services": ["teleconsultation", "physical_consultation"],
+        "uhi_tell_us_about": "Discovery and teleconsultation for our clinic network.",
+        "uhi_extra_details": "",
     }
 
 
@@ -93,14 +110,51 @@ def evidence_data():
         "start_date": (today - timedelta(days=45)).isoformat(),
         "end_date": (today - timedelta(days=5)).isoformat(),
         "tentative_demo_date": (today + timedelta(days=10)).isoformat(),
-        "wasa_agency": "SecureStack Audit Services (demo)",
+        "wasa_agency": _demo_agency(),
         "wasa_date": (today - timedelta(days=12)).isoformat(),
+        "wasa_valid_until": (today + timedelta(days=180)).isoformat(),
     }
+
+
+def _demo_agency():
+    agency = (
+        CertificationAgency.objects.filter(program="abdm", is_active=True)
+        .order_by("sort_order", "name", "pk")
+        .values_list("name", flat=True)
+        .first()
+    )
+    if agency is None:
+        msg = (
+            "No active ABDM certification agency is available. Add or activate an "
+            "agency in Django admin before seeding the demo. No data has been changed."
+        )
+        raise CommandError(msg)
+    return agency
+
+
+@transaction.atomic
+def _reset_demo_database():
+    agencies = list(CertificationAgency.objects.values())
+    call_command("flush", interactive=False)
+    CertificationAgency.objects.bulk_create(
+        [CertificationAgency(**agency) for agency in agencies],
+    )
+    # Insertion updates automatic timestamps; restore the administrator's originals.
+    CertificationAgency.objects.bulk_update(
+        [CertificationAgency(**agency) for agency in agencies],
+        ["created_at", "updated_at"],
+    )
+    with connection.cursor() as cursor:
+        for sql in connection.ops.sequence_reset_sql(no_style(), [CertificationAgency]):
+            cursor.execute(sql)
 
 
 def evidence_files():
     return MultiValueDict(
         {
+            "wasa_certificate": [
+                demo_pdf("wasa-certificate.pdf", "WASA certificate"),
+            ],
             "functional_certificate": [demo_pdf()],
             "functional_report": [
                 demo_pdf("functional-report.pdf", "Functional testing report"),
@@ -111,6 +165,22 @@ def evidence_files():
             ],
         },
     )
+
+
+def _verify_demo_location():
+    try:
+        demo_locations = lookup_pincode("560001")
+    except LGDLookupError as exc:
+        msg = (
+            "LGD lookup is unavailable. Configure LGD_API_KEY and verify API "
+            "access before seeding the demo. No data has been changed."
+        )
+        raise CommandError(msg) from exc
+    if not demo_locations:
+        msg = (
+            "LGD returned no location for the demo PIN code. No data has been changed."
+        )
+        raise CommandError(msg)
 
 
 class DemoBuilder:
@@ -125,11 +195,13 @@ class DemoBuilder:
         if options.get("permissions_only"):
             self.permission_accounts(options["password"])
             return
+        _verify_demo_location()
+        _demo_agency()
         if options["reset"]:
             files = set(FormAttachment.objects.values_list("file", flat=True)) | set(
                 TicketAttachment.objects.values_list("file", flat=True),
             )
-            call_command("flush", interactive=False)
+            _reset_demo_database()
             for name in files:
                 if name:
                     default_storage.delete(name)
@@ -191,7 +263,7 @@ class DemoBuilder:
             note="Organisation identity verified for sandbox participation.",
         )
         org.refresh_from_db()
-        workspace, form = services.register_product(org, applicant, data=product_data())
+        workspace, form = self.register_product(org, applicant, data=product_data())
         if not workspace:
             raise CommandError(str(form.errors))
         registration = workspace.product.review_items.get(
@@ -209,20 +281,15 @@ class DemoBuilder:
         self.exit(workspace, "m2", applicant, admin, reviewer, "query")
         self.exit(workspace, "phr1", applicant, admin, reviewer, "review")
         self.exit(workspace, "locker1", applicant, admin, reviewer, "sent_back")
-        draft = workspace.product.milestones.get(key="uhi1").application.review_item
-        services.save_review_form(
-            draft,
-            applicant,
-            data={"wasa_agency": "SecureStack Audit Services (demo)"},
-            submit=False,
-        )
-        services.register_product(
+        uhi = workspace.product.milestones.get(key="uhi1").application.review_item
+        services.save_review_form(uhi, applicant, data=uhi_data(), submit=True)
+        self.register_product(
             org,
             applicant,
             data={
                 **product_data("Medibase Health Locker"),
                 "category": "health_locker",
-                "solution_type": "health_locker",
+                "solution_type": ["health_locker"],
                 "applied_milestones": ["HealthLocker:locker1"],
             },
         )
@@ -306,6 +373,13 @@ class DemoBuilder:
                 "Demo permission accounts ready; application data unchanged.",
             ),
         )
+
+    def register_product(self, org, applicant, *, data):
+        """Registers, then runs the chain inline — a seed waits for no worker."""
+        workspace, form = services.register_product(org, applicant, data=data)
+        if workspace:
+            provision_inline(workspace.product)
+        return workspace, form
 
     def user(self, email, name, password, *, reviewer=False, admin=False):
         user, _ = get_user_model().objects.get_or_create(email=email)

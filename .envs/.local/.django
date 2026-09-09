@@ -20,3 +20,12 @@ DJANGO_AWS_SECRET_ACCESS_KEY=ohc-local-development-key
 DJANGO_AWS_STORAGE_BUCKET_NAME=ohc-experience-media
 DJANGO_AWS_S3_ENDPOINT_URL=http://minio:9000
 DJANGO_AWS_S3_REGION_NAME=us-east-1
+
+# Integrations
+# ------------------------------------------------------------------------------
+# The three ports default to the local adapters, so the portal provisions offline.
+# These drive a real Admin API instead; start the keycloak profile first, and use
+# http://localhost:8080 when Django runs on the host rather than in compose.
+INTEGRATION_IDP=ohc_experience.integrations.keycloak.adapter.KeycloakIdpAdmin
+KEYCLOAK_BASE_URL=http://keycloak:8080
+KEYCLOAK_CLIENT_SECRET=local-development-only

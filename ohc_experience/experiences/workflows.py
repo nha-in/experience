@@ -94,7 +94,9 @@ def notify_ticket_reply(ticket, actor, body):
             and visible_tickets(ticket.assignee).filter(pk=ticket.pk).exists()
         ):
             Notification.objects.create(
-                recipient=ticket.assignee.email, subject=subject, body=body,
+                recipient=ticket.assignee.email,
+                subject=subject,
+                body=body,
             )
     else:
         notify_integrators(ticket.organisation, subject, body)
@@ -163,9 +165,42 @@ def build_form(item, *, data=None, files=None, draft=False):
         initial=initial,
         existing_files=dict(existing),
         draft=draft,
+        **item.definition.form_kwargs(item),
     )
     form.schema_version = item.definition.schema_version
     return form
+
+
+def _complete_submission(item, actor):
+    resubmitting = item.submitted_at is not None
+    item.resubmission_count += int(resubmitting)
+    item.submitted_at = timezone.now()
+    if item.definition.auto_approve:
+        _auto_approve(item, actor)
+    else:
+        _request_review(item, resubmitting=resubmitting)
+    audit(
+        actor=actor,
+        action="Resubmitted for review" if resubmitting else "Requested review",
+        item=item,
+    )
+
+
+def _request_review(item, *, resubmitting):
+    item.status = (
+        ReviewItem.Status.IN_REVIEW
+        if resubmitting or item.assignee_id
+        else ReviewItem.Status.NEW
+    )
+    item.decided_at = None
+    item.decided_by = None
+    item.decision_note = ""
+    _set_application_status(item, "under_review")
+    notify_reviewers(
+        item,
+        f"{item.program.short_name}: {item.reference} received",
+        f"{item.title} is ready for review.",
+    )
 
 
 def _snapshot(item, form, actor, *, completed):
@@ -195,6 +230,7 @@ def _snapshot(item, form, actor, *, completed):
         field_schema=form_field_schema(form),
         schema_version=form.schema_version,
         metadata={"complete": completed},
+        valid_until=item.definition.snapshot_valid_until(form),
         status="completed" if completed else "needs_changes",
         submission_number=number,
         revision=revision,
@@ -332,7 +368,7 @@ def project_product(item, actor, *, product_values, solution_type, selections):
             ),
         )
         application = create_application(
-            application_type=program.milestone_application.key,
+            application_type=program.application_for(key).key,
             product=product,
             user=actor,
         )
@@ -401,34 +437,51 @@ def save_review_form(  # noqa: PLR0913
         item.definition.on_submit(item, form.cleaned_data, actor)
     _snapshot(item, form, actor, completed=submit)
     if submit:
-        resubmitting = item.submitted_at is not None
-        item.resubmission_count += int(resubmitting)
-        item.submitted_at = timezone.now()
-        item.status = (
-            ReviewItem.Status.IN_REVIEW
-            if resubmitting or item.assignee_id
-            else ReviewItem.Status.NEW
-        )
-        item.decided_at = None
-        item.decided_by = None
-        item.decision_note = ""
-        _set_application_status(item, "under_review")
-        notify_reviewers(
-            item,
-            f"{item.program.short_name}: {item.reference} received",
-            f"{item.title} is ready for review.",
-        )
-        audit(
-            actor=actor,
-            action="Resubmitted for review" if resubmitting else "Requested review",
-            item=item,
-        )
+        _complete_submission(item, actor)
     else:
         if item.status != ReviewItem.Status.SENT_BACK:
             item.status = ReviewItem.Status.DRAFT
         _set_application_status(item, "draft")
     item.save()
     return item, form, True
+
+
+@transaction.atomic
+def certification_review(product, actor):
+    """Continue an open certification request, or begin a new review cycle."""
+    require_integrator(actor, product.organisation)
+    Organisation.objects.select_for_update().get(pk=product.organisation_id)
+    definition = product.workspace.definition.certification_application
+    if definition is None:
+        msg = "This program does not offer product certification reviews."
+        raise ValidationError(msg)
+    existing = (
+        product.review_items.filter(application__application_type=definition.key)
+        .exclude(status=ReviewItem.Status.APPROVED)
+        .order_by("-created_at", "-pk")
+        .first()
+    )
+    if existing:
+        return existing
+    application = create_application(
+        application_type=definition.key,
+        product=product,
+        user=actor,
+    )
+    use = application.form_uses.get()
+    # Renewals share their form identity, but start with fresh evidence. Never
+    # turn the previous certificate into a newly submitted renewal by default.
+    use.selected_submission = None
+    use.save(update_fields=["selected_submission", "updated_at"])
+    item = ReviewItem.objects.create(
+        kind=ReviewItem.Kind.APPLICATION,
+        organisation=product.organisation,
+        product=product,
+        application=application,
+        form=use.form,
+    )
+    audit(actor=actor, action="Certification review started", item=item)
+    return item
 
 
 @transaction.atomic
@@ -556,6 +609,36 @@ def _approve_subject(item, actor):
         issue_outcome(application=item.application, actor=actor, outcome=outcome)
 
 
+def _validate_approval(item):
+    reason = item.definition.approval_block_reason(item)
+    if reason:
+        raise ValidationError(reason)
+    if (
+        item.queries.filter(submission=item.selected_submission)
+        .exclude(status="resolved")
+        .exists()
+    ):
+        msg = "Resolve all queries on this submission before approving."
+        raise ValidationError(msg)
+
+
+def _auto_approve(item, actor):
+    """Submitting is the decision. Nobody is asked, but the record still lands
+    in the queue so a reviewer can read it."""
+    _validate_approval(item)
+    item.status = ReviewItem.Status.APPROVED
+    item.decided_at = timezone.now()
+    item.decided_by = None
+    item.decision_note = ""
+    _set_application_status(item, "approved")
+    _approve_subject(item, actor)
+    notify_reviewers(
+        item,
+        f"{item.program.short_name}: {item.reference} recorded",
+        f"{item.title} needs no decision and has been recorded.",
+    )
+
+
 @transaction.atomic
 def decide(item, actor, *, action, note="", field_key="form"):
     item = _lock_review(item.pk)
@@ -597,16 +680,8 @@ def decide(item, actor, *, action, note="", field_key="form"):
             detail={"query_id": query.pk, "field": field_key, "question": note},
         )
     else:
-        if (
-            action == "approve"
-            and item.queries.filter(submission=item.selected_submission)
-            .exclude(status="resolved")
-            .exists()
-        ):
-            msg = "Resolve all queries on this submission before approving."
-            raise ValidationError(
-                msg,
-            )
+        if action == "approve":
+            _validate_approval(item)
         item.status = (
             ReviewItem.Status.APPROVED
             if action == "approve"

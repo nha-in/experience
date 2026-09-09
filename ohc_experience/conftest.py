@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from ohc_experience.integrations.local import reset_local_state
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.users.tests.factories import UserFactory
@@ -22,6 +23,12 @@ if TYPE_CHECKING:
 def media_storage(settings, tmpdir) -> None:
     """Keep anything uploaded during a test inside that test's tmpdir."""
     settings.MEDIA_ROOT = tmpdir.strpath
+
+
+@pytest.fixture(autouse=True)
+def _reset_local_integrations() -> None:
+    """Their state is cache-backed, so it would otherwise leak between tests."""
+    reset_local_state()
 
 
 @pytest.fixture
@@ -60,3 +67,24 @@ def sign_in(client: Client) -> Callable[[User], Client]:
         return client
 
     return _sign_in
+
+
+@pytest.fixture
+def lgd_lookup(monkeypatch):
+    """Keep workflow/demo tests independent of the live LGD service."""
+    locations = [
+        {
+            "state": "KARNATAKA",
+            "state_code": "29",
+            "district": "BENGALURU URBAN",
+            "district_code": "525",
+        },
+    ]
+
+    def lookup(pincode):
+        return locations if pincode == "560001" else []
+
+    monkeypatch.setattr("ohc_experience.abdm.forms.lookup_pincode", lookup)
+    monkeypatch.setattr("ohc_experience.abdm.demo.lookup_pincode", lookup)
+    monkeypatch.setattr("ohc_experience.organisations.lgd.lookup_pincode", lookup)
+    return locations

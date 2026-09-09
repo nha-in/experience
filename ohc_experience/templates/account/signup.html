@@ -5,7 +5,8 @@
 {% block title %}Create your account | {{ experience_program.name|default:"Developer Sandbox" }}{% endblock title %}
 {% block header_action %}
   <span class="marketing-auth-headerhint">{% translate "Already have an account?" %}</span>
-  <a class="marketing-button" href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+  <a class="marketing-button marketing-button--small"
+     href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
 {% endblock header_action %}
 {% block entrance_layout_class %}marketing-auth--signup{% endblock entrance_layout_class %}
 {% block entrance_eyebrow %}

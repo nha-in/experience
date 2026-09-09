@@ -50,10 +50,11 @@
         <a class="ui-tile ui-rise"
            href="{% url 'experiences:product-edit' workspace.reference %}"><span class="ui-kicker">Active tracks</span><span class="ui-tile-figure">{{ progress.active_tracks }}</span><span class="ui-tile-note">Choose the milestones that match your product.</span></a>
       {% endif %}
-      {% if can_read_support %}<a class="[animation-delay:.18s] ui-tile ui-rise"
-         href="{% url 'experiences:support' %}?product={{ workspace.reference|urlencode }}">
-        <span class="ui-kicker">Support</span><span class="flex items-baseline gap-2"><span class="ui-tile-figure">{{ nav_ticket_count }}</span><span class="ui-figure-unit">open ticket{{ nav_ticket_count|pluralize }}</span></span><span class="ui-tile-note">Follow your questions and replies from the support team.</span>
-      </a>
+      {% if can_read_support %}
+        <a class="[animation-delay:.18s] ui-tile ui-rise"
+           href="{% url 'experiences:support' %}?product={{ workspace.reference|urlencode }}">
+          <span class="ui-kicker">Support</span><span class="flex items-baseline gap-2"><span class="ui-tile-figure">{{ nav_ticket_count }}</span><span class="ui-figure-unit">open ticket{{ nav_ticket_count|pluralize }}</span></span><span class="ui-tile-note">Follow your questions and replies from the support team.</span>
+        </a>
       {% endif %}
     </div>
     {% if registration.status == 'sent_back' %}
@@ -143,6 +144,9 @@
         {% endif %}
       </div>
       <aside class="flex min-w-0 flex-col gap-6">
+        {% if certification %}
+          {% include 'experiences/partials/product_wasa_card.html' %}
+        {% endif %}
         {% if experience_program.credentials and can_read_general %}
           <section class="ui-card ui-card--layered ui-card--sm ui-rise">
             <div class="ui-card-content">

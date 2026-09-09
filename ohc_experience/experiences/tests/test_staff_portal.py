@@ -13,6 +13,7 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
+from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.events.models import Event
@@ -58,7 +59,9 @@ def payload(user=None, *, grants=()):
             if row["key"] == ("abdm", area, category)
         )
         for action, cell in zip(
-            ("read", "write", "approve"), row["cells"], strict=True,
+            ("read", "write", "approve"),
+            row["cells"],
+            strict=True,
         ):
             if action in actions:
                 data[cell.name] = "on"
@@ -102,7 +105,10 @@ def test_superadmin_can_create_portal_only_staff_and_sign_in(client, superadmin)
     data = payload(grants=[("review", "UHI", ["read", "write"])])
     # Privilege flags and arbitrary user ids are never accepted from the client.
     data.update(
-        is_staff="on", is_superuser="on", is_active="off", user=str(superadmin.pk),
+        is_staff="on",
+        is_superuser="on",
+        is_active="off",
+        user=str(superadmin.pk),
     )
     response = client.post(url, data, HTTP_HX_REQUEST="true")
     assert response.status_code == 302
@@ -132,7 +138,9 @@ def test_superadmin_can_create_portal_only_staff_and_sign_in(client, superadmin)
 
 
 def test_edit_account_email_password_and_permissions_atomically(
-    superadmin, staff, client,
+    superadmin,
+    staff,
+    client,
 ):
     AccessGrant.objects.create(
         user=staff,
@@ -143,7 +151,10 @@ def test_edit_account_email_password_and_permissions_atomically(
         can_approve=True,
     )
     EmailAddress.objects.create(
-        user=staff, email=staff.email, primary=True, verified=True,
+        user=staff,
+        email=staff.email,
+        primary=True,
+        verified=True,
     )
     client.force_login(superadmin)
     page = client.get(reverse("experiences:staff-edit", args=[staff.pk]))
@@ -198,7 +209,9 @@ def test_invalid_staff_forms_do_not_create_users_or_grants(superadmin, invalid):
         UserFactory(email="STAFF@example.test")
     elif invalid == "email_address":
         EmailAddress.objects.create(
-            user=UserFactory(), email="STAFF@example.test", verified=True,
+            user=UserFactory(),
+            email="STAFF@example.test",
+            verified=True,
         )
     elif invalid == "write_without_read":
         data = payload(grants=[("review", "UHI", ["write"])])
@@ -214,7 +227,10 @@ def test_invalid_staff_forms_do_not_create_users_or_grants(superadmin, invalid):
 
 def test_invalid_edit_preserves_existing_account_and_grants(superadmin, staff):
     grant = AccessGrant.objects.create(
-        user=staff, program="abdm", area="review", category="UHI",
+        user=staff,
+        program="abdm",
+        area="review",
+        category="UHI",
     )
     old_name = staff.name
     data = payload(staff, grants=[("events", "NHCX", ["approve"])])
@@ -229,7 +245,10 @@ def test_invalid_edit_preserves_existing_account_and_grants(superadmin, staff):
 def test_stale_edits_cannot_overwrite_new_grants(superadmin, staff, client):
     old = payload(staff)
     access = AccessGrant.objects.create(
-        user=staff, program="abdm", area="review", category="UHI",
+        user=staff,
+        program="abdm",
+        area="review",
+        category="UHI",
     )
     with pytest.raises(ValidationError, match="changed"):
         save_staff(superadmin, old, pk=staff.pk)
@@ -241,23 +260,34 @@ def test_stale_edits_cannot_overwrite_new_grants(superadmin, staff, client):
 
 
 def test_archive_and_restore_revoke_sessions_but_retain_permissions(
-    superadmin, staff, client,
+    superadmin,
+    staff,
+    client,
 ):
     AccessGrant.objects.create(
-        user=staff, program="abdm", area="review", category="UHI",
+        user=staff,
+        program="abdm",
+        area="review",
+        category="UHI",
     )
     client.force_login(staff)
     old_session = client.session.session_key
     assert Session.objects.filter(pk=old_session).exists()
     archived = set_staff_active(
-        superadmin, staff.pk, active=False, revision=staff_revision(staff),
+        superadmin,
+        staff.pk,
+        active=False,
+        revision=staff_revision(staff),
     )
     assert not archived.is_active
     assert archived.experience_access.count() == 1
     assert not Session.objects.filter(pk=old_session).exists()
     assert not permissions.has_area(archived, "review")
     restored = set_staff_active(
-        superadmin, staff.pk, active=True, revision=staff_revision(archived),
+        superadmin,
+        staff.pk,
+        active=True,
+        revision=staff_revision(archived),
     )
     assert permissions.has_area(restored, "review")
     assert client.get(reverse("experiences:queue")).status_code == 302
@@ -272,13 +302,15 @@ def test_archive_is_post_only_and_csrf_protected(superadmin, staff, client):
     csrf_client.force_login(superadmin)
     assert (
         csrf_client.post(
-            url, {"intent": "archive", "revision": staff_revision(staff)},
+            url,
+            {"intent": "archive", "revision": staff_revision(staff)},
         ).status_code
         == 403
     )
     assert (
         client.post(
-            url, {"intent": "archive", "revision": staff_revision(staff)},
+            url,
+            {"intent": "archive", "revision": staff_revision(staff)},
         ).status_code
         == 302
     )
@@ -286,7 +318,8 @@ def test_archive_is_post_only_and_csrf_protected(superadmin, staff, client):
     assert not staff.is_active
     assert (
         client.post(
-            url, {"intent": "restore", "revision": staff_revision(staff)},
+            url,
+            {"intent": "restore", "revision": staff_revision(staff)},
         ).status_code
         == 302
     )
@@ -303,7 +336,8 @@ def test_superadmins_and_applicants_cannot_be_modified_as_staff(superadmin, clie
     ]:
         assert (
             client.post(
-                reverse("experiences:staff-edit", args=[target.pk]), payload(target),
+                reverse("experiences:staff-edit", args=[target.pk]),
+                payload(target),
             ).status_code
             == 404
         )
@@ -316,7 +350,10 @@ def test_superadmins_and_applicants_cannot_be_modified_as_staff(superadmin, clie
         )
         with pytest.raises(PermissionDenied):
             set_staff_active(
-                superadmin, target.pk, active=False, revision=staff_revision(target),
+                superadmin,
+                target.pk,
+                active=False,
+                revision=staff_revision(target),
             )
 
 
@@ -339,7 +376,11 @@ def test_staff_directory_search_filters_and_pagination(superadmin, client):
 
 def test_portal_only_event_staff_can_create_edit_and_publish_separately(staff, client):
     access = AccessGrant.objects.create(
-        user=staff, program="abdm", area="events", category="UHI", can_write=True,
+        user=staff,
+        program="abdm",
+        area="events",
+        category="UHI",
+        can_write=True,
     )
     client.force_login(staff)
     create = reverse("experiences:event-create")
@@ -372,7 +413,8 @@ def test_portal_only_event_staff_can_create_edit_and_publish_separately(staff, c
     access.save()
     assert (
         client.post(
-            reverse("experiences:event-edit", args=[event.pk]), data,
+            reverse("experiences:event-edit", args=[event.pk]),
+            data,
         ).status_code
         == 403
     )
@@ -417,12 +459,18 @@ def test_event_manager_cannot_access_other_categories(staff, client):
 
 
 def test_archive_releases_pending_assignments_and_preserves_evidence(
-    environment, staff,
+    environment,
+    staff,
 ):
     AccessGrant.objects.create(
-        user=staff, program="abdm", area="review", category="UHI", can_approve=True,
+        user=staff,
+        program="abdm",
+        area="review",
+        category="HealthLocker",
+        can_approve=True,
     )
-    item = submit(environment, "uhi1")
+    approve(environment)
+    item = submit(environment, "locker1")
     submission_id = item.selected_submission_id
     workflows.assign_review(item, environment["admin"], staff)
     ticket = Ticket.objects.create(
@@ -432,7 +480,10 @@ def test_archive_releases_pending_assignments_and_preserves_evidence(
         assignee=staff,
     )
     set_staff_active(
-        environment["admin"], staff.pk, active=False, revision=staff_revision(staff),
+        environment["admin"],
+        staff.pk,
+        active=False,
+        revision=staff_revision(staff),
     )
     item.refresh_from_db()
     ticket.refresh_from_db()

@@ -22,6 +22,9 @@ class ApplicationFormDefinition:
     form_class: ClassVar[type]
     allow_approved_updates: ClassVar[bool] = False
     allow_reuse: ClassVar[bool] = False
+    #: Submitting is the whole process — no reviewer decides it. The item still
+    #: reaches the queue, so the record is visible.
+    auto_approve: ClassVar[bool] = False
     request_label = "application"
     submit_label = "Submit application"
     submitted_message = "Application submitted."
@@ -32,8 +35,22 @@ class ApplicationFormDefinition:
         return {}
 
     @classmethod
+    def form_kwargs(cls, item):
+        """Extra constructor arguments, e.g. product state a field gates on."""
+        return {}
+
+    @classmethod
     def submission_block_reason(cls, item):
         return ""
+
+    @classmethod
+    def approval_block_reason(cls, item):
+        """Recheck time-sensitive evidence immediately before a decision."""
+        return ""
+
+    @classmethod
+    def snapshot_valid_until(cls, form):
+        """Optional validity date for this exact submission revision."""
 
     @classmethod
     def on_submit(cls, item, data, actor):
@@ -104,7 +121,7 @@ class TrackDefinition:
 
 
 class CredentialDefinition:
-    """A provider supplies values and policy; the engine secures their lifecycle."""
+    """A program supplies policy and copy; the chain provisions, the engine shows."""
 
     name = "Integration credentials"
     outcome_type = "integration_credentials"
@@ -117,16 +134,16 @@ class CredentialDefinition:
     handoff_notice = ""
 
     @classmethod
+    def gateway_url(cls):
+        return ""
+
+    @classmethod
     def is_demo(cls):
         return False
 
     @classmethod
     def eligibility_error(cls, product):
         return ""
-
-    @classmethod
-    def provision(cls, product, operation):
-        raise NotImplementedError
 
 
 class ProgramDefinition:
@@ -153,15 +170,29 @@ class ProgramDefinition:
     organisation_form: ClassVar[type[ApplicationFormDefinition]]
     product_application: ClassVar[type[ApplicationDefinition]]
     milestone_application: ClassVar[type[ApplicationDefinition]]
+    supplementary_applications: ClassVar[tuple[type[ApplicationDefinition], ...]] = ()
+    certification_application: ClassVar[type[ApplicationDefinition] | None] = None
+    #: Milestones whose request is not the usual exit evidence.
+    milestone_applications: ClassVar[dict[str, type[ApplicationDefinition]]] = {}
     milestones: ClassVar[dict[str, MilestoneDefinition]] = {}
     tracks: ClassVar[tuple[TrackDefinition, ...]] = ()
     credentials: ClassVar[type[CredentialDefinition] | None] = None
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     @classmethod
+    def application_for(cls, milestone_key):
+        return cls.milestone_applications.get(milestone_key, cls.milestone_application)
+
+    @classmethod
     def validate(cls):
         if not cls.key or len(cls.track_map()) != len(cls.tracks):
             msg = "Programs require a key and uniquely named tracks."
+            raise ImproperlyConfigured(msg)
+        if (
+            cls.certification_application
+            and cls.certification_application not in cls.supplementary_applications
+        ):
+            msg = "The certification application must be registered as supplementary."
             raise ImproperlyConfigured(msg)
         for key, milestone in cls.milestones.items():
             if key != milestone.key or (
@@ -181,6 +212,11 @@ class ProgramDefinition:
     @classmethod
     def product_values(cls, data):
         return {key: data[key] for key in ("name", "description", "product_type")}
+
+    @classmethod
+    def certification_context(cls, product):
+        """Optional product certification summary supplied by the program."""
+        return {}
 
     @classmethod
     def milestone_keys(cls, selections):

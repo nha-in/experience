@@ -18,7 +18,7 @@ Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getti
 
 ### Setting Up Your Users
 
-- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Native development prints the verification email in your console by default; if you enable SMTP, open the [Mailtrap Local inbox](#email-server) instead. Copy the verification link into your browser to verify the user's email.
+- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
 
 - To create a **superuser account**, use this command:
 
@@ -77,22 +77,12 @@ uv run celery -A config.celery_app worker -B -l info
 
 ### Email Server
 
-[Mailtrap Local](https://github.com/mailtrap/mailtrap-local) captures development email in a local web inbox. It starts with the Docker development stack, or you can start just the mail service:
+In development, it is often nice to be able to see emails that are being sent from your application. For that reason local SMTP server [Mailtrap Local](https://github.com/mailtrap/mailtrap-local) with a web interface is available as docker container.
 
-```bash
-docker compose -f docker-compose.local.yml up -d mailtrap-local
-```
+Container mailtrap-local will start automatically when you will run all docker containers.
+Please check [cookiecutter-django Docker documentation](https://cookiecutter-django.readthedocs.io/en/latest/2-local-development/developing-locally-docker.html) for more details how to start all containers.
 
-For Django running inside Docker, local settings use SMTP at `mailtrap-local:3535`. A native Django process (`USE_DOCKER=no`) prints email to the console by default. To send its email to Mailtrap Local instead, start or restart the process with an explicit SMTP backend and the host address:
-
-```bash
-USE_DOCKER=no \
-EMAIL_HOST=127.0.0.1 \
-DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend \
-uv run python manage.py runserver
-```
-
-Local settings already use SMTP port `3535`. These email settings retain native development's disk uploads. Open [the Mailtrap Local inbox](http://127.0.0.1:3550) to read verification and other development emails. If you run a separate Celery worker for email tasks, restart it with the same email environment variables.
+With Mailtrap Local running, to view messages that are sent by your application, open your browser and go to `http://127.0.0.1:3550`
 
 ### Sentry
 
@@ -108,3 +98,40 @@ The following details how to deploy this application.
 ### Docker
 
 See detailed [cookiecutter-django Docker documentation](https://cookiecutter-django.readthedocs.io/en/latest/3-deployment/deployment-with-docker.html).
+
+### GitHub Container Registry
+
+The [Publish sandbox image workflow](.github/workflows/publish-image.yml) builds
+`compose/production/django/Dockerfile` for `linux/amd64` and `linux/arm64`, then
+publishes one multi-platform image to `ghcr.io/nha-in/sandbox`. It runs on
+pushes to `testing_new` (the current default branch), pushes of `v*` tags, or
+manually from **Actions → Publish sandbox image → Run workflow**. Branch pushes
+that only change `docs/**` are skipped.
+
+Published tags include:
+
+- Default branch: `testing_new`, `latest`, and `latest-<run-number>`.
+- Releases: the Git tag (for example, `v1.2.3`) and its semantic version (`1.2.3`).
+  Tags without a hyphen also update `production-latest`; prerelease tags such as
+  `v1.2.3-rc.1` do not update that alias.
+- Every build: `sha-<full-commit-sha>`. Manual runs on other branches also publish
+  a branch-name tag without updating `latest`.
+
+The workflow uses the automatic `GITHUB_TOKEN` with `contents: read` and
+`packages: write`; no additional build secrets are required. The repository must
+be allowed to publish packages. If the package already exists, grant this
+repository Actions access in the package settings. See the
+[GitHub Container Registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+for authentication and package access.
+
+After a successful default-branch build, pull the image with:
+
+```bash
+docker pull ghcr.io/nha-in/sandbox:latest
+```
+
+Authenticate to `ghcr.io` first if the package is private. The same image supports
+the Django app (`/start`), Celery worker (`/start-celeryworker`), Celery beat
+(`/start-celerybeat`), and Flower (`/start-flower`), using the runtime environment
+from the production Compose configuration. This workflow publishes the app image;
+deployment remains a separate step.

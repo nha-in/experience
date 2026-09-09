@@ -195,13 +195,42 @@
 
 
 (() => {
+  function updateWasaFields(form) {
+    const choice = form.querySelector('[name="use_product_wasa"]');
+    if (!choice) return;
+    form.querySelectorAll('[data-wasa-source-options]').forEach(options => {
+      options.hidden = !choice.checked;
+    });
+    form.querySelectorAll('[data-wasa-upload]').forEach(field => {
+      field.hidden = choice.checked;
+      field.querySelectorAll('input, select, textarea').forEach(input => {
+        input.disabled = choice.checked;
+        if (['wasa_agency', 'wasa_date', 'wasa_valid_until'].includes(input.name)) {
+          input.required = !choice.checked;
+        }
+      });
+      if (field.dataset.wasaFromProduct === 'true') {
+        const savedFiles = field.querySelector('[data-existing-files]');
+        if (savedFiles) savedFiles.parentElement.hidden = true;
+        field.querySelectorAll('[data-existing-file-remove]').forEach(input => {
+          input.checked = true;
+          input.disabled = true;
+        });
+        const summary = field.querySelector('[data-file-summary]');
+        if (summary) summary.textContent = 'Upload a new certificate';
+      }
+    });
+  }
+
   function updateSubmission(form) {
+    updateWasaFields(form);
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');
     if (!button) return;
     const missingFields = [...form.querySelectorAll('input, select, textarea')].filter(input => !input.disabled && !input.validity.valid);
     const missingFiles = [...form.querySelectorAll('[data-required-upload]')].filter(field => {
       const input = field.querySelector('input[type="file"]');
+      if (input?.disabled || field.hidden) return false;
       const retained = [...field.querySelectorAll('[data-existing-file-remove]')].some(checkbox => !checkbox.checked);
       return !input?.files.length && !retained;
     });
@@ -304,3 +333,28 @@ document.addEventListener("click", async (event) => {
     }, 1600);
   } catch { copy.setAttribute("aria-label", "Copy unavailable; select and copy the value"); }
 });
+
+(() => {
+  const syncConditionalFields = (root) => {
+    const scope = root instanceof Element ? root : document;
+    scope.querySelectorAll("[data-show-when-field]").forEach((target) => {
+      const form = target.closest("form");
+      if (!form) return;
+      const { showWhenField: name, showWhenValue: value } = target.dataset;
+      const answered = [...form.querySelectorAll(`[name="${name}"]`)].some(
+        (input) =>
+          input.value === value &&
+          (input.type === "checkbox" || input.type === "radio" ? input.checked : true),
+      );
+      target.hidden = !answered;
+    });
+  };
+  document.addEventListener("change", (event) => {
+    const form = event.target.closest?.("form");
+    if (form) syncConditionalFields(form);
+  });
+  document.addEventListener("DOMContentLoaded", () => syncConditionalFields(document));
+  document.body?.addEventListener?.("htmx:afterSwap", (event) =>
+    syncConditionalFields(event.target),
+  );
+})();

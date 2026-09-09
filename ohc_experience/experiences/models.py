@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -9,6 +11,40 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
+
+
+class CertificationAgency(models.Model):
+    """An administrator-maintained certification agency for one program."""
+
+    program = models.CharField(max_length=100, db_index=True)
+    name = models.CharField(max_length=255)
+    is_active = models.BooleanField(
+        default=True,
+        help_text=_("Deactivate an agency to remove it from new selections."),
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "name", "pk"]
+        verbose_name_plural = "certification agencies"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["program", "name"],
+                name="unique_certification_agency_per_program",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        from .registry import registry  # noqa: PLC0415
+
+        super().clean()
+        if self.program not in {program.key for program in registry.programs()}:
+            raise ValidationError({"program": "Choose a registered program."})
 
 
 class AccessGrant(models.Model):
@@ -600,7 +636,7 @@ class ProductWorkspace(models.Model):
     )
     reference = models.CharField(max_length=32, unique=True)
     experience_type = models.CharField(max_length=100)
-    solution_type = models.CharField(max_length=40, blank=True)
+    solution_type = models.JSONField(default=list, blank=True)
     applied_milestones = models.JSONField(default=list)
     registration_status = models.CharField(
         max_length=24,
@@ -626,10 +662,8 @@ class ProductWorkspace(models.Model):
         return get_program(self.experience_type)
 
     def get_solution_type_display(self):
-        return self.definition.solution_types.get(
-            self.solution_type,
-            self.solution_type,
-        )
+        labels = self.definition.solution_types
+        return ", ".join(labels.get(key, key) for key in self.solution_type)
 
 
 class Milestone(models.Model):
@@ -939,13 +973,34 @@ class ProductCredential(models.Model):
 
 
 class Notification(models.Model):
+    request_id = models.UUIDField(default=uuid4, unique=True, editable=False)
     recipient = models.EmailField()
+    from_email = models.CharField(max_length=254, blank=True)
+    cc = models.JSONField(default=list, blank=True)
     subject = models.CharField(max_length=255)
     body = models.TextField()
+    template_id = models.CharField(max_length=255, blank=True)
+    content_type = models.CharField(
+        max_length=8,
+        choices=[("info", "Information"), ("otp", "OTP")],
+        default="info",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
     sent_at = models.DateTimeField(null=True, blank=True)
+    failed_at = models.DateTimeField(null=True, blank=True)
     attempts = models.PositiveSmallIntegerField(default=0)
     last_error = models.CharField(max_length=255, blank=True)
+    provider_message_id = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["next_attempt_at"],
+                condition=Q(sent_at__isnull=True, failed_at__isnull=True),
+                name="notification_pending_due",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.subject} to {self.recipient}"

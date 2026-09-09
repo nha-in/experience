@@ -5,7 +5,9 @@ from typing import TYPE_CHECKING
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail
+from django.core.exceptions import ValidationError
+from django.core.mail import EmailMessage
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -16,10 +18,13 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import FormView
 
+from ohc_experience.core.mail import apply_gateway_template
 from ohc_experience.users.permissions import is_ohc_team
 
 from .forms import InvitationForm
 from .forms import MembershipRoleForm
+from .lgd import LGDLookupError
+from .lgd import lookup_pincode
 from .models import Invitation
 from .models import Membership
 from .models import Role
@@ -31,6 +36,32 @@ if TYPE_CHECKING:
 
 # Where an invite token waits while an invited person signs up or signs in.
 INVITATION_SESSION_KEY = "pending_invitation_token"
+
+
+class PincodeLookupView(LoginRequiredMixin, View):
+    """Resolve an organisation member's PIN without exposing the provider key."""
+
+    http_method_names = ["get"]
+
+    def get(self, request: HttpRequest) -> JsonResponse:
+        if get_membership_for(request.user) is None:
+            return JsonResponse(
+                {"error": _("You are not a member of any organisation.")},
+                status=403,
+            )
+        pincode = request.GET.get("pincode", "").strip()
+        try:
+            locations = lookup_pincode(pincode)
+        except ValidationError as exc:
+            return JsonResponse({"error": exc.messages[0]}, status=400)
+        except LGDLookupError as exc:
+            return JsonResponse({"error": str(exc)}, status=503)
+        if not locations:
+            return JsonResponse(
+                {"error": _("No state or district was found for this PIN code.")},
+                status=404,
+            )
+        return JsonResponse({"pincode": pincode, "locations": locations})
 
 
 class OrganisationMixin(LoginRequiredMixin):
@@ -344,12 +375,7 @@ class InvitationAcceptView(View):
 
 
 def send_invitation_email(request: HttpRequest, invitation: Invitation) -> None:
-    """Email the invite link.
-
-    A plain function rather than a Celery task: the hub sends a handful of these
-    a day, and a failed send should surface in the request rather than vanish
-    into a worker log.
-    """
+    """Send or enqueue the invite using the configured Django mail backend."""
     context = {
         "invitation": invitation,
         "organisation": invitation.organisation,
@@ -361,10 +387,11 @@ def send_invitation_email(request: HttpRequest, invitation: Invitation) -> None:
         context,
     ).strip()
     body = render_to_string("organisations/email/invitation_body.txt", context)
-    send_mail(
+    message = EmailMessage(
         subject=subject,
-        message=body,
+        body=body,
         from_email=None,
-        recipient_list=[invitation.email],
-        fail_silently=False,
+        to=[invitation.email],
     )
+    apply_gateway_template(message, "organisation_invitation")
+    message.send(fail_silently=False)

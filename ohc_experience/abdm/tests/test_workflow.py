@@ -8,15 +8,18 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import DatabaseError
 from django.test import Client
 from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 from PIL import Image
 
+from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
+from ohc_experience.abdm.demo import uhi_data
 from ohc_experience.abdm.forms import ExitEvidenceForm
 from ohc_experience.abdm.forms import OrganisationForm
 from ohc_experience.abdm.forms import ProductRegistrationForm
@@ -26,6 +29,15 @@ from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.experiences.models import ReviewItem
+from ohc_experience.integrations.local import fail_next
+from ohc_experience.integrations.models import ProvisionedResource
+from ohc_experience.integrations.models import ProvisionedResourceState
+from ohc_experience.integrations.ports import ExternalSystem
+from ohc_experience.integrations.selectors import awaiting_provisioning
+from ohc_experience.integrations.selectors import provisioning_can_be_retried
+from ohc_experience.integrations.services import provision_inline
+from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.users.tests.factories import ReviewerFactory
@@ -38,9 +50,15 @@ def pdf(name="test.pdf"):
     return SimpleUploadedFile(name, b"%PDF-1.4\n%%EOF", content_type="application/pdf")
 
 
+def stored_secret(product):
+    credential = ProductCredential.objects.get(product=product)
+    return credentials.cipher().decrypt(credential.encrypted_secret.encode()).decode()
+
+
 def files():
     return MultiValueDict(
         {
+            "wasa_certificate": [pdf("wasa.pdf")],
             "functional_certificate": [pdf("certificate.pdf")],
             "functional_report": [pdf("report.pdf")],
         },
@@ -48,7 +66,7 @@ def files():
 
 
 @pytest.fixture
-def environment(settings, tmp_path):
+def environment(settings, tmp_path, lgd_lookup):
     settings.STORAGES = {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
         "staticfiles": {
@@ -77,6 +95,7 @@ def environment(settings, tmp_path):
     org.refresh_from_db()
     workspace, form = services.register_product(org, applicant, data=product_data())
     assert workspace, form.errors
+    provision_inline(workspace.product)
     registration = workspace.product.review_items.get(kind="product_registration")
     services.assign_review(registration, admin, reviewer)
     services.decide(registration, reviewer, action="approve")
@@ -98,11 +117,13 @@ def milestone(environment, key="m1"):
 
 
 def submit(environment, key="m1"):
+    """UHI participation answers a different form and needs no attachments."""
+    uhi = key == "uhi1"
     item, form, saved = services.save_review_form(
         milestone(environment, key),
         environment["applicant"],
-        data=evidence_data(),
-        files=files(),
+        data=uhi_data() if uhi else evidence_data(),
+        files=None if uhi else files(),
         submit=True,
     )
     assert saved, form.errors
@@ -125,15 +146,77 @@ def test_shared_m1_and_independent_tracks(environment):
     assert product.milestones.filter(key="m1").count() == 1
     assert TRACK_MAP["PHR"].keys == ("m1", "phr1")
     assert TRACK_MAP["HealthLocker"].keys == ("locker1",)
-    assert not TRACK_MAP["NHCX"].keys
+    assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
+    assert MILESTONES["uhi1"].predecessor == MILESTONES["nhcx1"].predecessor == "m1"
     assert services.milestone_locked(milestone(environment, "m2"))
     assert services.milestone_locked(milestone(environment, "phr1"))
+    assert services.milestone_locked(milestone(environment, "uhi1"))
     assert not services.milestone_locked(milestone(environment, "locker1"))
     approve(environment)
     assert not services.milestone_locked(milestone(environment, "m2"))
     assert not services.milestone_locked(milestone(environment, "phr1"))
+    assert not services.milestone_locked(milestone(environment, "uhi1"))
     assert services.milestone_locked(milestone(environment, "m3"))
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
+
+
+def test_uhi_lists_m1_so_the_prerequisite_is_pickable_in_place(environment):
+    """As PHR does. M1 is one shared record, so approving it completes it here."""
+    assert TRACK_MAP["UHI"].keys == ("m1", "uhi1")
+    product = environment["workspace"].product
+    assert product.milestones.filter(key="m1").count() == 1
+
+    approve(environment)
+
+    assert product.milestones.get(key="m1").application.status == "approved"
+
+
+def test_uhi_participation_is_recorded_rather_than_decided(environment):
+    """Legacy never reviewed UHI, so submitting is the whole process."""
+    approve(environment)
+
+    item = submit(environment, "uhi1")
+
+    assert item.status == ReviewItem.Status.APPROVED
+    assert item.decided_at is not None
+    assert item.decided_by is None
+    assert item.application.status == "approved"
+    assert item.selected_submission.data["uhi_role"] == ["eua"]
+
+
+def test_a_recorded_uhi_application_still_reaches_the_queue(environment, client):
+    approve(environment)
+    item = submit(environment, "uhi1")
+    client.force_login(environment["admin"])
+
+    page = client.get(reverse("experiences:queue"), HTTP_HX_REQUEST="true")
+
+    assert item in list(page.context["page"])
+
+
+def test_nobody_decides_a_uhi_application_twice(environment):
+    approve(environment)
+    item = submit(environment, "uhi1")
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+
+    with pytest.raises(ValidationError, match="not awaiting a decision"):
+        services.decide(item, environment["reviewer"], action="approve")
+
+
+def test_uhi_answers_can_be_corrected_after_recording(environment):
+    approve(environment)
+    item = submit(environment, "uhi1")
+
+    item, form, saved = services.save_review_form(
+        item,
+        environment["applicant"],
+        data={**uhi_data(), "uhi_role": ["hspa"]},
+        submit=True,
+    )
+
+    assert saved, form.errors
+    assert item.selected_submission.data["uhi_role"] == ["hspa"]
+    assert item.status == ReviewItem.Status.APPROVED
 
 
 def test_cannot_forge_locked_or_unregistered_exit(environment):
@@ -206,7 +289,7 @@ def test_withdraw_and_resubmit_preserves_original_fields_and_files(environment):
     item, form, saved = services.save_review_form(
         item,
         environment["applicant"],
-        data={**evidence_data(), "wasa_agency": "Updated agency"},
+        data={**evidence_data(), "wasa_agency": "M/s A3S Tech & Company"},
         submit=True,
     )
     assert saved, form.errors
@@ -229,7 +312,7 @@ def test_reuse_pins_revision_without_mutating_approved_application(environment):
     second, form, saved = services.save_review_form(
         second,
         environment["applicant"],
-        data={**evidence_data(), "wasa_agency": "Different agency"},
+        data={**evidence_data(), "wasa_agency": "M/s ANB Solutions Private Limited"},
         submit=True,
     )
     assert saved, form.errors
@@ -284,7 +367,7 @@ def test_stale_form_cannot_overwrite_teammate(environment):
     services.save_review_form(
         item,
         environment["applicant"],
-        data={"wasa_agency": "Draft"},
+        data={"wasa_agency": evidence_data()["wasa_agency"]},
     )
     with pytest.raises(ValidationError, match="teammate"):
         services.save_review_form(
@@ -328,7 +411,10 @@ def test_date_and_pdf_validation_and_required_documents():
     form = ExitEvidenceForm(data={**data, "end_date": "2000-01-01"}, files=files())
     assert not form.is_valid()
     assert "end_date" in form.errors
-    assert ExitEvidenceForm(data={"wasa_agency": "Agency"}, draft=True).is_valid()
+    assert ExitEvidenceForm(
+        data={"wasa_agency": evidence_data()["wasa_agency"]},
+        draft=True,
+    ).is_valid()
 
 
 def test_phr_requires_m1_but_not_m3_and_locker_is_independent():
@@ -347,9 +433,10 @@ def test_credentials_encrypted_audited_rate_limited_and_not_in_outcomes(
     environment,
     client,
 ):
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    product = environment["workspace"].product
+    credential = ProductCredential.objects.get(product=product)
     plain = credentials.cipher().decrypt(credential.encrypted_secret.encode()).decode()
-    outcome = credential.product.outcomes.get(outcome_type="sandbox_credentials")
+    outcome = product.outcomes.get(outcome_type="sandbox_credentials")
     assert plain not in str(outcome.data)
     assert plain not in credential.encrypted_secret
     url = reverse("experiences:credentials", args=[environment["workspace"].reference])
@@ -371,12 +458,37 @@ def test_credentials_encrypted_audited_rate_limited_and_not_in_outcomes(
     assert client.post(url, {"intent": "reveal"}).status_code == 403
 
 
-def test_revoke_removes_secret_and_reveal_permission(environment):
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
-    credentials.revoke(credential, environment["applicant"])
+def test_rotation_replaces_the_stored_secret(environment):
+    product = environment["workspace"].product
+    credential = ProductCredential.objects.get(product=product)
+    first = credentials.reveal(credential, environment["applicant"])
+
+    credentials.rotate(credential, environment["applicant"])
+
     credential.refresh_from_db()
+    assert credentials.reveal(credential, environment["applicant"]) != first
+
+
+def test_revoke_switches_every_system_off_and_closes_the_panel(
+    environment,
+    django_capture_on_commit_callbacks,
+):
+    product = environment["workspace"].product
+    credential = ProductCredential.objects.get(product=product)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        credentials.revoke(credential, environment["applicant"])
+
+    credential.refresh_from_db()
+    assert credential.status == "revoked"
     assert credential.encrypted_secret == ""
-    with pytest.raises(ValidationError, match="active"):
+    assert set(
+        ProvisionedResource.objects.filter(product=product).values_list(
+            "state",
+            flat=True,
+        ),
+    ) == {ProvisionedResourceState.DISABLED}
+    with pytest.raises(ValidationError, match="no longer active"):
         credentials.reveal(credential, environment["applicant"])
 
 
@@ -508,7 +620,7 @@ def test_sent_back_draft_retains_reason_and_decision_history(environment, client
     item, form, saved = services.save_review_form(
         item,
         environment["applicant"],
-        data={"wasa_agency": "Revised agency"},
+        data={"wasa_agency": "M/s A3S Tech & Company"},
     )
     assert saved, form.errors
     assert item.status == "sent_back"
@@ -575,7 +687,8 @@ def test_support_members_cannot_reply_or_withdraw(environment, client):
     client.force_login(supporter)
     response = client.get(
         reverse(
-            "experiences:track", args=[environment["workspace"].reference, "HI-CM"],
+            "experiences:track",
+            args=[environment["workspace"].reference, "HI-CM"],
         ),
     )
     assert response.status_code == 200
@@ -598,16 +711,149 @@ def test_review_mutation_requires_csrf(environment):
     assert item.pending
 
 
-def test_credential_issuance_checks_current_organisation_not_cached_instance(
-    environment,
-):
-    product = environment["workspace"].product
-    assert product.organisation.is_verified
-    Organisation.objects.filter(pk=product.organisation_id).update(
-        verification_status="pending",
+def _pending_organisation(environment):
+    """An organisation back in verification, with a product registered anyway."""
+    org = environment["org"]
+    Organisation.objects.filter(pk=org.pk).update(verification_status="pending")
+    org.refresh_from_db()
+    workspace, form = services.register_product(
+        org,
+        environment["applicant"],
+        data=product_data("Second product"),
     )
-    with pytest.raises(ValidationError, match="verified organisation"):
-        credentials.issue_credentials(product, environment["applicant"])
+    assert workspace, form.errors
+    return org, workspace.product
+
+
+def test_registering_before_verification_provisions_nothing_yet(environment):
+    _org, product = _pending_organisation(environment)
+
+    assert awaiting_provisioning(product)
+    assert not ProvisionedResource.objects.filter(product=product).exists()
+    assert not ProductCredential.objects.filter(product=product).exists()
+
+
+def test_verification_starts_the_products_it_held_back(environment):
+    """The only thing that rescues a product registered while pending."""
+    org, product = _pending_organisation(environment)
+    item = org.review_items.get(kind="organisation_verification")
+    services.save_review_form(
+        item,
+        environment["applicant"],
+        data=organisation_data(),
+        files={"supporting_document": pdf()},
+        submit=True,
+    )
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+
+    services.decide(item, environment["reviewer"], action="approve", note="Verified.")
+
+    assert not awaiting_provisioning(product)
+
+
+def test_verification_leaves_an_already_started_product_alone(environment):
+    """Re-approval must not open a second attempt for a live product."""
+    first = environment["workspace"].product
+    org, _second = _pending_organisation(environment)
+    runs_before = first.provisioning_runs.count()
+    item = org.review_items.get(kind="organisation_verification")
+    services.save_review_form(
+        item,
+        environment["applicant"],
+        data=organisation_data(),
+        files={"supporting_document": pdf()},
+        submit=True,
+    )
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+
+    services.decide(item, environment["reviewer"], action="approve", note="Verified.")
+
+    assert first.provisioning_runs.count() == runs_before
+
+
+def _failed_registration(environment):
+    """A product whose chain died, and the review item a reviewer sees it on."""
+    fail_next(ExternalSystem.KEYCLOAK, "create_client", retryable=False)
+    _org, product = _pending_organisation(environment)
+    start_provisioning(product)
+    provision_inline(product)
+    return product, product.review_items.get(kind="product_registration")
+
+
+def test_a_reviewer_can_restart_a_failed_chain(environment, client):
+    product, item = _failed_registration(environment)
+    assert provisioning_can_be_retried(product)
+    client.force_login(environment["reviewer"])
+
+    response = client.post(
+        reverse("experiences:review", args=[item.pk]),
+        {"intent": "retry_provisioning"},
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
+
+
+def test_the_retry_is_not_offered_once_there_is_nothing_to_retry(environment, client):
+    registration = environment["workspace"].product.review_items.get(
+        kind="product_registration",
+    )
+    client.force_login(environment["reviewer"])
+
+    html = client.get(
+        reverse("experiences:review", args=[registration.pk]),
+    ).content.decode()
+
+    assert "retry_provisioning" not in html
+
+
+def test_a_reviewer_cannot_force_a_retry_the_ledger_does_not_want(
+    environment,
+    client,
+):
+    """The button is hidden on a healthy product; posting the intent anyway fails."""
+    registration = environment["workspace"].product.review_items.get(
+        kind="product_registration",
+    )
+    client.force_login(environment["reviewer"])
+
+    response = client.post(
+        reverse("experiences:review", args=[registration.pk]),
+        {"intent": "retry_provisioning"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_an_integrator_cannot_restart_a_chain(environment, client):
+    _product, item = _failed_registration(environment)
+    client.force_login(environment["applicant"])
+
+    response = client.post(
+        reverse("experiences:review", args=[item.pk]),
+        {"intent": "retry_provisioning"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_a_rotation_that_cannot_be_stored_says_so(environment):
+    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    before = stored_secret(environment["workspace"].product)
+
+    with (
+        patch.object(
+            ProductCredential,
+            "save",
+            side_effect=DatabaseError("connection lost"),
+        ),
+        pytest.raises(ValidationError, match="Rotate again"),
+    ):
+        credentials.rotate(credential, environment["applicant"])
+
+    credential.refresh_from_db()
+    assert stored_secret(environment["workspace"].product) == before
 
 
 def test_pdf_validation_keeps_upload_readable_without_network_access():

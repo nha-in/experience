@@ -9,6 +9,7 @@ from .models import ApplicationDependency
 from .models import ApplicationFormUse
 from .models import ApplicationInstance
 from .models import AuditEvent
+from .models import CertificationAgency
 from .models import EventRegistration
 from .models import FormAttachment
 from .models import FormRecord
@@ -23,7 +24,36 @@ from .models import ReviewItem
 from .models import ReviewQuery
 from .models import TicketContext
 from .permissions import eligible_reviewer
+from .registry import registry
 from .workflows import assign_review
+
+
+class CertificationAgencyForm(forms.ModelForm):
+    class Meta:
+        model = CertificationAgency
+        fields = ["name", "program", "is_active", "sort_order"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "program" in self.fields:
+            self.fields["program"] = forms.ChoiceField(
+                choices=[
+                    (program.key, program.short_name) for program in registry.programs()
+                ],
+            )
+
+
+@admin.register(CertificationAgency)
+class CertificationAgencyAdmin(SuperuserAdminMixin, admin.ModelAdmin):
+    form = CertificationAgencyForm
+    list_display = ["name", "program", "is_active", "sort_order"]
+    list_filter = ["program", "is_active"]
+    list_editable = ["is_active", "sort_order"]
+    search_fields = ["name"]
+    readonly_fields = ["created_at", "updated_at"]
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class ReviewAssignmentForm(forms.ModelForm):
@@ -130,12 +160,9 @@ class ApplicationInstanceAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     inlines = [FormUseInline, DependencyInline]
 
 
+@admin.register(FormAttachment, ProductOutcome)
 class InternalAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     pass
-
-
-admin.site.register(FormAttachment, InternalAdmin)
-admin.site.register(ProductOutcome, InternalAdmin)
 
 
 @admin.register(AccessGrant)
@@ -218,7 +245,30 @@ class AuditAdmin(ReadOnlyAdmin):
 
 @admin.register(Notification)
 class NotificationAdmin(ReadOnlyAdmin):
-    list_display = ("recipient", "subject", "sent_at", "attempts", "last_error")
+    list_display = (
+        "recipient",
+        "subject",
+        "delivery_status",
+        "accepted_at",
+        "failed_at",
+        "next_attempt_at",
+        "attempts",
+        "last_error",
+    )
+    list_filter = ("sent_at", "failed_at")
+    search_fields = ("recipient", "subject", "request_id", "provider_message_id")
+
+    @admin.display(description="Status")
+    def delivery_status(self, obj):
+        if obj.sent_at:
+            return "Accepted"
+        if obj.failed_at or obj.attempts >= 5:  # noqa: PLR2004
+            return "Needs review"
+        return "Pending"
+
+    @admin.display(description="Accepted at", ordering="sent_at")
+    def accepted_at(self, obj):
+        return obj.sent_at
 
 
 for model in (

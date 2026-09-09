@@ -122,6 +122,7 @@ LOCAL_APPS = [
     "ohc_experience.support",
     "ohc_experience.events",
     "ohc_experience.experiences",
+    "ohc_experience.integrations",
     # Your stuff: custom apps go here
 ]
 
@@ -132,11 +133,13 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # A separate Fernet key is required in production; local development derives one.
 EXPERIENCE_CREDENTIAL_KEY = env(
-    "EXPERIENCE_CREDENTIAL_KEY", default=env("SANDBOX_CREDENTIAL_KEY", default=""),
+    "EXPERIENCE_CREDENTIAL_KEY",
+    default=env("SANDBOX_CREDENTIAL_KEY", default=""),
 )
 EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = False
 ABDM_CREDENTIAL_PROVIDER = env(
-    "ABDM_CREDENTIAL_PROVIDER", default=env("SANDBOX_CREDENTIAL_PROVIDER", default=""),
+    "ABDM_CREDENTIAL_PROVIDER",
+    default=env("SANDBOX_CREDENTIAL_PROVIDER", default=""),
 )
 ABDM_ALLOW_DEMO_CREDENTIALS = False
 SANDBOX_SIGNUP_CAPTCHA = True
@@ -146,6 +149,19 @@ ABDM_GATEWAY_URL = env(
     "ABDM_GATEWAY_URL",
     default=env("SANDBOX_GATEWAY_URL", default="https://dev.abdm.gov.in/gateway"),
 )
+
+# Server-only Local Government Directory lookup for organisation addresses.
+LGD_API_URL = env(
+    "LGD_API_URL",
+    default="https://apissbx.abdm.gov.in/global/api/v3/internal/lgd",
+)
+LGD_API_KEY = env("LGD_API_KEY", default="")
+LGD_PROVIDER = env.str(
+    "LGD_PROVIDER",
+    default="ohc_experience.organisations.lgd.api_lookup",
+)
+LGD_API_TIMEOUT = env.float("LGD_API_TIMEOUT", default=5.0)
+LGD_CACHE_TTL = env.int("LGD_CACHE_TTL", default=3600)
 
 # MIGRATIONS
 # ------------------------------------------------------------------------------
@@ -284,7 +300,17 @@ EMAIL_BACKEND = env(
     default="django.core.mail.backends.smtp.EmailBackend",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
-EMAIL_TIMEOUT = 5
+EMAIL_TIMEOUT = env.float("DJANGO_EMAIL_TIMEOUT", default=5)
+
+# Internal Global Email API. The URL includes the full /email/send path.
+# Empty defaults prevent accidental use of an unapproved gateway/template.
+ANYMAIL = {
+    "GLOBAL_EMAIL_API_URL": env("GLOBAL_EMAIL_API_URL", default=""),
+    "GLOBAL_EMAIL_TEMPLATE_ID": env("GLOBAL_EMAIL_TEMPLATE_ID", default=""),
+    "GLOBAL_EMAIL_ORIGIN": env("GLOBAL_EMAIL_ORIGIN", default="abha"),
+    "GLOBAL_EMAIL_SENDER": env("GLOBAL_EMAIL_SENDER", default="NHASMS"),
+}
+GLOBAL_EMAIL_TEMPLATE_IDS = env.json("GLOBAL_EMAIL_TEMPLATE_IDS", default={})
 
 # ADMIN
 # ------------------------------------------------------------------------------
@@ -409,3 +435,128 @@ STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
 
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# INTEGRATIONS
+# ------------------------------------------------------------------------------
+# Each port resolves to a real adapter or a local stand-in. The defaults are the
+# local ones, so a laptop with no VPN runs the whole portal; deployments override.
+INTEGRATION_PORTS = {
+    "IDP": env.str(
+        "INTEGRATION_IDP",
+        default="ohc_experience.integrations.local.LocalIdpAdmin",
+    ),
+    "API_GATEWAY": env.str(
+        "INTEGRATION_API_GATEWAY",
+        default="ohc_experience.integrations.local.LocalApiGateway",
+    ),
+    "BRIDGE_REGISTRY": env.str(
+        "INTEGRATION_BRIDGE_REGISTRY",
+        default="ohc_experience.integrations.local.LocalBridgeRegistry",
+    ),
+}
+
+# KEYCLOAK
+# ------------------------------------------------------------------------------
+KEYCLOAK_BASE_URL = env.str("KEYCLOAK_BASE_URL", default="http://keycloak:8080")
+KEYCLOAK_REALM = env.str("KEYCLOAK_REALM", default="abdm-sandbox")
+KEYCLOAK_CLIENT_ID = env.str("KEYCLOAK_CLIENT_ID", default="sandbox-provisioner")
+KEYCLOAK_CLIENT_SECRET = env.str("KEYCLOAK_CLIENT_SECRET", default="")
+# Role NAMES per program, never realm UUIDs. This subset is provisional: NHA has
+# not confirmed the per-milestone set, and sandbox clients hold every realm role.
+KEYCLOAK_ROLE_NAMES = {
+    "abdm": tuple(
+        env.list(
+            "KEYCLOAK_SANDBOX_ROLE_NAMES",
+            default=["healthId", "hip", "hiu", "hfr"],
+        ),
+    ),
+}
+
+# WSO2
+# ------------------------------------------------------------------------------
+WSO2_BASE_URL = env.str("WSO2_BASE_URL", default="https://wso2.invalid")
+WSO2_DEVPORTAL_PATH = env.str("WSO2_DEVPORTAL_PATH", default="/api/am/devportal/v3")
+WSO2_TOKEN_PATH = env.str("WSO2_TOKEN_PATH", default="/oauth2/token")
+WSO2_CLIENT_ID = env.str("WSO2_CLIENT_ID", default="")
+WSO2_CLIENT_SECRET = env.str("WSO2_CLIENT_SECRET", default="")
+WSO2_USERNAME = env.str("WSO2_USERNAME", default="")
+WSO2_PASSWORD = env.str("WSO2_PASSWORD", default="")
+WSO2_GRANT_TYPE = env.str("WSO2_GRANT_TYPE", default="password")
+WSO2_SCOPES = tuple(
+    env.list(
+        "WSO2_SCOPES",
+        default=["apim:subscribe", "apim:app_manage", "apim:sub_manage"],
+    ),
+)
+WSO2_THROTTLING_POLICY = env.str("WSO2_THROTTLING_POLICY", default="Unlimited")
+WSO2_TOKEN_TYPE = env.str("WSO2_TOKEN_TYPE", default="JWT")
+WSO2_KEY_MANAGER = env.str("WSO2_KEY_MANAGER", default="Resident Key Manager")
+WSO2_KEY_TYPE = env.str("WSO2_KEY_TYPE", default="PRODUCTION")
+WSO2_READ_TIMEOUT_SECONDS = env.float("WSO2_READ_TIMEOUT_SECONDS", default=15.0)
+# API NAMES, never ids. No default: NHA has not published the sandbox API names,
+# and a wrong or empty guess would fail silently at provisioning time.
+WSO2_API_NAMES = {
+    "abdm": tuple(env.list("WSO2_SANDBOX_API_NAMES", default=[])),
+}
+
+# How long a secret parked for `map_keys` stays readable.
+SECRET_REF_TTL_SECONDS = env.int("SECRET_REF_TTL_SECONDS", default=900)
+
+# HIE-CM
+# ------------------------------------------------------------------------------
+# Internal base URL only — the external rewrite is owned by infrastructure.
+HIECM_BASE_URL = env.str("HIECM_BASE_URL", default="https://hiecm.invalid")
+HIECM_API_PATH = env.str("HIECM_API_PATH", default="/api/v3")
+HIECM_SESSION_PATH = env.str("HIECM_SESSION_PATH", default="/sessions")
+HIECM_CLIENT_ID = env.str("HIECM_CLIENT_ID", default="")
+HIECM_CLIENT_SECRET = env.str("HIECM_CLIENT_SECRET", default="")
+HIECM_CM_ID = env.str("HIECM_CM_ID", default="sbx")
+# Where HIE-CM delivers an integrator's gateway callbacks. `.invalid` by default,
+# so an unconfigured deployment cannot quietly publish somebody else's host.
+HIECM_BRIDGE_CALLBACK_BASE_URL = env.str(
+    "HIECM_BRIDGE_CALLBACK_BASE_URL",
+    default="https://bridge.invalid",
+)
+
+# PROVISIONING CHAIN
+# ------------------------------------------------------------------------------
+# ~30 minutes across five attempts (120s doubling, capped at 15m). The ledger,
+# not this policy, is what makes a retry safe.
+PROVISIONING_MAX_ATTEMPTS = env.int("PROVISIONING_MAX_ATTEMPTS", default=5)
+PROVISIONING_RETRY_BACKOFF_SECONDS = env.int(
+    "PROVISIONING_RETRY_BACKOFF_SECONDS",
+    default=120,
+)
+PROVISIONING_RETRY_BACKOFF_MAX_SECONDS = env.int(
+    "PROVISIONING_RETRY_BACKOFF_MAX_SECONDS",
+    default=900,
+)
+PROVISIONING_DETAIL_MAX_CHARS = 500
+
+# LOCAL ADAPTERS
+# ------------------------------------------------------------------------------
+# What the local realm contains, so `LocalIdpAdmin` 404s an unknown role name the
+# way a real Keycloak does. Mirrors compose/local/keycloak/, so a role in
+# KEYCLOAK_ROLE_NAMES but not here fails offline rather than on first contact.
+LOCAL_KEYCLOAK_REALM_ROLES = env.list(
+    "LOCAL_KEYCLOAK_REALM_ROLES",
+    default=[
+        "bridge",
+        "hip",
+        "hiu",
+        "healthId",
+        "health_locker",
+        "phr",
+        "hfr",
+        "hp_id",
+        "OIDC",
+        "HidAbhaSearch",
+        "DIGI_DOCTOR",
+        "HIP_PAYER",
+        "HIU_PAYER",
+    ],
+)
+LOCAL_BRIDGE_ACTIVATION_DELAY_SECONDS = env.float(
+    "LOCAL_BRIDGE_ACTIVATION_DELAY_SECONDS",
+    default=5.0,
+)

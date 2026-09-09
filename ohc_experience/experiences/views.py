@@ -25,6 +25,9 @@ from django.views.decorators.http import require_POST
 from ohc_experience.events.models import Event
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormSubmission
+from ohc_experience.integrations.selectors import provisioning_can_be_retried
+from ohc_experience.integrations.selectors import provisioning_progress
+from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
@@ -182,6 +185,28 @@ def _context(request, workspace=None, **kwargs):
 
 def _error(request, error):
     messages.error(request, " ".join(error.messages))
+
+
+def _certification_context(request, product):
+    program = product.workspace.definition
+    if permissions.reviewer(request.user) and not permissions.has_access(
+        request.user,
+        "review",
+        program=program.key,
+    ):
+        return {}
+    context = program.certification_context(product)
+    certificate = context.get("certificate")
+    if (
+        certificate
+        and not permissions.visible_submissions(request.user)
+        .filter(
+            pk=certificate.submission_id,
+        )
+        .exists()
+    ):
+        context = {**context, "certificate": None}
+    return context
 
 
 @login_required
@@ -367,6 +392,11 @@ def overview(request, reference):
         .select_related("selected_submission")
         .first()
     )
+    certification = _certification_context(request, product)
+    if certification.get("current"):
+        outcomes = outcomes.exclude(
+            outcome_type=certification["current"].outcome_type,
+        )
     context = _context(
         request,
         workspace,
@@ -387,7 +417,9 @@ def overview(request, reference):
         credential=ProductCredential.objects.filter(product=product).first()
         if not permissions.reviewer(request.user)
         or permissions.has_access(
-            request.user, "review", program=workspace.definition.key,
+            request.user,
+            "review",
+            program=workspace.definition.key,
         )
         else None,
         outcomes=outcomes.exclude(
@@ -399,6 +431,7 @@ def overview(request, reference):
             product=product,
             kind="product_registration",
         ).first(),
+        certification=certification,
     )
     context["progress"] = overview_progress(context["tracks"])
     context["next_step"] = (
@@ -412,6 +445,90 @@ def overview(request, reference):
         else None
     )
     return render(request, "experiences/overview.html", context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def product_certification(request, reference):
+    workspace = _workspace(request, reference)
+    product = workspace.product
+    permissions.require_integrator(request.user, product.organisation)
+    definition = workspace.definition.certification_application
+    if definition is None:
+        raise Http404
+    reviews = product.review_items.filter(
+        application__application_type=definition.key,
+    ).order_by("-created_at", "-pk")
+
+    def revision():
+        latest = reviews.first()
+        return (
+            f"{latest.pk}:{latest.status}:{latest.selected_submission_id or ''}"
+            if latest
+            else ""
+        )
+
+    certification = _certification_context(request, product)
+    item = certification.get("review")
+    form = (
+        services.build_form(item)
+        if item
+        else definition.forms[0].form_class(product=product)
+    )
+    if request.method == "POST":
+        try:
+            intent = request.POST.get("intent")
+            if intent not in {"draft", "submit"}:
+                msg = "Choose a valid form action."
+                raise ValidationError(msg)  # noqa: TRY301
+            with transaction.atomic():
+                type(product.organisation).objects.select_for_update().get(
+                    pk=product.organisation_id,
+                )
+                if request.POST.get("certification_revision", "") != revision():
+                    msg = (
+                        "This WASA request has changed. Reload the page before saving."
+                    )
+                    raise ValidationError(msg)  # noqa: TRY301
+                item = services.certification_review(product, request.user)
+                item, form, saved = services.save_review_form(
+                    item,
+                    request.user,
+                    data=request.POST,
+                    files=request.FILES,
+                    submit=intent == "submit",
+                    expected_revision=request.POST.get("revision", ""),
+                )
+            if saved:
+                messages.success(
+                    request,
+                    "WASA submitted for review."
+                    if intent == "submit"
+                    else "Draft saved.",
+                )
+                return redirect(
+                    "experiences:product-certification",
+                    workspace.reference,
+                )
+        except ValidationError as error:
+            _error(request, error)
+        certification = _certification_context(request, product)
+    return render(
+        request,
+        "experiences/certification.html",
+        _context(
+            request,
+            workspace,
+            page_title="WASA certification",
+            nav="certification",
+            item=item,
+            form=form,
+            certification=certification,
+            certification_revision=revision(),
+            certification_reviews=reviews.select_related("selected_submission"),
+            can_edit=not item or item.editable,
+        ),
+    )
 
 
 @login_required
@@ -433,9 +550,17 @@ def track(request, reference, track_code):
         if row["definition"].code == track_code
     )
     selected = request.GET.get("milestone", "")
+    default_tile = next(
+        (
+            tile
+            for tile in track_data["tiles"]
+            if tile["status"] not in {ReviewItem.Status.APPROVED, "locked"}
+        ),
+        next(iter(track_data["tiles"]), None),
+    )
     tile = next(
         (tile for tile in track_data["tiles"] if tile["definition"].key == selected),
-        next(iter(track_data["tiles"]), None),
+        default_tile,
     )
     item = tile["item"] if tile else None
     form = services.build_form(item) if item else None
@@ -468,6 +593,7 @@ def track(request, reference, track_code):
                             tile=tile,
                             item=item,
                             form=form,
+                            can_edit=services.can_edit_review(item),
                             locked=services.milestone_locked(item),
                         ),
                     )
@@ -497,6 +623,7 @@ def track(request, reference, track_code):
             tile=tile,
             item=item,
             form=form,
+            can_edit=services.can_edit_review(item) if item else False,
             locked=services.milestone_locked(item) if item else "",
         ),
     )
@@ -508,6 +635,12 @@ def _integrator_item_url(item):
     if item.kind == "product_registration":
         return reverse(
             "experiences:product-edit",
+            args=[item.product.workspace.reference],
+        )
+    certification = item.program.certification_application
+    if certification and item.application.application_type == certification.key:
+        return reverse(
+            "experiences:product-certification",
             args=[item.product.workspace.reference],
         )
     key = item.application.milestone.key
@@ -622,34 +755,40 @@ def credentials(request, reference):  # noqa: C901, PLR0912
         if credential
         else None,
     )
+
+    def _secret_response(secret):
+        """A revealed secret leaves no copy in a cache or a shared proxy."""
+        response = render(
+            request,
+            "experiences/partials/secret.html"
+            if request.htmx and not request.htmx.boosted
+            else "experiences/credentials.html",
+            _context(
+                request,
+                workspace,
+                credential=credential,
+                form=form,
+                nav="credentials",
+                page_title=workspace.definition.credentials.name,
+                demo_credentials=workspace.definition.credentials.is_demo(),
+                progress=provisioning_progress(workspace.product),
+                secret=secret,
+                revealed_secret=secret,
+            ),
+        )
+        response["Cache-Control"] = "no-store, private"
+        response["Vary"] = "Cookie"
+        return response
+
     if request.method == "POST":
         if not credential:
             raise Http404
         try:
             intent = request.POST.get("intent")
             if intent == "reveal":
-                secret = credential_services.reveal(credential, request.user)
-                reveal_context = _context(
-                    request,
-                    workspace,
-                    credential=credential,
-                    form=form,
-                    nav="credentials",
-                    page_title=workspace.definition.credentials.name,
-                    demo_credentials=workspace.definition.credentials.is_demo(),
-                    secret=secret,
-                    revealed_secret=secret,
+                return _secret_response(
+                    credential_services.reveal(credential, request.user),
                 )
-                response = render(
-                    request,
-                    "experiences/partials/secret.html"
-                    if request.htmx and not request.htmx.boosted
-                    else "experiences/credentials.html",
-                    reveal_context,
-                )
-                response["Cache-Control"] = "no-store, private"
-                response["Vary"] = "Cookie"
-                return response
             if intent == "rotate":
                 credential_services.rotate(credential, request.user)
             elif intent == "revoke":
@@ -675,6 +814,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                             form=form,
                             nav="credentials",
                             page_title=workspace.definition.credentials.name,
+                            progress=provisioning_progress(workspace.product),
                         ),
                     )
             else:
@@ -710,6 +850,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             nav="credentials",
             page_title=workspace.definition.credentials.name,
             demo_credentials=workspace.definition.credentials.is_demo(),
+            progress=provisioning_progress(workspace.product),
         ),
     )
 
@@ -934,6 +1075,20 @@ def queue(request):
     )
 
 
+def _can_retry_provisioning(user, item):
+    """A failed chain is an operational fault, so the console owns the re-run.
+
+    Its usual causes — a gateway outage, a missing API-name list — are ones only
+    an operator can clear, and a button the integrator cannot act on is worse
+    than none.
+    """
+    return bool(
+        item.product_id
+        and permissions.has_access(user, "review", program=item.program.key)
+        and provisioning_can_be_retried(item.product),
+    )
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def review(request, pk):
@@ -953,6 +1108,12 @@ def review(request, pk):
                     else None
                 )
                 services.assign_review(item, request.user, assignee)
+            elif request.POST.get("intent") == "retry_provisioning":
+                if not _can_retry_provisioning(request.user, item):
+                    raise PermissionDenied
+                start_provisioning(item.product, started_by=request.user)
+                messages.success(request, "Provisioning restarted.")
+                return redirect(item)
             else:
                 services.decide(
                     item,
@@ -1009,6 +1170,11 @@ def review(request, pk):
             if item.product_id
             and permissions.has_access(request.user, "review", program=item.program.key)
             else None,
+            progress=provisioning_progress(item.product) if item.product_id else [],
+            can_retry_provisioning=_can_retry_provisioning(request.user, item),
+            certification=_certification_context(request, item.product)
+            if item.product_id
+            else {},
             open_tickets=permissions.visible_tickets(request.user).filter(
                 organisation=item.organisation,
                 status__in=["open", "awaiting_vendor"],
@@ -1046,9 +1212,23 @@ def submission(request, pk, submission_id):
     item = _item(request, pk)
     snapshot = get_object_or_404(
         permissions.visible_submissions(request.user),
-        form=item.form,
         pk=submission_id,
     )
+    if not (
+        snapshot.form_id == item.form_id
+        or (
+            item.application_id
+            and snapshot.origin_application_id == item.application_id
+        )
+        or item.history.filter(
+            action__in=[
+                "Reused product evidence",
+                "UHI participation form upgraded",
+            ],
+            detail__submission_id=snapshot.pk,
+        ).exists()
+    ):
+        raise Http404
     return render(
         request,
         "experiences/submission.html",
@@ -1058,7 +1238,7 @@ def submission(request, pk, submission_id):
             item=item,
             snapshot=snapshot,
             page_title=(
-                f"{item.form.name}: submission {snapshot.submission_number}, "
+                f"{snapshot.form.name}: submission {snapshot.submission_number}, "
                 f"revision {snapshot.revision}"
             ),
         ),
