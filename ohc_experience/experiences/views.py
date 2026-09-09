@@ -550,9 +550,17 @@ def track(request, reference, track_code):
         if row["definition"].code == track_code
     )
     selected = request.GET.get("milestone", "")
+    default_tile = next(
+        (
+            tile
+            for tile in track_data["tiles"]
+            if tile["status"] not in {ReviewItem.Status.APPROVED, "locked"}
+        ),
+        next(iter(track_data["tiles"]), None),
+    )
     tile = next(
         (tile for tile in track_data["tiles"] if tile["definition"].key == selected),
-        next(iter(track_data["tiles"]), None),
+        default_tile,
     )
     item = tile["item"] if tile else None
     form = services.build_form(item) if item else None
@@ -585,6 +593,7 @@ def track(request, reference, track_code):
                             tile=tile,
                             item=item,
                             form=form,
+                            can_edit=services.can_edit_review(item),
                             locked=services.milestone_locked(item),
                         ),
                     )
@@ -614,6 +623,7 @@ def track(request, reference, track_code):
             tile=tile,
             item=item,
             form=form,
+            can_edit=services.can_edit_review(item) if item else False,
             locked=services.milestone_locked(item) if item else "",
         ),
     )
@@ -1202,9 +1212,23 @@ def submission(request, pk, submission_id):
     item = _item(request, pk)
     snapshot = get_object_or_404(
         permissions.visible_submissions(request.user),
-        form=item.form,
         pk=submission_id,
     )
+    if not (
+        snapshot.form_id == item.form_id
+        or (
+            item.application_id
+            and snapshot.origin_application_id == item.application_id
+        )
+        or item.history.filter(
+            action__in=[
+                "Reused product evidence",
+                "UHI participation form upgraded",
+            ],
+            detail__submission_id=snapshot.pk,
+        ).exists()
+    ):
+        raise Http404
     return render(
         request,
         "experiences/submission.html",
@@ -1214,7 +1238,7 @@ def submission(request, pk, submission_id):
             item=item,
             snapshot=snapshot,
             page_title=(
-                f"{item.form.name}: submission {snapshot.submission_number}, "
+                f"{snapshot.form.name}: submission {snapshot.submission_number}, "
                 f"revision {snapshot.revision}"
             ),
         ),

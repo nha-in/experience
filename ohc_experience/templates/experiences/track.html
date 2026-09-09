@@ -55,8 +55,8 @@
 {% block canvas_padding %}pt-0{% endblock %}
 {% block portal_content %}
   {% if track.tiles %}
-    <div class="ui-float grid items-start gap-6 {% if item.editable and can_integrate and not locked %}xl:grid-cols-[minmax(0,1fr)_300px]{% endif %}">
-      {% if item.editable and can_integrate and not locked %}
+    <div class="ui-float grid items-start gap-6 {% if can_edit and can_integrate and not locked %}xl:grid-cols-[minmax(0,1fr)_300px]{% endif %}">
+      {% if can_edit and can_integrate and not locked %}
         <div class="ui-rise xl:col-start-2 xl:row-start-1 xl:sticky xl:top-6 [animation-delay:.2s]">
           {% include 'experiences/partials/product_evidence_readiness.html' %}
         </div>
@@ -94,15 +94,24 @@
                 <p class="mt-2 text-sm leading-relaxed text-soft-foreground">{{ locked }}</p>
               </div>
             {% else %}
-              {% include 'experiences/partials/review_status.html' %}
-              {% if item.editable and can_integrate %}
+              {% if item.definition.auto_approve and item.status == 'approved' %}
+                <div class="ui-alert ui-alert--success mb-5" role="status">
+                  <div class="flex-1">
+                    <strong>Participation recorded</strong>
+                    <p class="mt-1 text-xs">You can update your answers below. NHA contacts you directly about onboarding.</p>
+                  </div>
+                </div>
+              {% else %}
+                {% include 'experiences/partials/review_status.html' %}
+              {% endif %}
+              {% if can_edit and can_integrate %}
                 {% if submission_blocked %}
                   <div class="ui-alert ui-alert--info mb-5" role="status">{{ submission_blocked }}</div>
                 {% endif %}
                 <div class="mb-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-soft-border bg-soft-background/60 px-4 py-3">
                   <div class="min-w-0">
                     <p class="text-xs font-semibold text-foreground">
-                      {% if item.selected_submission %}Saved evidence{% else %}Start your evidence{% endif %}
+                      {% if item.definition.auto_approve %}{% if item.selected_submission %}Saved answers{% else %}UHI participation details{% endif %}{% elif item.selected_submission %}Saved evidence{% else %}Start your evidence{% endif %}
                     </p>
                     <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
                       {% if item.selected_submission %}Submission {{ item.selected_submission.submission_number }} · Revision {{ item.selected_submission.revision }}{% if item.selected_submission.origin_application_id != item.application_id %} · Reused from another application{% endif %}
@@ -139,8 +148,8 @@
                 <div id="evidence-actions"
                      class="mt-8 flex scroll-mt-6 flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
                   <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium">Save your progress or request review</p>
-                    <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">Drafts stay editable. Submitting sends this milestone for review and locks the form.</p>
+                    <p class="text-sm font-medium">{% if item.definition.auto_approve %}Save your progress or record participation{% else %}Save your progress or request review{% endif %}</p>
+                    <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">{% if item.definition.auto_approve %}Submitting records your participation. You can return to update your answers.{% else %}Drafts stay editable. Submitting sends this milestone for review and locks the form.{% endif %}</p>
                     <p class="mt-1.5 text-xs text-soft-foreground"
                        data-unsaved-status
                        aria-live="polite">Changes are saved when you save a draft.</p>

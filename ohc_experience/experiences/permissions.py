@@ -145,7 +145,7 @@ def visible_submissions(user):
     items = visible_reviews(user)
     historical_pins = AuditEvent.objects.filter(
         item__in=items,
-        action="Reused product evidence",
+        action__in=["Reused product evidence", "UHI participation form upgraded"],
     ).annotate(
         submission_pk=Cast(
             KeyTextTransform("submission_id", "detail"),
