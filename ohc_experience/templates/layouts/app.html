@@ -69,7 +69,7 @@
            class="invisible fixed inset-0 z-30 bg-foreground/40 opacity-0 transition-opacity duration-200 motion-reduce:transition-none peer-checked:visible peer-checked:opacity-100 md:hidden"
            aria-hidden="true"></label>
     <aside id="app-sidebar"
-           class="invisible fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar px-3 pt-5 pb-4 transition-transform duration-200 motion-reduce:transition-none peer-checked:visible peer-checked:translate-x-0 md:visible md:sticky md:top-0 md:h-screen md:w-[248px] md:shrink-0 md:translate-x-0">
+           class="invisible fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar px-3 pt-5 pb-4 transition-transform duration-200 motion-reduce:transition-none peer-checked:visible peer-checked:translate-x-0 md:visible md:sticky md:top-0 md:h-screen md:w-[248px] md:shrink-0 md:translate-x-0 md:transition-none">
       <div class="mb-6 flex items-start justify-between px-1.5">
         <a href="{% url 'dashboard' %}"
            class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
@@ -145,8 +145,10 @@
                aria-label="{% translate 'Your profile' %}">{{ request.user.display_name|slice:":2"|upper }}</a>
           </div>
         </div>
-        <div class="flex-1 px-4 py-6 sm:px-7 lg:px-8 lg:py-8">
-          <div class="mx-auto w-full max-w-[1200px]">
+        {% block hero %}
+        {% endblock hero %}
+        <div class="flex-1 px-4 pb-12 sm:px-7 lg:px-8 {% block canvas_padding %}pt-6 lg:pt-8{% endblock canvas_padding %}">
+          <div class="mx-auto w-full max-w-[1120px]">
             {% include "components/messages.html" %}
             {% block page_header %}
             {% endblock page_header %}

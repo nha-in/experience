@@ -1,130 +1,151 @@
 {% extends 'experiences/base.html' %}
 
-{% block portal_content %}
-  <div class="mb-7 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-    <div class="min-w-0">
-      <p class="text-[11px] font-semibold tracking-[0.12em] text-soft-foreground uppercase">Compliance track</p>
-      <h1 class="mt-2 text-[28px] font-semibold leading-tight tracking-tight">{{ track.definition.code }}</h1>
-      <p class="mt-1 text-base font-medium text-foreground">{{ track.definition.name }}</p>
-      <p class="mt-3 max-w-[640px] text-sm leading-relaxed text-soft-foreground">{{ track.definition.description }}</p>
-    </div>
-    <div class="flex shrink-0 flex-col items-start gap-2 lg:items-end lg:pt-7">
-      <span class="rounded-full border border-primary/15 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary">
-        {% if track.tiles %}{{ track.approved }} of {{ track.tiles|length }} milestones approved{% elif track.definition.keys %}Not applied for{% else %}No milestones published{% endif %}
-      </span>
-      <a class="text-xs text-soft-foreground underline-offset-4 hover:text-primary hover:underline"
-         href="{{ experience_program.docs_url }}"
-         target="_blank"
-         rel="noopener"
-         hx-boost="false">Milestone documentation ↗</a>
+{% block portal_hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner {% if track.tiles %}xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,580px)] xl:items-end{% endif %}">
+      <div class="ui-rise min-w-0">
+        <p class="ui-hero-eyebrow">Track</p>
+        <h1 class="ui-hero-title">
+          {{ track.definition.code }} <span class="font-semibold text-muted-foreground">· {{ track.definition.name }}</span>
+        </h1>
+        <p class="ui-hero-lede">{{ track.definition.description }}</p>
+        {% if track.tiles %}
+          <div class="mt-6 flex items-baseline gap-2.5">
+            <span class="ui-figure ui-figure--xl">{{ track.approved }}</span>
+            <span class="text-[15px] font-semibold text-muted-foreground">of {{ track.tiles|length }} milestone{{ track.tiles|length|pluralize }} approved</span>
+          </div>
+          <p class="mt-2.5 text-[13px] text-muted-foreground">
+            {% for choice in track.tiles %}
+              {% if choice.status != 'approved' and choice.status != 'locked' %}Next: <a class="font-semibold text-primary no-underline hover:underline"
+    href="{{ choice.url }}">
+                <span class="font-mono">{{ choice.definition.code }}</span> {{ choice.definition.name }}</a> · {% if choice.reply_needed %}reply needed{% elif choice.item.pending %}with the reviewer{% else %}waiting on you{% endif %}
+              <br />
+            {% endif %}
+          {% endfor %}
+          {% if track.approved == track.tiles|length %}Every applied milestone on this track is approved.{% endif %}
+          <a class="text-soft-foreground hover:underline"
+             href="{{ experience_program.docs_url }}"
+             target="_blank"
+             rel="noopener noreferrer"
+             hx-boost="false">Milestone documentation ↗</a>
+          </p>
+        {% else %}
+          <p class="mt-6">
+            <span class="ui-figure text-soft-foreground">
+              {% if track.definition.keys %}Not applied for{% else %}No milestones published{% endif %}
+            </span>
+          </p>
+        {% endif %}
+      </div>
+      {% if track.tiles %}
+        <ol class="ui-stepper ui-stepper--lg ui-rise w-full xl:w-auto [animation-delay:.05s]"
+            aria-label="Milestones">
+          {% for choice in track.tiles %}
+            {% if track.definition.code == 'PHR' and choice.definition.key == 'm1' %}
+              {% include 'experiences/partials/milestone_station.html' with tile=choice selected_key=tile.definition.key final=forloop.last shared_label='Shared with HI-CM M1' %}
+            {% else %}
+              {% include 'experiences/partials/milestone_station.html' with tile=choice selected_key=tile.definition.key final=forloop.last shared_label='' %}
+            {% endif %}
+          {% endfor %}
+        </ol>
+      {% endif %}
     </div>
   </div>
+{% endblock %}
+{% block canvas_padding %}pt-0{% endblock %}
+{% block portal_content %}
   {% if track.tiles %}
-    <nav class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-         aria-label="Milestones">
-      {% for choice in track.tiles %}
-        <a class="group flex min-w-0 flex-col gap-3 rounded-xl border p-4 text-foreground no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 {% if choice.item.pk == item.pk %}border-primary/50 bg-primary/5 ring-1 ring-primary/15{% else %}border-soft-border bg-background hover:border-primary/30 hover:bg-primary/[0.025]{% endif %}"
-           href="{{ choice.url }}"
-           aria-label="{{ choice.definition.code }}: {{ choice.definition.name }}, {{ choice.label }}"
-           {% if choice.item.pk == item.pk %}aria-current="page"{% endif %}>
-          <span class="flex items-center justify-between gap-2">
-            <strong class="font-mono text-base {% if choice.item.pk == item.pk %}text-primary{% endif %}">{{ choice.definition.code }}</strong>
-            {% if choice.item.pk == item.pk %}
-              <span class="text-xs font-medium text-primary">Viewing</span>
-            {% endif %}
-          </span>
-          <span class="min-h-10 text-sm leading-snug text-soft-foreground">{{ choice.definition.name }}</span>
-          <span class="mt-auto">
-            {% include 'experiences/partials/status.html' with status=choice.status label=choice.label %}
-          </span>
-        </a>
-      {% endfor %}
-    </nav>
-    <section class="ui-card ui-card--sm" id="milestone-detail">
-      <div class="ui-card-content">
-        <div class="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-soft-border pb-5">
-          <div>
-            <h2 class="text-base font-semibold tracking-tight">{{ tile.definition.code }} · {{ item.definition.request_label }}</h2>
-            <p class="mt-1.5 font-mono text-xs text-soft-foreground">{{ item.application.reference }}</p>
-          </div>
-          {% if item.resubmission_count %}
-            <span class="text-xs text-soft-foreground">Resubmitted {{ item.resubmission_count }} time{{ item.resubmission_count|pluralize }}</span>
-          {% endif %}
-        </div>
-        {% if locked %}
-          <div class="mx-auto max-w-[480px] px-4 py-10 text-center">
-            <span class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-soft-background text-soft-foreground"
-                  aria-hidden="true">
-              <svg class="size-5"
-                   viewBox="0 0 24 24"
-                   fill="none"
-                   stroke="currentColor"
-                   stroke-width="1.6">
-                <rect x="5" y="10" width="14" height="11" rx="2" />
-                <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
-              </svg>
-            </span>
-            <h3 class="text-base font-semibold">Milestone locked</h3>
-            <p class="mt-2 text-sm leading-relaxed text-soft-foreground">{{ locked }}</p>
-          </div>
-        {% else %}
-          {% include 'experiences/partials/review_status.html' %}
-          {% if item.editable and can_integrate %}
-            {% if submission_blocked %}
-              <div class="ui-alert ui-alert--info mb-5" role="status">{{ submission_blocked }}</div>
-            {% endif %}
-            <div class="mb-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-soft-border bg-soft-background/60 px-4 py-3">
-              <div class="min-w-0">
-                <p class="text-xs font-semibold text-foreground">
-                  {% if item.selected_submission %}Saved evidence{% else %}Start your evidence{% endif %}
-                </p>
-                <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
-                  {% if item.selected_submission %}Submission {{ item.selected_submission.submission_number }} · Revision {{ item.selected_submission.revision }}{% if item.selected_submission.origin_application_id != item.application_id %} · Reused from another application{% endif %}
-        {% else %}Complete this form or reuse evidence already saved for your product.{% endif %}
-          </p>
-          </div>
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="intent" value="reuse" />
-            <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-sm">Reuse latest product evidence</button>
-          </form>
-          </div>
-          <form method="post"
-                enctype="multipart/form-data"
-                hx-encoding="multipart/form-data"
-                novalidate
-                data-review-form
-                {% if submission_blocked %}data-review-blocked="true"{% endif %}>
-            {% csrf_token %}
-            <input type="hidden"
-                   name="revision"
-                   value="{{ item.selected_submission_id|default:'' }}" />
-            {% include 'experiences/partials/form.html' %}
-            <div class="mt-8 flex flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
-              <div class="min-w-0 flex-1">
-                <p class="text-sm font-medium">Save your progress or request review</p>
-                <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">Drafts stay editable. Submitting sends this milestone for review and locks the form.</p>
-                <p class="mt-1.5 text-xs font-medium text-amber-800"
-                   data-submit-reason
-                   aria-live="polite"></p>
+    <div class="ui-float grid items-start gap-6 {% if item.editable and can_integrate and not locked %}xl:grid-cols-[minmax(0,1fr)_300px]{% endif %}">
+      <div class="ui-rise min-w-0 [animation-delay:.1s]">
+        <section class="ui-card ui-card--layered" id="milestone-detail">
+          <div class="ui-card-content">
+            <div class="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-soft-border pb-5">
+              <div>
+                <div class="flex flex-wrap items-center gap-2.5">
+                  <span class="font-mono text-xs font-bold tracking-[0.04em] text-primary">{{ tile.definition.code }}</span>
+                  <h2 class="text-base font-bold tracking-[-0.01em]">{{ tile.definition.name }}</h2>
+                  {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+                </div>
+                <p class="mt-1.5 font-mono text-xs text-soft-foreground">{{ item.application.reference }}</p>
               </div>
-              <div class="flex flex-col gap-2 sm:flex-row">
-                <button class="ui-btn ui-btn--outline ui-btn--size-sm"
-                        type="submit"
-                        name="intent"
-                        value="draft"
-                        formnovalidate>Save draft</button>
-                <button class="ui-btn ui-btn--default ui-btn--size-sm"
-                        type="submit"
-                        name="intent"
-                        value="submit"
-                        data-request-submit>{{ item.definition.submit_label }}</button>
-              </div>
+              {% if item.resubmission_count %}
+                <span class="text-xs text-soft-foreground">Resubmitted {{ item.resubmission_count }} time{{ item.resubmission_count|pluralize }}</span>
+              {% endif %}
             </div>
-          </form>
-        {% else %}
-          {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission embedded=True %}
-        {% endif %}
+            {% if locked %}
+              <div class="mx-auto max-w-[480px] px-4 py-10 text-center">
+                <span class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-soft-background text-soft-foreground"
+                      aria-hidden="true">
+                  <svg class="size-5"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="1.6">
+                    <rect x="5" y="10" width="14" height="11" rx="2" />
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
+                  </svg>
+                </span>
+                <h3 class="text-base font-semibold">Milestone locked</h3>
+                <p class="mt-2 text-sm leading-relaxed text-soft-foreground">{{ locked }}</p>
+              </div>
+            {% else %}
+              {% include 'experiences/partials/review_status.html' %}
+              {% if item.editable and can_integrate %}
+                {% if submission_blocked %}
+                  <div class="ui-alert ui-alert--info mb-5" role="status">{{ submission_blocked }}</div>
+                {% endif %}
+                <div class="mb-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-soft-border bg-soft-background/60 px-4 py-3">
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold text-foreground">
+                      {% if item.selected_submission %}Saved evidence{% else %}Start your evidence{% endif %}
+                    </p>
+                    <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
+                      {% if item.selected_submission %}Submission {{ item.selected_submission.submission_number }} · Revision {{ item.selected_submission.revision }}{% if item.selected_submission.origin_application_id != item.application_id %} · Reused from another application{% endif %}
+            {% else %}Complete this form or reuse evidence already saved for your product.{% endif %}
+              </p>
+              </div>
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="intent" value="reuse" />
+                <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-sm">Reuse latest product evidence</button>
+              </form>
+              </div>
+              <form method="post"
+                    enctype="multipart/form-data"
+                    hx-encoding="multipart/form-data"
+                    novalidate
+                    data-review-form
+                    {% if submission_blocked %}data-review-blocked="true"{% endif %}>
+                {% csrf_token %}
+                <input type="hidden"
+                       name="revision"
+                       value="{{ item.selected_submission_id|default:'' }}" />
+                {% include 'experiences/partials/form.html' %}
+                <div class="mt-8 flex flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium">Save your progress or request review</p>
+                    <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">Drafts stay editable. Submitting sends this milestone for review and locks the form.</p>
+                    <p class="mt-1.5 text-xs font-medium text-amber-800"
+                       data-submit-reason
+                       aria-live="polite"></p>
+                  </div>
+                  <div class="flex flex-col gap-2 sm:flex-row">
+                    <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+                            type="submit"
+                            name="intent"
+                            value="draft"
+                            formnovalidate>Save draft</button>
+                    <button class="ui-btn ui-btn--default ui-btn--size-sm"
+                            type="submit"
+                            name="intent"
+                            value="submit"
+                            data-request-submit>{{ item.definition.submit_label }}</button>
+                  </div>
+                </div>
+              </form>
+            {% else %}
+              {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission embedded=True %}
+            {% endif %}
   {% endif %}
   </div>
   </section>
@@ -132,23 +153,36 @@
     {% include 'experiences/partials/queries.html' %}
     {% include 'experiences/partials/history.html' %}
   {% endif %}
+  </div>
+  {% if item.editable and can_integrate and not locked %}
+    <div class="ui-rise xl:sticky xl:top-6 [animation-delay:.2s]">
+      {% include 'experiences/partials/product_evidence_readiness.html' %}
+    </div>
+  {% endif %}
+  </div>
 {% else %}
-  <div class="ui-card ui-card--sm items-center px-6 py-14 text-center">
-    <span class="mb-2 flex size-12 items-center justify-center rounded-full bg-primary/8 font-mono text-lg text-primary"
-          aria-hidden="true">{{ track.definition.code|first }}</span>
-    <h2 class="text-base font-semibold">
+  <div class="ui-float ui-card ui-card--layered items-center px-5 py-11 text-center">
+    <h2 class="text-[15px] font-semibold">
       {% if track.definition.keys %}This track is not applied for{% else %}No milestones published yet{% endif %}
+      <span class="font-normal text-soft-foreground">· {{ track.definition.code }}</span>
     </h2>
-    <p class="max-w-[460px] text-sm leading-relaxed text-soft-foreground">
+    <p class="max-w-[460px] text-sm text-muted-foreground">
       {% if track.definition.keys %}Add this track to the product to start its milestone applications.{% else %}{{ track.definition.description }}{% endif %}
     </p>
-    {% if track.definition.keys and can_integrate %}
-      <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
-         href="{% url 'experiences:product-edit' workspace.reference %}">Edit product</a>
-    {% elif not track.definition.keys %}
-      <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
-         href="{% url 'experiences:events' %}">See events</a>
-    {% endif %}
+    <div class="flex flex-wrap justify-center gap-2">
+      {% if track.definition.keys and can_integrate %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+           href="{% url 'experiences:product-edit' workspace.reference %}">Edit product</a>
+      {% elif not track.definition.keys %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+           href="{% url 'experiences:events' %}">See events</a>
+      {% endif %}
+      <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+         href="{{ experience_program.docs_url }}"
+         target="_blank"
+         rel="noopener noreferrer"
+         hx-boost="false">Track documentation ↗</a>
+    </div>
   </div>
 {% endif %}
 {% endblock %}

@@ -1,18 +1,27 @@
 {% extends 'experiences/base.html' %}
 
-{% block portal_content %}
-  <div class="mb-7 flex flex-wrap items-start justify-between gap-3">
-    <div>
-      <p class="text-[11px] font-semibold tracking-[0.1em] text-soft-foreground uppercase">Developer workspace</p>
-      <h1 class="mt-1.5 text-[28px] font-semibold leading-tight tracking-tight">Products</h1>
-      <p class="mt-2 text-sm text-soft-foreground">{{ organisation.display_name|default:'All registered organisations' }}</p>
+{% block portal_hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        <p class="ui-hero-eyebrow">Developer workspace</p>
+        <h1 class="ui-hero-title">Products</h1>
+        <p class="ui-hero-lede">{{ organisation.display_name|default:'All registered organisations' }}</p>
+        <div class="mt-6 flex items-baseline gap-2.5">
+          <span class="ui-figure ui-figure--xl">{{ workspaces|length }}</span>
+          <span class="ui-figure-unit">product{{ workspaces|length|pluralize }} in your workspace</span>
+        </div>
+      </div>
+      {% if can_integrate %}
+        <a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
+           href="{% url 'experiences:product-create' %}">Register a product</a>
+      {% endif %}
     </div>
-    {% if can_integrate %}
-      <a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
-         href="{% url 'experiences:product-create' %}">Register a product</a>
-    {% endif %}
   </div>
-  <div class="ui-card ui-card--sm overflow-hidden">
+{% endblock %}
+{% block canvas_padding %}pt-0{% endblock %}
+{% block portal_content %}
+  <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
     <div class="divide-y divide-soft-border">
       {% for product in workspaces %}
         <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"

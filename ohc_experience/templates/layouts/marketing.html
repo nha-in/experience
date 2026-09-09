@@ -41,11 +41,12 @@
       {% endblock content %}
     </main>
     <footer class="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border px-4 py-3.5 text-xs text-soft-foreground sm:px-8">
-      <span>© {% translate "ABDM Experience Hub" %}</span>
+      <span>{{ experience_program.name }} · © {% translate "Open Healthcare Network" %}</span>
       <a class="hover:text-foreground"
-         href="https://nha-in.github.io/docs/"
+         href="{{ experience_program.docs_url }}"
          target="_blank"
-         rel="noopener noreferrer">{% translate "ABDM documentation" %}</a>
+         rel="noopener noreferrer">{% translate "Milestone documentation" %}</a>
+      <span>{{ experience_program.footer_note }}</span>
     </footer>
   </div>
 {% endblock body %}

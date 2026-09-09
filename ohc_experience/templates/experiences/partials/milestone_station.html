@@ -1,0 +1,31 @@
+<li class="ui-station {% if tile.status == 'approved' %}ui-station--done{% elif tile.status == 'locked' %}ui-station--locked{% else %}ui-station--current{% endif %}">
+  {% if not final %}
+    <span class="ui-station-rail" aria-hidden="true"></span>
+  {% endif %}
+  <span class="ui-station-dot" aria-hidden="true">
+    {% if tile.status == 'approved' %}
+      <svg viewBox="0 0 24 24"
+           class="size-3"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="3"
+           stroke-linecap="round"
+           stroke-linejoin="round">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    {% endif %}
+  </span>
+  <a class="ui-station-link rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+     href="{{ tile.url }}"
+     aria-label="{{ tile.definition.code }}: {{ tile.definition.name }}, {{ tile.label }}"
+     {% if selected_key and tile.definition.key == selected_key %}aria-current="page"{% endif %}>
+    <span class="ui-station-code">{{ tile.definition.code }}</span>
+    <span class="ui-station-name">{{ tile.definition.name }}{% if shared_label %}
+      <span class="ui-station-alias">{{ shared_label }}</span>
+    {% endif %}
+  </span>
+  <span class="ui-station-status">
+    {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'j M' }}{% elif tile.status == 'locked' %}Locked{% elif tile.status == 'query_raised' %}Query raised · {% if tile.reply_needed %}reply needed{% else %}with {{ experience_program.reviewer_name }}{% endif %}{% elif tile.item.pending %}Under review · with {{ experience_program.reviewer_name }}{% elif tile.status == 'sent_back' %}Sent back · waiting on you{% else %}{{ tile.label }} · waiting on you{% endif %}
+  </span>
+</a>
+</li>

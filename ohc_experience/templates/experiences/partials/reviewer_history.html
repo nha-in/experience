@@ -1,0 +1,28 @@
+<section class="ui-card ui-card--layered ui-card--sm"
+         aria-labelledby="review-history-title">
+  <div class="ui-card-header">
+    <h2 class="ui-card-title" id="review-history-title">History</h2>
+  </div>
+  <div class="ui-card-content">
+    <ol class="ui-feed">
+      {% for event in item.history.all %}
+        <li class="ui-feed-row scroll-mt-20 items-start"
+            id="history-{{ event.pk }}">
+          <span class="ui-feed-avatar mt-0.5 {% if not event.actor %}ui-feed-avatar--system{% endif %}"
+                aria-hidden="true">{{ event.actor.display_name|slice:':1'|upper }}</span>
+          <div class="ui-feed-body">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <strong class="font-semibold">{{ event.action }}</strong><span class="text-xs text-soft-foreground tabular-nums">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'j M Y, H:i' }} IST</span>
+            </div>
+            {% if event.detail.note %}<p class="mt-1 leading-relaxed text-muted-foreground">{{ event.detail.note|linebreaksbr }}</p>{% endif %}
+            {% if event.detail.question %}<p class="mt-1 leading-relaxed text-muted-foreground">{{ event.detail.question|linebreaksbr }}</p>{% endif %}
+            {% if event.detail.reply %}<p class="mt-1 leading-relaxed text-muted-foreground">{{ event.detail.reply|linebreaksbr }}</p>{% endif %}
+            {% if event.detail.submission_id %}<a class="mt-1 inline-flex min-h-9 items-center text-xs font-semibold text-primary no-underline hover:underline"
+   href="{% url 'experiences:submission' item.pk event.detail.submission_id %}">View saved submission <span class="ml-1" aria-hidden="true">↗</span></a>{% endif %}
+            {% if event.detail.after.items %}<details class="mt-2"><summary class="cursor-pointer text-xs text-soft-foreground">Change record</summary><dl class="mt-2 grid gap-2 sm:grid-cols-2">{% for key,value in event.detail.after.items %}<div><dt class="text-xs text-soft-foreground">{{ key }}</dt><dd class="break-words">{{ value }}</dd></div>{% endfor %}</dl></details>{% endif %}
+          </div>
+        </li>
+      {% empty %}<li class="text-sm text-muted-foreground">No activity yet.</li>{% endfor %}
+    </ol>
+  </div>
+</section>

@@ -1,49 +1,33 @@
-<section class="ui-card ui-card--sm"
+<section class="ui-card ui-card--layered ui-card--sm"
          aria-labelledby="integrator-context-title">
+  <div class="ui-card-header">
+    <h2 class="ui-card-title" id="integrator-context-title">Integrator context</h2>
+  </div>
   <div class="ui-card-content">
-    <h2 class="mb-5 text-base font-semibold" id="integrator-context-title">Integrator context</h2>
-    <dl class="grid gap-x-6 gap-y-6 text-sm sm:grid-cols-2">
-      <div>
-        <dt class="text-xs font-medium text-soft-foreground">Organisation</dt>
-        <dd class="mt-2 leading-relaxed break-words">
-          <span class="mb-2 block font-semibold">{{ item.organisation.display_name }}</span>
-          {% include 'experiences/partials/status.html' with status=item.organisation.verification_status label=item.organisation.get_verification_status_display %}
-        </dd>
+    <dl class="flex flex-col text-sm">
+      <div class="grid gap-x-5 gap-y-2 pb-3 sm:grid-cols-[196px_minmax(0,1fr)]">
+        <dt class="ui-kicker pt-0.5">Organisation</dt>
+        <dd class="flex flex-wrap items-center gap-2.5 break-words"><span class="font-semibold">{{ item.organisation.display_name }}</span>{% include 'experiences/partials/status.html' with status=item.organisation.verification_status label=item.organisation.get_verification_status_display %}</dd>
       </div>
-      <div>
-        <dt class="text-xs font-medium text-soft-foreground">Prior approvals</dt>
-        <dd class="mt-2 leading-relaxed">
-          <ul class="flex flex-col gap-3">
-            {% for approval in prior_approvals %}
-              <li><a class="inline-flex min-h-9 items-center font-medium text-primary hover:underline"
-   href="{{ approval.get_absolute_url }}">{{ approval.title }}</a><span class="block text-xs text-soft-foreground">{{ approval.decided_at|date:'d M Y' }}</span></li>
-            {% empty %}<li class="text-soft-foreground">No previous approvals.</li>{% endfor %}
-          </ul>
-        </dd>
+      <div class="grid gap-x-5 gap-y-2 border-t border-soft-border py-3 sm:grid-cols-[196px_minmax(0,1fr)]">
+        <dt class="ui-kicker pt-0.5">Prior approvals</dt>
+        <dd><ul class="flex flex-col gap-2.5">{% for approval in prior_approvals %}<li class="flex flex-wrap items-center gap-x-2 gap-y-1"><span class="ui-badge ui-badge--success ui-badge--size-xs">Approved</span><a class="font-medium text-primary no-underline hover:underline"
+   href="{{ approval.get_absolute_url }}">{{ approval.title }}</a><span class="text-xs text-soft-foreground">{{ approval.decided_at|date:'j M Y' }}</span></li>{% empty %}<li class="text-muted-foreground">No previous approvals.</li>{% endfor %}</ul></dd>
       </div>
-      <div>
-        <dt class="text-xs font-medium text-soft-foreground">Callback</dt>
-        <dd class="mt-2 leading-relaxed">
+      <div class="grid gap-x-5 gap-y-2 border-t border-soft-border py-3 sm:grid-cols-[196px_minmax(0,1fr)]">
+        <dt class="ui-kicker pt-0.5">Callback</dt>
+        <dd class="min-w-0 leading-relaxed">
           {% if credential %}
-            <span class="font-medium {% if credential.last_checked_at and credential.consecutive_failures %}text-amber-800{% endif %}">{% if not credential.last_checked_at %}Not checked{% elif credential.consecutive_failures %}Unreachable{% else %}Reachable{% endif %}</span>
-            {% if credential.last_status %}· HTTP {{ credential.last_status }}{% endif %}
-            {% if credential.last_latency_ms != None %}· {{ credential.last_latency_ms }} ms{% endif %}
+            <span class="ui-badge ui-badge--size-xs {% if not credential.last_checked_at %}ui-badge--neutral{% elif credential.consecutive_failures %}ui-badge--warning{% else %}ui-badge--success{% endif %}">{% if not credential.last_checked_at %}Not checked{% elif credential.consecutive_failures %}Unreachable{% else %}Reachable{% endif %}</span>
+            <span class="text-xs text-muted-foreground">{% if credential.last_status %}HTTP {{ credential.last_status }}{% endif %}{% if credential.last_latency_ms != None %} · {{ credential.last_latency_ms }} ms{% endif %}{% if credential.last_checked_at %} · Checked {{ credential.last_checked_at|date:'j M Y, H:i' }}{% endif %}</span>
             <span class="mt-1 block font-mono text-xs break-all text-soft-foreground">{{ credential.client_id }}</span>
-            {% if credential.last_checked_at %}<span class="mt-1 block text-xs text-soft-foreground">Checked {{ credential.last_checked_at|date:'d M Y, H:i' }}</span>{% endif %}
-          {% elif item.product %}<span class="text-soft-foreground">No credentials issued.</span>
-          {% else %}<span class="text-soft-foreground">Not a product item.</span>{% endif %}
+          {% elif item.product %}<span class="text-muted-foreground">No credentials issued.</span>{% else %}<span class="text-muted-foreground">Not a product item.</span>{% endif %}
         </dd>
       </div>
-      <div>
-        <dt class="text-xs font-medium text-soft-foreground">Open support tickets</dt>
-        <dd class="mt-2 leading-relaxed">
-          <ul class="flex flex-col gap-3">
-            {% for ticket in open_tickets %}
-              <li><a class="inline-flex min-h-9 items-center font-medium text-primary hover:underline"
-   href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.reference }}</a> · {{ ticket.get_priority_display }}<span class="block text-xs text-soft-foreground">{{ ticket.subject }}</span></li>
-            {% empty %}<li class="text-soft-foreground">No open tickets.</li>{% endfor %}
-          </ul>
-        </dd>
+      <div class="grid gap-x-5 gap-y-2 border-t border-soft-border pt-3 sm:grid-cols-[196px_minmax(0,1fr)]">
+        <dt class="ui-kicker pt-0.5">Open support tickets</dt>
+        <dd><ul class="flex flex-col gap-2.5">{% for ticket in open_tickets %}<li class="flex flex-wrap items-baseline gap-x-2 gap-y-1"><a class="font-mono text-xs font-semibold text-primary no-underline hover:underline"
+   href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.reference }}</a><span class="text-xs text-soft-foreground">{{ ticket.get_priority_display }}</span><span>{{ ticket.subject }}</span></li>{% empty %}<li class="text-muted-foreground">No open tickets.</li>{% endfor %}</ul></dd>
       </div>
     </dl>
   </div>

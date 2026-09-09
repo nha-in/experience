@@ -97,7 +97,7 @@
 }
 
 /* ==========================================================================
-   CareUI semantic tokens — the portal uses a calm teal and slate palette.
+   careui tokens — ported verbatim from ohcnetwork/careui src/index.css.
    Semantic tokens resolve against Tailwind's built-in color scales, so both
    light and dark re-resolve automatically. Never hardcode a hex in a template;
    use the token utilities (bg-card, text-muted-foreground, border-border, …).
@@ -109,76 +109,90 @@
   --font-geist-mono: "Geist Mono Variable", monospace;
   --font-size-scale: 1;
 
-  /* Brand palette — teal */
-  --primary-50: #effaf7;
-  --primary-100: #d9f1e9;
-  --primary-200: #b5e1d3;
-  --primary-300: #82c9b6;
-  --primary-400: #4aa88e;
-  --primary-500: #258670;
-  --primary-600: #14715d;
-  --primary-700: #0e5d4e;
-  --primary-800: #104b40;
-  --primary-900: #113f37;
-  --primary-950: #062820;
+  /* Primary palette — emerald */
+  --primary-50: var(--color-emerald-50);
+  --primary-100: var(--color-emerald-100);
+  --primary-200: var(--color-emerald-200);
+  --primary-300: var(--color-emerald-300);
+  --primary-400: var(--color-emerald-400);
+  --primary-500: var(--color-emerald-500);
+  --primary-600: var(--color-emerald-600);
+  --primary-700: var(--color-emerald-700);
+  --primary-800: var(--color-emerald-800);
+  --primary-900: var(--color-emerald-900);
+  --primary-950: var(--color-emerald-950);
 
   --radius: 0.625rem;
 
   --background: var(--color-white);
-  --soft-background: #f4f7f8;
-  --muted-background: #edf2f3;
-  --strong-background: #e2e9ec;
+  --soft-background: var(--color-neutral-50);
+  --muted-background: var(--color-neutral-100);
+  --strong-background: var(--color-neutral-200);
 
-  --muted: #edf2f3;
+  --muted: var(--color-neutral-100);
 
-  --foreground: #1d2d35;
-  --muted-foreground: #41545e;
-  --soft-foreground: #596d77;
-  --disabled-foreground: #9eafb6;
-  --placeholder-foreground: #657880;
+  --foreground: var(--color-neutral-950);
+  --muted-foreground: var(--color-neutral-700);
+  --soft-foreground: var(--color-neutral-600);
+  --disabled-foreground: var(--color-neutral-300);
+  --placeholder-foreground: var(--color-neutral-500);
   --inverse-foreground: var(--color-white);
 
   --card: var(--color-white);
-  --card-foreground: #1d2d35;
+  --card-foreground: var(--color-neutral-950);
 
   --popover: var(--color-white);
   --popover-foreground: var(--color-neutral-950);
 
-  --primary: var(--primary-700);
-  --primary-foreground: #ffffff;
+  --primary: var(--primary-800);
+  --primary-foreground: var(--primary-50);
 
-  --secondary: #edf2f3;
-  --secondary-foreground: #293f4b;
+  --secondary: var(--color-neutral-100);
+  --secondary-foreground: var(--color-neutral-900);
 
-  --accent: #e8f2ef;
-  --accent-foreground: #0e5d4e;
+  --accent: var(--color-neutral-100);
+  --accent-foreground: var(--color-neutral-900);
 
   --destructive: var(--color-red-600);
   --destructive-foreground: var(--color-red-50);
 
-  --soft-border: #eaf0f1;
-  --border: #dfe7e9;
-  --strong-border: #bdcbd1;
-  --stronger-border: #8a9da6;
+  --soft-border: var(--color-neutral-100);
+  --border: var(--color-neutral-200);
+  --strong-border: var(--color-neutral-300);
+  --stronger-border: var(--color-neutral-400);
   --inverse-border: var(--color-white);
 
-  --input: #82959e;
-  --ring: #258670;
+  --input: var(--color-neutral-400);
+  --ring: --alpha(var(--color-indigo-500) / 75%);
 
-  --chart-1: #c28b32;
+  --chart-1: var(--color-orange-600);
   --chart-2: var(--primary-600);
-  --chart-3: #5a74a4;
-  --chart-4: #7b8f69;
-  --chart-5: #9279a9;
+  --chart-3: var(--color-cyan-900);
+  --chart-4: var(--color-amber-400);
+  --chart-5: var(--color-yellow-500);
 
-  --sidebar: #ffffff;
-  --sidebar-foreground: #293f4b;
-  --sidebar-primary: var(--primary-700);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e7f3ef;
-  --sidebar-accent-foreground: #0e5d4e;
-  --sidebar-border: #dfe7e9;
-  --sidebar-ring: #258670;
+  --sidebar: var(--color-neutral-100);
+  --sidebar-foreground: var(--color-neutral-950);
+  --sidebar-primary: var(--primary-800);
+  --sidebar-primary-foreground: var(--primary-50);
+  --sidebar-accent: var(--color-neutral-200);
+  --sidebar-accent-foreground: var(--color-neutral-950);
+  --sidebar-border: var(--color-neutral-200);
+  --sidebar-ring: var(--color-indigo-400);
+
+  /* Layered (round 3) — the three tokens beyond careui. The hero wash is a
+     soft emerald gradient with a brighter pool top-right; the hairline
+     closes the band; the shadow lifts cards off the canvas with a long,
+     faint emerald tail. --hero-surface is the flat colour under the wash,
+     for the rings around stepper stations that sit on it. */
+  --hero-wash: radial-gradient(640px 240px at 100% 0%, --alpha(var(--primary-200) / 42%), transparent 70%),
+  linear-gradient(180deg, oklch(96.4% 0.026 165) 0%, oklch(97.6% 0.012 165) 100%);
+  --hero-hairline: --alpha(var(--primary-700) / 14%);
+  --hero-surface: oklch(97.3% 0.014 165);
+  --layered-shadow: 0 0 0 1px --alpha(var(--foreground) / 7%), 0 1px 2px rgb(0 0 0 / 0.04),
+  0 16px 40px -24px --alpha(var(--primary-900) / 25%);
+  --layered-shadow-hover: 0 0 0 1px --alpha(var(--foreground) / 9%), 0 2px 4px rgb(0 0 0 / 0.04),
+  0 24px 48px -24px --alpha(var(--primary-900) / 35%);
   --status-success-bg: #eff8f3;
   --status-success-border: #c8e5d3;
   --status-success-text: #246343;
@@ -251,6 +265,15 @@
   --sidebar-accent-foreground: var(--color-neutral-50);
   --sidebar-border: --alpha(var(--color-white) / 12%);
   --sidebar-ring: var(--color-indigo-400);
+
+  --hero-wash: radial-gradient(640px 240px at 100% 0%, --alpha(var(--primary-400) / 12%), transparent 70%),
+  linear-gradient(180deg, var(--color-neutral-900) 0%, var(--color-neutral-950) 100%);
+  --hero-hairline: --alpha(var(--primary-400) / 18%);
+  --hero-surface: var(--color-neutral-900);
+  --layered-shadow: 0 0 0 1px --alpha(var(--color-white) / 9%), 0 1px 2px rgb(0 0 0 / 0.4),
+  0 16px 40px -24px rgb(0 0 0 / 0.6);
+  --layered-shadow-hover: 0 0 0 1px --alpha(var(--color-white) / 14%), 0 2px 4px rgb(0 0 0 / 0.4),
+  0 24px 48px -24px rgb(0 0 0 / 0.7);
   --status-success-bg: #16392d;
   --status-success-border: #315b45;
   --status-success-text: #a8dabc;
@@ -345,6 +368,11 @@
   --color-primary-800: var(--primary-800);
   --color-primary-900: var(--primary-900);
   --color-primary-950: var(--primary-950);
+
+  /* Layered: shadow-layered / shadow-layered-hover for one-off use in templates. */
+  --shadow-layered: var(--layered-shadow);
+  --shadow-layered-hover: var(--layered-shadow-hover);
+  --color-hero-surface: var(--hero-surface);
 }
 
 @layer base {
@@ -374,6 +402,7 @@
 }
 
 @import "./careui.css";
+@import "./layered.css";
 
 @layer components {
   /* Skip link — visible only when focused via keyboard. */

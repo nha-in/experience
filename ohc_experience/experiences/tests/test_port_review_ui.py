@@ -120,6 +120,7 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
     query = review_item.queries.get()
     response = client.get(url)
     assert response.context["unresolved_query_count"] == 1
+    assert response.context["awaiting_reply_count"] == 1
     assert b'data-approval-blocked="true"' in response.content
     assert b"Confirm this score." in response.content
 
@@ -134,6 +135,7 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
     client.force_login(reviewer)
     response = client.get(url)
     assert response.context["unresolved_query_count"] == 1
+    assert response.context["awaiting_reply_count"] == 0
     assert b"Mark resolved" in response.content
     response = client.post(
         reverse("experiences:query-action", args=[query.pk]),

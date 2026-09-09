@@ -1,0 +1,2 @@
+<span class="flex items-center gap-2"><span class="ui-meter ui-meter--thin w-16 shrink-0" aria-hidden="true"><span class="ui-meter-fill {% if item.pending and item.age > 7 %}ui-meter-fill--danger{% else %}ui-meter-fill--muted{% endif %}"
+      style="width: {% widthratio item.age 7 100 %}%"></span></span><span class="whitespace-nowrap tabular-nums {% if item.pending and item.age > 7 %}font-semibold text-red-700{% else %}text-muted-foreground{% endif %}">{{ item.age }} day{{ item.age|pluralize }}</span></span>

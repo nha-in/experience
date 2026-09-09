@@ -1,0 +1,546 @@
+/* ==========================================================================
+   Layered — the round-3 UI refresh. Hero bands, floating cards, the milestone
+   stepper, big-number tiles and meters. Imported by styles.css after
+   careui.css; the three tokens it leans on (--hero-wash, --hero-hairline,
+   --layered-shadow) live in styles.css next to the careui tokens.
+
+   Every class is a careui-style component so templates stay hex-free.
+   ========================================================================== */
+
+@layer components {
+  /* ── Hero band ──────────────────────────────────────────────────────── */
+
+  .ui-hero {
+    @apply relative px-4 pt-7 pb-[76px] sm:px-7 lg:px-8;
+    background-image: var(--hero-wash);
+    border-bottom: 1px solid var(--hero-hairline);
+  }
+
+  .ui-hero-inner {
+    @apply mx-auto flex w-full max-w-[1120px] flex-wrap items-end justify-between gap-x-8 gap-y-5;
+  }
+
+  .ui-hero-eyebrow {
+    @apply mb-1.5 text-[11px] font-bold tracking-[0.09em] text-primary uppercase;
+  }
+
+  .ui-hero-title {
+    @apply text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-foreground break-words sm:text-4xl;
+  }
+
+  .ui-hero-lede {
+    @apply mt-2.5 max-w-[640px] text-sm text-muted-foreground;
+  }
+
+  .ui-hero-back {
+    @apply mb-2 inline-flex items-center gap-1 text-xs font-bold tracking-[0.02em] text-primary no-underline hover:underline;
+  }
+
+  .ui-figure {
+    @apply text-4xl leading-none font-extrabold tracking-[-0.04em] text-foreground tabular-nums;
+  }
+
+  .ui-figure--xl {
+    @apply text-[52px];
+  }
+
+  .ui-figure--md {
+    @apply text-[26px];
+  }
+
+  .ui-figure-unit {
+    @apply text-sm font-semibold text-muted-foreground;
+  }
+
+  .ui-kicker {
+    @apply text-[11px] font-bold tracking-[0.06em] text-soft-foreground uppercase;
+  }
+
+  /* The first block under a hero pulls up into the band. A flash message
+     between the two pushes it back down so the alert stays readable. */
+  .ui-float {
+    @apply relative -mt-11;
+  }
+
+  #flash-messages:has(.ui-alert) ~ .ui-float {
+    @apply mt-0;
+  }
+
+  /* ── Layered card and tiles ─────────────────────────────────────────── */
+
+  .ui-card--layered {
+    @apply gap-4 rounded-2xl border-0 py-[22px] ring-0;
+    box-shadow: var(--layered-shadow);
+  }
+
+  .ui-card--layered .ui-card-header,
+  .ui-card--layered .ui-card-content,
+  .ui-card--layered .ui-card-footer {
+    @apply px-6;
+  }
+
+  .ui-card--layered .ui-card-bleed {
+    @apply -mx-6;
+  }
+
+  .ui-card--layered.ui-card--sm {
+    @apply gap-3 py-[18px];
+  }
+
+  .ui-card--layered.ui-card--sm .ui-card-header,
+  .ui-card--layered.ui-card--sm .ui-card-content,
+  .ui-card--layered.ui-card--sm .ui-card-footer {
+    @apply px-5;
+  }
+
+  .ui-card--layered.ui-card--sm .ui-card-bleed {
+    @apply -mx-5;
+  }
+
+  .ui-card--layered .ui-card-title {
+    @apply text-[15px] leading-[22px];
+  }
+
+  .ui-card--layered.ui-card--sm .ui-card-title {
+    @apply text-sm leading-5;
+  }
+
+  .ui-card--layered .ui-card-description {
+    @apply text-sm;
+  }
+
+  .ui-tile {
+    @apply flex flex-col gap-2 rounded-2xl bg-card px-5 pt-[18px] pb-4 text-card-foreground no-underline transition-[transform,box-shadow] duration-200;
+    box-shadow: var(--layered-shadow);
+  }
+
+  a.ui-tile:focus-visible {
+    @apply outline-2 outline-offset-4 outline-ring;
+  }
+
+  a.ui-tile:hover {
+    @apply -translate-y-0.5;
+    box-shadow: var(--layered-shadow-hover);
+  }
+
+  .ui-tile-figure {
+    @apply text-[40px] leading-none font-extrabold tracking-[-0.04em] text-foreground tabular-nums;
+  }
+
+  .ui-tile-note {
+    @apply text-xs text-muted-foreground tabular-nums;
+  }
+
+  /* ── Meters ─────────────────────────────────────────────────────────── */
+
+  .ui-meter {
+    @apply block h-1.5 w-full overflow-hidden rounded-[3px] bg-muted-background;
+  }
+
+  .ui-meter--thin {
+    @apply h-1 rounded-full;
+  }
+
+  .ui-meter--split {
+    @apply flex gap-[3px] bg-transparent;
+  }
+
+  .ui-meter-fill {
+    @apply block h-full max-w-full origin-left rounded-[3px] bg-primary;
+    animation: l-grow 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .ui-meter-fill--info {
+    @apply bg-sky-500;
+  }
+
+  .ui-meter-fill--warning {
+    @apply bg-orange-500;
+  }
+
+  .ui-meter-fill--danger {
+    @apply bg-red-500;
+  }
+
+  .ui-meter-fill--muted {
+    @apply bg-stronger-border;
+  }
+
+  /* ── Feed rows: activity, history ───────────────────────────────────── */
+
+  .ui-feed {
+    @apply flex flex-col;
+  }
+
+  .ui-feed-row {
+    @apply flex items-center gap-3 border-t border-soft-border py-[11px] first:border-t-0 first:pt-0 last:pb-0;
+  }
+
+  .ui-feed-avatar {
+    @apply flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-[10px] font-bold text-primary;
+  }
+
+  .ui-feed-avatar--muted {
+    @apply bg-soft-background text-muted-foreground;
+  }
+
+  .ui-feed-avatar--system {
+    @apply box-border border-[1.5px] border-dashed border-border bg-transparent text-soft-foreground;
+  }
+
+  .ui-feed-body {
+    @apply min-w-0 flex-1 text-sm break-words;
+  }
+
+  .ui-feed-meta {
+    @apply shrink-0 whitespace-nowrap text-xs text-soft-foreground tabular-nums;
+  }
+
+  /* ── Date block (events) ────────────────────────────────────────────── */
+
+  .ui-dateblock {
+    @apply flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary-50 text-primary;
+  }
+
+  .ui-dateblock-day {
+    @apply text-[22px] leading-6 font-extrabold tracking-[-0.03em] tabular-nums;
+  }
+
+  .ui-dateblock-month {
+    @apply text-[10px] leading-3 font-bold tracking-[0.1em] uppercase;
+  }
+
+  .ui-dateblock--sm {
+    @apply size-11 rounded-[10px];
+  }
+
+  .ui-dateblock--sm .ui-dateblock-day {
+    @apply text-[17px] leading-[18px];
+  }
+
+  .ui-dateblock--sm .ui-dateblock-month {
+    @apply text-[9.5px];
+  }
+
+  .ui-dateblock--past {
+    @apply bg-soft-background text-soft-foreground;
+  }
+
+  .ui-dateblock--solid {
+    @apply size-[60px] bg-primary text-primary-foreground;
+  }
+
+  .ui-dateblock--solid .ui-dateblock-day {
+    @apply text-[26px] leading-[26px];
+  }
+
+  .ui-dateblock--solid .ui-dateblock-month {
+    @apply text-primary-200;
+  }
+
+  /* ── Big-number tabs and pills ──────────────────────────────────────── */
+
+  .ui-tabstat {
+    @apply flex flex-col gap-0.5 border-b-[3px] border-transparent px-0.5 pb-2.5 text-soft-foreground no-underline transition-colors hover:border-border hover:text-foreground;
+  }
+
+  .ui-tabstat[aria-current] {
+    @apply border-primary text-foreground;
+  }
+
+  .ui-tabstat[aria-current] .ui-kicker {
+    @apply text-primary;
+  }
+
+  .ui-pill {
+    @apply block rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground no-underline transition-colors hover:bg-soft-background;
+  }
+
+  .ui-pill[aria-current] {
+    @apply bg-primary-50 font-semibold text-primary-900;
+  }
+
+  /* ── Layered table ──────────────────────────────────────────────────── */
+
+  .ui-grid-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+
+  .ui-grid-table th {
+    @apply border-y border-soft-border px-4 py-2.5 text-left text-[11px] font-bold tracking-[0.06em] text-soft-foreground uppercase first:pl-6 last:pr-6;
+  }
+
+  .ui-grid-table td {
+    @apply border-b border-soft-border px-4 py-3 align-middle first:pl-6 last:pr-6;
+  }
+
+  .ui-grid-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .ui-grid-table tbody tr {
+    @apply transition-colors hover:bg-primary-50/40;
+  }
+
+  /* ── Milestone stepper ──────────────────────────────────────────────── */
+
+  .ui-stepper {
+    --station-surface: var(--card);
+    @apply m-0 flex list-none p-0;
+  }
+
+  .ui-stepper--grid {
+    @apply grid grid-cols-2 gap-y-5 sm:grid-cols-4;
+  }
+
+  .ui-hero .ui-stepper {
+    --station-surface: var(--hero-surface);
+  }
+
+  .ui-station {
+    @apply relative flex min-w-0 flex-1 flex-col gap-2.5;
+  }
+
+  .ui-station-rail {
+    @apply absolute top-[13px] right-2 left-9 h-0.5 bg-border;
+  }
+
+  .ui-station--done > .ui-station-rail {
+    @apply top-3 h-[3px] origin-left rounded-sm bg-primary;
+    animation: l-grow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .ui-station-dot {
+    @apply relative box-border flex size-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-stronger-border text-primary-foreground;
+    background: var(--station-surface);
+  }
+
+  .ui-station--idle > .ui-station-dot {
+    @apply border-solid border-strong-border;
+  }
+
+  .ui-station--done > .ui-station-dot {
+    @apply border-0 bg-primary;
+    box-shadow: 0 0 0 3px var(--station-surface);
+  }
+
+  .ui-station--current > .ui-station-dot {
+    @apply border-0 bg-card;
+    box-shadow: 0 0 0 2.5px var(--primary), 0 0 0 5.5px var(--station-surface);
+  }
+
+  .ui-station--current > .ui-station-dot::after {
+    content: "";
+    @apply size-2 rounded-full bg-primary;
+  }
+
+  .ui-station--current > .ui-station-dot::before {
+    content: "";
+    @apply absolute -inset-[3px] rounded-full border-2 border-primary/55;
+    animation: l-pulse 2.4s ease-out infinite;
+  }
+
+  .ui-station-link {
+    @apply block min-w-0 pr-3 text-foreground no-underline transition-colors hover:text-primary;
+  }
+
+  .ui-station-code {
+    @apply block font-mono text-[11px] font-bold tracking-[0.04em] text-soft-foreground;
+  }
+
+  .ui-station--current .ui-station-code {
+    @apply text-primary;
+  }
+
+  .ui-station-name {
+    @apply block text-[13px] leading-[19px] font-semibold break-words;
+  }
+
+  .ui-station--locked .ui-station-name,
+  .ui-station--idle .ui-station-name {
+    @apply font-medium text-soft-foreground;
+  }
+
+  /* PHR's M1 is HI-CM's M1 — one record on two tracks, said under the name. */
+  .ui-station-alias {
+    @apply mt-0.5 block text-xs font-normal text-soft-foreground;
+  }
+
+  .ui-station-status {
+    @apply mt-0.5 block text-xs text-muted-foreground;
+  }
+
+  .ui-station--done .ui-station-status {
+    @apply text-green-800;
+  }
+
+  .ui-station--locked .ui-station-status,
+  .ui-station--idle .ui-station-status {
+    @apply text-placeholder-foreground;
+  }
+
+  /* Large: the track hero. */
+  .ui-stepper--lg .ui-station {
+    @apply gap-3;
+  }
+
+  .ui-stepper--lg .ui-station-dot {
+    @apply size-8;
+  }
+
+  .ui-stepper--lg .ui-station-rail {
+    @apply top-[15px] left-10;
+  }
+
+  .ui-stepper--lg .ui-station--done > .ui-station-rail {
+    @apply top-[14px];
+  }
+
+  .ui-stepper--lg .ui-station--current > .ui-station-dot::after {
+    @apply size-2.5;
+  }
+
+  .ui-stepper--lg .ui-station-name {
+    @apply text-sm leading-5;
+  }
+
+  /* Small: the review item's history line. */
+  .ui-stepper--sm .ui-station {
+    @apply items-center gap-2 text-center;
+  }
+
+  .ui-stepper--sm .ui-station-dot {
+    @apply size-3.5;
+  }
+
+  .ui-stepper--sm .ui-station-rail {
+    @apply top-[6px] left-[calc(50%+9px)] right-[calc(-50%+9px)] h-0.5;
+  }
+
+  .ui-stepper--sm .ui-station--done > .ui-station-rail {
+    @apply top-[5px] h-[3px];
+  }
+
+  .ui-stepper--sm .ui-station--current > .ui-station-dot {
+    box-shadow: 0 0 0 2px var(--primary), 0 0 0 4px var(--station-surface);
+  }
+
+  .ui-stepper--sm .ui-station--current > .ui-station-dot::after {
+    @apply size-1.5;
+  }
+
+  .ui-stepper--sm .ui-station-link {
+    @apply px-1 pr-1;
+  }
+
+  .ui-stepper--sm .ui-station-name {
+    @apply text-xs leading-4;
+  }
+
+  .ui-stepper--sm .ui-station-status {
+    @apply text-[11px] leading-4;
+  }
+
+  /* ── Ring gauge and live dot ────────────────────────────────────────── */
+
+  .ui-ring {
+    @apply relative size-[88px] shrink-0;
+  }
+
+  .ui-ring svg {
+    @apply block -rotate-90;
+  }
+
+  .ui-ring-track {
+    stroke: var(--muted-background);
+  }
+
+  .ui-ring-fill {
+    stroke: var(--primary);
+    animation: l-ring 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .ui-ring-label {
+    @apply absolute inset-0 flex items-center justify-center gap-px;
+  }
+
+  .ui-live {
+    @apply relative inline-flex size-3 shrink-0;
+  }
+
+  .ui-live::before {
+    content: "";
+    @apply absolute inset-0 rounded-full bg-primary-500/50;
+    animation: l-pulse 2.4s ease-out infinite;
+  }
+
+  .ui-live::after {
+    content: "";
+    @apply absolute inset-0 rounded-full bg-primary-500;
+  }
+
+  .ui-live--muted::before {
+    animation: none;
+  }
+
+  .ui-live--muted::after {
+    @apply bg-stronger-border;
+  }
+
+  .ui-live--danger::before,
+  .ui-live--danger::after {
+    @apply bg-red-500;
+  }
+
+  /* ── Entry motion ───────────────────────────────────────────────────── */
+
+  .ui-rise {
+    animation: l-rise 0.5s ease-out both;
+  }
+}
+
+@keyframes l-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes l-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes l-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes l-ring {
+  from {
+    stroke-dasharray: 0 238.76;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-rise,
+  .ui-meter-fill,
+  .ui-station--done > .ui-station-rail,
+  .ui-station--current > .ui-station-dot::before,
+  .ui-ring-fill,
+  .ui-live::before {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a.ui-tile:hover { transform: none; }
+}

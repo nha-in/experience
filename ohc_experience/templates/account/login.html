@@ -11,21 +11,21 @@
 {% load i18n careui %}
 
 {% block title %}
-  {% translate "Sign in to the hub" %}
+  {% translate "Sign in to the sandbox portal" %}
 {% endblock title %}
 {% block header_action %}
   {% if ACCOUNT_ALLOW_REGISTRATION %}
-    <span class="hidden sm:inline">{% translate "New to the hub?" %}</span>
+    <span class="hidden sm:inline">{% translate "New to the sandbox?" %}</span>
     {% url 'account_signup' as signup_fallback %}
     <a class="ui-prose-link" href="{% firstof signup_url signup_fallback %}">{% translate "Create an account" %}</a>
   {% endif %}
 {% endblock header_action %}
 {% block entrance_width %}max-w-[420px]{% endblock entrance_width %}
 {% block entrance_title %}
-  {% translate "Sign in to the hub" %}
+  {% translate "Sign in to the sandbox portal" %}
 {% endblock entrance_title %}
 {% block entrance_lede %}
-  {% translate "Use the work email your vendor account was created with." %}
+  {% translate "Use the work email your integrator account was created with." %}
 {% endblock entrance_lede %}
 {% block entrance_body %}
   {% if not SOCIALACCOUNT_ONLY %}
@@ -73,7 +73,7 @@
     <p class="mt-4 text-center text-[13px] text-muted-foreground">
       {% translate "No account yet?" %}
       {% url 'account_signup' as signup_fallback %}
-      <a class="ui-prose-link" href="{% firstof signup_url signup_fallback %}">{% translate "Create your vendor account" %}</a>
+      <a class="ui-prose-link" href="{% firstof signup_url signup_fallback %}">{% translate "Create your integrator account" %}</a>
     </p>
   {% endif %}
 {% endblock entrance_after %}

@@ -1,29 +1,24 @@
 {% if message.is_event %}
-  <p class="flex flex-wrap items-center gap-2 px-2 py-1 text-xs text-soft-foreground">
-    <span class="size-1.5 rounded-full bg-muted-foreground" aria-hidden="true"></span>{{ message.author.display_name|default:"System" }} · {{ message.body }}<time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }} IST</time>
-  </p>
+  <li class="flex flex-wrap items-center gap-2.5 rounded-xl border border-dashed border-strong-border bg-soft-background px-3.5 py-2.5 text-[11.5px] text-soft-foreground">
+    {% include "components/status_dot.html" with variant="neutral" %}
+    <span class="min-w-0 flex-1 break-words">{{ message.author.display_name|default:"System" }} marked this <strong>{{ message.body }}</strong></span>
+    <time class="text-[10.5px]" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }} IST</time>
+  </li>
 {% else %}
-  <article class="ui-card {% if message.from_ohc_team %}bg-primary/5 ring-primary/15{% endif %}">
+  <li class="ui-card ui-card--sm {% if message.from_ohc_team %}border-l-[3px] border-l-primary{% endif %}">
     <div class="ui-card-content">
-      <div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
-        <span class="ui-avatar size-9 text-sm {% if message.from_ohc_team %}ui-avatar--primary{% else %}bg-muted-background text-muted-foreground{% endif %}"
-              aria-hidden="true">{{ message.author.display_name|first|default:"S" }}</span>
-        <strong>{{ message.author.display_name|default:"System" }}</strong>
-        {% if message.from_ohc_team %}
-          <span class="ui-badge ui-badge--info ui-badge--size-sm">{{ experience_program.reviewer_name }}</span>
-        {% endif %}
-        <time class="ml-auto text-xs text-soft-foreground"
-              datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M Y, H:i" }} IST</time>
+      <div class="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="ui-avatar size-[22px] text-[9px] {% if message.from_ohc_team %}bg-primary text-primary-foreground{% else %}bg-strong-background text-soft-foreground{% endif %}"
+              aria-hidden="true">{{ message.author.display_name|first|upper|default:"S" }}</span>
+        <span class="text-[11.5px] font-semibold">{% if message.from_ohc_team %}{{ experience_program.reviewer_name }}{% else %}{{ message.author.display_name|default:"System" }}{% endif %}</span>
+        <span class="text-[10.5px] text-soft-foreground">{% if message.from_ohc_team %}{{ message.author.display_name }} ·{% else %}{{ ticket.organisation.display_name }} ·{% endif %}{% if message.author_id == request.user.pk %} you ·{% endif %} <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }} IST</time></span>
       </div>
-      <div class="text-sm leading-relaxed break-words">{{ message.body|linebreaksbr }}</div>
+      <div class="text-xs leading-[1.6] break-words [&>p+p]:mt-2.5">{{ message.body|linebreaks }}</div>
       {% for file in message.attachments.all %}
-        <a class="mt-4 flex min-h-11 min-w-0 items-center gap-3 rounded-xl border border-soft-border bg-card px-4 py-3 text-sm font-medium text-primary hover:bg-muted-background hover:underline"
-           href="{% url 'experiences:ticket-attachment' file.pk %}"
-           hx-boost="false">
-          <span aria-hidden="true">↓</span>
-          <span class="break-all">{{ file.original_name }}</span>
-        </a>
+        <p class="mt-2.5"><a class="inline-flex max-w-full items-center gap-[7px] rounded-[9px] border border-border bg-soft-background px-2.5 py-[7px] text-[11px] text-foreground no-underline hover:border-stronger-border"
+   href="{% url 'experiences:ticket-attachment' file.pk %}"
+   hx-boost="false"><span class="font-mono text-[9.5px] font-bold text-soft-foreground uppercase">PDF</span><span class="break-all">{{ file.original_name }}</span></a></p>
       {% endfor %}
     </div>
-  </article>
+  </li>
 {% endif %}

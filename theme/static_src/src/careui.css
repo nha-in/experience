@@ -32,15 +32,17 @@
   }
 
   .ui-btn--default {
-    @apply border-primary bg-primary text-primary-foreground shadow-xs;
-    @apply hover:border-primary-800 hover:bg-primary-800 active:bg-primary-900;
-    @apply dark:hover:bg-primary-300 dark:hover:border-primary-300 dark:active:bg-primary-200;
+    @apply border-primary-950/90 bg-primary text-primary-foreground shadow-md shadow-primary/50 text-shadow-xs text-shadow-primary-950/75;
+    @apply not-disabled:inset-shadow-2xs not-disabled:inset-shadow-primary-200/30;
+    @apply hover:bg-primary/90 active:bg-primary/80 active:inset-shadow-sm active:inset-shadow-primary-800 active:shadow-none;
+    @apply dark:border-primary-900 dark:shadow-background dark:text-shadow-primary-200/50 dark:not-disabled:inset-shadow-primary-200/80;
   }
 
   .ui-btn--secondary {
-    @apply border-primary-200 bg-primary-50 text-primary-800;
-    @apply hover:border-primary-300 hover:bg-primary-100 active:bg-primary-200;
-    @apply dark:border-primary-700 dark:bg-primary-950 dark:text-primary-200;
+    @apply border-primary-700 bg-background text-primary-900 shadow-md;
+    @apply hover:border-primary-600 hover:bg-primary-700/10;
+    @apply active:bg-primary-700/5 active:inset-shadow-sm active:inset-shadow-neutral-500/35 active:shadow-none;
+    @apply dark:text-primary-500 dark:active:inset-shadow-neutral-950;
   }
 
   .ui-btn--tertiary {
@@ -51,8 +53,10 @@
   }
 
   .ui-btn--outline {
-    @apply border-strong-border bg-card text-foreground shadow-2xs;
-    @apply hover:border-stronger-border hover:bg-soft-background active:bg-muted-background;
+    @apply border-stronger-border bg-background shadow-md;
+    @apply hover:bg-muted hover:text-foreground;
+    @apply active:bg-muted/80 active:inset-shadow-sm active:inset-shadow-neutral-400/50 active:shadow-none;
+    @apply dark:border-input dark:bg-input/30 dark:hover:bg-input/50 dark:active:inset-shadow-neutral-950/80;
   }
 
   .ui-btn--ghost {

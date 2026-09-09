@@ -139,6 +139,20 @@ admin remain available. Team and profile pages share the same shell. Transitions
 administration use full-page navigation. Retired OHC, generic application, Care provisioning, demo
 and user API routes are no longer exposed.
 
+## Visual design
+
+The portal adapts Amjith Titus’s Layered styling from `bodhi-test` commit
+`4bd4f07`: emerald hero bands, floating summary cards, connected milestone
+stations, evidence readiness, review history, and support/event count tabs.
+The shared components live in `theme/static_src/src/layered.css`; hero bands
+remain inside the HTMX main-content target and queue filters refresh their
+hero counts out of band.
+
+These templates use the engine’s existing models, forms and permission checks.
+Readiness counts saved required fields from each active form schema, shared
+milestones are counted once, and query indicators distinguish unanswered
+questions from replies awaiting review. The evidence schema remains unchanged.
+
 ## Production Configuration
 
 The production Docker image builds Tailwind CSS from the checked-in templates

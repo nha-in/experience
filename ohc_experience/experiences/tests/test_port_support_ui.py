@@ -206,6 +206,88 @@ def test_support_search_keeps_workspace_and_status(
     ]
 
 
+def test_support_counts_keep_filters_and_workspace_before_status(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    for product_index, subject, category, priority, status in (
+        (1, "Callback investigation", "api", "high", "open"),
+        (1, "Callback fixed", "api", "high", "resolved"),
+        (1, "Unrelated issue", "api", "high", "open"),
+        (1, "Callback medium priority", "api", "medium", "open"),
+        (1, "Callback sandbox issue", "sandbox", "high", "open"),
+        (0, "Callback on another product", "api", "high", "open"),
+    ):
+        ticket = Ticket.objects.create(
+            organisation=owner_membership.organisation,
+            subject=subject,
+            category=category,
+            priority=priority,
+            status=status,
+        )
+        TicketContext.objects.create(
+            ticket=ticket,
+            product=portal_workspaces[product_index].product,
+        )
+    response = portal_client.get(
+        reverse("experiences:support"),
+        {"q": "callback", "category": "api", "priority": "high", "status": "open"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert [ticket.subject for ticket in response.context["tickets"]] == [
+        "Callback investigation",
+    ]
+    expected_workspace_tickets = 5
+    assert response.context["ticket_total"] == expected_workspace_tickets
+    assert {tab["value"]: tab["count"] for tab in response.context["status_tabs"]} == {
+        "": 2,
+        "open": 1,
+        "awaiting_vendor": 0,
+        "resolved": 1,
+        "closed": 0,
+    }
+
+
+def test_event_counts_filter_by_kind_and_registrations_stay_private(
+    portal_client,
+    owner_membership,
+):
+    events = {}
+    for title, kind, days, published in (
+        ("Next webinar", "webinar", 2, True),
+        ("Next workshop", "workshop", 1, True),
+        ("Past webinar", "webinar", -2, True),
+        ("Unpublished webinar", "webinar", 1, False),
+    ):
+        events[title] = Event.objects.create(
+            title=title,
+            kind=kind,
+            starts_at=timezone.now() + timedelta(days=days),
+            published_at=timezone.now() if published else None,
+        )
+    for title in ("Next webinar", "Past webinar", "Unpublished webinar"):
+        EventRegistration.objects.create(
+            event=events[title],
+            user=owner_membership.user,
+        )
+    EventRegistration.objects.create(
+        event=events["Next workshop"],
+        user=UserFactory(),
+    )
+    response = portal_client.get(
+        reverse("experiences:events"),
+        {"kind": "webinar", "period": "past"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert list(response.context["events"]) == [events["Past webinar"]]
+    assert response.context["upcoming_count"] == 1
+    assert response.context["past_count"] == 1
+    assert response.context["next_event"] == events["Next webinar"]
+    assert response.context["registered_upcoming_count"] == 1
+    assert events["Next workshop"].pk not in response.context["registered"]
+
+
 def test_event_register_cancel_and_filter_keep_product(
     portal_client,
     portal_workspaces,

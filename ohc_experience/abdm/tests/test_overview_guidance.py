@@ -52,9 +52,11 @@ def test_query_is_prioritised_only_until_the_integrator_replies(
     response = client.get(url)
     assert response.context["next_step"]["action"] == "Respond to query"
     assert response.context["next_step"]["url"].endswith("?milestone=m1#queries")
+    assert response.context["tracks"][0]["tiles"][0]["reply_needed"] is True
     workflows.reply_query(item.queries.get(), environment["applicant"], "Clarified")
     response = client.get(url)
     assert response.context["next_step"]["action"] != "Respond to query"
+    assert response.context["tracks"][0]["tiles"][0]["reply_needed"] is False
 
 
 def test_another_products_query_does_not_replace_registration_guidance(

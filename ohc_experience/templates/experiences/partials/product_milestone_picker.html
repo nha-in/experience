@@ -1,47 +1,53 @@
 <fieldset aria-describedby="milestone-picker-hint">
   <legend class="sr-only">{{ field.label }}</legend>
   <p id="milestone-picker-hint"
-     class="mb-5 max-w-[680px] text-sm leading-relaxed text-soft-foreground">Choose the milestones you plan to complete. Each has its own exit request, and milestones unlock in order within a track.</p>
+     class="mb-4 text-xs leading-relaxed text-soft-foreground">Grouped by track. Each selected milestone gets its own exit request; milestones open in order on each track. An approved milestone cannot be removed.</p>
   {% for error in field.errors %}
-    <p class="ui-error mb-3" role="alert">{{ error }}</p>
+    <p class="ui-error mb-2" role="alert">{{ error }}</p>
   {% endfor %}
-  <div class="grid items-start gap-4 sm:grid-cols-2">
+  <div class="flex flex-col gap-5">
     {% for row in form.milestone_tracks %}
-      <div class="overflow-hidden rounded-xl border {% if row.milestones %}border-soft-border bg-background transition-colors has-[:checked]:border-primary/30{% else %}border-dashed border-strong-border bg-soft-background/60{% endif %}">
-        <div class="px-4 pt-4 pb-3">
-          <span class="font-mono text-sm font-bold {% if not row.milestones %}text-soft-foreground{% endif %}">{{ row.definition.code }}</span>
-          <p class="mt-1 text-xs leading-relaxed text-soft-foreground">{{ row.definition.name }}</p>
+      <div>
+        <div class="mb-1 flex flex-wrap items-baseline gap-2">
+          <h3 class="font-mono text-sm font-semibold {% if not row.milestones %}text-soft-foreground{% endif %}">{{ row.definition.code }}</h3>
+          <span class="min-w-0 text-xs text-soft-foreground">{{ row.definition.name }}</span>
+          {% if row.milestones %}
+            <a class="ml-auto shrink-0 text-xs text-soft-foreground hover:underline"
+               href="{{ experience_program.docs_url }}"
+               target="_blank"
+               rel="noopener noreferrer"
+               hx-boost="false">Docs ↗</a>
+          {% endif %}
         </div>
-        <ul class="flex flex-col gap-1 px-2 pb-2">
-          {% for milestone in row.milestones %}
-            <li>
-              {% if milestone.value in approved_selections %}
-                <input type="hidden"
-                       name="{{ field.html_name }}"
-                       value="{{ milestone.value }}" />
-              {% endif %}
-              <label class="flex min-h-12 items-start gap-3 rounded-lg border border-transparent p-2.5 transition-colors {% if milestone.value in approved_selections %}cursor-default{% else %}cursor-pointer hover:bg-soft-background{% endif %} has-[:checked]:border-primary/10 has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40"
-                     for="milestone-{{ milestone.value|slugify }}">
-                <input class="ui-checkbox mt-0.5 shrink-0" type="checkbox" id="milestone-{{ milestone.value|slugify }}" {% if milestone.value in approved_selections %}checked disabled{% else %}name="{{ field.html_name }}" value="{{ milestone.value }}" {% if milestone.selected %}checked{% endif %} {% endif %} />
-                <span class="min-w-0 flex-1 text-sm leading-snug">
-                  <span class="font-mono font-semibold">{{ milestone.definition.code }}</span>
-                  <span class="mx-1.5 text-soft-foreground" aria-hidden="true">·</span>{{ milestone.definition.name }}
-                  {% if milestone.shared %}
-                    <span class="mt-1 block text-xs leading-relaxed text-soft-foreground">Same record as HI-CM M1</span>
-                  {% endif %}
-                  {% if milestone.value in approved_selections %}
-                    <span class="mt-1.5 block">
-                      <span class="ui-badge ui-badge--success ui-badge--size-xs">Approved</span>
-                    </span>
-                  {% endif %}
-                </span>
-              </label>
-            </li>
-          {% empty %}
-            <li class="px-2 pb-2 text-sm leading-relaxed text-soft-foreground">No milestones published yet. This track will open for applications once they are available.</li>
-          {% endfor %}
-        </ul>
+        {% if row.milestones %}
+          <div class="flex flex-col">
+            {% for milestone in row.milestones %}
+              <div class="-mx-2.5 flex items-center gap-3 rounded-lg border-t border-soft-border px-2.5 py-2.5 transition-colors has-[input:enabled]:hover:bg-primary-50/60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40">
+                {% if milestone.value in approved_selections %}
+                  <input type="hidden"
+                         name="{{ field.html_name }}"
+                         value="{{ milestone.value }}" />
+                {% endif %}
+                <input class="ui-checkbox shrink-0" type="checkbox" id="milestone-{{ milestone.value|slugify }}" {% if milestone.value in approved_selections %}checked disabled aria-describedby="milestone-{{ milestone.value|slugify }}-why"{% else %}name="{{ field.html_name }}" value="{{ milestone.value }}" {% if milestone.selected %}checked{% endif %} {% endif %} />
+                <label class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-sm select-none {% if milestone.value in approved_selections %}text-soft-foreground{% else %}cursor-pointer{% endif %}"
+                       for="milestone-{{ milestone.value|slugify }}">
+                  <span class="w-11 shrink-0 font-mono text-xs font-semibold text-soft-foreground">{{ milestone.definition.code }}</span>
+                  <span class="min-w-0 flex-1 {% if milestone.selected %}font-medium{% endif %}">{{ milestone.definition.name }}{% if milestone.shared %}
+                    <span class="block text-xs text-soft-foreground">Same record as HI-CM M1</span>
+            {% endif %}
+          </span>
+          {% if milestone.value in approved_selections %}
+            <span class="ui-badge ui-badge--success ui-badge--size-xs"
+                  id="milestone-{{ milestone.value|slugify }}-why">Approved · cannot be removed</span>
+          {% endif %}
+          </label>
+          </div>
+        {% endfor %}
       </div>
-    {% endfor %}
+    {% else %}
+      <p class="border-t border-soft-border pt-2.5 text-xs text-soft-foreground">No milestones published yet. This track will open for applications once they are available.</p>
+    {% endif %}
   </div>
+{% endfor %}
+</div>
 </fieldset>

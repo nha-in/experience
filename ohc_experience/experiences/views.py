@@ -48,6 +48,7 @@ from .models import TicketContext
 from .presentation import overview_next_step
 from .presentation import overview_progress
 from .registry import get_program
+from .support_presentation import support_inbox
 
 
 def _organisation(request):
@@ -121,6 +122,11 @@ def _tracks(workspace):
                     "definition": workspace.definition.milestones[key],
                     "status": status,
                     "label": label,
+                    "reply_needed": item.status == "query_raised"
+                    and item.queries.filter(
+                        submission_id=item.selected_submission_id,
+                        status="open",
+                    ).exists(),
                     "url": reverse(
                         "experiences:track",
                         args=[workspace.reference, track.code],
@@ -712,6 +718,20 @@ def assess_dashboard(request):
         request,
         page_title="Reviewer dashboard",
         nav="assess-dashboard",
+        my_open=pending.filter(assignee=request.user).count(),
+        unassigned_count=pending.filter(assignee=None).count(),
+        approved_by_milestone=[
+            {
+                "label": milestone.code,
+                "name": milestone.name,
+                "count": items.filter(
+                    status="approved",
+                    decided_at__date__gte=today.replace(day=1),
+                    application__milestone__key=milestone.key,
+                ).count(),
+            }
+            for milestone in get_program().milestones.values()
+        ],
         pending_count=pending.count(),
         new_count=pending.filter(status="new").count(),
         review_count=pending.filter(status="in_review").count(),
@@ -771,10 +791,15 @@ def queue(request):
     kind, status, assignee, track_code, search = (
         request.GET.get(key, "") for key in ("kind", "status", "assignee", "track", "q")
     )
-    if kind == "mine":
-        query = query.filter(assignee=request.user)
-    elif kind in ReviewItem.Kind.values:
-        query = query.filter(kind=kind)
+    scope = request.GET.get("scope", "all")
+    scope_statuses = {
+        "open": ["new", "in_review", "query_raised"],
+        "decided": ["approved", "sent_back"],
+    }
+    if scope in scope_statuses:
+        query = query.filter(status__in=scope_statuses[scope])
+    else:
+        scope = "all"
     if status in ReviewItem.Status.values:
         query = query.filter(status=status)
     if assignee == "unassigned":
@@ -789,6 +814,22 @@ def queue(request):
             | Q(organisation__name__icontains=search)
             | Q(application__reference__icontains=search),
         )
+    queue_tabs = [
+        {"value": "", "label": "All", "count": query.count()},
+        {
+            "value": "mine",
+            "label": "Mine",
+            "count": query.filter(assignee=request.user).count(),
+        },
+        *[
+            {"value": value, "label": label, "count": query.filter(kind=value).count()}
+            for value, label in ReviewItem.Kind.choices
+        ],
+    ]
+    if kind == "mine":
+        query = query.filter(assignee=request.user)
+    elif kind in ReviewItem.Kind.values:
+        query = query.filter(kind=kind)
     params = request.GET.copy()
     params.pop("page", None)
     return render(
@@ -799,6 +840,8 @@ def queue(request):
             page_title="Review queue",
             nav="queue",
             page=Paginator(query, 20).get_page(request.GET.get("page")),
+            queue_tabs=queue_tabs,
+            queue_scope=scope,
             kinds=ReviewItem.Kind.choices,
             statuses=ReviewItem.Status.choices,
             reviewers=get_user_model().objects.filter(
@@ -858,6 +901,10 @@ def review(request, pk):
             ),
             decision_note=request.POST.get("note", ""),
             query_field=request.POST.get("field_key", request.GET.get("field", "form")),
+            awaiting_reply_count=item.queries.filter(
+                submission_id=item.selected_submission_id,
+                status="open",
+            ).count(),
             unresolved_query_count=item.queries.filter(
                 submission=item.selected_submission,
             )
@@ -957,13 +1004,11 @@ def events(request):
                     ),
                 )
         return redirect(request.get_full_path())
-    queryset = (
-        Event.objects.past()
-        if request.GET.get("period") == "past"
-        else Event.objects.upcoming()
-    )
+    upcoming = Event.objects.upcoming()
+    past = Event.objects.past()
     if request.GET.get("kind") in Event.Kind.values:
-        queryset = queryset.filter(kind=request.GET["kind"])
+        upcoming = upcoming.filter(kind=request.GET["kind"])
+        past = past.filter(kind=request.GET["kind"])
     registered = set(
         EventRegistration.objects.filter(user=request.user).values_list(
             "event_id",
@@ -978,7 +1023,15 @@ def events(request):
             workspace,
             page_title="Events",
             nav="events",
-            events=queryset,
+            events=past if request.GET.get("period") == "past" else upcoming,
+            upcoming_count=upcoming.count(),
+            past_count=past.count(),
+            next_event=upcoming.first(),
+            registered_upcoming_count=Event.objects.upcoming()
+            .filter(
+                pk__in=registered,
+            )
+            .count(),
             registered=registered,
             kinds=Event.Kind.choices,
             period=request.GET.get("period", "upcoming"),
@@ -1006,17 +1059,16 @@ def support(request):
     )
     if workspace and not permissions.reviewer(request.user):
         tickets = tickets.filter(experience_context__product=workspace.product)
-    if request.GET.get("status") in {"open", "awaiting_vendor", "resolved", "closed"}:
-        tickets = tickets.filter(status=request.GET["status"])
-    search = request.GET.get("q", "").strip()
-    if search:
-        tickets = tickets.filter(
-            Q(subject__icontains=search) | Q(reference__icontains=search),
-        )
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
         files=request.FILES or None,
         workspace=workspace,
+    )
+    inbox = support_inbox(
+        tickets,
+        request.GET,
+        form,
+        reviewer=permissions.reviewer(request.user),
     )
     if request.method == "POST":
         if not workspace:
@@ -1058,21 +1110,7 @@ def support(request):
             workspace,
             page_title="Support",
             nav="support",
-            ticket_statuses=[
-                ("", "All tickets"),
-                ("open", "Open"),
-                (
-                    "awaiting_vendor",
-                    "Awaiting vendor"
-                    if permissions.reviewer(request.user)
-                    else "Awaiting your reply",
-                ),
-                ("resolved", "Resolved"),
-                ("closed", "Closed"),
-            ],
-            tickets=tickets.select_related("experience_context__product").order_by(
-                "-updated_at",
-            ),
+            **inbox,
             form=form,
             creating=request.GET.get("new") == "1" or request.method == "POST",
         ),

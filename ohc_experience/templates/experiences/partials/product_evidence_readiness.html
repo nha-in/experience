@@ -1,0 +1,58 @@
+{% load experience_product_ui %}
+
+{% evidence_readiness form as readiness %}
+<aside class="ui-card ui-card--layered ui-card--sm gap-3.5"
+       aria-labelledby="readiness-title">
+  <div class="ui-card-content flex items-center gap-3.5">
+    <div class="ui-ring">
+      <svg viewBox="0 0 88 88" width="88" height="88" aria-hidden="true">
+        <circle class="ui-ring-track" cx="44" cy="44" r="38" fill="none" stroke-width="8" />
+        <circle class="ui-ring-fill" cx="44" cy="44" r="38" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="{{ readiness.arc }} 238.76" />
+      </svg>
+      <span class="ui-ring-label">
+        <span class="text-[26px] leading-7 font-extrabold tracking-[-0.03em] tabular-nums">{{ readiness.completed }}</span>
+        <span class="self-end pb-1 text-[13px] font-semibold text-soft-foreground">/{{ readiness.total }}</span>
+      </span>
+    </div>
+    <div class="min-w-0">
+      <h2 class="text-[15px] leading-5 font-bold tracking-[-0.01em]"
+          id="readiness-title">{% if item.definition.submit_label == 'Request for exit' %}Ready to request exit?{% else %}Ready to submit?{% endif %}</h2>
+      <p class="mt-1 text-xs text-muted-foreground">
+        {% if readiness.missing %}
+          <strong class="font-semibold text-foreground">{{ readiness.missing }} item{{ readiness.missing|pluralize }} still needed</strong> before this milestone is ready for review.{% else %}All required fields are saved. Review the form before submitting.{% endif %}
+      </p>
+    </div>
+  </div>
+  <ul class="ui-card-content flex flex-col text-[13px]">
+    {% for row in readiness.rows %}
+      <li class="flex items-center gap-2.5 border-t border-soft-border py-[9px] first:border-t-0 first:pt-0 last:pb-0">
+        {% if row.done %}
+          <span class="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                aria-hidden="true">
+            <svg viewBox="0 0 24 24"
+                 class="size-[9px]"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="3.5"
+                 stroke-linecap="round"
+                 stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </span>
+          <span class="text-muted-foreground">{{ row.label }}<span class="sr-only">: saved</span>
+          </span>
+        {% else %}
+          <span class="inline-flex size-4 shrink-0 rounded-full border-[1.5px] border-dashed border-stronger-border"
+                aria-hidden="true"></span>
+          <a class="font-semibold text-primary no-underline hover:underline"
+             href="#{{ row.field_id }}">{{ row.label }}<span class="sr-only">: still needed</span>
+          </a>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  <p class="ui-card-content text-xs text-soft-foreground">Save the draft to count a field as done. {{ item.definition.submit_label }} sits under the form.{% if submission_blocked %}
+    <span class="mt-2 block">{{ submission_blocked }}</span>
+  {% endif %}
+</p>
+</aside>
