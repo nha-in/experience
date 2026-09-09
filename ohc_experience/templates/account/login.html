@@ -1,12 +1,11 @@
 {% extends "account/base_entrance.html" %}
 
 {% comment %}
-  Sign in. One centred card, the same header chrome as the signup screen.
+  Sign in using the public account shell.
 
   The "Forgot your password?" link under the password box is allauth's own
   PasswordField help text (it already points at account_reset_password); the
-  arbitrary variants on the form give it the hub's link styling rather than the
-  browser default.
+  public account stylesheet gives it the same link styling as the other actions.
 {% endcomment %}
 {% load i18n careui %}
 
@@ -15,22 +14,33 @@
 {% endblock title %}
 {% block header_action %}
   {% if ACCOUNT_ALLOW_REGISTRATION %}
-    <span class="hidden sm:inline">{% translate "New to the sandbox?" %}</span>
+    <span class="marketing-auth-headerhint">{% translate "New to the sandbox?" %}</span>
     {% url 'account_signup' as signup_fallback %}
-    <a class="ui-prose-link" href="{% firstof signup_url signup_fallback %}">{% translate "Create an account" %}</a>
+    <a class="marketing-button marketing-button--primary"
+       href="{% firstof signup_url signup_fallback %}">{% translate "Create an account" %}</a>
   {% endif %}
 {% endblock header_action %}
-{% block entrance_width %}max-w-[420px]{% endblock entrance_width %}
+{% block entrance_layout_class %}marketing-auth--login{% endblock entrance_layout_class %}
+{% block entrance_story_title %}
+  {% translate "Back to" %} <span>{% translate "building." %}</span>
+{% endblock entrance_story_title %}
+{% block entrance_story_lede %}
+  {% translate "Pick up where your team left off. Your products, milestone evidence and review conversations are waiting in your workspace." %}
+{% endblock entrance_story_lede %}
+{% block entrance_panel_eyebrow %}
+  <p class="marketing-auth-panel-eyebrow">{% translate "Welcome back" %}</p>
+{% endblock entrance_panel_eyebrow %}
 {% block entrance_title %}
-  {% translate "Sign in to the sandbox portal" %}
+  {% translate "Sign in to your workspace." %}
 {% endblock entrance_title %}
 {% block entrance_lede %}
   {% translate "Use the work email your integrator account was created with." %}
 {% endblock entrance_lede %}
 {% block entrance_body %}
   {% if not SOCIALACCOUNT_ONLY %}
-    <form class="flex flex-col gap-4 [&_.ui-hint_a]:font-semibold [&_.ui-hint_a]:text-primary-700 [&_.ui-hint_a]:underline-offset-2 [&_.ui-hint_a]:hover:underline"
+    <form class="marketing-auth-form"
           method="post"
+          hx-boost="false"
           action="{% url 'account_login' %}">
       {% csrf_token %}
       {% include "components/form_errors.html" %}
@@ -49,7 +59,7 @@
     </form>
   {% endif %}
   {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
-    <div class="flex flex-col gap-2 border-t border-soft-border pt-4">
+    <div class="marketing-auth-alternatives">
       {% if PASSKEY_LOGIN_ENABLED %}
         <button type="submit"
                 form="mfa_login"
@@ -70,7 +80,7 @@
 {% endblock entrance_body %}
 {% block entrance_after %}
   {% if ACCOUNT_ALLOW_REGISTRATION and not SOCIALACCOUNT_ONLY %}
-    <p class="mt-4 text-center text-[13px] text-muted-foreground">
+    <p>
       {% translate "No account yet?" %}
       {% url 'account_signup' as signup_fallback %}
       <a class="ui-prose-link" href="{% firstof signup_url signup_fallback %}">{% translate "Create your integrator account" %}</a>

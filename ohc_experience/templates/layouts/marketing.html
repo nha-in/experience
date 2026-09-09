@@ -1,52 +1,76 @@
 {% extends "base.html" %}
 
-{% comment %}
-  Signed-out shell for the landing page and every allauth screen: a 56px header,
-  a white canvas, and the network footer from the signup mockup.
+{% load static i18n %}
 
-  Blocks: header_action (right side of the header), content.
-
-  Deliberately not boosted, unlike the signed-in shell: this shell wraps the
-  landing page and every allauth screen, and sign-in, sign-up, password reset
-  and sign-out have to be plain browser navigation — they redirect across
-  origins, rotate the session and the CSRF token, and are the last thing that
-  should depend on a swap succeeding.
-
-  Nothing on these screens swaps, so this shell needs no script of its own:
-  dismissing an alert is wired once for every shell in base.html.
-{% endcomment %}
-{% load i18n %}
-
-{% block bodyclass %}bg-background{% endblock bodyclass %}
+{% block css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'fonts/marketing/fonts.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/marketing.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/marketing-auth.css' %}" />
+{% endblock css %}
+{% block javascript %}
+  {{ block.super }}
+  <script defer src="{% static 'js/marketing.js' %}"></script>
+{% endblock javascript %}
+{% block bodyclass %}marketing-body{% endblock bodyclass %}
 {% block body %}
-  <div class="flex min-h-screen flex-col bg-background">
-    <header class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border px-4 sm:px-8">
-      <a href="{% url 'home' %}"
-         class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
-        {% include "components/brand.html" %}
-      </a>
-      <div class="text-right text-[13px] text-muted-foreground">
-        {% block header_action %}
-          {% if request.user.is_authenticated %}
-            <a class="ui-prose-link" href="{% url 'dashboard' %}">{% translate "Go to dashboard" %}</a>
-          {% else %}
-            <span class="hidden sm:inline">{% translate "Already have an account?" %}</span>
-            <a class="ui-prose-link" href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
-          {% endif %}
-        {% endblock header_action %}
+  {# Ordinary navigation preserves authentication session and CSRF redirects. #}
+  <div class="marketing-shell">
+    <header class="marketing-header">
+      <div class="marketing-container marketing-header-inner">
+        <a class="marketing-brand"
+           href="{% url 'home' %}"
+           aria-label="{% translate 'ABDM Developer Sandbox home' %}">
+          <img src="{% static 'images/marketing/nha-logo-trim.png' %}"
+               alt="{% translate 'National Health Authority' %}"
+               width="90"
+               height="32" />
+          <span>ABDM <span class="marketing-brand-long">Developer </span>Sandbox</span>
+        </a>
+        <nav class="marketing-desktop-nav"
+             aria-label="{% translate 'Resources' %}">
+          <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">{% translate "Docs" %}</a>
+          <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/api">API</a>
+          <a href="{% url 'home' %}#ai">{% translate "Build with AI" %}</a>
+          <a href="https://abdm-docs.dev.eka.care/docs/support">{% translate "Support" %}</a>
+        </nav>
+        <div class="marketing-header-actions">
+          {% block header_action %}
+            {% if request.user.is_authenticated %}
+              <a class="marketing-button marketing-button--primary marketing-button--small"
+                 href="{% url 'dashboard' %}">{% translate "Open workspace" %}</a>
+            {% else %}
+              <a class="marketing-button marketing-button--small marketing-signin"
+                 href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+              <a class="marketing-button marketing-button--primary marketing-button--small"
+                 href="{% url 'account_signup' %}">{% translate "Create account" %}</a>
+            {% endif %}
+          {% endblock header_action %}
+        </div>
+        <details class="marketing-mobile-menu">
+          <summary aria-label="{% translate 'Navigation menu' %}"><span aria-hidden="true">☰</span></summary>
+          <nav aria-label="{% translate 'Mobile navigation' %}">
+            <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">{% translate "Documentation" %} <span aria-hidden="true">↗</span></a>
+            <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/api">{% translate "API reference" %} <span aria-hidden="true">↗</span></a>
+            <a href="{% url 'home' %}#how">{% translate "How it works" %}</a>
+            <a href="{% url 'home' %}#ai">{% translate "Build with AI" %}</a>
+            <a href="https://abdm-docs.dev.eka.care/docs/support">{% translate "Support" %} <span aria-hidden="true">↗</span></a>
+            {% if request.user.is_authenticated %}
+              <a href="{% url 'dashboard' %}">{% translate "Open workspace" %} <span aria-hidden="true">→</span></a>
+            {% else %}
+              <a href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+              <a href="{% url 'account_signup' %}">{% translate "Create account" %} <span aria-hidden="true">→</span></a>
+            {% endif %}
+          </nav>
+        </details>
       </div>
     </header>
-    <main id="main-content" class="flex-1">
+    <main id="main-content">
       {% block content %}
       {% endblock content %}
     </main>
-    <footer class="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border px-4 py-3.5 text-xs text-soft-foreground sm:px-8">
-      <span>{{ experience_program.name }} · © {% translate "Open Healthcare Network" %}</span>
-      <a class="hover:text-foreground"
-         href="{{ experience_program.docs_url }}"
-         target="_blank"
-         rel="noopener noreferrer">{% translate "Milestone documentation" %}</a>
-      <span>{{ experience_program.footer_note }}</span>
-    </footer>
+    {% block marketing_footer %}
+      {% include "components/marketing_footer.html" %}
+    {% endblock marketing_footer %}
   </div>
 {% endblock body %}

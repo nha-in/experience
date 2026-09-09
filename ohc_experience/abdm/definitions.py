@@ -166,7 +166,7 @@ class ABDM(ProgramDefinition):
     reviewer_name = "NHA reviewer"
     environment_name = "Sandbox environment"
     footer_note = "Synthetic data only"
-    docs_url = "https://nha-in.github.io/docs/"
+    docs_url = "https://abdm-docs.dev.eka.care/docs/hiecm/v3"
     logo = "images/abdm-logo.png"
     authority_logo = "images/nha-logo.png"
     authority_name = "National Health Authority"
