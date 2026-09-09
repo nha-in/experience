@@ -56,7 +56,12 @@
 {% block portal_content %}
   {% if track.tiles %}
     <div class="ui-float grid items-start gap-6 {% if item.editable and can_integrate and not locked %}xl:grid-cols-[minmax(0,1fr)_300px]{% endif %}">
-      <div class="ui-rise min-w-0 [animation-delay:.1s]">
+      {% if item.editable and can_integrate and not locked %}
+        <div class="ui-rise xl:col-start-2 xl:row-start-1 xl:sticky xl:top-6 [animation-delay:.2s]">
+          {% include 'experiences/partials/product_evidence_readiness.html' %}
+        </div>
+      {% endif %}
+      <div class="ui-rise min-w-0 xl:col-start-1 xl:row-start-1 [animation-delay:.1s]">
         <section class="ui-card ui-card--layered" id="milestone-detail">
           <div class="ui-card-content">
             <div class="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-soft-border pb-5">
@@ -101,16 +106,26 @@
                     </p>
                     <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
                       {% if item.selected_submission %}Submission {{ item.selected_submission.submission_number }} · Revision {{ item.selected_submission.revision }}{% if item.selected_submission.origin_application_id != item.application_id %} · Reused from another application{% endif %}
-            {% else %}Complete this form or reuse evidence already saved for your product.{% endif %}
+            {% else %}Complete the required fields below. You can save a draft at any time.{% endif %}
               </p>
               </div>
-              <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="intent" value="reuse" />
-                <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-sm">Reuse latest product evidence</button>
-              </form>
+              {% if item.definition.allow_reuse %}
+                <details class="w-full border-t border-soft-border pt-3">
+                  <summary class="min-h-11 cursor-pointer rounded-md py-2.5 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">Already completed evidence for this product?</summary>
+                  <p class="mt-2 max-w-[560px] text-xs leading-relaxed text-soft-foreground">Reuse the latest completed submission with the same evidence requirements. This replaces the evidence selected for this milestone; earlier versions remain in history.</p>
+                  <form method="post"
+                        class="mt-3"
+                        data-confirm="Use the latest completed evidence for this product? It will replace the selected evidence and discard unsaved changes on this page. Earlier saved versions remain in history."
+                        hx-confirm="Use the latest completed evidence for this product? It will replace the selected evidence and discard unsaved changes on this page. Earlier saved versions remain in history.">
+                    {% csrf_token %}
+                    <input type="hidden" name="intent" value="reuse" />
+                    <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-sm">Reuse completed evidence</button>
+                  </form>
+                </details>
+              {% endif %}
               </div>
-              <form method="post"
+              <form id="evidence-form"
+                    method="post"
                     enctype="multipart/form-data"
                     hx-encoding="multipart/form-data"
                     novalidate
@@ -121,13 +136,22 @@
                        name="revision"
                        value="{{ item.selected_submission_id|default:'' }}" />
                 {% include 'experiences/partials/form.html' %}
-                <div class="mt-8 flex flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
+                <div id="evidence-actions"
+                     class="mt-8 flex scroll-mt-6 flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
                   <div class="min-w-0 flex-1">
                     <p class="text-sm font-medium">Save your progress or request review</p>
                     <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">Drafts stay editable. Submitting sends this milestone for review and locks the form.</p>
+                    <p class="mt-1.5 text-xs text-soft-foreground"
+                       data-unsaved-status
+                       aria-live="polite">Changes are saved when you save a draft.</p>
                     <p class="mt-1.5 text-xs font-medium text-amber-800"
+                       id="evidence-submit-reason"
                        data-submit-reason
                        aria-live="polite"></p>
+                    <button type="button"
+                            class="mt-1 min-h-11 text-sm font-semibold text-primary underline underline-offset-4"
+                            data-submit-missing
+                            hidden>Go to first incomplete field</button>
                   </div>
                   <div class="flex flex-col gap-2 sm:flex-row">
                     <button class="ui-btn ui-btn--outline ui-btn--size-sm"
@@ -139,6 +163,7 @@
                             type="submit"
                             name="intent"
                             value="submit"
+                            aria-describedby="evidence-submit-reason"
                             data-request-submit>{{ item.definition.submit_label }}</button>
                   </div>
                 </div>
@@ -154,11 +179,6 @@
     {% include 'experiences/partials/history.html' %}
   {% endif %}
   </div>
-  {% if item.editable and can_integrate and not locked %}
-    <div class="ui-rise xl:sticky xl:top-6 [animation-delay:.2s]">
-      {% include 'experiences/partials/product_evidence_readiness.html' %}
-    </div>
-  {% endif %}
   </div>
 {% else %}
   <div class="ui-float ui-card ui-card--layered items-center px-5 py-11 text-center">

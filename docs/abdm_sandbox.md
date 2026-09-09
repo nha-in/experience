@@ -153,6 +153,13 @@ Readiness counts saved required fields from each active form schema, shared
 milestones are counted once, and query indicators distinguish unanswered
 questions from replies awaiting review. The evidence schema remains unchanged.
 
+Forms show linked error summaries and protect unfinished edits when leaving.
+Mobile evidence forms put saved progress before the fields, and incomplete
+submissions link to the first field needing attention. Shared request feedback
+keeps entries visible after HTMX failures and restores keyboard focus after
+navigation. Reviewer filters keep status choices consistent with the selected
+scope; the reviewer query inbox also includes received replies awaiting resolution.
+
 ## Production Configuration
 
 The production Docker image builds Tailwind CSS from the checked-in templates

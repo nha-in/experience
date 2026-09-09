@@ -23,6 +23,7 @@
 {% translate "Full name" as full_name_label %}
 {% url 'users:profile' as form_action %}
 <form id="profile-form"
+      data-unsaved-form
       method="post"
       action="{{ form_action }}"
       hx-post="{{ form_action }}"

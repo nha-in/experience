@@ -1,19 +1,24 @@
 <section class="ui-card ui-card--layered ui-card--sm scroll-mt-20 {% if item.pending and can_decide %}border-primary/25{% endif %}"
          id="decision"
+         tabindex="-1"
          aria-labelledby="decision-title">
   <div class="ui-card-content">
     <h2 class="ui-card-title" id="decision-title">{% if item.pending %}Decision{% else %}Decision record{% endif %}</h2>
     {% if item.pending and can_decide %}
       <p class="mb-5 mt-1.5 text-sm leading-relaxed text-soft-foreground">Review the evidence, then choose the next step.</p>
       {% if unresolved_query_count %}
-        <div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950">
+        <div id="approval-hold"
+             class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950">
           <p class="font-semibold">Approval is on hold</p>
-          <p class="mt-1">{{ unresolved_query_count }} quer{{ unresolved_query_count|pluralize:'y,ies' }} must be resolved before approval. Review any replies in the Queries panel.</p>
+          <p class="mt-1">{% if awaiting_reply_count %}{{ awaiting_reply_count }} quer{{ awaiting_reply_count|pluralize:'y is,ies are' }} waiting for the integrator's reply. {% if unresolved_query_count == 1 %}Resolve it before approval.{% else %}All {{ unresolved_query_count }} queries must be resolved before approval.{% endif %}{% else %}{{ unresolved_query_count }} repl{{ unresolved_query_count|pluralize:'y is,ies are' }} ready for your review. Mark {{ unresolved_query_count|pluralize:'it,them' }} resolved before approval.{% endif %}</p>
+          <a class="mt-2 inline-flex min-h-9 items-center font-semibold underline underline-offset-2"
+             href="#queries">{% if awaiting_reply_count %}View queries{% else %}Review replies{% endif %}</a>
         </div>
       {% endif %}
       <form method="post"
             class="flex flex-col gap-5"
             data-decision-form
+            data-unsaved-form
             {% if unresolved_query_count %}data-approval-blocked="true"{% endif %}>
         {% csrf_token %}
         <fieldset class="grid grid-cols-3 gap-1 rounded-xl bg-muted-background p-1 text-center text-sm">
@@ -23,6 +28,7 @@
                    type="radio"
                    name="action"
                    value="approve"
+                   {% if unresolved_query_count %}aria-describedby="approval-hold"{% endif %}
                    {% if decision_action == 'approve' %}checked{% endif %} />
             <span>Approve</span>
           </label>

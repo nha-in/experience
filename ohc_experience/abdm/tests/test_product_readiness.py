@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from django import forms
+from django.template.loader import render_to_string
 
 from ohc_experience.abdm.forms import ExitEvidenceForm
 from ohc_experience.experiences.forms import ReviewForm
@@ -90,3 +91,80 @@ def test_saved_file_readiness_changes_only_when_removal_is_saved():
 
     removal_saved = EvidenceForm(existing_files={}, draft=True)
     assert evidence_readiness(removal_saved)["completed"] == 0
+
+
+def test_readiness_jump_uses_first_missing_prefixed_field():
+    class EvidenceForm(forms.Form):
+        name = forms.CharField()
+        consent = forms.BooleanField()
+
+    form = EvidenceForm(initial={"name": "Saved", "consent": False}, prefix="evidence")
+    assert (
+        evidence_readiness(form)["first_missing"]["field_id"] == "id_evidence-consent"
+    )
+    html = render_to_string(
+        "experiences/partials/product_evidence_readiness.html",
+        {"form": form},
+    )
+    assert 'href="#id_evidence-consent"' in html
+    assert "required item not saved yet" in html
+
+
+def test_complete_readiness_links_to_actions_without_claiming_approval():
+    class EvidenceForm(forms.Form):
+        consent = forms.BooleanField()
+
+    form = EvidenceForm(initial={"consent": True})
+    assert evidence_readiness(form)["first_missing"] is None
+    html = render_to_string(
+        "experiences/partials/product_evidence_readiness.html",
+        {"form": form, "submission_blocked": "Organisation approval is pending."},
+    )
+    assert 'href="#evidence-actions"' in html
+    assert "Go to form actions" in html
+    assert "Organisation approval is pending." in html
+
+
+def test_milestone_picker_exposes_focusable_error_summary_target():
+    class ProductForm(forms.Form):
+        applied_milestones = forms.MultipleChoiceField(choices=[("one", "One")])
+
+    form = ProductForm(data={})
+    html = render_to_string(
+        "experiences/partials/product_milestone_picker.html",
+        {"form": form, "field": form["applied_milestones"]},
+    )
+    assert 'id="id_applied_milestones"' in html
+    assert 'tabindex="-1"' in html
+    assert 'aria-invalid="true"' in html
+    assert 'id="id_applied_milestones-error-1"' in html
+    assert (
+        'aria-describedby="milestone-picker-hint id_applied_milestones-error-1"' in html
+    )
+
+
+def test_revealed_secret_keeps_authenticated_mask_and_reveal_template():
+    html = render_to_string(
+        "experiences/partials/secret.html",
+        {
+            "credential": SimpleNamespace(status="active"),
+            "workspace": SimpleNamespace(reference="SBX-2026-00001"),
+            "revealed_secret": "temporary-test-value",
+            "csrf_token": "test-token",
+        },
+    )
+    assert "data-revealed-secret" in html
+    assert "data-secret-masked" in html
+    assert 'action="/products/SBX-2026-00001/credentials/"' in html
+    assert 'name="intent" value="reveal"' in html
+    assert 'name="csrfmiddlewaretoken"' in html
+    assert "Reveal secret" in html
+
+
+def test_inactive_credentials_do_not_offer_reveal_in_mask_template():
+    html = render_to_string(
+        "experiences/partials/secret.html",
+        {"credential": SimpleNamespace(status="revoked")},
+    )
+    assert "data-secret-masked" not in html
+    assert "Reveal secret" not in html

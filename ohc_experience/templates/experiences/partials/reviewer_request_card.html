@@ -1,0 +1,10 @@
+<li>
+  <a class="group block px-5 py-4 transition-colors hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+     href="{{ item.get_absolute_url }}">
+    <div class="mb-2 flex flex-wrap items-center gap-2">{% include 'experiences/partials/reviewer_type.html' %}<span class="font-mono text-xs text-soft-foreground">{{ item.reference }}</span></div>
+    <p class="text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ item.product.name|default:item.title }}</p>
+    <p class="mt-0.5 text-xs text-muted-foreground">{{ item.organisation.display_name }}</p>
+    <div class="mt-2.5 flex flex-wrap items-center gap-2">{% if show_status %}{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}{% endif %}{% include 'experiences/partials/reviewer_milestone.html' %}{% if item.kind == 'application' %}<span class="text-xs text-muted-foreground">{{ item.title }}</span>{% endif %}</div>
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground"><span class="{% if item.pending and item.age > 7 %}font-semibold text-red-700{% endif %}">{{ item.age }} day{{ item.age|pluralize }} old · {{ item.assignee.display_name|default:'Unassigned' }}</span><span class="font-semibold text-primary">Open review <span aria-hidden="true">→</span></span><span class="sr-only">Submitted {{ item.submitted_at|date:'j M Y' }}</span></div>
+  </a>
+</li>

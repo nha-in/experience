@@ -10,7 +10,7 @@
   <div class="ui-card-content">
     {% if credential %}
       <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <form method="post" novalidate>
+        <form method="post" data-unsaved-form novalidate>
           {% csrf_token %}
           <input type="hidden" name="intent" value="urls" />
           {% if form.non_field_errors %}

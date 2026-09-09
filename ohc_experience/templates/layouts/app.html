@@ -93,7 +93,7 @@
       {% include "components/app_nav.html" %}
     </aside>
     <div class="flex min-w-0 flex-1 flex-col bg-soft-background">
-      <main id="main-content" class="flex flex-1 flex-col">
+      <main id="main-content" class="flex flex-1 flex-col" tabindex="-1">
         <div class="hidden h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-8 md:flex">
           <nav hx-boost="true"
                hx-target="#main-content"
@@ -237,7 +237,10 @@
         });
       });
       document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") openSwitchers().forEach((popover) => popover.removeAttribute("open"));
+        if (event.key === "Escape") openSwitchers().forEach((popover) => {
+          if (popover.contains(document.activeElement)) popover.querySelector("summary")?.focus();
+          popover.removeAttribute("open");
+        });
       });
     })();
     // A boosted nav click is answered by whatever the server decides to send,
@@ -250,7 +253,7 @@
     // does with scripting off.
     document.body.addEventListener("htmx:beforeSwap", (event) => {
       const detail = event.detail;
-      if (!detail.boosted || typeof detail.serverResponse !== "string") return;
+      if (!detail.boosted || detail.xhr.status >= 400 || typeof detail.serverResponse !== "string") return;
       const page = new DOMParser().parseFromString(detail.serverResponse, "text/html");
       if (page.getElementById("app-nav")) return;
       detail.shouldSwap = false;

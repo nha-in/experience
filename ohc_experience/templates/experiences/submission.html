@@ -3,6 +3,7 @@
 {% block portal_hero %}
   <div class="ui-hero"><div class="ui-hero-inner"><div class="ui-rise min-w-0"><a class="ui-hero-back min-h-9"
    href="{% if reviewer %}{{ item.get_absolute_url }}{% elif workspace %}{{ workspace.get_absolute_url }}{% else %}{% url 'experiences:organisation' %}{% endif %}"><span aria-hidden="true">‹</span> {% if reviewer %}Back to review{% elif workspace %}Back to product{% else %}Organisation details{% endif %}</a><p class="ui-hero-eyebrow">Submission history</p><h1 class="ui-hero-title">{{ item.form.name }}</h1>
+    <p class="mt-3 text-sm font-semibold">{{ item.product.name|default:item.title }} <span class="ml-1 font-mono text-xs font-normal text-muted-foreground">{{ item.reference }}</span></p>
     <p class="ui-hero-lede">Saved by {{ snapshot.submitted_by.display_name }} on {{ snapshot.submitted_at|date:'j M Y, H:i' }} IST</p>
     </div>
     <span class="ui-badge ui-badge--neutral ui-badge--size-sm">Read-only record</span>

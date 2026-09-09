@@ -55,8 +55,13 @@ def _style(field: BoundField, extra_class: str = "") -> BoundField:
         attrs["class"] = merged
     if field.errors:
         attrs["aria-invalid"] = "true"
-    if field.help_text and "aria-describedby" not in attrs:
-        attrs["aria-describedby"] = f"{field.auto_id}_helptext"
+    descriptions = attrs.get("aria-describedby", "").split()
+    if field.help_text:
+        descriptions.append(f"{field.auto_id}_helptext")
+    if field.errors:
+        descriptions.append(f"{field.auto_id}_errors")
+    if descriptions:
+        attrs["aria-describedby"] = " ".join(dict.fromkeys(descriptions))
     return field
 
 
@@ -93,6 +98,12 @@ def ui_field(  # noqa: PLR0913, PLR0917
     """
     if placeholder:
         field.field.widget.attrs["placeholder"] = placeholder
+    if help_text:
+        descriptions = field.field.widget.attrs.get("aria-describedby", "").split()
+        descriptions.append(f"{field.auto_id}_helptext")
+        field.field.widget.attrs["aria-describedby"] = " ".join(
+            dict.fromkeys(descriptions),
+        )
     is_file = isinstance(field.field.widget, forms.FileInput)
     is_multiple_file = bool(
         is_file and getattr(field.field.widget, "allow_multiple_selected", False),

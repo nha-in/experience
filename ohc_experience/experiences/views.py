@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count
+from django.db.models import F
 from django.db.models import Q
 from django.http import FileResponse
 from django.http import Http404
@@ -529,9 +530,31 @@ def query_action(request, pk):
 
 @login_required
 def pending_queries(request):
-    query = ReviewItem.objects.filter(status="query_raised")
-    if not permissions.reviewer(request.user):
-        query = query.filter(organisation__memberships__user=request.user)
+    query = ReviewItem.objects.filter(
+        status__in=["query_raised", "in_review"],
+    ).annotate(
+        awaiting_reply_count=Count(
+            "queries",
+            filter=Q(
+                queries__submission_id=F("selected_submission_id"),
+                queries__status="open",
+            ),
+        ),
+        unresolved_query_count=Count(
+            "queries",
+            filter=Q(
+                queries__submission_id=F("selected_submission_id"),
+                queries__status__in=["open", "answered"],
+            ),
+        ),
+    )
+    if permissions.reviewer(request.user):
+        query = query.filter(unresolved_query_count__gt=0)
+    else:
+        query = query.filter(
+            status="query_raised",
+            organisation__memberships__user=request.user,
+        )
     items = list(
         query.select_related("product__workspace", "application", "organisation"),
     )
@@ -636,7 +659,11 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 return render(
                     request,
                     "experiences/partials/secret.html",
-                    {"error": " ".join(error.messages)},
+                    {
+                        "error": " ".join(error.messages),
+                        "credential": credential,
+                        "workspace": workspace,
+                    },
                 )
             _error(request, error)
     return render(
@@ -800,8 +827,15 @@ def queue(request):
         query = query.filter(status__in=scope_statuses[scope])
     else:
         scope = "all"
-    if status in ReviewItem.Status.values:
+    statuses = [
+        (value, label)
+        for value, label in ReviewItem.Status.choices
+        if value != "draft" and (scope == "all" or value in scope_statuses[scope])
+    ]
+    if status in dict(statuses):
         query = query.filter(status=status)
+    else:
+        status = ""
     if assignee == "unassigned":
         query = query.filter(assignee=None)
     elif assignee.isdigit():
@@ -832,6 +866,9 @@ def queue(request):
         query = query.filter(kind=kind)
     params = request.GET.copy()
     params.pop("page", None)
+    params["scope"] = scope
+    if not status:
+        params.pop("status", None)
     return render(
         request,
         "experiences/queue.html",
@@ -843,12 +880,12 @@ def queue(request):
             queue_tabs=queue_tabs,
             queue_scope=scope,
             kinds=ReviewItem.Kind.choices,
-            statuses=ReviewItem.Status.choices,
+            statuses=statuses,
             reviewers=get_user_model().objects.filter(
                 Q(is_ohc_team=True) | Q(is_superuser=True),
                 is_active=True,
             ),
-            filters=request.GET,
+            filters=params,
             filter_query=params.urlencode(),
             track_choices=get_program().tracks,
         ),
@@ -987,13 +1024,19 @@ def events(request):
             pk=request.POST.get("event"),
         )
         if request.POST.get("intent") == "cancel":
-            EventRegistration.objects.filter(event=event, user=request.user).delete()
+            deleted, _details = EventRegistration.objects.filter(
+                event=event,
+                user=request.user,
+            ).delete()
+            if deleted:
+                messages.success(request, f"Registration cancelled for {event.title}.")
         else:
             _registration, created = EventRegistration.objects.get_or_create(
                 event=event,
                 user=request.user,
             )
             if created:
+                messages.success(request, f"You are registered for {event.title}.")
                 Notification.objects.create(
                     recipient=request.user.email,
                     subject=f"{get_program().short_name}: registered for {event.title}",

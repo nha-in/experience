@@ -2,10 +2,12 @@
 
 {% if item.queries.exists %}
   <section class="ui-card ui-card--layered ui-card--sm scroll-mt-20"
-           id="queries">
+           id="queries"
+           tabindex="-1"
+           aria-labelledby="review-queries-title">
     <div class="ui-card-content">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 class="ui-card-title">Queries</h2>
+        <h2 class="ui-card-title" id="review-queries-title">Queries</h2>
         <span class="text-xs text-soft-foreground">{{ item.queries.count }} total</span>
       </div>
       <div class="flex flex-col gap-3">
@@ -13,10 +15,10 @@
           <article class="rounded-xl border border-soft-border p-4"
                    id="query-{{ query.pk }}">
             <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <strong class="text-sm font-semibold">{{ query.field_key|readable }}</strong>
+              <strong class="text-sm font-semibold">{% if query.field_key == 'form' %}Whole form{% else %}{{ query.field_key|readable }}{% endif %}</strong>
               {% include 'experiences/partials/status.html' with status=query.status label=query.get_status_display %}
             </div>
-            <p class="text-sm leading-relaxed">{{ query.question|linebreaksbr }}</p>
+            <p class="text-sm leading-relaxed" id="query-question-{{ query.pk }}">{{ query.question|linebreaksbr }}</p>
             <p class="mt-1.5 text-xs text-soft-foreground">{{ query.raised_by.display_name }} · {{ query.raised_at|date:'d M Y, H:i' }} IST{% if query.submission_id != item.selected_submission_id %} · Earlier submission{% endif %}
             </p>
             {% if query.reply %}
@@ -43,7 +45,9 @@
                       action="{% url 'experiences:query-action' query.pk %}">
                   {% csrf_token %}
                   <input type="hidden" name="intent" value="resolve" />
-                  <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Mark resolved</button>
+                  <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+                          type="submit"
+                          aria-describedby="query-question-{{ query.pk }}">Mark resolved</button>
                 </form>
               {% endif %}
             {% endif %}

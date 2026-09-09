@@ -8,7 +8,7 @@
         <h1 class="ui-hero-title">Events</h1>
         <p class="ui-hero-lede">Webinars and office hours run by the integration team. Registrations are recorded on your account; find details for every session below.</p>
       </div>
-      {% if next_event %}
+      {% if next_event and period != 'past' %}
         {% include "experiences/partials/event_card.html" with event=next_event hero=True %}
       {% elif period != 'past' %}
         {% with event=events|first %}
@@ -29,7 +29,7 @@
       <nav class="flex flex-wrap items-center gap-1" aria-label="Filter events">
         <a class="ui-pill"
            href="?period={{ period }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
-           {% if not request.GET.kind %}aria-current="page"{% endif %}>All events</a>
+           {% if not request.GET.kind %}aria-current="page"{% endif %}>All types</a>
         {% for value,label in kinds %}<a class="ui-pill"
    href="?kind={{ value }}&amp;period={{ period }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
    {% if request.GET.kind == value %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}

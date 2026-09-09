@@ -68,7 +68,7 @@
         <p class="ui-card-description">The five oldest requests waiting on a reviewer · items over 7 days in red.</p>
       </div>
       {% if oldest %}
-        <div class="overflow-x-auto">
+        <div class="hidden overflow-x-auto md:block">
           <table class="ui-grid-table min-w-[720px]">
             <thead>
               <tr>
@@ -86,6 +86,12 @@
             </tbody>
           </table>
         </div>
+        <ul class="divide-y divide-soft-border border-t border-soft-border md:hidden"
+            aria-label="Requests needing a decision">
+          {% for item in oldest %}
+            {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
+          {% endfor %}
+        </ul>
 {% else %}<p class="border-t border-soft-border px-6 py-8 text-center text-sm text-muted-foreground">No requests waiting for a decision.</p>{% endif %}
 <div class="flex flex-wrap items-center gap-3 border-t border-soft-border bg-soft-background px-6 py-2.5 text-xs text-soft-foreground"><span>Showing {{ oldest|length }} of {{ pending_count }}</span><a class="ml-auto inline-flex min-h-9 items-center font-semibold text-primary no-underline hover:underline"
    href="{% url 'experiences:queue' %}?scope=open">Full queue <span class="ml-1" aria-hidden="true">→</span></a></div>
@@ -99,7 +105,8 @@
       </div>
       <div class="ui-card-content"><dl class="flex flex-col">{% for row in by_track %}<div class="grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><dt class="font-mono font-semibold">{{ row.code }}</dt><dd class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
       style="width: {% widthratio row.count pending_count 100 %}%"></span></dd><dd class="text-right font-bold tabular-nums"><a class="text-foreground no-underline hover:text-primary"
-   href="{% url 'experiences:queue' %}?scope=open&amp;kind=application&amp;track={{ row.code|urlencode }}">{{ row.count }}</a></dd></div>{% empty %}<div><dt class="text-sm text-muted-foreground">No pending applications.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div>
+   href="{% url 'experiences:queue' %}?scope=open&amp;kind=application&amp;track={{ row.code|urlencode }}"
+   aria-label="View {{ row.count }} request{{ row.count|pluralize }} for {{ row.code }}">{{ row.count }}</a></dd></div>{% empty %}<div><dt class="text-sm text-muted-foreground">No pending applications.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div>
     </section>
     <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.34s]"
              aria-labelledby="by-milestone-title">

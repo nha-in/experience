@@ -6,11 +6,14 @@ from django.db.models import Q
 
 def support_inbox(tickets, params, form, *, reviewer=False):
     total = tickets.count()
+    filters = {}
     for key in ("category", "priority"):
         value = params.get(key, "")
-        if value in dict(form.fields[key].choices):
-            tickets = tickets.filter(**{key: value})
+        filters[key] = value if value in dict(form.fields[key].choices) else ""
+        if filters[key]:
+            tickets = tickets.filter(**{key: filters[key]})
     search = params.get("q", "").strip()
+    filters["q"] = search
     if search:
         tickets = tickets.filter(
             Q(subject__icontains=search) | Q(reference__icontains=search),
@@ -33,12 +36,19 @@ def support_inbox(tickets, params, form, *, reviewer=False):
         }
         for value, label in statuses
     ]
-    if params.get("status") in {"open", "awaiting_vendor", "resolved", "closed"}:
-        tickets = tickets.filter(status=params["status"])
+    status = params.get("status", "")
+    filters["status"] = status if status in dict(statuses) else ""
+    if filters["status"]:
+        tickets = tickets.filter(status=filters["status"])
     return {
         "ticket_total": total,
         "ticket_statuses": statuses,
         "status_tabs": tabs,
+        "ticket_filters": filters,
+        "has_ticket_filters": any(filters.values()),
+        "has_ticket_search_filters": any(
+            filters[key] for key in ("category", "priority", "q")
+        ),
         "tickets": tickets.select_related("experience_context__product").order_by(
             "-updated_at",
         ),

@@ -123,6 +123,7 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
     assert response.context["awaiting_reply_count"] == 1
     assert b'data-approval-blocked="true"' in response.content
     assert b"Confirm this score." in response.content
+    assert b"waiting for the integrator" in response.content
 
     client.force_login(owner_membership.user)
     response = client.get(reverse("experiences:pending-queries"))
@@ -137,6 +138,12 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
     assert response.context["unresolved_query_count"] == 1
     assert response.context["awaiting_reply_count"] == 0
     assert b"Mark resolved" in response.content
+    assert b"Review replies" in response.content
+    assert b"ready for your review" in response.content
+    pending = client.get(reverse("experiences:pending-queries"))
+    assert b"Replies received" in pending.content
+    assert b"Awaiting reply" not in pending.content
+    assert f"{url}#queries".encode() in pending.content
     response = client.post(
         reverse("experiences:query-action", args=[query.pk]),
         {"intent": "resolve"},
@@ -157,3 +164,73 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
     response = client.get(snapshot_url)
     assert response.status_code == HTTPStatus.OK
     assert b"Q-PORT-1" in response.content
+    assert b"Water pump" in response.content
+    assert review_item.reference.encode() in response.content
+
+
+@pytest.mark.parametrize(
+    ("scope", "incompatible_status", "expected_statuses"),
+    [
+        ("open", "approved", {"new", "in_review", "query_raised"}),
+        ("decided", "in_review", {"approved", "sent_back"}),
+        (
+            "all",
+            "draft",
+            {"new", "in_review", "query_raised", "approved", "sent_back"},
+        ),
+    ],
+)
+def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
+    review_item,
+    client,
+    scope,
+    incompatible_status,
+    expected_statuses,
+):
+    reviewer = UserFactory(is_ohc_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+    client.force_login(reviewer)
+    if scope == "decided":
+        response = client.post(review_item.get_absolute_url(), {"action": "approve"})
+        assert response.status_code == HTTPStatus.FOUND
+
+    response = client.get(
+        reverse("experiences:queue"),
+        {
+            "scope": scope,
+            "status": incompatible_status,
+            "kind": "mine",
+            "track": "Quality",
+            "q": "Water pump",
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert list(response.context["page"]) == [review_item]
+    assert "status" not in response.context["filters"]
+    assert "status=" not in response.context["filter_query"]
+    assert set(dict(response.context["statuses"])) == expected_statuses
+    assert response.context["filters"]["kind"] == "mine"
+    assert response.context["filters"]["track"] == "Quality"
+    assert response.context["filters"]["q"] == "Water pump"
+    assert f'href="?kind=mine&amp;scope={scope}"'.encode() in response.content
+
+
+def test_empty_personal_queue_keeps_its_scope_when_clearing_search(
+    review_item,
+    client,
+):
+    client.force_login(UserFactory(is_ohc_team=True))
+    response = client.get(
+        reverse("experiences:queue"),
+        {"scope": "open", "kind": "mine", "q": "not found"},
+    )
+    assert b"No reviews match these filters." in response.content
+    assert b'href="?kind=mine&amp;scope=open"' in response.content
+    response = client.get(
+        reverse("experiences:queue"),
+        {"scope": "open", "kind": "mine"},
+    )
+    assert b"No requests in this view" in response.content
+    assert b"View all requests" in response.content
+    assert b"Clear filters" not in response.content

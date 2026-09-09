@@ -13,7 +13,7 @@
         </div>
         <div class="ui-rise flex flex-wrap items-end gap-x-9 gap-y-4 [animation-delay:50ms]">
           <div>
-            <span class="ui-kicker block">{% if request.GET.status or request.GET.q or request.GET.category or request.GET.priority %}Matching{% else %}Tickets{% endif %}</span>
+            <span class="ui-kicker block">{% if has_ticket_filters %}Matching{% else %}Tickets{% endif %}</span>
             <span class="ui-figure mt-0.5 block">{{ tickets|length }}</span>
           </div>
           {% if not reviewer and workspace and can_integrate %}
@@ -41,12 +41,15 @@
     <div class="max-w-[720px]">
       <div class="ui-card ui-card--layered">
         <div class="ui-card-content">
-          <form method="post" enctype="multipart/form-data" hx-boost="false">
+          <form method="post"
+                enctype="multipart/form-data"
+                hx-boost="false"
+                data-unsaved-form>
             {% csrf_token %}
             {% if form.errors %}<div class="ui-alert ui-alert--destructive mb-4" role="alert"><p>Please check the highlighted fields. Your ticket has not been sent yet.</p></div>{% endif %}
             {% include "components/form_errors.html" %}
             <div class="flex flex-col gap-4">
-              {% ui_field form.subject %}
+              {% ui_field form.subject placeholder="Briefly describe the problem" %}
               <div class="grid gap-4 sm:grid-cols-2">{% ui_field form.category %}{% ui_field form.priority %}</div>
               <div class="grid items-start gap-4 sm:grid-cols-2">
                 <div>
@@ -58,7 +61,7 @@
                 </div>
                 {% ui_field form.track help_text="Tracks this product has applied for." %}
               </div>
-              {% ui_field form.body extra_class="min-h-36" %}
+              {% ui_field form.body label="What happened?" placeholder="Describe the issue and any error messages" help_text="Include the steps you tried, what you expected, and the response you received." extra_class="min-h-36" %}
               {% ui_field form.attachments help_text="Attach up to five PDF files to help us investigate." %}
             </div>
             <div class="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row-reverse sm:justify-start">
@@ -78,47 +81,56 @@
         <nav class="flex flex-wrap gap-x-6 gap-y-3" aria-label="Ticket status">
           {% for tab in status_tabs %}
             <a class="ui-tabstat"
-               href="?status={{ tab.value }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;q={{ request.GET.q|urlencode }}&amp;category={{ request.GET.category|urlencode }}&amp;priority={{ request.GET.priority|urlencode }}"
-               {% if request.GET.status|default:'' == tab.value %}aria-current="page"{% endif %}>
+               href="?status={{ tab.value }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;q={{ ticket_filters.q|urlencode }}&amp;category={{ ticket_filters.category|urlencode }}&amp;priority={{ ticket_filters.priority|urlencode }}"
+               {% if ticket_filters.status|default:'' == tab.value %}aria-current="page"{% endif %}>
               <span class="ui-figure ui-figure--md">{{ tab.count }}</span><span class="ui-kicker">{{ tab.label }}</span>
             </a>
           {% empty %}
             {% for value,label in ticket_statuses %}<a class="ui-pill"
-   href="?status={{ value }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;q={{ request.GET.q|urlencode }}"
-   {% if request.GET.status|default:'' == value %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+   href="?status={{ value }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;q={{ ticket_filters.q|urlencode }}"
+   {% if ticket_filters.status|default:'' == value %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
           {% endfor %}
         </nav>
       </div>
-      <form class="flex flex-wrap items-center gap-2.5 px-6 pt-3 pb-4"
+      <form class="flex flex-wrap items-end gap-2.5 px-6 pt-3 pb-4"
             method="get"
             action="{% url 'experiences:support' %}"
             hx-get="{% url 'experiences:support' %}"
             hx-target="#main-content"
             hx-select="#main-content"
             hx-swap="outerHTML"
-            hx-trigger="change, submit"
+            hx-trigger="change[target.tagName === 'SELECT'], submit"
             hx-push-url="true"
             hx-indicator="#nav-progress">
         {% if workspace %}<input type="hidden" name="product" value="{{ workspace.reference }}" />{% endif %}
-        {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}" />{% endif %}
+        {% if ticket_filters.status %}<input type="hidden" name="status" value="{{ ticket_filters.status }}" />{% endif %}
         <div class="w-[calc(50%_-_0.3125rem)] sm:w-[170px]">
-          <label class="sr-only" for="ticket-category">Filter by category</label>
-          <div class="ui-select-wrapper"><select class="ui-select ui-select--sm" name="category" id="ticket-category"><option value="">All categories</option>{% for value,label in form.category.field.choices %}<option value="{{ value }}"
-        {% if request.GET.category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+          <label class="ui-label mb-1.5 block text-xs" for="ticket-category">Category</label>
+          <div class="ui-select-wrapper"><select class="ui-select" name="category" id="ticket-category"><option value="">All categories</option>{% for value,label in form.category.field.choices %}<option value="{{ value }}"
+        {% if ticket_filters.category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
         </div>
         <div class="w-[calc(50%_-_0.3125rem)] sm:w-[150px]">
-          <label class="sr-only" for="ticket-priority">Filter by priority</label>
-          <div class="ui-select-wrapper"><select class="ui-select ui-select--sm" name="priority" id="ticket-priority"><option value="">All priorities</option>{% for value,label in form.priority.field.choices %}<option value="{{ value }}"
-        {% if request.GET.priority == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+          <label class="ui-label mb-1.5 block text-xs" for="ticket-priority">Priority</label>
+          <div class="ui-select-wrapper"><select class="ui-select" name="priority" id="ticket-priority"><option value="">All priorities</option>{% for value,label in form.priority.field.choices %}<option value="{{ value }}"
+        {% if ticket_filters.priority == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
         </div>
-        <label class="sr-only" for="ticket-search">Search tickets</label>
-        <input class="ui-input min-w-0 flex-1 basis-40"
-               id="ticket-search"
-               type="search"
-               name="q"
-               value="{{ request.GET.q }}"
-               placeholder="Search subject or ticket ID" />
-        <button class="ui-btn ui-btn--outline ui-btn--size-sm" type="submit">Apply filters</button>
+        <div class="min-w-0 flex-1 basis-40">
+          <label class="ui-label mb-1.5 block text-xs" for="ticket-search">Search tickets</label>
+          <input class="ui-input w-full"
+                 id="ticket-search"
+                 type="search"
+                 name="q"
+                 value="{{ ticket_filters.q }}"
+                 placeholder="Subject or ticket ID" />
+        </div>
+        <button class="ui-btn ui-btn--outline ui-btn--size-default" type="submit">Apply filters</button>
+        {% if has_ticket_filters %}
+          <div class="flex w-full flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground">
+            <p role="status">Showing {{ tickets|length }} of {{ ticket_total }} ticket{{ ticket_total|pluralize }}</p>
+            <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+               href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Clear filters</a>
+          </div>
+        {% endif %}
       </form>
       <div id="ticket-results">
         {% if tickets %}
@@ -146,12 +158,10 @@
             {% endfor %}
           </ul>
           <div class="border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">{{ tickets|length }} ticket{{ tickets|length|pluralize }}</div>
-        {% elif request.GET.q or request.GET.status or request.GET.category or request.GET.priority %}
+        {% elif has_ticket_filters %}
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
             <h3 class="ui-section-title">No support tickets to show</h3>
-            <p class="text-sm text-muted-foreground">No tickets match these filters.</p>
-            <a class="ui-btn ui-btn--secondary ui-btn--size-sm no-underline"
-               href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Clear filters</a>
+            <p class="text-sm text-muted-foreground">{% if ticket_filters.status == 'awaiting_vendor' and not has_ticket_search_filters %}{% if reviewer %}No tickets are waiting for an organisation's reply.{% else %}No tickets need your reply right now.{% endif %}{% else %}Try another status, category or priority, or clear your search to see more tickets.{% endif %}</p>
           </div>
         {% else %}
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">

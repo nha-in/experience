@@ -25,6 +25,8 @@
             <span class="ui-feed-avatar ui-feed-avatar--system" aria-hidden="true"></span><span class="text-soft-foreground">Unassigned</span>
           {% endif %}
         </span>
+        {% if item.queries.exists %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 bg-card"
+   href="#queries">{% if unresolved_query_count %}Queries · {{ unresolved_query_count }} unresolved{% else %}View queries{% endif %}</a>{% endif %}
         {% if item.pending and can_decide %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 bg-card xl:hidden"
    href="#decision">Go to decision</a>{% endif %}
       </div>

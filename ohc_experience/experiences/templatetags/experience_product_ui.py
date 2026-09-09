@@ -38,5 +38,6 @@ def evidence_readiness(form):
         "completed": completed,
         "total": total,
         "missing": total - completed,
+        "first_missing": next((row for row in rows if not row["done"]), None),
         "arc": round(238.76 * completed / total) if total else 0,
     }

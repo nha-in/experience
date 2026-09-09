@@ -35,25 +35,25 @@
     </div>
     <ul class="divide-y divide-soft-border border-t border-soft-border md:hidden">
       {% for item in page %}
-        <li>
-          <a class="group block px-5 py-4 transition-colors hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
-             href="{{ item.get_absolute_url }}">
-            <div class="mb-2 flex flex-wrap items-center gap-2">{% include 'experiences/partials/reviewer_type.html' %}<span class="font-mono text-xs text-soft-foreground">{{ item.reference }}</span></div>
-            <p class="text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ item.product.name|default:item.title }}</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">{{ item.organisation.display_name }}</p>
-            <div class="mt-2.5 flex flex-wrap items-center gap-2">{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}{% include 'experiences/partials/reviewer_milestone.html' %}{% if item.kind == 'application' %}<span class="text-xs text-muted-foreground">{{ item.title }}</span>{% endif %}</div>
-            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground"><span class="{% if item.pending and item.age > 7 %}font-semibold text-red-700{% endif %}">{{ item.age }} day{{ item.age|pluralize }} old · {{ item.assignee.display_name|default:'Unassigned' }}</span><span class="font-semibold text-primary">Open review <span aria-hidden="true">→</span></span><span class="sr-only">Submitted {{ item.submitted_at|date:'j M Y' }}</span></div>
-          </a>
-        </li>
+        {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
       {% endfor %}
     </ul>
   {% else %}
     <div class="border-t border-soft-border px-6 py-12 text-center">
       <span class="mx-auto mb-4 flex size-11 items-center justify-center rounded-full bg-primary-50 text-xl text-primary"
             aria-hidden="true">⌕</span>
-      <h2 class="text-base font-semibold">No matching requests</h2>
-      <p class="mt-2 text-sm text-muted-foreground">No reviews match these filters.</p><a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"
-   href="{% url 'experiences:queue' %}">Clear filters</a></div>
+      {% if filters.q or filters.status or filters.track or filters.assignee %}
+        <h2 class="text-base font-semibold">No matching requests</h2>
+        <p class="mt-2 text-sm text-muted-foreground">No reviews match these filters.</p>
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"
+           href="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}">Clear filters</a>
+      {% else %}
+        <h2 class="text-base font-semibold">No requests in this view</h2>
+        <p class="mt-2 text-sm text-muted-foreground">There are no requests in the selected review type and scope.</p>
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"
+           href="{% url 'experiences:queue' %}">View all requests</a>
+      {% endif %}
+    </div>
   {% endif %}
   <div class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">
     <span>{% if page.paginator.count %}Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}{% else %}Showing 0 items{% endif %}</span>

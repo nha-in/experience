@@ -69,6 +69,7 @@
       selectedFiles.set(input, files);
       setInputFiles(input, files);
       renderUpload(root);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
     item.append(icon, details, badge, remove);
@@ -142,6 +143,7 @@
     selectedFiles.set(input, uniqueFiles);
     setInputFiles(input, uniqueFiles);
     renderUpload(root);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
   const initializeUpload = (root) => {
@@ -197,15 +199,18 @@
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');
     if (!button) return;
-    const missingFields = [...form.querySelectorAll('[required]')].some(input => !input.checkValidity());
-    const missingFiles = [...form.querySelectorAll('[data-required-upload]')].some(field => {
+    const missingFields = [...form.querySelectorAll('input, select, textarea')].filter(input => !input.disabled && !input.validity.valid);
+    const missingFiles = [...form.querySelectorAll('[data-required-upload]')].filter(field => {
       const input = field.querySelector('input[type="file"]');
       const retained = [...field.querySelectorAll('[data-existing-file-remove]')].some(checkbox => !checkbox.checked);
       return !input?.files.length && !retained;
     });
+    const missing = new Set([...missingFields.map(input => input.name), ...missingFiles.map(field => field.dataset.requiredUpload)]).size;
     const blocked = form.dataset.reviewBlocked === 'true';
-    button.disabled = blocked || missingFields || missingFiles;
-    if (reason) reason.textContent = blocked ? 'Required approvals are pending.' : button.disabled ? 'Complete all required fields and documents.' : '';
+    button.disabled = blocked || missing > 0;
+    if (reason) reason.textContent = blocked ? 'Required approvals are pending. You can still save a draft.' : missing ? `${missing} ${missing === 1 ? 'field needs' : 'fields need'} attention before you can request review.` : 'All required fields are complete. Ready to request review.';
+    const jump = form.querySelector('[data-submit-missing]');
+    if (jump) jump.hidden = missing === 0;
   }
 
   function updateDecision(form) {
@@ -231,8 +236,15 @@
     });
   }
 
-  function hideSecret(root) {
+  function hideSecret(root, restoreFocus = false) {
     if (!root) return;
+    const template = root.querySelector('template[data-secret-masked]');
+    if (template) {
+      root.replaceChildren(template.content.cloneNode(true), template);
+      window.htmx?.process(root);
+      if (restoreFocus) root.querySelector('button')?.focus();
+      return;
+    }
     const masked = document.createElement('span');
     masked.textContent = 'Hidden. Reload to reveal again.';
     root.replaceChildren(masked);
@@ -260,7 +272,7 @@
   });
   document.addEventListener('click', event => {
     const hide = event.target.closest('[data-hide-secret]');
-    if (hide) hideSecret(hide.closest('[data-secret-container], #secret-value'));
+    if (hide) hideSecret(hide.closest('[data-secret-container], #secret-value'), true);
     const form = event.target.closest('[data-review-form]');
     if (form) setTimeout(() => updateSubmission(form), 0);
   });
@@ -291,10 +303,4 @@ document.addEventListener("click", async (event) => {
       if (visibleLabel) visibleLabel.textContent = originalLabel;
     }, 1600);
   } catch { copy.setAttribute("aria-label", "Copy unavailable; select and copy the value"); }
-});
-
-// These confirmations also apply to ordinary POSTs without HTMX boosting.
-document.addEventListener("submit", (event) => {
-  const message = event.target.dataset.confirm;
-  if (message && !window.confirm(message)) event.preventDefault();
 });

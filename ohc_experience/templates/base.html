@@ -89,6 +89,7 @@
       <!-- place project specific Javascript in this file -->
       {% compress js %}
         <script defer src="{% static 'js/project.js' %}"></script>
+        <script defer src="{% static 'js/portal-ux.js' %}"></script>
       {% endcompress %}
     {% endblock javascript %}
   </head>
@@ -106,6 +107,19 @@
         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <a class="skip-link" href="#main-content">{% translate "Skip to content" %}</a>
     <div id="nav-progress" class="htmx-indicator" aria-hidden="true"></div>
+    <div id="request-feedback" class="request-feedback" hidden>
+      <div class="ui-alert ui-alert--destructive shadow-lg">
+        <p class="flex-1" role="alert" data-request-error></p>
+        <button type="button"
+                class="ui-btn ui-btn--ghost size-11 shrink-0 p-0"
+                aria-label="{% translate 'Dismiss notification' %}"
+                data-dismiss-request>×</button>
+      </div>
+    </div>
+    <div id="interaction-status"
+         class="sr-only"
+         role="status"
+         aria-live="polite"></div>
     {% block body %}
     {% endblock body %}
     {% block modal %}

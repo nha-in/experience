@@ -1,7 +1,7 @@
 {% load careui experience_ui %}
 
-{% if form.non_field_errors %}
-  <div class="ui-alert ui-alert--destructive mb-5" role="alert">{{ form.non_field_errors }}</div>
+{% if form.errors %}
+  <div class="mb-5">{% include 'components/form_errors.html' %}</div>
 {% endif %}
 <div class="flex flex-col gap-6">
   {% for section in form|sections %}

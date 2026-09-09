@@ -247,6 +247,30 @@ def test_support_counts_keep_filters_and_workspace_before_status(
         "resolved": 1,
         "closed": 0,
     }
+    assert response.context["has_ticket_filters"]
+    assert b">Clear filters</a>" in response.content
+    cleared = portal_client.get(
+        reverse("experiences:support"),
+        {"product": portal_workspaces[1].reference},
+    )
+    assert not cleared.context["has_ticket_filters"]
+    assert len(cleared.context["tickets"]) == expected_workspace_tickets
+    assert cleared.context["workspace"] == portal_workspaces[1]
+
+
+def test_invalid_support_filters_do_not_create_a_false_active_state(portal_client):
+    response = portal_client.get(
+        reverse("experiences:support"),
+        {"category": "unknown", "priority": "urgent", "status": "invalid", "q": "  "},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["ticket_filters"] == {
+        "category": "",
+        "priority": "",
+        "status": "",
+        "q": "",
+    }
+    assert not response.context["has_ticket_filters"]
 
 
 def test_event_counts_filter_by_kind_and_registrations_stay_private(
@@ -286,6 +310,24 @@ def test_event_counts_filter_by_kind_and_registrations_stay_private(
     assert response.context["next_event"] == events["Next webinar"]
     assert response.context["registered_upcoming_count"] == 1
     assert events["Next workshop"].pk not in response.context["registered"]
+    assert events["Next webinar"].title.encode() not in response.content
+
+
+def test_registered_event_explains_missing_joining_details(
+    portal_client,
+    owner_membership,
+):
+    event = Event.objects.create(
+        title="Office hours awaiting a link",
+        starts_at=timezone.now() + timedelta(days=2),
+        published_at=timezone.now(),
+    )
+    EventRegistration.objects.create(event=event, user=owner_membership.user)
+    response = portal_client.get(reverse("experiences:events"))
+    assert response.status_code == HTTPStatus.OK
+    assert b"Joining details have not been added yet." in response.content
+    assert b"Cancel registration" in response.content
+    assert b"Join event" not in response.content
 
 
 def test_event_register_cancel_and_filter_keep_product(
@@ -300,7 +342,10 @@ def test_event_register_cancel_and_filter_keep_product(
         join_url="https://example.org/event",
         description="Bring your integration questions.",
     )
-    url = reverse("experiences:events")
+    url = (
+        f"{reverse('experiences:events')}?product={portal_workspaces[1].reference}"
+        "&kind=office_hours&period=upcoming"
+    )
     response = portal_client.post(
         url,
         {"event": event.pk, "intent": "register"},
@@ -308,6 +353,10 @@ def test_event_register_cancel_and_filter_keep_product(
     )
     assert response.status_code == HTTPStatus.OK
     assert response.context["workspace"] == portal_workspaces[1]
+    assert response.redirect_chain == [(url, HTTPStatus.FOUND)]
+    assert [str(message) for message in response.context["messages"]] == [
+        f"You are registered for {event.title}.",
+    ]
     assert EventRegistration.objects.filter(event=event).exists()
     assert Notification.objects.filter(subject__contains=event.title).count() == 1
     assert b"Cancel registration" in response.content
@@ -321,6 +370,10 @@ def test_event_register_cancel_and_filter_keep_product(
     )
     assert response.status_code == HTTPStatus.OK
     assert not EventRegistration.objects.filter(event=event).exists()
+    assert response.redirect_chain == [(url, HTTPStatus.FOUND)]
+    assert [str(message) for message in response.context["messages"]] == [
+        f"Registration cancelled for {event.title}.",
+    ]
 
 
 def test_reviewer_can_render_tickets_and_resolve(portal_client, owner_membership):

@@ -1,72 +1,103 @@
 {% if hero %}
   <div class="ui-rise flex flex-wrap items-center gap-4 rounded-[14px] bg-card/65 p-3.5 pr-4 shadow-layered ring-1 ring-primary/20 backdrop-blur-sm [animation-delay:50ms]">
     <time class="ui-dateblock ui-dateblock--solid"
-          datetime="{{ event.starts_at|date:'c' }}"><span class="ui-dateblock-day">{{ event.starts_at|date:"d" }}</span><span class="ui-dateblock-month">{{ event.starts_at|date:"M" }}</span></time>
+          datetime="{{ event.starts_at|date:'c' }}">
+      <span class="ui-dateblock-day">{{ event.starts_at|date:"d" }}</span><span class="ui-dateblock-month">{{ event.starts_at|date:"M" }}</span>
+    </time>
     <div class="min-w-0 flex-1">
       <span class="ui-kicker block text-primary">Next · in {{ event.starts_at|timeuntil }}</span>
       <a class="mt-px block text-[17px] leading-6 font-bold tracking-[-0.01em] text-foreground no-underline hover:underline"
-         href="{% url 'experiences:events' %}?period=upcoming{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}#event-{{ event.pk }}">{{ event.title }}</a>
+         href="{% url 'experiences:events' %}?period=upcoming&amp;kind={{ request.GET.kind|urlencode }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}#event-{{ event.pk }}">{{ event.title }}</a>
       <span class="block text-xs text-muted-foreground">{{ event.starts_at|date:"D, H:i" }} IST · {{ event.location|default:"Online" }}</span>
     </div>
     <form class="flex shrink-0 flex-wrap items-center gap-2"
           method="post"
-          action="{% url 'experiences:events' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}"
+          action="{% url 'experiences:events' %}?period=upcoming&amp;kind={{ request.GET.kind|urlencode }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
           hx-boost="false">
       {% csrf_token %}
       <input type="hidden" name="event" value="{{ event.pk }}" />
-      {% if event.pk in registered %}<span class="ui-badge ui-badge--success ui-badge--size-sm">✓ Registered</span>{% if event.join_url %}<a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
-   href="{{ event.join_url }}"
-   target="_blank"
-   rel="noopener noreferrer"
-   hx-boost="false">Join event ↗</a>{% endif %}{% else %}<button class="ui-btn ui-btn--default ui-btn--size-sm"
-        name="intent"
-        value="register"
-        type="submit">Register</button>{% endif %}
+      {% if event.pk in registered %}
+        <span class="ui-badge ui-badge--success ui-badge--size-sm">✓ Registered</span>
+        {% if event.join_url %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+             href="{{ event.join_url }}"
+             target="_blank"
+             rel="noopener noreferrer"
+             hx-boost="false"
+             aria-label="Join {{ event.title }} (opens in a new tab)">Join event ↗</a>
+        {% endif %}
+      {% else %}
+        <button class="ui-btn ui-btn--default ui-btn--size-sm"
+                name="intent"
+                value="register"
+                type="submit"
+                aria-label="Register for {{ event.title }}">Register</button>
+      {% endif %}
     </form>
   </div>
 {% else %}
   <li class="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-x-4 gap-y-3 border-t border-soft-border px-6 py-4 transition-colors sm:grid-cols-[56px_minmax(0,1fr)_auto] {% if period != 'past' %}hover:bg-primary-50/40{% endif %}"
       id="event-{{ event.pk }}">
     <time class="ui-dateblock {% if period == 'past' %}ui-dateblock--past{% endif %}"
-          datetime="{{ event.starts_at|date:'c' }}"><span class="ui-dateblock-day">{{ event.starts_at|date:"d" }}</span><span class="ui-dateblock-month">{{ event.starts_at|date:"M" }}</span></time>
+          datetime="{{ event.starts_at|date:'c' }}">
+      <span class="ui-dateblock-day">{{ event.starts_at|date:"d" }}</span><span class="ui-dateblock-month">{{ event.starts_at|date:"M" }}</span>
+    </time>
     <div class="min-w-0">
       <div class="flex flex-wrap items-center gap-2">
         <h3 class="text-[15px] leading-[22px] font-semibold break-words {% if period == 'past' %}text-muted-foreground{% endif %}">{{ event.title }}</h3>
         <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{{ event.get_kind_display }}</span>
       </div>
-      <p class="mt-0.5 text-[13px] leading-[18px] {% if period == 'past' %}text-soft-foreground{% else %}text-muted-foreground{% endif %}">{{ event.starts_at|date:"D, H:i" }}{% if event.ends_at %}–{{ event.ends_at|date:"H:i" }}{% endif %} IST · {{ event.location|default:"Online" }}</p>
+      <p class="mt-0.5 text-[13px] leading-[18px] {% if period == 'past' %}text-soft-foreground{% else %}text-muted-foreground{% endif %}">
+        {% if period == 'past' %}{{ event.starts_at|date:"D, j M Y" }} · {% else %}{{ event.starts_at|date:"D" }}, {% endif %}{{ event.starts_at|date:"H:i" }}{% if event.ends_at %}–{{ event.ends_at|date:"H:i" }}{% endif %} IST · {{ event.location|default:"Online" }}
+      </p>
       {% if event.summary %}<p class="mt-1.5 text-sm break-words {% if period == 'past' %}text-soft-foreground{% else %}text-muted-foreground{% endif %}">{{ event.summary }}</p>{% endif %}
     </div>
     <div class="col-span-2 sm:col-span-1 sm:justify-self-end">
-      {% if period == 'past' %}<span class="text-xs text-soft-foreground">This event has ended.</span>{% else %}
-      <form class="flex flex-wrap items-center gap-2"
-            method="post"
-            hx-boost="false">
-        {% csrf_token %}
-        <input type="hidden" name="event" value="{{ event.pk }}" />
-        {% if event.pk in registered %}
-          <span class="ui-badge ui-badge--success ui-badge--size-sm">✓ Registered</span>
-          {% if event.join_url %}<a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
-   href="{{ event.join_url }}"
-   target="_blank"
-   rel="noopener noreferrer"
-   hx-boost="false">Join event ↗</a>{% endif %}
-          <button class="ui-btn ui-btn--ghost ui-btn--size-xs"
-                  name="intent"
-                  value="cancel"
-                  type="submit">Cancel registration</button>
-{% else %}<button class="ui-btn ui-btn--default ui-btn--size-sm"
-        name="intent"
-        value="register"
-        type="submit">Register</button>{% endif %}
-  </form>
-{% endif %}
-</div>
-{% if event.description %}
-  <details class="col-span-2 text-sm sm:col-start-2">
-    <summary class="inline-flex cursor-pointer items-center gap-1 py-1 text-xs font-semibold text-primary hover:underline">{% if period == 'past' %}Event materials{% else %}Event details{% endif %} <span aria-hidden="true">⌄</span></summary>
-    <div class="mt-2 rounded-lg bg-soft-background px-3 py-3 leading-relaxed break-words text-muted-foreground">{{ event.description|linebreaksbr }}</div>
-  </details>
-{% endif %}
-</li>
+      {% if period == 'past' %}
+        <div class="flex flex-wrap items-center gap-2">
+          {% if event.pk in registered %}<span class="ui-badge ui-badge--neutral ui-badge--size-sm">You registered</span>{% endif %}
+          <span class="text-xs text-soft-foreground">This event has ended.</span>
+        </div>
+      {% else %}
+        <form class="flex flex-wrap items-center gap-2"
+              method="post"
+              hx-boost="false">
+          {% csrf_token %}
+          <input type="hidden" name="event" value="{{ event.pk }}" />
+          {% if event.pk in registered %}
+            <span class="ui-badge ui-badge--success ui-badge--size-sm">✓ Registered</span>
+            {% if event.join_url %}
+              <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+                 href="{{ event.join_url }}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 hx-boost="false"
+                 aria-label="Join {{ event.title }} (opens in a new tab)">Join event ↗</a>
+            {% endif %}
+            <button class="ui-btn ui-btn--ghost ui-btn--size-xs"
+                    name="intent"
+                    value="cancel"
+                    type="submit"
+                    aria-label="Cancel registration for {{ event.title }}">Cancel registration</button>
+          {% else %}
+            <button class="ui-btn ui-btn--default ui-btn--size-sm"
+                    name="intent"
+                    value="register"
+                    type="submit"
+                    aria-label="Register for {{ event.title }}">Register</button>
+          {% endif %}
+        </form>
+      {% endif %}
+    </div>
+    {% if period != 'past' and event.pk in registered and event.is_online and not event.join_url %}
+      <p class="col-span-2 text-xs text-soft-foreground sm:col-start-2">You're registered. Joining details have not been added yet.</p>
+    {% endif %}
+    {% if event.description %}
+      <details class="col-span-2 text-sm sm:col-start-2">
+        <summary class="inline-flex cursor-pointer items-center gap-1 py-1 text-xs font-semibold text-primary hover:underline"
+                 aria-label="Event details for {{ event.title }}">Event details <span aria-hidden="true">⌄</span></summary>
+        <div class="mt-2 rounded-lg bg-soft-background px-3 py-3 leading-relaxed break-words text-muted-foreground">{{ event.description|linebreaksbr }}</div>
+      </details>
+    {% endif %}
+  </li>
 {% endif %}
