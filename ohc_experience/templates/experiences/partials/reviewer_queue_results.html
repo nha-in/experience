@@ -27,21 +27,22 @@
         </thead>
         <tbody>
           {% for item in page %}
-            <tr>
-              <td class="min-w-[180px]">
-                <a class="font-semibold text-foreground hover:text-primary underline" href="{{ item.get_absolute_url }}">
+            <tr class="group">
+              <td class="relative min-w-[180px]">
+                <a class="relative font-semibold text-foreground group-hover:text-primary">
                   {{ item.product.name|default:item.title }}
                 </a>
                 <span class="mt-0.5 block font-mono text-xs text-soft-foreground">
                   {% if item.product %}{{ item.product.workspace.reference }} · {% endif %}{{ item.reference }}
                 </span>
+                <a class="absolute inset-0" href="{{ item.get_absolute_url }}"></a>
               </td>
-              <td class="max-w-[200px] text-muted-foreground">{{ item.organisation.display_name }}</td>
-              <td class="min-w-[160px]">{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}</td>
-              <td>{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}</td>
-              <td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}</td>
-              <td>{% include 'experiences/partials/reviewer_age.html' %}</td>
-              <td>{% include 'experiences/partials/reviewer_assignee.html' %}</td>
+              <td class="relative max-w-[200px] text-muted-foreground">{{ item.organisation.display_name }}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
+              <td class="relative min-w-[160px]">{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
+              <td class="relative">{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
+              <td class="relative whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
+              <td class="relative">{% include 'experiences/partials/reviewer_age.html' %}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
+              <td class="relative">{% include 'experiences/partials/reviewer_assignee.html' %}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
             </tr>
           {% endfor %}
         </tbody>
