@@ -70,8 +70,9 @@ occurrence, revision and attachments. History renders the saved schema even when
 the Python form changes. Downloads are permission-checked and served privately
 from MinIO locally or S3 in production.
 
-Organisation memberships govern integrator access. Assigned reviewers must also
-hold the matching area/category capability; superusers have full access.
+Organisation memberships govern integrator access. Reviewers act through their
+area/category capability alone; assignment only labels work. Superusers have
+full access.
 Team invitation and role constraints live in the
 organisations app. Credentials are encrypted in `ProductCredential`, never stored
 as secrets in outcome JSON. `ApplicationDependency` rejects cross-product links,
@@ -99,7 +100,8 @@ independent of the source review.
 | Events | Events | Create/edit drafts | Publish/unpublish |
 
 Write and approve independently require read; neither implies the other.
-Review mutations additionally require assignment (except for superusers).
+Assignment neither grants nor restricts review actions; it only labels work
+for the queue filters.
 `available_review_actions(user, item)` exposes actions for the current actor.
 Use `visible_reviews`, `visible_submissions`, `visible_tickets`, and
 `visible_events` for data reads, not the staff identity helper `reviewer()`.

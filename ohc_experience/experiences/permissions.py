@@ -224,9 +224,9 @@ def eligible_reviewer(user, item):
 
 
 def can_review(user, item, action):
+    """Category grants alone decide; the assignee only labels and filters work."""
     return (
         reviewer(user)
-        and (user.is_superuser or item.assignee_id == user.pk)
         and visible_reviews(user, action).filter(pk=item.pk).exists()
     )
 
@@ -248,7 +248,7 @@ def available_review_actions(user, item):
 
 def require_decider(user, item, action="approve"):
     if not can_review(user, item, action):
-        msg = "This action requires assignment and the matching category permission."
+        msg = "This action requires the matching category permission."
         raise PermissionDenied(msg)
 
 

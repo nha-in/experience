@@ -296,21 +296,20 @@ def test_cannot_forge_locked_or_unregistered_exit(environment):
         submit(environment)
 
 
-def test_only_manually_assigned_reviewers_decide(environment):
+def test_reviewers_with_grants_decide_whoever_is_assigned(environment):
     item = submit(environment)
-    for actor in [
-        environment["applicant"],
-        environment["outsider"],
-        environment["reviewer"],
-    ]:
+    for actor in [environment["applicant"], environment["outsider"]]:
         with pytest.raises(PermissionDenied):
             services.decide(item, actor, action="approve")
     with pytest.raises(PermissionDenied):
         services.assign_review(item, environment["reviewer"], environment["reviewer"])
     with pytest.raises(ValidationError):
         services.assign_review(item, environment["admin"], environment["applicant"])
-    services.assign_review(item, environment["admin"], environment["reviewer"])
+    # Assigned to someone else, the reviewer's grant still lets them decide.
+    services.assign_review(item, environment["admin"], environment["admin"])
     services.decide(item, environment["reviewer"], action="approve")
+    item.refresh_from_db()
+    assert item.assignee == environment["admin"]
     with pytest.raises(ValidationError):
         services.decide(
             item,

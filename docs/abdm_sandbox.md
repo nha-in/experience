@@ -66,8 +66,9 @@ The broad `reviewer@abdm-demo.in` demo account has explicit all-category grants;
 the category-specific accounts above do not. All use the demo password above.
 Applicant access stays organisation-based.
 
-Review write allows queries; approve allows approval/send-back. Both require
-assignment. Support write allows replies; approve allows resolution. Event
+Review write allows queries; approve allows approval/send-back. Neither needs
+assignment: the assignee only labels work for the queue filters. Support write
+allows replies; approve allows resolution. Event
 write allows draft creation/editing at `/portal/events/manage/`; approve allows
 publishing through that page's actions. Published events must be unpublished before editing.
 General/onboarding is a separate category covering organisation/product review;
@@ -145,8 +146,10 @@ retired; reviewer work uses the engine's assessment screens.
 - Each canonical `Milestone` has an `ApplicationInstance`. HIE-CM M1 and PHR M1
   share the same milestone and approval. HealthLocker does not require M3.
 - `ReviewItem` wraps organisation verification, product registration or exit.
-  Admins assign reviewers manually. The assignee needs the matching category's
-  review-write or review-approve grant; superusers can perform every action.
+  Admins assign reviewers manually to label and filter work; the assignee must
+  hold the matching category's review-write or review-approve grant. Any
+  reviewer with that grant can act, assigned or not; superusers can perform
+  every action.
 - `FormRecord` remains independent. Exit requests for one product share a form
   record. `ApplicationFormUse` and `ReviewItem` pin the selected submission.
 - `FormSubmission` preserves JSON answers, field schema/version, submission

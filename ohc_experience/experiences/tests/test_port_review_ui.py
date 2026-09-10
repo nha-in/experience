@@ -4,6 +4,7 @@ import pytest
 from django.urls import reverse
 
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.registry import registry
 from ohc_experience.experiences.tests.example_program import SupplierQuality
 from ohc_experience.users.tests.factories import ReviewerFactory
@@ -67,13 +68,25 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
     assert b"No reviews match these filters." in response.content
 
 
-def test_review_assignment_controls_follow_engine_permissions(review_item, client):
+def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, client):
     reviewer = ReviewerFactory(is_nha_team=True)
     client.force_login(reviewer)
     response = client.get(review_item.get_absolute_url())
-    assert b"data-decision-form" not in response.content
+    assert b"data-decision-form" in response.content
+    assert b"field=score#decision" in response.content
     assert b'name="assignee"' not in response.content
-    assert b"An administrator must assign a reviewer" in response.content
+
+    read_only = UserFactory(is_nha_team=True)
+    AccessGrant.objects.create(
+        user=read_only,
+        program=SupplierQuality.key,
+        area=AccessGrant.Area.REVIEW,
+        category="*",
+    )
+    client.force_login(read_only)
+    response = client.get(review_item.get_absolute_url())
+    assert b"data-decision-form" not in response.content
+    assert b"does not include queries or decisions" in response.content
 
     client.force_login(UserFactory(is_superuser=True))
     response = client.get(review_item.get_absolute_url())
@@ -86,13 +99,13 @@ def test_review_assignment_controls_follow_engine_permissions(review_item, clien
     review_item.refresh_from_db()
     assert review_item.assignee == reviewer
 
-    client.force_login(reviewer)
-    response = client.get(review_item.get_absolute_url())
-    assert b"data-decision-form" in response.content
-    assert b"field=score#decision" in response.content
+    # Someone other than the assignee can still record the decision.
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.post(review_item.get_absolute_url(), {"action": "approve"})
-    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert response.status_code == HTTPStatus.FOUND
+    review_item.refresh_from_db()
+    assert review_item.status == "approved"
+    assert review_item.assignee == reviewer
 
 
 def test_query_validation_reply_resolution_and_approval_through_portal(

@@ -97,7 +97,7 @@
     {% elif item.pending %}
       <div class="mt-4 rounded-xl border border-border bg-soft-background p-4 text-sm leading-relaxed text-soft-foreground">
         <p class="mb-1 font-semibold text-foreground">Read-only access</p>
-        <p>{% if item.assignee %}{{ item.assignee.display_name }} is assigned to this review.{% else %}An administrator must assign a reviewer before a decision can be recorded.{% endif %}</p>
+        <p>Your access to this category does not include queries or decisions.{% if item.assignee %} {{ item.assignee.display_name }} is assigned to this review.{% endif %}</p>
       </div>
     {% else %}
       <div class="mt-4">{% include 'experiences/partials/review_status.html' %}</div>
