@@ -174,16 +174,6 @@ class ProductRegistration(ApplicationFormDefinition):
     allow_approved_updates = True
 
     @classmethod
-    def form_kwargs(cls, item):
-        return {
-            "approved_milestones": set(
-                item.product.milestones.filter(
-                    application__status="approved",
-                ).values_list("key", flat=True),
-            ),
-        }
-
-    @classmethod
     def on_submit(cls, item, data, actor):
         project_product(
             item,

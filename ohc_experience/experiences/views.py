@@ -98,14 +98,18 @@ def _tracks(workspace, user):
             enabled=True,
         ).select_related("application__review_item")
     }
+    applied = {
+        track.code: workspace.definition.applied_keys(
+            track,
+            workspace.applied_milestones,
+        )
+        for track in workspace.definition.tracks
+    }
     result = []
     for track in permissions.allowed_tracks(user, workspace.definition):
         tiles = []
-        for key in track.keys:
-            if (
-                f"{track.code}:{key}" not in workspace.applied_milestones
-                or key not in rows
-            ):
+        for key in applied[track.code]:
+            if key not in rows:
                 continue
             milestone = rows[key]
             definition = workspace.definition.milestones[key]
@@ -114,7 +118,7 @@ def _tracks(workspace, user):
             shared = [
                 code
                 for code in workspace.definition.shared_with(key, track.code)
-                if f"{code}:{key}" in workspace.applied_milestones
+                if key in applied[code]
             ]
             item = milestone.application.review_item
             locked = services.milestone_locked(item)
@@ -922,20 +926,17 @@ def _reviewer_required(request):
 
 
 def _track_filter(code):
-    query = Q(pk__in=[])
-    for key in get_program().track_map()[code].keys:
-        query |= Q(
-            application__milestone__key=key,
-            product__workspace__applied_milestones__contains=[f"{code}:{key}"],
-        )
-    return query
+    program = get_program()
+    return permissions.track_items(program, program.track_map()[code])
 
 
 @login_required
 def assess_dashboard(request):
     _reviewer_required(request)
     allowed_tracks = permissions.allowed_tracks(request.user)
-    allowed_milestones = {key for track in allowed_tracks for key in track.keys}
+    allowed_milestones = {
+        key for track in allowed_tracks for key in get_program().track_milestones(track)
+    }
     items = permissions.visible_reviews(request.user).exclude(status="draft")
     pending = items.filter(status__in=["new", "in_review", "query_raised"])
     today = timezone.localdate()

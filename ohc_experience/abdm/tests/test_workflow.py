@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -26,6 +27,7 @@ from ohc_experience.abdm.forms import ProductRegistrationForm
 from ohc_experience.experiences import credentials
 from ohc_experience.experiences import uploads
 from ohc_experience.experiences import workflows as services
+from ohc_experience.experiences.definitions import TrackDefinition
 from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import ProductCredential
@@ -145,9 +147,10 @@ def approve(environment, key="m1"):
 def test_shared_m1_and_independent_tracks(environment):
     product = environment["workspace"].product
     assert product.milestones.filter(key="m1").count() == 1
-    assert TRACK_MAP["PHR"].keys == ("m1", "phr1")
+    assert TRACK_MAP["PHR"].keys == ("phr1",)
     assert TRACK_MAP["HealthLocker"].keys == ("locker1",)
-    assert TRACK_MAP["NHCX"].keys == ("m1", "nhcx1")
+    assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
+    assert get_program().track_milestones(TRACK_MAP["PHR"]) == ("m1", "phr1")
     assert MILESTONES["uhi1"].predecessor == MILESTONES["nhcx1"].predecessor == "m1"
     assert services.milestone_locked(milestone(environment, "m2"))
     assert services.milestone_locked(milestone(environment, "phr1"))
@@ -161,9 +164,10 @@ def test_shared_m1_and_independent_tracks(environment):
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
 
 
-def test_uhi_lists_m1_so_the_prerequisite_is_pickable_in_place(environment):
-    """As PHR does. M1 is one shared record, so approving it completes it here."""
-    assert TRACK_MAP["UHI"].keys == ("m1", "uhi1")
+def test_uhi_shows_m1_as_a_prerequisite_it_does_not_offer(environment):
+    """M1 is one shared record, so approving it completes it on UHI too."""
+    assert TRACK_MAP["UHI"].keys == ("uhi1",)
+    assert get_program().track_milestones(TRACK_MAP["UHI"]) == ("m1", "uhi1")
     product = environment["workspace"].product
     assert product.milestones.filter(key="m1").count() == 1
 
@@ -173,7 +177,7 @@ def test_uhi_lists_m1_so_the_prerequisite_is_pickable_in_place(environment):
 
 
 def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
-    """No track owns M1. Every track that lists it names the rest."""
+    """M1 is offered by HIE-CM; every track that depends on it names the rest."""
     program = get_program()
 
     assert set(program.shared_with("m1", "PHR")) == {"HIE-CM", "UHI", "NHCX"}
@@ -197,13 +201,13 @@ def test_a_tracks_description_names_its_shared_milestones(environment, client):
     assert "M1 is shared with HIE-CM, UHI and NHCX." in html
 
 
-def test_a_track_cannot_list_a_milestone_without_its_predecessor():
-    """The rule that would have caught NHCX listing nhcx1 without m1."""
-    program = get_program()
-    for track in program.tracks:
-        for key in track.keys:
-            predecessor = program.milestones[key].predecessor
-            assert not predecessor or predecessor in track.keys, (track.code, key)
+def test_a_predecessor_no_track_offers_can_never_unlock():
+    class Stranded(get_program()):
+        key = "stranded"
+        tracks = (TrackDefinition("UHI", "UHI", "", ("uhi1",)),)
+
+    with pytest.raises(ImproperlyConfigured, match="can never unlock"):
+        Stranded.validate()
 
 
 @pytest.mark.parametrize(
@@ -479,7 +483,7 @@ def test_date_and_pdf_validation_and_required_documents():
 
 def test_phr_requires_m1_but_not_m3_and_locker_is_independent():
     assert ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["PHR:m1", "PHR:phr1"]},
+        data={**product_data(), "applied_milestones": ["HIE-CM:m1", "PHR:phr1"]},
     ).is_valid()
     assert ProductRegistrationForm(
         data={**product_data(), "applied_milestones": ["HealthLocker:locker1"]},
@@ -708,7 +712,7 @@ def test_track_filter_respects_which_track_applied_for_shared_m1(environment, cl
     url = reverse("experiences:queue")
     assert item in client.get(url, {"track": "HIE-CM"}).context["page"]
     assert item not in client.get(url, {"track": "PHR"}).context["page"]
-    workspace.applied_milestones.append("PHR:m1")
+    workspace.applied_milestones.append("PHR:phr1")
     workspace.save()
     assert item in client.get(url, {"track": "PHR"}).context["page"]
 

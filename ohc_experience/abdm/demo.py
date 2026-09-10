@@ -86,10 +86,8 @@ def product_data(name="Medibase HMIS 4.2"):
             "HIE-CM:m2",
             "HIE-CM:m3",
             "HIE-CM:m4",
-            "PHR:m1",
             "PHR:phr1",
             "HealthLocker:locker1",
-            "UHI:m1",
             "UHI:uhi1",
         ],
     }

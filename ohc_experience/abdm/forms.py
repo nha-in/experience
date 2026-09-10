@@ -3,7 +3,6 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from ohc_experience.experiences.definitions import readable_list
-from ohc_experience.experiences.definitions import shared_tracks
 from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
 from ohc_experience.experiences.models import CertificationAgency
@@ -254,8 +253,7 @@ class ProductRegistrationForm(ReviewForm):
         widget=forms.CheckboxSelectMultiple,
     )
 
-    def __init__(self, *args, approved_milestones=(), **kwargs):
-        self.approved_milestones = set(approved_milestones)
+    def __init__(self, *args, **kwargs):
         # Defaults belong to new registrations, never a saved or bound form.
         if not args and kwargs.get("data") is None and kwargs.get("initial") is None:
             kwargs["initial"] = {
@@ -271,19 +269,14 @@ class ProductRegistrationForm(ReviewForm):
         return [
             {
                 "definition": track,
+                "requires": readable_list(
+                    MILESTONES[key].code for key in track.prerequisites(MILESTONES)
+                ),
                 "milestones": [
                     {
                         "definition": MILESTONES[key],
                         "value": f"{track.code}:{key}",
                         "selected": f"{track.code}:{key}" in selected,
-                        "shared_with": readable_list(
-                            shared_tracks(TRACKS, key, track.code),
-                        ),
-                        "predecessor": (
-                            f"{track.code}:{MILESTONES[key].predecessor}"
-                            if MILESTONES[key].predecessor in track.keys
-                            else ""
-                        ),
                     }
                     for key in track.keys
                 ],

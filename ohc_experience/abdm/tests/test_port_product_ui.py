@@ -3,10 +3,13 @@
 # ruff: noqa: PLR2004
 
 from html.parser import HTMLParser
+from importlib import import_module
 
 import pytest
 from django.urls import reverse
 
+from ohc_experience.abdm.catalog import TRACK_MAP
+from ohc_experience.abdm.definitions import ABDM
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.demo import uhi_data
@@ -69,7 +72,55 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
     assert selected == ["HIE-CM:m1"]
-    assert b"Shared with: HIE-CM, UHI and NHCX" in response.content
+    assert b"M1 required for enablement" in response.content
+    assert b"Shared with" not in response.content
+
+
+def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
+    """M1 belongs to HIE-CM; the other tracks depend on it rather than repeat it."""
+    tracks = {
+        track["definition"].code: (
+            [row["definition"].key for row in track["milestones"]],
+            track["requires"],
+        )
+        for track in ProductRegistrationForm().milestone_tracks
+    }
+
+    assert tracks == {
+        "HIE-CM": (["m1", "m2", "m3", "m4"], ""),
+        "UHI": (["uhi1"], "M1"),
+        "NHCX": (["nhcx1"], "M1"),
+        "PHR": (["phr1"], "M1"),
+        "HealthLocker": (["locker1"], ""),
+    }
+
+
+def test_a_dependant_track_lists_its_prerequisite_once_chosen():
+    """The product page shows M1 under UHI without UHI storing it."""
+    selections = ["HIE-CM:m1", "UHI:uhi1"]
+
+    assert ABDM.applied_keys(TRACK_MAP["UHI"], selections) == ["m1", "uhi1"]
+    assert ABDM.applied_keys(TRACK_MAP["HIE-CM"], selections) == ["m1"]
+    assert ABDM.applied_keys(TRACK_MAP["PHR"], selections) == []
+
+
+def test_stored_inherited_selections_move_to_the_owning_track():
+    migration = import_module(
+        "ohc_experience.experiences.migrations."
+        "0013_drop_inherited_milestone_selections",
+    )
+
+    assert migration.drop_inherited(["HIE-CM:m1", "UHI:m1", "UHI:uhi1"]) == [
+        "HIE-CM:m1",
+        "UHI:uhi1",
+    ]
+    assert migration.drop_inherited(["PHR:m1", "PHR:phr1"]) == [
+        "HIE-CM:m1",
+        "PHR:phr1",
+    ]
+    assert migration.drop_inherited(["HealthLocker:locker1"]) == [
+        "HealthLocker:locker1",
+    ]
 
 
 def test_solution_type_accepts_several_values():
@@ -160,7 +211,7 @@ def uhi_payload(**overrides):
         "description": "Finds and books consultations.",
         "category": "other",
         "solution_type": ["eua"],
-        "applied_milestones": ["HIE-CM:m1", "UHI:m1", "UHI:uhi1"],
+        "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
         **overrides,
     }
 
@@ -202,7 +253,6 @@ def test_approved_picker_carries_locked_selections(environment, client):
         if field.get("name") == "applied_milestones" and field.get("type") == "hidden"
     ]
     assert "HIE-CM:m1" in carried
-    assert "PHR:m1" in carried
 
 
 @pytest.mark.django_db

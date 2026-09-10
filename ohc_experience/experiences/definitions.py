@@ -138,15 +138,6 @@ def readable_list(names):
     return f"{', '.join(rest)} and {last}" if rest else last
 
 
-def shared_tracks(tracks, milestone_key, track_code=""):
-    """The other tracks listing this milestone."""
-    return tuple(
-        track.code
-        for track in tracks
-        if track.code != track_code and milestone_key in track.keys
-    )
-
-
 @dataclass(frozen=True)
 class MilestoneDefinition:
     key: str
@@ -161,6 +152,13 @@ class TrackDefinition:
     name: str
     description: str
     keys: tuple[str, ...]
+
+    def prerequisites(self, milestones):
+        """Milestones this track depends on that another track offers."""
+        predecessors = (milestones[key].predecessor for key in self.keys)
+        return tuple(
+            dict.fromkeys(key for key in predecessors if key and key not in self.keys),
+        )
 
 
 class CredentialDefinition:
@@ -237,12 +235,33 @@ class ProgramDefinition:
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     @classmethod
+    def track_milestones(cls, track):
+        """What a track shows: prerequisites from other tracks, then its own."""
+        return (*track.prerequisites(cls.milestones), *track.keys)
+
+    @classmethod
+    def applied_keys(cls, track, selections):
+        """A product's chosen milestones on this track, with their prerequisites."""
+        chosen = [key for key in track.keys if f"{track.code}:{key}" in selections]
+        if not chosen:
+            return []
+        return [*track.prerequisites(cls.milestones), *chosen]
+
+    @classmethod
     def tracks_with(cls, milestone_key):
-        return tuple(track for track in cls.tracks if milestone_key in track.keys)
+        return tuple(
+            track
+            for track in cls.tracks
+            if milestone_key in cls.track_milestones(track)
+        )
 
     @classmethod
     def shared_with(cls, milestone_key, track_code=""):
-        return shared_tracks(cls.tracks, milestone_key, track_code)
+        return tuple(
+            track.code
+            for track in cls.tracks_with(milestone_key)
+            if track.code != track_code
+        )
 
     @classmethod
     def shared_note(cls, track_code):
@@ -251,7 +270,7 @@ class ProgramDefinition:
         if track is None:
             return ""
         sentences = []
-        for key in track.keys:
+        for key in cls.track_milestones(track):
             others = cls.shared_with(key, track_code)
             if others:
                 code = cls.milestones[key].code
@@ -282,13 +301,14 @@ class ProgramDefinition:
         if any(key not in cls.milestones for track in cls.tracks for key in track.keys):
             msg = "Track milestones must exist in the catalog."
             raise ImproperlyConfigured(msg)
+        offered = {key for track in cls.tracks for key in track.keys}
         for track in cls.tracks:
             for key in track.keys:
                 predecessor = cls.milestones[key].predecessor
-                if predecessor and predecessor not in track.keys:
+                if predecessor and predecessor not in offered:
                     msg = (
-                        f"Track {track.code!r} lists {key!r} without its "
-                        f"predecessor {predecessor!r}, which can never unlock."
+                        f"Track {track.code!r} lists {key!r}, but no track offers "
+                        f"its predecessor {predecessor!r}, so it can never unlock."
                     )
                     raise ImproperlyConfigured(msg)
         try:

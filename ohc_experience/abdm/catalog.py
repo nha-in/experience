@@ -27,19 +27,19 @@ TRACKS = (
         "UHI",
         "Unified Health Interface",
         "Discovery and delivery of digital health services.",
-        ("m1", "uhi1"),
+        ("uhi1",),
     ),
     TrackDefinition(
         "NHCX",
         "National Health Claims Exchange",
         "Claims and pre-authorisation exchange between payers and providers.",
-        ("m1", "nhcx1"),
+        ("nhcx1",),
     ),
     TrackDefinition(
         "PHR",
         "Personal Health Records",
         "ABHA identity and personal health record application flows.",
-        ("m1", "phr1"),
+        ("phr1",),
     ),
     TrackDefinition(
         "HealthLocker",

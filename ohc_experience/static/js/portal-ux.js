@@ -36,6 +36,7 @@
 
   function initialize() {
     document.querySelectorAll('[data-permission-group]').forEach(updatePermissionSummary);
+    document.querySelectorAll('form:has([data-milestone-key])').forEach(refreshMilestones);
     document.querySelectorAll('[data-permission-toggle]').forEach(button => {
       button.hidden = false;
       updatePermissionToggle(button);
@@ -127,34 +128,30 @@
     const group = input.closest('[data-permission-group]');
     if (group) updatePermissionSummary(group);
   });
-  // Selecting a milestone pulls in the ones it depends on; clearing one drops
-  // whatever depended on it. The form re-checks this on submit regardless.
-  const milestone = (form, value) => form.querySelector(`[data-milestone][value="${CSS.escape(value)}"]`);
+  // A milestone opens once its prerequisite is ticked; unticking one clears
+  // everything after it. The form re-checks this on submit regardless.
+  const isTicked = (form, key) => [...form.querySelectorAll(`[data-milestone-key="${CSS.escape(key)}"]`)].some(input => input.checked);
 
-  function selectMilestone(form, value) {
-    const input = milestone(form, value);
-    if (!input || input.checked) return;
-    input.checked = true;
-    if (input.dataset.milestonePredecessor) selectMilestone(form, input.dataset.milestonePredecessor);
-  }
-
-  function clearDependents(form, value) {
-    form.querySelectorAll(`[data-milestone-predecessor="${CSS.escape(value)}"]`).forEach(dependent => {
-      if (!dependent.checked) return;
-      dependent.checked = false;
-      clearDependents(form, dependent.value);
-    });
+  function refreshMilestones(form) {
+    const gated = [...form.querySelectorAll('[data-milestone-requires]')];
+    let cleared = true;
+    while (cleared) {
+      cleared = false;
+      for (const input of gated) {
+        const required = input.dataset.milestoneRequires;
+        const open = !required || isTicked(form, required);
+        if (!open && input.checked) {
+          input.checked = false;
+          cleared = true;
+        }
+        input.disabled = !open;
+      }
+    }
   }
 
   document.addEventListener('change', event => {
-    const input = event.target.closest('[data-milestone]');
-    if (!input) return;
-    const form = input.closest('form');
-    if (input.checked) {
-      if (input.dataset.milestonePredecessor) selectMilestone(form, input.dataset.milestonePredecessor);
-    } else {
-      clearDependents(form, input.value);
-    }
+    const input = event.target.closest('[data-milestone-key]');
+    if (input) refreshMilestones(input.closest('form'));
   });
   ['input', 'change'].forEach(type => document.addEventListener(type, event => updateForm(event.target.closest('form'))));
   window.addEventListener('beforeunload', event => {

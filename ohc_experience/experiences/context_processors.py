@@ -53,11 +53,10 @@ def navigation_context(request, workspace=None):
             ).values_list("key", flat=True),
         )
         for track in permissions.allowed_tracks(request.user, workspace.definition):
-            keys = [
-                key
-                for key in track.keys
-                if f"{track.code}:{key}" in workspace.applied_milestones
-            ]
+            keys = workspace.definition.applied_keys(
+                track,
+                workspace.applied_milestones,
+            )
             if keys:
                 tracks.append(
                     {
