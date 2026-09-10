@@ -38,7 +38,7 @@ class Status(models.TextChoices):
     """The four states from the support inbox screen.
 
     AWAITING_VENDOR is written from the vendor's point of view ("Awaiting your
-    reply"); the OHC console relabels it, because on the queue side the same
+    reply"); the NHA console relabels it, because on the queue side the same
     state means the ball is in the vendor's court.
     """
 
@@ -74,11 +74,11 @@ class TicketQuerySet(models.QuerySet["Ticket"]):
         return self.filter(status__in=Status.active())
 
     def with_related(self) -> TicketQuerySet:
-        return self.select_related("organisation", "created_by", "assignee")
+        return self.select_related("organisation", "product", "created_by", "assignee")
 
 
 class Ticket(models.Model):
-    """A support conversation between one vendor organisation and the Care team."""
+    """A support conversation about one vendor product, answered by the NHA team."""
 
     reference = models.CharField(
         _("Reference"),
@@ -92,6 +92,13 @@ class Ticket(models.Model):
         related_name="tickets",
         verbose_name=_("Organisation"),
     )
+    product = models.ForeignKey(
+        "experiences.Product",
+        on_delete=models.PROTECT,
+        related_name="tickets",
+        verbose_name=_("Product"),
+    )
+    track = models.CharField(_("Track"), max_length=100, blank=True)
     subject = models.CharField(_("Subject"), max_length=255)
     category = models.CharField(
         _("Category"),
@@ -125,7 +132,7 @@ class Ticket(models.Model):
         blank=True,
         related_name="tickets_assigned",
         verbose_name=_("Assignee"),
-        # Only OHC staff answer tickets, so the picker never offers a vendor.
+        # Only NHA staff answer tickets, so the picker never offers a vendor.
         limit_choices_to={"is_nha_team": True},
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -196,7 +203,7 @@ class Ticket(models.Model):
 
     @property
     def queue_status_label(self) -> str:
-        """The same state, read from the Care team's side of the conversation."""
+        """The same state, read from the NHA team's side of the conversation."""
         if self.status == Status.AWAITING_VENDOR:
             return _("Awaiting vendor")
         if self.status == Status.OPEN:

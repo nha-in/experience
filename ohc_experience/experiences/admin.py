@@ -22,7 +22,6 @@ from .models import ProductOutcome
 from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
-from .models import TicketContext
 from .permissions import eligible_reviewer
 from .registry import registry
 from .workflows import assign_review
@@ -276,6 +275,5 @@ for model in (
     Milestone,
     ReviewQuery,
     EventRegistration,
-    TicketContext,
 ):
     admin.site.register(model, ReadOnlyAdmin)

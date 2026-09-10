@@ -24,7 +24,6 @@ from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import TicketAttachment
-from ohc_experience.experiences.models import TicketContext
 from ohc_experience.integrations.services import provision_inline
 from ohc_experience.organisations.lgd import LGDLookupError
 from ohc_experience.organisations.lgd import lookup_pincode
@@ -314,15 +313,12 @@ class DemoBuilder:
         self.events(admin)
         ticket = Ticket.objects.create(
             organisation=org,
+            product=workspace.product,
+            track="HIE-CM",
             subject="Clarification on consent callback acknowledgement",
             priority="medium",
             created_by=applicant,
             assignee=reviewer,
-        )
-        TicketContext.objects.create(
-            ticket=ticket,
-            product=workspace.product,
-            track="HIE-CM",
         )
         post_reply(
             ticket,

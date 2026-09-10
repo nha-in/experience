@@ -20,7 +20,6 @@ from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import TicketAttachment
-from ohc_experience.experiences.models import TicketContext
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
 from ohc_experience.users.tests.factories import UserFactory
@@ -207,14 +206,11 @@ def tickets(environment):
     for category in ["NHCX", "UHI", "HIE-CM", ""]:
         ticket = Ticket.objects.create(
             organisation=environment["org"],
+            product=environment["workspace"].product,
+            track=category,
             created_by=environment["applicant"],
             subject=f"{category or 'General'} support request",
             category="api",
-        )
-        TicketContext.objects.create(
-            ticket=ticket,
-            product=environment["workspace"].product,
-            track=category,
         )
         message = post_reply(
             ticket,

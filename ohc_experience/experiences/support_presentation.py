@@ -49,7 +49,7 @@ def support_inbox(tickets, params, form, *, reviewer=False):
         "has_ticket_search_filters": any(
             filters[key] for key in ("category", "priority", "q")
         ),
-        "tickets": tickets.select_related("experience_context__product").order_by(
+        "tickets": tickets.select_related("product").order_by(
             "-updated_at",
         ),
     }

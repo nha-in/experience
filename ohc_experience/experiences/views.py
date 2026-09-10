@@ -38,6 +38,7 @@ from . import credentials as credential_services
 from . import permissions
 from . import workflows as services
 from .context_processors import navigation_context
+from .context_processors import product_scope
 from .context_processors import selected_workspace
 from .context_processors import workspaces_for
 from .forms import CredentialURLsForm
@@ -49,7 +50,6 @@ from .models import ProductCredential
 from .models import ReviewItem
 from .models import ReviewQuery
 from .models import TicketAttachment
-from .models import TicketContext
 from .presentation import overview_next_step
 from .presentation import overview_progress
 from .registry import get_program
@@ -193,10 +193,6 @@ def _context(request, workspace=None, **kwargs):
         org = result.get("organisation") or _organisation(request)
         result["organisation"] = org
         result["can_integrate"] = permissions.can_integrate(request.user, org)
-        result["query_count"] = ReviewItem.objects.filter(
-            organisation=org,
-            status="query_raised",
-        ).count()
     return result
 
 
@@ -782,6 +778,7 @@ def pending_queries(request):
         query = query.filter(unresolved_query_count__gt=0)
     else:
         query = query.filter(
+            product_scope(selected_workspace(request)),
             status="query_raised",
             organisation__memberships__user=request.user,
         )
@@ -1473,7 +1470,7 @@ def support(request):
         request.session["experience_product"] = workspace.reference
     tickets = permissions.visible_tickets(request.user)
     if workspace and not permissions.reviewer(request.user):
-        tickets = tickets.filter(experience_context__product=workspace.product)
+        tickets = tickets.filter(product=workspace.product)
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
         files=request.FILES or None,
@@ -1494,15 +1491,12 @@ def support(request):
             with transaction.atomic():
                 ticket = Ticket.objects.create(
                     organisation=workspace.product.organisation,
+                    product=workspace.product,
+                    track=form.cleaned_data["track"],
                     subject=form.cleaned_data["subject"],
                     category=form.cleaned_data["category"],
                     priority=form.cleaned_data["priority"],
                     created_by=request.user,
-                )
-                TicketContext.objects.create(
-                    ticket=ticket,
-                    product=workspace.product,
-                    track=form.cleaned_data["track"],
                 )
                 message = post_reply(
                     ticket,
@@ -1535,16 +1529,12 @@ def support(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def ticket(request, reference):
-    query = permissions.visible_tickets(request.user)
-    ticket = get_object_or_404(query, reference=reference)
-    context = (
-        TicketContext.objects.filter(ticket=ticket)
-        .select_related("product__workspace")
-        .first()
+    query = permissions.visible_tickets(request.user).select_related(
+        "product__workspace",
     )
-    workspace = context.product.workspace if context else None
-    if workspace:
-        request.session["experience_product"] = workspace.reference
+    ticket = get_object_or_404(query, reference=reference)
+    workspace = ticket.product.workspace
+    request.session["experience_product"] = workspace.reference
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
         files=request.FILES or None,
@@ -1583,7 +1573,6 @@ def ticket(request, reference):
             page_title=ticket.reference,
             nav="support",
             ticket=ticket,
-            ticket_context=context,
             can_reply=permissions.can_reply_ticket(request.user, ticket),
             can_resolve=permissions.can_resolve_ticket(request.user, ticket),
             form=form,

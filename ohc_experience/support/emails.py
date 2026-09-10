@@ -59,7 +59,6 @@ def notify_support(ticket: Ticket, message: TicketMessage) -> None:
         "is_new_ticket": is_new_ticket,
         "ticket_url": _ticket_url(ticket),
         "program": get_program(),
-        "experience_context": getattr(ticket, "experience_context", None),
     }
     subject = render_to_string("support/email/ticket_subject.txt", context).strip()
     body = render_to_string("support/email/ticket_body.txt", context)

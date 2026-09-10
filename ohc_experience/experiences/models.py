@@ -1039,19 +1039,6 @@ class EventRegistration(models.Model):
         return f"{self.event.title}: {self.user.email}"
 
 
-class TicketContext(models.Model):
-    ticket = models.OneToOneField(
-        "support.Ticket",
-        on_delete=models.CASCADE,
-        related_name="experience_context",
-    )
-    product = models.ForeignKey("experiences.Product", on_delete=models.PROTECT)
-    track = models.CharField(max_length=100, blank=True)
-
-    def __str__(self):
-        return f"{self.ticket.reference}: {self.product.name}"
-
-
 class TicketAttachment(models.Model):
     message = models.ForeignKey(
         "support.TicketMessage",

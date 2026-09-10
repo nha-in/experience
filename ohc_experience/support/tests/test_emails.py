@@ -14,6 +14,7 @@ from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
 from ohc_experience.support.models import record_status_change
+from ohc_experience.support.tests.factories import product_for
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -50,6 +51,7 @@ def nha_member():
 def ticket(organisation, vendor) -> Ticket:
     return Ticket.objects.create(
         organisation=organisation,
+        product=product_for(organisation),
         subject="Sandbox reset wiped our seeded records",
         category=Category.SANDBOX,
         priority=Priority.HIGH,

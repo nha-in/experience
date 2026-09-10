@@ -1,9 +1,9 @@
 {% load i18n %}{% if is_new_ticket %}{% blocktranslate with organisation=ticket.organisation.name reference=ticket.reference %}New support ticket {{ reference }} from {{ organisation }}.{% endblocktranslate %}
 
 {% blocktranslate with category=ticket.get_category_display priority=ticket.get_priority_display %}Category: {{ category }} · Priority: {{ priority }}{% endblocktranslate %}
-{% if experience_context %}{% blocktranslate with product=experience_context.product.name %}Product: {{ product }}{% endblocktranslate %}
-{% if experience_context.track %}{% blocktranslate with track=experience_context.track %}Track: {{ track }}{% endblocktranslate %}
-{% endif %}{% endif %}
+{% blocktranslate with product=ticket.product.name %}Product: {{ product }}{% endblocktranslate %}
+{% if ticket.track %}{% blocktranslate with track=ticket.track %}Track: {{ track }}{% endblocktranslate %}
+{% endif %}
 {% translate "Opening message:" %}
 
 {{ message.body }}

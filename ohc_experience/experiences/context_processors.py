@@ -17,7 +17,7 @@ def workspaces_for(user):
             Q(product__in=permissions.visible_reviews(user).values("product_id"))
             | Q(
                 product__in=permissions.visible_tickets(user).values(
-                    "experience_context__product_id",
+                    "product_id",
                 ),
             ),
         )
@@ -33,6 +33,14 @@ def selected_workspace(request):
     )
     query = workspaces_for(request.user)
     return query.filter(reference=reference).first() or query.first()
+
+
+def product_scope(workspace):
+    """The selected product's reviews, and organisation-level ones with no product."""
+    scope = Q(product__isnull=True)
+    if workspace:
+        scope |= Q(product=workspace.product)
+    return scope
 
 
 def navigation_context(request, workspace=None):
@@ -71,7 +79,7 @@ def navigation_context(request, workspace=None):
     if not is_reviewer:
         tickets = tickets.filter(organisation=organisation)
         if workspace:
-            tickets = tickets.filter(experience_context__product=workspace.product)
+            tickets = tickets.filter(product=workspace.product)
     return {
         "workspace": workspace,
         "workspaces": workspaces_for(request.user),
@@ -98,6 +106,7 @@ def navigation_context(request, workspace=None):
         "nav_ticket_count": tickets.count(),
         "query_count": permissions.visible_reviews(request.user)
         .filter(
+            product_scope(workspace),
             organisation=organisation,
             status="query_raised",
         )

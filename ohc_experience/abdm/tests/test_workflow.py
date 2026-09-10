@@ -879,6 +879,33 @@ def test_the_type_tabs_only_offer_what_the_item_filter_can_match(environment, cl
     assert stale.context["filters"]["kind"] == ""
 
 
+def test_pending_queries_follow_the_selected_product(environment, client):
+    item = submit(environment)
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+    services.decide(
+        item,
+        environment["reviewer"],
+        action="query",
+        note="Explain evidence.",
+    )
+    other, form = services.register_product(
+        environment["org"],
+        environment["applicant"],
+        data=product_data("Second product"),
+    )
+    assert other, form.errors
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:pending-queries")
+
+    here = client.get(url, {"product": environment["workspace"].reference})
+    assert item in here.context["items"]
+    assert here.context["query_count"] == 1
+
+    elsewhere = client.get(url, {"product": other.reference})
+    assert item not in elsewhere.context["items"]
+    assert elsewhere.context["query_count"] == 0
+
+
 def test_removed_organisation_urls_cannot_bypass_review(environment, client):
     org = environment["org"]
     client.force_login(environment["applicant"])

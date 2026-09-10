@@ -475,6 +475,7 @@ def test_archive_releases_pending_assignments_and_preserves_evidence(
     workflows.assign_review(item, environment["admin"], staff)
     ticket = Ticket.objects.create(
         organisation=environment["org"],
+        product=environment["workspace"].product,
         created_by=environment["applicant"],
         subject="Pending",
         assignee=staff,

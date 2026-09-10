@@ -10,7 +10,7 @@
       <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{% if reviewer %}{{ ticket.queue_status_label }}{% else %}{{ ticket.get_status_display }}{% endif %}</span>
     </div>
     <h1 class="mt-2 text-[19px] font-bold tracking-[-0.015em] break-words text-foreground">{{ ticket.subject }}</h1>
-    <p class="mt-1.5 text-[11.5px] break-words text-soft-foreground">Opened by {{ ticket.created_by.display_name|default:ticket.organisation.display_name }} · {{ ticket.created_at|date:"j M Y, H:i" }} IST · {{ ticket_context.product.name|default:ticket.organisation.display_name }}{% if ticket_context.track %} · {{ ticket_context.track }}{% endif %}</p>
+    <p class="mt-1.5 text-[11.5px] break-words text-soft-foreground">Opened by {{ ticket.created_by.display_name|default:ticket.organisation.display_name }} · {{ ticket.created_at|date:"j M Y, H:i" }} IST · {{ ticket.product.name }}{% if ticket.track %} · {{ ticket.track }}{% endif %}</p>
     <a class="mt-1.5 inline-block text-[11px] font-semibold text-primary no-underline hover:underline"
        href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">‹ All tickets</a>
   </div>
@@ -73,11 +73,11 @@
             </dd>
             <dt class="text-soft-foreground">Product</dt>
             <dd class="break-words">
-              {{ ticket_context.product.name|default:"—" }}
+              {{ ticket.product.name }}
             </dd>
             <dt class="text-soft-foreground">Track</dt>
             <dd>
-              {{ ticket_context.track|default:"Not track-specific" }}
+              {{ ticket.track|default:"Not track-specific" }}
             </dd>
             <dt class="text-soft-foreground">Created</dt>
             <dd>

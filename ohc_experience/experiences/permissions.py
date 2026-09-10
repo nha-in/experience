@@ -186,14 +186,12 @@ def visible_tickets(user, action="read"):
     scope = Q(pk__in=[])
     for grant in grants(user, "support", action):
         program = Q(
-            experience_context__product__workspace__experience_type=grant.program,
+            product__workspace__experience_type=grant.program,
         )
         if grant.category == "*":
             scope |= program
         else:
-            scope |= program & Q(experience_context__track=grant.category)
-        if grant.category in {"", "*"} and grant.program == get_program().key:
-            scope |= Q(experience_context__isnull=True)
+            scope |= program & Q(track=grant.category)
     return query.filter(scope)
 
 

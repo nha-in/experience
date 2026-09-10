@@ -12,7 +12,6 @@ from ohc_experience.experiences import workflows
 from ohc_experience.experiences.forms import SupportForm
 from ohc_experience.experiences.models import EventRegistration
 from ohc_experience.experiences.models import Notification
-from ohc_experience.experiences.models import TicketContext
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import ReviewerFactory
@@ -123,8 +122,8 @@ def test_ticket_create_saves_category_and_scopes_product(
     ticket = Ticket.objects.get()
     assert response.status_code == HTTPStatus.FOUND
     assert ticket.category == "api"
-    assert ticket.experience_context.product == portal_workspaces[1].product
-    assert ticket.experience_context.track == "HealthLocker"
+    assert ticket.product == portal_workspaces[1].product
+    assert ticket.track == "HealthLocker"
     assert ticket.messages.get().body == "The callback returns an unexpected status."
 
 
@@ -153,11 +152,11 @@ def test_ticket_reply_needs_no_category_and_keeps_downloads(
 ):
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
+        product=portal_workspaces[0].product,
         subject="Existing ticket",
         created_by=owner_membership.user,
         category="api",
     )
-    TicketContext.objects.create(ticket=ticket, product=portal_workspaces[0].product)
     upload = SimpleUploadedFile(
         "diagnostic.pdf",
         b"%PDF-1.4\n%%EOF",
@@ -191,12 +190,12 @@ def test_support_search_keeps_workspace_and_status(
         (portal_workspaces[1], "Callback fixed", "resolved"),
         (portal_workspaces[1], "Other issue", "open"),
     ):
-        ticket = Ticket.objects.create(
+        Ticket.objects.create(
             organisation=owner_membership.organisation,
+            product=workspace.product,
             subject=subject,
             status=status,
         )
-        TicketContext.objects.create(ticket=ticket, product=workspace.product)
     response = portal_client.get(
         reverse("experiences:support"),
         {"q": "callback", "status": "open"},
@@ -220,16 +219,13 @@ def test_support_counts_keep_filters_and_workspace_before_status(
         (1, "Callback sandbox issue", "sandbox", "high", "open"),
         (0, "Callback on another product", "api", "high", "open"),
     ):
-        ticket = Ticket.objects.create(
+        Ticket.objects.create(
             organisation=owner_membership.organisation,
+            product=portal_workspaces[product_index].product,
             subject=subject,
             category=category,
             priority=priority,
             status=status,
-        )
-        TicketContext.objects.create(
-            ticket=ticket,
-            product=portal_workspaces[product_index].product,
         )
     response = portal_client.get(
         reverse("experiences:support"),
@@ -377,9 +373,14 @@ def test_event_register_cancel_and_filter_keep_product(
     ]
 
 
-def test_reviewer_can_render_tickets_and_resolve(portal_client, owner_membership):
+def test_reviewer_can_render_tickets_and_resolve(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
+        product=portal_workspaces[0].product,
         subject="Needs review",
     )
     portal_client.force_login(ReviewerFactory(is_nha_team=True))
