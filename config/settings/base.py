@@ -162,10 +162,6 @@ LGD_API_URL = env(
     default="https://apissbx.abdm.gov.in/global/api/v3/internal/lgd",
 )
 LGD_API_KEY = env("LGD_API_KEY", default="")
-LGD_PROVIDER = env.str(
-    "LGD_PROVIDER",
-    default="ohc_experience.organisations.lgd.api_lookup",
-)
 LGD_API_TIMEOUT = env.float("LGD_API_TIMEOUT", default=5.0)
 LGD_CACHE_TTL = env.int("LGD_CACHE_TTL", default=3600)
 

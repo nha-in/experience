@@ -13,15 +13,17 @@
      hx-swap="outerHTML"
      hx-push-url="true"
      hx-indicator="#nav-progress">
-  <a id="settings-nav-organisation"
-     class="ui-subnav-link shrink-0 {% if settings_section == 'organisation' %}ui-subnav-link--active{% endif %}"
-     href="{% url 'experiences:organisation' %}"
-     hx-boost="false"
-     {% if settings_section == 'organisation' %}aria-current="page"{% endif %}>{% translate "Organisation" %}</a>
-  <a id="settings-nav-team"
-     class="ui-subnav-link shrink-0 {% if settings_section == 'team' %}ui-subnav-link--active{% endif %}"
-     href="{% url 'organisations:team' %}"
-     {% if settings_section == 'team' %}aria-current="page"{% endif %}>{% translate "Team" %}</a>
+  {% if current_organisation %}
+    <a id="settings-nav-organisation"
+       class="ui-subnav-link shrink-0 {% if settings_section == 'organisation' %}ui-subnav-link--active{% endif %}"
+       href="{% url 'experiences:organisation' %}"
+       hx-boost="false"
+       {% if settings_section == 'organisation' %}aria-current="page"{% endif %}>{% translate "Organisation" %}</a>
+    <a id="settings-nav-team"
+       class="ui-subnav-link shrink-0 {% if settings_section == 'team' %}ui-subnav-link--active{% endif %}"
+       href="{% url 'organisations:team' %}"
+       {% if settings_section == 'team' %}aria-current="page"{% endif %}>{% translate "Team" %}</a>
+  {% endif %}
   <a id="settings-nav-profile"
      class="ui-subnav-link shrink-0 {% if settings_section == 'profile' %}ui-subnav-link--active{% endif %}"
      href="{% url 'users:profile' %}"

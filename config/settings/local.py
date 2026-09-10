@@ -10,8 +10,6 @@ from .base import env
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = True
 ABDM_ALLOW_DEMO_CREDENTIALS = True
-# No VPN and no provider key locally, so PIN lookups come from the stand-in.
-LGD_PROVIDER = "ohc_experience.organisations.lgd_local.lookup"
 EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
 SECRET_KEY = env(

@@ -199,7 +199,6 @@ These **legacy names** remain in configuration for compatibility:
 | `SANDBOX_GATEWAY_URL` | Fallback for `ABDM_GATEWAY_URL`. |
 | `ABDM_CREDENTIAL_PROVIDER` | Legacy setting with no current Python runtime consumer. Not required by the current provisioning chain. |
 | `SANDBOX_CREDENTIAL_PROVIDER` | Fallback for the unused `ABDM_CREDENTIAL_PROVIDER` setting. |
-| `LGD_PROVIDER` | Unused setting. The default `ohc_experience.organisations.lgd.api_lookup` and local override `ohc_experience.organisations.lgd_local.lookup` do not resolve to current implementations. Changing this variable does not change address lookup. Configure `LGD_API_URL` and `LGD_API_KEY` instead. |
 
 The current provisioning chain uses the three `INTEGRATION_*` adapters. Older documentation claiming that `ABDM_CREDENTIAL_PROVIDER` must be supplied is stale.
 

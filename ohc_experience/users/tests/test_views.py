@@ -14,6 +14,7 @@ from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import InvitationFactory
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.organisations.views import INVITATION_SESSION_KEY
+from ohc_experience.users.tests.factories import ReviewerFactory
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -94,6 +95,21 @@ class TestUserProfileView:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["settings_section"] == "profile"
+
+    def test_organisation_pages_are_offered_to_members_only(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        member = sign_in(owner_membership.user).get(reverse("users:profile"))
+        assert b'id="settings-nav-organisation"' in member.content
+        assert b'id="settings-nav-team"' in member.content
+
+        staff = sign_in(ReviewerFactory()).get(reverse("users:profile"))
+        assert staff.status_code == HTTPStatus.OK
+        assert b'id="settings-nav-organisation"' not in staff.content
+        assert b'id="settings-nav-team"' not in staff.content
+        assert b'id="settings-nav-profile"' in staff.content
 
     def test_saves_the_name(
         self,
