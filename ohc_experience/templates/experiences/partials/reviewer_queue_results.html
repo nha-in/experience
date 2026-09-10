@@ -28,8 +28,14 @@
         <tbody>
           {% for item in page %}
             <tr>
-              <td class="min-w-[180px]"><a class="font-semibold text-foreground no-underline hover:text-primary"
-   href="{{ item.get_absolute_url }}">{{ item.product.name|default:item.title }}</a><span class="mt-0.5 block font-mono text-xs text-soft-foreground">{% if item.product %}{{ item.product.workspace.reference }} · {% endif %}{{ item.reference }}</span></td>
+              <td class="min-w-[180px]">
+                <a class="font-semibold text-foreground hover:text-primary underline" href="{{ item.get_absolute_url }}">
+                  {{ item.product.name|default:item.title }}
+                </a>
+                <span class="mt-0.5 block font-mono text-xs text-soft-foreground">
+                  {% if item.product %}{{ item.product.workspace.reference }} · {% endif %}{{ item.reference }}
+                </span>
+              </td>
               <td class="max-w-[200px] text-muted-foreground">{{ item.organisation.display_name }}</td>
               <td class="min-w-[160px]">{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}</td>
               <td>{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}</td>

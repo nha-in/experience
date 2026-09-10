@@ -81,7 +81,7 @@
               </tr>
             </thead>
             <tbody>
-              {% for item in oldest %}<tr><td><a class="font-semibold text-foreground no-underline hover:text-primary"
+              {% for item in oldest %}<tr><td><a class="font-semibold text-foreground underline hover:text-primary"
    href="{{ item.get_absolute_url }}">{{ item.product.name|default:item.title }}</a><span class="block font-mono text-xs text-soft-foreground">{% if item.product %}{{ item.product.workspace.reference }}{% else %}{{ item.reference }}{% endif %}</span></td><td class="text-muted-foreground">{{ item.organisation.display_name }}</td><td>{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}</td><td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}</td><td>{% include 'experiences/partials/reviewer_age.html' %}</td><td>{% include 'experiences/partials/reviewer_assignee.html' %}</td></tr>{% endfor %}
             </tbody>
           </table>
