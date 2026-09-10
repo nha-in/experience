@@ -930,6 +930,63 @@ def _track_filter(code):
     return permissions.track_items(program, program.track_map()[code])
 
 
+def _requests(program):
+    """Review requests that belong to no track, keyed by their filter value."""
+    requests = {
+        kind.value: (kind.label, Q(kind=kind))
+        for kind in (ReviewItem.Kind.ORGANISATION, ReviewItem.Kind.PRODUCT)
+    }
+    certification = program.applications.certification
+    if certification:
+        requests["certification"] = (
+            certification.name,
+            Q(application__application_type=certification.key),
+        )
+    return requests
+
+
+def _request_choices(program, user):
+    """Requests offered in the Item filter, to reviewers who can see them."""
+    if not permissions.has_access(user, "review", program=program.key):
+        return []
+    return [(value, label) for value, (label, _query) in _requests(program).items()]
+
+
+def _item_filter(program, item):
+    """The queue's Item filter: one request, or one track's milestones."""
+    requests = _requests(program)
+    if item in requests:
+        return requests[item][1]
+    if item in program.track_map():
+        return _track_filter(item)
+    return None
+
+
+def _type_tabs(program, item):
+    """Review-type tabs that can still have results under the Item filter."""
+    requests = _requests(program)
+    if item in requests:
+        return {item: requests[item]}
+    applications = {
+        ReviewItem.Kind.APPLICATION.value: (
+            ReviewItem.Kind.APPLICATION.label,
+            Q(application__milestone__isnull=False),
+        ),
+    }
+    if item in program.track_map():
+        return applications
+    return {**requests, **applications}
+
+
+def _kind_filter(request, kind, type_tabs):
+    """The selected tab, falling back to All when it cannot match the Item filter."""
+    if kind == "mine":
+        return kind, Q(assignee=request.user)
+    if kind in type_tabs:
+        return kind, type_tabs[kind][1]
+    return "", Q()
+
+
 @login_required
 def assess_dashboard(request):
     _reviewer_required(request)
@@ -1046,6 +1103,17 @@ def assess_dashboard(request):
     return render(request, "experiences/assess_dashboard.html", context)
 
 
+QUEUE_ORDER = {
+    "newest": ("-submitted_at", "-pk"),
+    "oldest": ("submitted_at", "pk"),
+}
+
+
+def _queue_sort(request):
+    sort = request.GET.get("sort")
+    return sort if sort in QUEUE_ORDER else "newest"
+
+
 @login_required
 def queue(request):
     _reviewer_required(request)
@@ -1059,8 +1127,8 @@ def queue(request):
             "assignee",
         )
     )
-    kind, status, assignee, track_code, search = (
-        request.GET.get(key, "") for key in ("kind", "status", "assignee", "track", "q")
+    kind, status, assignee, item, search = (
+        request.GET.get(key, "") for key in ("kind", "status", "assignee", "item", "q")
     )
     scope = request.GET.get("scope", "all")
     scope_statuses = {
@@ -1084,14 +1152,16 @@ def queue(request):
         query = query.filter(assignee=None)
     elif assignee.isdigit():
         query = query.filter(assignee_id=assignee)
-    if track_code in get_program().track_map():
-        query = query.filter(_track_filter(track_code))
+    item_filter = _item_filter(get_program(), item)
+    if item_filter is not None:
+        query = query.filter(item_filter)
     if search:
         query = query.filter(
             Q(product__name__icontains=search)
             | Q(organisation__name__icontains=search)
             | Q(application__reference__icontains=search),
         )
+    type_tabs = _type_tabs(get_program(), item)
     queue_tabs = [
         {"value": "", "label": "All", "count": query.count()},
         {
@@ -1100,17 +1170,18 @@ def queue(request):
             "count": query.filter(assignee=request.user).count(),
         },
         *[
-            {"value": value, "label": label, "count": query.filter(kind=value).count()}
-            for value, label in ReviewItem.Kind.choices
+            {"value": value, "label": label, "count": query.filter(tab).count()}
+            for value, (label, tab) in type_tabs.items()
         ],
     ]
-    if kind == "mine":
-        query = query.filter(assignee=request.user)
-    elif kind in ReviewItem.Kind.values:
-        query = query.filter(kind=kind)
+    kind, kind_filter = _kind_filter(request, kind, type_tabs)
+    query = query.filter(kind_filter)
+    sort = _queue_sort(request)
+    query = query.order_by(*QUEUE_ORDER[sort])
     params = request.GET.copy()
     params.pop("page", None)
     params["scope"] = scope
+    params["kind"] = kind
     if not status:
         params.pop("status", None)
     return render(
@@ -1123,7 +1194,7 @@ def queue(request):
             page=Paginator(query, 20).get_page(request.GET.get("page")),
             queue_tabs=queue_tabs,
             queue_scope=scope,
-            kinds=ReviewItem.Kind.choices,
+            queue_sort=sort,
             statuses=statuses,
             reviewers=get_user_model().objects.filter(
                 Q(is_ohc_team=True) | Q(is_superuser=True),
@@ -1131,6 +1202,7 @@ def queue(request):
             ),
             filters=params,
             filter_query=params.urlencode(),
+            request_choices=_request_choices(get_program(), request.user),
             track_choices=permissions.allowed_tracks(request.user),
         ),
     )

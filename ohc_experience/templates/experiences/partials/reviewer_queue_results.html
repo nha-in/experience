@@ -1,7 +1,15 @@
 <div id="queue-results"
      class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.1s]">
   <div class="flex flex-wrap items-center justify-between gap-2 px-6 py-4">
-    <p class="text-sm font-semibold" aria-live="polite">{{ page.paginator.count }} request{{ page.paginator.count|pluralize }}{% if filter_query %} found{% endif %}</p><span class="text-xs text-soft-foreground">Oldest first</span>
+    <p class="text-sm font-semibold" aria-live="polite">{{ page.paginator.count }} request{{ page.paginator.count|pluralize }}{% if filter_query %} found{% endif %}</p><div class="flex items-center gap-2">
+      <label class="text-xs text-soft-foreground" for="queue-sort">Sort</label>
+      <div class="ui-select-wrapper">
+        <select class="ui-select ui-select--xs" id="queue-sort" name="sort" form="queue-filter-form">
+          <option value="newest" {% if queue_sort == 'newest' %}selected{% endif %}>Newest</option>
+          <option value="oldest" {% if queue_sort == 'oldest' %}selected{% endif %}>Oldest</option>
+        </select>
+      </div>
+    </div>
   </div>
   {% if page %}
     <div class="hidden overflow-x-auto md:block">
@@ -42,7 +50,7 @@
     <div class="border-t border-soft-border px-6 py-12 text-center">
       <span class="mx-auto mb-4 flex size-11 items-center justify-center rounded-full bg-primary-50 text-xl text-primary"
             aria-hidden="true">⌕</span>
-      {% if filters.q or filters.status or filters.track or filters.assignee %}
+      {% if filters.q or filters.status or filters.item or filters.assignee %}
         <h2 class="text-base font-semibold">No matching requests</h2>
         <p class="mt-2 text-sm text-muted-foreground">No reviews match these filters.</p>
         <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"

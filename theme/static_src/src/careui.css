@@ -288,6 +288,10 @@
     @apply h-10 md:h-8;
   }
 
+  .ui-select--xs {
+    @apply h-9 pr-7 pl-2 md:h-7 md:text-xs;
+  }
+
   .ui-checkbox {
     @apply size-4 shrink-0 rounded-sm border border-input text-primary accent-[var(--primary)];
     @apply focus-visible:ring-3 focus-visible:ring-ring/15 focus-visible:outline-none;

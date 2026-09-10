@@ -55,7 +55,7 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
     client.force_login(reviewer)
     response = client.get(
         reverse("experiences:queue"),
-        {"kind": "mine", "track": "Quality", "q": "Water pump", "status": "in_review"},
+        {"kind": "mine", "item": "Quality", "q": "Water pump", "status": "in_review"},
         HTTP_HX_REQUEST="true",
     )
     assert response.status_code == HTTPStatus.OK
@@ -201,7 +201,7 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
             "scope": scope,
             "status": incompatible_status,
             "kind": "mine",
-            "track": "Quality",
+            "item": "Quality",
             "q": "Water pump",
         },
         HTTP_HX_REQUEST="true",
@@ -212,7 +212,7 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
     assert "status=" not in response.context["filter_query"]
     assert set(dict(response.context["statuses"])) == expected_statuses
     assert response.context["filters"]["kind"] == "mine"
-    assert response.context["filters"]["track"] == "Quality"
+    assert response.context["filters"]["item"] == "Quality"
     assert response.context["filters"]["q"] == "Water pump"
     assert f'href="?kind=mine&amp;scope={scope}"'.encode() in response.content
 

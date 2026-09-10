@@ -1,5 +1,6 @@
 # ruff: noqa: PLR2004
 import socket
+from datetime import timedelta
 from io import BytesIO
 from unittest.mock import patch
 
@@ -12,6 +13,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.datastructures import MultiValueDict
 from PIL import Image
 
@@ -710,11 +712,65 @@ def test_track_filter_respects_which_track_applied_for_shared_m1(environment, cl
     workspace.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
-    assert item in client.get(url, {"track": "HIE-CM"}).context["page"]
-    assert item not in client.get(url, {"track": "PHR"}).context["page"]
+    assert item in client.get(url, {"item": "HIE-CM"}).context["page"]
+    assert item not in client.get(url, {"item": "PHR"}).context["page"]
     workspace.applied_milestones.append("PHR:phr1")
     workspace.save()
-    assert item in client.get(url, {"track": "PHR"}).context["page"]
+    assert item in client.get(url, {"item": "PHR"}).context["page"]
+
+
+def test_the_queue_lists_newest_first_unless_asked_for_oldest(environment, client):
+    older = submit(environment, "m1")
+    newer = submit(environment, "locker1")
+    ReviewItem.objects.filter(pk=older.pk).update(
+        submitted_at=timezone.now() - timedelta(days=2),
+    )
+    client.force_login(environment["reviewer"])
+
+    def listed(**params):
+        page = client.get(reverse("experiences:queue"), params).context["page"]
+        return [item for item in page if item in (older, newer)]
+
+    assert listed() == [newer, older]
+    assert listed(sort="oldest") == [older, newer]
+
+
+def test_the_item_filter_reaches_requests_outside_any_track(environment, client):
+    milestone_item = submit(environment)
+    client.force_login(environment["reviewer"])
+
+    def listed(item):
+        return client.get(reverse("experiences:queue"), {"item": item}).context["page"]
+
+    assert {entry.kind for entry in listed("organisation_verification")} == {
+        ReviewItem.Kind.ORGANISATION,
+    }
+    assert {entry.kind for entry in listed("product_registration")} == {
+        ReviewItem.Kind.PRODUCT,
+    }
+    assert milestone_item in listed("HIE-CM")
+    assert milestone_item not in listed("product_registration")
+
+
+def test_the_type_tabs_only_offer_what_the_item_filter_can_match(environment, client):
+    client.force_login(environment["reviewer"])
+
+    def tabs(**params):
+        response = client.get(reverse("experiences:queue"), params)
+        return [tab["label"] for tab in response.context["queue_tabs"]]
+
+    wasa = "WASA certification review"
+    requests = ["Organisation verification", "Product registration", wasa]
+    assert tabs() == ["All", "Mine", *requests, "Application request"]
+    assert tabs(item="product_registration") == ["All", "Mine", "Product registration"]
+    assert tabs(item="certification") == ["All", "Mine", wasa]
+    assert tabs(item="UHI") == ["All", "Mine", "Application request"]
+
+    stale = client.get(
+        reverse("experiences:queue"),
+        {"item": "UHI", "kind": "product_registration"},
+    )
+    assert stale.context["filters"]["kind"] == ""
 
 
 def test_removed_organisation_urls_cannot_bypass_review(environment, client):
