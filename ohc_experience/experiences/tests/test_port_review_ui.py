@@ -73,7 +73,8 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     client.force_login(reviewer)
     response = client.get(review_item.get_absolute_url())
     assert b"data-decision-form" in response.content
-    assert b"field=score#decision" in response.content
+    assert b"field=form#decision" in response.content
+    assert b"field=score#decision" not in response.content
     assert b'name="assignee"' not in response.content
 
     read_only = UserFactory(is_nha_team=True)
