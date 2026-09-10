@@ -162,7 +162,7 @@ jobs:
       matrix:
         service: [api, celery_worker, celery_beat]
     env:
-      IMAGE_REF: ${{ needs.build.outputs.image }}:sha-${{ github.sha }}
+      IMAGE_REF: ${{ needs.build.outputs.image }}:latest-${{ github.run_number }}
       ECS_CLUSTER: ohn-staging
       ECS_PREFIX: ohn-staging-experience
     steps:
