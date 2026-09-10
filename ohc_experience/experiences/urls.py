@@ -60,6 +60,7 @@ urlpatterns = [
     path("assess/dashboard/", views.assess_dashboard, name="assess-dashboard"),
     path("assess/queue/", views.queue, name="queue"),
     path("assess/review/<int:pk>/", views.review, name="review"),
+    path("portal/reviews/<int:pk>/open/", views.open_record, name="review-open"),
     path("portal/events/", views.events, name="events"),
     path("portal/events/manage/", event_views.event_manage, name="event-manage"),
     path("portal/events/new/", event_views.event_edit, name="event-create"),

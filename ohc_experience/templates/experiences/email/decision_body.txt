@@ -1,0 +1,15 @@
+{% load i18n %}{% blocktranslate with title=item.title %}{{ title }} has been reviewed and approved.{% endblocktranslate %}
+
+{% translate "Reference" %}: {{ item.reference }}
+{% translate "Organisation" %}: {{ item.organisation.display_name }}
+{% if item.product %}{% translate "Product" %}: {{ item.product.name }}{% if item.product.workspace.reference %} ({{ item.product.workspace.reference }}){% endif %}
+{% endif %}{% if applicant %}{% translate "Submitted by" %}: {{ applicant.name|default:applicant.email }}
+{% endif %}{% if item.decided_at %}{% translate "Decided on" %}: {{ item.decided_at|date:"j M Y, H:i" }} IST
+{% endif %}
+{% if note %}{% translate "Reviewer's note:" %}
+
+{{ note }}
+{% endif %}
+—
+{% blocktranslate with url=ticket_url %}Open the record in the portal: {{ url }}{% endblocktranslate %}
+{% translate "Please do not reply to this email." %}

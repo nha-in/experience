@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from uuid import uuid4
 
@@ -29,6 +30,8 @@ from .models import Notification
 from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
+from .notifications import notify_decision
+from .notifications import notify_review
 from .permissions import eligible_reviewer
 from .permissions import require_decider
 from .permissions import require_integrator
@@ -37,7 +40,28 @@ from .registry import get_program
 from .registry import registry
 from .services import issue_outcome
 
+logger = logging.getLogger(__name__)
+
 MAX_REVIEW_TEXT = 10000
+
+
+def _notice(item, event, *, note=""):
+    try:
+        notify_review(item, event, note=note)
+    except Exception:
+        # Email must never break a workflow transition.
+        logger.exception("Failed to email the %s notice for %s", event, item.reference)
+
+
+def _announce(item, action, note):
+    """Only an approval leaves the review thread; the rest keep its subject."""
+    if action != "approve":
+        _notice(item, "query_raised" if action == "query" else "sent_back", note=note)
+        return
+    try:
+        notify_decision(item, note)
+    except Exception:
+        logger.exception("Failed to email the approval for %s", item.reference)
 
 
 def _lock_review(pk):
@@ -178,11 +202,7 @@ def _request_review(item, *, resubmitting):
     item.decided_by = None
     item.decision_note = ""
     _set_application_status(item, "under_review")
-    notify_reviewers(
-        item,
-        f"{item.program.short_name}: {item.reference} received",
-        f"{item.title} is ready for review.",
-    )
+    _notice(item, "received")
 
 
 def _snapshot(item, form, actor, *, completed):
@@ -524,11 +544,7 @@ def withdraw(item, actor):
     _set_application_status(item, "draft")
     item.definition.on_withdraw(item, actor)
     audit(actor=actor, action="Request withdrawn", item=item)
-    notify_reviewers(
-        item,
-        f"{item.program.short_name}: {item.reference} withdrawn",
-        f"{item.title} was withdrawn by the integrator.",
-    )
+    _notice(item, "withdrawn")
 
 
 @transaction.atomic
@@ -587,11 +603,7 @@ def assign_review(item, actor, assignee):
         detail={"before": before, "after": getattr(assignee, "pk", None)},
     )
     if assignee:
-        notify_reviewers(
-            item,
-            f"{item.program.short_name}: {item.reference} assigned to you",
-            f"Review {item.title} in the review queue.",
-        )
+        _notice(item, "assigned")
 
 
 def _approve_subject(item, actor):
@@ -624,11 +636,7 @@ def _auto_approve(item, actor):
     item.decision_note = ""
     _set_application_status(item, "approved")
     _approve_subject(item, actor)
-    notify_reviewers(
-        item,
-        f"{item.program.short_name}: {item.reference} recorded",
-        f"{item.title} needs no decision and has been recorded.",
-    )
+    _notice(item, "recorded")
 
 
 @transaction.atomic
@@ -696,11 +704,7 @@ def decide(item, actor, *, action, note="", field_key="form"):
             detail={"note": note, "submission_id": item.selected_submission_id},
         )
     item.save()
-    notify_integrators(
-        item.organisation,
-        f"{item.program.short_name}: {item.reference} - {item.get_status_display()}",
-        f"{item.title}\n\n{note}\n\nReview the record in the portal.",
-    )
+    _announce(item, action, note)
     return item
 
 
@@ -739,11 +743,7 @@ def reply_query(query, actor, body):
         item=item,
         detail={"query_id": query.pk, "reply": body.strip()},
     )
-    notify_reviewers(
-        item,
-        f"{item.program.short_name}: {item.reference} query answered",
-        f"{item.title}\n\n{body.strip()}",
-    )
+    _notice(item, "query_answered", note=body.strip())
 
 
 @transaction.atomic

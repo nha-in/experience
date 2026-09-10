@@ -1,0 +1,1 @@
+{% load i18n %}{% blocktranslate with brand=item.program.short_name kind=kind reference=item.reference title=item.title %}[{{ brand }}] {{ kind }} · {{ title }} · {{ reference }}{% endblocktranslate %}

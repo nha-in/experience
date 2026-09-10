@@ -1,0 +1,15 @@
+{% load i18n %}{% if registered %}{% blocktranslate with org=item.organisation.display_name product=item.product.name %}{{ org }} has registered a new product, {{ product }}, on the portal. The registration form has been submitted in full and the product is now ready for review.{% endblocktranslate %}{% else %}{% blocktranslate with label=label %}Update: {{ label }}.{% endblocktranslate %}{% endif %}
+
+{% translate "Reference" %}: {{ item.reference }}
+{% translate "Organisation" %}: {{ item.organisation.display_name }}
+{% if item.product %}{% translate "Product" %}: {{ item.product.name }}{% if item.product.workspace.reference %} ({{ item.product.workspace.reference }}){% endif %}
+{% endif %}{% if registered %}{% translate "Product type" %}: {{ item.product.get_product_type_display }}
+{% if applicant %}{% translate "Registered by" %}: {{ applicant.name|default:applicant.email }}
+{% endif %}{% endif %}{% translate "Status" %}: {{ item.get_status_display }}
+{% if item.assignee %}{% translate "Reviewer" %}: {{ item.assignee.name|default:item.assignee.email }}
+{% endif %}
+{% if note %}{{ note }}
+{% endif %}
+—
+{% blocktranslate with url=url %}Open the record in the portal: {{ url }}{% endblocktranslate %}
+{% translate "Please do not reply to this email." %}

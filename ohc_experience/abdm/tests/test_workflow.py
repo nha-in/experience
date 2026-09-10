@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from django.core import mail
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import PermissionDenied
@@ -33,7 +34,6 @@ from ohc_experience.experiences import uploads
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.definitions import TrackDefinition
 from ohc_experience.experiences.models import AuditEvent
-from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.registry import get_program
@@ -345,7 +345,8 @@ def test_queries_pause_until_all_answered_and_resolved(environment):
     services.resolve_query(second, environment["reviewer"])
     services.decide(item, environment["reviewer"], action="approve")
     assert item.history.filter(action="Query answered").count() == 2
-    assert Notification.objects.filter(subject__contains="query answered").count() == 2
+    answered = [m for m in mail.outbox if "Query answered" in m.body]
+    assert len(answered) == 2
 
 
 def test_withdrawing_a_registration_change_restores_the_approved_product(
