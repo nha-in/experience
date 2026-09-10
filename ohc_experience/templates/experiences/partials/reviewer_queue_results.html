@@ -60,8 +60,8 @@
       {% if filters.q or filters.status or filters.item or filters.assignee %}
         <h2 class="text-base font-semibold">No matching requests</h2>
         <p class="mt-2 text-sm text-muted-foreground">No reviews match these filters.</p>
-        <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"
-           href="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}">Clear filters</a>
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11 cursor-pointer"
+           hx-get="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}">Clear filters</a>
       {% else %}
         <h2 class="text-base font-semibold">No requests in this view</h2>
         <p class="mt-2 text-sm text-muted-foreground">There are no requests in the selected review type and scope.</p>

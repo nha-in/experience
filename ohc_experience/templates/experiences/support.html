@@ -127,8 +127,8 @@
         {% if has_ticket_filters %}
           <div class="flex w-full flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground">
             <p role="status">Showing {{ tickets|length }} of {{ ticket_total }} ticket{{ ticket_total|pluralize }}</p>
-            <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
-               href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Clear filters</a>
+            <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline cursor-pointer"
+               hx-get="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Clear filters</a>
           </div>
         {% endif %}
       </form>
