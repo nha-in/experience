@@ -1317,6 +1317,16 @@ def review(request, pk):
 
 
 @login_required
+def open_record(request, pk):
+    """One link for an email: each reader lands on the page their role can open."""
+    item = _item(request, pk)
+    if permissions.reviewer(request.user):
+        return redirect("experiences:review", pk=item.pk)
+    workspace = getattr(item.product, "workspace", None) if item.product_id else None
+    return redirect(workspace or "experiences:organisation")
+
+
+@login_required
 @never_cache
 def attachment(request, pk):
     attachment = get_object_or_404(
