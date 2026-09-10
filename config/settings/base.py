@@ -322,9 +322,9 @@ GLOBAL_EMAIL_TEMPLATE_IDS = env.json("GLOBAL_EMAIL_TEMPLATE_IDS", default={})
 # SUPPORT TICKET EMAIL THREADING
 # ------------------------------------------------------------------------------
 SUPPORT_INBOX_EMAIL = env("SUPPORT_INBOX_EMAIL", default="support@ohc.network")
-SUPPORT_EMAIL_DOMAIN = env("SUPPORT_EMAIL_DOMAIN", default="experience.ohc.network")
+SUPPORT_EMAIL_DOMAIN = env("SUPPORT_EMAIL_DOMAIN", default="sandbox.aws.ohc.network")
 # Absolute base for links in emails (no request is available there).
-SITE_BASE_URL = env("SITE_BASE_URL", default="http://localhost:8000")
+SITE_BASE_URL = env("SITE_BASE_URL", default="http://localhost:8010")
 
 # ADMIN
 # ------------------------------------------------------------------------------
