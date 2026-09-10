@@ -385,6 +385,7 @@ def overview(request, reference):
     workspace = _workspace(request, reference)
     product = workspace.product
     visible_items = permissions.visible_reviews(request.user)
+    can_view_review_queue = permissions.has_area(request.user, "review")
     if (
         permissions.reviewer(request.user)
         and not visible_items.filter(product=product).exists()
@@ -444,6 +445,12 @@ def overview(request, reference):
             product=product,
             kind="product_registration",
         ).first(),
+        pending_review_count=visible_items.filter(
+            product=product,
+            status__in=["new", "in_review", "query_raised"],
+        ).count()
+        if can_view_review_queue
+        else 0,
         certification=certification,
     )
     context["progress"] = overview_progress(context["tracks"])
@@ -1124,9 +1131,20 @@ def queue(request):
             "assignee",
         )
     )
-    kind, status, assignee, item, search = (
-        request.GET.get(key, "") for key in ("kind", "status", "assignee", "item", "q")
+    product_choices = _workspaces(request.user).filter(
+        product__in=query.values("product_id"),
     )
+    kind, status, assignee, item, product_reference, search = (
+        request.GET.get(key, "")
+        for key in ("kind", "status", "assignee", "item", "product", "q")
+    )
+    if (
+        product_reference
+        and product_choices.filter(reference=product_reference).exists()
+    ):
+        query = query.filter(product__workspace__reference=product_reference)
+    else:
+        product_reference = ""
     scope = request.GET.get("scope", "all")
     scope_statuses = {
         "open": ["new", "in_review", "query_raised"],
@@ -1181,6 +1199,8 @@ def queue(request):
     params["kind"] = kind
     if not status:
         params.pop("status", None)
+    if not product_reference:
+        params.pop("product", None)
     return render(
         request,
         "experiences/queue.html",
@@ -1199,6 +1219,7 @@ def queue(request):
             ),
             filters=params,
             filter_query=params.urlencode(),
+            product_choices=product_choices,
             request_choices=_request_choices(get_program(), request.user),
             track_choices=permissions.allowed_tracks(request.user),
         ),

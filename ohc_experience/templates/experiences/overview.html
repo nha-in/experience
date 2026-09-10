@@ -56,6 +56,12 @@
           <span class="ui-kicker">Support</span><span class="flex items-baseline gap-2"><span class="ui-tile-figure">{{ nav_ticket_count }}</span><span class="ui-figure-unit">open ticket{{ nav_ticket_count|pluralize }}</span></span><span class="ui-tile-note">Follow your questions and replies from the support team.</span>
         </a>
       {% endif %}
+      {% if can_read_reviews %}
+        <a class="[animation-delay:.24s] ui-tile ui-rise"
+           href="{% url 'experiences:queue' %}?scope=open&amp;product={{ workspace.reference|urlencode }}">
+          <span class="ui-kicker">Pending review</span><span class="flex items-baseline gap-2"><span class="ui-tile-figure">{{ pending_review_count }}</span><span class="ui-figure-unit">open request{{ pending_review_count|pluralize }}</span></span><span class="ui-tile-note">Review this product's requests that still need a decision.</span>
+        </a>
+      {% endif %}
     </div>
     {% if registration.status == 'sent_back' %}
       {% include 'experiences/partials/review_status.html' with item=registration %}
