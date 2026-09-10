@@ -1,0 +1,99 @@
+{% extends 'experiences/base.html' %}
+
+{% block portal_hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        <p class="ui-hero-eyebrow">Organization</p>
+        <h1 class="ui-hero-title">{{ organization.display_name }}</h1>
+        <p class="ui-hero-lede">{{ organization_details.description|default:'Organization verification and review activity.' }}</p>
+      </div>
+      <div class="ui-rise [animation-delay:.05s]">
+        {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
+      </div>
+    </div>
+  </div>
+{% endblock portal_hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
+{% block portal_content %}
+  <div class="ui-float flex flex-col gap-6">
+    <section class="ui-card ui-card--layered ui-rise"
+             aria-labelledby="organization-details-title">
+      <div class="ui-card-header">
+        <h2 class="ui-card-title" id="organization-details-title">Verification and details</h2>
+      </div>
+      <div class="ui-card-content">
+        <dl class="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-[180px_minmax(0,1fr)]">
+          <dt class="text-soft-foreground">Legal entity</dt>
+          <dd class="break-words">
+            {{ organization.display_name }}
+          </dd>
+          <dt class="text-soft-foreground">Website</dt>
+          <dd class="break-all">
+            {% if organization.website %}
+              <a class="text-primary hover:underline"
+                 href="{{ organization.website }}"
+                 target="_blank"
+                 rel="noopener noreferrer">{{ organization.website }}</a>
+            {% else %}
+              —
+            {% endif %}
+          </dd>
+          <dt class="text-soft-foreground">Address</dt>
+          <dd class="break-words">{{ organization_details.registered_address|default:organization.city|default:'—' }}{% if organization_details.district %}, {{ organization_details.district }}{% endif %}{% if organization_details.state %}, {{ organization_details.state }}{% elif organization.state %}, {{ organization.state }}{% endif %}</dd>
+          <dt class="text-soft-foreground">Verification document</dt>
+          <dd class="break-words">
+            {% if organization_details.verification_document_number %}
+              {{ organization_details.verification_document_type }} · <span class="font-mono">{{ organization_details.verification_document_number }}</span>
+            {% else %}
+              —
+            {% endif %}
+          </dd>
+          <dt class="text-soft-foreground">Verification status</dt>
+          <dd>
+            {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
+            {% if organization.verified_at %}
+              <span class="ml-2 text-xs text-soft-foreground">Verified {{ organization.verified_at|date:'j M Y' }}</span>
+            {% endif %}
+          </dd>
+        </dl>
+      </div>
+    </section>
+    <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.08s]"
+             aria-labelledby="organization-products-title">
+      <div class="ui-card-header px-6 pt-5 pb-4">
+        <h2 class="ui-card-title" id="organization-products-title">Products</h2>
+        <p class="ui-card-description">Products represented in review requests you can access.</p>
+      </div>
+      <div class="divide-y divide-soft-border border-t border-soft-border">
+        {% for workspace in products %}
+          <a class="group flex flex-wrap items-center gap-4 px-6 py-4 text-foreground no-underline transition-colors hover:bg-primary/[0.035]"
+             href="{{ workspace.get_absolute_url }}">
+            <div class="min-w-0 flex-1">
+              <h3 class="text-sm font-semibold group-hover:text-primary">{{ workspace.product.name }}</h3>
+              <p class="mt-1 text-xs text-soft-foreground"><span class="font-mono">{{ workspace.reference }}</span> · {{ workspace.product.get_product_type_display }}</p>
+            </div>
+            {% include 'experiences/partials/status.html' with status=workspace.registration_status label=workspace.get_registration_status_display %}
+            <span class="text-primary" aria-hidden="true">→</span>
+          </a>
+        {% empty %}
+          <p class="px-6 py-6 text-sm text-muted-foreground">No products are visible with your review permissions.</p>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.14s]"
+             aria-labelledby="organization-reviews-title">
+      <div class="ui-card-header px-6 pt-5 pb-4">
+        <h2 class="ui-card-title" id="organization-reviews-title">Review requests</h2>
+        <p class="ui-card-description">Organization, product, and application reviews within your permission scope.</p>
+      </div>
+      <ul class="divide-y divide-soft-border border-t border-soft-border">
+        {% for item in review_requests %}
+          {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
+        {% empty %}
+          <li class="px-6 py-6 text-sm text-muted-foreground">No review requests are visible.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+{% endblock portal_content %}

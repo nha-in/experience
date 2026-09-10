@@ -255,6 +255,95 @@ def products(request):
     )
 
 
+def _require_reviewer_area(user):
+    if not permissions.reviewer(user):
+        msg = "Only authorized reviewers can access organizations."
+        raise PermissionDenied(msg)
+    permissions.require_area(user, "review")
+
+
+@login_required
+def organizations(request):
+    _require_reviewer_area(request.user)
+    visible_reviews = permissions.visible_reviews(request.user)
+    rows = (
+        permissions.visible_organisations(request.user)
+        .annotate(
+            visible_product_count=Count(
+                "products",
+                filter=Q(products__in=permissions.visible_products(request.user)),
+                distinct=True,
+            ),
+            visible_review_count=Count(
+                "review_items",
+                filter=Q(review_items__in=visible_reviews),
+                distinct=True,
+            ),
+        )
+        .order_by("name")
+    )
+    return render(
+        request,
+        "experiences/organizations.html",
+        _context(
+            request,
+            page_title="Organizations",
+            nav="organizations",
+            organizations=rows,
+        ),
+    )
+
+
+@login_required
+def organization_detail(request, slug):
+    _require_reviewer_area(request.user)
+    organization = get_object_or_404(
+        permissions.visible_organisations(request.user),
+        slug=slug,
+    )
+    visible_reviews = (
+        permissions.visible_reviews(request.user)
+        .filter(organisation=organization)
+        .select_related(
+            "assignee",
+            "application",
+            "product__workspace",
+            "selected_submission",
+        )
+        .order_by("-submitted_at", "-pk")
+    )
+    products = (
+        _workspaces(request.user)
+        .filter(product__organisation=organization)
+        .select_related("product")
+    )
+    verification = next(
+        (
+            item
+            for item in visible_reviews
+            if item.kind == ReviewItem.Kind.ORGANISATION
+        ),
+        None,
+    )
+    return render(
+        request,
+        "experiences/organization_detail.html",
+        _context(
+            request,
+            page_title=organization.display_name,
+            nav="organizations",
+            organization=organization,
+            organization_details=(
+                verification.selected_submission.data
+                if verification and verification.selected_submission
+                else {}
+            ),
+            products=products,
+            review_requests=visible_reviews,
+        ),
+    )
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def organisation(request):

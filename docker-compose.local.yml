@@ -120,6 +120,7 @@ services:
     <<: *django
     image: ohc_experience_local_tailwind
     container_name: ohc_experience_local_tailwind
+    stdin_open: true
     ports: []
     command: /tailwind.sh
 

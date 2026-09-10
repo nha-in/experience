@@ -4,12 +4,14 @@ from django.db.models import Q
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 from ohc_experience.users.permissions import is_nha_team
 
 from .models import AccessGrant
 from .models import AuditEvent
 from .models import FormSubmission
+from .models import Product
 from .models import ReviewItem
 from .registry import get_program
 from .registry import registry
@@ -139,6 +141,26 @@ def visible_reviews(user, action="read"):
         if grant.program in programs:
             scope |= review_scope(programs[grant.program], grant.category)
     return query.filter(scope)
+
+
+def visible_products(user, action="read"):
+    """Products represented by at least one review the reviewer may access."""
+    query = Product.objects.all()
+    if not reviewer(user):
+        return query.none()
+    return query.filter(
+        pk__in=visible_reviews(user, action).values("product_id"),
+    )
+
+
+def visible_organisations(user, action="read"):
+    """Organisations represented by the reviewer's permission-scoped requests."""
+    query = Organisation.objects.all()
+    if not reviewer(user):
+        return query.none()
+    return query.filter(
+        pk__in=visible_reviews(user, action).values("organisation_id"),
+    )
 
 
 def visible_submissions(user):
