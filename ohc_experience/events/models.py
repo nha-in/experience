@@ -39,7 +39,7 @@ class EventQuerySet(models.QuerySet["Event"]):
 class Event(models.Model):
     """A partner event — office hours, an upgrade webinar, a certification AMA.
 
-    Authored by the OHC team and visible to every vendor once published, so
+    Authored by the NHA team and visible to every vendor once published, so
     there is no per-organisation scoping here on purpose.
     """
 
@@ -83,7 +83,7 @@ class Event(models.Model):
         blank=True,
         related_name="events_created",
         verbose_name=_("Created by"),
-        limit_choices_to={"is_ohc_team": True},
+        limit_choices_to={"is_nha_team": True},
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

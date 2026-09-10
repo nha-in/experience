@@ -79,8 +79,8 @@ def environment(settings, tmp_path, lgd_lookup):
     settings.MEDIA_ROOT = tmp_path
     cache.clear()
     applicant = UserFactory()
-    admin = UserFactory(is_superuser=True, is_staff=True, is_ohc_team=True)
-    reviewer = ReviewerFactory(is_ohc_team=True, is_staff=True)
+    admin = UserFactory(is_superuser=True, is_staff=True, is_nha_team=True)
+    reviewer = ReviewerFactory(is_nha_team=True, is_staff=True)
     outsider = UserFactory()
     org = Organisation.objects.create(name="Test health systems")
     Membership.objects.create(organisation=org, user=applicant, role="owner")

@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from .permissions import is_ohc_team
+from .permissions import is_nha_team
 
 
 def allauth_settings(request):
@@ -10,10 +10,10 @@ def allauth_settings(request):
     }
 
 
-def ohc_team(request):
-    """Whether the signed-in user works for OHC.
+def nha_team(request):
+    """Whether the signed-in user works for NHA.
 
     The app shell reads this to offer the console link, so it has to be
     available on every page rather than passed view by view.
     """
-    return {"is_ohc_team": is_ohc_team(getattr(request, "user", None))}
+    return {"is_nha_team": is_nha_team(getattr(request, "user", None))}

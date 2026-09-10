@@ -274,7 +274,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "ohc_experience.users.context_processors.allauth_settings",
-                "ohc_experience.users.context_processors.ohc_team",
+                "ohc_experience.users.context_processors.nha_team",
                 "ohc_experience.organisations.context_processors.current_organisation",
                 "ohc_experience.experiences.context_processors.experience_program",
             ],

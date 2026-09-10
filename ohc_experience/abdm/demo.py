@@ -328,13 +328,13 @@ class DemoBuilder:
             ticket,
             applicant,
             "Should our M2 callback acknowledge receipt before processing the encrypted payload?",
-            from_ohc_team=False,
+            from_nha_team=False,
         )
         post_reply(
             ticket,
             reviewer,
             "Please share the synthetic callback trace and correlate it with your test case reference. Do not include real patient data.",
-            from_ohc_team=True,
+            from_nha_team=True,
         )
         self.stdout.write(self.style.SUCCESS("Fresh ABDM sandbox demo ready."))
         self.stdout.write(
@@ -382,7 +382,7 @@ class DemoBuilder:
     def user(self, email, name, password, *, reviewer=False, admin=False):
         user, _ = get_user_model().objects.get_or_create(email=email)
         user.name, user.is_active = name, True
-        user.is_staff, user.is_superuser, user.is_ohc_team = (
+        user.is_staff, user.is_superuser, user.is_nha_team = (
             reviewer or admin,
             admin,
             reviewer or admin,

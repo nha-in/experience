@@ -18,7 +18,7 @@
 {% endblock message %}
 {% block actions %}
   {% if request.user.is_authenticated %}
-    {% if is_ohc_team %}
+    {% if is_nha_team %}
       <a class="ui-btn ui-btn--default ui-btn--size-default"
          href="{% url 'experiences:assess-dashboard' %}">{% translate "Go to the NHA review dashboard" %}</a>
     {% else %}

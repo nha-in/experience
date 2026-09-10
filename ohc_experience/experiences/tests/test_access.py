@@ -42,7 +42,7 @@ def grant(user, area="review", category="UHI", *, write=False, approve=False):
 
 @pytest.fixture
 def staff():
-    return UserFactory(is_ohc_team=True, is_staff=True)
+    return UserFactory(is_nha_team=True, is_staff=True)
 
 
 def test_staff_identity_and_model_permissions_grant_no_portal_access(
@@ -220,7 +220,7 @@ def tickets(environment):
             ticket,
             environment["applicant"],
             "Help",
-            from_ohc_team=False,
+            from_nha_team=False,
         )
         TicketAttachment.objects.create(
             message=message,

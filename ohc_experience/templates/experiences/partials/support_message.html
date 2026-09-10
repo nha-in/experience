@@ -5,13 +5,13 @@
     <time class="text-[10.5px]" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }} IST</time>
   </li>
 {% else %}
-  <li class="ui-card ui-card--sm {% if message.from_ohc_team %}border-l-[3px] border-l-primary{% endif %}">
+  <li class="ui-card ui-card--sm {% if message.from_nha_team %}border-l-[3px] border-l-primary{% endif %}">
     <div class="ui-card-content">
       <div class="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span class="ui-avatar size-[22px] text-[9px] {% if message.from_ohc_team %}bg-primary text-primary-foreground{% else %}bg-strong-background text-soft-foreground{% endif %}"
+        <span class="ui-avatar size-[22px] text-[9px] {% if message.from_nha_team %}bg-primary text-primary-foreground{% else %}bg-strong-background text-soft-foreground{% endif %}"
               aria-hidden="true">{{ message.author.display_name|first|upper|default:"S" }}</span>
-        <span class="text-[11.5px] font-semibold">{% if message.from_ohc_team %}{{ experience_program.reviewer_name }}{% else %}{{ message.author.display_name|default:"System" }}{% endif %}</span>
-        <span class="text-[10.5px] text-soft-foreground">{% if message.from_ohc_team %}{{ message.author.display_name }} ·{% else %}{{ ticket.organisation.display_name }} ·{% endif %}{% if message.author_id == request.user.pk %} you ·{% endif %} <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }} IST</time></span>
+        <span class="text-[11.5px] font-semibold">{% if message.from_nha_team %}{{ experience_program.reviewer_name }}{% else %}{{ message.author.display_name|default:"System" }}{% endif %}</span>
+        <span class="text-[10.5px] text-soft-foreground">{% if message.from_nha_team %}{{ message.author.display_name }} ·{% else %}{{ ticket.organisation.display_name }} ·{% endif %}{% if message.author_id == request.user.pk %} you ·{% endif %} <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }} IST</time></span>
       </div>
       <div class="text-xs leading-[1.6] break-words [&>p+p]:mt-2.5">{{ message.body|linebreaks }}</div>
       {% for file in message.attachments.all %}

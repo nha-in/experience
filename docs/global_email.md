@@ -79,6 +79,7 @@ keys are message purposes and whose values are approved template ID strings:
 | Key | Email |
 | --- | --- |
 | `notification` | General workflow, review, support and event notifications |
+| `support_ticket` | Support ticket thread entries sent to the support inbox |
 | `organisation_invitation` | Organisation membership invitation |
 | `account/email/email_confirmation_signup` | Account signup verification |
 | `account/email/email_confirmation` | Existing-account email verification |

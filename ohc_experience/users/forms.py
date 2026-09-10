@@ -41,10 +41,10 @@ class UserAdminCreationForm(admin_forms.AdminUserCreationForm):
         }
 
 
-class OhcTeamCreationForm(admin_forms.AdminUserCreationForm):
-    """Create an OHC team account from the admin.
+class NhaTeamCreationForm(admin_forms.AdminUserCreationForm):
+    """Create an NHA team account from the admin.
 
-    Same as the normal add form except the OHC flag is set for you — the whole
+    Same as the normal add form except the NHA flag is set for you — the whole
     point of the screen — and the account is given staff access so the person
     can reach the admin they were just created in.
     """
@@ -59,7 +59,7 @@ class OhcTeamCreationForm(admin_forms.AdminUserCreationForm):
 
     def save(self, commit=True) -> User:  # noqa: FBT002
         user = super().save(commit=False)
-        user.is_ohc_team = True
+        user.is_nha_team = True
         user.is_staff = True
         if commit:
             user.save()

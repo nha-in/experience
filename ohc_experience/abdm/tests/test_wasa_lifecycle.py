@@ -662,8 +662,8 @@ def test_renewal_review_permission_is_general_and_keeps_track_boundaries(
 ):
     first = decide(environment, request_milestone(environment))
     renewal = request_renewal(environment)
-    general_reviewer = UserFactory(is_staff=True, is_ohc_team=True)
-    track_reviewer = UserFactory(is_staff=True, is_ohc_team=True)
+    general_reviewer = UserFactory(is_staff=True, is_nha_team=True)
+    track_reviewer = UserFactory(is_staff=True, is_nha_team=True)
     for reviewer, category in [(general_reviewer, ""), (track_reviewer, "HIE-CM")]:
         AccessGrant.objects.create(
             user=reviewer,

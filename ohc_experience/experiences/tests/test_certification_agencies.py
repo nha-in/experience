@@ -107,7 +107,7 @@ def test_superuser_can_add_edit_and_deactivate_agencies(admin_client):
 
 
 def test_staff_cannot_manage_agencies_even_with_model_permissions(client):
-    staff = UserFactory(is_staff=True, is_ohc_team=True)
+    staff = UserFactory(is_staff=True, is_nha_team=True)
     staff.user_permissions.add(
         *Permission.objects.filter(content_type__model="certificationagency"),
     )

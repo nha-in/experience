@@ -8,7 +8,7 @@
 
 {{ message.body }}
 {% elif message.is_event %}{% blocktranslate with author=message.author_label status=message.body %}{{ author }} changed the status to: {{ status }}{% endblocktranslate %}
-{% else %}{% if message.from_ohc_team %}{% blocktranslate with author=message.author_label %}{{ author }} (OHC team) replied:{% endblocktranslate %}{% else %}{% blocktranslate with author=message.author_label organisation=ticket.organisation.name %}{{ author }} ({{ organisation }}) replied:{% endblocktranslate %}{% endif %}
+{% else %}{% if message.from_nha_team %}{% blocktranslate with author=message.author_label %}{{ author }} (NHA team) replied:{% endblocktranslate %}{% else %}{% blocktranslate with author=message.author_label organisation=ticket.organisation.name %}{{ author }} ({{ organisation }}) replied:{% endblocktranslate %}{% endif %}
 
 {{ message.body }}
 {% endif %}

@@ -14,7 +14,7 @@ from django.utils.translation import ngettext
 from ohc_experience.experiences.admin_access import AccessGrantInline
 from ohc_experience.experiences.admin_access import SuperuserAdminMixin
 
-from .forms import OhcTeamCreationForm
+from .forms import NhaTeamCreationForm
 from .forms import UserAdminChangeForm
 from .forms import UserAdminCreationForm
 
@@ -27,7 +27,7 @@ if settings.DJANGO_ADMIN_FORCE_ALLAUTH:
 User = get_user_model()
 
 
-class OhcTeamFilter(admin.SimpleListFilter):
+class NhaTeamFilter(admin.SimpleListFilter):
     """Split the user list into the two populations that are managed differently."""
 
     title = _("account type")
@@ -35,15 +35,15 @@ class OhcTeamFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         return [
-            ("ohc", _("OHC team")),
+            ("nha", _("NHA team")),
             ("vendor", _("Vendor users")),
         ]
 
     def queryset(self, request, queryset):
-        if self.value() == "ohc":
-            return queryset.filter(is_ohc_team=True)
+        if self.value() == "nha":
+            return queryset.filter(is_nha_team=True)
         if self.value() == "vendor":
-            return queryset.filter(is_ohc_team=False)
+            return queryset.filter(is_nha_team=False)
         return queryset
 
 
@@ -60,9 +60,9 @@ class UserAdmin(SuperuserAdminMixin, auth_admin.UserAdmin):
         (None, {"fields": ("email", "password")}),
         (_("Personal info"), {"fields": ("name", "phone_number")}),
         (
-            _("OHC team"),
+            _("NHA team"),
             {
-                "fields": ("is_ohc_team",),
+                "fields": ("is_nha_team",),
                 "description": _(
                     "Identifies a staff account. Assign review, support, and event "
                     "access separately under Portal permissions below. Staff status "
@@ -92,16 +92,16 @@ class UserAdmin(SuperuserAdminMixin, auth_admin.UserAdmin):
         "is_active",
         "is_staff",
     ]
-    list_filter = [OhcTeamFilter, "is_active", "is_staff", "is_superuser"]
+    list_filter = [NhaTeamFilter, "is_active", "is_staff", "is_superuser"]
     search_fields = ["name", "email"]
     ordering = ["email"]
-    actions = ["grant_ohc_team", "revoke_ohc_team"]
+    actions = ["grant_nha_team", "revoke_nha_team"]
     add_fieldsets = (
         (
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "name", "password1", "password2", "is_ohc_team"),
+                "fields": ("email", "name", "password1", "password2", "is_nha_team"),
             },
         ),
     )
@@ -111,9 +111,9 @@ class UserAdmin(SuperuserAdminMixin, auth_admin.UserAdmin):
             super().get_queryset(request).prefetch_related("memberships__organisation")
         )
 
-    @admin.display(description=_("Account type"), ordering="is_ohc_team")
+    @admin.display(description=_("Account type"), ordering="is_nha_team")
     def account_type(self, obj) -> str:
-        return _("OHC team") if obj.is_ohc_team else _("Vendor")
+        return _("NHA team") if obj.is_nha_team else _("Vendor")
 
     @admin.display(description=_("Organisations"))
     def organisation_names(self, obj) -> str:
@@ -121,24 +121,24 @@ class UserAdmin(SuperuserAdminMixin, auth_admin.UserAdmin):
         return ", ".join(names) if names else "—"
 
     def get_urls(self):
-        """Add a dedicated "add OHC team member" screen next to the normal one."""
+        """Add a dedicated "add NHA team member" screen next to the normal one."""
         extra = [
             path(
-                "add-ohc-member/",
-                self.admin_site.admin_view(self.add_ohc_member_view),
-                name="users_user_add_ohc_member",
+                "add-nha-member/",
+                self.admin_site.admin_view(self.add_nha_member_view),
+                name="users_user_add_nha_member",
             ),
         ]
         return extra + super().get_urls()
 
-    def add_ohc_member_view(self, request):
-        """A cut-down add form that always produces an OHC team account."""
+    def add_nha_member_view(self, request):
+        """A cut-down add form that always produces an NHA team account."""
         if not request.user.is_superuser:
-            messages.error(request, _("Only superusers can add OHC team members."))
+            messages.error(request, _("Only superusers can add NHA team members."))
             return redirect(reverse("admin:users_user_changelist"))
 
         if request.method == "POST":
-            form = OhcTeamCreationForm(request.POST)
+            form = NhaTeamCreationForm(request.POST)
             if form.is_valid():
                 user = form.save()
                 messages.success(
@@ -152,38 +152,38 @@ class UserAdmin(SuperuserAdminMixin, auth_admin.UserAdmin):
                     reverse("admin:users_user_change", args=[user.pk]),
                 )
         else:
-            form = OhcTeamCreationForm()
+            form = NhaTeamCreationForm()
 
         context = {
             **self.admin_site.each_context(request),
-            "title": _("Add OHC team member"),
+            "title": _("Add NHA team member"),
             "form": form,
             "opts": self.model._meta,  # noqa: SLF001
         }
-        return render(request, "admin/users/add_ohc_member.html", context)
+        return render(request, "admin/users/add_nha_member.html", context)
 
-    @admin.action(description=_("Grant OHC team access"))
-    def grant_ohc_team(self, request, queryset):
-        updated = queryset.update(is_ohc_team=True)
+    @admin.action(description=_("Grant NHA team access"))
+    def grant_nha_team(self, request, queryset):
+        updated = queryset.update(is_nha_team=True)
         self.message_user(
             request,
             ngettext(
-                "%(count)d account now has OHC team access.",
-                "%(count)d accounts now have OHC team access.",
+                "%(count)d account now has NHA team access.",
+                "%(count)d accounts now have NHA team access.",
                 updated,
             )
             % {"count": updated},
             messages.SUCCESS,
         )
 
-    @admin.action(description=_("Revoke OHC team access"))
-    def revoke_ohc_team(self, request, queryset):
-        updated = queryset.update(is_ohc_team=False)
+    @admin.action(description=_("Revoke NHA team access"))
+    def revoke_nha_team(self, request, queryset):
+        updated = queryset.update(is_nha_team=False)
         self.message_user(
             request,
             ngettext(
-                "%(count)d account no longer has OHC team access.",
-                "%(count)d accounts no longer have OHC team access.",
+                "%(count)d account no longer has NHA team access.",
+                "%(count)d accounts no longer have NHA team access.",
                 updated,
             )
             % {"count": updated},

@@ -132,7 +132,7 @@ class TestOhcStaffLanding:
 
     @pytest.fixture
     def ohc_user(self, db):
-        return UserFactory.create(is_ohc_team=True)
+        return UserFactory.create(is_nha_team=True)
 
     def test_post_login_goes_to_the_console(self, client, ohc_user):
         client.force_login(ohc_user)

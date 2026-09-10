@@ -225,7 +225,7 @@ class ReviewItemAdmin(ReadOnlyAdmin):
             from django.db.models import Q  # noqa: PLC0415
 
             kwargs["queryset"] = get_user_model().objects.filter(
-                Q(is_ohc_team=True) | Q(is_superuser=True),
+                Q(is_nha_team=True) | Q(is_superuser=True),
                 is_active=True,
             )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)

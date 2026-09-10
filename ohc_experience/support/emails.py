@@ -6,11 +6,16 @@ from django.conf import settings
 from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 
+from ohc_experience.core.mail import GLOBAL_EMAIL_BACKEND
+from ohc_experience.core.mail import apply_gateway_template
+from ohc_experience.core.mail import get_delivery_backend
 from ohc_experience.experiences.registry import get_program
 
 if TYPE_CHECKING:
     from .models import Ticket
     from .models import TicketMessage
+
+TEMPLATE_KEY = "support_ticket"
 
 
 def _domain() -> str:
@@ -70,11 +75,16 @@ def notify_support(ticket: Ticket, message: TicketMessage) -> None:
 
     # This is the only mail a ticket sends: support is the recipient and everyone
     # on the thread is copied, rather than each being mailed separately.
-    cc = _participants(ticket)
-    EmailMessage(
+    email = EmailMessage(
         subject=subject,
         body=body,
         to=[_inbox()],
-        cc=cc or None,
-        headers=headers,
-    ).send(fail_silently=False)
+        cc=_participants(ticket) or None,
+    )
+    if get_delivery_backend() == GLOBAL_EMAIL_BACKEND:
+        # The gateway documents no header field and rejects any that are set, so
+        # the thread is grouped by subject there rather than by Message-ID.
+        apply_gateway_template(email, TEMPLATE_KEY)
+    else:
+        email.extra_headers = headers
+    email.send(fail_silently=False)
