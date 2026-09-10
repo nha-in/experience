@@ -19,7 +19,7 @@
       <p class="mt-2">{{ item.decision_note|linebreaksbr }}</p>
     </div>
   </div>
-{% elif item.pending %}
+{% elif item.pending and not reviewer %}
   <div class="ui-alert {% if item.status == 'query_raised' %}ui-alert--warning{% else %}ui-alert--info{% endif %} mb-5"
        role="status">
     <div class="flex-1">
