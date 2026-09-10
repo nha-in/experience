@@ -522,6 +522,7 @@ def withdraw(item, actor):
     item.status = ReviewItem.Status.DRAFT
     item.save(update_fields=["status"])
     _set_application_status(item, "draft")
+    item.definition.on_withdraw(item, actor)
     audit(actor=actor, action="Request withdrawn", item=item)
     notify_reviewers(
         item,

@@ -65,6 +65,10 @@ class ApplicationFormDefinition:
     def on_send_back(cls, item, actor):
         """Update implementation-specific state after a review is sent back."""
 
+    @classmethod
+    def on_withdraw(cls, item, actor):
+        """Undo implementation-specific state after a request is withdrawn."""
+
 
 class ApplicationDefinition:
     """The application types supported by the current portal."""

@@ -41,8 +41,7 @@
                   enctype="multipart/form-data"
                   hx-encoding="multipart/form-data"
                   data-review-form
-                  novalidate
-                  {% if submission_blocked %}data-review-blocked="true"{% endif %}>
+                  novalidate>
               {% csrf_token %}
               <input type="hidden"
                      name="revision"
@@ -60,7 +59,7 @@
                   <p class="mt-1.5 text-xs font-medium text-amber-800"
                      id="wasa-submit-reason"
                      data-submit-reason
-                     aria-live="polite"></p>
+                     aria-live="polite">{% if submission_blocked %}Required approvals are pending.{% endif %}</p>
                   <button type="button"
                           class="mt-1 min-h-11 text-sm font-semibold text-primary underline underline-offset-4"
                           data-submit-missing
@@ -72,12 +71,14 @@
                           name="intent"
                           value="draft"
                           formnovalidate>Save draft</button>
-                  <button class="ui-btn ui-btn--default ui-btn--size-sm"
-                          type="submit"
-                          name="intent"
-                          value="submit"
-                          aria-describedby="wasa-submit-reason"
-                          data-request-submit>Submit WASA for review</button>
+                  {% if not submission_blocked %}
+                    <button class="ui-btn ui-btn--default ui-btn--size-sm"
+                            type="submit"
+                            name="intent"
+                            value="submit"
+                            aria-describedby="wasa-submit-reason"
+                            data-request-submit>Submit WASA for review</button>
+                  {% endif %}
                 </div>
               </div>
             </form>

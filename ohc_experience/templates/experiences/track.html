@@ -136,8 +136,7 @@
                     novalidate
                     data-review-form
                     {% if item.definition.auto_approve %}data-auto-approve="true"{% endif %}
-                    {% if item.definition.auto_approve and item.status == 'approved' %}data-approved-updates="true"{% endif %}
-                    {% if submission_blocked %}data-review-blocked="true"{% endif %}>
+                    {% if item.definition.auto_approve and item.status == 'approved' %}data-approved-updates="true"{% endif %}>
                 {% csrf_token %}
                 <input type="hidden"
                        name="revision"
@@ -154,7 +153,7 @@
                     <p class="mt-1.5 text-xs font-medium text-amber-800"
                        id="evidence-submit-reason"
                        data-submit-reason
-                       aria-live="polite"></p>
+                       aria-live="polite">{% if submission_blocked %}Required approvals are pending.{% endif %}</p>
                     <button type="button"
                             class="mt-1 min-h-11 text-sm font-semibold text-primary underline underline-offset-4"
                             data-submit-missing
@@ -168,12 +167,14 @@
                               value="draft"
                               formnovalidate>Save draft</button>
                     {% endif %}
-                    <button class="ui-btn ui-btn--default ui-btn--size-sm"
-                            type="submit"
-                            name="intent"
-                            value="submit"
-                            aria-describedby="evidence-submit-reason"
-                            data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% else %}{{ item.definition.submit_label }}{% endif %}</button>
+                    {% if not submission_blocked %}
+                      <button class="ui-btn ui-btn--default ui-btn--size-sm"
+                              type="submit"
+                              name="intent"
+                              value="submit"
+                              aria-describedby="evidence-submit-reason"
+                              data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% else %}{{ item.definition.submit_label }}{% endif %}</button>
+                    {% endif %}
                   </div>
                 </div>
               </form>

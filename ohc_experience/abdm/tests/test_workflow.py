@@ -2,6 +2,7 @@
 import socket
 from datetime import timedelta
 from io import BytesIO
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -19,6 +20,7 @@ from PIL import Image
 
 from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
+from ohc_experience.abdm.definitions import pending_approvals
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
@@ -345,6 +347,111 @@ def test_queries_pause_until_all_answered_and_resolved(environment):
     services.decide(item, environment["reviewer"], action="approve")
     assert item.history.filter(action="Query answered").count() == 2
     assert Notification.objects.filter(subject__contains="query answered").count() == 2
+
+
+def test_withdrawing_a_registration_change_restores_the_approved_product(
+    environment,
+):
+    """Adding NHCX blocks exit requests while it is reviewed, not after a withdraw."""
+    workspace = environment["workspace"]
+    approved = list(workspace.applied_milestones)
+    registration = workspace.product.review_items.get(kind="product_registration")
+    item, form, saved = services.save_review_form(
+        registration,
+        environment["applicant"],
+        data={**product_data(), "applied_milestones": [*approved, "NHCX:nhcx1"]},
+        submit=True,
+    )
+    assert saved, form.errors
+    exit_request = milestone(environment, "m1")
+    assert exit_request.definition.submission_block_reason(exit_request)
+
+    services.withdraw(item, environment["applicant"])
+
+    workspace.refresh_from_db()
+    assert workspace.registration_status == "registered"
+    assert workspace.applied_milestones == approved
+    assert not workspace.product.milestones.get(key="nhcx1").enabled
+    exit_request = milestone(environment, "m1")
+    assert exit_request.definition.submission_block_reason(exit_request) == ""
+    item.refresh_from_db()
+    assert "NHCX:nhcx1" in item.selected_submission.data["applied_milestones"]
+
+
+def test_a_pending_registration_hides_the_submit_button_not_the_draft(
+    environment,
+    client,
+):
+    workspace = environment["workspace"]
+    registration = workspace.product.review_items.get(kind="product_registration")
+    item, form, saved = services.save_review_form(
+        registration,
+        environment["applicant"],
+        data={
+            **product_data(),
+            "applied_milestones": [*workspace.applied_milestones, "NHCX:nhcx1"],
+        },
+        submit=True,
+    )
+    assert saved, form.errors
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:track", args=[workspace.reference, "HIE-CM"])
+
+    pending = client.get(url).content
+    assert b"data-request-submit" not in pending
+    assert b'value="draft"' in pending
+    assert b"Required approvals are pending." in pending
+
+    services.withdraw(item, environment["applicant"])
+    assert b"data-request-submit" in client.get(url).content
+
+
+@pytest.mark.parametrize(
+    ("verified", "registration", "expected"),
+    [
+        (True, "registered", ""),
+        (True, "pending", "You have pending approval for product registration."),
+        (
+            False,
+            "registered",
+            "You have pending approval for organisation verification.",
+        ),
+        (
+            False,
+            "sent_back",
+            (
+                "You have pending approval for organisation verification "
+                "and product registration."
+            ),
+        ),
+    ],
+)
+def test_milestone_requests_name_only_the_approvals_still_pending(
+    verified,
+    registration,
+    expected,
+):
+    product = SimpleNamespace(
+        organisation=SimpleNamespace(is_verified=verified),
+        workspace=SimpleNamespace(registration_status=registration),
+    )
+
+    assert pending_approvals(product) == expected
+
+
+def test_withdrawing_a_first_registration_leaves_it_pending(environment):
+    workspace, form = services.register_product(
+        environment["org"],
+        environment["applicant"],
+        data=product_data("Second product"),
+    )
+    assert workspace, form.errors
+    item = workspace.product.review_items.get(kind="product_registration")
+
+    services.withdraw(item, environment["applicant"])
+
+    workspace.refresh_from_db()
+    assert workspace.registration_status == "pending"
 
 
 def test_withdraw_and_resubmit_preserves_original_fields_and_files(environment):

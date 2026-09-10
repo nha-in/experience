@@ -244,17 +244,13 @@
       ...missingGroups.map(group => group.dataset.requiredCheckboxGroup),
       ...missingFiles.map(field => field.dataset.requiredUpload),
     ]).size;
-    const blocked = form.dataset.reviewBlocked === 'true';
     const autoApprove = form.dataset.autoApprove === 'true';
     const approvedUpdate = form.dataset.approvedUpdates === 'true';
     const action = approvedUpdate ? 'submit your update' : autoApprove ? 'record participation' : 'request review';
-    const canSaveDraft = !approvedUpdate && form.querySelector('[name="intent"][value="draft"]:not(:disabled)');
-    button.disabled = blocked || missing > 0;
-    if (reason) reason.textContent = blocked
-      ? `Required approvals are pending.${canSaveDraft ? ' You can still save a draft.' : ''}`
-      : missing
-        ? `${missing} ${missing === 1 ? 'field needs' : 'fields need'} attention before you can ${action}.`
-        : `All required fields are complete. Ready to ${action}.`;
+    button.disabled = missing > 0;
+    if (reason) reason.textContent = missing
+      ? `${missing} ${missing === 1 ? 'field needs' : 'fields need'} attention before you can ${action}.`
+      : `All required fields are complete. Ready to ${action}.`;
     const jump = form.querySelector('[data-submit-missing]');
     if (jump) jump.hidden = missing === 0;
   }

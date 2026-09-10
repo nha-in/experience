@@ -5,7 +5,9 @@ from ohc_experience.experiences.definitions import ApplicationFormDefinition
 from ohc_experience.experiences.definitions import ApplicationSet
 from ohc_experience.experiences.definitions import OutcomeDefinition
 from ohc_experience.experiences.definitions import ProgramDefinition
+from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormReuseScope
+from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.workflows import project_product
 from ohc_experience.integrations.selectors import awaiting_provisioning
@@ -24,6 +26,18 @@ from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
 from .wasa import wasa_context
+
+
+def pending_approvals(product):
+    """Name only the approvals a product still waits on before its milestones."""
+    pending = []
+    if not product.organisation.is_verified:
+        pending.append("organisation verification")
+    if product.workspace.registration_status != "registered":
+        pending.append("product registration")
+    if not pending:
+        return ""
+    return f"You have pending approval for {readable_list(pending)}."
 
 
 class OrganisationVerification(ApplicationFormDefinition):
@@ -103,15 +117,7 @@ class ExitEvidence(ApplicationFormDefinition):
 
     @classmethod
     def submission_block_reason(cls, item):
-        if (
-            not item.organisation.is_verified
-            or item.product.workspace.registration_status != "registered"
-        ):
-            return (
-                "Organisation verification and product registration must be "
-                "approved before requesting exit."
-            )
-        return ""
+        return pending_approvals(item.product)
 
     @classmethod
     def on_approve(cls, item, actor):
@@ -197,6 +203,24 @@ class ProductRegistration(ApplicationFormDefinition):
             registration_status="sent_back",
         )
 
+    @classmethod
+    def on_withdraw(cls, item, actor):
+        """Put the product back as last approved; the withdrawn change stays a draft."""
+        approval = item.history.filter(action="Approved").first()
+        if approval is None:
+            return
+        approved = FormSubmission.objects.get(pk=approval.detail["submission_id"])
+        project_product(
+            item,
+            actor,
+            product_values=ABDM.product_values(approved.data),
+            solution_type=approved.data["solution_type"],
+            selections=approved.data["applied_milestones"],
+        )
+        ProductWorkspace.objects.filter(product=item.product).update(
+            registration_status="registered",
+        )
+
 
 class UhiParticipation(ApplicationFormDefinition):
     key = "sandbox_uhi_participation"
@@ -214,15 +238,7 @@ class UhiParticipation(ApplicationFormDefinition):
 
     @classmethod
     def submission_block_reason(cls, item):
-        if (
-            not item.organisation.is_verified
-            or item.product.workspace.registration_status != "registered"
-        ):
-            return (
-                "Organisation verification and product registration must be "
-                "approved before applying for UHI."
-            )
-        return ""
+        return pending_approvals(item.product)
 
 
 class UhiApplication(ApplicationDefinition):
