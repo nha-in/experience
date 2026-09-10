@@ -1197,7 +1197,7 @@ def queue(request):
             queue_sort=sort,
             statuses=statuses,
             reviewers=get_user_model().objects.filter(
-                Q(is_ohc_team=True) | Q(is_superuser=True),
+                Q(is_nha_team=True) | Q(is_superuser=True),
                 is_active=True,
             ),
             filters=params,
@@ -1273,7 +1273,7 @@ def review(request, pk):
             reviewers=[
                 user
                 for user in get_user_model().objects.filter(
-                    Q(is_ohc_team=True) | Q(is_superuser=True),
+                    Q(is_nha_team=True) | Q(is_superuser=True),
                     is_active=True,
                 )
                 if permissions.eligible_reviewer(user, item)
@@ -1508,7 +1508,7 @@ def support(request):
                     ticket,
                     request.user,
                     form.cleaned_data["body"],
-                    from_ohc_team=False,
+                    from_nha_team=False,
                 )
                 for upload in form.cleaned_data["attachments"]:
                     TicketAttachment.objects.create(
@@ -1565,7 +1565,7 @@ def ticket(request, reference):
                     ticket,
                     request.user,
                     form.cleaned_data["body"],
-                    from_ohc_team=permissions.reviewer(request.user),
+                    from_nha_team=permissions.reviewer(request.user),
                 )
                 for upload in form.cleaned_data["attachments"]:
                     TicketAttachment.objects.create(
@@ -1573,11 +1573,6 @@ def ticket(request, reference):
                         file=upload,
                         original_name=upload.name,
                     )
-                services.notify_ticket_reply(
-                    ticket,
-                    request.user,
-                    form.cleaned_data["body"],
-                )
             return redirect("experiences:ticket", reference=reference)
     return render(
         request,

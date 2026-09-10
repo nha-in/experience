@@ -382,7 +382,7 @@ def test_reviewer_can_render_tickets_and_resolve(portal_client, owner_membership
         organisation=owner_membership.organisation,
         subject="Needs review",
     )
-    portal_client.force_login(ReviewerFactory(is_ohc_team=True))
+    portal_client.force_login(ReviewerFactory(is_nha_team=True))
     response = portal_client.get(ticket.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     assert b"Mark resolved" in response.content

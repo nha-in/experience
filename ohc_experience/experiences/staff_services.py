@@ -31,7 +31,7 @@ def require_superadmin(actor):
 def editable_staff(actor, pk):
     require_superadmin(actor)
     user = get_user_model().objects.select_for_update().get(pk=pk)
-    if not user.is_ohc_team or user.is_superuser or user.pk == actor.pk:
+    if not user.is_nha_team or user.is_superuser or user.pk == actor.pk:
         raise PermissionDenied
     return user
 
@@ -91,7 +91,7 @@ def save_staff(actor, data, *, pk=None):
     )
     created = user is None
     user = user or get_user_model()(
-        is_ohc_team=True,
+        is_nha_team=True,
         is_staff=False,
         is_superuser=False,
         is_active=True,

@@ -6,7 +6,7 @@ from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
 from ohc_experience.organisations.selectors import get_membership_for
-from ohc_experience.users.permissions import is_ohc_team
+from ohc_experience.users.permissions import is_nha_team
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -39,7 +39,7 @@ def resolve_post_login_destination(user) -> str:
     """
     membership = get_membership_for(user)
     if membership is None:
-        return "experiences:home" if is_ohc_team(user) or user.is_superuser else "home"
+        return "experiences:home" if is_nha_team(user) or user.is_superuser else "home"
     if not membership.organisation.is_onboarded:
         return "experiences:organisation"
     return "experiences:home"

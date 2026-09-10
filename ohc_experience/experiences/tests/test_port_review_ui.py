@@ -41,7 +41,7 @@ def review_item(monkeypatch, settings, owner_membership):
 
 @pytest.mark.parametrize("route", ["assess-dashboard", "queue", "pending-queries"])
 def test_reviewer_surfaces_render_with_another_program(review_item, client, route):
-    client.force_login(ReviewerFactory(is_ohc_team=True))
+    client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(reverse(f"experiences:{route}"))
     assert response.status_code == HTTPStatus.OK
     assert b"Supplier Quality Portal" in response.content
@@ -50,7 +50,7 @@ def test_reviewer_surfaces_render_with_another_program(review_item, client, rout
 
 
 def test_queue_filters_still_work_when_requested_through_htmx(review_item, client):
-    reviewer = ReviewerFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_nha_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     response = client.get(
@@ -68,7 +68,7 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
 
 
 def test_review_assignment_controls_follow_engine_permissions(review_item, client):
-    reviewer = ReviewerFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_nha_team=True)
     client.force_login(reviewer)
     response = client.get(review_item.get_absolute_url())
     assert b"data-decision-form" not in response.content
@@ -90,7 +90,7 @@ def test_review_assignment_controls_follow_engine_permissions(review_item, clien
     response = client.get(review_item.get_absolute_url())
     assert b"data-decision-form" in response.content
     assert b"field=score#decision" in response.content
-    client.force_login(ReviewerFactory(is_ohc_team=True))
+    client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.post(review_item.get_absolute_url(), {"action": "approve"})
     assert response.status_code == HTTPStatus.FORBIDDEN
 
@@ -100,7 +100,7 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
     owner_membership,
     client,
 ):
-    reviewer = ReviewerFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_nha_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     url = review_item.get_absolute_url()
@@ -188,7 +188,7 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
     incompatible_status,
     expected_statuses,
 ):
-    reviewer = ReviewerFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_nha_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     if scope == "decided":
@@ -221,7 +221,7 @@ def test_empty_personal_queue_keeps_its_scope_when_clearing_search(
     review_item,
     client,
 ):
-    client.force_login(ReviewerFactory(is_ohc_team=True))
+    client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(
         reverse("experiences:queue"),
         {"scope": "open", "kind": "mine", "q": "not found"},

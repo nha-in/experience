@@ -119,7 +119,7 @@ class Organisation(models.Model):
     def verification_variant(self) -> str:
         """The badge variant for this status — one mapping, every screen.
 
-        The vendor's settings page and the OHC console draw the same badge, and
+        The vendor's settings page and the NHA console draw the same badge, and
         a three-way branch written out in each template is a branch that drifts.
         """
         return {
@@ -128,7 +128,7 @@ class Organisation(models.Model):
         }.get(self.verification_status, "warning")
 
     def set_verification(self, status: str) -> bool:
-        """Record the OHC team's decision. True when something actually moved.
+        """Record the NHA team's decision. True when something actually moved.
 
         `verified_at` is the date shown beside the badge, so it belongs to the
         verified state and to nothing else: a vendor moved back to pending or

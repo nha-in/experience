@@ -23,7 +23,7 @@ def uhi_url(environment):
 
 
 def uhi_reviewer(client):
-    staff = UserFactory(is_ohc_team=True, is_staff=True)
+    staff = UserFactory(is_nha_team=True, is_staff=True)
     AccessGrant.objects.create(
         user=staff,
         program="abdm",

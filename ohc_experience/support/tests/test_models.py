@@ -28,11 +28,11 @@ def vendor():
 
 
 @pytest.fixture
-def ohc_member():
+def nha_member():
     return UserFactory.create(
         name="Anand S",
         email="anand@ohc.network",
-        is_ohc_team=True,
+        is_nha_team=True,
     )
 
 
@@ -90,33 +90,33 @@ class TestPostReply:
     def test_an_ohc_reply_puts_the_ticket_back_on_the_vendor(
         self,
         ticket: Ticket,
-        ohc_member,
+        nha_member,
     ):
         message = post_reply(
             ticket,
-            ohc_member,
+            nha_member,
             "The sandbox was refreshed on Monday.",
-            from_ohc_team=True,
+            from_nha_team=True,
         )
         ticket.refresh_from_db()
 
         assert ticket.status == Status.AWAITING_VENDOR
         assert ticket.first_responded_at is not None
         assert message.kind == TicketMessage.Kind.REPLY
-        assert message.from_ohc_team is True
+        assert message.from_nha_team is True
 
     def test_the_first_response_is_stamped_once_and_only_once(
         self,
         ticket: Ticket,
-        ohc_member,
+        nha_member,
         vendor,
     ):
-        post_reply(ticket, ohc_member, "Looking into it.", from_ohc_team=True)
+        post_reply(ticket, nha_member, "Looking into it.", from_nha_team=True)
         ticket.refresh_from_db()
         stamped_at = ticket.first_responded_at
 
-        post_reply(ticket, vendor, "Thanks.", from_ohc_team=False)
-        post_reply(ticket, ohc_member, "Fixed on our side.", from_ohc_team=True)
+        post_reply(ticket, vendor, "Thanks.", from_nha_team=False)
+        post_reply(ticket, nha_member, "Fixed on our side.", from_nha_team=True)
         ticket.refresh_from_db()
 
         assert ticket.first_responded_at == stamped_at
@@ -124,24 +124,24 @@ class TestPostReply:
     def test_a_vendor_reply_reopens_the_ticket(
         self,
         ticket: Ticket,
-        ohc_member,
+        nha_member,
         vendor,
     ):
-        post_reply(ticket, ohc_member, "Any request ids?", from_ohc_team=True)
+        post_reply(ticket, nha_member, "Any request ids?", from_nha_team=True)
 
         message = post_reply(
             ticket,
             vendor,
             "Request id 8f2c1a94.",
-            from_ohc_team=False,
+            from_nha_team=False,
         )
         ticket.refresh_from_db()
 
         assert ticket.status == Status.OPEN
-        assert message.from_ohc_team is False
+        assert message.from_nha_team is False
 
     def test_a_vendor_reply_is_not_a_first_response(self, ticket: Ticket, vendor):
-        post_reply(ticket, vendor, "Adding more detail.", from_ohc_team=False)
+        post_reply(ticket, vendor, "Adding more detail.", from_nha_team=False)
         ticket.refresh_from_db()
 
         assert ticket.first_responded_at is None
@@ -149,12 +149,12 @@ class TestPostReply:
     def test_the_thread_reads_oldest_first(
         self,
         ticket: Ticket,
-        ohc_member,
+        nha_member,
         vendor,
     ):
-        post_reply(ticket, vendor, "First", from_ohc_team=False)
-        post_reply(ticket, ohc_member, "Second", from_ohc_team=True)
-        post_reply(ticket, vendor, "Third", from_ohc_team=False)
+        post_reply(ticket, vendor, "First", from_nha_team=False)
+        post_reply(ticket, nha_member, "Second", from_nha_team=True)
+        post_reply(ticket, vendor, "Third", from_nha_team=False)
 
         assert list(ticket.messages.values_list("body", flat=True)) == [
             "First",
@@ -167,9 +167,9 @@ class TestRecordStatusChange:
     def test_resolving_writes_an_event_and_stamps_resolved_at(
         self,
         ticket: Ticket,
-        ohc_member,
+        nha_member,
     ):
-        message = record_status_change(ticket, ohc_member, Status.RESOLVED)
+        message = record_status_change(ticket, nha_member, Status.RESOLVED)
         ticket.refresh_from_db()
 
         assert ticket.status == Status.RESOLVED
@@ -181,20 +181,20 @@ class TestRecordStatusChange:
     def test_resolving_again_keeps_the_original_stamp(
         self,
         ticket: Ticket,
-        ohc_member,
+        nha_member,
     ):
-        record_status_change(ticket, ohc_member, Status.RESOLVED)
+        record_status_change(ticket, nha_member, Status.RESOLVED)
         ticket.refresh_from_db()
         resolved_at = ticket.resolved_at
 
-        record_status_change(ticket, ohc_member, Status.OPEN)
-        record_status_change(ticket, ohc_member, Status.RESOLVED)
+        record_status_change(ticket, nha_member, Status.OPEN)
+        record_status_change(ticket, nha_member, Status.RESOLVED)
         ticket.refresh_from_db()
 
         assert ticket.resolved_at == resolved_at
 
-    def test_closing_does_not_count_as_resolving(self, ticket: Ticket, ohc_member):
-        record_status_change(ticket, ohc_member, Status.CLOSED)
+    def test_closing_does_not_count_as_resolving(self, ticket: Ticket, nha_member):
+        record_status_change(ticket, nha_member, Status.CLOSED)
         ticket.refresh_from_db()
 
         assert ticket.status == Status.CLOSED
@@ -203,18 +203,18 @@ class TestRecordStatusChange:
     def test_the_entry_records_which_side_moved_the_ticket(
         self,
         ticket: Ticket,
-        ohc_member,
+        nha_member,
         vendor,
     ):
-        from_ohc = record_status_change(ticket, ohc_member, Status.RESOLVED)
+        from_ohc = record_status_change(ticket, nha_member, Status.RESOLVED)
         from_vendor = record_status_change(ticket, vendor, Status.OPEN)
 
-        assert from_ohc.from_ohc_team is True
-        assert from_vendor.from_ohc_team is False
+        assert from_ohc.from_nha_team is True
+        assert from_vendor.from_nha_team is False
 
-    def test_an_event_is_not_mistaken_for_a_reply(self, ticket: Ticket, ohc_member):
-        post_reply(ticket, ohc_member, "On it.", from_ohc_team=True)
-        record_status_change(ticket, ohc_member, Status.RESOLVED)
+    def test_an_event_is_not_mistaken_for_a_reply(self, ticket: Ticket, nha_member):
+        post_reply(ticket, nha_member, "On it.", from_nha_team=True)
+        record_status_change(ticket, nha_member, Status.RESOLVED)
 
         kinds = list(ticket.messages.values_list("kind", flat=True))
 
@@ -274,24 +274,24 @@ class TestTicketQuerySet:
 
         assert list(Ticket.objects.for_organisation(organisation)) == [mine]
 
-    def test_open_only_drops_resolved_and_closed(self, organisation, ohc_member):
+    def test_open_only_drops_resolved_and_closed(self, organisation, nha_member):
         live = open_ticket(organisation, "Still going")
         settled = open_ticket(organisation, "Done with")
-        record_status_change(settled, ohc_member, Status.RESOLVED)
+        record_status_change(settled, nha_member, Status.RESOLVED)
         closed = open_ticket(organisation, "Filed away")
-        record_status_change(closed, ohc_member, Status.CLOSED)
+        record_status_change(closed, nha_member, Status.CLOSED)
 
         assert list(Ticket.objects.open_only()) == [live]
 
     def test_open_filter_lists_tickets_awaiting_reviewers(
         self,
         organisation,
-        ohc_member,
+        nha_member,
         vendor,
     ):
         waiting_on_us = open_ticket(organisation, "Vendor spoke last")
-        post_reply(waiting_on_us, vendor, "Any news?", from_ohc_team=False)
+        post_reply(waiting_on_us, vendor, "Any news?", from_nha_team=False)
         waiting_on_them = open_ticket(organisation, "We spoke last")
-        post_reply(waiting_on_them, ohc_member, "Over to you.", from_ohc_team=True)
+        post_reply(waiting_on_them, nha_member, "Over to you.", from_nha_team=True)
 
         assert list(Ticket.objects.filter(status=Status.OPEN)) == [waiting_on_us]

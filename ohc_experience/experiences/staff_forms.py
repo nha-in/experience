@@ -25,7 +25,7 @@ def staff_revision(user):
             user.is_active,
             user.is_staff,
             user.is_superuser,
-            user.is_ohc_team,
+            user.is_nha_team,
         ],
         "grants": list(
             user.experience_access.order_by("program", "area", "category").values_list(

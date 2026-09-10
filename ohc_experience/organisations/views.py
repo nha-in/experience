@@ -19,7 +19,7 @@ from django.views import View
 from django.views.generic import FormView
 
 from ohc_experience.core.mail import apply_gateway_template
-from ohc_experience.users.permissions import is_ohc_team
+from ohc_experience.users.permissions import is_nha_team
 
 from .forms import InvitationForm
 from .forms import MembershipRoleForm
@@ -82,7 +82,7 @@ class OrganisationMixin(LoginRequiredMixin):
             # console beats a 403 that reads as breakage on a page they were
             # never meant to open. Staff who *do* belong to a vendor keep the
             # vendor route; the console stays one click away in the sidebar.
-            if is_ohc_team(request.user):
+            if is_nha_team(request.user):
                 messages.info(
                     request,
                     _("Opening the review dashboard for your reviewer account."),

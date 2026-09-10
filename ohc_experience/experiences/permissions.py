@@ -5,7 +5,7 @@ from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 
 from ohc_experience.organisations.models import Role
-from ohc_experience.users.permissions import is_ohc_team
+from ohc_experience.users.permissions import is_nha_team
 
 from .models import AccessGrant
 from .models import AuditEvent
@@ -20,7 +20,7 @@ def reviewer(user):
     return bool(
         user.is_authenticated
         and user.is_active
-        and (user.is_superuser or is_ohc_team(user)),
+        and (user.is_superuser or is_nha_team(user)),
     )
 
 

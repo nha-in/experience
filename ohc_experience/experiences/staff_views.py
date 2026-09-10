@@ -25,7 +25,7 @@ from .staff_services import set_staff_active
 @never_cache
 def staff_list(request):
     require_superadmin(request.user)
-    staff = get_user_model().objects.filter(Q(is_ohc_team=True) | Q(is_superuser=True))
+    staff = get_user_model().objects.filter(Q(is_nha_team=True) | Q(is_superuser=True))
     search = request.GET.get("q", "").strip()
     if search:
         staff = staff.filter(Q(name__icontains=search) | Q(email__icontains=search))
@@ -70,7 +70,7 @@ def staff_list(request):
 def staff_edit(request, pk=None):
     require_superadmin(request.user)
     user = (
-        get_object_or_404(get_user_model(), pk=pk, is_ohc_team=True, is_superuser=False)
+        get_object_or_404(get_user_model(), pk=pk, is_nha_team=True, is_superuser=False)
         if pk
         else None
     )
@@ -128,7 +128,7 @@ def staff_edit(request, pk=None):
 @require_POST
 def staff_archive(request, pk):
     require_superadmin(request.user)
-    get_object_or_404(get_user_model(), pk=pk, is_ohc_team=True, is_superuser=False)
+    get_object_or_404(get_user_model(), pk=pk, is_nha_team=True, is_superuser=False)
     intent = request.POST.get("intent")
     if intent not in {"archive", "restore"}:
         messages.error(request, "Choose archive or restore.")

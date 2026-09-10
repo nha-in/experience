@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import ClassVar
 
 from django.conf import settings
@@ -9,6 +10,10 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+from .emails import notify_support
+
+logger = logging.getLogger(__name__)
 
 # Reference numbers start here so the first ticket does not read as TKT-1.
 REFERENCE_SEED = 2000
@@ -121,7 +126,7 @@ class Ticket(models.Model):
         related_name="tickets_assigned",
         verbose_name=_("Assignee"),
         # Only OHC staff answer tickets, so the picker never offers a vendor.
-        limit_choices_to={"is_ohc_team": True},
+        limit_choices_to={"is_nha_team": True},
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -222,8 +227,8 @@ class TicketMessage(models.Model):
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.REPLY)
     body = models.TextField(_("Message"))
     # Denormalised so a reply still reads correctly if the author later joins or
-    # leaves the OHC team.
-    from_ohc_team = models.BooleanField(default=False, editable=False)
+    # leaves the NHA team.
+    from_nha_team = models.BooleanField(default=False, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -250,27 +255,29 @@ def post_reply(
     author,
     body: str,
     *,
-    from_ohc_team: bool,
+    from_nha_team: bool,
 ) -> TicketMessage:
     """Add a reply and move the ticket to the other party's court.
 
-    A vendor reply reopens the ticket; an OHC reply puts it on the vendor. This
-    lives here rather than in a view so the vendor inbox, the OHC console and
-    the admin all move a ticket the same way.
+    A vendor reply reopens the ticket; an NHA reply puts it on the vendor. This
+    lives here rather than in a view so the vendor inbox, the NHA console and
+    the admin all move a ticket the same way. Each reply is mirrored into the
+    support email thread.
     """
     message = TicketMessage.objects.create(
         ticket=ticket,
         author=author,
         body=body,
         kind=TicketMessage.Kind.REPLY,
-        from_ohc_team=from_ohc_team,
+        from_nha_team=from_nha_team,
     )
     updates = ["status", "updated_at"]
-    ticket.status = Status.AWAITING_VENDOR if from_ohc_team else Status.OPEN
-    if from_ohc_team and ticket.first_responded_at is None:
+    ticket.status = Status.AWAITING_VENDOR if from_nha_team else Status.OPEN
+    if from_nha_team and ticket.first_responded_at is None:
         ticket.first_responded_at = timezone.now()
         updates.append("first_responded_at")
     ticket.save(update_fields=updates)
+    _mirror_to_support(ticket, message)
     return message
 
 
@@ -283,10 +290,20 @@ def record_status_change(ticket: Ticket, author, status: str) -> TicketMessage:
         updates.append("resolved_at")
     ticket.save(update_fields=updates)
     label = Status(status).label
-    return TicketMessage.objects.create(
+    message = TicketMessage.objects.create(
         ticket=ticket,
         author=author,
         kind=TicketMessage.Kind.EVENT,
         body=str(label),
-        from_ohc_team=bool(getattr(author, "is_ohc_team", False)),
+        from_nha_team=bool(getattr(author, "is_nha_team", False)),
     )
+    _mirror_to_support(ticket, message)
+    return message
+
+
+def _mirror_to_support(ticket: Ticket, message: TicketMessage) -> None:
+    try:
+        notify_support(ticket, message)
+    except Exception:
+        # Email must never break the ticket flow.
+        logger.exception("Failed to email support for %s", ticket.reference)

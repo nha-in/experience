@@ -38,7 +38,7 @@ def superadmin():
 
 @pytest.fixture
 def staff():
-    return UserFactory(is_ohc_team=True, is_staff=False)
+    return UserFactory(is_nha_team=True, is_staff=False)
 
 
 def payload(user=None, *, grants=()):
@@ -113,7 +113,7 @@ def test_superadmin_can_create_portal_only_staff_and_sign_in(client, superadmin)
     response = client.post(url, data, HTTP_HX_REQUEST="true")
     assert response.status_code == 302
     user = get_user_model().objects.get(email=data["email"])
-    assert user.is_ohc_team
+    assert user.is_nha_team
     assert user.is_active
     assert not user.is_staff
     assert not user.is_superuser
@@ -331,7 +331,7 @@ def test_superadmins_and_applicants_cannot_be_modified_as_staff(superadmin, clie
     client.force_login(superadmin)
     for target in [
         superadmin,
-        UserFactory(is_superuser=True, is_ohc_team=True),
+        UserFactory(is_superuser=True, is_nha_team=True),
         UserFactory(),
     ]:
         assert (
@@ -358,9 +358,9 @@ def test_superadmins_and_applicants_cannot_be_modified_as_staff(superadmin, clie
 
 
 def test_staff_directory_search_filters_and_pagination(superadmin, client):
-    UserFactory.create_batch(22, is_ohc_team=True, name="Searchable")
-    archived = UserFactory(is_ohc_team=True, is_active=False, name="Archived Person")
-    applicant = UserFactory(name="Applicant", is_ohc_team=False)
+    UserFactory.create_batch(22, is_nha_team=True, name="Searchable")
+    archived = UserFactory(is_nha_team=True, is_active=False, name="Archived Person")
+    applicant = UserFactory(name="Applicant", is_nha_team=False)
     client.force_login(superadmin)
     url = reverse("experiences:staff-list")
     response = client.get(url, {"q": "Searchable"}, HTTP_HX_REQUEST="true")

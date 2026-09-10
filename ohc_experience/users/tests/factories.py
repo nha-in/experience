@@ -38,7 +38,7 @@ class UserFactory(DjangoModelFactory[User]):
 class ReviewerFactory(UserFactory):
     """An explicitly authorized test reviewer, unlike an unprivileged staff user."""
 
-    is_ohc_team = True
+    is_nha_team = True
 
     @post_generation
     def portal_access(self, create, extracted, **kwargs):

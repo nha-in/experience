@@ -274,7 +274,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "ohc_experience.users.context_processors.allauth_settings",
-                "ohc_experience.users.context_processors.ohc_team",
+                "ohc_experience.users.context_processors.nha_team",
                 "ohc_experience.organisations.context_processors.current_organisation",
                 "ohc_experience.experiences.context_processors.experience_program",
             ],
@@ -318,6 +318,13 @@ ANYMAIL = {
     "GLOBAL_EMAIL_SENDER": env("GLOBAL_EMAIL_SENDER", default="NHASMS"),
 }
 GLOBAL_EMAIL_TEMPLATE_IDS = env.json("GLOBAL_EMAIL_TEMPLATE_IDS", default={})
+
+# SUPPORT TICKET EMAIL THREADING
+# ------------------------------------------------------------------------------
+SUPPORT_INBOX_EMAIL = env("SUPPORT_INBOX_EMAIL", default="support@ohc.network")
+SUPPORT_EMAIL_DOMAIN = env("SUPPORT_EMAIL_DOMAIN", default="sandbox.aws.ohc.network")
+# Absolute base for links in emails (no request is available there).
+SITE_BASE_URL = env("SITE_BASE_URL", default="http://localhost:8010")
 
 # ADMIN
 # ------------------------------------------------------------------------------

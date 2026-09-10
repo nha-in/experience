@@ -55,7 +55,7 @@ def test_non_abdm_lifecycle_reuse_dependencies_queries_and_outcomes(
     owner_membership,
 ):
     actor = owner_membership.user
-    reviewer = ReviewerFactory(is_ohc_team=True)
+    reviewer = ReviewerFactory(is_nha_team=True)
     admin = UserFactory(is_superuser=True)
     assert equipment.reference.startswith("QA-")
     assert equipment.product.outcomes.get(outcome_type="receipt").data["reference"]
