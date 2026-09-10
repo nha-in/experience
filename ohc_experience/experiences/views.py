@@ -30,6 +30,7 @@ from ohc_experience.integrations.selectors import provisioning_can_be_retried
 from ohc_experience.integrations.selectors import provisioning_progress
 from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.selectors import get_membership_for
+from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
 from ohc_experience.support.models import record_status_change
@@ -1526,6 +1527,12 @@ def support(request):
     )
 
 
+TICKET_STATUS_INTENTS = {
+    "resolve": (permissions.can_resolve_ticket, Status.RESOLVED),
+    "close": (permissions.can_close_ticket, Status.CLOSED),
+}
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def ticket(request, reference):
@@ -1542,10 +1549,12 @@ def ticket(request, reference):
     for key in ("subject", "category", "track", "priority"):
         del form.fields[key]
     if request.method == "POST":
-        if request.POST.get("intent") == "resolve":
-            if not permissions.can_resolve_ticket(request.user, ticket):
+        intent = request.POST.get("intent")
+        if intent in TICKET_STATUS_INTENTS:
+            allowed, status = TICKET_STATUS_INTENTS[intent]
+            if not allowed(request.user, ticket):
                 raise PermissionDenied
-            record_status_change(ticket, request.user, "resolved")
+            record_status_change(ticket, request.user, status)
             return redirect("experiences:ticket", reference=reference)
         if not permissions.can_reply_ticket(request.user, ticket):
             raise PermissionDenied
@@ -1574,7 +1583,10 @@ def ticket(request, reference):
             nav="support",
             ticket=ticket,
             can_reply=permissions.can_reply_ticket(request.user, ticket),
-            can_resolve=permissions.can_resolve_ticket(request.user, ticket),
+            can_resolve=ticket.is_open
+            and permissions.can_resolve_ticket(request.user, ticket),
+            can_close=ticket.status != Status.CLOSED
+            and permissions.can_close_ticket(request.user, ticket),
             form=form,
         ),
     )

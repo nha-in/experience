@@ -89,3 +89,18 @@ def test_applied_tracks_only_and_approval_counts(environment, rf):  # noqa: F811
         (row["definition"].code, row["count"]) for row in context["nav_tracks"]
     ] == [("HIE-CM", 1)]
     assert context["nav_tracks"][0]["approved"] == 0
+
+
+def test_sidebar_offers_only_setup_links_before_a_product_exists(
+    client,
+    owner_membership,
+):
+    client.force_login(owner_membership.user)
+    html = client.get(reverse("experiences:product-create")).content.decode()
+    main_nav = html[html.index('id="app-nav"') : html.index('class="mt-auto')]
+
+    for link in ("dashboard", "products", "register", "organisation"):
+        assert f'id="nav-{link}"' in main_nav
+    for link in ("queries", "events", "support"):
+        assert f'id="nav-{link}"' not in main_nav
+    assert "Programme" not in main_nav

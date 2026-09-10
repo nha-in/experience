@@ -322,9 +322,6 @@ class TestSignOut:
         for built in (
             "Dashboard",
             "Products",
-            "Events",
-            "Pending queries",
-            "Support",
             "Team &amp; invitations",
         ):
             assert built in nav

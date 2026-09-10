@@ -53,6 +53,7 @@
    href="{% url 'experiences:track' workspace.reference row.definition.code %}">{% include "components/nav_icon.html" with icon="track" %}<span class="min-w-0 flex-1 truncate">{{ row.definition.code }}</span><span class="font-mono text-[11px] text-soft-foreground">{{ row.approved }}/{{ row.count }}<span class="sr-only"> milestones approved</span></span></a></li>
         {% endfor %}
       {% endif %}
+      {% if reviewer or workspace %}
       {% if can_read_support or can_read_events or not reviewer %}<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Programme</li>{% endif %}
       {% if not reviewer %}<li><a id="nav-queries"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'queries' %}ui-nav-link--active{% endif %}"
@@ -64,6 +65,7 @@
     {% if can_read_support %}<li><a id="nav-support"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}</span>{% endif %}</a></li>
+  {% endif %}
   {% endif %}
   {% if can_integrate %}
     <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Product</li>

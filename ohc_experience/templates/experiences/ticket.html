@@ -84,13 +84,27 @@
               {{ ticket.created_at|date:"j M Y" }}
             </dd>
           </dl>
-          {% if can_resolve and ticket.status != 'resolved' %}
-            <form class="mt-4 border-t border-soft-border pt-3"
-                  method="post"
-                  hx-boost="false">{% csrf_token %}<button class="ui-btn ui-btn--outline ui-btn--size-sm w-full"
-        name="intent"
-        value="resolve"
-        type="submit">Mark resolved</button></form>
+          {% if can_resolve or can_close %}
+            <div class="mt-4 flex flex-col gap-2 border-t border-soft-border pt-3">
+              {% if can_resolve %}
+                <form method="post" hx-boost="false">
+                  {% csrf_token %}
+                  <button class="ui-btn ui-btn--outline ui-btn--size-sm w-full"
+                          name="intent"
+                          value="resolve"
+                          type="submit">Mark resolved</button>
+                </form>
+              {% endif %}
+              {% if can_close %}
+                <form method="post" hx-boost="false">
+                  {% csrf_token %}
+                  <button class="ui-btn ui-btn--outline ui-btn--size-sm w-full"
+                          name="intent"
+                          value="close"
+                          type="submit">Close ticket</button>
+                </form>
+              {% endif %}
+            </div>
           {% endif %}
         </div>
       </section>

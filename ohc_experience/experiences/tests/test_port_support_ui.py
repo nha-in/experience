@@ -386,7 +386,8 @@ def test_reviewer_can_render_tickets_and_resolve(
     portal_client.force_login(ReviewerFactory(is_nha_team=True))
     response = portal_client.get(ticket.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
-    assert b"Mark resolved" in response.content
+    html = response.content.decode()
+    assert html.index("Mark resolved") < html.index("Close ticket")
     response = portal_client.post(
         ticket.get_absolute_url(),
         {"intent": "resolve"},
@@ -395,3 +396,26 @@ def test_reviewer_can_render_tickets_and_resolve(
     assert response.status_code == HTTPStatus.OK
     ticket.refresh_from_db()
     assert ticket.status == "resolved"
+
+
+def test_vendor_can_close_their_own_ticket(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_workspaces[0].product,
+        subject="Sorted on our side",
+    )
+    page = portal_client.get(ticket.get_absolute_url())
+    assert b"Close ticket" in page.content
+    assert b"Mark resolved" not in page.content
+
+    response = portal_client.post(ticket.get_absolute_url(), {"intent": "close"})
+
+    assert response.status_code == HTTPStatus.FOUND
+    ticket.refresh_from_db()
+    assert ticket.status == "closed"
+    assert ticket.messages.filter(kind="event", body="Closed").exists()
+    assert b"Close ticket" not in portal_client.get(ticket.get_absolute_url()).content

@@ -223,10 +223,7 @@ def eligible_reviewer(user, item):
 
 def can_review(user, item, action):
     """Category grants alone decide; the assignee only labels and filters work."""
-    return (
-        reviewer(user)
-        and visible_reviews(user, action).filter(pk=item.pk).exists()
-    )
+    return reviewer(user) and visible_reviews(user, action).filter(pk=item.pk).exists()
 
 
 def can_decide(user, item):
@@ -258,6 +255,13 @@ def can_reply_ticket(user, ticket):
 
 def can_resolve_ticket(user, ticket):
     return visible_tickets(user, "approve").filter(pk=ticket.pk).exists()
+
+
+def can_close_ticket(user, ticket):
+    """Reviewers close what they may resolve; vendors close their own tickets."""
+    if reviewer(user):
+        return can_resolve_ticket(user, ticket)
+    return can_integrate(user, ticket.organisation)
 
 
 def staff_home(user):

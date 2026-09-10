@@ -266,14 +266,17 @@ def test_support_reply_and_resolve_have_distinct_permissions(tickets, staff, cli
     client.force_login(staff)
     assert client.post(url, {"body": "Please retry"}).status_code == 302
     assert client.post(url, {"intent": "resolve"}).status_code == 403
+    assert client.post(url, {"intent": "close"}).status_code == 403
     access.can_write = False
     access.can_approve = True
     access.save()
     page = client.get(url)
     assert b'id="reply-form"' not in page.content
     assert b"Mark resolved" in page.content
+    assert b"Close ticket" in page.content
     assert client.post(url, {"body": "Please retry"}).status_code == 403
     assert client.post(url, {"intent": "resolve"}).status_code == 302
+    assert client.post(url, {"intent": "close"}).status_code == 302
 
 
 @pytest.fixture
