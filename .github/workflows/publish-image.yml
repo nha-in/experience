@@ -147,3 +147,70 @@ jobs:
         run: |
           image=$(jq -r '.tags[0]' <<< "$METADATA_JSON")
           docker buildx imagetools inspect "$image"
+
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    needs: [build, merge-manifests]
+    if: github.ref == 'refs/heads/testing_new'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: sandbox
+      url: https://sandbox.aws.ohc.network
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, celery_worker, celery_beat]
+    env:
+      IMAGE_REF: ${{ needs.build.outputs.image }}:sha-${{ github.sha }}
+      ECS_CLUSTER: ohn-staging
+      ECS_PREFIX: ohn-staging-experience
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Download current task definition
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition \
+            --task-definition "${ECS_PREFIX}-${SERVICE}" \
+            --query taskDefinition > task-definition.json
+          echo "Fetched ${ECS_PREFIX}-${SERVICE} revision $(jq -r .revision task-definition.json)"
+
+      - name: Fill in the new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.ECS_PREFIX }}-${{ matrix.service }}
+          image: ${{ env.IMAGE_REF }}
+
+      - name: Deploy task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_PREFIX }}-${{ matrix.service }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Summary
+        if: always()
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          {
+            echo "### Deploy — \`${SERVICE}\`"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Cluster | \`${ECS_CLUSTER}\` |"
+            echo "| Service | \`${ECS_PREFIX}-${SERVICE}\` |"
+            echo "| Image | \`${IMAGE_REF}\` |"
+            echo "| Status | ${{ job.status == 'success' && 'Deployed' || 'Failed' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
