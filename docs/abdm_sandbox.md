@@ -51,7 +51,7 @@ Demo accounts all use password `experience-demo-2026`:
 | new-integrator@abdm-demo.in | Organisation awaiting verification |
 | nhcx-reviewer@abdm-demo.in | Reviews: NHCX only |
 | uhi-reviewer@abdm-demo.in | Reviews: UHI only |
-| hiecm-reviewer@abdm-demo.in | Reviews: HI-CM only |
+| hiecm-reviewer@abdm-demo.in | Reviews: HIE-CM only |
 | nhcx-support@abdm-demo.in | Support: NHCX only |
 | uhi-events@abdm-demo.in | Events: UHI only |
 
@@ -131,7 +131,7 @@ uv run python manage.py shell -c 'from ohc_experience.experiences.tasks import d
 
 The UI from `bodhi-test` is implemented against the reusable engine's existing
 models, migrations, services and routes. Product registration defaults to HMIS,
-Clinical HMIS and HI-CM M1 for a new product; editing preserves saved choices.
+Clinical HMIS and HIE-CM M1 for a new product; editing preserves saved choices.
 Support tickets default to Medium priority and Sandbox category, and their
 optional track is validated against the selected product's applied tracks.
 Reviewer dashboards, queues, decisions and submission history retain the engine's
@@ -142,7 +142,7 @@ retired; reviewer work uses the engine's assessment screens.
 
 - `ProductWorkspace` extends the existing `Product` with its reference and program key,
   registration state, solution type and selected track/milestone pairs.
-- Each canonical `Milestone` has an `ApplicationInstance`. HI-CM M1 and PHR M1
+- Each canonical `Milestone` has an `ApplicationInstance`. HIE-CM M1 and PHR M1
   share the same milestone and approval. HealthLocker does not require M3.
 - `ReviewItem` wraps organisation verification, product registration or exit.
   Admins assign reviewers manually. The assignee needs the matching category's
@@ -166,7 +166,7 @@ retired; reviewer work uses the engine's assessment screens.
   audit/retention controls when deploying in a regulated environment.
 
 The fixed catalog lives in `abdm/catalog.py`. M4 is HFR Registration, PHR
-shares M1 with HI-CM, and NHCX intentionally has no published milestones per v3.
+shares M1 with HIE-CM, and NHCX intentionally has no published milestones per v3.
 There is no configured decision SLA. Production credential issuance is external;
 approval notes are emailed to integrators and retained as product outcomes.
 

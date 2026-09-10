@@ -25,7 +25,7 @@ pytestmark = pytest.mark.django_db
 def portal_workspaces(owner_membership):
     result = []
     for name, milestones in (
-        ("Alpha HMIS", ["HI-CM:m1"]),
+        ("Alpha HMIS", ["HIE-CM:m1"]),
         ("Zeta Locker", ["HealthLocker:locker1"]),
     ):
         data = product_data(name)
@@ -54,7 +54,7 @@ def test_ticket_defaults_and_applied_track_choices(portal_workspaces):
     form = SupportForm(workspace=portal_workspaces[0])
     assert form["priority"].value() == "medium"
     assert form["category"].value() == "sandbox"
-    assert [value for value, _label in form.fields["track"].choices] == ["", "HI-CM"]
+    assert [value for value, _label in form.fields["track"].choices] == ["", "HIE-CM"]
     assert form.fields["track"].choices[0][1] == "Not track-specific"
 
 
@@ -135,7 +135,7 @@ def test_ticket_creation_error_keeps_form_and_does_not_write(portal_client):
             "subject": "Help",
             "category": "bad",
             "priority": "medium",
-            "track": "HI-CM",
+            "track": "HIE-CM",
             "body": "Details",
         },
     )

@@ -137,7 +137,7 @@ def test_generic_portal_renders_other_program(equipment, owner_membership, clien
     assert response.status_code == HTTPStatus.OK
     assert b"Supplier Quality Portal" in response.content
     assert b"ABDM" not in response.content
-    assert b"HI-CM" not in response.content
+    assert b"HIE-CM" not in response.content
     receipt = equipment.product.outcomes.get(outcome_type="receipt")
     assert receipt.data["reference"].encode() in response.content
     credential_url = reverse("experiences:credentials", args=[equipment.reference])

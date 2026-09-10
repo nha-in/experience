@@ -82,10 +82,10 @@ def product_data(name="Medibase HMIS 4.2"):
         "category": "hmis",
         "solution_type": ["clinical_hmis"],
         "applied_milestones": [
-            "HI-CM:m1",
-            "HI-CM:m2",
-            "HI-CM:m3",
-            "HI-CM:m4",
+            "HIE-CM:m1",
+            "HIE-CM:m2",
+            "HIE-CM:m3",
+            "HIE-CM:m4",
             "PHR:m1",
             "PHR:phr1",
             "HealthLocker:locker1",
@@ -324,7 +324,7 @@ class DemoBuilder:
         TicketContext.objects.create(
             ticket=ticket,
             product=workspace.product,
-            track="HI-CM",
+            track="HIE-CM",
         )
         post_reply(
             ticket,
@@ -353,7 +353,7 @@ class DemoBuilder:
             ("reviewer", "Priya Sharma", "*", AccessGrant.Area.values),
             ("nhcx-reviewer", "NHCX Reviewer", "NHCX", ["review"]),
             ("uhi-reviewer", "UHI Reviewer", "UHI", ["review"]),
-            ("hiecm-reviewer", "HI-CM Reviewer", "HI-CM", ["review"]),
+            ("hiecm-reviewer", "HIE-CM Reviewer", "HIE-CM", ["review"]),
             ("nhcx-support", "NHCX Support", "NHCX", ["support"]),
             ("uhi-events", "UHI Event Manager", "UHI", ["events"]),
         ]
@@ -436,7 +436,7 @@ class DemoBuilder:
     def events(self, admin):
         for index, (title, kind, days) in enumerate(
             [
-                ("HI-CM integration office hours", "office_hours", 3),
+                ("HIE-CM integration office hours", "office_hours", 3),
                 ("PHR application flows: developer workshop", "workshop", 7),
                 ("UHI participant integration clinic", "webinar", 14),
                 ("ABHA identity integration walkthrough", "webinar", -7),

@@ -46,7 +46,7 @@ def test_reviewer_surfaces_render_with_another_program(review_item, client, rout
     assert response.status_code == HTTPStatus.OK
     assert b"Supplier Quality Portal" in response.content
     assert b"ABDM" not in response.content
-    assert b"HI-CM" not in response.content
+    assert b"HIE-CM" not in response.content
 
 
 def test_queue_filters_still_work_when_requested_through_htmx(review_item, client):

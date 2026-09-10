@@ -261,7 +261,7 @@ class ProductRegistrationForm(ReviewForm):
             kwargs["initial"] = {
                 "category": "hmis",
                 "solution_type": ["clinical_hmis"],
-                "applied_milestones": ["HI-CM:m1"],
+                "applied_milestones": ["HIE-CM:m1"],
             }
         super().__init__(*args, **kwargs)
 

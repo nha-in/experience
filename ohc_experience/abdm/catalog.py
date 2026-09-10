@@ -18,7 +18,7 @@ MILESTONES = {
 
 TRACKS = (
     TrackDefinition(
-        "HI-CM",
+        "HIE-CM",
         "Health information & consent management",
         "ABHA identity, health information exchange and facility registration.",
         ("m1", "m2", "m3", "m4"),

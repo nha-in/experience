@@ -40,7 +40,7 @@ def test_registration_defaults_only_apply_to_new_unbound_forms():
     new = ProductRegistrationForm()
     assert new["category"].value() == "hmis"
     assert new["solution_type"].value() == ["clinical_hmis"]
-    assert new["applied_milestones"].value() == ["HI-CM:m1"]
+    assert new["applied_milestones"].value() == ["HIE-CM:m1"]
     assert not ProductRegistrationForm(initial={})["applied_milestones"].value()
     saved = ProductRegistrationForm(
         initial={"applied_milestones": ["UHI:uhi1"], "category": "other"},
@@ -68,8 +68,8 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         for field in inputs
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
-    assert selected == ["HI-CM:m1"]
-    assert b"Shared with: HI-CM, UHI and NHCX" in response.content
+    assert selected == ["HIE-CM:m1"]
+    assert b"Shared with: HIE-CM, UHI and NHCX" in response.content
 
 
 def test_solution_type_accepts_several_values():
@@ -80,7 +80,7 @@ def test_solution_type_accepts_several_values():
             "category": "claims_platform",
             "solution_type": ["payers", "providers"],
             "payer_category": ["tpa"],
-            "applied_milestones": ["HI-CM:m1"],
+            "applied_milestones": ["HIE-CM:m1"],
         },
     )
     assert form.is_valid(), form.errors
@@ -92,7 +92,7 @@ def payer_payload(**overrides):
         "name": "Claims platform",
         "description": "Exchanges claims with payers.",
         "category": "claims_platform",
-        "applied_milestones": ["HI-CM:m1"],
+        "applied_milestones": ["HIE-CM:m1"],
         **overrides,
     }
 
@@ -160,7 +160,7 @@ def uhi_payload(**overrides):
         "description": "Finds and books consultations.",
         "category": "other",
         "solution_type": ["eua"],
-        "applied_milestones": ["HI-CM:m1", "UHI:m1", "UHI:uhi1"],
+        "applied_milestones": ["HIE-CM:m1", "UHI:m1", "UHI:uhi1"],
         **overrides,
     }
 
@@ -201,7 +201,7 @@ def test_approved_picker_carries_locked_selections(environment, client):
         for field in inputs
         if field.get("name") == "applied_milestones" and field.get("type") == "hidden"
     ]
-    assert "HI-CM:m1" in carried
+    assert "HIE-CM:m1" in carried
     assert "PHR:m1" in carried
 
 
@@ -213,7 +213,7 @@ def test_track_draft_uploads_and_withdrawn_snapshot_remain_editable(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "HI-CM"],
+        args=[environment["workspace"].reference, "HIE-CM"],
     )
     uploads = {key: value[0] for key, value in files().lists()}
     response = client.post(

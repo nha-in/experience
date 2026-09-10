@@ -374,7 +374,7 @@
     @apply font-medium text-soft-foreground;
   }
 
-  /* PHR's M1 is HI-CM's M1 — one record on two tracks, said under the name. */
+  /* PHR's M1 is HIE-CM's M1 — one record on two tracks, said under the name. */
   .ui-station-alias {
     @apply mt-0.5 block text-xs font-normal text-soft-foreground;
   }

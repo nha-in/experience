@@ -176,8 +176,8 @@ def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
     """No track owns M1. Every track that lists it names the rest."""
     program = get_program()
 
-    assert set(program.shared_with("m1", "PHR")) == {"HI-CM", "UHI", "NHCX"}
-    assert set(program.shared_with("m1", "HI-CM")) == {"PHR", "UHI", "NHCX"}
+    assert set(program.shared_with("m1", "PHR")) == {"HIE-CM", "UHI", "NHCX"}
+    assert set(program.shared_with("m1", "HIE-CM")) == {"PHR", "UHI", "NHCX"}
     assert program.shared_with("locker1", "HealthLocker") == ()
     assert MILESTONES["locker1"].code == "HL1"
 
@@ -185,8 +185,8 @@ def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
 def test_a_tracks_description_names_its_shared_milestones(environment, client):
     """The sentence was hand-written on three tracks and stale on all three."""
     program = get_program()
-    assert program.shared_note("PHR") == "M1 is shared with HI-CM, UHI and NHCX."
-    assert program.shared_note("HI-CM") == "M1 is shared with UHI, NHCX and PHR."
+    assert program.shared_note("PHR") == "M1 is shared with HIE-CM, UHI and NHCX."
+    assert program.shared_note("HIE-CM") == "M1 is shared with UHI, NHCX and PHR."
     assert program.shared_note("HealthLocker") == ""
     client.force_login(environment["applicant"])
 
@@ -194,7 +194,7 @@ def test_a_tracks_description_names_its_shared_milestones(environment, client):
         reverse("experiences:track", args=[environment["workspace"].reference, "PHR"]),
     ).content.decode()
 
-    assert "M1 is shared with HI-CM, UHI and NHCX." in html
+    assert "M1 is shared with HIE-CM, UHI and NHCX." in html
 
 
 def test_a_track_cannot_list_a_milestone_without_its_predecessor():
@@ -209,9 +209,9 @@ def test_a_track_cannot_list_a_milestone_without_its_predecessor():
 @pytest.mark.parametrize(
     ("code", "expected"),
     [
-        ("PHR", "Shared with HI-CM and UHI"),
-        ("UHI", "Shared with HI-CM and PHR"),
-        ("HI-CM", "Shared with UHI and PHR"),
+        ("PHR", "Shared with HIE-CM and UHI"),
+        ("UHI", "Shared with HIE-CM and PHR"),
+        ("HIE-CM", "Shared with UHI and PHR"),
     ],
 )
 def test_the_shared_m1_note_follows_the_catalogue_not_a_hardcoded_track(
@@ -702,11 +702,11 @@ def test_sent_back_draft_retains_reason_and_decision_history(environment, client
 def test_track_filter_respects_which_track_applied_for_shared_m1(environment, client):
     item = submit(environment)
     workspace = environment["workspace"]
-    workspace.applied_milestones = ["HI-CM:m1"]
+    workspace.applied_milestones = ["HIE-CM:m1"]
     workspace.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
-    assert item in client.get(url, {"track": "HI-CM"}).context["page"]
+    assert item in client.get(url, {"track": "HIE-CM"}).context["page"]
     assert item not in client.get(url, {"track": "PHR"}).context["page"]
     workspace.applied_milestones.append("PHR:m1")
     workspace.save()
@@ -748,7 +748,7 @@ def test_support_members_cannot_reply_or_withdraw(environment, client):
     response = client.get(
         reverse(
             "experiences:track",
-            args=[environment["workspace"].reference, "HI-CM"],
+            args=[environment["workspace"].reference, "HIE-CM"],
         ),
     )
     assert response.status_code == 200

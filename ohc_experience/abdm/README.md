@@ -46,7 +46,7 @@ response contract.
 
 Product registration selects the UHI track and milestones. Role, service and
 optional detail questions belong to the separate UHI application, which opens
-after the prerequisite approvals. UHI shares M1 with HI-CM and PHR. Submitting
+after the prerequisite approvals. UHI shares M1 with HIE-CM and PHR. Submitting
 the UHI application records participation without a reviewer decision or
 exit-evidence uploads. The application remains visible to reviewers, and WASA
 exit reviews retain their normal approval process.
