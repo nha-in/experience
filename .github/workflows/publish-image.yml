@@ -160,7 +160,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api, celery_worker, celery_beat]
+        service: [api, celeryworker, celerybeat]
     env:
       IMAGE_REF: ${{ needs.build.outputs.image }}:latest-${{ github.run_number }}
       ECS_CLUSTER: ohn-staging
