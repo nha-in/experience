@@ -7,7 +7,7 @@
 {% endcomment %}
 {% load careui i18n %}
 
-<div class="{% if field|is_checkbox %}flex items-start gap-2.5{% endif %}">
+<div class="{% if not is_file %}ui-field {% endif %}{% if field|is_checkbox %}flex items-start gap-2.5{% endif %}">
   {% if is_file %}
     {% include "components/file_upload_field.html" %}
   {% elif field|is_checkbox %}

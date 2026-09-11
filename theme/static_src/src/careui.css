@@ -252,6 +252,10 @@
     @apply h-10 md:h-9;
   }
 
+  .ui-field:has(:target) {
+    @apply rounded-lg ring-2 ring-primary/30 ring-offset-4;
+  }
+
   .ui-textarea {
     @apply flex min-h-16 w-full rounded-lg border border-input bg-card px-2.5 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none md:text-sm;
     field-sizing: content;
