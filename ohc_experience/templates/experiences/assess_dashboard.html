@@ -82,21 +82,20 @@
             </thead>
             <tbody>
               {% for item in oldest %}
-              <tr class="group relative">
-                <td>
-                  <span class="font-semibold text-foreground group-hover:text-primary">
-                    {{ item.product.name|default:item.title }}
-                  </span>
-                  <span class="block font-mono text-xs text-soft-foreground">
-                    {% if item.product %}{{ item.product.workspace.reference }}{% else %}{{ item.reference }}{% endif %}
-                  </span>
-                  <a class="absolute inset-0" href="{{ item.get_absolute_url }}"></a>
-                </td>
-                <td class="text-muted-foreground">{{ item.organisation.display_name }}</td>
-                <td>{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}</td><td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}</td>
-                <td>{% include 'experiences/partials/reviewer_age.html' %}</td>
-                <td>{% include 'experiences/partials/reviewer_assignee.html' %}</td>
-              </tr>{% endfor %}
+                <tr class="group relative">
+                  <td>
+                    <span class="font-semibold text-foreground group-hover:text-primary">{{ item.product.name|default:item.title }}</span>
+                    <span class="block font-mono text-xs text-soft-foreground">
+                      {% if item.product %}{{ item.product.workspace.reference }}{% else %}{{ item.reference }}{% endif %}
+                    </span>
+                    <a class="absolute inset-0" href="{{ item.get_absolute_url }}"></a>
+                  </td>
+                  <td class="text-muted-foreground">{{ item.organisation.display_name }}</td>
+                  <td>{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}</td><td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}</td>
+                  <td>{% include 'experiences/partials/reviewer_age.html' %}</td>
+                  <td>{% include 'experiences/partials/reviewer_assignee.html' %}</td>
+                </tr>
+              {% endfor %}
             </tbody>
           </table>
         </div>

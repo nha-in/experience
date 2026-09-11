@@ -25,10 +25,13 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
     assert index.status_code == HTTPStatus.OK
     assert b'id="nav-organizations"' in index.content
     assert organization.display_name.encode() in index.content
-    assert reverse(
-        "experiences:organization-detail",
-        args=[organization.slug],
-    ).encode() in index.content
+    assert (
+        reverse(
+            "experiences:organization-detail",
+            args=[organization.slug],
+        ).encode()
+        in index.content
+    )
 
     detail = client.get(
         reverse("experiences:organization-detail", args=[organization.slug]),
@@ -69,12 +72,15 @@ def test_organization_pages_follow_category_review_scope(environment, client):
 
     products = client.get(reverse("experiences:products"))
     assert list(products.context["workspaces"]) == [environment["workspace"]]
-    assert client.get(
-        reverse(
-            "experiences:organization-detail",
-            args=[hidden_organization.slug],
-        ),
-    ).status_code == HTTPStatus.NOT_FOUND
+    assert (
+        client.get(
+            reverse(
+                "experiences:organization-detail",
+                args=[hidden_organization.slug],
+            ),
+        ).status_code
+        == HTTPStatus.NOT_FOUND
+    )
 
 
 @pytest.mark.parametrize("route", ["organizations", "organization-detail"])

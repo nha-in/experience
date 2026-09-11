@@ -19,10 +19,10 @@
         </span>
       {% else %}
         <span class="inline-flex size-4 shrink-0 rounded-full border-[1.5px] border-dashed border-stronger-border"
-            data-readiness-indicator
-            aria-hidden="true"></span>
+              data-readiness-indicator
+              aria-hidden="true"></span>
         <a class="font-semibold text-primary no-underline hover:underline"
-          data-readiness-label
+           data-readiness-label
            href="#{{ row.field_id }}">{{ row.label }}<span class="sr-only">: not saved yet</span>
         </a>
       {% endif %}

@@ -254,7 +254,7 @@
 
   .ui-field:has(:target) {
     @apply rounded-lg ring-2 ring-primary/30 ring-offset-4;
-  
+
   .ui-password-field {
     @apply relative;
   }

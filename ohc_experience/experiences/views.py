@@ -319,11 +319,7 @@ def organization_detail(request, slug):
         .select_related("product")
     )
     verification = next(
-        (
-            item
-            for item in visible_reviews
-            if item.kind == ReviewItem.Kind.ORGANISATION
-        ),
+        (item for item in visible_reviews if item.kind == ReviewItem.Kind.ORGANISATION),
         None,
     )
     return render(

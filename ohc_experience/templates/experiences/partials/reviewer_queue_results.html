@@ -4,7 +4,10 @@
     <p class="text-sm font-semibold" aria-live="polite">{{ page.paginator.count }} request{{ page.paginator.count|pluralize }}{% if filter_query %} found{% endif %}</p><div class="flex items-center gap-2">
       <label class="text-xs text-soft-foreground" for="queue-sort">Sort</label>
       <div class="ui-select-wrapper">
-        <select class="ui-select ui-select--xs" id="queue-sort" name="sort" form="queue-filter-form">
+        <select class="ui-select ui-select--xs"
+                id="queue-sort"
+                name="sort"
+                form="queue-filter-form">
           <option value="newest" {% if queue_sort == 'newest' %}selected{% endif %}>Newest</option>
           <option value="oldest" {% if queue_sort == 'oldest' %}selected{% endif %}>Oldest</option>
         </select>
@@ -37,12 +40,39 @@
                 </span>
                 <a class="absolute inset-0" href="{{ item.get_absolute_url }}"></a>
               </td>
-              <td class="relative max-w-[200px] text-muted-foreground">{{ item.organisation.display_name }}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
-              <td class="relative min-w-[160px]">{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
-              <td class="relative">{% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
-              <td class="relative whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
-              <td class="relative">{% include 'experiences/partials/reviewer_age.html' %}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
-              <td class="relative">{% include 'experiences/partials/reviewer_assignee.html' %}<a class="absolute inset-0" href="{{ item.get_absolute_url }}" aria-hidden="true" tabindex="-1"></a></td>
+              <td class="relative max-w-[200px] text-muted-foreground">{{ item.organisation.display_name }}<a class="absolute inset-0"
+   href="{{ item.get_absolute_url }}"
+   aria-hidden="true"
+   tabindex="-1"></a></td>
+              <td class="relative min-w-[160px]">{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}<a class="absolute inset-0"
+   href="{{ item.get_absolute_url }}"
+   aria-hidden="true"
+   tabindex="-1"></a></td>
+              <td class="relative">
+                {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+                <a class="absolute inset-0"
+                   href="{{ item.get_absolute_url }}"
+                   aria-hidden="true"
+                   tabindex="-1"></a>
+              </td>
+              <td class="relative whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}<a class="absolute inset-0"
+   href="{{ item.get_absolute_url }}"
+   aria-hidden="true"
+   tabindex="-1"></a></td>
+              <td class="relative">
+                {% include 'experiences/partials/reviewer_age.html' %}
+                <a class="absolute inset-0"
+                   href="{{ item.get_absolute_url }}"
+                   aria-hidden="true"
+                   tabindex="-1"></a>
+              </td>
+              <td class="relative">
+                {% include 'experiences/partials/reviewer_assignee.html' %}
+                <a class="absolute inset-0"
+                   href="{{ item.get_absolute_url }}"
+                   aria-hidden="true"
+                   tabindex="-1"></a>
+              </td>
             </tr>
           {% endfor %}
         </tbody>

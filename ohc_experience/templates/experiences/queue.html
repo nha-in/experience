@@ -96,7 +96,8 @@
                   {% endif %}
                   <optgroup label="Tracks">
                     {% for track in track_choices %}
-                      <option value="{{ track.code }}" {% if filters.item == track.code %}selected{% endif %}>{{ track.code }}</option>
+                      <option value="{{ track.code }}"
+                              {% if filters.item == track.code %}selected{% endif %}>{{ track.code }}</option>
                     {% endfor %}
                   </optgroup>
                 </select>

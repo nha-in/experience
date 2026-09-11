@@ -84,10 +84,9 @@ def test_queue_filters_by_exact_product_and_preserves_it_in_navigation(
         },
     )
     assert other_workspace, form.errors
-    other_item = (
-        other_workspace.product.milestones.get(key="inspection")
-        .application.review_item
-    )
+    other_item = other_workspace.product.milestones.get(
+        key="inspection",
+    ).application.review_item
     other_item, form, saved = workflows.save_review_form(
         other_item,
         owner_membership.user,
@@ -106,9 +105,9 @@ def test_queue_filters_by_exact_product_and_preserves_it_in_navigation(
 
     assert response.status_code == HTTPStatus.OK
     assert response.context["filters"]["product"] == reference
-    assert {
-        item.product_id for item in response.context["page"]
-    } == {review_item.product_id}
+    assert {item.product_id for item in response.context["page"]} == {
+        review_item.product_id,
+    }
     assert other_item not in response.context["page"]
     assert set(
         response.context["product_choices"].values_list("reference", flat=True),
