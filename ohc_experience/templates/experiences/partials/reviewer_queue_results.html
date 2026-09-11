@@ -29,9 +29,9 @@
           {% for item in page %}
             <tr class="group">
               <td class="relative min-w-[180px]">
-                <a class="relative font-semibold text-foreground group-hover:text-primary">
+                <span class="relative font-semibold text-foreground group-hover:text-primary">
                   {{ item.product.name|default:item.title }}
-                </a>
+                </span>
                 <span class="mt-0.5 block font-mono text-xs text-soft-foreground">
                   {% if item.product %}{{ item.product.workspace.reference }} · {% endif %}{{ item.reference }}
                 </span>
