@@ -251,7 +251,8 @@ def test_support_counts_keep_filters_and_workspace_before_status(
         {"product": portal_workspaces[1].reference},
     )
     assert not cleared.context["has_ticket_filters"]
-    assert len(cleared.context["tickets"]) == expected_workspace_tickets
+    assert cleared.context["ticket_filters"]["status"] == "open"
+    assert len(cleared.context["tickets"]) == 4
     assert cleared.context["workspace"] == portal_workspaces[1]
 
 

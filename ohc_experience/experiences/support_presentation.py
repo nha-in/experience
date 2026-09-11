@@ -36,8 +36,10 @@ def support_inbox(tickets, params, form, *, reviewer=False):
         }
         for value, label in statuses
     ]
-    status = params.get("status", "")
-    filters["status"] = status if status in dict(statuses) else ""
+    status_was_selected = "status" in params
+    status = params.get("status", "open")
+    status_is_valid = status in dict(statuses)
+    filters["status"] = status if status_is_valid else ""
     if filters["status"]:
         tickets = tickets.filter(status=filters["status"])
     return {
@@ -45,7 +47,8 @@ def support_inbox(tickets, params, form, *, reviewer=False):
         "ticket_statuses": statuses,
         "status_tabs": tabs,
         "ticket_filters": filters,
-        "has_ticket_filters": any(filters.values()),
+        "has_ticket_filters": any(filters[key] for key in ("category", "priority", "q"))
+        or (status_was_selected and status_is_valid),
         "has_ticket_search_filters": any(
             filters[key] for key in ("category", "priority", "q")
         ),
