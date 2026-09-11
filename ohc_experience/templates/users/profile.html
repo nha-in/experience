@@ -23,14 +23,6 @@
     </div>
     {% include "users/partials/profile_form.html" %}
     <div class="ui-card-content flex flex-col gap-3 border-t border-border pt-5">
-      <div class="grid gap-1 sm:grid-cols-[190px_minmax(0,1fr)] sm:gap-4">
-        <span class="text-[13px] font-medium text-soft-foreground">{% translate "Email" %}</span>
-        <span class="min-w-0 text-sm break-all text-foreground">{{ request.user.email }}</span>
-      </div>
-      <p class="text-[11.5px] leading-relaxed text-soft-foreground">
-        {% url 'account_email' as email_url %}
-        {% blocktranslate %}You sign in with this address. Add or change it on the <a class="ui-prose-link" href="{{ email_url }}">email addresses</a> page.{% endblocktranslate %}
-      </p>
       <div>
         <a class="ui-btn ui-btn--outline ui-btn--size-sm"
            href="{% url 'account_change_password' %}">{% translate "Change password" %}</a>

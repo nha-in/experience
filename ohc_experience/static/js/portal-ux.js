@@ -16,6 +16,9 @@
 
   function updateForm(form) {
     if (!form?.matches(formSelector)) return;
+    form.querySelectorAll('[data-show-when-dirty]').forEach(control => {
+      control.hidden = !isDirty(form);
+    });
     const status = form.querySelector('[data-unsaved-status]');
     if (status) {
       if (!idleStatuses.has(status)) idleStatuses.set(status, status.textContent);

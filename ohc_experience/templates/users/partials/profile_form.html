@@ -34,8 +34,14 @@
   <div class="ui-card-content flex flex-col gap-4">
     {% include "components/form_errors.html" %}
     {% ui_field form.name label=full_name_label %}
-    <div class="flex border-t border-border pt-4 sm:justify-end">
+    {% ui_field form.email %}
+    <p class="text-[11.5px] leading-relaxed text-soft-foreground">
+      {% url 'account_email' as email_url %}
+      {% blocktranslate %}You sign in with this address. Add or change it on the <a class="ui-prose-link" href="{{ email_url }}">email addresses</a> page.{% endblocktranslate %}
+    </p>
+    <div class="flex border-border sm:justify-end">
       <button type="submit"
+              data-show-when-dirty
               class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:w-auto"
               hx-disabled-elt="this">
         <svg class="htmx-indicator animate-spin"

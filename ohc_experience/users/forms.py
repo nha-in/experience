@@ -206,6 +206,12 @@ class UserSocialSignupForm(OrganisationSignupMixin, SocialSignupForm):
 class UserProfileForm(forms.ModelForm):
     """The signed-in user's own details."""
 
+    email = forms.EmailField(label=_("Email"), disabled=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].initial = self.instance.email
+
     class Meta:
         model = User
         fields = ["name"]

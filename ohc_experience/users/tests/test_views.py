@@ -191,6 +191,9 @@ class TestUserProfileView:
         # (the sidebar's sign-out, for one).
         assert 'method="post"' in html
         assert f'action="{reverse("users:profile")}"' in html
+        assert "data-show-when-dirty" in html
+        assert 'name="email"' in html
+        assert "disabled" in html
         assert html.count("csrfmiddlewaretoken") == html.count('method="post"')
 
 
