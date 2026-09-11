@@ -68,6 +68,91 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
     assert b"No reviews match these filters." in response.content
 
 
+def test_queue_filters_by_exact_product_and_preserves_it_in_navigation(
+    review_item,
+    owner_membership,
+    client,
+):
+    other_workspace, form = workflows.register_product(
+        owner_membership.organisation,
+        owner_membership.user,
+        data={
+            "equipment_name": "Water pump accessory",
+            "summary": "A separate product with a similar name",
+            "checks": ["Quality:inspection", "Quality:release"],
+        },
+    )
+    assert other_workspace, form.errors
+    other_item = (
+        other_workspace.product.milestones.get(key="inspection")
+        .application.review_item
+    )
+    other_item, form, saved = workflows.save_review_form(
+        other_item,
+        owner_membership.user,
+        data={"report_reference": "Q-PORT-2", "score": 90},
+        submit=True,
+    )
+    assert saved, form.errors
+
+    reviewer = ReviewerFactory(is_nha_team=True)
+    client.force_login(reviewer)
+    reference = review_item.product.workspace.reference
+    response = client.get(
+        reverse("experiences:queue"),
+        {"scope": "open", "product": reference},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["filters"]["product"] == reference
+    assert {
+        item.product_id for item in response.context["page"]
+    } == {review_item.product_id}
+    assert other_item not in response.context["page"]
+    assert set(
+        response.context["product_choices"].values_list("reference", flat=True),
+    ) == {reference, other_workspace.reference}
+    assert f'value="{reference}"'.encode() in response.content
+    assert (
+        f"?scope=decided&amp;kind=&amp;status=&amp;item=&amp;product={reference}".encode()
+        in response.content
+    )
+    assert (
+        f"?kind=mine&amp;scope=open&amp;status=&amp;item=&amp;product={reference}".encode()
+        in response.content
+    )
+    assert f"product={reference}".encode() in response.context["filter_query"].encode()
+    assert b'href="?kind=&amp;scope=open"' in response.content
+
+
+def test_product_overview_pending_review_card_is_reviewer_only(
+    review_item,
+    owner_membership,
+    client,
+):
+    workspace = review_item.product.workspace
+    reviewer = ReviewerFactory(is_nha_team=True)
+    client.force_login(reviewer)
+    response = client.get(workspace.get_absolute_url())
+    expected_count = review_item.product.review_items.filter(
+        status__in=["new", "in_review", "query_raised"],
+    ).count()
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["pending_review_count"] == expected_count
+    assert b"Pending review" in response.content
+    assert (
+        f"{reverse('experiences:queue')}?scope=open&amp;product={workspace.reference}".encode()
+        in response.content
+    )
+
+    client.force_login(owner_membership.user)
+    response = client.get(workspace.get_absolute_url())
+    assert response.status_code == HTTPStatus.OK
+    assert b"Pending review" not in response.content
+    assert client.get(reverse("experiences:queue")).status_code == HTTPStatus.FORBIDDEN
+
+
 def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, client):
     reviewer = ReviewerFactory(is_nha_team=True)
     client.force_login(reviewer)

@@ -16,13 +16,13 @@
              hx-swap="outerHTML"
              hx-push-url="true">
           <a class="ui-pill min-h-9 inline-flex items-center"
-             href="?scope=open&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?scope=open&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'open' %}aria-current="page"{% endif %}>Open</a>
           <a class="ui-pill min-h-9 inline-flex items-center"
-             href="?scope=decided&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?scope=decided&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'decided' %}aria-current="page"{% endif %}>Decided</a>
           <a class="ui-pill min-h-9 inline-flex items-center"
-             href="?scope=all&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?scope=all&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'all' %}aria-current="page"{% endif %}>Everything</a>
         </nav>
       </div>
@@ -36,7 +36,7 @@
            hx-push-url="true">
         {% for tab in queue_tabs %}
           <a class="ui-tabstat"
-             href="?kind={{ tab.value|urlencode }}&amp;scope={{ queue_scope }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?kind={{ tab.value|urlencode }}&amp;scope={{ queue_scope }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if filters.kind == tab.value or not filters.kind and not tab.value %}aria-current="page"{% endif %}>
             <span class="ui-kicker">{{ tab.label }}</span><span class="ui-figure">{{ tab.count }}</span>
           </a>
@@ -71,15 +71,15 @@
                    type="search" />
           </div>
           <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Search</button>
-          {% if filters.q or filters.status or filters.item or filters.assignee %}<a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
+          {% if filters.q or filters.status or filters.item or filters.product or filters.assignee %}<a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
    href="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}"
    hx-get="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}"
    hx-boost="true">Clear filters</a>{% endif %}
         </div>
         <details id="queue-filters"
-                 {% if filters.status or filters.item or filters.assignee %}open{% endif %}>
-          <summary class="min-h-11 cursor-pointer py-3 text-sm font-semibold text-muted-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-primary">More filters <span class="ml-1 text-xs font-normal text-soft-foreground">{% if filters.status or filters.item or filters.assignee %}Filters applied{% else %}Status, item and assignee{% endif %}</span></summary>
-          <div class="grid items-end gap-3 pt-1 sm:grid-cols-3">
+                 {% if filters.status or filters.item or filters.product or filters.assignee %}open{% endif %}>
+          <summary class="min-h-11 cursor-pointer py-3 text-sm font-semibold text-muted-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-primary">More filters <span class="ml-1 text-xs font-normal text-soft-foreground">{% if filters.status or filters.item or filters.product or filters.assignee %}Filters applied{% else %}Status, item, product and assignee{% endif %}</span></summary>
+          <div class="grid items-end gap-3 pt-1 sm:grid-cols-2 xl:grid-cols-4">
             <div><label class="ui-label" for="queue-status">Status</label><div class="ui-select-wrapper"><select class="ui-select" id="queue-status" name="status"><option value="">{% if queue_scope == 'open' %}All open statuses{% elif queue_scope == 'decided' %}All decided statuses{% else %}All statuses{% endif %}</option>{% for value,label in statuses %}<option value="{{ value }}"
         {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div></div>
             <div>
@@ -99,6 +99,18 @@
                       <option value="{{ track.code }}" {% if filters.item == track.code %}selected{% endif %}>{{ track.code }}</option>
                     {% endfor %}
                   </optgroup>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="ui-label" for="queue-product">Product</label>
+              <div class="ui-select-wrapper">
+                <select class="ui-select" id="queue-product" name="product">
+                  <option value="">All products</option>
+                  {% for product_workspace in product_choices %}
+                    <option value="{{ product_workspace.reference }}"
+                            {% if filters.product == product_workspace.reference %}selected{% endif %}>{{ product_workspace.product.name }} · {{ product_workspace.reference }}</option>
+                  {% endfor %}
                 </select>
               </div>
             </div>
