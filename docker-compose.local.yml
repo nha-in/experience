@@ -55,7 +55,7 @@ services:
       - /var/lib/mailtrap-local:uid=65532,gid=65532
 
   redis:
-    image: docker.io/redis:7.2
+    image: docker.io/redis:8.10
     container_name: ohc_experience_local_redis
     volumes:
       - ohc_experience_local_redis_data:/data
