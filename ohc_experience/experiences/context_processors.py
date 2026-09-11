@@ -13,14 +13,7 @@ def workspaces_for(user):
     if not permissions.reviewer(user):
         query = query.filter(product__organisation__memberships__user=user)
     elif not user.is_superuser:
-        query = query.filter(
-            Q(product__in=permissions.visible_reviews(user).values("product_id"))
-            | Q(
-                product__in=permissions.visible_tickets(user).values(
-                    "product_id",
-                ),
-            ),
-        )
+        query = query.filter(product__in=permissions.visible_products(user))
     return query.order_by("product__name")
 
 

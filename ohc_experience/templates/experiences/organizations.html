@@ -1,0 +1,44 @@
+{% extends 'experiences/base.html' %}
+
+{% block portal_hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        <p class="ui-hero-eyebrow">{{ experience_program.review_heading }}</p>
+        <h1 class="ui-hero-title">Organizations</h1>
+        <p class="ui-hero-lede">Organizations represented in the review requests you can access.</p>
+        <div class="mt-6 flex items-baseline gap-2.5">
+          <span class="ui-figure ui-figure--xl">{{ organizations|length }}</span>
+          <span class="ui-figure-unit">organization{{ organizations|length|pluralize }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock portal_hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
+{% block portal_content %}
+  <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
+    <div class="divide-y divide-soft-border">
+      {% for organization in organizations %}
+        <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+           href="{% url 'experiences:organization-detail' organization.slug %}">
+          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary">{{ organization.initials }}</span>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-base font-bold group-hover:text-primary">{{ organization.display_name }}</h2>
+            <p class="mt-1 text-xs text-soft-foreground">
+              {{ organization.visible_product_count }} visible product{{ organization.visible_product_count|pluralize }} · {{ organization.visible_review_count }} review request{{ organization.visible_review_count|pluralize }}
+            </p>
+          </div>
+          {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
+          <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
+                aria-hidden="true">→</span>
+        </a>
+      {% empty %}
+        <div class="px-5 py-12 text-center">
+          <h2 class="text-base font-semibold">No organizations available</h2>
+          <p class="mt-2 text-sm text-soft-foreground">Organizations will appear when a review request matches your permissions.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock portal_content %}
