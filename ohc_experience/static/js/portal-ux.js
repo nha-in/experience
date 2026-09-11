@@ -37,6 +37,47 @@
     if (scroll) element.scrollIntoView({ block: 'center', behavior: 'instant' });
   }
 
+  function firstIncomplete(form) {
+    const available = input => !input.matches(':disabled') && !input.closest('[hidden]');
+    const missing = [...form.querySelectorAll('input, select, textarea')].find(input => available(input) && !input.validity.valid);
+    const missingGroup = [...form.querySelectorAll('[data-required-checkbox-group]')].find(group => {
+      const choices = [...group.querySelectorAll('input[type="checkbox"]')].filter(available);
+      return choices.length > 0 && !choices.some(input => input.checked);
+    });
+    const upload = [...form.querySelectorAll('[data-required-upload]')].find(field =>
+      field.querySelector('input[type="file"]') && available(field.querySelector('input[type="file"]')) &&
+      !field.querySelector('input[type="file"]')?.files.length &&
+      ![...field.querySelectorAll('[data-existing-file-remove]')].some(input => !input.checked));
+    const groupChoice = [...(missingGroup?.querySelectorAll('input[type="checkbox"]') || [])].find(available);
+    return [missing, groupChoice, upload?.querySelector('input[type="file"]')].filter(Boolean).sort(
+      (left, right) => left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1,
+    )[0];
+  }
+
+  function updateReadiness(form) {
+    if (!form?.id) return;
+    document.querySelectorAll('[data-readiness-form]').forEach(list => {
+      if (list.dataset.readinessForm !== form.id) return;
+      list.querySelectorAll('[data-readiness-item]').forEach(item => {
+        const input = document.getElementById(item.dataset.readinessItem);
+        const filled = input && !input.disabled && (
+          input.type === 'file' ? input.files.length > 0 :
+            input.type === 'checkbox' || input.type === 'radio' ? input.checked : input.value.trim() !== ''
+        );
+        const indicator = item.querySelector('[data-readiness-indicator]');
+        const label = item.querySelector('[data-readiness-label]');
+        if (indicator) indicator.className = filled
+          ? 'inline-flex size-4 shrink-0 rounded-full border-[1.5px] border-dashed border-primary'
+          : 'inline-flex size-4 shrink-0 rounded-full border-[1.5px] border-dashed border-amber-500';
+        if (label) {
+          label.classList.toggle('text-primary', filled);
+          label.classList.toggle('text-amber-700', !filled);
+          label.querySelector('.sr-only').textContent = filled ? ': filled, not saved yet' : ': not saved yet';
+        }
+      });
+    });
+  }
+
   function initialize() {
     document.querySelectorAll('[data-permission-group]').forEach(updatePermissionSummary);
     document.querySelectorAll('[data-password-toggle][hidden]').forEach(button => { button.hidden = false; });
@@ -51,6 +92,7 @@
         if (form.querySelector('[data-error-summary]')) unsavedErrors.add(form);
       }
       updateForm(form);
+      updateReadiness(form);
     });
     const error = document.querySelector('[data-error-summary]:not([data-error-focused])');
     if (error) {
@@ -174,7 +216,11 @@
     const input = event.target.closest('[data-milestone-key]');
     if (input) refreshMilestones(input.closest('form'));
   });
-  ['input', 'change'].forEach(type => document.addEventListener(type, event => updateForm(event.target.closest('form'))));
+  ['input', 'change'].forEach(type => document.addEventListener(type, event => {
+    const form = event.target.closest('form');
+    updateForm(form);
+    updateReadiness(form);
+  }));
   window.addEventListener('beforeunload', event => {
     if (!leaving && dirtyForms().length) {
       event.preventDefault();
@@ -233,24 +279,17 @@
       event.preventDefault();
       focusElement(control || document.getElementById(errorLink.hash.slice(1)));
     }
+    const continueForm = event.target.closest('[data-continue-form]');
+    if (continueForm) {
+      event.preventDefault();
+      const next = firstIncomplete(document.getElementById(continueForm.dataset.continueForm));
+      if (next) window.location.hash = next.id;
+      focusElement(next);
+    }
     const jump = event.target.closest('[data-submit-missing]');
     if (jump) {
       const form = jump.closest('form');
-      const available = input => !input.matches(':disabled') && !input.closest('[hidden]');
-      const missing = [...form.querySelectorAll('input, select, textarea')].find(input => available(input) && !input.validity.valid);
-      const missingGroup = [...form.querySelectorAll('[data-required-checkbox-group]')].find(group => {
-        const choices = [...group.querySelectorAll('input[type="checkbox"]')].filter(available);
-        return choices.length > 0 && !choices.some(input => input.checked);
-      });
-      const upload = [...form.querySelectorAll('[data-required-upload]')].find(field =>
-        field.querySelector('input[type="file"]') && available(field.querySelector('input[type="file"]')) &&
-        !field.querySelector('input[type="file"]')?.files.length &&
-        ![...field.querySelectorAll('[data-existing-file-remove]')].some(input => !input.checked));
-      const groupChoice = [...(missingGroup?.querySelectorAll('input[type="checkbox"]') || [])].find(available);
-      const first = [missing, groupChoice, upload?.querySelector('input[type="file"]')].filter(Boolean).sort(
-        (left, right) => left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1,
-      )[0];
-      focusElement(first);
+      focusElement(firstIncomplete(form));
     }
   });
 

@@ -20,11 +20,16 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true 
     },
     querySelectorAll(selector) { return selector === '[data-review-form]' ? [form] : []; },
     querySelector() { return null; },
+    getElementById(id) { return id === 'evidence-form' ? form : null; },
   };
   document.body = document;
   const button = { disabled: false };
   const reason = { textContent: '' };
   const jump = { hidden: true, closest: selector => selector === 'form' ? form : null };
+  const continueForm = {
+    dataset: { continueForm: 'evidence-form' },
+    closest: selector => selector === '[data-continue-form]' ? continueForm : null,
+  };
   const form = {
     dataset: { autoApprove: String(autoApprove), approvedUpdates: String(approvedUpdate) },
     parentElement: null,
@@ -51,7 +56,7 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true 
       querySelectorAll: () => [input],
     };
     const input = {
-      name, checked, disabled: false, validity: { valid: true },
+      id: `id_${name}`, name, checked, disabled: false, validity: { valid: true },
       parentElement: result, order: controls.length,
       matches(selector) {
         if (selector === ':disabled') return this.disabled || result.disabled;
@@ -70,9 +75,10 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true 
     groups.push(result);
     return { group: result, input };
   }
+  const window = { addEventListener() {}, location: { hash: '' } };
   const context = vm.createContext({
     document,
-    window: { addEventListener() {} },
+    window,
     navigator: {},
     Element: class {},
     Node: { DOCUMENT_POSITION_PRECEDING: 2 },
@@ -82,15 +88,16 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true 
   for (const filename of ['project.js', 'portal-ux.js']) {
     vm.runInContext(readFileSync(join(__dirname, '../ohc_experience/static/js', filename), 'utf8'), context);
   }
-  function fire(name, target = document) {
-    for (const callback of listeners.get(name) || []) callback({ target });
+  function fire(name, target = document, event = {}) {
+    for (const callback of listeners.get(name) || []) callback({ ...event, target });
     while (tasks.length) tasks.shift()();
   }
   return {
-    form, button, reason, jump, group, document,
+    form, button, reason, jump, group, document, window,
     initialize: () => fire('DOMContentLoaded'),
     change: input => fire('change', input),
     clickJump: () => fire('click', { closest: selector => selector === '[data-submit-missing]' ? jump : null }),
+    clickContinue: () => fire('click', { closest: selector => selector === '[data-continue-form]' ? continueForm : null }, { preventDefault() {} }),
   };
 }
 
@@ -105,11 +112,18 @@ test('required UHI groups block recording until each group has a choice', () => 
   page.clickJump();
   assert.equal(page.document.activeElement, role.input);
 
+  page.clickContinue();
+  assert.equal(page.document.activeElement, role.input);
+  assert.equal(page.window.location.hash, 'id_uhi_role');
+
   role.input.checked = true;
   page.change(role.input);
   assert.equal(page.button.disabled, true);
   page.clickJump();
   assert.equal(page.document.activeElement, services.input);
+  page.clickContinue();
+  assert.equal(page.document.activeElement, services.input);
+  assert.equal(page.window.location.hash, 'id_uhi_services');
 
   services.input.checked = true;
   page.change(services.input);

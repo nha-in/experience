@@ -37,6 +37,7 @@
   <div class="ui-card-content">
     <p class="text-xs leading-relaxed text-soft-foreground">This counts your saved evidence. Changes on this page count after you save.</p>
     <a class="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline decoration-primary/30 underline-offset-4 hover:decoration-primary"
+       data-continue-form="evidence-form"
        href="{% if readiness.first_missing %}#{{ readiness.first_missing.field_id }}{% else %}#evidence-actions{% endif %}">{% if readiness.first_missing %}Continue form{% else %}Go to form actions{% endif %}<span aria-hidden="true">&nbsp;↓</span></a>
     {% if submission_blocked %}<p class="mt-3 text-xs leading-relaxed text-soft-foreground">{{ submission_blocked }}</p>{% endif %}
   </div>

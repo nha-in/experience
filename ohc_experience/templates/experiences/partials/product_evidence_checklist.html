@@ -1,6 +1,7 @@
-<ul class="flex flex-col text-[13px]">
+<ul class="flex flex-col text-[13px]" data-readiness-form="evidence-form">
   {% for row in readiness.rows %}
-    <li class="flex items-center gap-2.5 border-t border-soft-border py-[9px] first:border-t-0 first:pt-0 last:pb-0">
+    <li class="flex items-center gap-2.5 border-t border-soft-border py-[9px] first:border-t-0 first:pt-0 last:pb-0"
+        {% if not row.done %}data-readiness-item="{{ row.field_id }}"{% endif %}>
       {% if row.done %}
         <span class="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
               aria-hidden="true">
@@ -18,8 +19,10 @@
         </span>
       {% else %}
         <span class="inline-flex size-4 shrink-0 rounded-full border-[1.5px] border-dashed border-stronger-border"
-              aria-hidden="true"></span>
+            data-readiness-indicator
+            aria-hidden="true"></span>
         <a class="font-semibold text-primary no-underline hover:underline"
+          data-readiness-label
            href="#{{ row.field_id }}">{{ row.label }}<span class="sr-only">: not saved yet</span>
         </a>
       {% endif %}

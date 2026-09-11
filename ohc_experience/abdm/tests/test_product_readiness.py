@@ -117,6 +117,8 @@ def test_readiness_jump_uses_first_missing_prefixed_field():
         {"form": form},
     )
     assert 'href="#id_evidence-consent"' in html
+    assert 'data-readiness-form="evidence-form"' in html
+    assert 'data-readiness-item="id_evidence-consent"' in html
     assert "required item not saved yet" in html
 
 
