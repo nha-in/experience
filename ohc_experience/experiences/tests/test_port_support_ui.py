@@ -398,6 +398,23 @@ def test_reviewer_can_render_tickets_and_resolve(
     assert ticket.status == "resolved"
 
 
+@pytest.mark.parametrize("route", ["experiences:events", "experiences:support"])
+def test_reviewer_pages_do_not_select_a_product(
+    portal_client,
+    portal_workspaces,
+    route,
+):
+    portal_client.force_login(ReviewerFactory(is_nha_team=True))
+    session = portal_client.session
+    session["experience_product"] = portal_workspaces[1].reference
+    session.save()
+    response = portal_client.get(reverse(route))
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["workspace"] is None
+    assert portal_client.session["experience_product"] == portal_workspaces[1].reference
+
+
 def test_vendor_can_close_their_own_ticket(
     portal_client,
     portal_workspaces,

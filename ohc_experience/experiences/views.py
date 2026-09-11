@@ -1391,13 +1391,15 @@ def submission(request, pk, submission_id):
 def events(request):
     permissions.require_area(request.user, "events")
     workspaces = _workspaces(request.user)
-    workspace = (
-        workspaces.filter(reference=request.GET.get("product")).first()
-        or workspaces.filter(
-            reference=request.session.get("experience_product", ""),
-        ).first()
-        or workspaces.first()
-    )
+    workspace = None
+    if not permissions.reviewer(request.user):
+        workspace = (
+            workspaces.filter(reference=request.GET.get("product")).first()
+            or workspaces.filter(
+                reference=request.session.get("experience_product", ""),
+            ).first()
+            or workspaces.first()
+        )
     if workspace:
         request.session["experience_product"] = workspace.reference
     if request.method == "POST":
@@ -1470,13 +1472,15 @@ def events(request):
 def support(request):
     permissions.require_area(request.user, "support")
     workspaces = _workspaces(request.user)
-    workspace = (
-        workspaces.filter(reference=request.GET.get("product")).first()
-        or workspaces.filter(
-            reference=request.session.get("experience_product", ""),
-        ).first()
-        or workspaces.first()
-    )
+    workspace = None
+    if not permissions.reviewer(request.user):
+        workspace = (
+            workspaces.filter(reference=request.GET.get("product")).first()
+            or workspaces.filter(
+                reference=request.session.get("experience_product", ""),
+            ).first()
+            or workspaces.first()
+        )
     if workspace:
         request.session["experience_product"] = workspace.reference
     tickets = permissions.visible_tickets(request.user)
