@@ -11,7 +11,15 @@ def evidence_readiness(form):
     """Summarise saved evidence without binding UI to a programme's field names."""
     rows = []
     required_uploads = getattr(form, "required_uploads", ())
-    for key, field in form.fields.items():
+    section_fields = tuple(
+        key for _, fields in getattr(form, "sections", ()) for key in fields
+    )
+    field_keys = (
+        *section_fields,
+        *(key for key in form.fields if key not in section_fields),
+    )
+    for key in field_keys:
+        field = form.fields[key]
         declared_field = form.base_fields.get(key, field)
         if not declared_field.required and key not in required_uploads:
             continue

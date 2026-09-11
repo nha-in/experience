@@ -25,6 +25,11 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
     assert readiness["total"] == 9  # noqa: PLR2004
     assert readiness["completed"] == 3  # noqa: PLR2004
     assert readiness["missing"] == 6  # noqa: PLR2004
+    assert [row["label"] for row in readiness["rows"][:3]] == [
+        "Sandbox testing start date",
+        "Sandbox testing end date",
+        "Tentative demo date",
+    ]
     assert all(row["field_id"] != "id_supporting_evidence" for row in readiness["rows"])
     assert any(row["field_id"] == "id_wasa_date" for row in readiness["rows"])
     assert any(row["field_id"] == "id_wasa_valid_until" for row in readiness["rows"])
