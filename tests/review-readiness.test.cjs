@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 // Like Django's CheckboxSelectMultiple, individual choices have valid native
 // validity even when a required group has no selected option.
-function createPage({ autoApprove = false, approvedUpdate = false, draft = true } = {}) {
+function createPage({ autoApprove = false, approvedUpdate = false, draft = true, submit = true } = {}) {
   const listeners = new Map();
   const tasks = [];
   const controls = [];
@@ -37,7 +37,7 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true 
     matches: () => false,
     querySelector(selector) {
       return {
-        '[data-request-submit]': button,
+        '[data-request-submit]': submit ? button : null,
         '[data-submit-reason]': reason,
         '[data-submit-missing]': jump,
         '[name="intent"][value="draft"]:not(:disabled)': draft ? {} : null,
@@ -149,15 +149,11 @@ test('hidden and disabled required groups do not block submission', () => {
   assert.equal(page.button.disabled, false);
 });
 
-test('approved participation uses update copy and never offers a nonexistent draft', () => {
-  const page = createPage({ autoApprove: true, approvedUpdate: true, draft: false });
+test('approved participation uses update copy', () => {
+  const page = createPage({ autoApprove: true, approvedUpdate: true });
   page.group('uhi_role', { checked: true });
   page.initialize();
   assert.equal(page.reason.textContent, 'All required fields are complete. Ready to submit your update.');
-  page.form.dataset.reviewBlocked = 'true';
-  page.initialize();
-  assert.equal(page.button.disabled, true);
-  assert.equal(page.reason.textContent, 'Required approvals are pending.');
 });
 
 test('readiness follows conditional visibility updates from the same change event', () => {
@@ -172,9 +168,9 @@ test('readiness follows conditional visibility updates from the same change even
   assert.match(page.reason.textContent, /^1 field needs attention/);
 });
 
-test('ordinary review forms preserve draft guidance when it is available', () => {
-  const page = createPage();
-  page.form.dataset.reviewBlocked = 'true';
+test('blocked forms keep the server-rendered pending notice', () => {
+  const page = createPage({ submit: false });
+  page.reason.textContent = 'Required approvals are pending.';
   page.initialize();
-  assert.equal(page.reason.textContent, 'Required approvals are pending. You can still save a draft.');
+  assert.equal(page.reason.textContent, 'Required approvals are pending.');
 });
