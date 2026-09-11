@@ -39,6 +39,7 @@
 
   function initialize() {
     document.querySelectorAll('[data-permission-group]').forEach(updatePermissionSummary);
+    document.querySelectorAll('[data-password-toggle][hidden]').forEach(button => { button.hidden = false; });
     document.querySelectorAll('form:has([data-milestone-key])').forEach(refreshMilestones);
     document.querySelectorAll('[data-permission-toggle]').forEach(button => {
       button.hidden = false;
@@ -114,6 +115,23 @@
     button.closest('form').querySelectorAll('[data-permission-group]').forEach(group => { group.open = expand; });
     updatePermissionToggle(button);
   });
+  // Only Edge draws a reveal control of its own, so every password field gets one.
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-password-toggle]');
+    if (!button) return;
+    const input = button.closest('[data-password-field]').querySelector('input');
+    const revealing = input.type === 'password';
+    input.type = revealing ? 'text' : 'password';
+    button.setAttribute('aria-pressed', String(revealing));
+    button.setAttribute('aria-label', revealing ? 'Hide password' : 'Show password');
+    button.querySelectorAll('[data-password-icon]').forEach(icon => {
+      icon.toggleAttribute('hidden', icon.dataset.passwordIcon !== (revealing ? 'hide' : 'show'));
+    });
+  });
+  // Submit as a password field so browsers still offer to save it.
+  document.addEventListener('submit', event => {
+    event.target.querySelectorAll('[data-password-field] input').forEach(input => { input.type = 'password'; });
+  }, true);
   document.addEventListener('toggle', event => {
     if (!event.target.matches('[data-permission-group]')) return;
     event.target.closest('form')?.querySelectorAll('[data-permission-toggle]').forEach(updatePermissionToggle);

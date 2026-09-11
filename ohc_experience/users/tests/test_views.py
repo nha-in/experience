@@ -204,6 +204,15 @@ class TestUserSignupView:
         assert response.status_code == HTTPStatus.OK
         assert "organisation" in response.context["form"].fields
 
+    def test_asks_for_the_password_twice_with_a_reveal_toggle(self, client: Client):
+        response = client.get(SIGNUP_URL)
+        password_fields = ("password1", "password2")
+
+        assert set(password_fields) <= set(response.context["form"].fields)
+        assert response.content.decode().count("data-password-toggle") == len(
+            password_fields,
+        )
+
     def test_an_invite_in_the_session_shapes_the_form(
         self,
         client: Client,

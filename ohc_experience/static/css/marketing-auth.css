@@ -210,6 +210,10 @@
   padding-right: 32px;
 }
 
+.marketing-shell .marketing-auth-panel .ui-password-field .ui-input {
+  padding-right: 44px;
+}
+
 .marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea):focus-visible {
   outline: 2px solid #26744f;
   outline-offset: 2px;

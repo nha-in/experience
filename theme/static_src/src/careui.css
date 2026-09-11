@@ -254,6 +254,22 @@
 
   .ui-field:has(:target) {
     @apply rounded-lg ring-2 ring-primary/30 ring-offset-4;
+  
+  .ui-password-field {
+    @apply relative;
+  }
+
+  .ui-password-field .ui-input {
+    @apply pr-10;
+  }
+
+  .ui-password-toggle {
+    @apply absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring;
+  }
+
+  /* Edge draws its own reveal button; one control per field is enough. */
+  input::-ms-reveal {
+    display: none;
   }
 
   .ui-textarea {

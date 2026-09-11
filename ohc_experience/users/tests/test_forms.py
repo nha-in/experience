@@ -61,6 +61,12 @@ class TestUserAdminCreationForm:
 
 @pytest.mark.django_db
 class TestUserSignupForm:
+    def test_the_confirmation_must_match_the_password(self):
+        form = UserSignupForm(data={**SIGNUP_DATA, "password2": "sandbox-Kerala-2025"})
+
+        assert not form.is_valid()
+        assert "password2" in form.errors
+
     def test_creates_the_organisation_and_an_owner_membership(
         self,
         rf: RequestFactory,

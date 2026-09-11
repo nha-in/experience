@@ -71,7 +71,8 @@
                    type="search" />
           </div>
           <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Search</button>
-          {% if filters.q or filters.status or filters.item or filters.assignee %}<a class="cursor-pointer inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
+          {% if filters.q or filters.status or filters.item or filters.assignee %}<a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
+   href="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}"
    hx-get="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}"
    hx-boost="true">Clear filters</a>{% endif %}
         </div>

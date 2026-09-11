@@ -130,6 +130,7 @@ def ui_field(  # noqa: PLR0913, PLR0917
         and field.name not in getattr(form, "required_uploads", ()),
         "is_file": is_file,
         "is_multiple_file": is_multiple_file,
+        "is_password": isinstance(field.field.widget, forms.PasswordInput),
         "existing_files": getattr(form, "existing_files", {}).get(field.name, []),
         "removed_file_ids": getattr(form, "removed_file_ids", {}).get(
             field.name,
