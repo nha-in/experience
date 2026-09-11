@@ -1,6 +1,7 @@
 from http import HTTPStatus
 
 import pytest
+from django.template.loader import render_to_string
 from django.urls import reverse
 
 from ohc_experience.experiences import workflows
@@ -266,6 +267,23 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
     assert b"Q-PORT-1" in response.content
     assert b"Water pump" in response.content
     assert review_item.reference.encode() in response.content
+
+
+def test_client_response_alert_is_not_shown_to_reviewer(review_item):
+    review_item.status = "query_raised"
+
+    reviewer_html = render_to_string(
+        "experiences/partials/review_status.html",
+        {"item": review_item, "reviewer": True},
+    )
+    client_html = render_to_string(
+        "experiences/partials/review_status.html",
+        {"item": review_item, "reviewer": False},
+    )
+
+    assert "Your response is needed" not in reviewer_html
+    assert 'role="status"' not in reviewer_html
+    assert "Your response is needed" in client_html
 
 
 @pytest.mark.parametrize(
