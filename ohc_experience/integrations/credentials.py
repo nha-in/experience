@@ -69,6 +69,7 @@ def publish_credential(product: Product) -> ProductCredential:
     secret = _issued_secret(client)
     credential, _created = ProductCredential.objects.update_or_create(
         product=product,
+        environment=ProductCredential.Environment.SANDBOX,
         defaults={
             "client_id": client.public_ref,
             "encrypted_secret": cipher().encrypt(secret.encode()).decode(),

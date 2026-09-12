@@ -27,6 +27,10 @@ def test_engine_demo_command_runs_registered_abdm_builder(settings):
     assert ProductWorkspace.objects.filter(experience_type="abdm").exists()
     assert ProductCredential.objects.filter(status="active").exists()
     assert ReviewItem.objects.filter(status="query_raised").exists()
+    # The approved M1 comes with a visibly fake production client ID.
+    production = ProductCredential.objects.get(environment="production")
+    assert production.client_id.startswith("DEMO_PROD_SBX_")
+    assert production.encrypted_secret == ""
     with pytest.raises(CommandError, match="already exists"):
         call_command("seed_experience_demo", stdout=StringIO())
 

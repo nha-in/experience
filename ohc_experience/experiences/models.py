@@ -952,28 +952,60 @@ class AuditEvent(models.Model):
 
 
 class ProductCredential(models.Model):
-    product = models.OneToOneField(
+    """A product's sandbox credential, and the production client ID staff record.
+
+    The portal issues and holds the sandbox pair. Production credentials are
+    issued by the gateway team, which hands the secret to the integrator, so a
+    production row carries the client ID alone.
+    """
+
+    class Environment(models.TextChoices):
+        SANDBOX = "sandbox", _("Sandbox")
+        PRODUCTION = "production", _("Production")
+
+    product = models.ForeignKey(
         "experiences.Product",
         on_delete=models.PROTECT,
-        related_name="credential",
+        related_name="credentials",
     )
-    client_id = models.CharField(max_length=100, unique=True)
+    environment = models.CharField(
+        max_length=16,
+        choices=Environment,
+        default=Environment.SANDBOX,
+    )
+    client_id = models.CharField(max_length=255, unique=True)
     encrypted_secret = models.TextField(editable=False)
     status = models.CharField(
         max_length=16,
         choices=[("active", "Active"), ("revoked", "Revoked")],
         default="active",
     )
-    gateway_url = models.URLField()
+    gateway_url = models.URLField(blank=True)
     callback_url = models.URLField(blank=True)
     bridge_url = models.URLField(blank=True)
     issued_at = models.DateTimeField(default=timezone.now)
-    rotation_due = models.DateTimeField()
+    rotation_due = models.DateTimeField(null=True, blank=True)
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_status = models.PositiveSmallIntegerField(null=True, blank=True)
     last_latency_ms = models.PositiveIntegerField(null=True, blank=True)
     consecutive_failures = models.PositiveIntegerField(default=0)
     last_error = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "environment"],
+                name="unique_credential_per_environment",
+            ),
+            models.CheckConstraint(
+                condition=Q(environment="sandbox") | Q(encrypted_secret=""),
+                name="production_credential_holds_no_secret",
+            ),
+            models.CheckConstraint(
+                condition=Q(environment="production") | Q(rotation_due__isnull=False),
+                name="sandbox_credential_has_rotation_due",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.client_id} ({self.status})"

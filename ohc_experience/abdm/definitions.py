@@ -93,7 +93,8 @@ class ExitEvidence(ApplicationFormDefinition):
     submit_label = "Request for exit"
     submitted_message = "Exit requested."
     approval_notice = (
-        "Production credentials are issued separately by the gateway team."
+        "The NHA gateway team issues production credentials. Your production "
+        "client ID appears on the Credentials page once it is recorded."
     )
 
     @classmethod
@@ -127,15 +128,15 @@ class ExitEvidence(ApplicationFormDefinition):
                 name=f"{item.application.title} approved",
                 field_schema=[
                     {"key": "decision_note", "label": "Decision"},
-                    {"key": "production_handoff", "label": "Production access"},
+                    {"key": "production_handoff", "label": "Production credentials"},
                 ],
                 data={
                     "milestone": item.application.milestone.key,
                     "approved_on": item.decided_at.isoformat(),
                     "decision_note": item.decision_note,
                     "production_handoff": (
-                        "Production credentials are issued separately "
-                        "by the gateway team."
+                        "Issued by the NHA gateway team. The production client ID "
+                        "appears on the Credentials page once it is recorded."
                     ),
                 },
             ),

@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from ohc_experience.support.models import Category
 
 from .fields import MultipleFileField
+from .production import validate_client_id
 from .registry import get_program
 from .uploads import validate_pdf
 
@@ -106,6 +107,19 @@ class ReviewForm(ExperienceForm):
             for key in self.required_uploads:
                 self.require_upload(key, self.fields[key].label or key)
         return cleaned
+
+
+class ProductionAccessForm(forms.Form):
+    client_id = forms.CharField(
+        label=_("Production client ID"),
+        max_length=255,
+        help_text=_("As issued by the gateway team. No secret is stored here."),
+    )
+    #: The ID the form was opened with, so a concurrent change is not overwritten.
+    expected = forms.CharField(required=False, widget=forms.HiddenInput)
+
+    def clean_client_id(self):
+        return validate_client_id(self.cleaned_data["client_id"])
 
 
 class CredentialURLsForm(forms.Form):

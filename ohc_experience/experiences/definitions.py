@@ -175,8 +175,20 @@ class CredentialDefinition:
     demo_notice = "Demo credentials are not valid on an external gateway."
     unavailable_notice = "Credentials are not available for this product yet."
     unavailable_heading = "Credentials pending"
+    #: Static production copy, for programs that don't record production IDs.
     handoff_heading = ""
     handoff_notice = ""
+    #: Staff record each product's production client ID once an exit is approved.
+    record_production_access = False
+    production_heading = "Production access"
+    production_ineligible_notice = (
+        "Production access becomes available once a milestone exit is approved."
+    )
+    production_pending_notice = (
+        "Your exit is approved. Your production client ID will appear here once "
+        "it is issued."
+    )
+    production_notice = ""
 
     @classmethod
     def gateway_url(cls):

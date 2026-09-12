@@ -32,6 +32,12 @@
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'organizations' %}ui-nav-link--active{% endif %}"
    {% if nav == 'organizations' %}aria-current="page"{% endif %}
    href="{% url 'experiences:organizations' %}">{% include "components/nav_icon.html" with icon="organisation" %}Organizations</a></li>
+          {% if can_read_general and experience_program.credentials.record_production_access %}
+            <li><a id="nav-production"
+   class="ui-nav-link flex items-center gap-2.5 {% if nav == 'production' %}ui-nav-link--active{% endif %}"
+   {% if nav == 'production' %}aria-current="page"{% endif %}
+   href="{% url 'experiences:production-list' %}">{% include "components/nav_icon.html" with icon="credentials" %}Production access</a></li>
+          {% endif %}
         {% endif %}
       {% elif not workspace %}
         <li><a id="nav-dashboard"

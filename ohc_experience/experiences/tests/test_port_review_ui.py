@@ -51,6 +51,19 @@ def test_reviewer_surfaces_render_with_another_program(review_item, client, rout
     assert b"HIE-CM" not in response.content
 
 
+def test_production_access_is_absent_for_a_program_that_does_not_record_it(
+    review_item,
+    client,
+):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    assert (
+        b'id="nav-production"' not in client.get(reverse("experiences:queue")).content
+    )
+    for route in ["production-list", "production-export"]:
+        response = client.get(reverse(f"experiences:{route}"))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+
 def test_queue_filters_still_work_when_requested_through_htmx(review_item, client):
     reviewer = ReviewerFactory(is_nha_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)

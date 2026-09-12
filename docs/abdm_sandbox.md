@@ -91,8 +91,9 @@ application data:
 docker compose -f docker-compose.local.yml exec django python manage.py seed_experience_demo --permissions-only
 ```
 
-`SBX-2026-00001` demonstrates an approved shared M1, an M2 query, locked M3/M4,
-a PHR1 review, a sent-back HealthLocker request and a recorded UHI application. The second
+`SBX-2026-00001` demonstrates an approved shared M1 with a recorded (fake)
+production client ID, an M2 query, locked M3/M4, a PHR1 review, a sent-back
+HealthLocker request and a recorded UHI application. The second
 product awaits registration. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
 Local mail is visible at http://localhost:3550/.
@@ -160,6 +161,12 @@ retired; reviewer work uses the engine's assessment screens.
 - Product-level `ProductOutcome` records contain credential references and
   milestone decisions, including production handoff notes. Secrets never appear
   in outcome JSON, notification emails or reviewer pages.
+- `ProductCredential` holds a product's sandbox credential and, once staff record
+  it, its production client ID, told apart by `environment`. The NHA gateway team
+  issues production credentials and sends the secret to the integrator directly;
+  a production row holds the client ID alone, and a database constraint rejects
+  one with a secret. Sandbox reveal, rotation, revocation and callback checks
+  refuse production rows.
 - `ReviewQuery` is pinned to the reviewed submission. All open queries must be
   answered, and answered queries resolved, before approval. Forms under review
   are read-only until withdrawn or sent back.
@@ -170,8 +177,13 @@ retired; reviewer work uses the engine's assessment screens.
 
 The fixed catalog lives in `abdm/catalog.py`. M4 is HFR Registration, PHR
 shares M1 with HIE-CM, and NHCX intentionally has no published milestones per v3.
-There is no configured decision SLA. Production credential issuance is external;
-approval notes are emailed to integrators and retained as product outcomes.
+There is no configured decision SLA. Production credential issuance is external:
+once a milestone exit is approved, staff with General/onboarding review approve
+access record the production client ID the gateway team issued, at
+`/assess/production/`. Recording or changing it is audited and emails the
+organisation's members a link to the product (not the ID itself); removal is
+audited only. Approval notes are emailed to integrators and retained as product
+outcomes.
 
 ## Routes and Frontend
 
@@ -183,6 +195,10 @@ approval notes are emailed to integrators and retained as product outcomes.
 - `/products/<sandbox-id>/credentials/`: audited reveal, rotation and callbacks.
 - `/portal/queries/`: highlighted pending queries.
 - `/assess/dashboard/`, `/assess/queue/`, `/assess/review/<id>/`: NHA review.
+- `/assess/production/`, `/assess/production/<sandbox-id>/`: products with an
+  approved exit, their production client IDs, and a CSV export at
+  `/assess/production/export/`. General/onboarding review read to view, approve
+  to record, change or remove.
 - `/portal/events/`, `/portal/support/`: registrations and support threads.
 
 The CareUI shell uses HTMX navigation with a shared `#main-content` target and

@@ -37,6 +37,7 @@ from ohc_experience.support.models import record_status_change
 
 from . import credentials as credential_services
 from . import permissions
+from . import production as production_services
 from . import workflows as services
 from .context_processors import navigation_context
 from .context_processors import product_scope
@@ -75,6 +76,13 @@ def _workspace(request, reference):
     workspace = get_object_or_404(_workspaces(request.user), reference=reference)
     request.session["experience_product"] = workspace.reference
     return workspace
+
+
+def _sandbox_credential(product):
+    return ProductCredential.objects.filter(
+        product=product,
+        environment=ProductCredential.Environment.SANDBOX,
+    ).first()
 
 
 def _item(request, pk):
@@ -497,6 +505,11 @@ def overview(request, reference):
         outcomes = outcomes.exclude(
             outcome_type=certification["current"].outcome_type,
         )
+    sees_credentials = not permissions.reviewer(request.user) or permissions.has_access(
+        request.user,
+        "review",
+        program=workspace.definition.key,
+    )
     context = _context(
         request,
         workspace,
@@ -514,14 +527,12 @@ def overview(request, reference):
                 user=request.user,
             ).values_list("event_id", flat=True),
         ),
-        credential=ProductCredential.objects.filter(product=product).first()
-        if not permissions.reviewer(request.user)
-        or permissions.has_access(
+        credential=_sandbox_credential(product) if sees_credentials else None,
+        production=production_services.state(product) if sees_credentials else None,
+        can_view_production=production_services.can_view(
             request.user,
-            "review",
-            program=workspace.definition.key,
-        )
-        else None,
+            workspace.definition,
+        ),
         outcomes=outcomes.exclude(
             outcome_type=workspace.definition.credentials.outcome_type
             if workspace.definition.credentials
@@ -900,7 +911,8 @@ def credentials(request, reference):  # noqa: C901, PLR0912
         raise Http404
     # Reviewers can see health metadata in context, but cannot open this surface.
     permissions.require_integrator(request.user, workspace.product.organisation)
-    credential = ProductCredential.objects.filter(product=workspace.product).first()
+    credential = _sandbox_credential(workspace.product)
+    production = production_services.state(workspace.product)
     form = CredentialURLsForm(
         initial={
             "callback_url": credential.callback_url,
@@ -926,6 +938,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 page_title=workspace.definition.credentials.name,
                 demo_credentials=workspace.definition.credentials.is_demo(),
                 progress=provisioning_progress(workspace.product),
+                production=production,
                 secret=secret,
                 revealed_secret=secret,
             ),
@@ -969,6 +982,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                             nav="credentials",
                             page_title=workspace.definition.credentials.name,
                             progress=provisioning_progress(workspace.product),
+                            production=production,
                         ),
                     )
             else:
@@ -1005,6 +1019,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             page_title=workspace.definition.credentials.name,
             demo_credentials=workspace.definition.credentials.is_demo(),
             progress=provisioning_progress(workspace.product),
+            production=production,
         ),
     )
 
@@ -1403,9 +1418,13 @@ def review(request, pk):
                 status="approved",
             )
             .exclude(pk=item.pk)[:10],
-            credential=ProductCredential.objects.filter(product=item.product).first()
+            credential=_sandbox_credential(item.product)
             if item.product_id
             and permissions.has_access(request.user, "review", program=item.program.key)
+            else None,
+            production=production_services.state(item.product)
+            if item.product_id
+            and production_services.can_view(request.user, item.program)
             else None,
             progress=provisioning_progress(item.product) if item.product_id else [],
             can_retry_provisioning=_can_retry_provisioning(request.user, item),

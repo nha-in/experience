@@ -232,7 +232,15 @@ class ReviewItemAdmin(ReadOnlyAdmin):
 
 @admin.register(ProductCredential)
 class CredentialAdmin(ReadOnlyAdmin):
-    list_display = ("product", "client_id", "status", "issued_at", "rotation_due")
+    list_display = (
+        "product",
+        "environment",
+        "client_id",
+        "status",
+        "issued_at",
+        "rotation_due",
+    )
+    list_filter = ("environment", "status")
     exclude = ("encrypted_secret",)
 
 

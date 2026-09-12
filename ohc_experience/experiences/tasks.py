@@ -32,6 +32,7 @@ class NotificationNotAcceptedError(RuntimeError):
 @shared_task
 def monitor_callbacks():
     for credential in ProductCredential.objects.filter(
+        environment=ProductCredential.Environment.SANDBOX,
         status="active",
     ).exclude(callback_url=""):
         check_callback(credential)

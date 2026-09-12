@@ -15,10 +15,14 @@ class ABDMCredentials(CredentialDefinition):
     demo_notice = "These credentials come from the local adapters, not the NHA gateway."
     unavailable_notice = "Sandbox credentials are being set up for this product."
     unavailable_heading = "Provisioning in progress"
-    handoff_heading = "Production access"
-    handoff_notice = (
-        "Production credentials are handled by the gateway team after milestone "
-        "approval. The decision record contains your handoff details."
+    record_production_access = True
+    production_pending_notice = (
+        "Your exit is approved. The NHA gateway team issues production credentials; "
+        "your production client ID will appear here once it is recorded."
+    )
+    production_notice = (
+        "The NHA gateway team sends the production client secret to you directly. "
+        "It is never shown or stored in this portal."
     )
 
     @classmethod
