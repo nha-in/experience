@@ -41,7 +41,9 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
     assert list(detail.context["products"]) == [workspace]
     assert verification in detail.context["review_requests"]
     assert b"DEMO-CIN-2026" in detail.content
-    assert workspace.get_absolute_url().encode() in detail.content
+    staff_url = reverse("experiences:product-detail", args=[workspace.reference])
+    assert f'href="{staff_url}"'.encode() in detail.content
+    assert f'href="{workspace.get_absolute_url()}"'.encode() not in detail.content
 
 
 def test_organization_pages_follow_category_review_scope(environment, client):
@@ -72,6 +74,7 @@ def test_organization_pages_follow_category_review_scope(environment, client):
 
     products = client.get(reverse("experiences:products"))
     assert list(products.context["workspaces"]) == [environment["workspace"]]
+    assert list(products.context["products"]) == [environment["workspace"]]
     assert (
         client.get(
             reverse(

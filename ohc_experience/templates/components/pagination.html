@@ -1,0 +1,48 @@
+{% comment %}
+  Numbered pagination for a Django Page; links keep the current query string.
+  Renders nothing when everything fits on one page.
+  Context: page, label; optional target, oob and swap (htmx, defaults to
+  #main-content) and extra_class.
+{% endcomment %}
+{% load experience_ui %}
+
+{% if page.has_other_pages %}
+  <nav class="ui-pagination {{ extra_class }}"
+       aria-label="{{ label|default:'Pagination' }}"
+       hx-boost="true"
+       hx-target="{{ target|default:'#main-content' }}"
+       hx-select="{{ target|default:'#main-content' }}"
+       {% if oob %}hx-select-oob="{{ oob }}"{% endif %}
+       hx-swap="{{ swap|default:'outerHTML show:window:top' }}"
+       hx-push-url="true"
+       hx-indicator="#nav-progress">
+    <span>{{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}</span>
+    <span class="ui-pagination-group">
+      {% if page.has_previous %}
+        <a class="ui-pagination-item" href="{% querystring page=1 %}">{% include "components/nav_icon.html" with icon="chevrons-left" %}<span class="sr-only">First page</span></a>
+        <a class="ui-pagination-item"
+           href="{% querystring page=page.previous_page_number %}">{% include "components/nav_icon.html" with icon="chevron-left" %}<span class="sr-only">Previous page</span></a>
+      {% else %}
+        <span class="ui-pagination-item" aria-disabled="true">{% include "components/nav_icon.html" with icon="chevrons-left" %}<span class="sr-only">First page</span></span>
+        <span class="ui-pagination-item" aria-disabled="true">{% include "components/nav_icon.html" with icon="chevron-left" %}<span class="sr-only">Previous page</span></span>
+      {% endif %}
+      {% for number, narrow in page|page_numbers %}
+        {% if number == page.number %}
+          <span class="ui-pagination-item" aria-current="page"><span class="sr-only">Page</span> {{ number }}</span>
+        {% else %}
+          <a class="ui-pagination-item{% if not narrow %} ui-pagination-item--wide{% endif %}"
+             href="{% querystring page=number %}"><span class="sr-only">Page</span> {{ number }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if page.has_next %}
+        <a class="ui-pagination-item"
+           href="{% querystring page=page.next_page_number %}">{% include "components/nav_icon.html" with icon="chevron-right" %}<span class="sr-only">Next page</span></a>
+        <a class="ui-pagination-item"
+           href="{% querystring page=page.paginator.num_pages %}">{% include "components/nav_icon.html" with icon="chevrons-right" %}<span class="sr-only">Last page</span></a>
+      {% else %}
+        <span class="ui-pagination-item" aria-disabled="true">{% include "components/nav_icon.html" with icon="chevron-right" %}<span class="sr-only">Next page</span></span>
+        <span class="ui-pagination-item" aria-disabled="true">{% include "components/nav_icon.html" with icon="chevrons-right" %}<span class="sr-only">Last page</span></span>
+      {% endif %}
+    </span>
+  </nav>
+{% endif %}

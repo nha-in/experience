@@ -1,0 +1,328 @@
+{% extends 'experiences/base.html' %}
+
+{% load experience_ui %}
+
+{% block crumb_root %}
+  {% include 'components/crumb.html' with label='Products' %}
+{% endblock crumb_root %}
+{% block portal_hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        <a class="ui-hero-back min-h-9" href="{% url 'experiences:products' %}"><span aria-hidden="true">‹</span> Products</a>
+        <h1 class="ui-hero-title sm:text-[40px] sm:leading-[44px]">{{ product.name }}</h1>
+        <p class="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <span class="inline-flex items-center gap-0.5"><span class="font-mono text-[13px] text-foreground">{{ reference }}</span>{% include 'components/copy_button.html' with value=reference label='product reference' %}</span>
+          {% if product.workspace.solution_type %}<span aria-hidden="true">·</span><span>{{ product.workspace.get_solution_type_display }}</span>{% endif %}
+          <span aria-hidden="true">·</span><a class="text-foreground no-underline hover:text-primary hover:underline"
+   href="{% url 'experiences:organization-detail' organisation.slug %}">{{ organisation.display_name }}</a>
+          <span aria-hidden="true">·</span>{% if product.workspace.registered_at %}<span>Registered {{ product.workspace.registered_at|date:'j M Y' }}</span>{% else %}{% include 'experiences/partials/status.html' with status=product.workspace.registration_status label=product.workspace.get_registration_status_display %}{% endif %}
+        </p>
+        {% if progress.total %}
+          <div class="mt-6 flex items-baseline gap-2.5">
+            <span class="ui-figure ui-figure--xl">{{ progress.approved }}</span>
+            <span class="ui-figure-unit">of {{ progress.total }} milestone{{ progress.total|pluralize }} approved</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="ui-rise flex shrink-0 flex-wrap items-center gap-2.5">
+        {% include 'experiences/partials/status.html' with status=organisation.verification_status label=organisation.get_verification_status_display %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline shadow-md"
+           href="{% url 'experiences:queue' %}?scope=open&amp;product={{ reference|urlencode }}">Open in queue</a>
+      </div>
+    </div>
+  </div>
+{% endblock portal_hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
+{% block portal_content %}
+  <div class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div class="flex min-w-0 flex-col gap-6">
+      <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0"
+               id="decisions"
+               aria-labelledby="decisions-title">
+        <div class="ui-card-header px-6 pt-5 pb-4">
+          <h2 class="ui-card-title" id="decisions-title">Needs a decision</h2>
+          <p class="ui-card-description">Open requests for this product and its organisation, oldest first.</p>
+        </div>
+        <ul class="divide-y divide-soft-border border-t border-soft-border">
+          {% for item in pending %}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-3 px-6 py-4">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  {% if item.application.milestone %}
+                    {% include 'experiences/partials/reviewer_milestone.html' %}
+                  {% else %}
+                    {% include 'experiences/partials/reviewer_type.html' %}
+                  {% endif %}
+                  {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+                </div>
+                <p class="mt-1.5 text-sm font-semibold break-words">{{ item.title }}</p>
+                <p class="mt-0.5 text-xs text-soft-foreground">
+                  <span class="font-mono">{{ item.reference }}</span> · <span class="{% if item.age > 7 %}font-semibold text-red-700{% endif %}">{{ item.age }} day{{ item.age|pluralize }} old</span> · {{ item.assignee.display_name|default:'Unassigned' }}
+                </p>
+              </div>
+              <a class="ui-btn {% if item.pk in decidable %}ui-btn--default{% else %}ui-btn--outline{% endif %} ui-btn--size-sm min-h-11 no-underline"
+                 href="{{ item.get_absolute_url }}">{% if item.pk in decidable %}Review{% else %}View{% endif %} <span aria-hidden="true">→</span></a>
+            </li>
+          {% empty %}
+            <li class="px-6 py-6 text-sm text-muted-foreground">Nothing here needs a decision.</li>
+          {% endfor %}
+        </ul>
+      </section>
+      <section class="ui-card ui-card--layered ui-rise"
+               aria-labelledby="tracks-title">
+        <div class="ui-card-header">
+          <h2 class="ui-card-title" id="tracks-title">Compliance tracks</h2>
+          <p class="ui-card-description">Each milestone opens its review.</p>
+        </div>
+        <div class="ui-card-content">
+          <div class="divide-y divide-soft-border">
+            {% for row in tracks %}
+              <section class="scroll-mt-20 py-5 first:pt-0"
+                       id="track-{{ row.definition.code|slugify }}"
+                       aria-label="{{ row.definition.code }} milestones">
+                <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                  <div>
+                    <h3 class="text-sm font-bold">{{ row.definition.code }}</h3>
+                    <p class="mt-0.5 text-xs text-soft-foreground">{{ row.definition.name }}</p>
+                  </div>
+                  <span class="text-xs font-semibold text-muted-foreground">{{ row.approved }}/{{ row.tiles|length }} approved</span>
+                </div>
+                <ol class="ui-stepper ui-stepper--grid">
+                  {% for tile in row.tiles %}
+                    <li class="ui-station {% if tile.status == 'approved' %}ui-station--done{% elif tile.status == 'locked' %}ui-station--locked{% else %}ui-station--current{% endif %}">
+                      {% if not forloop.last %}
+                        <span class="ui-station-rail" aria-hidden="true"></span>
+                      {% endif %}
+                      <a class="ui-station-target focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+                         href="{{ tile.url }}"
+                         aria-label="{{ tile.definition.code }}: {{ tile.definition.name }}, {{ tile.label }}">
+                        <span class="ui-station-dot" aria-hidden="true">
+                          {% if tile.status == 'approved' %}
+                            <svg viewBox="0 0 24 24"
+                                 class="size-3"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 stroke-width="3"
+                                 stroke-linecap="round"
+                                 stroke-linejoin="round">
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          {% endif %}
+                        </span>
+                        <span class="ui-station-link">
+                          <span class="ui-station-code">{{ tile.definition.code }}</span>
+                          <span class="ui-station-name">{{ tile.definition.name }}</span>
+                          <span class="ui-station-status">
+                            {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'j M' }}{% elif tile.status == 'locked' %}Locked{% elif tile.status == 'query_raised' %}Query raised · with the integrator{% elif tile.item.pending %}{{ tile.label }} · awaiting decision{% elif tile.status == 'sent_back' %}Sent back · with the integrator{% elif tile.item.selected_submission_id %}{{ tile.label }} · with the integrator{% else %}Not started{% endif %}
+                          </span>
+                        </span>
+                      </a>
+                    </li>
+                  {% endfor %}
+                </ol>
+              </section>
+            {% empty %}
+              <p class="text-sm text-muted-foreground">No milestones on the tracks you review.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+      <section class="ui-card ui-card--layered ui-rise"
+               aria-labelledby="activity-title">
+        <div class="ui-card-header">
+          <h2 class="ui-card-title" id="activity-title">Recent activity</h2>
+        </div>
+        <div class="ui-card-content">
+          <ol class="ui-feed">
+            {% for event in activity %}
+              <li class="ui-feed-row items-start">
+                <span class="ui-feed-avatar {% if not event.actor %}ui-feed-avatar--system{% endif %}"
+                      aria-hidden="true">{% if event.actor %}{{ event.actor.display_name|slice:':1' }}{% else %}↻{% endif %}</span>
+                <div class="ui-feed-body">
+                  <p class="font-medium">{{ event.action }}</p>
+                  <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'j M, H:i' }} IST</p>
+                  {% if event.detail.note %}<p class="mt-1 text-sm text-muted-foreground">{{ event.detail.note|linebreaksbr }}</p>{% endif %}
+                </div>
+              </li>
+            {% empty %}
+              <li class="text-sm text-soft-foreground">No activity on the requests you can review.</li>
+            {% endfor %}
+          </ol>
+        </div>
+      </section>
+      {% if outcomes %}
+        <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+                 aria-labelledby="outcomes-title">
+          <div class="ui-card-content">
+            <h2 class="mb-3 text-base font-bold" id="outcomes-title">Product outcomes</h2>
+            <div class="flex flex-col gap-3">
+              {% for outcome in outcomes %}
+                <article class="rounded-lg border border-soft-border p-3">
+                  <h3 class="text-xs font-semibold text-primary">✓ {{ outcome.name }}</h3>
+                  <p class="mt-1 text-xs text-soft-foreground">{{ outcome.issued_at|date:'d M Y' }}</p>
+                  <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
+                    {% for label,value in outcome|outcome_rows %}
+                      <dt class="text-soft-foreground">{{ label }}</dt>
+                      <dd class="min-w-0 break-words">
+                        {{ value|linebreaksbr }}
+                      </dd>
+                    {% endfor %}
+                  </dl>
+                </article>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+      {% endif %}
+    </div>
+    <aside class="flex min-w-0 flex-col gap-6">
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+               aria-labelledby="organisation-title">
+        <div class="ui-card-content">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="text-base font-bold" id="organisation-title">Organisation</h2>
+            <a class="text-xs font-semibold text-primary hover:underline"
+               href="{% url 'experiences:organization-detail' organisation.slug %}">View organisation</a>
+          </div>
+          <dl class="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2.5 text-sm">
+            <dt class="text-soft-foreground">Entity</dt>
+            <dd class="min-w-0 break-words">
+              {{ organisation.display_name }}
+            </dd>
+            {% if organisation_details.verification_document_number %}
+              <dt class="text-soft-foreground">{{ organisation_details.verification_document_type }}</dt>
+              <dd class="min-w-0 font-mono break-all">
+                {{ organisation_details.verification_document_number }}
+              </dd>
+            {% endif %}
+            <dt class="text-soft-foreground">Address</dt>
+            <dd class="min-w-0 break-words">{{ organisation.city|default:'—' }}{% if organisation.state %}, {{ organisation.state }}{% endif %}</dd>
+            <dt class="text-soft-foreground">Status</dt>
+            <dd>
+              {% include 'experiences/partials/status.html' with status=organisation.verification_status label=organisation.get_verification_status_display %}
+              {% if organisation.verified_at %}<span class="mt-1 block text-xs text-soft-foreground">Verified {{ organisation.verified_at|date:'d M Y' }}</span>{% endif %}
+            </dd>
+          </dl>
+        </div>
+      </section>
+      {% if registration %}
+        <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+                 aria-labelledby="registration-title">
+          <div class="ui-card-content">
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <h2 class="text-base font-bold" id="registration-title">Registration</h2>
+              <a class="text-xs font-semibold text-primary hover:underline"
+                 href="{{ registration.get_absolute_url }}">{% if registration.pk in decidable %}Review{% else %}View{% endif %}</a>
+            </div>
+            <dl class="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2.5 text-sm">
+              <dt class="text-soft-foreground">Request</dt>
+              <dd>
+                {% include 'experiences/partials/status.html' with status=registration.status label=registration.get_status_display %}
+              </dd>
+              <dt class="text-soft-foreground">Product</dt>
+              <dd>
+                {% include 'experiences/partials/status.html' with status=product.workspace.registration_status label=product.workspace.get_registration_status_display %}
+              </dd>
+            </dl>
+          </div>
+        </section>
+      {% endif %}
+      {% if certification %}
+        <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+                 aria-labelledby="wasa-title">
+          <div class="ui-card-content">
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+              <h2 class="text-base font-bold" id="wasa-title">WASA</h2>
+              <span class="ui-badge ui-badge--{{ certification.tone }} ui-badge--size-xs">{{ certification.status_label }}</span>
+            </div>
+            {% if certification.valid_until %}<p class="text-sm text-soft-foreground">Expiry <span class="tabular-nums">{{ certification.valid_until|date:'j M Y' }}</span></p>{% endif %}
+            {% if certification.agency %}<p class="mt-1 break-words text-xs text-soft-foreground">{{ certification.agency }}</p>{% endif %}
+            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              {% if certification.review %}
+                <a class="inline-flex min-h-9 items-center text-xs font-semibold text-primary hover:underline"
+                   href="{{ certification.review.get_absolute_url }}">{% if certification.review.pk in decidable %}Review{% else %}View{% endif %} {% if certification.current %}renewal{% else %}submission{% endif %}</a>
+              {% endif %}
+              {% if certification.certificate %}
+                <a class="inline-flex min-h-9 items-center text-xs font-semibold text-primary hover:underline"
+                   href="{% url 'experiences:attachment' certification.certificate.pk %}"
+                   hx-boost="false">View approved certificate</a>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+      {% endif %}
+      {% if general_access and experience_program.sandbox_credentials %}
+        <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+                 aria-labelledby="connection-title">
+          <div class="ui-card-content">
+            <h2 class="mb-3 text-base font-bold" id="connection-title">Integration connection</h2>
+            {% if credential %}
+              <dl class="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2.5 text-sm">
+                <dt class="text-soft-foreground">Client ID</dt>
+                <dd class="min-w-0 truncate font-mono">
+                  {{ credential.client_id }}
+                </dd>
+                <dt class="text-soft-foreground">Callback</dt>
+                <dd>
+                  {% if credential.last_checked_at %}
+                    {% if credential.consecutive_failures %}
+                      {% include 'experiences/partials/status.html' with status='sent_back' label='Unreachable' %}
+                    {% else %}
+                      {% include 'experiences/partials/status.html' with status='approved' label='Reachable' %}
+                    {% endif %}
+                    <span class="mt-1 block text-xs text-soft-foreground">Checked {{ credential.last_checked_at|timesince }} ago</span>
+                  {% else %}
+                    <span class="text-soft-foreground">Not checked</span>
+                  {% endif %}
+                </dd>
+                <dt class="text-soft-foreground">Bridge</dt>
+                <dd class="min-w-0 truncate font-mono">
+                  {{ credential.bridge_url|default:'Not configured' }}
+                </dd>
+              </dl>
+            {% else %}
+              <p class="text-sm leading-relaxed text-soft-foreground">No credentials issued yet.</p>
+            {% endif %}
+            {% if production.client_id %}
+              <dl class="mt-2.5 grid grid-cols-[72px_1fr] gap-x-3 border-t border-soft-border pt-2.5 text-sm">
+                <dt class="text-soft-foreground">Production</dt>
+                <dd class="min-w-0 truncate font-mono">
+                  {{ production.client_id }}
+                </dd>
+              </dl>
+            {% endif %}
+            {% if production %}
+              <a class="mt-3 inline-flex text-xs font-semibold text-primary hover:underline"
+                 href="{% url 'experiences:production-detail' reference %}">Production access</a>
+            {% endif %}
+          </div>
+        </section>
+      {% endif %}
+      {% if can_read_support %}
+        <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+                 aria-labelledby="tickets-title">
+          <div class="ui-card-content">
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <h2 class="text-base font-bold" id="tickets-title">Open support tickets</h2>
+              <a class="text-xs font-semibold text-primary hover:underline"
+                 href="{% url 'experiences:support' %}">Support inbox</a>
+            </div>
+            <ul class="flex flex-col gap-2.5 text-sm">
+              {% for ticket in open_tickets %}
+                <li class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <a class="font-mono text-xs font-semibold text-primary no-underline hover:underline"
+                     href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.reference }}</a>
+                  <span class="text-xs text-soft-foreground">{{ ticket.get_priority_display }}</span>
+                  <span class="min-w-0 break-words">{{ ticket.subject }}</span>
+                </li>
+              {% empty %}
+                <li class="text-muted-foreground">No open tickets.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+      {% endif %}
+    </aside>
+  </div>
+{% endblock portal_content %}

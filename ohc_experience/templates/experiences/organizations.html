@@ -8,8 +8,8 @@
         <h1 class="ui-hero-title">Organizations</h1>
         <p class="ui-hero-lede">Organizations represented in the review requests you can access.</p>
         <div class="mt-6 flex items-baseline gap-2.5">
-          <span class="ui-figure ui-figure--xl">{{ organizations|length }}</span>
-          <span class="ui-figure-unit">organization{{ organizations|length|pluralize }}</span>
+          <span class="ui-figure ui-figure--xl">{{ organizations.paginator.count }}</span>
+          <span class="ui-figure-unit">organization{{ organizations.paginator.count|pluralize }}</span>
         </div>
       </div>
     </div>
@@ -40,5 +40,6 @@
         </div>
       {% endfor %}
     </div>
+    {% include 'components/pagination.html' with page=organizations label='Organizations pagination' %}
   </div>
 {% endblock portal_content %}

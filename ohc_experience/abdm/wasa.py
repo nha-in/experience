@@ -12,6 +12,10 @@ from ohc_experience.experiences.models import ReviewItem
 WASA_OUTCOME = "wasa_approval"
 WASA_APPLICATION = "abdm_wasa_review"
 WASA_FIELDS = ("wasa_agency", "wasa_date", "wasa_valid_until")
+# Agencies issue WASA certificates for a year from the audit, which the expiry
+# field offers as a default; the date printed on the certificate still wins.
+# `valid_until` is inclusive, so that year ends the day before the anniversary.
+WASA_VALIDITY_YEARS = 1
 
 
 def as_date(value):

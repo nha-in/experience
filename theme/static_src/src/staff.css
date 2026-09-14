@@ -60,9 +60,6 @@
   .staff-row-action a:hover, .staff-mobile-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .staff-protected { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 44px; color: var(--placeholder-foreground); }
   .staff-protected svg { width: 16px; height: 16px; }
-  .staff-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border); color: var(--soft-foreground); font-size: 12px; }
-  .staff-pagination strong { color: var(--foreground); font-weight: 600; }
-  .staff-pagination > div { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
   .staff-directory-note { margin: 16px 4px 0; color: var(--soft-foreground); font-size: 12px; line-height: 1.6; }
   .staff-mobile-list { display: none; }
   .staff-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 60px 24px; text-align: center; }
@@ -101,7 +98,6 @@
     .staff-search { flex-basis: auto; }
     .staff-search-context { padding-inline: 16px; }
     .staff-mobile-list > li { padding-inline: 16px; }
-    .staff-pagination { padding-inline: 16px; }
   }
   @media (prefers-reduced-motion: reduce) { .staff-table tbody tr { transition: none; } }
 }

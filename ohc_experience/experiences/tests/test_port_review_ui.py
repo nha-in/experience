@@ -76,7 +76,7 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
     assert response.status_code == HTTPStatus.OK
     assert list(response.context["page"]) == [review_item]
     assert review_item.get_absolute_url().encode() in response.content
-    assert b'aria-label="Queue pagination"' in response.content
+    assert b'aria-label="Queue pagination"' not in response.content
     response = client.get(reverse("experiences:queue"), {"q": "No such equipment"})
     assert response.context["page"].paginator.count == 0
     assert b"No reviews match these filters." in response.content
@@ -138,22 +138,23 @@ def test_queue_filters_by_exact_product_and_preserves_it_in_navigation(
     assert b'href="?kind=&amp;scope=open"' in response.content
 
 
-def test_product_overview_pending_review_card_is_reviewer_only(
+def test_staff_product_page_links_open_requests_to_their_reviews(
     review_item,
     owner_membership,
     client,
 ):
     workspace = review_item.product.workspace
-    reviewer = ReviewerFactory(is_nha_team=True)
-    client.force_login(reviewer)
-    response = client.get(workspace.get_absolute_url())
-    expected_count = review_item.product.review_items.filter(
-        status__in=["new", "in_review", "query_raised"],
-    ).count()
+    url = reverse("experiences:product-detail", args=[workspace.reference])
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    assert client.get(workspace.get_absolute_url()).url == url
+    response = client.get(url)
 
     assert response.status_code == HTTPStatus.OK
-    assert response.context["pending_review_count"] == expected_count
-    assert b"Pending review" in response.content
+    assert review_item in response.context["pending"]
+    assert review_item.pk in response.context["decidable"]
+    assert review_item.get_absolute_url().encode() in response.content
+    assert b"Supplier Quality Portal" in response.content
+    assert b'id="product-switcher' not in response.content
     assert (
         f"{reverse('experiences:queue')}?scope=open&amp;product={workspace.reference}".encode()
         in response.content
@@ -162,7 +163,8 @@ def test_product_overview_pending_review_card_is_reviewer_only(
     client.force_login(owner_membership.user)
     response = client.get(workspace.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
-    assert b"Pending review" not in response.content
+    assert b"Needs a decision" not in response.content
+    assert client.get(url).status_code == HTTPStatus.FORBIDDEN
     assert client.get(reverse("experiences:queue")).status_code == HTTPStatus.FORBIDDEN
 
 

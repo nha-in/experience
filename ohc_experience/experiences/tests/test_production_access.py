@@ -309,12 +309,18 @@ def test_integrator_and_reviewer_pages(environment, client):
     assert "PROD-1" in content
     assert "/assess/production/" not in content
     client.force_login(environment["reviewer"])
+    detail_url = reverse("experiences:production-detail", args=[reference])
     content = client.get(
         reverse("experiences:review", args=[milestone(environment).pk]),
     ).content.decode()
     assert "Production client ID" in content
     assert "PROD-1" in content
-    assert reverse("experiences:production-detail", args=[reference]) in content
+    assert detail_url in content
+    content = client.get(
+        reverse("experiences:product-detail", args=[reference]),
+    ).content.decode()
+    assert "PROD-1" in content
+    assert detail_url in content
 
 
 def test_programs_that_do_not_record_production_ids(environment, client, monkeypatch):

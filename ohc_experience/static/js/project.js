@@ -195,6 +195,28 @@
 
 
 (() => {
+  // Offer a derived date without taking the field away: once the integrator
+  // edits the target themselves, their value is never overwritten.
+  // The period counts the start date, so it ends the day before the
+  // anniversary. Date.UTC normalises what that lands on, including a 29
+  // February audit and a period that rolls back into the previous month.
+  function periodEnd(value, years) {
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return '';
+    return new Date(Date.UTC(year + years, month - 1, day - 1)).toISOString().slice(0, 10);
+  }
+
+  function autofillFromDate(source) {
+    const form = source.closest('form');
+    const years = Number.parseInt(source.dataset.autofillYears, 10);
+    if (!form || !Number.isFinite(years)) return;
+    form.querySelectorAll(`[name="${source.dataset.autofillTarget}"]`).forEach(target => {
+      if (target.value && target.dataset.autofilled !== 'true') return;
+      target.value = source.value ? periodEnd(source.value, years) : '';
+      target.dataset.autofilled = target.value ? 'true' : 'false';
+    });
+  }
+
   function updateWasaFields(form) {
     const choice = form.querySelector('[name="use_product_wasa"]');
     if (!choice) return;
@@ -269,6 +291,9 @@
   }
 
   function initialize(scope = document) {
+    // Drafts and rejected submissions can arrive with the audit date saved and
+    // the expiry still blank; fill it before counting what needs attention.
+    scope.querySelectorAll?.('[data-autofill-target]').forEach(autofillFromDate);
     scope.querySelectorAll?.('[data-review-form]').forEach(updateSubmission);
     scope.querySelectorAll?.('[data-decision-form]').forEach(updateDecision);
     scope.querySelectorAll?.('[data-revealed-secret]').forEach(secret => {
@@ -301,6 +326,10 @@
     }
     const decision = event.target.closest('[data-decision-form]');
     if (decision) updateDecision(decision);
+    const source = event.target.closest('[data-autofill-target]');
+    if (source) autofillFromDate(source);
+    const edited = event.target.closest('[data-autofilled]');
+    if (edited && edited !== source) edited.dataset.autofilled = 'false';
     const form = event.target.closest('[data-review-form]');
     // Conditional fields are synchronized by another change listener below.
     if (form) queueMicrotask(() => updateSubmission(form));

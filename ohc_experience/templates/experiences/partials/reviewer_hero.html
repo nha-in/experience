@@ -11,7 +11,9 @@
       <div class="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-2 text-xs text-muted-foreground">
         {% include 'experiences/partials/reviewer_type.html' %}
         <span class="font-mono">{{ item.reference }}</span>
-        {% if item.product %}<span class="font-mono">{{ item.product.workspace.reference }}</span>{% endif %}
+        {% if item.product %}<a class="font-mono text-primary no-underline hover:underline"
+   href="{% url 'experiences:product-detail' item.product.workspace.reference %}"
+   title="View product">{{ item.product.workspace.reference }}</a>{% endif %}
         <span>{{ item.organisation.display_name }}</span>
         {% include 'experiences/partials/reviewer_milestone.html' %}{% if item.kind == 'application' %}<span>{{ item.title }}</span>{% endif %}
         {% if item.submitted_at %}<span>Submitted {{ item.submitted_at|date:'j M Y' }}</span>{% endif %}

@@ -264,6 +264,33 @@
     @apply bg-primary-50 font-semibold text-primary-900;
   }
 
+  /* ── Pagination ─────────────────────────────────────────────────────── */
+
+  .ui-pagination {
+    @apply flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3 text-xs text-soft-foreground;
+  }
+
+  /* One rounded group; the segments inside stay square. */
+  .ui-pagination-group {
+    @apply inline-flex overflow-hidden rounded-lg border border-border bg-background;
+  }
+
+  .ui-pagination-item {
+    @apply inline-flex size-11 items-center justify-center border-r border-border text-sm font-semibold text-foreground no-underline transition-colors last:border-r-0 hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary md:size-9;
+  }
+
+  .ui-pagination-item[aria-current] {
+    @apply bg-primary text-primary-foreground hover:bg-primary;
+  }
+
+  .ui-pagination-item[aria-disabled] {
+    @apply text-soft-foreground/50 hover:bg-transparent;
+  }
+
+  .ui-pagination-item--wide {
+    @apply max-sm:hidden;
+  }
+
   /* ── Layered table ──────────────────────────────────────────────────── */
 
   .ui-grid-table {

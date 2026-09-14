@@ -211,11 +211,15 @@ def test_each_click_forwards_again_with_a_new_token(eligible_hmis, client, monke
 def test_staff_cannot_initiate_or_see_handoff_actions(environment, client, actor_key):
     client.force_login(environment[actor_key])
 
-    page = client.get(overview_url(environment))
+    page = client.get(overview_url(environment), follow=True)
     response = client.post(handoff_url(environment), {"option": "hmis"})
 
     assert page.status_code == 200
-    assert not page.context["handoffs"]
+    assert page.redirect_chain[0][0] == reverse(
+        "experiences:product-detail",
+        args=[environment["workspace"].reference],
+    )
+    assert "handoffs" not in page.context
     assert handoff_url(environment).encode() not in page.content
     assert response.status_code == 403
     assert not handoff_events(environment).exists()

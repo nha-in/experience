@@ -96,3 +96,18 @@ def snapshot_rows(snapshot, item=None):
             },
         )
     return rows
+
+
+@register.filter
+def page_numbers(page):
+    """Five page numbers around the current one, flagging the three kept on phones."""
+    narrow = _window(page.number, page.paginator.num_pages, 3)
+    return [
+        (number, number in narrow)
+        for number in _window(page.number, page.paginator.num_pages, 5)
+    ]
+
+
+def _window(number, num_pages, size):
+    start = max(1, min(number - size // 2, num_pages - size + 1))
+    return range(start, min(num_pages, start + size - 1) + 1)

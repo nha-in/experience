@@ -89,9 +89,19 @@ def test_another_products_query_does_not_replace_registration_guidance(
 
 def test_reviewer_does_not_receive_integrator_actions(client, environment):  # noqa: F811
     client.force_login(environment["reviewer"])
-    response = client.get(environment["workspace"].get_absolute_url())
+    response = client.get(environment["workspace"].get_absolute_url(), follow=True)
+    assert response.redirect_chain == [
+        (
+            reverse(
+                "experiences:product-detail",
+                args=[environment["workspace"].reference],
+            ),
+            HTTPStatus.FOUND,
+        ),
+    ]
     assert response.status_code == HTTPStatus.OK
-    assert response.context["next_step"] is None
+    assert "next_step" not in response.context
+    assert b"Your next step" not in response.content
 
 
 def test_withdrawn_organisation_guidance_requires_resubmission(

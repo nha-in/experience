@@ -188,8 +188,12 @@ outcomes.
 - `/accounts/signup/`: account creation, CAPTCHA and email verification.
 - `/onboarding/organisation/`, `/onboarding/product/`: initial registration.
 - `/portal/products/`: product list and switcher.
-- `/products/<sandbox-id>/`: overview and activity.
+- `/portal/products/<sandbox-id>/`: NHA staff view of a product. Its open
+  requests, milestones, registration and WASA each link to their review.
+- `/products/<sandbox-id>/`: integrator overview and activity. Staff are
+  redirected to the staff product view.
 - `/products/<sandbox-id>/tracks/<track>/`: milestone forms, queries and history.
+  Staff are redirected to the selected milestone's review.
 - `/products/<sandbox-id>/credentials/`: audited reveal, rotation and callbacks.
 - `/portal/queries/`: highlighted pending queries.
 - `/assess/dashboard/`, `/assess/queue/`, `/assess/review/<id>/`: NHA review.
@@ -203,7 +207,9 @@ The CareUI shell uses HTMX navigation with a shared `#main-content` target and
 an out-of-band `#app-nav` refresh, with local HTMX history caching disabled.
 Forms preserve ordinary POST/redirect behavior. The product switcher in the
 sidebar and breadcrumb follows the selected product into team and profile pages;
-the sidebar lists only its applied tracks, with approved/applied counts. Upload controls retain saved files, append sequential
+the sidebar lists only its applied tracks, with approved/applied counts. Staff
+pages never show the switcher; staff reach products from lists and reviews.
+Upload controls retain saved files, append sequential
 selections, permit removal and preserve previous revision attachments. Downloads
 are permission-checked and streamed from private object storage; object keys and
 public media URLs are not exposed. Desktop and mobile share the same templates.

@@ -17,6 +17,7 @@ from .catalog import MILESTONES
 from .catalog import TRACKS
 from .catalog import canonical_keys
 from .wasa import WASA_FIELDS
+from .wasa import WASA_VALIDITY_YEARS
 from .wasa import approved_wasa_submission
 from .wasa import certificate_context
 from .wasa import current_wasa
@@ -369,11 +370,22 @@ class WasaReviewForm(ReviewForm):
     )
     wasa_date = forms.DateField(
         label="WASA audit date",
-        widget=forms.DateInput(attrs={"type": "date"}),
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                # WASA certificates run for a year, so the expiry is offered as
+                # a starting point the integrator can correct.
+                "data-autofill-target": "wasa_valid_until",
+                "data-autofill-years": WASA_VALIDITY_YEARS,
+            },
+        ),
     )
     wasa_valid_until = forms.DateField(
         label="WASA valid until",
-        help_text="Enter the expiry date stated on the certificate.",
+        help_text=(
+            "Filled in to cover one year from the audit date. Change it if the "
+            "certificate states a different expiry date."
+        ),
         widget=forms.DateInput(attrs={"type": "date"}),
     )
     wasa_certificate = forms.FileField(

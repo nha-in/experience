@@ -131,16 +131,7 @@
    href="{% url 'experiences:staff-create' %}">New staff member</a>{% endif %}
   </div>
 {% endif %}
-<nav class="staff-pagination" aria-label="Staff pagination">
-  <p>{% if page.paginator.count %}<strong>{{ page.start_index }}–{{ page.end_index }}</strong> of {% endif %}{{ page.paginator.count }} account{{ page.paginator.count|pluralize }}</p>
-  <div>
-    {% if page.has_previous %}<a class="ui-btn ui-btn--outline ui-btn--size-sm"
-   href="?status={{ status }}&amp;q={{ search|urlencode }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
-    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
-    {% if page.has_next %}<a class="ui-btn ui-btn--outline ui-btn--size-sm"
-   href="?status={{ status }}&amp;q={{ search|urlencode }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
-  </div>
-</nav>
+{% include "components/pagination.html" with page=page label="Staff pagination" %}
 </div>
 <p class="staff-directory-note">Only superadmins can manage staff. Portal permissions control access to reviews, support, and events.</p>
 </section>

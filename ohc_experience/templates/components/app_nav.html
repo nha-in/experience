@@ -27,6 +27,7 @@
    href="{% url 'experiences:queue' %}">{% include "components/nav_icon.html" with icon="queue" %}Review queue</a></li>
           <li><a id="nav-products"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'products' %}ui-nav-link--active{% endif %}"
+   {% if nav == 'products' %}aria-current="page"{% endif %}
    href="{% url 'experiences:products' %}">{% include "components/nav_icon.html" with icon="track" %}Products</a></li>
           <li><a id="nav-organizations"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'organizations' %}ui-nav-link--active{% endif %}"

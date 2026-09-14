@@ -101,19 +101,5 @@
       {% endif %}
     </div>
   {% endif %}
-  <div class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">
-    <span>{% if page.paginator.count %}Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}{% else %}Showing 0 items{% endif %}</span>
-    <nav class="flex flex-wrap items-center gap-2"
-         aria-label="Queue pagination"
-         hx-boost="true"
-         hx-target="#review-queue"
-         hx-select="#review-queue"
-         hx-select-oob="#queue-hero"
-         hx-swap="outerHTML"
-         hx-push-url="true">
-      {% if page.has_previous %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-   href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}<span class="px-1">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-   href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
-    </nav>
-  </div>
+  {% include "components/pagination.html" with page=page label="Queue pagination" target="#review-queue" oob="#queue-hero" swap="outerHTML" %}
 </div>
