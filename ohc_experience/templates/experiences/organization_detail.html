@@ -68,7 +68,7 @@
       <div class="divide-y divide-soft-border border-t border-soft-border">
         {% for workspace in products %}
           <a class="group flex flex-wrap items-center gap-4 px-6 py-4 text-foreground no-underline transition-colors hover:bg-primary/[0.035]"
-             href="{{ workspace.get_absolute_url }}">
+             href="{% url 'experiences:product-detail' workspace.reference %}">
             <div class="min-w-0 flex-1">
               <h3 class="text-sm font-semibold group-hover:text-primary">{{ workspace.product.name }}</h3>
               <p class="mt-1 text-xs text-soft-foreground"><span class="font-mono">{{ workspace.reference }}</span> · {{ workspace.product.get_product_type_display }}</p>

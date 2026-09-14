@@ -18,6 +18,7 @@ from django.shortcuts import redirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
@@ -172,7 +173,11 @@ def _page(request, items):
 
 def _context(request, workspace=None, **kwargs):
     is_reviewer = permissions.reviewer(request.user)
-    if workspace is None and not is_reviewer:
+    if is_reviewer:
+        # Staff never work inside a product: the switcher and the product's own
+        # navigation belong to its integrators. Staff pages link to products instead.
+        workspace = None
+    elif workspace is None:
         workspace = selected_workspace(request)
     request.experience_navigation = navigation_context(request, workspace)
     result = {
@@ -348,6 +353,95 @@ def organization_detail(request, slug):
 
 
 @login_required
+def product_detail(request, reference):
+    """A product as staff see it: its open requests, each one click from a decision."""
+    _reviewer_required(request)
+    workspace = get_object_or_404(_workspaces(request.user), reference=reference)
+    product = workspace.product
+    program = workspace.definition
+    visible_items = permissions.visible_reviews(request.user)
+    pending = list(
+        visible_items.filter(
+            product_scope(workspace),
+            organisation=product.organisation,
+            status__in=["new", "in_review", "query_raised"],
+        ).select_related(
+            "application__milestone__product__workspace",
+            "assignee",
+            "product",
+        ),
+    )
+    decidable = {
+        pk
+        for action in ("write", "approve")
+        for pk in permissions.visible_reviews(request.user, action)
+        .filter(pk__in=[item.pk for item in pending])
+        .values_list("pk", flat=True)
+    }
+    tracks = _tracks(workspace, request.user)
+    for row in tracks:
+        for tile in row["tiles"]:
+            tile["url"] = tile["item"].get_absolute_url()
+    general_access = permissions.has_access(request.user, "review", program=program.key)
+    organisation_review = (
+        visible_items.filter(
+            organisation=product.organisation,
+            kind="organisation_verification",
+        )
+        .select_related("selected_submission")
+        .first()
+    )
+    certification = _certification_context(request, product)
+    activity = product.audit_events.filter(item__in=visible_items)
+    outcomes = product.outcomes.filter(
+        source_application__in=visible_items.values("application_id"),
+    )
+    if certification.get("current"):
+        outcomes = outcomes.exclude(outcome_type=certification["current"].outcome_type)
+    return render(
+        request,
+        "experiences/product_detail.html",
+        _context(
+            request,
+            page_title=product.name,
+            nav="products",
+            experience_program=program,
+            product=product,
+            reference=workspace.reference,
+            organisation=product.organisation,
+            organisation_details=(
+                organisation_review.selected_submission.data
+                if organisation_review and organisation_review.selected_submission
+                else {}
+            ),
+            pending=pending,
+            decidable=decidable,
+            tracks=[row for row in tracks if row["tiles"]],
+            progress=overview_progress(tracks),
+            registration=visible_items.filter(
+                product=product,
+                kind="product_registration",
+            ).first(),
+            certification=certification,
+            credential=ProductCredential.objects.filter(product=product).first()
+            if general_access
+            else None,
+            general_access=general_access,
+            open_tickets=permissions.visible_tickets(request.user).filter(
+                product=product,
+                status__in=["open", "awaiting_vendor"],
+            )[:5],
+            activity=activity.select_related("actor", "item")[:10],
+            outcomes=outcomes.exclude(
+                outcome_type=program.credentials.outcome_type
+                if program.credentials
+                else "",
+            )[:6],
+        ),
+    )
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def organisation(request):
     org = _organisation(request)
@@ -474,22 +568,13 @@ def product_edit(request, reference):
 
 @login_required
 def overview(request, reference):
+    if permissions.reviewer(request.user):
+        return redirect("experiences:product-detail", reference=reference)
     workspace = _workspace(request, reference)
     product = workspace.product
     visible_items = permissions.visible_reviews(request.user)
-    can_view_review_queue = permissions.has_area(request.user, "review")
-    if (
-        permissions.reviewer(request.user)
-        and not visible_items.filter(product=product).exists()
-    ):
-        raise Http404
     activity = product.audit_events.all()
     outcomes = product.outcomes.all()
-    if permissions.reviewer(request.user):
-        activity = activity.filter(item__in=visible_items)
-        outcomes = outcomes.filter(
-            source_application__in=visible_items.values("application_id"),
-        )
     organisation_review = (
         visible_items.filter(
             organisation=product.organisation,
@@ -520,14 +605,7 @@ def overview(request, reference):
                 user=request.user,
             ).values_list("event_id", flat=True),
         ),
-        credential=ProductCredential.objects.filter(product=product).first()
-        if not permissions.reviewer(request.user)
-        or permissions.has_access(
-            request.user,
-            "review",
-            program=workspace.definition.key,
-        )
-        else None,
+        credential=ProductCredential.objects.filter(product=product).first(),
         outcomes=outcomes.exclude(
             outcome_type=workspace.definition.credentials.outcome_type
             if workspace.definition.credentials
@@ -537,12 +615,6 @@ def overview(request, reference):
             product=product,
             kind="product_registration",
         ).first(),
-        pending_review_count=visible_items.filter(
-            product=product,
-            status__in=["new", "in_review", "query_raised"],
-        ).count()
-        if can_view_review_queue
-        else 0,
         certification=certification,
     )
     context["progress"] = overview_progress(context["tracks"])
@@ -690,18 +762,45 @@ def product_certification(request, reference):
     )
 
 
-@login_required
-@require_http_methods(["GET", "POST"])
-def track(request, reference, track_code):
-    workspace = _workspace(request, reference)
-    if track_code not in workspace.definition.track_map():
-        raise Http404
-    if permissions.reviewer(request.user) and not permissions.has_access(
+def _staff_track(request, reference, track_code):
+    """A track link opens the milestone's review for staff, or the product's tracks."""
+    workspace = get_object_or_404(_workspaces(request.user), reference=reference)
+    program = workspace.definition
+    track = program.track_map().get(track_code)
+    if track is None or not permissions.has_access(
         request.user,
         "review",
         track_code,
-        program=workspace.definition.key,
+        program=program.key,
     ):
+        raise Http404
+    key = request.GET.get("milestone", "")
+    item = (
+        permissions.visible_reviews(request.user)
+        .filter(
+            product=workspace.product,
+            application__milestone__key=key,
+            application__milestone__enabled=True,
+        )
+        .first()
+        if key in program.applied_keys(track, workspace.applied_milestones)
+        else None
+    )
+    if item:
+        return redirect(item)
+    return redirect(
+        reverse("experiences:product-detail", args=[workspace.reference])
+        + f"#track-{slugify(track_code)}",
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def track(request, reference, track_code):
+    if permissions.reviewer(request.user):
+        return _staff_track(request, reference, track_code)
+    workspace = _workspace(request, reference)
+    if track_code not in workspace.definition.track_map():
         raise Http404
     track_data = next(
         row

@@ -25,7 +25,7 @@
     <div class="divide-y divide-soft-border">
       {% for product in products %}
         <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-           href="{{ product.get_absolute_url }}">
+           href="{% if reviewer %}{% url 'experiences:product-detail' product.reference %}{% else %}{{ product.get_absolute_url }}{% endif %}">
           <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary">{{ product.product.name|first }}</span>
           <div class="min-w-0 flex-1">
             <h2 class="text-base font-bold group-hover:text-primary">{{ product.product.name }}</h2>

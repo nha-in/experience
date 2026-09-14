@@ -16,6 +16,11 @@ urlpatterns = [
         name="staff-archive",
     ),
     path("portal/products/", views.products, name="products"),
+    path(
+        "portal/products/<str:reference>/",
+        views.product_detail,
+        name="product-detail",
+    ),
     path("portal/organizations/", views.organizations, name="organizations"),
     path(
         "portal/organizations/<slug:slug>/",
