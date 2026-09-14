@@ -156,6 +156,20 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
             raise forms.ValidationError(msg)
         return email
 
+    def clean(self) -> dict:
+        cleaned_data = super().clean()
+        # Only once the captcha passes, so signup can't be used to probe for accounts.
+        if self.account_already_exists and not (
+            self.has_error("email") or self.has_error("captcha")
+        ):
+            msg = _("An account with this email already exists.")
+            self.add_error("email", forms.ValidationError(msg, code="account_exists"))
+        return cleaned_data
+
+    @property
+    def account_exists(self) -> bool:
+        return self.has_error("email", "account_exists")
+
     @transaction.atomic
     def save(self, request):
         user = super().save(request)

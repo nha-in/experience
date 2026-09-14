@@ -88,6 +88,31 @@ class TestUserSignupForm:
         assert not form.is_valid()
         assert form.errors["organisation"] == ["Tell us which company you work for."]
 
+    def test_an_existing_email_is_only_revealed_once_the_captcha_passes(
+        self,
+        rf: RequestFactory,
+        settings,
+        user: User,
+    ):
+        settings.SANDBOX_SIGNUP_CAPTCHA = True
+        settings.TURNSTILE_SITE_KEY = ""
+        settings.DEBUG = True
+        request = signup_request(rf)
+        UserSignupForm(request=request)
+        first, second = request.session["signup_challenge"][:2]
+        data = {**SIGNUP_DATA, "email": user.email}
+
+        guessed = UserSignupForm(data={**data, "captcha": -1}, request=request)
+        assert not guessed.is_valid()
+        assert not guessed.has_error("email")
+
+        solved = UserSignupForm(
+            data={**data, "captcha": first + second},
+            request=request,
+        )
+        assert not solved.is_valid()
+        assert solved.account_exists
+
     def test_an_invite_drops_the_organisation_field(self, organisation: Organisation):
         invitation = InvitationFactory.create(
             organisation=organisation,

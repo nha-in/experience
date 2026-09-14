@@ -87,7 +87,26 @@
         {% blocktranslate with organisation=invitation.organisation.name role=invitation.get_role_display %}You are joining <strong>{{ organisation }}</strong> as {{ role }}.{% endblocktranslate %}
       </div>
     {% endif %}
-    {% include "components/form_errors.html" %}
+    {% if form.account_exists %}
+      {% url 'account_login' as sign_in_url %}
+      <div class="ui-alert ui-alert--info"
+           role="alert"
+           tabindex="-1"
+           data-error-summary>
+        <div class="flex-1 space-y-1">
+          <p class="font-semibold">{% translate "You already have an account" %}</p>
+          <p>
+            {% blocktranslate trimmed %}
+              <a href="{{ sign_in_url }}">Sign in</a> with this email, or reset your password if you have forgotten it.
+            {% endblocktranslate %}
+          </p>
+          <a class="ui-btn ui-btn--default ui-btn--size-sm mt-2 no-underline"
+             href="{% url 'account_reset_password' %}">{% translate "Reset password" %}</a>
+        </div>
+      </div>
+    {% else %}
+      {% include "components/form_errors.html" %}
+    {% endif %}
     <fieldset class="marketing-auth-fieldset">
       <legend>{% translate "About you" %}</legend>
       {% ui_field form.name label="Full name" %}

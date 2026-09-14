@@ -6,6 +6,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import pytest
+from django.core import mail
 from django.urls import reverse
 
 from ohc_experience.organisations.models import Membership
@@ -262,6 +263,27 @@ class TestUserSignupView:
         membership = Membership.objects.get(user__email=SIGNUP_DATA["email"])
         assert membership.role == Role.OWNER
         assert membership.organisation.name == "Sunrise Health Systems"
+
+    def test_an_existing_email_offers_a_password_reset(
+        self,
+        client: Client,
+        user: User,
+    ):
+        response = client.post(
+            SIGNUP_URL,
+            data={
+                **SIGNUP_DATA,
+                "email": user.email,
+                "organisation": "Sunrise Health Systems",
+            },
+        )
+        html = response.content.decode()
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["form"].account_exists
+        assert f'href="{reverse("account_reset_password")}"' in html
+        assert not Organisation.objects.filter(name="Sunrise Health Systems").exists()
+        assert mail.outbox == []
 
     def test_signing_up_from_an_invite_joins_that_organisation(
         self,
