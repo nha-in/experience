@@ -161,12 +161,10 @@ retired; reviewer work uses the engine's assessment screens.
 - Product-level `ProductOutcome` records contain credential references and
   milestone decisions, including production handoff notes. Secrets never appear
   in outcome JSON, notification emails or reviewer pages.
-- `ProductCredential` holds a product's sandbox credential and, once staff record
-  it, its production client ID, told apart by `environment`. The NHA gateway team
-  issues production credentials and sends the secret to the integrator directly;
-  a production row holds the client ID alone, and a database constraint rejects
-  one with a secret. Sandbox reveal, rotation, revocation and callback checks
-  refuse production rows.
+- `Product.production_client_id` holds the production client ID staff record once
+  an exit is approved, unique across products whatever its case. The NHA gateway
+  team issues production credentials and sends the secret to the integrator
+  directly; the portal never holds it.
 - `ReviewQuery` is pinned to the reviewed submission. All open queries must be
   answered, and answered queries resolved, before approval. Forms under review
   are read-only until withdrawn or sent back.

@@ -106,8 +106,7 @@ def production_detail(request, reference):
     )
     product = workspace.product
     can_manage = production.can_manage(request.user, program)
-    credential = production.current(product)
-    current_id = credential.client_id if credential else ""
+    current_id = product.production_client_id
     form = ProductionAccessForm(
         initial={"client_id": current_id, "expected": current_id},
     )
@@ -156,11 +155,7 @@ def production_detail(request, reference):
             "page_title": f"{product.name} · Production access",
             "product": product,
             "reference": workspace.reference,
-            "credential": credential,
-            "sandbox": ProductCredential.objects.filter(
-                product=product,
-                environment=ProductCredential.Environment.SANDBOX,
-            ).first(),
+            "sandbox": ProductCredential.objects.filter(product=product).first(),
             "exits": exits,
             "eligible": bool(exits),
             "can_manage": can_manage,

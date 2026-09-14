@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from ohc_experience.abdm import demo
 from ohc_experience.experiences.models import CertificationAgency
+from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import ReviewItem
@@ -28,9 +29,8 @@ def test_engine_demo_command_runs_registered_abdm_builder(settings):
     assert ProductCredential.objects.filter(status="active").exists()
     assert ReviewItem.objects.filter(status="query_raised").exists()
     # The approved M1 comes with a visibly fake production client ID.
-    production = ProductCredential.objects.get(environment="production")
-    assert production.client_id.startswith("DEMO_PROD_SBX_")
-    assert production.encrypted_secret == ""
+    recorded = Product.objects.exclude(production_client_id="").get()
+    assert recorded.production_client_id.startswith("DEMO_PROD_SBX_")
     with pytest.raises(CommandError, match="already exists"):
         call_command("seed_experience_demo", stdout=StringIO())
 

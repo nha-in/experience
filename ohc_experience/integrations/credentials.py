@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 
 def _definition(product: Product):
-    return product.workspace.definition.credentials
+    return product.workspace.definition.sandbox_credentials
 
 
 def _keycloak_client(product: Product) -> ProvisionedResource | None:
@@ -69,7 +69,6 @@ def publish_credential(product: Product) -> ProductCredential:
     secret = _issued_secret(client)
     credential, _created = ProductCredential.objects.update_or_create(
         product=product,
-        environment=ProductCredential.Environment.SANDBOX,
         defaults={
             "client_id": client.public_ref,
             "encrypted_secret": cipher().encrypt(secret.encode()).decode(),

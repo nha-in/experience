@@ -78,13 +78,6 @@ def _workspace(request, reference):
     return workspace
 
 
-def _sandbox_credential(product):
-    return ProductCredential.objects.filter(
-        product=product,
-        environment=ProductCredential.Environment.SANDBOX,
-    ).first()
-
-
 def _item(request, pk):
     query = permissions.visible_reviews(request.user).select_related(
         "selected_submission",
@@ -527,15 +520,17 @@ def overview(request, reference):
                 user=request.user,
             ).values_list("event_id", flat=True),
         ),
-        credential=_sandbox_credential(product) if sees_credentials else None,
+        credential=ProductCredential.objects.filter(product=product).first()
+        if sees_credentials
+        else None,
         production=production_services.state(product) if sees_credentials else None,
         can_view_production=production_services.can_view(
             request.user,
             workspace.definition,
         ),
         outcomes=outcomes.exclude(
-            outcome_type=workspace.definition.credentials.outcome_type
-            if workspace.definition.credentials
+            outcome_type=workspace.definition.sandbox_credentials.outcome_type
+            if workspace.definition.sandbox_credentials
             else "",
         )[:6],
         registration=visible_items.filter(
@@ -907,11 +902,11 @@ def pending_queries(request):
 @require_http_methods(["GET", "POST"])
 def credentials(request, reference):  # noqa: C901, PLR0912
     workspace = _workspace(request, reference)
-    if workspace.definition.credentials is None:
+    if workspace.definition.sandbox_credentials is None:
         raise Http404
     # Reviewers can see health metadata in context, but cannot open this surface.
     permissions.require_integrator(request.user, workspace.product.organisation)
-    credential = _sandbox_credential(workspace.product)
+    credential = ProductCredential.objects.filter(product=workspace.product).first()
     production = production_services.state(workspace.product)
     form = CredentialURLsForm(
         initial={
@@ -935,8 +930,8 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 credential=credential,
                 form=form,
                 nav="credentials",
-                page_title=workspace.definition.credentials.name,
-                demo_credentials=workspace.definition.credentials.is_demo(),
+                page_title=workspace.definition.sandbox_credentials.name,
+                demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
                 progress=provisioning_progress(workspace.product),
                 production=production,
                 secret=secret,
@@ -980,7 +975,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                             credential=credential,
                             form=form,
                             nav="credentials",
-                            page_title=workspace.definition.credentials.name,
+                            page_title=workspace.definition.sandbox_credentials.name,
                             progress=provisioning_progress(workspace.product),
                             production=production,
                         ),
@@ -1016,8 +1011,8 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             credential=credential,
             form=form,
             nav="credentials",
-            page_title=workspace.definition.credentials.name,
-            demo_credentials=workspace.definition.credentials.is_demo(),
+            page_title=workspace.definition.sandbox_credentials.name,
+            demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
             progress=provisioning_progress(workspace.product),
             production=production,
         ),
@@ -1418,7 +1413,7 @@ def review(request, pk):
                 status="approved",
             )
             .exclude(pk=item.pk)[:10],
-            credential=_sandbox_credential(item.product)
+            credential=ProductCredential.objects.filter(product=item.product).first()
             if item.product_id
             and permissions.has_access(request.user, "review", program=item.program.key)
             else None,

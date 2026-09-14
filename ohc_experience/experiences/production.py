@@ -1,8 +1,8 @@
 """Production client IDs, recorded by staff once a product's exit is approved.
 
 The gateway team issues production credentials outside the portal and hands
-the secret to the integrator. The portal keeps the client ID alone, as a
-production row beside the product's sandbox credential.
+the secret to the integrator. The portal keeps the client ID alone, on the
+product.
 """
 
 import re
@@ -33,9 +33,6 @@ from .permissions import has_access
 from .workflows import audit
 from .workflows import notify_integrators
 
-PRODUCTION = ProductCredential.Environment.PRODUCTION
-SANDBOX = ProductCredential.Environment.SANDBOX
-
 RECORDED = "Production client ID recorded"
 CHANGED = "Production client ID changed"
 REMOVED = "Production client ID removed"
@@ -56,7 +53,7 @@ _FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
 def enabled(program):
     """Whether this program records production client IDs at all."""
-    return bool(program.credentials and program.credentials.record_production_access)
+    return program.production_credentials is not None
 
 
 def can_view(user, program):
@@ -109,74 +106,61 @@ def eligible(product):
     return enabled(program) and product.milestones.filter(_exits(program)).exists()
 
 
-def current(product):
-    return ProductCredential.objects.filter(
-        product=product,
-        environment=PRODUCTION,
-    ).first()
-
-
 def state(product):
     """What the product's pages show; None when the program doesn't record it."""
     if not enabled(product.workspace.definition):
         return None
-    credential = current(product)
+    client_id = product.production_client_id
     return {
-        "credential": credential,
-        "eligible": credential is not None or eligible(product),
+        "client_id": client_id,
+        "recorded_at": product.production_recorded_at,
+        "eligible": bool(client_id) or eligible(product),
     }
 
 
 def _lock_for_change(actor, product):
-    """Check the actor, then hold the product so two approvers cannot race."""
+    """Check the actor, then hold the product so two approvers cannot race.
+
+    Returns the ID as saved, which the caller's copy of the product may predate.
+    """
     if not can_manage(actor, product.workspace.definition):
         msg = "Only onboarding approvers can change production access."
         raise PermissionDenied(msg)
     rate_limit(actor, "production", limit=10)
-    Product.objects.select_for_update().get(pk=product.pk)
-    credential = current(product)
-    return credential, credential.client_id if credential else ""
+    return (
+        Product.objects.select_for_update()
+        .values_list("production_client_id", flat=True)
+        .get(pk=product.pk)
+    )
 
 
-def _in_use(client_id, credential):
-    """Any other sandbox or production row with this ID, whatever its case.
-
-    The unique index catches exact matches; this also stops IDs that differ only
-    in case, which would otherwise read as two different clients.
-    """
-    clashes = ProductCredential.objects.filter(client_id__iexact=client_id)
-    if credential is not None:
-        clashes = clashes.exclude(pk=credential.pk)
-    return clashes.exists()
+def _save(product, client_id, recorded_at):
+    Product.objects.filter(pk=product.pk).update(
+        production_client_id=client_id,
+        production_recorded_at=recorded_at,
+    )
+    product.production_client_id = client_id
+    product.production_recorded_at = recorded_at
 
 
 @transaction.atomic
 def record(product, actor, *, client_id, expected):
     """Record or change the product's production client ID."""
-    credential, before = _lock_for_change(actor, product)
+    before = _lock_for_change(actor, product)
     if before != (expected or ""):
         raise ValidationError(STALE)
     if not eligible(product):
         raise ValidationError(NOT_ELIGIBLE)
     client_id = validate_client_id(client_id)
     if client_id == before:
-        return credential
-    if _in_use(client_id, credential):
+        return
+    # A sandbox client ID pasted by mistake, whatever its case. Another product's
+    # production ID fails the unique index, which ignores case too.
+    if ProductCredential.objects.filter(client_id__iexact=client_id).exists():
         raise ValidationError(IN_USE)
     try:
         with transaction.atomic():
-            credential, _created = ProductCredential.objects.update_or_create(
-                product=product,
-                environment=PRODUCTION,
-                defaults={
-                    "client_id": client_id,
-                    "status": "active",
-                    "encrypted_secret": "",
-                    "gateway_url": "",
-                    "rotation_due": None,
-                    "issued_at": timezone.now(),
-                },
-            )
+            _save(product, client_id, timezone.now())
     except IntegrityError:
         raise ValidationError(IN_USE) from None
     audit(
@@ -186,18 +170,17 @@ def record(product, actor, *, client_id, expected):
         detail={"before": before, "after": client_id},
     )
     _notify(product, changed=bool(before))
-    return credential
 
 
 @transaction.atomic
 def remove(product, actor, *, expected):
     """Take a mistaken production client ID back off the product."""
-    credential, before = _lock_for_change(actor, product)
+    before = _lock_for_change(actor, product)
     if before != (expected or ""):
         raise ValidationError(STALE)
-    if credential is None:
+    if not before:
         return
-    credential.delete()
+    _save(product, "", None)
     audit(actor=actor, action=REMOVED, product=product, detail={"before": before})
 
 
@@ -208,7 +191,7 @@ def _notify(product, *, changed):
     program = workspace.definition
     verb = "updated" if changed else "recorded"
     link = f"{settings.SITE_BASE_URL.rstrip('/')}{workspace.get_absolute_url()}"
-    notice = program.credentials.production_notice
+    notice = program.production_credentials.usage_notice
     notify_integrators(
         product.organisation,
         f"{program.short_name}: production client ID {verb}",
@@ -222,8 +205,6 @@ def _notify(product, *, changed):
 def listing(program, *, tab="awaiting", q=""):
     """Products with an approved exit or a recorded ID, and the tab counts."""
     exits = Milestone.objects.filter(_exits(program), product=OuterRef("pk"))
-    credentials = ProductCredential.objects.filter(product=OuterRef("pk"))
-    production = credentials.filter(environment=PRODUCTION)
     recorder = AuditEvent.objects.filter(
         product=OuterRef("pk"),
         action__in=(RECORDED, CHANGED),
@@ -237,15 +218,11 @@ def listing(program, *, tab="awaiting", q=""):
                     "application__decided_at",
                 )[:1],
             ),
-            sandbox_client_id=Subquery(
-                credentials.filter(environment=SANDBOX).values("client_id")[:1],
-            ),
-            production_client_id=Subquery(production.values("client_id")[:1]),
-            production_recorded_at=Subquery(production.values("issued_at")[:1]),
+            sandbox_client_id=F("credential__client_id"),
             recorded_by_name=Subquery(recorder.values("actor__name")[:1]),
             recorded_by_email=Subquery(recorder.values("actor__email")[:1]),
         )
-        .filter(Q(has_exit=True) | Q(production_client_id__isnull=False))
+        .filter(Q(has_exit=True) | ~Q(production_client_id=""))
         .select_related("organisation", "workspace")
     )
     if q:
@@ -254,14 +231,11 @@ def listing(program, *, tab="awaiting", q=""):
             | Q(workspace__reference__icontains=q)
             | Q(organisation__name__icontains=q)
             | Q(organisation__legal_name__icontains=q)
-            | Q(
-                pk__in=ProductCredential.objects.filter(
-                    client_id__icontains=q,
-                ).values("product_id"),
-            ),
+            | Q(production_client_id__icontains=q)
+            | Q(credential__client_id__icontains=q),
         )
-    awaiting = query.filter(production_client_id__isnull=True)
-    recorded = query.filter(production_client_id__isnull=False)
+    awaiting = query.filter(production_client_id="")
+    recorded = query.exclude(production_client_id="")
     counts = {
         "awaiting": awaiting.count(),
         "recorded": recorded.count(),

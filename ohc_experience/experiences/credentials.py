@@ -28,41 +28,19 @@ logger = logging.getLogger(__name__)
 CALLBACK_FAILURE_ALERT_THRESHOLD = 3
 
 
-def throttle(scope, limit):
-    """Count one request against `scope` this minute; False once past `limit`.
-
-    A cache outage lets the request through: production's Redis ignores
-    connection errors, so `add` and `incr` answer None rather than raising.
-    """
-    key = f"experiences:{scope}:{int(time.time()) // 60}"
-    if cache.add(key, 1, timeout=65):
-        return True
-    try:
-        count = cache.incr(key)
-    except ValueError:  # The key expired between add and incr.
-        return True
-    return count is None or count <= limit
-
-
 def rate_limit(actor, operation, limit=5):
-    if not throttle(f"{operation}:{actor.pk}", limit):
+    key = f"experiences:{operation}:{actor.pk}:{int(time.time()) // 60}"
+    if cache.add(key, 1, timeout=65):
+        return
+    if cache.incr(key) > limit:
         msg = "Too many requests. Wait a minute and try again."
-        raise ValidationError(msg)
-
-
-def _require_sandbox(credential):
-    """Production client IDs are recorded by staff; nothing here may touch one."""
-    if credential.environment != ProductCredential.Environment.SANDBOX:
-        msg = "Only sandbox credentials can be managed here."
         raise ValidationError(msg)
 
 
 def _locked_credential(credential):
     """This row only. Locking the organisation too would make one product's
     credential operation block every other write against that organisation."""
-    credential = ProductCredential.objects.select_for_update().get(pk=credential.pk)
-    _require_sandbox(credential)
-    return credential
+    return ProductCredential.objects.select_for_update().get(pk=credential.pk)
 
 
 @transaction.atomic
@@ -84,8 +62,6 @@ def rotate(credential, actor):
     as possible and a failure to persist is reported rather than swallowed: the
     integrator's stored secret is dead at that point and only they can act.
     """
-    # Before the gateway call: it rotates the product's sandbox client.
-    _require_sandbox(credential)
     require_integrator(actor, credential.product.organisation)
     if credential.status != "active":
         msg = "These credentials are no longer active."
@@ -99,8 +75,9 @@ def rotate(credential, actor):
             current = _locked_credential(credential)
             current.encrypted_secret = cipher().encrypt(secret.encode()).decode()
             current.issued_at = timezone.now()
+            definition = current.product.workspace.definition.sandbox_credentials
             current.rotation_due = timezone.now() + timedelta(
-                days=current.product.workspace.definition.credentials.rotation_days,
+                days=definition.rotation_days,
             )
             current.save(
                 update_fields=["encrypted_secret", "issued_at", "rotation_due"],
@@ -140,7 +117,7 @@ def revoke(credential, actor):
 @transaction.atomic
 def save_urls(credential, actor, cleaned_data):
     require_integrator(actor, credential.product.organisation)
-    credential = _locked_credential(credential)
+    credential = ProductCredential.objects.select_for_update().get(pk=credential.pk)
     old = {key: getattr(credential, key) for key in cleaned_data}
     for key in ("callback_url", "bridge_url"):
         setattr(credential, key, cleaned_data[key])
@@ -185,7 +162,6 @@ def public_callback_target(url):
 
 
 def check_callback(credential, actor=None):
-    _require_sandbox(credential)
     if actor:
         require_integrator(actor, credential.product.organisation)
         rate_limit(actor, "callback")

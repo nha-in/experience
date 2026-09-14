@@ -50,8 +50,8 @@
       <div class="grid gap-x-5 gap-y-2 border-t border-soft-border py-3 sm:grid-cols-[196px_minmax(0,1fr)]">
         <dt class="ui-kicker pt-0.5">Production client ID</dt>
         <dd class="min-w-0 text-sm leading-relaxed">
-          {% if production.credential %}
-            <span class="block font-mono text-xs break-all">{{ production.credential.client_id }}</span>
+          {% if production.client_id %}
+            <span class="block font-mono text-xs break-all">{{ production.client_id }}</span>
           {% elif production.eligible %}
             <span class="block text-muted-foreground">Awaiting production client ID.</span>
           {% else %}

@@ -166,29 +166,20 @@ class TrackDefinition:
 
 
 class CredentialDefinition:
-    """A program supplies policy and copy; the chain provisions, the engine shows."""
+    """Copy for one kind of credential on a product's Credentials page."""
 
     name = "Integration credentials"
-    outcome_type = "integration_credentials"
-    rotation_days = 90
     usage_notice = ""
-    demo_notice = "Demo credentials are not valid on an external gateway."
     unavailable_notice = "Credentials are not available for this product yet."
     unavailable_heading = "Credentials pending"
-    #: Static production copy, for programs that don't record production IDs.
-    handoff_heading = ""
-    handoff_notice = ""
-    #: Staff record each product's production client ID once an exit is approved.
-    record_production_access = False
-    production_heading = "Production access"
-    production_ineligible_notice = (
-        "Production access becomes available once a milestone exit is approved."
-    )
-    production_pending_notice = (
-        "Your exit is approved. Your production client ID will appear here once "
-        "it is issued."
-    )
-    production_notice = ""
+
+
+class SandboxCredentialDefinition(CredentialDefinition):
+    """A program supplies policy and copy; the chain provisions, the engine shows."""
+
+    outcome_type = "integration_credentials"
+    rotation_days = 90
+    demo_notice = "Demo credentials are not valid on an external gateway."
 
     @classmethod
     def gateway_url(cls):
@@ -198,9 +189,21 @@ class CredentialDefinition:
     def is_demo(cls):
         return False
 
-    @classmethod
-    def eligibility_error(cls, product):
-        return ""
+
+class ProductionCredentialDefinition(CredentialDefinition):
+    """Staff record each product's production client ID once an exit is approved.
+
+    The portal holds the ID alone; the secret is issued outside it.
+    """
+
+    name = "Production access"
+    unavailable_notice = (
+        "Production access becomes available once a milestone exit is approved."
+    )
+    pending_notice = (
+        "Your exit is approved. Your production client ID will appear here once "
+        "it is issued."
+    )
 
 
 class ProductHandoffDefinition:
@@ -246,7 +249,8 @@ class ProgramDefinition:
     applications: ClassVar[ApplicationSet]
     milestones: ClassVar[dict[str, MilestoneDefinition]] = {}
     tracks: ClassVar[tuple[TrackDefinition, ...]] = ()
-    credentials: ClassVar[type[CredentialDefinition] | None] = None
+    sandbox_credentials: ClassVar[type[SandboxCredentialDefinition] | None] = None
+    production_credentials: ClassVar[type[ProductionCredentialDefinition] | None] = None
     handoffs: ClassVar[dict[str, type[ProductHandoffDefinition]]] = {}
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
 

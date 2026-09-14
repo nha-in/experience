@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F
 from django.db.models import Q
+from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -119,6 +120,14 @@ class Product(models.Model):
     )
     description = models.TextField(_("Product and intended use"))
     metadata = models.JSONField(_("Metadata"), default=dict, blank=True)
+    #: Issued by the gateway team, which hands the secret to the integrator
+    #: directly; staff record the ID once an exit is approved.
+    production_client_id = models.CharField(
+        _("Production client ID"),
+        max_length=255,
+        blank=True,
+    )
+    production_recorded_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -133,6 +142,11 @@ class Product(models.Model):
             models.UniqueConstraint(
                 fields=["organisation", "slug"],
                 name="unique_product_slug_per_organisation",
+            ),
+            models.UniqueConstraint(
+                Lower("production_client_id"),
+                condition=~Q(production_client_id=""),
+                name="unique_production_client_id",
             ),
         ]
 
@@ -952,60 +966,28 @@ class AuditEvent(models.Model):
 
 
 class ProductCredential(models.Model):
-    """A product's sandbox credential, and the production client ID staff record.
-
-    The portal issues and holds the sandbox pair. Production credentials are
-    issued by the gateway team, which hands the secret to the integrator, so a
-    production row carries the client ID alone.
-    """
-
-    class Environment(models.TextChoices):
-        SANDBOX = "sandbox", _("Sandbox")
-        PRODUCTION = "production", _("Production")
-
-    product = models.ForeignKey(
+    product = models.OneToOneField(
         "experiences.Product",
         on_delete=models.PROTECT,
-        related_name="credentials",
+        related_name="credential",
     )
-    environment = models.CharField(
-        max_length=16,
-        choices=Environment,
-        default=Environment.SANDBOX,
-    )
-    client_id = models.CharField(max_length=255, unique=True)
+    client_id = models.CharField(max_length=100, unique=True)
     encrypted_secret = models.TextField(editable=False)
     status = models.CharField(
         max_length=16,
         choices=[("active", "Active"), ("revoked", "Revoked")],
         default="active",
     )
-    gateway_url = models.URLField(blank=True)
+    gateway_url = models.URLField()
     callback_url = models.URLField(blank=True)
     bridge_url = models.URLField(blank=True)
     issued_at = models.DateTimeField(default=timezone.now)
-    rotation_due = models.DateTimeField(null=True, blank=True)
+    rotation_due = models.DateTimeField()
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_status = models.PositiveSmallIntegerField(null=True, blank=True)
     last_latency_ms = models.PositiveIntegerField(null=True, blank=True)
     consecutive_failures = models.PositiveIntegerField(default=0)
     last_error = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["product", "environment"],
-                name="unique_credential_per_environment",
-            ),
-            models.CheckConstraint(
-                condition=Q(environment="sandbox") | Q(encrypted_secret=""),
-                name="production_credential_holds_no_secret",
-            ),
-            models.CheckConstraint(
-                condition=Q(environment="production") | Q(rotation_due__isnull=False),
-                name="sandbox_credential_has_rotation_due",
-            ),
-        ]
 
     def __str__(self):
         return f"{self.client_id} ({self.status})"

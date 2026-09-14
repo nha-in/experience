@@ -21,7 +21,8 @@ from .forms import OrganisationForm
 from .forms import ProductRegistrationForm
 from .forms import UhiParticipationForm
 from .forms import WasaReviewForm
-from .gateway import ABDMCredentials
+from .gateway import ABDMProductionCredentials
+from .gateway import ABDMSandboxCredentials
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
@@ -298,7 +299,8 @@ class ABDM(ProgramDefinition):
     )
     milestones = MILESTONES
     tracks = TRACKS
-    credentials = ABDMCredentials
+    sandbox_credentials = ABDMSandboxCredentials
+    production_credentials = ABDMProductionCredentials
     handoffs = {"dhis": DHISHandoff}
     signup_organisation_choices = (
         ("private_company", "Company"),

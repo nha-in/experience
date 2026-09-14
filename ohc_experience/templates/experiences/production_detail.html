@@ -58,17 +58,17 @@
             Enter it once the gateway team has issued it. The integrator is emailed and sees it on their Credentials page.
           </p>
         </div>
-        {% if credential %}
+        {% if product.production_client_id %}
           {% include 'experiences/partials/status.html' with status='active' label='Recorded' %}
         {% elif eligible %}
           {% include 'experiences/partials/status.html' with status='in_review' label='Awaiting ID' %}
         {% endif %}
       </div>
       <div class="ui-card-content flex flex-col gap-4">
-        {% if credential %}
+        {% if product.production_client_id %}
           <p class="text-sm">
-            <span class="font-mono break-all">{{ credential.client_id }}</span>
-            <span class="block text-xs text-soft-foreground">Recorded {{ credential.issued_at|date:'j M Y, H:i' }}</span>
+            <span class="font-mono break-all">{{ product.production_client_id }}</span>
+            <span class="block text-xs text-soft-foreground">Recorded {{ product.production_recorded_at|date:'j M Y, H:i' }}</span>
           </p>
         {% endif %}
         {% if can_manage and eligible %}
@@ -85,7 +85,7 @@
                       type="submit"
                       name="intent"
                       value="save">
-                {% if credential %}
+                {% if product.production_client_id %}
                   Save change
                 {% else %}
                   Save client ID
@@ -93,13 +93,15 @@
               </button>
             </div>
           </form>
-          {% if credential %}
+          {% if product.production_client_id %}
             <form method="post"
                   class="flex justify-end border-t border-soft-border pt-4"
                   data-confirm="Remove this production client ID? The integrator will no longer see it."
                   hx-confirm="Remove this production client ID? The integrator will no longer see it.">
               {% csrf_token %}
-              <input type="hidden" name="expected" value="{{ credential.client_id }}" />
+              <input type="hidden"
+                     name="expected"
+                     value="{{ product.production_client_id }}" />
               <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
                       type="submit"
                       name="intent"
@@ -108,7 +110,7 @@
           {% endif %}
         {% elif not eligible %}
           <p class="text-sm text-muted-foreground">Available once a milestone exit is approved.</p>
-        {% elif not credential %}
+        {% elif not product.production_client_id %}
           <p class="text-sm text-muted-foreground">Not recorded yet. Onboarding approvers can record it.</p>
         {% endif %}
       </div>

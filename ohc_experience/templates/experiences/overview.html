@@ -36,7 +36,7 @@
         </div>
         <p class="ui-tile-note">{{ progress.active_tracks }} active track{{ progress.active_tracks|pluralize }} · {{ progress.awaiting_review }} active review{{ progress.awaiting_review|pluralize }}. Shared milestones count once.</p>
       </section>
-      {% if experience_program.credentials and can_integrate %}
+      {% if experience_program.sandbox_credentials and can_integrate %}
         <a class="[animation-delay:.12s] ui-tile ui-rise"
            href="{% url 'experiences:credentials' workspace.reference %}">
           <span class="ui-kicker">Callback</span>
@@ -156,7 +156,7 @@
         {% if certification %}
           {% include 'experiences/partials/product_wasa_card.html' %}
         {% endif %}
-        {% if experience_program.credentials and can_read_general %}
+        {% if experience_program.sandbox_credentials and can_read_general %}
           <section class="ui-card ui-card--layered ui-card--sm ui-rise">
             <div class="ui-card-content">
               <div class="mb-3 flex items-center justify-between gap-2">
@@ -191,13 +191,13 @@
                   </dd>
                 </dl>
               {% else %}
-                <p class="text-sm leading-relaxed text-soft-foreground">{{ experience_program.credentials.unavailable_notice }}</p>
+                <p class="text-sm leading-relaxed text-soft-foreground">{{ experience_program.sandbox_credentials.unavailable_notice }}</p>
               {% endif %}
-              {% if production.credential %}
+              {% if production.client_id %}
                 <dl class="mt-2.5 grid grid-cols-[72px_1fr] gap-x-3 border-t border-soft-border pt-2.5 text-sm">
                   <dt class="text-soft-foreground">Production</dt>
                   <dd class="min-w-0 truncate font-mono">
-                    {{ production.credential.client_id }}
+                    {{ production.client_id }}
                   </dd>
                 </dl>
               {% endif %}

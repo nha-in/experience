@@ -49,9 +49,10 @@ Implementations contain no models, migrations, URL configuration or views:
    `ApplicationSet` names the product and milestone applications, an optional
    `certification` flow, and per-milestone `overrides`.
 5. Register the dotted program class in settings and select its key as the portal.
-   Optionally supply a `CredentialDefinition` provider and demo builder. Set
-   `record_production_access = True` on it, with the `production_*` copy, when
-   staff should record each product's production client ID after an approved exit.
+   Optionally supply a `SandboxCredentialDefinition` provider as
+   `sandbox_credentials`, a `ProductionCredentialDefinition` as
+   `production_credentials` when staff should record each product's production
+   client ID after an approved exit, and a demo builder.
 
 Form hooks run inside the engine transaction: `initial_data` supplies defaults;
 `submission_block_reason` gates final submission; `on_submit` projects validated
@@ -79,10 +80,8 @@ area/category capability alone; assignment only labels work. Superusers have
 full access.
 Team invitation and role constraints live in the
 organisations app. Credentials are encrypted in `ProductCredential`, never stored
-as secrets in outcome JSON. Each product has at most one sandbox row, which the
-portal issues and holds, and one production row, which carries only the client ID
-that staff record: a database constraint keeps production rows free of secrets,
-and the sandbox credential operations refuse them. `ApplicationDependency`
+as secrets in outcome JSON. The production client ID staff record is a plain
+`Product` field; its secret never reaches the portal. `ApplicationDependency`
 rejects cross-product links, self references and cycles; the engine enforces
 prerequisite success statuses.
 
