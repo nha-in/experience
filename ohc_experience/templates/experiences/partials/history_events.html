@@ -1,0 +1,27 @@
+<ol class="flex flex-col">
+  {% for event in item.history.all %}
+    <li class="relative flex gap-3 border-l border-soft-border pb-5 pl-5 last:pb-0">
+      <span class="absolute top-1 -left-1 h-2 w-2 rounded-full bg-strong-border"
+            aria-hidden="true"></span>
+      <div class="min-w-0 text-sm">
+        <strong class="font-semibold">{{ event.action }}</strong>
+        <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'d M Y, H:i' }} IST</p>
+        {% if event.detail.note %}
+          <p class="mt-1.5">{{ event.detail.note|linebreaksbr }}</p>
+        {% endif %}
+        {% if event.detail.question %}
+          <p class="mt-1.5">{{ event.detail.question|linebreaksbr }}</p>
+        {% endif %}
+        {% if event.detail.reply %}
+          <p class="mt-1.5">{{ event.detail.reply|linebreaksbr }}</p>
+        {% endif %}
+        {% if event.detail.submission_id %}
+          <a class="mt-1.5 inline-block text-primary hover:underline"
+             href="{% url 'experiences:submission' item.pk event.detail.submission_id %}">View saved submission</a>
+        {% endif %}
+      </div>
+    </li>
+  {% empty %}
+    <li class="text-xs text-soft-foreground">No activity yet.</li>
+  {% endfor %}
+</ol>

@@ -1,32 +1,11 @@
-<section class="ui-card ui-card--sm mt-5">
-  <div class="ui-card-content">
-    <h2 class="mb-5 text-base font-bold">History</h2>
-    <ol class="flex flex-col">
-      {% for event in item.history.all %}
-        <li class="relative flex gap-3 border-l border-soft-border pb-5 pl-5 last:pb-0">
-          <span class="absolute top-1 -left-1 h-2 w-2 rounded-full bg-strong-border"
-                aria-hidden="true"></span>
-          <div class="min-w-0 text-sm">
-            <strong class="font-semibold">{{ event.action }}</strong>
-            <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'d M Y, H:i' }} IST</p>
-            {% if event.detail.note %}
-              <p class="mt-1.5">{{ event.detail.note|linebreaksbr }}</p>
-            {% endif %}
-            {% if event.detail.question %}
-              <p class="mt-1.5">{{ event.detail.question|linebreaksbr }}</p>
-            {% endif %}
-            {% if event.detail.reply %}
-              <p class="mt-1.5">{{ event.detail.reply|linebreaksbr }}</p>
-            {% endif %}
-            {% if event.detail.submission_id %}
-              <a class="mt-1.5 inline-block text-primary hover:underline"
-                 href="{% url 'experiences:submission' item.pk event.detail.submission_id %}">View saved submission</a>
-            {% endif %}
-          </div>
-        </li>
-      {% empty %}
-        <li class="text-xs text-soft-foreground">No activity yet.</li>
-      {% endfor %}
-    </ol>
+{# Sits in a side column: once the events outgrow 28rem, or the room the column leaves, they scroll inside the card. #}
+<section class="ui-card ui-card--sm ui-rise min-h-0 [animation-delay:.25s] {% if item.history.count > 2 %}xl:min-h-48{% endif %}"
+         aria-labelledby="history-title">
+  <div class="ui-card-content flex items-baseline justify-between gap-2">
+    <h2 class="text-base font-bold" id="history-title">History</h2>
+    <span class="text-xs text-soft-foreground tabular-nums">{% with count=item.history.count %}{% if count %}{{ count }} event{{ count|pluralize }}{% endif %}{% endwith %}</span>
   </div>
+  <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary xl:max-h-none"
+       tabindex="0"
+       aria-labelledby="history-title">{% include 'experiences/partials/history_events.html' %}</div>
 </section>

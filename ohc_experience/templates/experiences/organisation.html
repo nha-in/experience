@@ -17,38 +17,42 @@
 {% endblock %}
 {% block canvas_padding %}pt-0{% endblock %}
 {% block portal_content %}
-  <div class="ui-float ui-rise w-full max-w-[760px] [animation-delay:.1s]">
-    {% include 'experiences/partials/review_status.html' %}
-    {% if can_edit %}
-      <form class="ui-card ui-card--layered"
-            method="post"
-            enctype="multipart/form-data"
-            hx-encoding="multipart/form-data"
-            data-unsaved-form
-            novalidate>
-        {% csrf_token %}
-        <input type="hidden"
-               name="revision"
-               value="{{ item.selected_submission_id|default:'' }}" />
-        <div class="ui-card-content">
-          {% include 'experiences/partials/form.html' %}
-          <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
-            <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Submit for verification</button>
-            {% if organisation.is_onboarded %}
-              <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
-                 href="{% url 'experiences:product-create' %}">Continue to product</a>
-            {% endif %}
+  <div class="ui-float grid w-full max-w-[1084px] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+    <div class="ui-rise min-w-0 [animation-delay:.1s]">
+      {% include 'experiences/partials/review_status.html' %}
+      {% if can_edit %}
+        <form class="ui-card ui-card--layered"
+              method="post"
+              enctype="multipart/form-data"
+              hx-encoding="multipart/form-data"
+              data-unsaved-form
+              novalidate>
+          {% csrf_token %}
+          <input type="hidden"
+                 name="revision"
+                 value="{{ item.selected_submission_id|default:'' }}" />
+          <div class="ui-card-content">
+            {% include 'experiences/partials/form.html' %}
+            <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
+              <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Submit for verification</button>
+              {% if organisation.is_onboarded %}
+                <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+                   href="{% url 'experiences:product-create' %}">Continue to product</a>
+              {% endif %}
+            </div>
           </div>
-        </div>
-      </form>
-    {% else %}
-      {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
-      {% if not organisation.products.exists %}
-        <a class="ui-btn ui-btn--default ui-btn--size-sm mt-4 no-underline"
-           href="{% url 'experiences:product-create' %}">Continue to product</a>
+        </form>
+      {% else %}
+        {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
+        {% if not organisation.products.exists %}
+          <a class="ui-btn ui-btn--default ui-btn--size-sm mt-4 no-underline"
+             href="{% url 'experiences:product-create' %}">Continue to product</a>
+        {% endif %}
       {% endif %}
-    {% endif %}
-    {% include 'experiences/partials/queries.html' %}
-    {% include 'experiences/partials/history.html' %}
+      {% include 'experiences/partials/queries.html' %}
+    </div>
+    <div class="flex min-w-0 flex-col xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)]">
+      {% include 'experiences/partials/history.html' %}
+    </div>
   </div>
 {% endblock %}

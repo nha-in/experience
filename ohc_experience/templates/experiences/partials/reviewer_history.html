@@ -1,9 +1,12 @@
-<section class="ui-card ui-card--layered ui-card--sm"
+<section class="ui-card ui-card--layered ui-card--sm min-h-0 {% if item.history.count > 2 %}xl:min-h-48{% endif %}"
          aria-labelledby="review-history-title">
-  <div class="ui-card-header">
+  <div class="ui-card-header flex flex-row items-baseline justify-between gap-2">
     <h2 class="ui-card-title" id="review-history-title">History</h2>
+    <span class="text-xs text-soft-foreground tabular-nums">{% with count=item.history.count %}{% if count %}{{ count }} event{{ count|pluralize }}{% endif %}{% endwith %}</span>
   </div>
-  <div class="ui-card-content">
+  <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary xl:max-h-none"
+       tabindex="0"
+       aria-labelledby="review-history-title">
     <ol class="ui-feed">
       {% for event in item.history.all %}
         <li class="ui-feed-row scroll-mt-20 items-start"

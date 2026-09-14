@@ -51,12 +51,7 @@
 {% block canvas_padding %}pt-0{% endblock %}
 {% block portal_content %}
   {% if track.tiles %}
-    <div class="ui-float grid items-start gap-6 {% if can_edit and can_integrate %}xl:grid-cols-[minmax(0,1fr)_300px]{% endif %}">
-      {% if can_edit and can_integrate %}
-        <div class="ui-rise xl:col-start-2 xl:row-start-1 xl:sticky xl:top-6 [animation-delay:.2s]">
-          {% include 'experiences/partials/product_evidence_readiness.html' %}
-        </div>
-      {% endif %}
+    <div class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
       <div class="ui-rise min-w-0 xl:col-start-1 xl:row-start-1 [animation-delay:.1s]">
         <section class="ui-card ui-card--layered" id="milestone-detail">
           <div class="ui-card-content">
@@ -167,7 +162,15 @@
   </div>
   </section>
   {% include 'experiences/partials/queries.html' %}
-  {% include 'experiences/partials/history.html' %}
+  </div>
+  {# One column held to the viewport on wide screens, as on the review page. Narrower, it dissolves into the page: saved progress moves above the form and history follows the queries. #}
+  <div class="contents xl:sticky xl:top-2 xl:col-start-2 xl:row-start-1 xl:-m-4 xl:flex xl:max-h-[calc(100dvh-1rem)] xl:flex-col xl:gap-4 xl:overflow-y-auto xl:p-4">
+    {% if can_edit and can_integrate %}
+      <div class="ui-rise -order-1 shrink-0 [animation-delay:.2s]">
+        {% include 'experiences/partials/product_evidence_readiness.html' %}
+      </div>
+    {% endif %}
+    {% include 'experiences/partials/history.html' %}
   </div>
   </div>
 {% else %}

@@ -34,38 +34,42 @@
 {% endblock %}
 {% block canvas_padding %}pt-0{% endblock %}
 {% block portal_content %}
-  <div class="ui-float ui-rise w-full max-w-[760px] [animation-delay:.1s]">
-    {% if not item or can_edit %}
-      <form id="product-form"
-            class="ui-card ui-card--layered"
-            method="post"
-            data-unsaved-form
-            novalidate>
-        {% csrf_token %}
-        <input type="hidden"
-               name="revision"
-               value="{{ item.selected_submission_id|default:'' }}" />
-        <div class="ui-card-content">
-          {% include 'experiences/partials/form.html' %}
-          <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
-            {% if item %}
-              <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
-                 href="{{ workspace.get_absolute_url }}">Cancel</a>
-            {% endif %}
-            <p class="min-w-[180px] flex-1 text-xs leading-relaxed text-soft-foreground">
-              {% if item %}Changes apply as soon as you save.{% else %}Register a product to start its milestone applications.{% endif %}
-            </p>
-            <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">
-              {% if item %}Save changes{% else %}Register product{% endif %}
-            </button>
+  <div class="ui-float grid w-full items-start gap-6 {% if item %}max-w-[1084px] xl:grid-cols-[minmax(0,1fr)_300px]{% else %}max-w-[760px]{% endif %}">
+    <div class="ui-rise min-w-0 [animation-delay:.1s]">
+      {% if not item or can_edit %}
+        <form id="product-form"
+              class="ui-card ui-card--layered"
+              method="post"
+              data-unsaved-form
+              novalidate>
+          {% csrf_token %}
+          <input type="hidden"
+                 name="revision"
+                 value="{{ item.selected_submission_id|default:'' }}" />
+          <div class="ui-card-content">
+            {% include 'experiences/partials/form.html' %}
+            <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
+              {% if item %}
+                <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+                   href="{{ workspace.get_absolute_url }}">Cancel</a>
+              {% endif %}
+              <p class="min-w-[180px] flex-1 text-xs leading-relaxed text-soft-foreground">
+                {% if item %}Changes apply as soon as you save.{% else %}Register a product to start its milestone applications.{% endif %}
+              </p>
+              <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">
+                {% if item %}Save changes{% else %}Register product{% endif %}
+              </button>
+            </div>
           </div>
-        </div>
-      </form>
-    {% else %}
-      {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
-    {% endif %}
+        </form>
+      {% else %}
+        {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
+      {% endif %}
+    </div>
     {% if item %}
-      {% include 'experiences/partials/history.html' %}
+      <div class="flex min-w-0 flex-col xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)]">
+        {% include 'experiences/partials/history.html' %}
+      </div>
     {% endif %}
   </div>
 {% endblock %}
