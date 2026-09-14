@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 
 def _definition(product: Product):
-    return product.workspace.definition.credentials
+    return product.workspace.definition.sandbox_credentials
 
 
 def _keycloak_client(product: Product) -> ProvisionedResource | None:

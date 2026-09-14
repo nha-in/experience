@@ -38,6 +38,7 @@ from ohc_experience.support.models import record_status_change
 
 from . import credentials as credential_services
 from . import permissions
+from . import production as production_services
 from . import workflows as services
 from .context_processors import navigation_context
 from .context_processors import product_scope
@@ -426,6 +427,9 @@ def product_detail(request, reference):
             credential=ProductCredential.objects.filter(product=product).first()
             if general_access
             else None,
+            production=production_services.state(product)
+            if production_services.can_view(request.user, program)
+            else None,
             general_access=general_access,
             open_tickets=permissions.visible_tickets(request.user).filter(
                 product=product,
@@ -433,8 +437,8 @@ def product_detail(request, reference):
             )[:5],
             activity=activity.select_related("actor", "item")[:10],
             outcomes=outcomes.exclude(
-                outcome_type=program.credentials.outcome_type
-                if program.credentials
+                outcome_type=program.sandbox_credentials.outcome_type
+                if program.sandbox_credentials
                 else "",
             )[:6],
         ),
@@ -606,9 +610,10 @@ def overview(request, reference):
             ).values_list("event_id", flat=True),
         ),
         credential=ProductCredential.objects.filter(product=product).first(),
+        production=production_services.state(product),
         outcomes=outcomes.exclude(
-            outcome_type=workspace.definition.credentials.outcome_type
-            if workspace.definition.credentials
+            outcome_type=workspace.definition.sandbox_credentials.outcome_type
+            if workspace.definition.sandbox_credentials
             else "",
         )[:6],
         registration=visible_items.filter(
@@ -1006,11 +1011,12 @@ def pending_queries(request):
 @require_http_methods(["GET", "POST"])
 def credentials(request, reference):  # noqa: C901, PLR0912
     workspace = _workspace(request, reference)
-    if workspace.definition.credentials is None:
+    if workspace.definition.sandbox_credentials is None:
         raise Http404
     # Reviewers can see health metadata in context, but cannot open this surface.
     permissions.require_integrator(request.user, workspace.product.organisation)
     credential = ProductCredential.objects.filter(product=workspace.product).first()
+    production = production_services.state(workspace.product)
     form = CredentialURLsForm(
         initial={
             "callback_url": credential.callback_url,
@@ -1033,9 +1039,10 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 credential=credential,
                 form=form,
                 nav="credentials",
-                page_title=workspace.definition.credentials.name,
-                demo_credentials=workspace.definition.credentials.is_demo(),
+                page_title=workspace.definition.sandbox_credentials.name,
+                demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
                 progress=provisioning_progress(workspace.product),
+                production=production,
                 secret=secret,
                 revealed_secret=secret,
             ),
@@ -1077,8 +1084,9 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                             credential=credential,
                             form=form,
                             nav="credentials",
-                            page_title=workspace.definition.credentials.name,
+                            page_title=workspace.definition.sandbox_credentials.name,
                             progress=provisioning_progress(workspace.product),
+                            production=production,
                         ),
                     )
             else:
@@ -1112,9 +1120,10 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             credential=credential,
             form=form,
             nav="credentials",
-            page_title=workspace.definition.credentials.name,
-            demo_credentials=workspace.definition.credentials.is_demo(),
+            page_title=workspace.definition.sandbox_credentials.name,
+            demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
             progress=provisioning_progress(workspace.product),
+            production=production,
         ),
     )
 
@@ -1516,6 +1525,10 @@ def review(request, pk):
             credential=ProductCredential.objects.filter(product=item.product).first()
             if item.product_id
             and permissions.has_access(request.user, "review", program=item.program.key)
+            else None,
+            production=production_services.state(item.product)
+            if item.product_id
+            and production_services.can_view(request.user, item.program)
             else None,
             progress=provisioning_progress(item.product) if item.product_id else [],
             can_retry_provisioning=_can_retry_provisioning(request.user, item),

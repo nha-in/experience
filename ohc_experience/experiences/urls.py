@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import event_views
+from . import production_views
 from . import staff_views
 from . import views
 
@@ -71,6 +72,22 @@ urlpatterns = [
     path("assess/dashboard/", views.assess_dashboard, name="assess-dashboard"),
     path("assess/queue/", views.queue, name="queue"),
     path("assess/review/<int:pk>/", views.review, name="review"),
+    path(
+        "assess/production/",
+        production_views.production_list,
+        name="production-list",
+    ),
+    # Before the detail pattern, which would otherwise take "export" as a reference.
+    path(
+        "assess/production/export/",
+        production_views.production_export,
+        name="production-export",
+    ),
+    path(
+        "assess/production/<str:reference>/",
+        production_views.production_detail,
+        name="production-detail",
+    ),
     path("portal/reviews/<int:pk>/open/", views.open_record, name="review-open"),
     path("portal/events/", views.events, name="events"),
     path("portal/events/manage/", event_views.event_manage, name="event-manage"),

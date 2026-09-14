@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F
 from django.db.models import Q
+from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -119,6 +120,14 @@ class Product(models.Model):
     )
     description = models.TextField(_("Product and intended use"))
     metadata = models.JSONField(_("Metadata"), default=dict, blank=True)
+    #: Issued by the gateway team, which hands the secret to the integrator
+    #: directly; staff record the ID once an exit is approved.
+    production_client_id = models.CharField(
+        _("Production client ID"),
+        max_length=255,
+        blank=True,
+    )
+    production_recorded_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -133,6 +142,11 @@ class Product(models.Model):
             models.UniqueConstraint(
                 fields=["organisation", "slug"],
                 name="unique_product_slug_per_organisation",
+            ),
+            models.UniqueConstraint(
+                Lower("production_client_id"),
+                condition=~Q(production_client_id=""),
+                name="unique_production_client_id",
             ),
         ]
 

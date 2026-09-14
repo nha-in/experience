@@ -1,11 +1,12 @@
 from django.conf import settings
 
-from ohc_experience.experiences.definitions import CredentialDefinition
+from ohc_experience.experiences.definitions import ProductionCredentialDefinition
+from ohc_experience.experiences.definitions import SandboxCredentialDefinition
 
 LOCAL_PORT_PREFIX = "ohc_experience.integrations.local."
 
 
-class ABDMCredentials(CredentialDefinition):
+class ABDMSandboxCredentials(SandboxCredentialDefinition):
     name = "Sandbox credentials"
     outcome_type = "sandbox_credentials"
     usage_notice = (
@@ -15,11 +16,6 @@ class ABDMCredentials(CredentialDefinition):
     demo_notice = "These credentials come from the local adapters, not the NHA gateway."
     unavailable_notice = "Sandbox credentials are being set up for this product."
     unavailable_heading = "Provisioning in progress"
-    handoff_heading = "Production access"
-    handoff_notice = (
-        "Production credentials are handled by the gateway team after milestone "
-        "approval. The decision record contains your handoff details."
-    )
 
     @classmethod
     def gateway_url(cls):
@@ -28,3 +24,14 @@ class ABDMCredentials(CredentialDefinition):
     @classmethod
     def is_demo(cls):
         return settings.INTEGRATION_PORTS["IDP"].startswith(LOCAL_PORT_PREFIX)
+
+
+class ABDMProductionCredentials(ProductionCredentialDefinition):
+    usage_notice = (
+        "The NHA gateway team sends the production client secret to you directly. "
+        "It is never shown or stored in this portal."
+    )
+    pending_notice = (
+        "Your exit is approved. The NHA gateway team issues production credentials; "
+        "your production client ID will appear here once it is recorded."
+    )

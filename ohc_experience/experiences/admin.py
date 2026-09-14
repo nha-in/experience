@@ -99,7 +99,14 @@ class ProductAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     list_filter = ["product_type"]
     search_fields = ["name", "organisation__name", "slug"]
     autocomplete_fields = ["organisation", "created_by"]
-    readonly_fields = ["slug", "created_at", "updated_at"]
+    # The production client ID changes only through the audited staff screen.
+    readonly_fields = [
+        "slug",
+        "production_client_id",
+        "production_recorded_at",
+        "created_at",
+        "updated_at",
+    ]
     inlines = [ProductOutcomeInline]
 
 

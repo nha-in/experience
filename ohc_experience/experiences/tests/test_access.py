@@ -51,7 +51,15 @@ def test_staff_identity_and_model_permissions_grant_no_portal_access(
 ):
     staff.user_permissions.add(*Permission.objects.all())
     client.force_login(staff)
-    for route in ["assess-dashboard", "queue", "support", "events", "home"]:
+    for route in [
+        "assess-dashboard",
+        "queue",
+        "support",
+        "events",
+        "home",
+        "production-list",
+        "production-export",
+    ]:
         assert client.get(reverse(f"experiences:{route}")).status_code == 403
     for name in [
         "experiences_accessgrant",

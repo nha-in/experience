@@ -18,6 +18,7 @@ from PIL import Image
 from PIL import ImageDraw
 
 from ohc_experience.events.models import Event
+from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import CertificationAgency
@@ -275,6 +276,13 @@ class DemoBuilder:
         )
         workspace.refresh_from_db()
         self.exit(workspace, "m1", applicant, admin, reviewer, "approved")
+        # A visibly fake ID: the demo never reaches the NHA production gateway.
+        production.record(
+            workspace.product,
+            reviewer,
+            client_id=f"DEMO_PROD_{workspace.reference.replace('-', '_')}",
+            expected="",
+        )
         self.exit(workspace, "m2", applicant, admin, reviewer, "query")
         self.exit(workspace, "phr1", applicant, admin, reviewer, "review")
         self.exit(workspace, "locker1", applicant, admin, reviewer, "sent_back")
@@ -409,7 +417,7 @@ class DemoBuilder:
                 item,
                 reviewer,
                 action="approve",
-                note="M1 approved. This approval also satisfies PHR M1. Production handoff recorded; the gateway team will contact your technical lead separately.",
+                note="M1 approved. This approval also satisfies PHR M1.",
             )
         elif state == "query":
             services.decide(

@@ -75,8 +75,9 @@ def rotate(credential, actor):
             current = _locked_credential(credential)
             current.encrypted_secret = cipher().encrypt(secret.encode()).decode()
             current.issued_at = timezone.now()
+            definition = current.product.workspace.definition.sandbox_credentials
             current.rotation_due = timezone.now() + timedelta(
-                days=current.product.workspace.definition.credentials.rotation_days,
+                days=definition.rotation_days,
             )
             current.save(
                 update_fields=["encrypted_secret", "issued_at", "rotation_due"],

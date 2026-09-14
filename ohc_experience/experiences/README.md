@@ -19,6 +19,8 @@ not import ABDM. Implementations register ordinary Python definitions through
   querysets, available review actions and assignment/decision access.
 - `credentials.py`: encryption, audited reveal, rotation, revocation and callback
   validation. A registered provider supplies eligibility and gateway operations.
+- `production.py`, `production_views.py`: production client IDs that staff record
+  after an approved exit, with their staff list and CSV export.
 - `forms.py`, `fields.py`, `uploads.py`: shared form rendering and upload handling.
 - `views.py`, `urls.py`, `admin.py`, `tasks.py`: HTTP, admin and background work.
   HTMX templates live in `templates/experiences`. Existing HTTP routes are kept.
@@ -47,7 +49,10 @@ Implementations contain no models, migrations, URL configuration or views:
    `ApplicationSet` names the product and milestone applications, an optional
    `certification` flow, and per-milestone `overrides`.
 5. Register the dotted program class in settings and select its key as the portal.
-   Optionally supply a `CredentialDefinition` provider and demo builder.
+   Optionally supply a `SandboxCredentialDefinition` provider as
+   `sandbox_credentials`, a `ProductionCredentialDefinition` as
+   `production_credentials` when staff should record each product's production
+   client ID after an approved exit, and a demo builder.
 
 Form hooks run inside the engine transaction: `initial_data` supplies defaults;
 `submission_block_reason` gates final submission; `on_submit` projects validated
@@ -75,8 +80,10 @@ area/category capability alone; assignment only labels work. Superusers have
 full access.
 Team invitation and role constraints live in the
 organisations app. Credentials are encrypted in `ProductCredential`, never stored
-as secrets in outcome JSON. `ApplicationDependency` rejects cross-product links,
-self references and cycles; the engine enforces prerequisite success statuses.
+as secrets in outcome JSON. The production client ID staff record is a plain
+`Product` field; its secret never reaches the portal. `ApplicationDependency`
+rejects cross-product links, self references and cycles; the engine enforces
+prerequisite success statuses.
 
 ### Staff Permissions
 
@@ -96,6 +103,7 @@ independent of the source review.
 | Area | Read | Write | Approve |
 | --- | --- | --- | --- |
 | Reviews | Queue, evidence, history, downloads | Raise and resolve queries | Approve or send back |
+| Reviews, General/onboarding | Production access list and CSV export | | Record, change or remove a production client ID |
 | Support | Tickets and attachments | Reply | Resolve |
 | Events | Events | Create/edit drafts | Publish/unpublish |
 
