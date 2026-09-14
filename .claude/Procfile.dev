@@ -1,0 +1,2 @@
+django: .venv/bin/python manage.py runserver 127.0.0.1:8000
+tailwind: cd theme && TAILWINDCSS_VERSION=v4.3.0 ../.venv/bin/tailwindcss -i static_src/src/styles.css -o static/css/dist/styles.css --watch=always
