@@ -12,7 +12,7 @@
           <span class="inline-flex items-center gap-0.5"><span class="font-mono text-[13px] text-foreground">{{ workspace.reference }}</span>{% include 'components/copy_button.html' with value=workspace.reference label='product reference' %}</span>
           <span aria-hidden="true">·</span><span>{{ workspace.get_solution_type_display }}</span>
           <span aria-hidden="true">·</span><span>{{ organisation.display_name }}</span>
-          {% if workspace.registered_at %}<span aria-hidden="true">·</span><span>Registered {{ workspace.registered_at|date:'j M Y' }}</span>{% else %}{% include 'experiences/partials/status.html' with status=workspace.registration_status label=workspace.get_registration_status_display %}{% endif %}
+          {% if workspace.registered_at %}<span aria-hidden="true">·</span><span>Registered {{ workspace.registered_at|date:'j M Y' }}</span>{% endif %}
         </p>
       </div>
       <div class="ui-rise flex shrink-0 flex-wrap items-center gap-2.5">
@@ -57,12 +57,6 @@
         </a>
       {% endif %}
     </div>
-    {% if registration.status == 'sent_back' %}
-      {% include 'experiences/partials/review_status.html' with item=registration %}
-    {% endif %}
-    {% if registration.queries.exists %}
-      {% include 'experiences/partials/queries.html' with item=registration %}
-    {% endif %}
     {% if next_step %}
       <section class="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 {% if next_step.tone == 'warning' %}ui-alert--warning{% elif next_step.tone == 'info' %}ui-alert--info{% else %}border-primary-200 bg-primary-50 text-primary-900{% endif %}"
                aria-labelledby="next-step-heading">

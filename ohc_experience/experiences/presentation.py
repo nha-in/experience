@@ -64,60 +64,32 @@ def _review_attention(requests):
     return None
 
 
-def overview_next_step(workspace, tracks, organisation_review, registration):
+def overview_next_step(workspace, tracks, organisation_review):
     """Prioritise an actionable current request, then the next available form."""
     organisation_url = reverse("experiences:organisation")
     product_url = reverse("experiences:product-edit", args=[workspace.reference])
     tiles = [tile for track in tracks for tile in track["tiles"]]
     requests = [
         (organisation_review, organisation_url),
-        (registration, product_url),
         *((tile["item"], tile["url"]) for tile in tiles),
     ]
     attention = _review_attention(requests)
     if attention:
         return attention
-    if not workspace.product.organisation.is_verified:
-        if organisation_review and organisation_review.status == "draft":
-            return _step(
-                "Complete your organisation verification",
-                (
-                    "Complete your organisation details and submit them "
-                    "for verification before requesting milestone exit."
-                ),
-                "Continue organisation",
-                organisation_url,
-            )
+    if (
+        not workspace.product.organisation.is_verified
+        and organisation_review
+        and organisation_review.status == "draft"
+    ):
         return _step(
-            "Organisation verification is in progress",
+            "Complete your organisation verification",
             (
-                "You can prepare your product details while the team "
-                "verifies your organisation."
+                "Submit your organisation details for verification. You can "
+                "submit milestones meanwhile, but they are approved only once "
+                "your organisation is verified."
             ),
-            "View organisation",
+            "Continue organisation",
             organisation_url,
-            "info",
-        )
-    if registration and registration.status == "draft":
-        return _step(
-            "Your product registration needs to be submitted",
-            (
-                "Review your saved product details and submit the registration. "
-                "Product approval is required before requesting milestone exit."
-            ),
-            "Continue registration",
-            product_url,
-        )
-    if registration and registration.status in {"new", "in_review", "query_raised"}:
-        return _step(
-            "Your product registration is under review",
-            (
-                "Your submitted details are saved. You can follow the "
-                "review and any queries here."
-            ),
-            "View registration",
-            product_url,
-            "info",
         )
     return _milestone_next_step(tiles, product_url)
 

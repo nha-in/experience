@@ -55,9 +55,11 @@ Implementations contain no models, migrations, URL configuration or views:
    client ID after an approved exit, and a demo builder.
 
 Form hooks run inside the engine transaction: `initial_data` supplies defaults;
-`submission_block_reason` gates final submission; `on_submit` projects validated
-answers; `on_approve` returns structured outcomes; `on_send_back` updates domain
-state. `snapshot_valid_until` stores the submitted evidence's expiry, while
+`submission_block_reason` gates final submission; `pending_prerequisites` names
+program approvals, beyond application dependencies, that must come before a
+decision; `on_submit` projects validated answers; `on_approve` returns structured
+outcomes; `on_send_back` updates domain state. An `auto_approve` form is recorded
+on submission, or once its prerequisites are approved. `snapshot_valid_until` stores the submitted evidence's expiry, while
 `approval_block_reason` rechecks validity immediately before approval.
 External provider calls cannot roll back with the database, so integrations
 must implement idempotency and reconciliation.
@@ -82,15 +84,17 @@ Team invitation and role constraints live in the
 organisations app. Credentials are encrypted in `ProductCredential`, never stored
 as secrets in outcome JSON. The production client ID staff record is a plain
 `Product` field; its secret never reaches the portal. `ApplicationDependency`
-rejects cross-product links, self references and cycles; the engine enforces
-prerequisite success statuses.
+rejects cross-product links, self references and cycles. Dependencies never
+block a submission; the engine refuses approval or send-back until every
+prerequisite, direct or not, reaches its success status. Queries stay open.
 
 ### Staff Permissions
 
 `AccessGrant` grants a user access to a registered program, an area (`review`,
 `support`, `events`), and a category from that program's track catalog. `""` is
 General/onboarding; `"*"` explicitly includes every category. Grants are additive.
-General review access covers organisation verification and product registration.
+General review access covers organisation verification and product registration
+records. Product registrations are recorded, so they stay out of the queue.
 Category review access covers milestones selected under that track, including a
 shared milestone selected under more than one track. It does not expose other
 tracks or all revisions of a reused source form.

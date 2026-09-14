@@ -59,7 +59,7 @@ def test_query_is_prioritised_only_until_the_integrator_replies(
     assert response.context["tracks"][0]["tiles"][0]["reply_needed"] is False
 
 
-def test_another_products_query_does_not_replace_registration_guidance(
+def test_another_products_query_does_not_replace_this_products_guidance(
     client,
     environment,  # noqa: F811
 ):
@@ -80,10 +80,10 @@ def test_another_products_query_does_not_replace_registration_guidance(
     client.force_login(environment["applicant"])
     response = client.get(second.get_absolute_url())
     next_step = response.context["next_step"]
-    assert next_step["action"] == "View registration"
-    assert next_step["url"] == reverse(
-        "experiences:product-edit",
-        args=[second.reference],
+    assert next_step["action"] == "Continue milestone"
+    assert next_step["url"] == (
+        reverse("experiences:track", args=[second.reference, "HIE-CM"])
+        + "?milestone=m1"
     )
 
 
@@ -128,34 +128,33 @@ def test_withdrawn_organisation_guidance_requires_resubmission(
     assert next_step["url"] == reverse("experiences:organisation")
 
 
-def test_withdrawn_registration_guidance_precedes_milestone_evidence(
+def test_verification_under_review_still_leads_to_milestone_evidence(
     client,
     environment,  # noqa: F811
 ):
-    workspace = environment["workspace"]
-    item = workspace.product.review_items.get(kind="product_registration")
+    """Milestones no longer wait for verification, so neither does the guidance."""
+    item = workflows.organisation_review(
+        environment["org"],
+        environment["applicant"],
+    )
     item, form, saved = workflows.save_review_form(
         item,
         environment["applicant"],
-        data=product_data(),
+        data=organisation_data(),
         submit=True,
     )
     assert saved, form.errors
-    workflows.withdraw(item, environment["applicant"])
     client.force_login(environment["applicant"])
-    response = client.get(workspace.get_absolute_url())
+    response = client.get(environment["workspace"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     next_step = response.context["next_step"]
-    assert next_step["action"] == "Continue registration"
-    assert next_step["url"] == reverse(
-        "experiences:product-edit",
-        args=[workspace.reference],
-    )
+    assert next_step["action"] == "Continue milestone"
+    assert next_step["url"].endswith("/tracks/HIE-CM/?milestone=m1")
 
 
 def test_review_guidance_skips_approved_milestones(client, environment):  # noqa: F811
     approve(environment)
-    for key in ("m2", "phr1", "locker1", "uhi1"):
+    for key in ("m2", "m3", "m4", "phr1", "locker1", "uhi1"):
         submit(environment, key)
     client.force_login(environment["applicant"])
     response = client.get(environment["workspace"].get_absolute_url())

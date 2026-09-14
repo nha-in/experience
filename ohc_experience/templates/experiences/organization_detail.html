@@ -73,7 +73,7 @@
               <h3 class="text-sm font-semibold group-hover:text-primary">{{ workspace.product.name }}</h3>
               <p class="mt-1 text-xs text-soft-foreground"><span class="font-mono">{{ workspace.reference }}</span> · {{ workspace.product.get_product_type_display }}</p>
             </div>
-            {% include 'experiences/partials/status.html' with status=workspace.registration_status label=workspace.get_registration_status_display %}
+            {% if workspace.registered_at %}<span class="text-xs text-soft-foreground">Registered {{ workspace.registered_at|date:'j M Y' }}</span>{% endif %}
             <span class="text-primary" aria-hidden="true">→</span>
           </a>
         {% empty %}
@@ -85,7 +85,7 @@
              aria-labelledby="organization-reviews-title">
       <div class="ui-card-header px-6 pt-5 pb-4">
         <h2 class="ui-card-title" id="organization-reviews-title">Review requests</h2>
-        <p class="ui-card-description">Organization, product, and application reviews within your permission scope.</p>
+        <p class="ui-card-description">Organization and application reviews within your permission scope.</p>
       </div>
       <ul class="divide-y divide-soft-border border-t border-soft-border">
         {% for item in review_requests %}

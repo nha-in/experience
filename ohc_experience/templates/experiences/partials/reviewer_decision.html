@@ -4,8 +4,23 @@
          aria-labelledby="decision-title">
   <div class="ui-card-content">
     <h2 class="ui-card-title" id="decision-title">{% if item.pending %}Decision{% else %}Decision record{% endif %}</h2>
-    {% if item.pending and can_decide %}
+    {% if item.pending and item.definition.auto_approve %}
+      <div id="recording-hold"
+           class="mt-4 rounded-xl border border-border bg-soft-background p-4 text-sm leading-relaxed text-soft-foreground">
+        <p class="mb-1 font-semibold text-foreground">Recorded without a decision</p>
+        <p>This request is recorded automatically once {{ waiting_on }} approved. It needs no action from reviewers.</p>
+        {% include 'experiences/partials/reviewer_prerequisites.html' %}
+      </div>
+    {% elif item.pending and can_decide %}
       <p class="mb-5 mt-1.5 text-sm leading-relaxed text-soft-foreground">Review the evidence, then choose the next step.</p>
+      {% if prerequisites %}
+        <div id="decision-hold"
+             class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950">
+          <p class="font-semibold">Waiting on prerequisites</p>
+          <p class="mt-1">Approve or send back this request once {{ waiting_on }} approved.{% if can_query %} You can raise queries meanwhile.{% endif %}</p>
+          {% include 'experiences/partials/reviewer_prerequisites.html' %}
+        </div>
+      {% endif %}
       {% if unresolved_query_count %}
         <div id="approval-hold"
              class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950">
@@ -19,25 +34,27 @@
             class="flex flex-col gap-5"
             data-decision-form
             data-unsaved-form
-            {% if unresolved_query_count %}data-approval-blocked="true"{% endif %}>
+            {% if unresolved_query_count %}data-approval-blocked="true"{% endif %}
+            {% if prerequisites %}data-decision-blocked="true"{% endif %}>
         {% csrf_token %}
         <fieldset class="flex gap-1 rounded-xl bg-muted-background p-1 text-center text-sm [&>label]:flex-1">
           <legend class="sr-only">Review action</legend>
           {% if can_approve %}
-            <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+            <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
               <input class="sr-only"
                      type="radio"
                      name="action"
                      value="approve"
-                     {% if unresolved_query_count %}aria-describedby="approval-hold"{% endif %}
+                     {% if prerequisites %}disabled aria-describedby="decision-hold"{% elif unresolved_query_count %}aria-describedby="approval-hold"{% endif %}
                      {% if decision_action == 'approve' %}checked{% endif %} />
               <span>Approve</span>
             </label>
-            <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+            <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
               <input class="sr-only"
                      type="radio"
                      name="action"
                      value="send_back"
+                     {% if prerequisites %}disabled aria-describedby="decision-hold"{% endif %}
                      {% if decision_action == 'send_back' %}checked{% endif %} />
               <span>Send back</span>
             </label>

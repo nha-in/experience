@@ -4,13 +4,12 @@ from ohc_experience.experiences.definitions import ApplicationDefinition
 from ohc_experience.experiences.definitions import ApplicationFormDefinition
 from ohc_experience.experiences.definitions import ApplicationSet
 from ohc_experience.experiences.definitions import OutcomeDefinition
+from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import ProgramDefinition
-from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormReuseScope
-from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import ProductWorkspace
+from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.workflows import project_product
-from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.services import start_provisioning
 
 from .catalog import MILESTONES
@@ -29,16 +28,19 @@ from .wasa import wasa_approval_outcomes
 from .wasa import wasa_context
 
 
-def pending_approvals(product):
-    """Name only the approvals a product still waits on before its milestones."""
-    pending = []
-    if not product.organisation.is_verified:
-        pending.append("organisation verification")
-    if product.workspace.registration_status != "registered":
-        pending.append("product registration")
-    if not pending:
-        return ""
-    return f"You have pending approval for {readable_list(pending)}."
+def organisation_prerequisite(item):
+    """Milestones are submitted at any time but decided once verification is done."""
+    if item.organisation.is_verified:
+        return ()
+    return (
+        Prerequisite(
+            "organisation verification",
+            ReviewItem.objects.filter(
+                organisation=item.organisation,
+                kind=ReviewItem.Kind.ORGANISATION,
+            ).first(),
+        ),
+    )
 
 
 class OrganisationVerification(ApplicationFormDefinition):
@@ -73,11 +75,6 @@ class OrganisationVerification(ApplicationFormDefinition):
     @classmethod
     def on_approve(cls, item, actor):
         item.organisation.set_verification("verified")
-        for product in item.organisation.products.filter(
-            workspace__experience_type=ABDM.key,
-        ):
-            if awaiting_provisioning(product):
-                start_provisioning(product, started_by=actor)
         return ()
 
     @classmethod
@@ -118,8 +115,8 @@ class ExitEvidence(ApplicationFormDefinition):
         return wasa_approval_block_reason(item)
 
     @classmethod
-    def submission_block_reason(cls, item):
-        return pending_approvals(item.product)
+    def pending_prerequisites(cls, item):
+        return organisation_prerequisite(item)
 
     @classmethod
     def on_approve(cls, item, actor):
@@ -176,10 +173,13 @@ class WasaReview(ApplicationFormDefinition):
 
 
 class ProductRegistration(ApplicationFormDefinition):
+    """Registering or editing a product applies at once; nobody approves it."""
+
     key = "sandbox_product_registration"
     name = "Product registration"
     form_class = ProductRegistrationForm
     allow_approved_updates = True
+    auto_approve = True
 
     @classmethod
     def on_submit(cls, item, data, actor):
@@ -193,35 +193,11 @@ class ProductRegistration(ApplicationFormDefinition):
 
     @classmethod
     def on_approve(cls, item, actor):
-        ProductWorkspace.objects.filter(product=item.product).update(
-            registration_status="registered",
-            registered_at=item.decided_at,
-        )
+        ProductWorkspace.objects.filter(
+            product=item.product,
+            registered_at__isnull=True,
+        ).update(registered_at=item.decided_at)
         return ()
-
-    @classmethod
-    def on_send_back(cls, item, actor):
-        ProductWorkspace.objects.filter(product=item.product).update(
-            registration_status="sent_back",
-        )
-
-    @classmethod
-    def on_withdraw(cls, item, actor):
-        """Put the product back as last approved; the withdrawn change stays a draft."""
-        approval = item.history.filter(action="Approved").first()
-        if approval is None:
-            return
-        approved = FormSubmission.objects.get(pk=approval.detail["submission_id"])
-        project_product(
-            item,
-            actor,
-            product_values=ABDM.product_values(approved.data),
-            solution_type=approved.data["solution_type"],
-            selections=approved.data["applied_milestones"],
-        )
-        ProductWorkspace.objects.filter(product=item.product).update(
-            registration_status="registered",
-        )
 
 
 class UhiParticipation(ApplicationFormDefinition):
@@ -239,8 +215,8 @@ class UhiParticipation(ApplicationFormDefinition):
     )
 
     @classmethod
-    def submission_block_reason(cls, item):
-        return pending_approvals(item.product)
+    def pending_prerequisites(cls, item):
+        return organisation_prerequisite(item)
 
 
 class UhiApplication(ApplicationDefinition):
@@ -326,8 +302,7 @@ class ABDM(ProgramDefinition):
 
     @classmethod
     def on_product_created(cls, product, actor):
-        if product.organisation.is_verified:
-            start_provisioning(product, started_by=actor)
+        start_provisioning(product, started_by=actor)
 
     @classmethod
     def seed_demo(cls, **options):

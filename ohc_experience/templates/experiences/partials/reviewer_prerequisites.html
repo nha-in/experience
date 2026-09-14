@@ -1,0 +1,17 @@
+<ul class="mt-2.5 flex flex-col gap-2" aria-label="Prerequisites">
+  {% for prerequisite in prerequisites %}
+    <li class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {% if prerequisite.review.pk in linked_prerequisites %}
+        <a class="font-semibold underline underline-offset-2"
+           href="{{ prerequisite.review.get_absolute_url }}">{{ prerequisite.name|capfirst }}</a>
+      {% else %}
+        <span class="font-semibold">{{ prerequisite.name|capfirst }}</span>
+      {% endif %}
+      {% if not prerequisite.review or prerequisite.review.status == 'draft' %}
+        {% include 'experiences/partials/status.html' with status='draft' label='Not submitted' %}
+      {% else %}
+        {% include 'experiences/partials/status.html' with status=prerequisite.review.status label=prerequisite.review.get_status_display %}
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>

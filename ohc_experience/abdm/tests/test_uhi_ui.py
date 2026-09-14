@@ -43,9 +43,9 @@ def test_uhi_defaults_to_next_open_application_and_respects_explicit_milestone(
     url = uhi_url(environment)
     page = client.get(url)
     assert page.context["tile"]["definition"].key == "m1"
-    locked = client.get(url, {"milestone": "uhi1"})
-    assert locked.context["locked"]
-    assert b'name="uhi_role"' not in locked.content
+    early = client.get(url, {"milestone": "uhi1"})
+    assert early.context["tile"]["definition"].key == "uhi1"
+    assert b'name="uhi_role"' in early.content
 
     approve(environment)
 

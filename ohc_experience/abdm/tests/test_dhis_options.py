@@ -12,7 +12,6 @@ from ohc_experience.abdm.definitions import ABDM
 from ohc_experience.abdm.tests.test_dhis_product import approve_milestones
 from ohc_experience.abdm.tests.test_dhis_product import change_solutions
 from ohc_experience.abdm.tests.test_dhis_product import eligible_hmis  # noqa: F401
-from ohc_experience.abdm.tests.test_wasa_lifecycle import decide
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.wasa import current_wasa
 
@@ -51,15 +50,12 @@ def test_options_show_five_solutions_without_generating_tokens(
     assert rows["hmis"]["reason"] == ""
     assert rows["health_locker"]["label"] == "Health Locker"
     assert all(not row["enabled"] for key, row in rows.items() if key != "hmis")
-    assert "approved product registration" in rows["lmis"]["reason"]
+    assert "not in the product registration" in rows["lmis"]["reason"]
     encoder.assert_not_called()
 
 
 def test_all_approved_solutions_can_be_offered_together(environment):
-    decide(
-        environment,
-        change_solutions(environment, list(dhis.SOLUTION_MILESTONES)),
-    )
+    change_solutions(environment, list(dhis.SOLUTION_MILESTONES))
     approve_milestones(environment, ("m1", "m2", "m3", "phr1", "locker1"))
 
     assert all(row["enabled"] for row in options(environment).values())
@@ -79,7 +75,7 @@ def test_missing_milestones_have_readable_names(
     approved,
     missing_name,
 ):
-    decide(environment, change_solutions(environment, [solution]))
+    change_solutions(environment, [solution])
     approve_milestones(environment, approved)
 
     row = options(environment)[solution]
@@ -90,23 +86,24 @@ def test_missing_milestones_have_readable_names(
     )
 
 
-def test_options_use_approved_solution_even_when_a_new_draft_exists(eligible_hmis):
-    change_solutions(eligible_hmis, ["lmis"], submit=False)
-
-    rows = options(eligible_hmis)
-
-    assert rows["hmis"]["enabled"]
-    assert not rows["lmis"]["enabled"]
-
-
-def test_newly_submitted_registration_disables_stale_page_options(eligible_hmis):
+def test_a_saved_solution_change_replaces_the_options_at_once(eligible_hmis):
     assert options(eligible_hmis)["hmis"]["enabled"]
     change_solutions(eligible_hmis, ["lmis"])
 
     rows = options(eligible_hmis)
 
+    assert rows["lmis"]["enabled"]
+    assert not rows["hmis"]["enabled"]
+    assert "not in the product registration" in rows["hmis"]["reason"]
+
+
+def test_an_unverified_organisation_is_offered_no_solution(eligible_hmis):
+    eligible_hmis["org"].set_verification("pending")
+
+    rows = options(eligible_hmis)
+
     assert all(not row["enabled"] for row in rows.values())
-    assert "registration must be approved" in rows["hmis"]["reason"]
+    assert "Organisation verification must be approved" in rows["hmis"]["reason"]
 
 
 def test_revoked_current_wasa_disables_previously_eligible_option(eligible_hmis):

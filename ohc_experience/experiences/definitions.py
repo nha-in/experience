@@ -12,6 +12,15 @@ from django.core.exceptions import ValidationError
 from .models import FormReuseScope
 
 
+@dataclass(frozen=True)
+class Prerequisite:
+    """Something a review waits on before it can be decided."""
+
+    name: str
+    #: The review that settles it, when one exists.
+    review: Any = None
+
+
 class ApplicationFormDefinition:
     """Form identity, validation class and application-specific lifecycle hooks."""
 
@@ -22,8 +31,9 @@ class ApplicationFormDefinition:
     form_class: ClassVar[type]
     allow_approved_updates: ClassVar[bool] = False
     allow_reuse: ClassVar[bool] = False
-    #: Submitting is the whole process — no reviewer decides it. The item still
-    #: reaches the queue, so the record is visible.
+    #: Submitting is the whole process — no reviewer decides it. It is recorded
+    #: as soon as its prerequisites are approved, and until then it waits in
+    #: the queue, so the record is visible either way.
     auto_approve: ClassVar[bool] = False
     request_label = "application"
     submit_label = "Submit application"
@@ -47,6 +57,14 @@ class ApplicationFormDefinition:
     def approval_block_reason(cls, item):
         """Recheck time-sensitive evidence immediately before a decision."""
         return ""
+
+    @classmethod
+    def pending_prerequisites(cls, item):
+        """Approvals outside the application's dependencies that are still due.
+
+        Return `Prerequisite` rows. The engine adds unapproved dependencies itself.
+        """
+        return ()
 
     @classmethod
     def snapshot_valid_until(cls, form):

@@ -1,8 +1,8 @@
 {% if item.status == 'approved' %}
   <div class="ui-alert ui-alert--success mb-5" role="status">
     <div class="flex-1">
-      <strong>Approved</strong>
-      <p class="mt-1 text-xs">{{ item.decided_at|date:'d M Y, H:i' }} IST by {{ item.decided_by.display_name }}</p>
+      <strong>{% if item.definition.auto_approve %}Recorded{% else %}Approved{% endif %}</strong>
+      <p class="mt-1 text-xs">{{ item.decided_at|date:'d M Y, H:i' }} IST{% if item.decided_by %} by {{ item.decided_by.display_name }}{% endif %}</p>
       {% if item.decision_note %}
         <p class="mt-2">{{ item.decision_note|linebreaksbr }}</p>
       {% endif %}
@@ -23,8 +23,13 @@
   <div class="ui-alert {% if item.status == 'query_raised' %}ui-alert--warning{% else %}ui-alert--info{% endif %} mb-5"
        role="status">
     <div class="flex-1">
-      <strong>{% if item.status == 'query_raised' %}Your response is needed{% else %}Under review{% endif %}</strong>
+      <strong>{% if item.status == 'query_raised' %}Your response is needed{% elif item.definition.auto_approve %}Waiting to be recorded{% else %}Under review{% endif %}</strong>
       <p class="mt-1 text-xs">Submitted {{ item.submitted_at|date:'d M Y, H:i' }} IST. Withdraw the request to edit its form.</p>
+      {% if waiting_on %}
+        <p class="mt-2" data-prerequisite-wait>
+          {% if item.definition.auto_approve %}It is recorded once {{ waiting_on }} approved.{% else %}It can be approved once {{ waiting_on }} approved.{% endif %}
+        </p>
+      {% endif %}
       {% if can_integrate %}
         <form method="post"
               action="{% url 'experiences:withdraw' item.pk %}"

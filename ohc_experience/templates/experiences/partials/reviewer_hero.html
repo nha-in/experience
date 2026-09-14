@@ -51,7 +51,7 @@
         <span class="ui-station-dot" aria-hidden="true"></span>
         <a class="ui-station-link" href="#decision">
           <span class="ui-station-name {% if item.pending %}font-bold text-primary{% endif %}">Decision</span>
-          <span class="ui-station-status">{% if item.decided_at and not item.pending %}{{ item.decided_at|date:'j M' }}{% elif item.status == 'query_raised' and awaiting_reply_count %}waiting on the integrator{% elif item.status == 'draft' %}with the integrator{% elif can_decide %}waiting on you{% else %}waiting on a reviewer{% endif %}</span>
+          <span class="ui-station-status">{% if item.decided_at and not item.pending %}{{ item.decided_at|date:'j M' }}{% elif item.status == 'query_raised' and awaiting_reply_count %}waiting on the integrator{% elif item.status == 'draft' %}with the integrator{% elif prerequisites %}waiting on prerequisites{% elif can_decide %}waiting on you{% else %}waiting on a reviewer{% endif %}</span>
         </a>
       </li>
     </ol>

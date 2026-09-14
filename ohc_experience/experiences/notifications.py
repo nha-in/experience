@@ -32,7 +32,7 @@ EVENT_LABELS = {
 
 KIND_LABELS = {
     ReviewItem.Kind.ORGANISATION: _("Organisation Review"),
-    ReviewItem.Kind.PRODUCT: _("Product Review"),
+    ReviewItem.Kind.PRODUCT: _("Product Registration"),
     ReviewItem.Kind.APPLICATION: _("Application Review"),
 }
 
@@ -44,9 +44,9 @@ def _portal_url(item: ReviewItem) -> str:
 
 
 def _is_registration(item: ReviewItem, event: str) -> bool:
-    """A first product submission opens its thread, so it introduces the product."""
+    """A new product's record opens its thread, so it introduces the product."""
     return (
-        event == "received"
+        event == "recorded"
         and item.kind == ReviewItem.Kind.PRODUCT
         and not item.resubmission_count
     )

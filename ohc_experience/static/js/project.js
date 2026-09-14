@@ -284,7 +284,12 @@
     const label = form.querySelector('[data-decision-label]');
     if (label) label.textContent = labels[action][0];
     const button = form.querySelector('[data-decision-submit]');
-    if (button) { button.textContent = labels[action][1]; button.disabled = action === 'approve' && form.dataset.approvalBlocked === 'true'; }
+    if (button) {
+      button.textContent = labels[action][1];
+      // Prerequisites hold every decision but a query; open queries hold approval.
+      button.disabled = (action !== 'query' && form.dataset.decisionBlocked === 'true')
+        || (action === 'approve' && form.dataset.approvalBlocked === 'true');
+    }
     if (note) note.required = action !== 'approve';
     form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
     form.querySelectorAll('[data-approval-controls]').forEach(el => { el.hidden = action !== 'approve'; });

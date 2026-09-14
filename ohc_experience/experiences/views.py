@@ -27,6 +27,7 @@ from ohc_experience.events.models import Event
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormSubmission
+from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.selectors import provisioning_can_be_retried
 from ohc_experience.integrations.selectors import provisioning_progress
 from ohc_experience.integrations.services import start_provisioning
@@ -124,23 +125,17 @@ def _tracks(workspace, user):
                 if key in applied[code]
             ]
             item = milestone.application.review_item
-            locked = services.milestone_locked(item)
-            status = "locked" if locked else item.status
             label = (
-                "Locked"
-                if locked
-                else (
-                    "Open"
-                    if item.status == "draft" and not item.selected_submission_id
-                    else item.get_status_display()
-                )
+                "Open"
+                if item.status == "draft" and not item.selected_submission_id
+                else item.get_status_display()
             )
             tiles.append(
                 {
                     "milestone": milestone,
                     "item": item,
                     "definition": definition,
-                    "status": status,
+                    "status": item.status,
                     "label": label,
                     "shared_label": f"Shared with {readable_list(shared)}"
                     if shared
@@ -194,6 +189,15 @@ def _context(request, workspace=None, **kwargs):
     item = kwargs.get("item")
     if item:
         result["submission_blocked"] = item.definition.submission_block_reason(item)
+        if "prerequisites" not in result:
+            result["prerequisites"] = (
+                services.pending_prerequisites(item) if item.pending else []
+            )
+        result["waiting_on"] = (
+            services.prerequisite_names(result["prerequisites"])
+            if result["prerequisites"]
+            else ""
+        )
     if workspace:
         result["organisation"] = workspace.product.organisation
         result["can_integrate"] = permissions.can_integrate(
@@ -281,7 +285,7 @@ def _require_reviewer_area(user):
 @login_required
 def organizations(request):
     _require_reviewer_area(request.user)
-    visible_reviews = permissions.visible_reviews(request.user)
+    visible_reviews = _review_requests(request.user)
     rows = (
         permissions.visible_organisations(request.user)
         .annotate(
@@ -318,7 +322,7 @@ def organization_detail(request, slug):
         slug=slug,
     )
     visible_reviews = (
-        permissions.visible_reviews(request.user)
+        _review_requests(request.user)
         .filter(organisation=organization)
         .select_related(
             "assignee",
@@ -511,7 +515,7 @@ def product_create(request):
             data=request.POST,
         )
         if workspace:
-            messages.success(request, "Product submitted for registration.")
+            messages.success(request, "Product registered.")
             return redirect(workspace)
     return render(
         request,
@@ -542,7 +546,7 @@ def product_edit(request, reference):
                 expected_revision=request.POST.get("revision", ""),
             )
             if saved:
-                messages.success(request, "Product registration submitted for review.")
+                messages.success(request, "Product updated.")
                 return redirect(workspace)
         except ValidationError as error:
             _error(request, error)
@@ -564,7 +568,7 @@ def product_edit(request, reference):
             form=form,
             page_title="Edit product",
             nav="edit",
-            can_edit=item.editable or item.status == "approved",
+            can_edit=services.can_edit_review(item),
             approved_selections=approved_selections,
         ),
     )
@@ -616,20 +620,11 @@ def overview(request, reference):
             if workspace.definition.sandbox_credentials
             else "",
         )[:6],
-        registration=visible_items.filter(
-            product=product,
-            kind="product_registration",
-        ).first(),
         certification=certification,
     )
     context["progress"] = overview_progress(context["tracks"])
     context["next_step"] = (
-        overview_next_step(
-            workspace,
-            context["tracks"],
-            organisation_review,
-            context["registration"],
-        )
+        overview_next_step(workspace, context["tracks"], organisation_review)
         if context["can_integrate"]
         else None
     )
@@ -817,7 +812,7 @@ def track(request, reference, track_code):
         (
             tile
             for tile in track_data["tiles"]
-            if tile["status"] not in {ReviewItem.Status.APPROVED, "locked"}
+            if tile["status"] != ReviewItem.Status.APPROVED
         ),
         next(iter(track_data["tiles"]), None),
     )
@@ -857,7 +852,6 @@ def track(request, reference, track_code):
                             item=item,
                             form=form,
                             can_edit=services.can_edit_review(item),
-                            locked=services.milestone_locked(item),
                         ),
                     )
             else:
@@ -887,7 +881,6 @@ def track(request, reference, track_code):
             item=item,
             form=form,
             can_edit=services.can_edit_review(item) if item else False,
-            locked=services.milestone_locked(item) if item else "",
         ),
     )
 
@@ -1134,6 +1127,11 @@ def _reviewer_required(request):
         raise PermissionDenied(msg)
 
 
+def _review_requests(user):
+    """Reviews that are requests. A product registration is only a record."""
+    return permissions.visible_reviews(user).exclude(kind=ReviewItem.Kind.PRODUCT)
+
+
 def _track_filter(code):
     program = get_program()
     return permissions.track_items(program, program.track_map()[code])
@@ -1142,8 +1140,10 @@ def _track_filter(code):
 def _requests(program):
     """Review requests that belong to no track, keyed by their filter value."""
     requests = {
-        kind.value: (kind.label, Q(kind=kind))
-        for kind in (ReviewItem.Kind.ORGANISATION, ReviewItem.Kind.PRODUCT)
+        ReviewItem.Kind.ORGANISATION.value: (
+            ReviewItem.Kind.ORGANISATION.label,
+            Q(kind=ReviewItem.Kind.ORGANISATION),
+        ),
     }
     certification = program.applications.certification
     if certification:
@@ -1327,7 +1327,7 @@ def _queue_sort(request):
 def queue(request):
     _reviewer_required(request)
     query = (
-        permissions.visible_reviews(request.user)
+        _review_requests(request.user)
         .exclude(status="draft")
         .select_related(
             "product",
@@ -1436,12 +1436,17 @@ def _can_retry_provisioning(user, item):
 
     Its usual causes — a gateway outage, a missing API-name list — are ones only
     an operator can clear, and a button the integrator cannot act on is worse
-    than none.
+    than none. The same button starts a product that was never provisioned:
+    registration only began provisioning every product once it stopped waiting
+    for organisation verification.
     """
     return bool(
         item.product_id
         and permissions.has_access(user, "review", program=item.program.key)
-        and provisioning_can_be_retried(item.product),
+        and (
+            provisioning_can_be_retried(item.product)
+            or awaiting_provisioning(item.product)
+        ),
     )
 
 
@@ -1450,7 +1455,12 @@ def _can_retry_provisioning(user, item):
 def review(request, pk):
     _reviewer_required(request)
     item = _item(request, pk)
-    actions = permissions.available_review_actions(request.user, item)
+    prerequisites = services.pending_prerequisites(item) if item.pending else []
+    actions = [
+        action
+        for action in permissions.available_review_actions(request.user, item)
+        if action == "query" or not prerequisites
+    ]
     selected_action = request.POST.get("action", request.GET.get("action"))
     if selected_action not in actions:
         selected_action = next(iter(actions), "")
@@ -1467,8 +1477,12 @@ def review(request, pk):
             elif request.POST.get("intent") == "retry_provisioning":
                 if not _can_retry_provisioning(request.user, item):
                     raise PermissionDenied
+                started = awaiting_provisioning(item.product)
                 start_provisioning(item.product, started_by=request.user)
-                messages.success(request, "Provisioning restarted.")
+                messages.success(
+                    request,
+                    "Provisioning started." if started else "Provisioning restarted.",
+                )
                 return redirect(item)
             else:
                 services.decide(
@@ -1504,6 +1518,12 @@ def review(request, pk):
             if request.user.is_superuser
             else [],
             available_actions=actions,
+            prerequisites=prerequisites,
+            linked_prerequisites=set(
+                permissions.visible_reviews(request.user)
+                .filter(pk__in=[row.review.pk for row in prerequisites if row.review])
+                .values_list("pk", flat=True),
+            ),
             decision_action=selected_action,
             decision_note=request.POST.get("note", ""),
             query_field=request.POST.get("field_key", request.GET.get("field", "form")),
@@ -1532,6 +1552,9 @@ def review(request, pk):
             else None,
             progress=provisioning_progress(item.product) if item.product_id else [],
             can_retry_provisioning=_can_retry_provisioning(request.user, item),
+            provisioning_never_started=bool(
+                item.product_id and awaiting_provisioning(item.product),
+            ),
             certification=_certification_context(request, item.product)
             if item.product_id
             else {},

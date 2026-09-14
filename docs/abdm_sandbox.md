@@ -92,9 +92,9 @@ docker compose -f docker-compose.local.yml exec django python manage.py seed_exp
 ```
 
 `SBX-2026-00001` demonstrates an approved shared M1 with a recorded (fake)
-production client ID, an M2 query, locked M3/M4, a PHR1 review, a sent-back
-HealthLocker request and a recorded UHI application. The second
-product awaits registration. Events, PDF evidence, a support conversation and
+production client ID, an M2 query, an M3 review waiting on M2, a PHR1 review,
+a sent-back HealthLocker request and a recorded UHI application. The second
+product is registered, with no milestone requests yet. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
 Local mail is visible at http://localhost:3550/.
 
@@ -143,10 +143,20 @@ retired; reviewer work uses the engine's assessment screens.
 ## Model Mapping
 
 - `ProductWorkspace` extends the existing `Product` with its reference and program key,
-  registration state, solution type and selected track/milestone pairs.
+  registration date, solution type and selected track/milestone pairs.
 - Each canonical `Milestone` has an `ApplicationInstance`. HIE-CM M1 and PHR M1
   share the same milestone and approval. HealthLocker does not require M3.
 - `ReviewItem` wraps organisation verification, product registration or exit.
+  Product registration is recorded rather than reviewed: registering or editing a
+  product applies at once, keeps its revision history and never enters the
+  review queue. Registration starts sandbox provisioning, whether or not the
+  organisation is verified yet.
+- Milestones are never locked. An integrator can submit M2 before M1 is approved,
+  or before the organisation is verified. The review keeps the order instead:
+  approve and send back stay disabled, and are refused, while an earlier
+  milestone or organisation verification is unapproved. Queries can still be
+  raised. UHI participation submitted early waits, and is recorded automatically
+  once its prerequisites are approved.
   Admins assign reviewers manually to label and filter work; the assignee must
   hold the matching category's review-write or review-approve grant. Any
   reviewer with that grant can act, assigned or not; superusers can perform

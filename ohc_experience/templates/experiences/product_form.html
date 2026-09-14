@@ -12,7 +12,7 @@
         <h1 class="ui-hero-title">{{ page_title }}</h1>
         {% if item %}
           <p class="mt-2.5 font-mono text-[12.5px] text-muted-foreground">{{ workspace.reference }}</p>
-          <p class="ui-hero-lede">Update your product details and selected milestones, then submit changes for review. Previously approved milestones cannot be removed.</p>
+          <p class="ui-hero-lede">Update your product details and selected milestones. Changes apply as soon as you save them. Approved milestones cannot be removed.</p>
         {% else %}
           <p class="ui-hero-lede">Register your product and choose the tracks and milestones it will complete. Each selected milestone gets its own exit request.</p>
         {% endif %}
@@ -35,9 +35,6 @@
 {% block canvas_padding %}pt-0{% endblock %}
 {% block portal_content %}
   <div class="ui-float ui-rise w-full max-w-[760px] [animation-delay:.1s]">
-    {% if item %}
-      {% include 'experiences/partials/review_status.html' %}
-    {% endif %}
     {% if not item or can_edit %}
       <form id="product-form"
             class="ui-card ui-card--layered"
@@ -56,10 +53,10 @@
                  href="{{ workspace.get_absolute_url }}">Cancel</a>
             {% endif %}
             <p class="min-w-[180px] flex-1 text-xs leading-relaxed text-soft-foreground">
-              {% if item %}Changes are submitted for review.{% else %}Register a product to start its milestone applications.{% endif %}
+              {% if item %}Changes apply as soon as you save.{% else %}Register a product to start its milestone applications.{% endif %}
             </p>
             <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">
-              {% if item %}Submit changes for review{% else %}Register product{% endif %}
+              {% if item %}Save changes{% else %}Register product{% endif %}
             </button>
           </div>
         </div>
@@ -68,7 +65,6 @@
       {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
     {% endif %}
     {% if item %}
-      {% include 'experiences/partials/queries.html' %}
       {% include 'experiences/partials/history.html' %}
     {% endif %}
   </div>

@@ -117,7 +117,7 @@ def test_overview_shows_only_lmis_when_hmis_milestones_are_incomplete(
     environment,
     client,
 ):
-    decide(environment, change_solutions(environment, ["hmis", "lmis"]))
+    change_solutions(environment, ["hmis", "lmis"])
     approve_milestones(environment, ("m1", "m2"))
     client.force_login(environment["applicant"])
 
@@ -306,7 +306,7 @@ def test_unapproved_solution_cannot_be_posted_directly(eligible_hmis, client):
 
 @pytest.mark.parametrize(
     "change",
-    ["wasa_expired", "wasa_revoked", "milestone_revoked", "solution_pending"],
+    ["wasa_expired", "wasa_revoked", "milestone_revoked", "solution_removed"],
 )
 def test_post_rechecks_changes_after_the_page_was_loaded(eligible_hmis, client, change):
     client.force_login(eligible_hmis["applicant"])
@@ -317,7 +317,7 @@ def test_post_rechecks_changes_after_the_page_was_loaded(eligible_hmis, client, 
         for option in page.context["handoffs"][0]["options"]
         if option["key"] == "hmis"
     )["enabled"]
-    if change == "solution_pending":
+    if change == "solution_removed":
         change_solutions(eligible_hmis, ["lmis"])
     elif change == "milestone_revoked":
         product.outcomes.filter(

@@ -10,6 +10,8 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
+from ohc_experience.experiences.definitions import Prerequisite
+from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import ApplicationDependency
 from ohc_experience.experiences.models import ApplicationFormUse
 from ohc_experience.experiences.models import FormRecord
@@ -179,17 +181,16 @@ def build_form(item, *, data=None, files=None, draft=False):
 
 def _complete_submission(item, actor):
     resubmitting = item.submitted_at is not None
+    updating = item.status == ReviewItem.Status.APPROVED
     item.resubmission_count += int(resubmitting)
     item.submitted_at = timezone.now()
-    if item.definition.auto_approve:
+    if item.definition.auto_approve and not pending_prerequisites(item):
         _auto_approve(item, actor)
+        action = "Record updated" if updating else "Recorded"
     else:
         _request_review(item, resubmitting=resubmitting)
-    audit(
-        actor=actor,
-        action="Resubmitted for review" if resubmitting else "Requested review",
-        item=item,
-    )
+        action = "Resubmitted for review" if resubmitting else "Requested review"
+    audit(actor=actor, action=action, item=item)
 
 
 def _request_review(item, *, resubmitting):
@@ -268,20 +269,52 @@ def _snapshot(item, form, actor, *, completed):
     return snapshot
 
 
-def milestone_locked(item):
-    if not item.application_id:
-        return ""
-    application = item.application
-    milestone = getattr(application, "milestone", None)
+def milestone_unavailable(item):
+    milestone = (
+        getattr(item.application, "milestone", None) if item.application_id else None
+    )
     if milestone and not milestone.enabled:
         return "This milestone is not applied for. Edit the product to add it."
-    for dependency in application.dependencies.all():
-        if (
-            dependency.status
-            not in registry.get(dependency.application_type).success_statuses
-        ):
-            return f"{application.title} unlocks once {dependency.title} is approved."
     return ""
+
+
+def _prerequisite_applications(application):
+    """Everything an application builds on, directly or not, earliest first."""
+    ordered, seen = [], {application.pk}
+
+    def visit(current):
+        for dependency in current.dependencies.all():
+            if dependency.pk not in seen:
+                seen.add(dependency.pk)
+                visit(dependency)
+                ordered.append(dependency)
+
+    visit(application)
+    return ordered
+
+
+def pending_prerequisites(item):
+    """What must be approved before this review can be decided.
+
+    Integrators submit in any order, so the order is kept here instead: the
+    program's own prerequisites, such as a verified organisation, then every
+    unapproved application this one builds on, earliest first.
+    """
+    pending = list(item.definition.pending_prerequisites(item))
+    if item.application_id:
+        pending.extend(
+            Prerequisite(application.title, getattr(application, "review_item", None))
+            for application in _prerequisite_applications(item.application)
+            if application.status
+            not in registry.get(application.application_type).success_statuses
+        )
+    return pending
+
+
+def prerequisite_names(prerequisites):
+    """ "M1 - ABHA and identity is" / "M1 and organisation verification are"."""
+    verb = "is" if len(prerequisites) == 1 else "are"
+    return f"{readable_list(item.name for item in prerequisites)} {verb}"
 
 
 def can_edit_review(item):
@@ -289,17 +322,6 @@ def can_edit_review(item):
         item.status == ReviewItem.Status.APPROVED
         and item.definition.allow_approved_updates
     )
-
-
-def unlock_dependants(application):
-    for dependent in application.dependent_applications.filter(status="locked"):
-        if all(
-            dependency.status
-            in registry.get(dependency.application_type).success_statuses
-            for dependency in dependent.dependencies.all()
-        ):
-            dependent.status = "draft"
-            dependent.save(update_fields=["status", "updated_at"])
 
 
 def _set_application_status(item, status):
@@ -338,20 +360,26 @@ def project_product(item, actor, *, product_values, solution_type, selections):
     if not required_selections.issubset(selections):
         msg = "Approved milestones cannot be removed from the product."
         raise ValidationError(msg)
-    active = product.milestones.filter(
-        application__review_item__status__in=["new", "in_review", "query_raised"],
-    )
-    if active.exclude(key__in=new_keys).exists():
-        msg = "Withdraw an active application before removing its milestone."
-        raise ValidationError(
-            msg,
+    removed_under_review = [
+        program.milestones[key].code
+        for key in product.milestones.filter(
+            application__review_item__status__in=["new", "in_review", "query_raised"],
         )
+        .exclude(key__in=new_keys)
+        .values_list("key", flat=True)
+    ]
+    if removed_under_review:
+        msg = (
+            f"{readable_list(removed_under_review)} "
+            f"{'is' if len(removed_under_review) == 1 else 'are'} under review. "
+            "Withdraw the request before removing the milestone."
+        )
+        raise ValidationError(msg)
     for key, value in product_values.items():
         setattr(product, key, value)
     product.save(update_fields=["name", "description", "product_type", "updated_at"])
     workspace.solution_type = solution_type
     workspace.applied_milestones = selections
-    workspace.registration_status = "pending"
     workspace.save()
     product.milestones.exclude(key__in=new_keys).update(enabled=False)
     for key in program.ordered_milestones():
@@ -376,7 +404,6 @@ def project_product(item, actor, *, product_values, solution_type, selections):
         )
         application.title = f"{definition.code} - {definition.name}"
         application.metadata["milestone"] = key
-        application.status = "locked" if definition.predecessor else "draft"
         application.save()
         for dependency_id in dependencies:
             ApplicationDependency.objects.create(
@@ -434,7 +461,7 @@ def save_review_form(  # noqa: PLR0913
         raise ValidationError(
             msg,
         )
-    reason = milestone_locked(item)
+    reason = milestone_unavailable(item)
     if reason:
         raise ValidationError(reason)
     if submit:
@@ -454,6 +481,8 @@ def save_review_form(  # noqa: PLR0913
             item.status = ReviewItem.Status.DRAFT
         _set_application_status(item, "draft")
     item.save()
+    if item.status == ReviewItem.Status.APPROVED:
+        _record_released(item.organisation)
     return item, form, True
 
 
@@ -529,6 +558,8 @@ def register_product(organisation, actor, *, data, program=None):
     )
     save_review_form(item, actor, data=data, submit=True)
     program.on_product_created(product, actor)
+    # Recording the registration stamped the workspace behind this instance.
+    workspace.refresh_from_db()
     return workspace, form
 
 
@@ -551,7 +582,11 @@ def withdraw(item, actor):
 def reuse_evidence(item, actor):
     item = _lock_review(item.pk)
     require_integrator(actor, item.organisation)
-    if not item.definition.allow_reuse or not item.editable or milestone_locked(item):
+    if (
+        not item.definition.allow_reuse
+        or not item.editable
+        or milestone_unavailable(item)
+    ):
         msg = "Evidence cannot be reused in this state."
         raise ValidationError(msg)
     source = (
@@ -607,8 +642,6 @@ def assign_review(item, actor, assignee):
 
 
 def _approve_subject(item, actor):
-    if item.application_id:
-        unlock_dependants(item.application)
     for outcome in item.definition.on_approve(item, actor):
         issue_outcome(application=item.application, actor=actor, outcome=outcome)
 
@@ -639,17 +672,60 @@ def _auto_approve(item, actor):
     _notice(item, "recorded")
 
 
+def _record_released(organisation):
+    """Record the waiting requests that no longer wait on anything.
+
+    A request nobody decides can still have prerequisites, as UHI waits on M1 and
+    on its organisation's verification. Any approval in the organisation may be
+    the last one it needed, so each approval checks them all again. Call this
+    once the approval is saved: recording is itself an approval, and must not
+    find its own request still pending.
+    """
+    recorded = True
+    while recorded:
+        recorded = False
+        waiting = ReviewItem.objects.filter(
+            organisation=organisation,
+            status__in=[
+                ReviewItem.Status.NEW,
+                ReviewItem.Status.IN_REVIEW,
+                ReviewItem.Status.QUERY,
+            ],
+        ).select_related("selected_submission", "form", "product", "application")
+        for item in waiting:
+            if item.definition.auto_approve and not pending_prerequisites(item):
+                _auto_approve(item, None)
+                item.save()
+                audit(actor=None, action="Recorded", item=item)
+                recorded = True
+
+
+def _require_decidable(item, action):
+    if not item.pending:
+        msg = "This item is not awaiting a decision."
+        raise ValidationError(msg)
+    if item.definition.auto_approve:
+        msg = "This request is recorded once its prerequisites are approved."
+        raise ValidationError(msg)
+    if action not in {"approve", "send_back", "query"}:
+        msg = "Choose a valid review action."
+        raise ValidationError(msg)
+    # A query can be raised at any time; the decision waits for what came first.
+    prerequisites = pending_prerequisites(item) if action != "query" else []
+    if prerequisites:
+        msg = (
+            "Approve or send back this request once "
+            f"{prerequisite_names(prerequisites)} approved."
+        )
+        raise ValidationError(msg)
+
+
 @transaction.atomic
 def decide(item, actor, *, action, note="", field_key="form"):
     item = _lock_review(item.pk)
     require_decider(actor, item, "write" if action == "query" else "approve")
-    if not item.pending:
-        msg = "This item is not awaiting a decision."
-        raise ValidationError(msg)
+    _require_decidable(item, action)
     note = note.strip()
-    if action not in {"approve", "send_back", "query"}:
-        msg = "Choose a valid review action."
-        raise ValidationError(msg)
     if action in {"send_back", "query"} and not note:
         msg = "Enter a reason or question before continuing."
         raise ValidationError(msg)
@@ -704,6 +780,8 @@ def decide(item, actor, *, action, note="", field_key="form"):
             detail={"note": note, "submission_id": item.selected_submission_id},
         )
     item.save()
+    if action == "approve":
+        _record_released(item.organisation)
     _announce(item, action, note)
     return item
 

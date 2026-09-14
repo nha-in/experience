@@ -264,17 +264,6 @@ class DemoBuilder:
         workspace, form = self.register_product(org, applicant, data=product_data())
         if not workspace:
             raise CommandError(str(form.errors))
-        registration = workspace.product.review_items.get(
-            kind="product_registration",
-        )
-        services.assign_review(registration, admin, reviewer)
-        services.decide(
-            registration,
-            reviewer,
-            action="approve",
-            note="Product registered for the selected compliance tracks.",
-        )
-        workspace.refresh_from_db()
         self.exit(workspace, "m1", applicant, admin, reviewer, "approved")
         # A visibly fake ID: the demo never reaches the NHA production gateway.
         production.record(
@@ -284,6 +273,8 @@ class DemoBuilder:
             expected="",
         )
         self.exit(workspace, "m2", applicant, admin, reviewer, "query")
+        # Submitted ahead of M2, so its review waits on M2's approval.
+        self.exit(workspace, "m3", applicant, admin, reviewer, "review")
         self.exit(workspace, "phr1", applicant, admin, reviewer, "review")
         self.exit(workspace, "locker1", applicant, admin, reviewer, "sent_back")
         uhi = workspace.product.milestones.get(key="uhi1").application.review_item

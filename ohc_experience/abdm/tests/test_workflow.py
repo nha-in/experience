@@ -1,8 +1,8 @@
 # ruff: noqa: PLR2004
+import re
 import socket
 from datetime import timedelta
 from io import BytesIO
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -21,7 +21,6 @@ from PIL import Image
 
 from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
-from ohc_experience.abdm.definitions import pending_approvals
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
@@ -40,11 +39,11 @@ from ohc_experience.experiences.registry import get_program
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.models import ProvisionedResource
 from ohc_experience.integrations.models import ProvisionedResourceState
+from ohc_experience.integrations.models import ProvisioningRun
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.selectors import provisioning_can_be_retried
 from ohc_experience.integrations.services import provision_inline
-from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.users.tests.factories import ReviewerFactory
@@ -103,9 +102,6 @@ def environment(settings, tmp_path, lgd_lookup):
     workspace, form = services.register_product(org, applicant, data=product_data())
     assert workspace, form.errors
     provision_inline(workspace.product)
-    registration = workspace.product.review_items.get(kind="product_registration")
-    services.assign_review(registration, admin, reviewer)
-    services.decide(registration, reviewer, action="approve")
     workspace.refresh_from_db()
     return {
         "applicant": applicant,
@@ -148,6 +144,27 @@ def approve(environment, key="m1"):
     )
 
 
+def waiting_on(environment, key):
+    item = milestone(environment, key)
+    return [prerequisite.name for prerequisite in services.pending_prerequisites(item)]
+
+
+def reverify(environment):
+    """Organisation details resubmitted, so verification is pending again."""
+    item = environment["org"].review_items.get(kind="organisation_verification")
+    item, form, saved = services.save_review_form(
+        item,
+        environment["applicant"],
+        data=organisation_data(),
+        files={"supporting_document": pdf()},
+        submit=True,
+    )
+    assert saved, form.errors
+    environment["org"].refresh_from_db()
+    assert not environment["org"].is_verified
+    return item
+
+
 def test_shared_m1_and_independent_tracks(environment):
     product = environment["workspace"].product
     assert product.milestones.filter(key="m1").count() == 1
@@ -156,16 +173,26 @@ def test_shared_m1_and_independent_tracks(environment):
     assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
     assert get_program().track_milestones(TRACK_MAP["PHR"]) == ("m1", "phr1")
     assert MILESTONES["uhi1"].predecessor == MILESTONES["nhcx1"].predecessor == "m1"
-    assert services.milestone_locked(milestone(environment, "m2"))
-    assert services.milestone_locked(milestone(environment, "phr1"))
-    assert services.milestone_locked(milestone(environment, "uhi1"))
-    assert not services.milestone_locked(milestone(environment, "locker1"))
+    for key in ("m2", "phr1", "uhi1"):
+        assert waiting_on(environment, key) == ["M1 - ABHA and identity"]
+    assert waiting_on(environment, "locker1") == []
     approve(environment)
-    assert not services.milestone_locked(milestone(environment, "m2"))
-    assert not services.milestone_locked(milestone(environment, "phr1"))
-    assert not services.milestone_locked(milestone(environment, "uhi1"))
-    assert services.milestone_locked(milestone(environment, "m3"))
+    for key in ("m2", "phr1", "uhi1"):
+        assert waiting_on(environment, key) == []
+    assert waiting_on(environment, "m3") == ["M2 - HIP services"]
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
+
+
+def test_a_review_waits_on_every_earlier_milestone_and_the_organisation(environment):
+    """Earliest first, so a reviewer can see where the chain is held up."""
+    reverify(environment)
+
+    assert waiting_on(environment, "m3") == [
+        "organisation verification",
+        "M1 - ABHA and identity",
+        "M2 - HIP services",
+    ]
+    assert waiting_on(environment, "locker1") == ["organisation verification"]
 
 
 def test_uhi_shows_m1_as_a_prerequisite_it_does_not_offer(environment):
@@ -285,15 +312,86 @@ def test_uhi_answers_can_be_corrected_after_recording(environment):
     assert saved, form.errors
     assert item.selected_submission.data["uhi_role"] == ["hspa"]
     assert item.status == ReviewItem.Status.APPROVED
+    assert item.history.filter(action="Record updated").exists()
 
 
-def test_cannot_forge_locked_or_unregistered_exit(environment):
-    with pytest.raises(ValidationError, match="unlocks"):
-        submit(environment, "m2")
-    environment["workspace"].registration_status = "pending"
-    environment["workspace"].save()
-    with pytest.raises(ValidationError, match="registration"):
-        submit(environment)
+def test_uhi_submitted_before_m1_is_recorded_when_m1_is_approved(environment):
+    uhi = submit(environment, "uhi1")
+    assert uhi.status == ReviewItem.Status.NEW
+    assert uhi.application.status == "under_review"
+    services.assign_review(uhi, environment["admin"], environment["reviewer"])
+    for action in ("approve", "send_back", "query"):
+        with pytest.raises(ValidationError, match="recorded once its prerequisites"):
+            services.decide(uhi, environment["reviewer"], action=action, note="Hold.")
+
+    approve(environment)
+
+    uhi.refresh_from_db()
+    assert uhi.status == ReviewItem.Status.APPROVED
+    assert uhi.decided_by is None
+    assert ReviewItem.objects.get(pk=uhi.pk).application.status == "approved"
+    assert uhi.history.filter(action="Recorded", actor=None).exists()
+
+
+def test_a_waiting_uhi_application_is_recorded_once_verification_is_approved(
+    environment,
+):
+    """Verification is no milestone's dependency, but approving it still counts."""
+    approve(environment)
+    verification = reverify(environment)
+    uhi = submit(environment, "uhi1")
+    assert uhi.status == ReviewItem.Status.NEW
+    services.assign_review(verification, environment["admin"], environment["reviewer"])
+
+    services.decide(verification, environment["reviewer"], action="approve")
+
+    uhi.refresh_from_db()
+    assert uhi.status == ReviewItem.Status.APPROVED
+
+
+def test_milestones_are_submitted_in_any_order_but_decided_in_order(environment):
+    """Nothing is locked for the integrator; the review keeps the order instead."""
+    m2 = submit(environment, "m2")
+    assert m2.status == ReviewItem.Status.NEW
+    services.assign_review(m2, environment["admin"], environment["reviewer"])
+    for action in ("approve", "send_back"):
+        with pytest.raises(
+            ValidationError,
+            match="once M1 - ABHA and identity is approved",
+        ):
+            services.decide(m2, environment["reviewer"], action=action, note="Not yet.")
+    services.decide(
+        m2,
+        environment["reviewer"],
+        action="query",
+        note="Which cases cover consent expiry?",
+        field_key="functional_report",
+    )
+
+    approve(environment)
+    query = m2.queries.get()
+    services.reply_query(query, environment["applicant"], "Cases 3 and 4.")
+    services.resolve_query(query, environment["reviewer"])
+    services.decide(m2, environment["reviewer"], action="approve")
+
+    m2.refresh_from_db()
+    assert m2.status == ReviewItem.Status.APPROVED
+
+
+def test_an_unverified_organisation_can_submit_but_not_be_approved(environment):
+    reverify(environment)
+    item = submit(environment)
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+
+    with pytest.raises(ValidationError) as error:
+        services.decide(item, environment["reviewer"], action="approve")
+
+    assert error.value.messages == [
+        (
+            "Approve or send back this request once organisation verification "
+            "is approved."
+        ),
+    ]
 
 
 def test_reviewers_with_grants_decide_whoever_is_assigned(environment):
@@ -349,41 +447,12 @@ def test_queries_pause_until_all_answered_and_resolved(environment):
     assert len(answered) == 2
 
 
-def test_withdrawing_a_registration_change_restores_the_approved_product(
-    environment,
-):
-    """Adding NHCX blocks exit requests while it is reviewed, not after a withdraw."""
+def test_a_product_edit_applies_at_once_without_a_review(environment):
     workspace = environment["workspace"]
-    approved = list(workspace.applied_milestones)
+    registered_at = workspace.registered_at
     registration = workspace.product.review_items.get(kind="product_registration")
-    item, form, saved = services.save_review_form(
-        registration,
-        environment["applicant"],
-        data={**product_data(), "applied_milestones": [*approved, "NHCX:nhcx1"]},
-        submit=True,
-    )
-    assert saved, form.errors
-    exit_request = milestone(environment, "m1")
-    assert exit_request.definition.submission_block_reason(exit_request)
+    assert registration.status == ReviewItem.Status.APPROVED
 
-    services.withdraw(item, environment["applicant"])
-
-    workspace.refresh_from_db()
-    assert workspace.registration_status == "registered"
-    assert workspace.applied_milestones == approved
-    assert not workspace.product.milestones.get(key="nhcx1").enabled
-    exit_request = milestone(environment, "m1")
-    assert exit_request.definition.submission_block_reason(exit_request) == ""
-    item.refresh_from_db()
-    assert "NHCX:nhcx1" in item.selected_submission.data["applied_milestones"]
-
-
-def test_a_pending_registration_hides_the_submit_button_not_the_draft(
-    environment,
-    client,
-):
-    workspace = environment["workspace"]
-    registration = workspace.product.review_items.get(kind="product_registration")
     item, form, saved = services.save_review_form(
         registration,
         environment["applicant"],
@@ -393,53 +462,69 @@ def test_a_pending_registration_hides_the_submit_button_not_the_draft(
         },
         submit=True,
     )
+
     assert saved, form.errors
-    client.force_login(environment["applicant"])
-    url = reverse("experiences:track", args=[workspace.reference, "HIE-CM"])
+    assert item.status == ReviewItem.Status.APPROVED
+    assert item.decided_by is None
+    assert item.history.filter(action="Record updated").exists()
+    workspace.refresh_from_db()
+    assert "NHCX:nhcx1" in workspace.applied_milestones
+    assert workspace.product.milestones.get(key="nhcx1").enabled
+    assert workspace.registered_at == registered_at
+    with pytest.raises(ValidationError, match="Only an active review request"):
+        services.withdraw(item, environment["applicant"])
 
-    pending = client.get(url).content
-    assert b"data-request-submit" not in pending
-    assert b'value="draft"' in pending
-    assert b"Required approvals are pending." in pending
 
-    services.withdraw(item, environment["applicant"])
-    assert b"data-request-submit" in client.get(url).content
+def test_a_milestone_under_review_is_named_when_an_edit_removes_it(environment):
+    workspace = environment["workspace"]
+    submit(environment, "locker1")
+    registration = workspace.product.review_items.get(kind="product_registration")
+
+    with pytest.raises(ValidationError, match="HL1 is under review"):
+        services.save_review_form(
+            registration,
+            environment["applicant"],
+            data={**product_data(), "applied_milestones": ["HIE-CM:m1"]},
+            submit=True,
+        )
 
 
-@pytest.mark.parametrize(
-    ("verified", "registration", "expected"),
-    [
-        (True, "registered", ""),
-        (True, "pending", "You have pending approval for product registration."),
-        (
-            False,
-            "registered",
-            "You have pending approval for organisation verification.",
-        ),
-        (
-            False,
-            "sent_back",
-            (
-                "You have pending approval for organisation verification "
-                "and product registration."
-            ),
-        ),
-    ],
-)
-def test_milestone_requests_name_only_the_approvals_still_pending(
-    verified,
-    registration,
-    expected,
+def test_the_product_form_saves_changes_rather_than_requesting_review(
+    environment,
+    client,
 ):
-    product = SimpleNamespace(
-        organisation=SimpleNamespace(is_verified=verified),
-        workspace=SimpleNamespace(registration_status=registration),
+    workspace = environment["workspace"]
+    client.force_login(environment["applicant"])
+
+    html = client.get(
+        reverse("experiences:product-edit", args=[workspace.reference]),
+    ).content.decode()
+
+    assert re.search(r">\s*Save changes\s*<", html)
+    assert "for review" not in html
+    assert "Withdraw request" not in html
+
+
+def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
+    environment,
+    client,
+):
+    submit(environment, "m2")
+    client.force_login(environment["applicant"])
+    url = reverse(
+        "experiences:track",
+        args=[environment["workspace"].reference, "HIE-CM"],
     )
 
-    assert pending_approvals(product) == expected
+    m3 = client.get(url, {"milestone": "m3"}).content.decode()
+    m2 = client.get(url, {"milestone": "m2"}).content.decode()
+
+    assert "data-request-submit" in m3
+    assert "Milestone locked" not in m3
+    assert "It can be approved once M1 - ABHA and identity is approved." in m2
 
 
-def test_withdrawing_a_first_registration_leaves_it_pending(environment):
+def test_registering_a_product_records_it_without_a_review(environment):
     workspace, form = services.register_product(
         environment["org"],
         environment["applicant"],
@@ -448,10 +533,14 @@ def test_withdrawing_a_first_registration_leaves_it_pending(environment):
     assert workspace, form.errors
     item = workspace.product.review_items.get(kind="product_registration")
 
-    services.withdraw(item, environment["applicant"])
-
-    workspace.refresh_from_db()
-    assert workspace.registration_status == "pending"
+    assert item.status == ReviewItem.Status.APPROVED
+    assert item.application.status == "approved"
+    assert workspace.registered_at == item.decided_at
+    assert item.history.filter(action="Recorded").exists()
+    assert not item.history.filter(action="Requested review").exists()
+    notice = mail.outbox[-1]
+    assert "Product Registration" in notice.subject
+    assert "has registered a new product, Second product" in notice.body
 
 
 def test_withdraw_and_resubmit_preserves_original_fields_and_files(environment):
@@ -852,11 +941,26 @@ def test_the_item_filter_reaches_requests_outside_any_track(environment, client)
     assert {entry.kind for entry in listed("organisation_verification")} == {
         ReviewItem.Kind.ORGANISATION,
     }
-    assert {entry.kind for entry in listed("product_registration")} == {
-        ReviewItem.Kind.PRODUCT,
-    }
     assert milestone_item in listed("HIE-CM")
-    assert milestone_item not in listed("product_registration")
+    assert milestone_item not in listed("organisation_verification")
+
+
+def test_product_registrations_are_records_not_queue_requests(environment, client):
+    registration = environment["workspace"].product.review_items.get(
+        kind="product_registration",
+    )
+    client.force_login(environment["reviewer"])
+
+    queue = client.get(reverse("experiences:queue")).context["page"]
+    organisation = client.get(
+        reverse("experiences:organization-detail", args=[environment["org"].slug]),
+    ).context["review_requests"]
+    record = client.get(registration.get_absolute_url())
+
+    assert registration not in queue
+    assert registration not in organisation
+    assert record.status_code == 200
+    assert "data-decision-form" not in record.content.decode()
 
 
 def test_the_type_tabs_only_offer_what_the_item_filter_can_match(environment, client):
@@ -867,17 +971,58 @@ def test_the_type_tabs_only_offer_what_the_item_filter_can_match(environment, cl
         return [tab["label"] for tab in response.context["queue_tabs"]]
 
     wasa = "WASA certification review"
-    requests = ["Organisation verification", "Product registration", wasa]
+    requests = ["Organisation verification", wasa]
     assert tabs() == ["All", "Mine", *requests, "Application request"]
-    assert tabs(item="product_registration") == ["All", "Mine", "Product registration"]
+    assert tabs(item="organisation_verification") == [
+        "All",
+        "Mine",
+        "Organisation verification",
+    ]
     assert tabs(item="certification") == ["All", "Mine", wasa]
     assert tabs(item="UHI") == ["All", "Mine", "Application request"]
 
     stale = client.get(
         reverse("experiences:queue"),
-        {"item": "UHI", "kind": "product_registration"},
+        {"item": "UHI", "kind": "organisation_verification"},
     )
     assert stale.context["filters"]["kind"] == ""
+
+
+def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
+    environment,
+    client,
+):
+    m2 = submit(environment, "m2")
+    m1 = milestone(environment)
+    client.force_login(environment["reviewer"])
+
+    response = client.get(m2.get_absolute_url())
+    html = response.content.decode()
+
+    assert response.context["decision_action"] == "query"
+    assert "Approve or send back this request once M1 - ABHA and identity" in html
+    assert 'data-decision-blocked="true"' in html
+    assert re.search(r'value="approve"\s+disabled', html)
+    assert re.search(r'value="send_back"\s+disabled', html)
+    assert f'href="{m1.get_absolute_url()}">M1 - ABHA and identity</a>' in html
+    assert "waiting on prerequisites" in html
+
+    approve(environment)
+    html = client.get(m2.get_absolute_url()).content.decode()
+
+    assert 'id="decision-hold"' not in html
+    assert not re.search(r'value="approve"\s+disabled', html)
+
+
+def test_a_waiting_recorded_request_offers_reviewers_no_decision(environment, client):
+    uhi = submit(environment, "uhi1")
+    client.force_login(environment["reviewer"])
+
+    html = client.get(uhi.get_absolute_url()).content.decode()
+
+    assert 'id="recording-hold"' in html
+    assert "recorded automatically once M1 - ABHA and identity is approved" in html
+    assert "data-decision-form" not in html
 
 
 def test_pending_queries_follow_the_selected_product(environment, client):
@@ -979,37 +1124,22 @@ def _pending_organisation(environment):
     return org, workspace.product
 
 
-def test_registering_before_verification_provisions_nothing_yet(environment):
-    _org, product = _pending_organisation(environment)
-
-    assert awaiting_provisioning(product)
-    assert not ProvisionedResource.objects.filter(product=product).exists()
-    assert not ProductCredential.objects.filter(product=product).exists()
-
-
-def test_verification_starts_the_products_it_held_back(environment):
-    """The only thing that rescues a product registered while pending."""
+def test_registering_provisions_before_the_organisation_is_verified(environment):
     org, product = _pending_organisation(environment)
-    item = org.review_items.get(kind="organisation_verification")
-    services.save_review_form(
-        item,
-        environment["applicant"],
-        data=organisation_data(),
-        files={"supporting_document": pdf()},
-        submit=True,
-    )
-    services.assign_review(item, environment["admin"], environment["reviewer"])
 
-    services.decide(item, environment["reviewer"], action="approve", note="Verified.")
-
+    assert not org.is_verified
     assert not awaiting_provisioning(product)
+    provision_inline(product)
+    assert ProductCredential.objects.get(product=product).status == "active"
 
 
-def test_verification_leaves_an_already_started_product_alone(environment):
-    """Re-approval must not open a second attempt for a live product."""
+def test_verification_leaves_provisioning_alone(environment):
+    """Registration starts every chain, so re-approval must not open another."""
     first = environment["workspace"].product
-    org, _second = _pending_organisation(environment)
-    runs_before = first.provisioning_runs.count()
+    org, second = _pending_organisation(environment)
+    runs_before = {
+        product.pk: product.provisioning_runs.count() for product in (first, second)
+    }
     item = org.review_items.get(kind="organisation_verification")
     services.save_review_form(
         item,
@@ -1022,14 +1152,37 @@ def test_verification_leaves_an_already_started_product_alone(environment):
 
     services.decide(item, environment["reviewer"], action="approve", note="Verified.")
 
-    assert first.provisioning_runs.count() == runs_before
+    assert {
+        product.pk: product.provisioning_runs.count() for product in (first, second)
+    } == runs_before
+
+
+def test_a_reviewer_can_start_a_product_that_was_never_provisioned(
+    environment,
+    client,
+):
+    """Registered while provisioning still waited for verification."""
+    _org, product = _pending_organisation(environment)
+    ProvisioningRun.objects.filter(product=product).delete()
+    item = product.review_items.get(kind="product_registration")
+    client.force_login(environment["reviewer"])
+
+    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
+    response = client.post(
+        reverse("experiences:review", args=[item.pk]),
+        {"intent": "retry_provisioning"},
+        follow=True,
+    )
+
+    assert "Start provisioning</button>" in html
+    assert "Provisioning started." in response.content.decode()
+    assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
 
 
 def _failed_registration(environment):
     """A product whose chain died, and the review item a reviewer sees it on."""
     fail_next(ExternalSystem.KEYCLOAK, "create_client", retryable=False)
     _org, product = _pending_organisation(environment)
-    start_provisioning(product)
     provision_inline(product)
     return product, product.review_items.get(kind="product_registration")
 

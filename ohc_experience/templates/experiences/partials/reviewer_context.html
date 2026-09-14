@@ -32,15 +32,18 @@
             </span>
           {% endif %}
           {% if can_retry_provisioning %}
+            {% if provisioning_never_started %}
+              <span class="mt-1 block text-xs text-soft-foreground">Provisioning has not started for this product.</span>
+            {% endif %}
             <form class="mt-2"
                   method="post"
-                  data-confirm="Retry provisioning for this product? Systems already set up are left alone."
-                  hx-confirm="Retry provisioning for this product? Systems already set up are left alone.">
+                  data-confirm="{% if provisioning_never_started %}Start provisioning for this product?{% else %}Retry provisioning for this product? Systems already set up are left alone.{% endif %}"
+                  hx-confirm="{% if provisioning_never_started %}Start provisioning for this product?{% else %}Retry provisioning for this product? Systems already set up are left alone.{% endif %}">
               {% csrf_token %}
               <button type="submit"
                       class="ui-btn ui-btn--outline ui-btn--size-sm"
                       name="intent"
-                      value="retry_provisioning">Retry provisioning</button>
+                      value="retry_provisioning">{% if provisioning_never_started %}Start provisioning{% else %}Retry provisioning{% endif %}</button>
             </form>
           {% endif %}
         {% else %}<span class="text-muted-foreground">Not a product item.</span>{% endif %}

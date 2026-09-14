@@ -33,7 +33,7 @@
               <span class="font-mono">{{ product.reference }}</span> · {{ product.product.organisation.display_name }}
             </p>
           </div>
-          {% include 'experiences/partials/status.html' with status=product.registration_status label=product.get_registration_status_display %}
+          {% if product.registered_at %}<span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'j M Y' }}</span>{% endif %}
           <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
                 aria-hidden="true">→</span>
         </a>

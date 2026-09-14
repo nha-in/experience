@@ -64,14 +64,9 @@ def test_non_abdm_lifecycle_reuse_dependencies_queries_and_outcomes(
     ).application.review_item
     release = equipment.product.milestones.get(key="release").application.review_item
     assert inspection.form_id == release.form_id
-    assert workflows.milestone_locked(release)
-    with pytest.raises(ValidationError, match="unlocks"):
-        workflows.save_review_form(
-            release,
-            actor,
-            data={"report_reference": "Q-1", "score": 95},
-            submit=True,
-        )
+    assert [row.name for row in workflows.pending_prerequisites(release)] == [
+        "INS - Inspection",
+    ]
     inspection, form, saved = workflows.save_review_form(
         inspection,
         actor,
@@ -97,12 +92,51 @@ def test_non_abdm_lifecycle_reuse_dependencies_queries_and_outcomes(
         "score": 95,
     }
     release.refresh_from_db()
-    assert not workflows.milestone_locked(release)
+    assert workflows.pending_prerequisites(release) == []
     workflows.reuse_evidence(release, actor)
     release.refresh_from_db()
     assert release.selected_submission_id == inspection.selected_submission_id
     assert not workflows.can_edit_review(inspection)
     assert AuditEvent.objects.filter(item=inspection, action="Approved").exists()
+
+
+def test_a_dependant_is_submitted_early_but_decided_after_its_prerequisite(
+    equipment,
+    owner_membership,
+):
+    actor = owner_membership.user
+    reviewer = ReviewerFactory(is_nha_team=True)
+    milestones = equipment.product.milestones
+    release = milestones.get(key="release").application.review_item
+
+    release, form, saved = workflows.save_review_form(
+        release,
+        actor,
+        data={"report_reference": "Q-2", "score": 91},
+        submit=True,
+    )
+
+    assert saved, form.errors
+    assert release.status == ReviewItem.Status.NEW
+    for action in ("approve", "send_back"):
+        with pytest.raises(ValidationError, match="once INS - Inspection is approved"):
+            workflows.decide(release, reviewer, action=action, note="Hold.")
+    workflows.decide(release, reviewer, action="query", note="Which batch?")
+    inspection = milestones.get(key="inspection").application.review_item
+    inspection, form, saved = workflows.save_review_form(
+        inspection,
+        actor,
+        data={"report_reference": "Q-1", "score": 95},
+        submit=True,
+    )
+    assert saved, form.errors
+    workflows.decide(inspection, reviewer, action="approve")
+    query = release.queries.get()
+    workflows.reply_query(query, actor, "Batch 7")
+    workflows.resolve_query(query, reviewer)
+    workflows.decide(release, reviewer, action="approve")
+    release.refresh_from_db()
+    assert release.status == ReviewItem.Status.APPROVED
 
 
 def test_definition_hook_failure_rolls_back_generic_review(

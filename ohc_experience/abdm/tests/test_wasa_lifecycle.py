@@ -613,8 +613,6 @@ def test_approved_certificate_cannot_be_reused_by_another_product(environment):
         data=product_data("Another product"),
     )
     assert other, form.errors
-    registration = other.product.review_items.get(kind="product_registration")
-    decide(environment, registration)
     other_item = other.product.milestones.get(key="m1").application.review_item
     _, form, saved = workflows.save_review_form(
         other_item,

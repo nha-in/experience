@@ -1,4 +1,4 @@
-"""DHIS handoffs use product identity and current, approved product evidence."""
+"""DHIS handoffs use product identity, its registration and approved evidence."""
 
 # ruff: noqa: F811
 from datetime import timedelta
@@ -93,7 +93,7 @@ def test_solution_handoff_uses_product_id_and_approved_wasa(  # noqa: PLR0913, P
     intent,
     terminal,
 ):
-    decide(environment, change_solutions(environment, [solution_type]))
+    change_solutions(environment, [solution_type])
     source = approve_milestones(environment, keys)
 
     assert handoff(environment, solution_type) == HANDOFF_URL
@@ -128,7 +128,7 @@ def test_incomplete_milestones_do_not_generate_a_handoff(
     solution_type,
     approved_keys,
 ):
-    decide(environment, change_solutions(environment, [solution_type]))
+    change_solutions(environment, [solution_type])
     approve_milestones(environment, approved_keys)
 
     with pytest.raises(ValidationError):
@@ -172,15 +172,9 @@ def test_other_integrator_still_sends_product_creator_identity(
     assert teammate.phone_number not in payload.values()
 
 
-def test_pending_solution_edits_wait_for_approval(eligible_hmis, encoder):
-    registration = change_solutions(eligible_hmis, ["lmis"])
-
-    with pytest.raises(ValidationError):
-        handoff(eligible_hmis)
-    with pytest.raises(ValidationError):
-        handoff(eligible_hmis, "lmis")
-
-    decide(eligible_hmis, registration)
+def test_a_solution_change_applies_to_the_next_handoff(eligible_hmis, encoder):
+    """Product registration is recorded when saved, with no approval to wait on."""
+    change_solutions(eligible_hmis, ["lmis"])
 
     assert handoff(eligible_hmis, "lmis") == HANDOFF_URL
     with pytest.raises(ValidationError):
@@ -189,8 +183,12 @@ def test_pending_solution_edits_wait_for_approval(eligible_hmis, encoder):
     encoder.assert_called_once()
 
 
-def test_solution_drafts_do_not_replace_approved_selections(eligible_hmis, encoder):
-    change_solutions(eligible_hmis, ["lmis"], submit=False)
+def test_a_solution_draft_cannot_replace_the_recorded_selections(
+    eligible_hmis,
+    encoder,
+):
+    with pytest.raises(ValidationError, match="Submit your updated answers"):
+        change_solutions(eligible_hmis, ["lmis"], submit=False)
 
     assert handoff(eligible_hmis) == HANDOFF_URL
     with pytest.raises(ValidationError):
@@ -200,7 +198,7 @@ def test_solution_drafts_do_not_replace_approved_selections(eligible_hmis, encod
 
 
 def test_multiple_solutions_share_one_product_identity(eligible_hmis, encoder):
-    decide(eligible_hmis, change_solutions(eligible_hmis, ["hmis", "lmis"]))
+    change_solutions(eligible_hmis, ["hmis", "lmis"])
 
     assert handoff(eligible_hmis, "hmis") == HANDOFF_URL
     assert handoff(eligible_hmis, "lmis") == HANDOFF_URL

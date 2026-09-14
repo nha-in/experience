@@ -253,7 +253,8 @@ def can_decide(user, item):
 
 
 def available_review_actions(user, item):
-    if not item.pending:
+    """What the actor's grants allow. Pending prerequisites narrow it further."""
+    if not item.pending or item.definition.auto_approve:
         return []
     actions = []
     if can_review(user, item, "approve"):

@@ -336,7 +336,7 @@ class ApplicationInstance(models.Model):
 
 
 class ApplicationDependency(models.Model):
-    """A prerequisite application that must complete before another can submit."""
+    """A prerequisite application that must complete before another is decided."""
 
     application = models.ForeignKey(
         ApplicationInstance,
@@ -652,15 +652,6 @@ class ProductWorkspace(models.Model):
     experience_type = models.CharField(max_length=100)
     solution_type = models.JSONField(default=list, blank=True)
     applied_milestones = models.JSONField(default=list)
-    registration_status = models.CharField(
-        max_length=24,
-        default="pending",
-        choices=[
-            ("pending", "Pending registration"),
-            ("registered", "Registered"),
-            ("sent_back", "Sent back"),
-        ],
-    )
     registered_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):

@@ -16,7 +16,7 @@
           {% if product.workspace.solution_type %}<span aria-hidden="true">·</span><span>{{ product.workspace.get_solution_type_display }}</span>{% endif %}
           <span aria-hidden="true">·</span><a class="text-foreground no-underline hover:text-primary hover:underline"
    href="{% url 'experiences:organization-detail' organisation.slug %}">{{ organisation.display_name }}</a>
-          <span aria-hidden="true">·</span>{% if product.workspace.registered_at %}<span>Registered {{ product.workspace.registered_at|date:'j M Y' }}</span>{% else %}{% include 'experiences/partials/status.html' with status=product.workspace.registration_status label=product.workspace.get_registration_status_display %}{% endif %}
+          {% if product.workspace.registered_at %}<span aria-hidden="true">·</span><span>Registered {{ product.workspace.registered_at|date:'j M Y' }}</span>{% endif %}
         </p>
         {% if progress.total %}
           <div class="mt-6 flex items-baseline gap-2.5">
@@ -90,7 +90,7 @@
                 </div>
                 <ol class="ui-stepper ui-stepper--grid">
                   {% for tile in row.tiles %}
-                    <li class="ui-station {% if tile.status == 'approved' %}ui-station--done{% elif tile.status == 'locked' %}ui-station--locked{% else %}ui-station--current{% endif %}">
+                    <li class="ui-station {% if tile.status == 'approved' %}ui-station--done{% else %}ui-station--current{% endif %}">
                       {% if not forloop.last %}
                         <span class="ui-station-rail" aria-hidden="true"></span>
                       {% endif %}
@@ -114,7 +114,7 @@
                           <span class="ui-station-code">{{ tile.definition.code }}</span>
                           <span class="ui-station-name">{{ tile.definition.name }}</span>
                           <span class="ui-station-status">
-                            {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'j M' }}{% elif tile.status == 'locked' %}Locked{% elif tile.status == 'query_raised' %}Query raised · with the integrator{% elif tile.item.pending %}{{ tile.label }} · awaiting decision{% elif tile.status == 'sent_back' %}Sent back · with the integrator{% elif tile.item.selected_submission_id %}{{ tile.label }} · with the integrator{% else %}Not started{% endif %}
+                            {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'j M' }}{% elif tile.status == 'query_raised' %}Query raised · with the integrator{% elif tile.item.pending %}{{ tile.label }} · awaiting decision{% elif tile.status == 'sent_back' %}Sent back · with the integrator{% elif tile.item.selected_submission_id %}{{ tile.label }} · with the integrator{% else %}Not started{% endif %}
                           </span>
                         </span>
                       </a>
@@ -213,16 +213,16 @@
             <div class="mb-3 flex items-center justify-between gap-2">
               <h2 class="text-base font-bold" id="registration-title">Registration</h2>
               <a class="text-xs font-semibold text-primary hover:underline"
-                 href="{{ registration.get_absolute_url }}">{% if registration.pk in decidable %}Review{% else %}View{% endif %}</a>
+                 href="{{ registration.get_absolute_url }}">View details</a>
             </div>
             <dl class="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2.5 text-sm">
-              <dt class="text-soft-foreground">Request</dt>
-              <dd>
-                {% include 'experiences/partials/status.html' with status=registration.status label=registration.get_status_display %}
+              <dt class="text-soft-foreground">Registered</dt>
+              <dd class="tabular-nums">
+                {{ product.workspace.registered_at|date:'j M Y'|default:'—' }}
               </dd>
-              <dt class="text-soft-foreground">Product</dt>
-              <dd>
-                {% include 'experiences/partials/status.html' with status=product.workspace.registration_status label=product.workspace.get_registration_status_display %}
+              <dt class="text-soft-foreground">Updated</dt>
+              <dd class="tabular-nums">
+                {{ registration.submitted_at|date:'j M Y'|default:'—' }}
               </dd>
             </dl>
           </div>

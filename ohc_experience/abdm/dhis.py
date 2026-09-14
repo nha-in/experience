@@ -85,15 +85,27 @@ def _approved_data(item):
     return submission.data
 
 
+def _recorded_data(item):
+    """A product registration applies when it is submitted: its current details."""
+    submission = item.selected_submission if item else None
+    if (
+        not submission
+        or item.status != ReviewItem.Status.APPROVED
+        or submission.status != "completed"
+    ):
+        msg = "Submitted product registration details are required for DHIS."
+        raise ValidationError(msg)
+    return submission.data
+
+
 def _registration_data(product):
     if (
         product.workspace.experience_type != "abdm"
-        or product.workspace.registration_status != "registered"
         or not product.organisation.is_verified
     ):
-        msg = "Organisation and product registration must be approved for DHIS."
+        msg = "Organisation verification must be approved for DHIS."
         raise ValidationError(msg)
-    registration = _approved_data(
+    registration = _recorded_data(
         product.review_items.filter(kind=ReviewItem.Kind.PRODUCT).first(),
     )
     approved_types = {
@@ -124,7 +136,7 @@ def _approved_milestones(product):
 
 def _solution_error(solution_type, approved_types):
     if solution_type not in approved_types:
-        return "This solution type is not in the approved product registration."
+        return "This solution type is not in the product registration."
     return ""
 
 
