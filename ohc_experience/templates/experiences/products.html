@@ -8,8 +8,8 @@
         <h1 class="ui-hero-title">Products</h1>
         <p class="ui-hero-lede">{{ organisation.display_name|default:'All registered organisations' }}</p>
         <div class="mt-6 flex items-baseline gap-2.5">
-          <span class="ui-figure ui-figure--xl">{{ workspaces|length }}</span>
-          <span class="ui-figure-unit">product{{ workspaces|length|pluralize }} in your workspace</span>
+          <span class="ui-figure ui-figure--xl">{{ products.paginator.count }}</span>
+          <span class="ui-figure-unit">product{{ products.paginator.count|pluralize }} in your workspace</span>
         </div>
       </div>
       {% if can_integrate %}
@@ -23,7 +23,7 @@
 {% block portal_content %}
   <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
     <div class="divide-y divide-soft-border">
-      {% for product in workspaces %}
+      {% for product in products %}
         <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
            href="{{ product.get_absolute_url }}">
           <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary">{{ product.product.name|first }}</span>
@@ -48,5 +48,6 @@
         </div>
       {% endfor %}
     </div>
+    {% include 'components/pagination.html' with page=products label='Products pagination' %}
   </div>
 {% endblock %}

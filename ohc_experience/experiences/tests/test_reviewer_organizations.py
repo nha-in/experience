@@ -72,6 +72,7 @@ def test_organization_pages_follow_category_review_scope(environment, client):
 
     products = client.get(reverse("experiences:products"))
     assert list(products.context["workspaces"]) == [environment["workspace"]]
+    assert list(products.context["products"]) == [environment["workspace"]]
     assert (
         client.get(
             reverse(

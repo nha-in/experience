@@ -63,7 +63,7 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
     assert response.status_code == HTTPStatus.OK
     assert list(response.context["page"]) == [review_item]
     assert review_item.get_absolute_url().encode() in response.content
-    assert b'aria-label="Queue pagination"' in response.content
+    assert b'aria-label="Queue pagination"' not in response.content
     response = client.get(reverse("experiences:queue"), {"q": "No such equipment"})
     assert response.context["page"].paginator.count == 0
     assert b"No reviews match these filters." in response.content

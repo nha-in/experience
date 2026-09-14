@@ -94,6 +94,7 @@
           <li class="px-6 py-6 text-sm text-muted-foreground">No review requests are visible.</li>
         {% endfor %}
       </ul>
+      {% include 'components/pagination.html' with page=review_requests label='Review requests pagination' %}
     </section>
   </div>
 {% endblock portal_content %}

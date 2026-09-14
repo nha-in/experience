@@ -14,7 +14,7 @@
         <div class="ui-rise flex flex-wrap items-end gap-x-9 gap-y-4 [animation-delay:50ms]">
           <div>
             <span class="ui-kicker block">{% if has_ticket_filters %}Matching{% else %}Tickets{% endif %}</span>
-            <span class="ui-figure mt-0.5 block">{{ tickets|length }}</span>
+            <span class="ui-figure mt-0.5 block">{{ tickets.paginator.count }}</span>
           </div>
           {% if not reviewer and workspace and can_integrate %}
             <a class="ui-btn ui-btn--default ui-btn--size-sm mb-1 no-underline"
@@ -126,7 +126,7 @@
         <button class="ui-btn ui-btn--outline ui-btn--size-default" type="submit">Apply filters</button>
         {% if has_ticket_filters %}
           <div class="flex w-full flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground">
-            <p role="status">Showing {{ tickets|length }} of {{ ticket_total }} ticket{{ ticket_total|pluralize }}</p>
+            <p role="status">Showing {{ tickets.paginator.count }} of {{ ticket_total }} ticket{{ ticket_total|pluralize }}</p>
             <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
                href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}"
                hx-get="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Clear filters</a>
@@ -158,7 +158,11 @@
               {% include "experiences/partials/support_ticket_row.html" with mobile=True %}
             {% endfor %}
           </ul>
-          <div class="border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">{{ tickets|length }} ticket{{ tickets|length|pluralize }}</div>
+          {% if tickets.has_other_pages %}
+            {% include "components/pagination.html" with page=tickets label="Tickets pagination" %}
+          {% else %}
+            <div class="border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">{{ tickets.paginator.count }} ticket{{ tickets.paginator.count|pluralize }}</div>
+          {% endif %}
         {% elif has_ticket_filters %}
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
             <h3 class="ui-section-title">No support tickets to show</h3>

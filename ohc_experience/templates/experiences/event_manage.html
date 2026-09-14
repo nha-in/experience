@@ -33,9 +33,6 @@
         name="intent"
         value="{% if event.is_published %}unpublish{% else %}publish{% endif %}">{% if event.is_published %}Unpublish{% else %}Publish{% endif %}</button></form>{% endif %}</div>
         </li>{% empty %}<li class="py-12 text-center text-soft-foreground">No events in this view.</li>{% endfor %}</ul>
-      <nav class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm"
-           aria-label="Event management pagination"><p>Page {{ page.number }} of {{ page.paginator.num_pages }}</p><div class="flex gap-2">{% if page.has_previous %}<a class="ui-btn ui-btn--outline ui-btn--size-sm"
-   href="?status={{ status }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}{% if page.has_next %}<a class="ui-btn ui-btn--outline ui-btn--size-sm"
-   href="?status={{ status }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</div></nav>
+      {% include "components/pagination.html" with page=page label="Event management pagination" extra_class="mt-4 px-0" %}
     </section>
 {% endblock portal_content %}

@@ -166,6 +166,10 @@ def _tracks(workspace, user):
     return result
 
 
+def _page(request, items):
+    return Paginator(items, 10).get_page(request.GET.get("page"))
+
+
 def _context(request, workspace=None, **kwargs):
     is_reviewer = permissions.reviewer(request.user)
     if workspace is None and not is_reviewer:
@@ -252,7 +256,12 @@ def products(request):
     return render(
         request,
         "experiences/products.html",
-        _context(request, page_title="Products", nav="products"),
+        _context(
+            request,
+            page_title="Products",
+            nav="products",
+            products=_page(request, _workspaces(request.user)),
+        ),
     )
 
 
@@ -290,7 +299,7 @@ def organizations(request):
             request,
             page_title="Organizations",
             nav="organizations",
-            organizations=rows,
+            organizations=_page(request, rows),
         ),
     )
 
@@ -318,10 +327,7 @@ def organization_detail(request, slug):
         .filter(product__organisation=organization)
         .select_related("product")
     )
-    verification = next(
-        (item for item in visible_reviews if item.kind == ReviewItem.Kind.ORGANISATION),
-        None,
-    )
+    verification = visible_reviews.filter(kind=ReviewItem.Kind.ORGANISATION).first()
     return render(
         request,
         "experiences/organization_detail.html",
@@ -336,7 +342,7 @@ def organization_detail(request, slug):
                 else {}
             ),
             products=products,
-            review_requests=visible_reviews,
+            review_requests=_page(request, visible_reviews),
         ),
     )
 
@@ -875,8 +881,13 @@ def pending_queries(request):
             status="query_raised",
             organisation__memberships__user=request.user,
         )
-    items = list(
-        query.select_related("product__workspace", "application", "organisation"),
+    items = _page(
+        request,
+        query.select_related(
+            "product__workspace",
+            "application",
+            "organisation",
+        ).order_by("submitted_at", "pk"),
     )
     for item in items:
         item.portal_url = (
@@ -1294,7 +1305,7 @@ def queue(request):
             request,
             page_title="Review queue",
             nav="queue",
-            page=Paginator(query, 20).get_page(request.GET.get("page")),
+            page=_page(request, query),
             queue_tabs=queue_tabs,
             queue_scope=scope,
             queue_sort=sort,
@@ -1556,7 +1567,10 @@ def events(request):
             workspace,
             page_title="Events",
             nav="events",
-            events=past if request.GET.get("period") == "past" else upcoming,
+            events=_page(
+                request,
+                past if request.GET.get("period") == "past" else upcoming,
+            ),
             upcoming_count=upcoming.count(),
             past_count=past.count(),
             next_event=upcoming.first(),
@@ -1603,6 +1617,7 @@ def support(request):
         form,
         reviewer=permissions.reviewer(request.user),
     )
+    inbox["tickets"] = _page(request, inbox["tickets"])
     if request.method == "POST":
         if not workspace:
             msg = "Register a product before opening a ticket."

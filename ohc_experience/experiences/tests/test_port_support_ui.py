@@ -252,7 +252,8 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     )
     assert not cleared.context["has_ticket_filters"]
     assert cleared.context["ticket_filters"]["status"] == "open"
-    assert len(cleared.context["tickets"]) == 4
+    open_workspace_tickets = 4
+    assert len(cleared.context["tickets"]) == open_workspace_tickets
     assert cleared.context["workspace"] == portal_workspaces[1]
 
 
@@ -326,6 +327,46 @@ def test_registered_event_explains_missing_joining_details(
     assert b"Joining details have not been added yet." in response.content
     assert b"Cancel registration" in response.content
     assert b"Join event" not in response.content
+
+
+def test_support_pages_keep_filters_in_links(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    url = reverse("experiences:support")
+    per_page = portal_client.get(url).context["tickets"].paginator.per_page
+    for number in range(per_page + 1):
+        Ticket.objects.create(
+            organisation=owner_membership.organisation,
+            product=portal_workspaces[1].product,
+            subject=f"Callback {number}",
+            status="open",
+        )
+    params = {"q": "callback", "status": "open"}
+    first = portal_client.get(url, params)
+    assert len(first.context["tickets"]) == per_page
+    assert b'aria-label="Tickets pagination"' in first.content
+    assert b'href="?q=callback&amp;status=open&amp;page=2"' in first.content
+    last = portal_client.get(url, {**params, "page": 2})
+    assert len(last.context["tickets"]) == 1
+
+
+def test_events_paginate_in_date_order(portal_client):
+    url = reverse("experiences:events")
+    per_page = portal_client.get(url).context["events"].paginator.per_page
+    for day in range(1, per_page + 2):
+        Event.objects.create(
+            title=f"Office hours {day}",
+            starts_at=timezone.now() + timedelta(days=day),
+            published_at=timezone.now(),
+        )
+    first = portal_client.get(url, {"period": "upcoming"})
+    assert b'href="?period=upcoming&amp;page=2"' in first.content
+    last = portal_client.get(url, {"period": "upcoming", "page": 2})
+    assert [event.title for event in last.context["events"]] == [
+        f"Office hours {per_page + 1}",
+    ]
 
 
 def test_event_register_cancel_and_filter_keep_product(
