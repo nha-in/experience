@@ -92,7 +92,7 @@
    href="{% url 'experiences:product-create' %}">{% include "components/nav_icon.html" with icon="add" %}{% if workspace %}Register another product{% else %}Register a product{% endif %}</a></li>
     <li><a id="nav-organisation"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'organisation' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:organisation' %}">{% include "components/nav_icon.html" with icon="organisation" %}Organisation</a></li>
+   href="{% url 'experiences:organisation' %}">{% include "components/nav_icon.html" with icon="organisation" %}{{ current_organisation.noun|capfirst }}</a></li>
   {% endif %}
 </ul>
 <ul class="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3 text-sm">

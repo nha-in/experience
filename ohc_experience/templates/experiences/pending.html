@@ -2,7 +2,7 @@
 
 {% block portal_hero %}
   <div class="ui-hero"><div class="ui-hero-inner"><div class="ui-rise min-w-0"><p class="ui-hero-eyebrow">{% if reviewer %}{{ experience_program.review_heading }}{% else %}Action needed{% endif %}</p><h1 class="ui-hero-title">Pending queries</h1>
-    <p class="ui-hero-lede">{% if reviewer %}Follow up on questions, review incoming replies and keep requests moving.{% else %}Review and answer the questions waiting on your organisation.{% endif %}</p></div><div class="ui-rise flex items-baseline gap-2 [animation-delay:.05s]"><span class="ui-figure">{{ items.paginator.count }}</span><span class="ui-figure-unit">request{{ items.paginator.count|pluralize }} with queries</span></div></div></div>
+    <p class="ui-hero-lede">{% if reviewer %}Follow up on questions, review incoming replies and keep requests moving.{% else %}Review and answer the questions waiting on your {{ current_organisation.noun }}.{% endif %}</p></div><div class="ui-rise flex items-baseline gap-2 [animation-delay:.05s]"><span class="ui-figure">{{ items.paginator.count }}</span><span class="ui-figure-unit">request{{ items.paginator.count|pluralize }} with queries</span></div></div></div>
 {% endblock portal_hero %}
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}

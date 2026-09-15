@@ -195,7 +195,7 @@
         <section class="ui-card ui-card--layered ui-card--sm ui-rise">
           <div class="ui-card-content">
             <div class="mb-3 flex items-center justify-between gap-2">
-              <h2 class="text-base font-bold">Organisation</h2>
+              <h2 class="text-base font-bold">{{ organisation.noun|capfirst }}</h2>
               {% if can_integrate %}
                 <a class="text-xs font-semibold text-primary hover:underline"
                    href="{% url 'experiences:organisation' %}">Settings</a>

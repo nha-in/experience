@@ -4,9 +4,9 @@
   <div class="ui-hero">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
-        <p class="ui-hero-eyebrow">Organisation verification</p>
-        <h1 class="ui-hero-title">Organisation details</h1>
-        <p class="ui-hero-lede">{{ organisation.display_name }} · Add your legal entity details and supporting document for verification.</p>
+        <p class="ui-hero-eyebrow">{{ organisation.noun|capfirst }} verification</p>
+        <h1 class="ui-hero-title">{{ organisation.noun|capfirst }} details</h1>
+        <p class="ui-hero-lede">{{ organisation.display_name }} · Add your details and a supporting document for verification.</p>
       </div>
       <div class="ui-rise [animation-delay:.05s]">
         <span class="ui-kicker mb-2 block">Verification status</span>
@@ -33,6 +33,12 @@
                  value="{{ item.selected_submission_id|default:'' }}" />
           <div class="ui-card-content">
             {% include 'experiences/partials/form.html' %}
+            <p class="ui-alert ui-alert--info mt-6"
+               data-email-domain-callout
+               data-email="{{ request.user.email }}"
+               hidden>
+              You sign in as {{ request.user.email }}, which is not on this website's domain. Reviewers expect an address on your own domain — <a class="ui-prose-link" href="{% url 'account_email' %}">change your email address</a>.
+            </p>
             <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
               <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Submit for verification</button>
               {% if organisation.is_onboarded %}

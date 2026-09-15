@@ -7,7 +7,7 @@
         aria-label="Registration progress">
       <li>✓ Account</li>
       <li aria-hidden="true">/</li>
-      <li {% if nav == 'organisation' %}aria-current="step" class="font-semibold text-primary"{% endif %}>2. Organisation</li><li aria-hidden="true">/</li>
+      <li {% if nav == 'organisation' %}aria-current="step" class="font-semibold text-primary"{% endif %}>2. {{ current_organisation.noun|capfirst }}</li><li aria-hidden="true">/</li>
       <li {% if nav != 'organisation' %}aria-current="step" class="font-semibold text-primary"{% endif %}>3. Product</li>
     </ol>
   {% endif %}

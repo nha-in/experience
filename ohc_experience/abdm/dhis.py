@@ -9,6 +9,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.text import capfirst
 
 from ohc_experience.experiences.definitions import ProductHandoffDefinition
 from ohc_experience.experiences.models import FormSubmission
@@ -103,7 +104,8 @@ def _registration_data(product):
         product.workspace.experience_type != "abdm"
         or not product.organisation.is_verified
     ):
-        msg = "Organisation verification must be approved for DHIS."
+        noun = capfirst(product.organisation.noun)
+        msg = f"{noun} verification must be approved for DHIS."
         raise ValidationError(msg)
     registration = _recorded_data(
         product.review_items.filter(kind=ReviewItem.Kind.PRODUCT).first(),

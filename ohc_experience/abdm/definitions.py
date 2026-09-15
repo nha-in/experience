@@ -36,7 +36,7 @@ def organisation_prerequisite(item):
         return ()
     return (
         Prerequisite(
-            "organisation verification",
+            f"{item.organisation.noun} verification",
             ReviewItem.objects.filter(
                 organisation=item.organisation,
                 kind=ReviewItem.Kind.ORGANISATION,
@@ -63,13 +63,14 @@ class OrganisationVerification(ApplicationFormDefinition):
         return {
             "name": item.organisation.name,
             "website": item.organisation.website,
-            "entity_type": item.form.metadata.get("entity_type", "private_company"),
+            "entity_type": item.organisation.entity_type or "private_company",
         }
 
     @classmethod
     def on_submit(cls, item, data, actor):
         org = item.organisation
         org.name = org.legal_name = data["name"]
+        org.entity_type = data["entity_type"]
         org.website, org.state, org.city = (
             data["website"],
             data["state"],
@@ -294,10 +295,8 @@ class ABDM(ProgramDefinition):
     sandbox_credentials = ABDMSandboxCredentials
     production_credentials = ABDMProductionCredentials
     handoffs = {"dhis": DHISHandoff}
-    signup_organisation_choices = (
-        ("private_company", "Company"),
-        ("government", "Government"),
-        ("sole_proprietor", "Sole proprietor"),
+    signup_organisation_choices = tuple(
+        OrganisationForm.base_fields["entity_type"].choices,
     )
 
     @classmethod
@@ -311,10 +310,6 @@ class ABDM(ProgramDefinition):
             "description": data["description"],
             "product_type": data["category"],
         }
-
-    @classmethod
-    def signup_metadata(cls, data):
-        return {"entity_type": data.get("organisation_type") or "private_company"}
 
     @classmethod
     def on_product_created(cls, product, actor):

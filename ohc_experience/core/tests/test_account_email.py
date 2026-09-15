@@ -21,6 +21,7 @@ def signup_data():
         "name": "Applicant Example",
         "email": f"{uuid4().hex}@example.org",
         "organisation": "Example Health",
+        "organisation_type": "private_company",
         "password1": "portal-test-password-2026",
         "password2": "portal-test-password-2026",
     }

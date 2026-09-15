@@ -97,6 +97,17 @@ class TestUserProfileView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["settings_section"] == "profile"
 
+    def test_links_out_to_the_email_and_password_screens(
+        self,
+        sign_in: Callable[[User], Client],
+        owner_membership: MembershipType,
+    ):
+        response = sign_in(owner_membership.user).get(reverse("users:profile"))
+        html = response.content.decode()
+
+        assert f'href="{reverse("account_email")}"' in html
+        assert f'href="{reverse("account_change_password")}"' in html
+
     def test_organisation_pages_are_offered_to_members_only(
         self,
         sign_in: Callable[[User], Client],
@@ -205,6 +216,13 @@ class TestUserSignupView:
         assert response.status_code == HTTPStatus.OK
         assert "organisation" in response.context["form"].fields
 
+    def test_asks_for_a_website_to_check_the_email_domain_against(self, client: Client):
+        html = client.get(SIGNUP_URL).content.decode()
+
+        assert 'name="website"' in html
+        assert "data-email-domain-callout" in html
+        assert "js/email-domain-callout.js" in html
+
     def test_asks_for_the_password_twice_with_a_reveal_toggle(self, client: Client):
         response = client.get(SIGNUP_URL)
         password_fields = ("password1", "password2")
@@ -256,7 +274,11 @@ class TestUserSignupView:
     def test_signing_up_creates_the_vendor_account(self, client: Client):
         response = client.post(
             SIGNUP_URL,
-            data={**SIGNUP_DATA, "organisation": "Sunrise Health Systems"},
+            data={
+                **SIGNUP_DATA,
+                "organisation": "Sunrise Health Systems",
+                "organisation_type": "private_company",
+            },
         )
 
         assert response.status_code == HTTPStatus.FOUND
@@ -275,6 +297,7 @@ class TestUserSignupView:
                 **SIGNUP_DATA,
                 "email": user.email,
                 "organisation": "Sunrise Health Systems",
+                "organisation_type": "private_company",
             },
         )
         html = response.content.decode()

@@ -421,9 +421,5 @@ class ProgramDefinition:
         """Run after the initial product registration has been submitted."""
 
     @classmethod
-    def signup_metadata(cls, data):
-        return {}
-
-    @classmethod
     def seed_demo(cls, **options):
         raise NotImplementedError
