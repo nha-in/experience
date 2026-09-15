@@ -1,21 +1,18 @@
-name: Publish sandbox image
+name: Deploy production
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - testing_new
     tags:
       - 'v*'
-    paths-ignore:
-      - 'docs/**'
 
 permissions:
   contents: read
 
 concurrency:
+  # Never cancel a production rollout that is already in flight.
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
@@ -23,10 +20,11 @@ env:
 
 jobs:
   build:
-    name: Build and publish linux/arm64
+    name: Build and push linux/arm64
     runs-on: ubuntu-24.04-arm
+    environment: production
     outputs:
-      image: ${{ steps.prepare.outputs.image }}
+      image_ref: ${{ steps.ref.outputs.image_ref }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -55,21 +53,18 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ steps.prepare.outputs.image }}
-          # Keep the default-branch and release aliases separate.
           flavor: latest=false
           tags: |
-            type=ref,event=branch
             type=ref,event=tag
-            type=sha,format=long
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=latest-${{ github.run_number }},enable={{is_default_branch}}
+            type=sha,format=long
             type=raw,value=production-latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -81,30 +76,32 @@ jobs:
           cache-from: type=gha,scope=production-django-arm64
           cache-to: type=gha,scope=production-django-arm64,mode=max
 
+      - name: Resolve image reference
+        id: ref
+        env:
+          IMAGE: ${{ steps.prepare.outputs.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: echo "image_ref=${IMAGE}@${DIGEST}" >> "$GITHUB_OUTPUT"
+
       - name: Inspect published image
         env:
-          METADATA_JSON: ${{ steps.meta.outputs.json }}
-        run: |
-          image=$(jq -r '.tags[0]' <<< "$METADATA_JSON")
-          docker buildx imagetools inspect "$image"
+          IMAGE_REF: ${{ steps.ref.outputs.image_ref }}
+        run: docker buildx imagetools inspect "$IMAGE_REF"
 
   deploy:
     name: Deploy ${{ matrix.service }}
     needs: build
-    if: github.ref == 'refs/heads/testing_new'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment:
-      name: sandbox
-      url: https://sandbox.aws.ohc.network
+    environment: production
     strategy:
       fail-fast: false
       matrix:
         service: [api, celeryworker, celerybeat]
     env:
-      IMAGE_REF: ${{ needs.build.outputs.image }}:latest-${{ github.run_number }}
-      ECS_CLUSTER: ohn-staging
-      ECS_PREFIX: ohn-staging-experience
+      IMAGE_REF: ${{ needs.build.outputs.image_ref }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_PREFIX: ${{ vars.ECS_PREFIX }}
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

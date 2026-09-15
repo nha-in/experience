@@ -265,14 +265,14 @@ Build from the repository root:
 docker build -f compose/production/django/Dockerfile -t experience-production .
 ```
 
-The existing [Publish sandbox image workflow](../.github/workflows/publish-image.yml)
-builds this same Dockerfile for ARM64 and publishes it to the Amazon ECR
-repository configured by the repository's `AWS_REGION` and `ECR_REPOSITORY`
-Actions variables. It includes the asset build and verification, so no
-additional production image build job is required.
+The [Deploy production workflow](../.github/workflows/deploy-prod.yml) builds
+this same Dockerfile for ARM64 and publishes it to the Amazon ECR repository
+configured by the `production` environment's `AWS_REGION` and `ECR_REPOSITORY`
+variables. It includes the asset build and verification, so no additional
+production image build job is required.
 
-For AWS ECS, deploy a new task revision using the published image's new tag or
-digest; existing tasks do not pick up changed images automatically
+For AWS ECS, deploy a new task revision using the published image's digest;
+existing tasks do not pick up changed images automatically
 ([ECS task image configuration](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#container_definition_image)).
 The published image is `linux/arm64` only, so the task's runtime platform must be
 `ARM64`. Use `DJANGO_SETTINGS_MODULE=config.settings.production` (the

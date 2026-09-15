@@ -99,48 +99,75 @@ The following details how to deploy this application.
 
 See detailed [cookiecutter-django Docker documentation](https://cookiecutter-django.readthedocs.io/en/latest/3-deployment/deployment-with-docker.html).
 
-### Amazon ECR
+### Production deploys
 
-The [Publish sandbox image workflow](.github/workflows/publish-image.yml) builds
-`compose/production/django/Dockerfile` for `linux/arm64` and publishes it to the
-Amazon ECR repository named by the `ECR_REPOSITORY` repository variable, in the
-region named by `AWS_REGION`. It runs on pushes to `testing_new` (the current
-default branch), pushes of `v*` tags, or manually from **Actions → Publish
-sandbox image → Run workflow**. Branch pushes that only change `docs/**` are
-skipped.
+[`deploy-prod.yml`](.github/workflows/deploy-prod.yml) builds
+`compose/production/django/Dockerfile`, pushes it to Amazon ECR, and rolls the
+new image out to the production ECS services. It runs on pushes of `v*` tags, or
+manually from **Actions → Deploy production → Run workflow**.
 
-The image is ARM64-only and is built natively on an `ubuntu-24.04-arm` runner, so
-the ECS task definitions must stay on `ARM64` runtime platform.
+Both jobs run in the `production` GitHub Environment, so environment protection
+rules (required reviewers, wait timers, branch restrictions) gate the image push
+as well as the rollout. In-flight runs are never cancelled by a newer one.
 
-This is the only production image build-and-push workflow. Its Dockerfile builds
-Tailwind, collects static assets, and verifies the generated CSS, fonts, and
-manifests before publishing. No separate Tailwind or production-assets job is needed.
+The image is `linux/arm64` only, built natively on an `ubuntu-24.04-arm` runner,
+so the production ECS task definitions must use the `ARM64` runtime platform. The
+Dockerfile builds Tailwind, collects static assets, and verifies the generated
+CSS, fonts, and manifests before publishing, so no separate asset job is needed.
 
-Published tags include:
+Published tags:
 
-- Default branch: `testing_new`, `latest`, and `latest-<run-number>`.
-- Releases: the Git tag (for example, `v1.2.3`) and its semantic version (`1.2.3`).
-  Tags without a hyphen also update `production-latest`; prerelease tags such as
-  `v1.2.3-rc.1` do not update that alias.
-- Every build: `sha-<full-commit-sha>`. Manual runs on other branches also publish
-  a branch-name tag without updating `latest`.
+- The Git tag (for example, `v1.2.3`) and its semantic version (`1.2.3`).
+- `sha-<full-commit-sha>` on every run.
+- `production-latest`, only for release tags without a hyphen — a prerelease such
+  as `v1.2.3-rc.1` does not move that alias.
+
+The rollout itself pins the image by **digest** (`<repo>@sha256:…`) rather than by
+tag, so the exact artifact that was built is the one that ships, regardless of
+any later tag reassignment.
+
+#### Rollback
+
+No task definition ever references a moving tag. A mutable tag like `latest` or
+`production-latest` would make earlier revisions meaningless — every revision
+would resolve to whatever that tag points at *now*, so rolling back would
+redeploy the broken image. Pinning by digest means each ECS task definition
+revision is a permanent, exact record of what shipped.
+
+A commit-SHA tag such as `sha-<commit>` is not sufficient on its own either: a
+re-run of the workflow on the same commit re-pushes that tag to a newly built
+image, silently changing what older revisions point to. The digest cannot be
+reassigned.
+
+To roll back, redeploy the previous revision — no rebuild required:
+
+```bash
+aws ecs list-task-definitions --family-prefix "$ECS_PREFIX-api" \
+  --sort DESC --max-items 5
+
+aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_PREFIX-api" \
+  --task-definition "$ECS_PREFIX-api:<revision>" --force-new-deployment
+```
+
+Repeat per service (`-api`, `-celeryworker`, `-celerybeat`). The `sha-<commit>`
+and semver tags are still published for traceability — they map a running digest
+back to source — they are just not what the services resolve at deploy time.
 
 #### Configuration
 
-Nothing about the target registry is hard-coded. Set these under **Settings →
-Secrets and variables → Actions**.
+Nothing environment-specific is hard-coded. Set these on the `production`
+environment under **Settings → Environments → production**.
 
-Repository variables:
+Variables:
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `AWS_REGION` | Region for both the ECR push and the ECS deploy | `ap-south-1` |
-| `ECR_REPOSITORY` | ECR repository name (not the full URI) | none — must be set |
+| `AWS_REGION` | Region for the ECR push and the ECS deploy | `ap-south-1` |
+| `ECR_REPOSITORY` | ECR repository **name**, not the full URI | none — must be set |
+| `ECS_CLUSTER` | Production ECS cluster name | none — must be set |
+| `ECS_PREFIX` | Prefix for the `-api`, `-celeryworker`, `-celerybeat` services | none — must be set |
 
-`AWS_REGION` falls back to `ap-south-1` when unset, so only override it if the
-registry moves. `ECR_REPOSITORY` has no default and the build fails without it.
-
-Repository secrets:
+Secrets:
 
 | Secret | Used by | Purpose |
 |--------|---------|---------|
@@ -149,28 +176,30 @@ Repository secrets:
 | `AWS_ACCESS_KEY_ID` | `deploy` | Register and roll out ECS task definitions |
 | `AWS_SECRET_ACCESS_KEY` | `deploy` | Register and roll out ECS task definitions |
 
-The push and deploy credentials are deliberately separate, so the ECR key can be
+Push and deploy credentials are deliberately separate, so the ECR key can be
 scoped to the registry alone. The registry host is resolved at runtime from
 `aws-actions/amazon-ecr-login`, so the AWS account ID never appears in the repo.
 
 The ECR credentials need `ecr:GetAuthorizationToken` plus the usual push actions
 (`ecr:BatchCheckLayerAvailability`, `ecr:InitiateLayerUpload`,
 `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutImage`,
-`ecr:BatchGetImage`) on the repository. Two repository settings matter:
+`ecr:BatchGetImage`) on the repository. Two registry settings matter:
 
 - The repository must already exist; ECR does not create it on push.
-- Tag mutability must stay **mutable**, because `latest` and `production-latest`
-  are reassigned on every release.
+- Tag mutability must stay **mutable**, because `production-latest` is reassigned
+  on every release.
 
-ECS pulls the image through its task execution role, so no registry credentials
-are stored on the task definition.
+ECS pulls through its task execution role, which needs ECR read access. Make sure
+the production task definitions carry no `repositoryCredentials` block — when one
+is present the agent uses those static credentials instead of the execution role
+and the ECR pull fails.
 
-After a successful default-branch build, pull the image with:
+Pull a published image with:
 
 ```bash
 aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "$REGISTRY"
-docker pull "$REGISTRY/$ECR_REPOSITORY:latest"
+docker pull "$REGISTRY/$ECR_REPOSITORY:production-latest"
 ```
 
 where `REGISTRY` is `<account-id>.dkr.ecr.$AWS_REGION.amazonaws.com`.
