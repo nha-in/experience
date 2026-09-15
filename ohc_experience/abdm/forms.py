@@ -7,7 +7,6 @@ from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
 from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.uploads import validate_pdf
-from ohc_experience.experiences.uploads import validate_upload_size
 from ohc_experience.organisations.lgd import LGDLookupError
 from ohc_experience.organisations.lgd import lookup_pincode
 from ohc_experience.organisations.widgets import PincodeInput
@@ -60,11 +59,7 @@ class OrganisationForm(ReviewForm):
         ],
     )
     website = forms.URLField()
-    logo = forms.ImageField(
-        required=False,
-        validators=[validate_upload_size],
-        widget=forms.FileInput(attrs={"accept": "image/png,image/jpeg,image/webp"}),
-    )
+    logo = forms.URLField(label="Logo URL", required=False)
     registered_address = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}))
     pincode = forms.RegexField(
         regex=r"^[1-9][0-9]{5}$",
@@ -110,6 +105,10 @@ class OrganisationForm(ReviewForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if not isinstance(self.initial.get("logo", ""), str):
+            # Logos were uploaded before they became links. An earlier upload
+            # stays with its own revision and never prefills the link.
+            del self.initial["logo"]
         self.locations = []
         self.location_error = ""
         if self.is_bound:

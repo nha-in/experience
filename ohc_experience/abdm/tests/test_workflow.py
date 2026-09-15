@@ -2,7 +2,6 @@
 import re
 import socket
 from datetime import timedelta
-from io import BytesIO
 from unittest.mock import patch
 
 import pytest
@@ -17,7 +16,6 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.datastructures import MultiValueDict
-from PIL import Image
 
 from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
@@ -1296,18 +1294,39 @@ def test_pdf_validation_keeps_upload_readable_without_network_access():
     assert document.read() == b"%PDF-1.4\n%%EOF"
 
 
-def test_logo_still_validates_image_type_and_size():
-    buffer = BytesIO()
-    Image.new("RGB", (1, 1)).save(buffer, format="PNG")
-    image = SimpleUploadedFile("logo.png", buffer.getvalue(), content_type="image/png")
+def test_logo_is_an_optional_link():
     field = OrganisationForm().fields["logo"]
-    assert field.clean(image)
-    image.size = uploads.MAX_UPLOAD_BYTES + 1
-    image.seek(0)
-    with pytest.raises(ValidationError, match="10 MB"):
-        field.clean(image)
-    with pytest.raises(ValidationError, match="valid image"):
-        field.clean(SimpleUploadedFile("fake.png", b"not an image"))
+    assert field.clean("") == ""
+    assert field.clean("https://example.org/logo.png") == "https://example.org/logo.png"
+    with pytest.raises(ValidationError, match="valid URL"):
+        field.clean("not a link")
+
+
+def test_an_uploaded_logo_stays_with_its_revision(environment):
+    item = environment["org"].review_items.get(kind="organisation_verification")
+    uploaded = item.selected_submission
+    logo = uploaded.attachments.create(
+        field_key="logo",
+        file="experience-attachments/logo.png",
+        original_name="logo.png",
+        size=1,
+        uploaded_by=environment["applicant"],
+    )
+    uploaded.data["logo"] = {"attachment_id": logo.pk, "name": "logo.png", "size": 1}
+    uploaded.save(update_fields=["data"])
+
+    assert services.build_form(item)["logo"].value() is None
+
+    item, form, saved = services.save_review_form(
+        item,
+        environment["applicant"],
+        data={**organisation_data(), "logo": "https://example.org/logo.png"},
+        submit=True,
+    )
+    assert saved, form.errors
+    assert item.selected_submission.data["logo"] == "https://example.org/logo.png"
+    assert not item.selected_submission.attachments.filter(field_key="logo").exists()
+    assert uploaded.attachments.get(field_key="logo", is_current=True) == logo
 
 
 def test_oversized_document_is_rejected():

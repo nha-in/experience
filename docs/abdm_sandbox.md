@@ -388,10 +388,10 @@ Organisation re-verification revokes prior active credentials; after verificatio
 the integrator can request rotation to obtain a fresh pair.
 
 Keep S3 public access blocked and enable appropriate encryption and retention.
-The application accepts PDF evidence up to 10 MB per file and validated logo
-images. Historical files remain available with their original revision. File type
-and size validation do not detect malware; uploaded documents should be treated
-as untrusted content.
+The application accepts PDF evidence up to 10 MB per file; organisation logos
+are links rather than uploads. Historical files remain available with their
+original revision. File type and size validation do not detect malware; uploaded
+documents should be treated as untrusted content.
 
 Celery beat delivers queued emails every minute, checks public HTTPS callbacks
 every 15 minutes, and checks event reminders hourly. Three consecutive callback
