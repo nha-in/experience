@@ -2,6 +2,11 @@ name: Deploy production
 
 on:
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Extra tag to apply to the built image (e.g. a version, optional)'
+        required: false
+        default: ''
   push:
     tags:
       - 'v*'
@@ -58,7 +63,10 @@ jobs:
             type=ref,event=tag
             type=semver,pattern={{version}}
             type=sha,format=long
-            type=raw,value=production-latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') }}
+            type=raw,value=production-latest
+            type=raw,value=production-latest-${{ github.run_number }}
+            type=raw,value=${{ github.event.inputs.image_tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag != '' }}
+            type=raw,value=manual-{{date 'YYYYMMDD-HHmmss'}}-${{ github.actor }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
