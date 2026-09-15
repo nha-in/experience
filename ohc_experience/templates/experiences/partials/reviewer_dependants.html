@@ -1,0 +1,10 @@
+<div id="dependants"
+     class="rounded-xl border border-soft-border bg-soft-background px-4 py-3.5 text-sm leading-relaxed">
+  <p class="font-semibold text-foreground">
+    {{ dependants|length }} request{{ dependants|length|pluralize }} wait{{ dependants|length|pluralize:'s,' }} on this one
+  </p>
+  <p class="mt-1 text-soft-foreground">
+    Submitted on top of this request. {{ dependants|length|pluralize:'It stays,They stay' }} waiting until this request is approved.
+  </p>
+  {% include 'experiences/partials/reviewer_prerequisites.html' with prerequisites=dependants linked_prerequisites=linked_dependants label='Waiting on this request' %}
+</div>

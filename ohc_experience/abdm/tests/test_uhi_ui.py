@@ -45,7 +45,8 @@ def test_uhi_defaults_to_next_open_application_and_respects_explicit_milestone(
     assert page.context["tile"]["definition"].key == "m1"
     early = client.get(url, {"milestone": "uhi1"})
     assert early.context["tile"]["definition"].key == "uhi1"
-    assert b'name="uhi_role"' in early.content
+    assert b'name="uhi_role"' not in early.content
+    assert b"UHI1 - UHI participation opens once" in early.content
 
     approve(environment)
 

@@ -45,8 +45,8 @@ response contract.
 ## UHI participation
 
 Product registration selects the UHI track and milestones. Role, service and
-optional detail questions belong to the separate UHI application, which can be
-submitted at any time. UHI shares M1 with HIE-CM and PHR. The UHI application
+optional detail questions belong to the separate UHI application, which opens
+once M1 is submitted. UHI shares M1 with HIE-CM and PHR. The UHI application
 records participation without a reviewer decision or exit-evidence uploads:
 submitted after M1 and organisation verification are approved, it is recorded at
 once; submitted earlier, it waits in the queue and is recorded the moment they

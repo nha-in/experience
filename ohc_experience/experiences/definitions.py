@@ -67,6 +67,15 @@ class ApplicationFormDefinition:
         return ()
 
     @classmethod
+    def prerequisites_due(cls):
+        """The reviews `pending_prerequisites` names something for, as a filter.
+
+        Return a `ReviewItem` Q, or None when there is nothing beyond the
+        dependencies. The review queue sorts waiting reviews from ready ones with
+        it, so it must agree with `pending_prerequisites`.
+        """
+
+    @classmethod
     def snapshot_valid_until(cls, form):
         """Optional validity date for this exact submission revision."""
 
@@ -393,6 +402,15 @@ class ProgramDefinition:
                 },
             ).static_order(),
         )
+
+    @classmethod
+    def longest_chain(cls):
+        """The most milestones any one builds on, directly or not."""
+        depth = {}
+        for key in cls.ordered_milestones():
+            predecessor = cls.milestones[key].predecessor
+            depth[key] = depth[predecessor] + 1 if predecessor else 0
+        return max(depth.values(), default=0)
 
     @classmethod
     def track_map(cls):

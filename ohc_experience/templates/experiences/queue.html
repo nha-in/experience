@@ -6,7 +6,7 @@
       <div class="ui-rise min-w-0">
         <p class="ui-hero-eyebrow">{{ experience_program.review_heading }}</p>
         <h1 class="ui-hero-title">Review queue</h1>
-        <p class="ui-hero-lede">Application requests and organisation verifications. Every decision, query and send-back is recorded and shared with the integrator.</p>
+        <p class="ui-hero-lede">{% if queue_scope == 'waiting' %}Requests that cannot be decided until what they build on is approved. You can read them and raise queries meanwhile.{% else %}Application requests and organisation verifications. Every decision, query and send-back is recorded and shared with the integrator.{% endif %}</p>
         <nav class="mt-3.5 flex flex-wrap items-center gap-1"
              aria-label="Scope"
              hx-boost="true"
@@ -16,8 +16,11 @@
              hx-swap="outerHTML"
              hx-push-url="true">
           <a class="ui-pill min-h-9 inline-flex items-center"
-             href="?scope=open&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
-             {% if queue_scope == 'open' %}aria-current="page"{% endif %}>Open</a>
+             href="?scope=ready&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             {% if queue_scope == 'ready' %}aria-current="page"{% endif %}>Ready</a>
+          <a class="ui-pill min-h-9 inline-flex items-center"
+             href="?scope=waiting&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             {% if queue_scope == 'waiting' %}aria-current="page"{% endif %}>Waiting</a>
           <a class="ui-pill min-h-9 inline-flex items-center"
              href="?scope=decided&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'decided' %}aria-current="page"{% endif %}>Decided</a>
@@ -80,7 +83,7 @@
                  {% if filters.status or filters.item or filters.product or filters.assignee %}open{% endif %}>
           <summary class="min-h-11 cursor-pointer py-3 text-sm font-semibold text-muted-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-primary">More filters <span class="ml-1 text-xs font-normal text-soft-foreground">{% if filters.status or filters.item or filters.product or filters.assignee %}Filters applied{% else %}Status, item, product and assignee{% endif %}</span></summary>
           <div class="grid items-end gap-3 pt-1 sm:grid-cols-2 xl:grid-cols-4">
-            <div><label class="ui-label" for="queue-status">Status</label><div class="ui-select-wrapper"><select class="ui-select" id="queue-status" name="status"><option value="">{% if queue_scope == 'open' %}All open statuses{% elif queue_scope == 'decided' %}All decided statuses{% else %}All statuses{% endif %}</option>{% for value,label in statuses %}<option value="{{ value }}"
+            <div><label class="ui-label" for="queue-status">Status</label><div class="ui-select-wrapper"><select class="ui-select" id="queue-status" name="status"><option value="">{% if queue_scope == 'ready' or queue_scope == 'waiting' %}All open statuses{% elif queue_scope == 'decided' %}All decided statuses{% else %}All statuses{% endif %}</option>{% for value,label in statuses %}<option value="{{ value }}"
         {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div></div>
             <div>
               <label class="ui-label" for="queue-item">Item</label>

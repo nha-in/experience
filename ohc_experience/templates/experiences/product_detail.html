@@ -28,7 +28,7 @@
       <div class="ui-rise flex shrink-0 flex-wrap items-center gap-2.5">
         {% include 'experiences/partials/status.html' with status=organisation.verification_status label=organisation.get_verification_status_display %}
         <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline shadow-md"
-           href="{% url 'experiences:queue' %}?scope=open&amp;product={{ reference|urlencode }}">Open in queue</a>
+           href="{% url 'experiences:queue' %}?scope=ready&amp;product={{ reference|urlencode }}">Open in queue</a>
       </div>
     </div>
   </div>

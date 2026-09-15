@@ -14,7 +14,7 @@
         <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground ring-4 ring-primary/15"
               aria-hidden="true">{{ request.user.display_name|slice:':1'|upper }}</span>
         <div><span class="flex items-baseline gap-2"><span class="ui-figure">{{ my_open }}</span><span class="ui-figure-unit">assigned to you</span></span><a class="mt-0.5 inline-block text-xs font-semibold text-primary no-underline hover:underline"
-   href="{% url 'experiences:queue' %}?kind=mine&amp;scope=open">Mine · in the queue</a></div>
+   href="{% url 'experiences:queue' %}?kind=mine&amp;scope=ready">Mine · in the queue</a></div>
       </div>
     </div>
   </div>
@@ -24,30 +24,31 @@
   <div class="ui-float flex flex-col gap-6">
     <div class="grid gap-4 lg:grid-cols-3" aria-label="Summary">
       <a class="ui-tile ui-rise [animation-delay:.06s]"
-         href="{% url 'experiences:queue' %}?scope=open">
-        <span class="ui-kicker">In queue</span><span class="ui-tile-figure">{{ pending_count }}</span>
+         href="{% url 'experiences:queue' %}?scope=ready">
+        <span class="ui-kicker">Ready for review</span><span class="ui-tile-figure">{{ ready_count }}</span>
         <span class="ui-meter ui-meter--split mt-0.5" aria-hidden="true">
           {% if new_count %}
             <span class="ui-meter-fill"
-                  style="width: {% widthratio new_count pending_count 100 %}%"></span>
+                  style="width: {% widthratio new_count ready_count 100 %}%"></span>
           {% endif %}
           {% if review_count %}
             <span class="ui-meter-fill ui-meter-fill--info"
-                  style="width: {% widthratio review_count pending_count 100 %}%;
+                  style="width: {% widthratio review_count ready_count 100 %}%;
                          animation-delay: 100ms"></span>
           {% endif %}
           {% if query_count %}
             <span class="ui-meter-fill ui-meter-fill--warning"
-                  style="width: {% widthratio query_count pending_count 100 %}%;
+                  style="width: {% widthratio query_count ready_count 100 %}%;
                          animation-delay: 200ms"></span>
           {% endif %}
         </span>
         <span class="flex flex-wrap gap-x-2.5 gap-y-1 text-xs text-muted-foreground tabular-nums"><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-[2px] bg-primary" aria-hidden="true"></span>{{ new_count }} new</span><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-[2px] bg-sky-500" aria-hidden="true"></span>{{ review_count }} in review</span><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-[2px] bg-orange-500" aria-hidden="true"></span>{{ query_count }} query raised</span></span>
+        {% if waiting_count %}<span class="ui-tile-note">{{ waiting_count }} more waiting on prerequisites.</span>{% endif %}
       </a>
       <a class="ui-tile ui-rise [animation-delay:.12s]"
-         href="{% url 'experiences:queue' %}?scope=open&amp;assignee=unassigned">
-        <span class="ui-kicker">Unassigned</span><span class="flex items-baseline gap-2"><span class="ui-tile-figure">{{ unassigned_count }}</span><span class="ui-figure-unit">of {{ pending_count }}</span></span><span class="ui-meter mt-0.5" aria-hidden="true"><span class="ui-meter-fill ui-meter-fill--muted"
-      style="width: {% widthratio unassigned_count pending_count 100 %}%"></span></span><span class="ui-tile-note">Waiting for a reviewer to be assigned.</span>
+         href="{% url 'experiences:queue' %}?scope=ready&amp;assignee=unassigned">
+        <span class="ui-kicker">Unassigned</span><span class="flex items-baseline gap-2"><span class="ui-tile-figure">{{ unassigned_count }}</span><span class="ui-figure-unit">of {{ ready_count }}</span></span><span class="ui-meter mt-0.5" aria-hidden="true"><span class="ui-meter-fill ui-meter-fill--muted"
+      style="width: {% widthratio unassigned_count ready_count 100 %}%"></span></span><span class="ui-tile-note">Waiting for a reviewer to be assigned.</span>
       </a>
       <a class="ui-tile ui-rise [animation-delay:.18s]"
          href="{% url 'experiences:queue' %}?scope=decided&amp;status=approved">
@@ -65,7 +66,7 @@
              aria-labelledby="needs-decision-title">
       <div class="ui-card-header">
         <h2 class="ui-card-title" id="needs-decision-title">Needs a decision</h2>
-        <p class="ui-card-description">Requests awaiting review or a decision.</p>
+        <p class="ui-card-description">Requests ready for review or a decision.</p>
       </div>
       {% if oldest %}
         <div class="hidden overflow-x-auto md:block">
@@ -91,7 +92,7 @@
                     <a class="absolute inset-0" href="{{ item.get_absolute_url }}"></a>
                   </td>
                   <td class="text-muted-foreground">{{ item.organisation.display_name }}</td>
-                  <td>{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}</td><td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}</td>
+                  <td>{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}{% include 'experiences/partials/reviewer_waiting.html' %}</td><td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}</td>
                   <td>{% include 'experiences/partials/reviewer_age.html' %}</td>
                   <td>{% include 'experiences/partials/reviewer_assignee.html' %}</td>
                 </tr>
@@ -106,8 +107,9 @@
           {% endfor %}
         </ul>
 {% else %}<p class="border-t border-soft-border px-6 py-8 text-center text-sm text-muted-foreground">No requests waiting for a decision.</p>{% endif %}
-<div class="flex flex-wrap items-center gap-3 border-t border-soft-border bg-soft-background px-6 py-2.5 text-xs text-soft-foreground"><span>Showing {{ oldest|length }} of {{ pending_count }}</span><a class="ml-auto inline-flex min-h-9 items-center font-semibold text-primary no-underline hover:underline"
-   href="{% url 'experiences:queue' %}?scope=open">Full queue <span class="ml-1" aria-hidden="true">→</span></a></div>
+<div class="flex flex-wrap items-center gap-3 border-t border-soft-border bg-soft-background px-6 py-2.5 text-xs text-soft-foreground"><span>Showing {{ oldest|length }} of {{ ready_count }}</span>{% if waiting_count %}<a class="inline-flex min-h-9 items-center font-semibold text-soft-foreground no-underline hover:text-primary hover:underline"
+   href="{% url 'experiences:queue' %}?scope=waiting">{{ waiting_count }} waiting on prerequisites</a>{% endif %}<a class="ml-auto inline-flex min-h-9 items-center font-semibold text-primary no-underline hover:underline"
+   href="{% url 'experiences:queue' %}?scope=ready">Full queue <span class="ml-1" aria-hidden="true">→</span></a></div>
   </section>
   <div class="grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">
     <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.28s]"
@@ -117,8 +119,8 @@
         <p class="ui-card-description">What is in the queue right now.</p>
       </div>
       <div class="ui-card-content"><dl class="flex flex-col">{% for row in by_track %}<div class="grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><dt class="font-mono font-semibold">{{ row.code }}</dt><dd class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
-      style="width: {% widthratio row.count pending_count 100 %}%"></span></dd><dd class="text-right font-bold tabular-nums"><a class="text-foreground no-underline hover:text-primary"
-   href="{% url 'experiences:queue' %}?scope=open&amp;kind=application&amp;item={{ row.code|urlencode }}"
+      style="width: {% widthratio row.count ready_count 100 %}%"></span></dd><dd class="text-right font-bold tabular-nums"><a class="text-foreground no-underline hover:text-primary"
+   href="{% url 'experiences:queue' %}?scope=ready&amp;kind=application&amp;item={{ row.code|urlencode }}"
    aria-label="View {{ row.count }} request{{ row.count|pluralize }} for {{ row.code }}">{{ row.count }}</a></dd></div>{% empty %}<div><dt class="text-sm text-muted-foreground">No pending applications.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div>
     </section>
     <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.34s]"

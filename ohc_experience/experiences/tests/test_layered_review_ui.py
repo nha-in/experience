@@ -24,7 +24,7 @@ def test_queue_tabs_keep_search_and_assignee_filters(client, review_item):
             "kind": "application",
             "q": "Water pump",
             "assignee": reviewer.pk,
-            "scope": "open",
+            "scope": "ready",
         },
     )
     assert response.status_code == HTTPStatus.OK
@@ -32,7 +32,7 @@ def test_queue_tabs_keep_search_and_assignee_filters(client, review_item):
     counts = {row["value"]: row["count"] for row in response.context["queue_tabs"]}
     assert counts[""] == counts["mine"] == counts["application"] == 1
     assert counts["organisation_verification"] == 0
-    assert response.context["queue_scope"] == "open"
+    assert response.context["queue_scope"] == "ready"
 
 
 def test_queue_scope_tracks_a_real_decision(client, review_item):
@@ -43,8 +43,9 @@ def test_queue_scope_tracks_a_real_decision(client, review_item):
     assert review_item not in client.get(url, {"scope": "decided"}).context["page"]
     workflows.decide(review_item, reviewer, action="approve", note="Verified")
     assert review_item in client.get(url, {"scope": "decided"}).context["page"]
-    assert review_item not in client.get(url, {"scope": "open"}).context["page"]
-    assert review_item in client.get(url).context["page"]
+    assert review_item not in client.get(url, {"scope": "ready"}).context["page"]
+    assert review_item not in client.get(url).context["page"]
+    assert review_item in client.get(url, {"scope": "all"}).context["page"]
 
 
 def test_dashboard_counts_use_current_reviewer_and_canonical_milestone(

@@ -24,6 +24,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
 from ohc_experience.events.models import Event
+from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormSubmission
@@ -163,6 +164,29 @@ def _tracks(workspace, user):
     return result
 
 
+def _lock_tiles(workspace, tracks):
+    """Name what each unsubmitted milestone waits on before its form opens."""
+    codes = {
+        milestone.application_id: workspace.definition.milestones[milestone.key].code
+        for milestone in workspace.product.milestones.all()
+    }
+    locked_by = {}
+    for tile in (tile for track in tracks for tile in track["tiles"]):
+        key = tile["definition"].key
+        if key not in locked_by:
+            unsubmitted = (
+                services.unsubmitted_prerequisites(tile["item"])
+                if tile["item"].editable
+                else []
+            )
+            locked_by[key] = readable_list(
+                codes.get(review.application_id, review.title) for review in unsubmitted
+            )
+        tile["locked_by"] = locked_by[key]
+        if tile["locked_by"]:
+            tile["label"] = "Locked"
+
+
 def _page(request, items):
     return Paginator(items, 10).get_page(request.GET.get("page"))
 
@@ -198,6 +222,12 @@ def _context(request, workspace=None, **kwargs):
             if result["prerequisites"]
             else ""
         )
+        if item.pending and not is_reviewer:
+            # Latest first, the order they can be withdrawn in.
+            result["withdraw_first"] = [
+                (review, _integrator_item_url(review))
+                for review in reversed(services.pending_dependants(item))
+            ]
     if workspace:
         result["organisation"] = workspace.product.organisation
         result["can_integrate"] = permissions.can_integrate(
@@ -622,6 +652,7 @@ def overview(request, reference):
         )[:6],
         certification=certification,
     )
+    _lock_tiles(workspace, context["tracks"])
     context["progress"] = overview_progress(context["tracks"])
     context["next_step"] = (
         overview_next_step(workspace, context["tracks"], organisation_review)
@@ -807,6 +838,7 @@ def track(request, reference, track_code):
         for row in _tracks(workspace, request.user)
         if row["definition"].code == track_code
     )
+    _lock_tiles(workspace, [track_data])
     selected = request.GET.get("milestone", "")
     default_tile = next(
         (
@@ -822,6 +854,14 @@ def track(request, reference, track_code):
     )
     item = tile["item"] if tile else None
     form = services.build_form(item) if item else None
+    locked_by = (
+        [
+            (review, _integrator_item_url(review))
+            for review in services.unsubmitted_prerequisites(item)
+        ]
+        if tile and tile["locked_by"]
+        else []
+    )
     if request.method == "POST":
         if item is None:
             raise Http404
@@ -852,6 +892,7 @@ def track(request, reference, track_code):
                             item=item,
                             form=form,
                             can_edit=services.can_edit_review(item),
+                            locked_by=locked_by,
                         ),
                     )
             else:
@@ -881,6 +922,7 @@ def track(request, reference, track_code):
             item=item,
             form=form,
             can_edit=services.can_edit_review(item) if item else False,
+            locked_by=locked_by,
         ),
     )
 
@@ -1204,7 +1246,8 @@ def assess_dashboard(request):
         key for track in allowed_tracks for key in get_program().track_milestones(track)
     }
     items = permissions.visible_reviews(request.user).exclude(status="draft")
-    pending = items.filter(status__in=["new", "in_review", "query_raised"])
+    waiting = services.waiting_reviews()
+    ready = items.filter(~waiting, status__in=services.PENDING_STATUSES)
     today = timezone.localdate()
     decisions = list(
         AuditEvent.objects.filter(
@@ -1249,8 +1292,8 @@ def assess_dashboard(request):
         request,
         page_title="Reviewer dashboard",
         nav="assess-dashboard",
-        my_open=pending.filter(assignee=request.user).count(),
-        unassigned_count=pending.filter(assignee=None).count(),
+        my_open=ready.filter(assignee=request.user).count(),
+        unassigned_count=ready.filter(assignee=None).count(),
         approved_by_milestone=[
             {
                 "label": milestone.code,
@@ -1264,46 +1307,47 @@ def assess_dashboard(request):
             for milestone in get_program().milestones.values()
             if milestone.key in allowed_milestones
         ],
-        pending_count=pending.count(),
-        new_count=pending.filter(status="new").count(),
-        review_count=pending.filter(status="in_review").count(),
-        query_count=pending.filter(status="query_raised").count(),
+        ready_count=ready.count(),
+        waiting_count=items.filter(waiting).count(),
+        new_count=ready.filter(status="new").count(),
+        review_count=ready.filter(status="in_review").count(),
+        query_count=ready.filter(status="query_raised").count(),
         approved_month=AuditEvent.objects.filter(
             item__in=items,
             action="Approved",
             created_at__date__gte=today.replace(day=1),
         ).count(),
         median_days=round(median(durations), 1) if durations else None,
-        oldest=pending.exclude(status="query_raised")[:5],
+        oldest=_queue_rows(list(ready.exclude(status="query_raised")[:5])),
         weeks=weeks,
-        by_type=pending.values("kind").annotate(count=Count("pk")),
-        by_assignee=pending.values("assignee__name", "assignee__email").annotate(
+        by_type=ready.values("kind").annotate(count=Count("pk")),
+        by_assignee=ready.values("assignee__name", "assignee__email").annotate(
             count=Count("pk"),
         ),
         by_track=[
             {
                 "code": track.code,
-                "count": pending.filter(_track_filter(track.code)).count(),
+                "count": ready.filter(_track_filter(track.code)).count(),
             }
             for track in allowed_tracks
         ],
         ageing=[
             (
                 "0-2 days",
-                pending.filter(
+                ready.filter(
                     submitted_at__gte=timezone.now() - timedelta(days=3),
                 ).count(),
             ),
             (
                 "3-7 days",
-                pending.filter(
+                ready.filter(
                     submitted_at__lt=timezone.now() - timedelta(days=3),
                     submitted_at__gte=timezone.now() - timedelta(days=8),
                 ).count(),
             ),
             (
                 "8+ days",
-                pending.filter(
+                ready.filter(
                     submitted_at__lt=timezone.now() - timedelta(days=8),
                 ).count(),
             ),
@@ -1323,6 +1367,35 @@ def _queue_sort(request):
     return sort if sort in QUEUE_ORDER else "newest"
 
 
+def _prerequisite_label(program, prerequisite):
+    """("M1", "under review"), or ("organisation verification", "new")."""
+    review = prerequisite.review
+    milestone = getattr(review.application, "milestone", None) if review else None
+    name = program.milestones[milestone.key].code if milestone else prerequisite.name
+    if review is None or review.status == ReviewItem.Status.DRAFT:
+        return name, "not submitted"
+    return name, review.get_status_display().lower()
+
+
+def _queue_rows(items):
+    """What each request waits on, and how many requests wait on it."""
+    for item in items:
+        item.waiting_on = (
+            [
+                _prerequisite_label(item.program, prerequisite)
+                for prerequisite in services.pending_prerequisites(item)
+            ]
+            if item.pending
+            else []
+        )
+        item.waited_on_by = (
+            len(services.pending_dependants(item))
+            if item.status != ReviewItem.Status.APPROVED
+            else 0
+        )
+    return items
+
+
 @login_required
 def queue(request):
     _reviewer_required(request)
@@ -1330,10 +1403,11 @@ def queue(request):
         _review_requests(request.user)
         .exclude(status="draft")
         .select_related(
-            "product",
+            "product__workspace",
             "organisation",
             "application",
             "assignee",
+            "form",
         )
     )
     product_choices = _workspaces(request.user).filter(
@@ -1350,19 +1424,21 @@ def queue(request):
         query = query.filter(product__workspace__reference=product_reference)
     else:
         product_reference = ""
-    scope = request.GET.get("scope", "all")
-    scope_statuses = {
-        "open": ["new", "in_review", "query_raised"],
-        "decided": ["approved", "sent_back"],
+    waiting = services.waiting_reviews()
+    scopes = {
+        "ready": (services.PENDING_STATUSES, ~waiting),
+        "waiting": (services.PENDING_STATUSES, waiting),
+        "decided": ((ReviewItem.Status.APPROVED, ReviewItem.Status.SENT_BACK), Q()),
     }
-    if scope in scope_statuses:
-        query = query.filter(status__in=scope_statuses[scope])
-    else:
-        scope = "all"
+    scope = request.GET.get("scope", "")
+    if scope != "all":
+        scope = scope if scope in scopes else "ready"
+        scope_statuses, scope_filter = scopes[scope]
+        query = query.filter(scope_filter, status__in=scope_statuses)
     statuses = [
         (value, label)
         for value, label in ReviewItem.Status.choices
-        if value != "draft" and (scope == "all" or value in scope_statuses[scope])
+        if value != "draft" and (scope == "all" or value in scopes[scope][0])
     ]
     if status in dict(statuses):
         query = query.filter(status=status)
@@ -1413,7 +1489,7 @@ def queue(request):
             request,
             page_title="Review queue",
             nav="queue",
-            page=_page(request, query),
+            page=_queue_rows(_page(request, query)),
             queue_tabs=queue_tabs,
             queue_scope=scope,
             queue_sort=sort,
@@ -1456,6 +1532,14 @@ def review(request, pk):
     _reviewer_required(request)
     item = _item(request, pk)
     prerequisites = services.pending_prerequisites(item) if item.pending else []
+    dependants = (
+        [
+            Prerequisite(review.title, review)
+            for review in services.pending_dependants(item)
+        ]
+        if item.status != ReviewItem.Status.APPROVED
+        else []
+    )
     actions = [
         action
         for action in permissions.available_review_actions(request.user, item)
@@ -1522,6 +1606,12 @@ def review(request, pk):
             linked_prerequisites=set(
                 permissions.visible_reviews(request.user)
                 .filter(pk__in=[row.review.pk for row in prerequisites if row.review])
+                .values_list("pk", flat=True),
+            ),
+            dependants=dependants,
+            linked_dependants=set(
+                permissions.visible_reviews(request.user)
+                .filter(pk__in=[row.review.pk for row in dependants])
                 .values_list("pk", flat=True),
             ),
             decision_action=selected_action,

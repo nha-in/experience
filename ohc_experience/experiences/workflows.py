@@ -7,13 +7,17 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Exists
 from django.db.models import Max
+from django.db.models import OuterRef
+from django.db.models import Q
 from django.utils import timezone
 
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import ApplicationDependency
 from ohc_experience.experiences.models import ApplicationFormUse
+from ohc_experience.experiences.models import ApplicationInstance
 from ohc_experience.experiences.models import FormRecord
 from ohc_experience.experiences.models import FormReuseScope
 from ohc_experience.experiences.models import FormSubmission
@@ -45,6 +49,11 @@ from .services import issue_outcome
 logger = logging.getLogger(__name__)
 
 MAX_REVIEW_TEXT = 10000
+PENDING_STATUSES = (
+    ReviewItem.Status.NEW,
+    ReviewItem.Status.IN_REVIEW,
+    ReviewItem.Status.QUERY,
+)
 
 
 def _notice(item, event, *, note=""):
@@ -275,6 +284,11 @@ def milestone_unavailable(item):
     )
     if milestone and not milestone.enabled:
         return "This milestone is not applied for. Edit the product to add it."
+    unsubmitted = unsubmitted_prerequisites(item)
+    if unsubmitted:
+        names = readable_list(review.title for review in unsubmitted)
+        verb = "is" if len(unsubmitted) == 1 else "are"
+        return f"{item.application.title} opens once {names} {verb} submitted."
     return ""
 
 
@@ -283,7 +297,10 @@ def _prerequisite_applications(application):
     ordered, seen = [], {application.pk}
 
     def visit(current):
-        for dependency in current.dependencies.all():
+        for dependency in current.dependencies.select_related(
+            "review_item",
+            "milestone",
+        ):
             if dependency.pk not in seen:
                 seen.add(dependency.pk)
                 visit(dependency)
@@ -293,12 +310,71 @@ def _prerequisite_applications(application):
     return ordered
 
 
+def _dependant_applications(application):
+    """Everything built on an application, directly or not, earliest first."""
+    ordered, seen = [], {application.pk}
+
+    def visit(current):
+        for dependant in current.dependent_applications.select_related(
+            "review_item",
+        ).order_by("pk"):
+            if dependant.pk not in seen:
+                seen.add(dependant.pk)
+                ordered.append(dependant)
+                visit(dependant)
+
+    visit(application)
+    return ordered
+
+
+def _reviews(applications):
+    return [
+        review
+        for review in (
+            getattr(application, "review_item", None) for application in applications
+        )
+        if review
+    ]
+
+
+def unsubmitted_prerequisites(item):
+    """Reviews this one builds on that were never submitted, or were withdrawn.
+
+    A form opens once everything before it is submitted, so a chain is worked
+    through in order. Sent back still counts as submitted: a reviewer's decision
+    never closes a form the integrator is working in. Only withdrawing does, and
+    `withdraw` refuses while anything is submitted on top.
+    """
+    if not item.application_id:
+        return []
+    return [
+        review
+        for review in _reviews(_prerequisite_applications(item.application))
+        if review.status == ReviewItem.Status.DRAFT
+    ]
+
+
+def pending_dependants(item):
+    """Open reviews built on this one, directly or not, earliest first.
+
+    None of them can be decided before this review is approved, and it cannot be
+    withdrawn while they wait on it.
+    """
+    if not item.application_id:
+        return []
+    return [
+        review
+        for review in _reviews(_dependant_applications(item.application))
+        if review.pending
+    ]
+
+
 def pending_prerequisites(item):
     """What must be approved before this review can be decided.
 
-    Integrators submit in any order, so the order is kept here instead: the
-    program's own prerequisites, such as a verified organisation, then every
-    unapproved application this one builds on, earliest first.
+    A decision keeps the order: the program's own prerequisites, such as a
+    verified organisation, then every unapproved application this one builds
+    on, earliest first. `waiting_reviews` is the same test as a filter.
     """
     pending = list(item.definition.pending_prerequisites(item))
     if item.application_id:
@@ -309,6 +385,35 @@ def pending_prerequisites(item):
             not in registry.get(application.application_type).success_statuses
         )
     return pending
+
+
+def waiting_reviews():
+    """Open reviews that cannot be decided yet: `pending_prerequisites` as a filter.
+
+    The queue sorts ready reviews from waiting ones in the database. A join per
+    level reaches as far back as the longest chain in any catalog, since
+    dependencies only ever follow a catalog's predecessors.
+    """
+    unsettled = Q(pk__in=[])
+    for definition in registry.all():
+        unsettled |= Q(application_type=definition.key) & ~Q(
+            status__in=definition.success_statuses,
+        )
+    held = Q(pk__in=[])
+    for form in registry.forms():
+        due = form.prerequisites_due()
+        if due is not None:
+            held |= Q(form__form_key=form.key) & due
+    depth = max((program.longest_chain() for program in registry.programs()), default=0)
+    for level in range(1, depth + 1):
+        lookup = "__".join(["dependent_applications"] * level)
+        held |= Exists(
+            ApplicationInstance.objects.filter(
+                unsettled,
+                **{lookup: OuterRef("application")},
+            ),
+        )
+    return Q(status__in=PENDING_STATUSES) & held
 
 
 def prerequisite_names(prerequisites):
@@ -569,6 +674,13 @@ def withdraw(item, actor):
     require_integrator(actor, item.organisation)
     if not item.pending:
         msg = "Only an active review request can be withdrawn."
+        raise ValidationError(msg)
+    dependants = pending_dependants(item)
+    if dependants:
+        # Latest first, the order they can be withdrawn in.
+        names = readable_list(review.title for review in reversed(dependants))
+        builds = "It builds" if len(dependants) == 1 else "They build"
+        msg = f"Withdraw {names} first. {builds} on this request."
         raise ValidationError(msg)
     item.status = ReviewItem.Status.DRAFT
     item.save(update_fields=["status"])

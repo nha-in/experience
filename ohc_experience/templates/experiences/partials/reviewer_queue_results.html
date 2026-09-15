@@ -50,6 +50,7 @@
    tabindex="-1"></a></td>
               <td class="relative">
                 {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+                {% include 'experiences/partials/reviewer_waiting.html' %}
                 <a class="absolute inset-0"
                    href="{{ item.get_absolute_url }}"
                    aria-hidden="true"

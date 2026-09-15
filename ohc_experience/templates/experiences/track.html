@@ -18,7 +18,7 @@
             {% for choice in track.tiles %}
               {% if choice.status != 'approved' %}Next: <a class="font-semibold text-primary no-underline hover:underline"
     href="{{ choice.url }}">
-                <span class="font-mono">{{ choice.definition.code }}</span> {{ choice.definition.name }}</a> · {% if choice.reply_needed %}reply needed{% elif choice.item.pending %}with the reviewer{% else %}waiting on you{% endif %}
+                <span class="font-mono">{{ choice.definition.code }}</span> {{ choice.definition.name }}</a> · {% if choice.reply_needed %}reply needed{% elif choice.item.pending %}with the reviewer{% elif choice.locked_by %}submit {{ choice.locked_by }} first{% else %}waiting on you{% endif %}
               <br />
             {% endif %}
           {% endfor %}
@@ -78,7 +78,28 @@
             {% else %}
               {% include 'experiences/partials/review_status.html' %}
             {% endif %}
-            {% if can_edit and can_integrate %}
+            {% if locked_by %}
+              <div class="mx-auto max-w-[480px] px-4 py-10 text-center"
+                   data-milestone-locked>
+                <span class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-soft-background text-soft-foreground"
+                      aria-hidden="true">
+                  <svg class="size-5"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="1.6">
+                    <rect x="5" y="10" width="14" height="11" rx="2" />
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
+                  </svg>
+                </span>
+                <h3 class="text-base font-semibold">Milestone locked</h3>
+                <p class="mt-2 text-sm leading-relaxed text-soft-foreground">
+                  {{ item.application.title }} opens once {% for review, url in locked_by %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a class="font-semibold text-primary no-underline hover:underline"
+   href="{{ url }}">{{ review.title }}</a>{% endfor %} {{ locked_by|length|pluralize:'is,are' }} submitted.
+                </p>
+                {% if item.selected_submission %}<p class="mt-2 text-xs text-soft-foreground">Your saved draft is kept.</p>{% endif %}
+              </div>
+            {% elif can_edit and can_integrate %}
               {% if submission_blocked %}
                 <div class="ui-alert ui-alert--info mb-5" role="status">{{ submission_blocked }}</div>
               {% endif %}
@@ -165,7 +186,7 @@
   </div>
   {# One column held to the viewport on wide screens, as on the review page. Narrower, it dissolves into the page: saved progress moves above the form and history follows the queries. #}
   <div class="contents xl:sticky xl:top-2 xl:col-start-2 xl:row-start-1 xl:-m-4 xl:flex xl:max-h-[calc(100dvh-1rem)] xl:flex-col xl:gap-4 xl:overflow-y-auto xl:p-4">
-    {% if can_edit and can_integrate %}
+    {% if can_edit and can_integrate and not locked_by %}
       <div class="ui-rise -order-1 shrink-0 [animation-delay:.2s]">
         {% include 'experiences/partials/product_evidence_readiness.html' %}
       </div>

@@ -30,7 +30,12 @@
           {% if item.definition.auto_approve %}It is recorded once {{ waiting_on }} approved.{% else %}It can be approved once {{ waiting_on }} approved.{% endif %}
         </p>
       {% endif %}
-      {% if can_integrate %}
+      {% if can_integrate and withdraw_first %}
+        <p class="mt-2" data-withdraw-hold>
+          To withdraw it, first withdraw {% for review, url in withdraw_first %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a class="font-semibold text-primary no-underline hover:underline"
+   href="{{ url }}">{{ review.title }}</a>{% endfor %}. {{ withdraw_first|length|pluralize:'It builds,They build' }} on this request.
+        </p>
+      {% elif can_integrate %}
         <form method="post"
               action="{% url 'experiences:withdraw' item.pk %}"
               class="mt-3"

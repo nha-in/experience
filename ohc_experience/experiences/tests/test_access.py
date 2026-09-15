@@ -90,7 +90,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
         "HealthLocker",
     ]
     response = client.get(reverse("experiences:assess-dashboard"))
-    assert response.context["pending_count"] == 1
+    assert response.context["ready_count"] == 1
     assert response.context["approved_month"] == 0
     assert b'id="nav-support"' not in response.content
     assert b'id="nav-events"' not in response.content

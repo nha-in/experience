@@ -113,7 +113,7 @@ def test_queue_filters_by_exact_product_and_preserves_it_in_navigation(
     reference = review_item.product.workspace.reference
     response = client.get(
         reverse("experiences:queue"),
-        {"scope": "open", "product": reference},
+        {"scope": "ready", "product": reference},
     )
 
     assert response.status_code == HTTPStatus.OK
@@ -131,11 +131,11 @@ def test_queue_filters_by_exact_product_and_preserves_it_in_navigation(
         in response.content
     )
     assert (
-        f"?kind=mine&amp;scope=open&amp;status=&amp;item=&amp;product={reference}".encode()
+        f"?kind=mine&amp;scope=ready&amp;status=&amp;item=&amp;product={reference}".encode()
         in response.content
     )
     assert f"product={reference}".encode() in response.context["filter_query"].encode()
-    assert b'href="?kind=&amp;scope=open"' in response.content
+    assert b'href="?kind=&amp;scope=ready"' in response.content
 
 
 def test_staff_product_page_links_open_requests_to_their_reviews(
@@ -156,7 +156,7 @@ def test_staff_product_page_links_open_requests_to_their_reviews(
     assert b"Supplier Quality Portal" in response.content
     assert b'id="product-switcher' not in response.content
     assert (
-        f"{reverse('experiences:queue')}?scope=open&amp;product={workspace.reference}".encode()
+        f"{reverse('experiences:queue')}?scope=ready&amp;product={workspace.reference}".encode()
         in response.content
     )
 
@@ -303,7 +303,7 @@ def test_client_response_alert_is_not_shown_to_reviewer(review_item):
 @pytest.mark.parametrize(
     ("scope", "incompatible_status", "expected_statuses"),
     [
-        ("open", "approved", {"new", "in_review", "query_raised"}),
+        ("ready", "approved", {"new", "in_review", "query_raised"}),
         ("decided", "in_review", {"approved", "sent_back"}),
         (
             "all",
@@ -355,13 +355,13 @@ def test_empty_personal_queue_keeps_its_scope_when_clearing_search(
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(
         reverse("experiences:queue"),
-        {"scope": "open", "kind": "mine", "q": "not found"},
+        {"scope": "ready", "kind": "mine", "q": "not found"},
     )
     assert b"No reviews match these filters." in response.content
-    assert b'href="?kind=mine&amp;scope=open"' in response.content
+    assert b'href="?kind=mine&amp;scope=ready"' in response.content
     response = client.get(
         reverse("experiences:queue"),
-        {"scope": "open", "kind": "mine"},
+        {"scope": "ready", "kind": "mine"},
     )
     assert b"No requests in this view" in response.content
     assert b"View all requests" in response.content

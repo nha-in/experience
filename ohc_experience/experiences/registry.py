@@ -72,6 +72,9 @@ class ExperienceRegistry:
     def all(self) -> tuple[type[ApplicationDefinition], ...]:
         return tuple(self._definitions.values())
 
+    def forms(self):
+        return tuple(self._forms.values())
+
     def programs(self):
         return tuple(self._programs.values())
 

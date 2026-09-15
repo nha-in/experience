@@ -1,0 +1,5 @@
+{% if item.waiting_on %}<span class="mt-1 block text-xs text-soft-foreground" data-waiting-on>Waiting on {% for name, status in item.waiting_on %}{{ name }}<span class="whitespace-nowrap">&nbsp;· {{ status }}</span>{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+{% if item.waited_on_by %}
+  <span class="mt-1 block text-xs font-semibold text-primary"
+        data-waited-on-by>{{ item.waited_on_by }} waiting on this</span>
+{% endif %}

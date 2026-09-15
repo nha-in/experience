@@ -151,12 +151,18 @@ retired; reviewer work uses the engine's assessment screens.
   product applies at once, keeps its revision history and never enters the
   review queue. Registration starts sandbox provisioning, whether or not the
   organisation is verified yet.
-- Milestones are never locked. An integrator can submit M2 before M1 is approved,
-  or before the organisation is verified. The review keeps the order instead:
-  approve and send back stay disabled, and are refused, while an earlier
-  milestone or organisation verification is unapproved. Queries can still be
-  raised. UHI participation submitted early waits, and is recorded automatically
-  once its prerequisites are approved.
+- A milestone's form opens once every milestone before it is submitted: M2 once
+  M1 is, M3 once M1 and M2 are. A sent-back milestone still counts as submitted;
+  a withdrawn one does not. A request cannot be withdrawn while a later milestone
+  built on it is under review; the integrator withdraws that one first. An
+  integrator can still submit M2 before M1 is approved, or before the
+  organisation is verified. The review keeps the order: approve and send back
+  stay disabled, and are refused, while an earlier milestone or organisation
+  verification is unapproved. Queries can still be raised. The review queue lists
+  those requests under Waiting, apart from Ready ones, with what each waits on;
+  a request's row and review page name what waits on it. UHI participation
+  submitted early waits, and is recorded automatically once its prerequisites
+  are approved.
   Admins assign reviewers manually to label and filter work; the assignee must
   hold the matching category's review-write or review-approve grant. Any
   reviewer with that grant can act, assigned or not; superusers can perform

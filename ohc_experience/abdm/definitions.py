@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.utils import timezone
 
 from ohc_experience.experiences.definitions import ApplicationDefinition
@@ -11,6 +12,7 @@ from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.workflows import project_product
 from ohc_experience.integrations.services import start_provisioning
+from ohc_experience.organisations.models import Organisation
 
 from .catalog import MILESTONES
 from .catalog import TRACKS
@@ -41,6 +43,12 @@ def organisation_prerequisite(item):
             ).first(),
         ),
     )
+
+
+#: The reviews `organisation_prerequisite` holds, as a filter.
+UNVERIFIED_ORGANISATION = ~Q(
+    organisation__verification_status=Organisation.VerificationStatus.VERIFIED,
+)
 
 
 class OrganisationVerification(ApplicationFormDefinition):
@@ -117,6 +125,10 @@ class ExitEvidence(ApplicationFormDefinition):
     @classmethod
     def pending_prerequisites(cls, item):
         return organisation_prerequisite(item)
+
+    @classmethod
+    def prerequisites_due(cls):
+        return UNVERIFIED_ORGANISATION
 
     @classmethod
     def on_approve(cls, item, actor):
@@ -217,6 +229,10 @@ class UhiParticipation(ApplicationFormDefinition):
     @classmethod
     def pending_prerequisites(cls, item):
         return organisation_prerequisite(item)
+
+    @classmethod
+    def prerequisites_due(cls):
+        return UNVERIFIED_ORGANISATION
 
 
 class UhiApplication(ApplicationDefinition):

@@ -396,6 +396,7 @@
     @apply block text-[13px] leading-[19px] font-semibold break-words;
   }
 
+  .ui-station--locked .ui-station-name,
   .ui-station--idle .ui-station-name {
     @apply font-medium text-soft-foreground;
   }
@@ -413,6 +414,7 @@
     @apply text-green-800;
   }
 
+  .ui-station--locked .ui-station-status,
   .ui-station--idle .ui-station-status {
     @apply text-placeholder-foreground;
   }

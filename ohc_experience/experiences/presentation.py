@@ -96,7 +96,7 @@ def overview_next_step(workspace, tracks, organisation_review):
 
 def _milestone_next_step(tiles, product_url):
     for tile in tiles:
-        if tile["status"] == "draft":
+        if tile["status"] == "draft" and not tile.get("locked_by"):
             return _step(
                 f"Continue with {tile['definition'].code}",
                 (

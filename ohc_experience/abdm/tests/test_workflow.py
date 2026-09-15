@@ -134,7 +134,12 @@ def submit(environment, key="m1"):
 
 
 def approve(environment, key="m1"):
-    item = submit(environment, key)
+    submit(environment, key)
+    return approve_submitted(environment, key)
+
+
+def approve_submitted(environment, key="m1"):
+    item = milestone(environment, key)
     services.assign_review(item, environment["admin"], environment["reviewer"])
     return services.decide(
         item,
@@ -284,7 +289,11 @@ def test_a_recorded_uhi_application_still_reaches_the_queue(environment, client)
     item = submit(environment, "uhi1")
     client.force_login(environment["admin"])
 
-    page = client.get(reverse("experiences:queue"), HTTP_HX_REQUEST="true")
+    page = client.get(
+        reverse("experiences:queue"),
+        {"scope": "decided"},
+        HTTP_HX_REQUEST="true",
+    )
 
     assert item in list(page.context["page"])
 
@@ -315,7 +324,8 @@ def test_uhi_answers_can_be_corrected_after_recording(environment):
     assert item.history.filter(action="Record updated").exists()
 
 
-def test_uhi_submitted_before_m1_is_recorded_when_m1_is_approved(environment):
+def test_uhi_submitted_before_m1_is_approved_is_recorded_when_it_is(environment):
+    submit(environment)
     uhi = submit(environment, "uhi1")
     assert uhi.status == ReviewItem.Status.NEW
     assert uhi.application.status == "under_review"
@@ -324,7 +334,7 @@ def test_uhi_submitted_before_m1_is_recorded_when_m1_is_approved(environment):
         with pytest.raises(ValidationError, match="recorded once its prerequisites"):
             services.decide(uhi, environment["reviewer"], action=action, note="Hold.")
 
-    approve(environment)
+    approve_submitted(environment)
 
     uhi.refresh_from_db()
     assert uhi.status == ReviewItem.Status.APPROVED
@@ -349,8 +359,14 @@ def test_a_waiting_uhi_application_is_recorded_once_verification_is_approved(
     assert uhi.status == ReviewItem.Status.APPROVED
 
 
-def test_milestones_are_submitted_in_any_order_but_decided_in_order(environment):
-    """Nothing is locked for the integrator; the review keeps the order instead."""
+def test_milestones_are_submitted_in_order_and_decided_in_order(environment):
+    """Submitting M1 opens M2, but M2 is decided only once M1 is approved."""
+    with pytest.raises(
+        ValidationError,
+        match="once M1 - ABHA and identity is submitted",
+    ):
+        submit(environment, "m2")
+    submit(environment)
     m2 = submit(environment, "m2")
     assert m2.status == ReviewItem.Status.NEW
     services.assign_review(m2, environment["admin"], environment["reviewer"])
@@ -368,7 +384,7 @@ def test_milestones_are_submitted_in_any_order_but_decided_in_order(environment)
         field_key="functional_report",
     )
 
-    approve(environment)
+    approve_submitted(environment)
     query = m2.queries.get()
     services.reply_query(query, environment["applicant"], "Cases 3 and 4.")
     services.resolve_query(query, environment["reviewer"])
@@ -509,6 +525,7 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
     environment,
     client,
 ):
+    submit(environment)
     submit(environment, "m2")
     client.force_login(environment["applicant"])
     url = reverse(
@@ -518,10 +535,13 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
 
     m3 = client.get(url, {"milestone": "m3"}).content.decode()
     m2 = client.get(url, {"milestone": "m2"}).content.decode()
+    m4 = client.get(url, {"milestone": "m4"}).content.decode()
 
     assert "data-request-submit" in m3
     assert "Milestone locked" not in m3
     assert "It can be approved once M1 - ABHA and identity is approved." in m2
+    assert "Milestone locked" in m4
+    assert "data-request-submit" not in m4
 
 
 def test_registering_a_product_records_it_without_a_review(environment):
@@ -936,7 +956,10 @@ def test_the_item_filter_reaches_requests_outside_any_track(environment, client)
     client.force_login(environment["reviewer"])
 
     def listed(item):
-        return client.get(reverse("experiences:queue"), {"item": item}).context["page"]
+        return client.get(
+            reverse("experiences:queue"),
+            {"item": item, "scope": "all"},
+        ).context["page"]
 
     assert {entry.kind for entry in listed("organisation_verification")} == {
         ReviewItem.Kind.ORGANISATION,
@@ -992,8 +1015,8 @@ def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
     environment,
     client,
 ):
+    m1 = submit(environment)
     m2 = submit(environment, "m2")
-    m1 = milestone(environment)
     client.force_login(environment["reviewer"])
 
     response = client.get(m2.get_absolute_url())
@@ -1007,7 +1030,7 @@ def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
     assert f'href="{m1.get_absolute_url()}">M1 - ABHA and identity</a>' in html
     assert "waiting on prerequisites" in html
 
-    approve(environment)
+    approve_submitted(environment)
     html = client.get(m2.get_absolute_url()).content.decode()
 
     assert 'id="decision-hold"' not in html
@@ -1015,6 +1038,7 @@ def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
 
 
 def test_a_waiting_recorded_request_offers_reviewers_no_decision(environment, client):
+    submit(environment)
     uhi = submit(environment, "uhi1")
     client.force_login(environment["reviewer"])
 

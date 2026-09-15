@@ -1,4 +1,5 @@
-<ul class="mt-2.5 flex flex-col gap-2" aria-label="Prerequisites">
+<ul class="mt-2.5 flex flex-col gap-2"
+    aria-label="{{ label|default:'Prerequisites' }}">
   {% for prerequisite in prerequisites %}
     <li class="flex flex-wrap items-center gap-x-2 gap-y-1">
       {% if prerequisite.review.pk in linked_prerequisites %}
