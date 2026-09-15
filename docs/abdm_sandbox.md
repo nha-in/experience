@@ -265,16 +265,17 @@ Build from the repository root:
 docker build -f compose/production/django/Dockerfile -t experience-production .
 ```
 
-The existing [Publish sandbox image workflow](../.github/workflows/publish-image.yml)
-builds this same Dockerfile for AMD64 and ARM64 and publishes to
-`ghcr.io/nha-in/sandbox`. It includes the asset build and verification, so no
-additional production image build job is required.
+The [Deploy production workflow](../.github/workflows/deploy-prod.yml) builds
+this same Dockerfile for ARM64 and publishes it to the Amazon ECR repository
+configured by the `production` environment's `AWS_REGION` and `ECR_REPOSITORY`
+variables. It includes the asset build and verification, so no additional
+production image build job is required.
 
-For AWS ECS, deploy a new task revision using the published image's new tag or
-digest (or your existing ECR mirror); existing tasks do not pick up changed images automatically
+For AWS ECS, deploy a new task revision using the published image's digest;
+existing tasks do not pick up changed images automatically
 ([ECS task image configuration](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#container_definition_image)).
-Build for the task's CPU architecture (`linux/amd64` for X86_64 or
-`linux/arm64` for ARM64). Use `DJANGO_SETTINGS_MODULE=config.settings.production` (the
+The published image is `linux/arm64` only, so the task's runtime platform must be
+`ARM64`. Use `DJANGO_SETTINGS_MODULE=config.settings.production` (the
 image default), container port `5000`, and the default `/start` command. The
 existing `/entrypoint` expects `POSTGRES_HOST`, `POSTGRES_PORT`, and
 `POSTGRES_USER` alongside your normal database configuration. ECS command
