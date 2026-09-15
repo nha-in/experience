@@ -264,6 +264,30 @@
     @apply bg-primary-50 font-semibold text-primary-900;
   }
 
+  /* A switch that sits on the hero band. The pill's emerald-50 is the colour
+     of the wash, so here the current option lifts off a hairline track. */
+  .ui-switch {
+    @apply inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl p-[3px];
+    background: color-mix(in oklab, var(--card) 60%, transparent);
+    box-shadow: inset 0 0 0 1px var(--hero-hairline);
+  }
+
+  .ui-switch-option {
+    @apply inline-flex min-h-9 shrink-0 items-center rounded-[11px] px-3.5 text-[13px] font-medium text-muted-foreground no-underline transition-[color,background-color,box-shadow] duration-150 ease-out hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
+  }
+
+  .ui-switch-option:not([aria-current]):hover {
+    background: color-mix(in oklab, var(--card) 75%, transparent);
+  }
+
+  .ui-switch-option[aria-current] {
+    @apply bg-card font-semibold text-primary dark:bg-muted-background;
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent),
+      0 1px 2px rgb(0 0 0 / 0.05),
+      0 6px 14px -8px color-mix(in oklab, var(--primary-900) 40%, transparent);
+  }
+
   /* ── Pagination ─────────────────────────────────────────────────────── */
 
   .ui-pagination {

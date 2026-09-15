@@ -7,7 +7,7 @@
         <p class="ui-hero-eyebrow">{{ experience_program.review_heading }}</p>
         <h1 class="ui-hero-title">Review queue</h1>
         <p class="ui-hero-lede">{% if queue_scope == 'waiting' %}Requests that cannot be decided until what they build on is approved. You can read them and raise queries meanwhile.{% else %}Application requests and organisation verifications. Every decision, query and send-back is recorded and shared with the integrator.{% endif %}</p>
-        <nav class="mt-3.5 flex flex-wrap items-center gap-1"
+        <nav class="ui-switch mt-4"
              aria-label="Scope"
              hx-boost="true"
              hx-target="#review-queue"
@@ -15,16 +15,16 @@
              hx-select-oob="#queue-hero"
              hx-swap="outerHTML"
              hx-push-url="true">
-          <a class="ui-pill min-h-9 inline-flex items-center"
+          <a class="ui-switch-option"
              href="?scope=ready&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'ready' %}aria-current="page"{% endif %}>Ready</a>
-          <a class="ui-pill min-h-9 inline-flex items-center"
+          <a class="ui-switch-option"
              href="?scope=waiting&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'waiting' %}aria-current="page"{% endif %}>Waiting</a>
-          <a class="ui-pill min-h-9 inline-flex items-center"
+          <a class="ui-switch-option"
              href="?scope=decided&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'decided' %}aria-current="page"{% endif %}>Decided</a>
-          <a class="ui-pill min-h-9 inline-flex items-center"
+          <a class="ui-switch-option"
              href="?scope=all&amp;kind={{ filters.kind|urlencode }}&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;product={{ filters.product|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'all' %}aria-current="page"{% endif %}>Everything</a>
         </nav>
