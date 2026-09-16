@@ -28,10 +28,12 @@
           <div class="flex flex-wrap gap-2">{% if event.can_edit %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
    href="{% url 'experiences:event-edit' event.pk %}">{% include 'components/nav_icon.html' with icon='edit' %}Edit</a>{% endif %}{% if event.can_publish %}<form method="post"
       action="{% url 'experiences:event-publication' event.pk %}"
-      data-confirm="{% if event.is_published %}Unpublish this event?{% else %}Publish this event for applicants?{% endif %}">{% csrf_token %}<button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-        type="submit"
-        name="intent"
-        value="{% if event.is_published %}unpublish{% else %}publish{% endif %}">{% if event.is_published %}Unpublish{% else %}Publish{% endif %}</button></form>{% endif %}</div>
+      data-confirm="{% if event.is_published %}Unpublish this event?{% else %}Publish this event for applicants?{% endif %}">{% csrf_token %}<input type="hidden"
+       name="intent"
+       value="{% if event.is_published %}unpublish{% else %}publish{% endif %}" /><button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">{% if event.is_published %}Unpublish{% else %}Publish{% endif %}</button></form>{% endif %}{% if event.can_edit %}<form method="post"
+      action="{% url 'experiences:event-delete' event.pk %}"
+      data-confirm="Delete this event{% if event.registration_count %} and its {{ event.registration_count }} registration{{ event.registration_count|pluralize }}{% endif %}? {% if event.is_published %}Integrators will no longer see it. {% endif %}This cannot be undone.">{% csrf_token %}<button class="ui-btn ui-btn--destructive ui-btn--size-sm min-h-11"
+        type="submit">Delete</button></form>{% endif %}</div>
         </li>{% empty %}<li class="py-12 text-center text-soft-foreground">No events in this view.</li>{% endfor %}</ul>
       {% include "components/pagination.html" with page=page label="Event management pagination" extra_class="mt-4 px-0" %}
     </section>

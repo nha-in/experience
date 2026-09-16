@@ -98,6 +98,11 @@ urlpatterns = [
         event_views.event_publication,
         name="event-publication",
     ),
+    path(
+        "portal/events/<int:pk>/delete/",
+        event_views.event_delete,
+        name="event-delete",
+    ),
     path("portal/support/", views.support, name="support"),
     path("portal/support/<str:reference>/", views.ticket, name="ticket"),
     path(
