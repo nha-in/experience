@@ -22,6 +22,7 @@ from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import stored_secret
+from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.ports import ExternalSystem
@@ -349,6 +350,42 @@ def test_approved_picker_carries_locked_selections(environment, client):
     locked = next(field for field in inputs if field.get("id") == "milestone-hie-cmm1")
     assert "disabled" in locked
     assert "data-required-for" not in locked
+
+
+@pytest.mark.django_db
+def test_picker_locks_a_milestone_under_review_until_it_is_withdrawn(
+    environment,
+    client,
+):
+    approve(environment)
+    item = submit(environment, "m2")
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:product-edit", args=[environment["workspace"].reference])
+
+    html = client.get(url).content.decode()
+    inputs = Inputs(html).fields
+    carried = [
+        field["value"]
+        for field in inputs
+        if field.get("name") == "applied_milestones" and field.get("type") == "hidden"
+    ]
+    assert carried == ["HIE-CM:m1", "HIE-CM:m2"]
+    locked = next(field for field in inputs if field.get("id") == "milestone-hie-cmm2")
+    assert "disabled" in locked
+    assert locked["aria-describedby"] == "milestone-hie-cmm2-why"
+    assert 'id="milestone-hie-cmm2-why">Under review · withdraw to remove<' in html
+    assert "1 approved · cannot be removed" in html
+    assert "1 under review · withdraw to remove" in html
+
+    workflows.withdraw(item, environment["applicant"])
+    html = client.get(url).content.decode()
+    inputs = Inputs(html).fields
+    unlocked = next(
+        field for field in inputs if field.get("id") == "milestone-hie-cmm2"
+    )
+    assert "disabled" not in unlocked
+    assert unlocked["name"] == "applied_milestones"
+    assert "under review · withdraw to remove" not in html.lower()
 
 
 @pytest.mark.django_db

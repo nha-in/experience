@@ -27,6 +27,9 @@
           {% if approved_selections %}
             <span class="mt-1 block text-xs text-green-800">{{ approved_selections|length }} approved · cannot be removed</span>
           {% endif %}
+          {% if under_review_selections %}
+            <span class="mt-1 block text-xs text-blue-800">{{ under_review_selections|length }} under review · withdraw to remove</span>
+          {% endif %}
         </div>
       {% endif %}
     </div>
