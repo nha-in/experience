@@ -6,4 +6,16 @@ set -o nounset
 
 python /app/manage.py migrate --noinput
 
+# TEMPORARY: seed the demo dataset until the legacy dump lands. Scoped to this
+# one process: DEBUG satisfies the seed's own guard, the stand-in adapters keep
+# the demo product out of Keycloak/WSO2/HIE-CM, dummy mail keeps it out of the
+# outbox. A re-run exits non-zero once seeded, and beat must still start.
+DJANGO_DEBUG=True \
+INTEGRATION_IDP=ohc_experience.integrations.local.LocalIdpAdmin \
+INTEGRATION_API_GATEWAY=ohc_experience.integrations.local.LocalApiGateway \
+INTEGRATION_BRIDGE_REGISTRY=ohc_experience.integrations.local.LocalBridgeRegistry \
+DJANGO_EMAIL_BACKEND=django.core.mail.backends.dummy.EmailBackend \
+  python /app/manage.py seed_experience_demo \
+  || echo 'seed_experience_demo did not run; see the error above.' >&2
+
 exec celery -A config.celery_app beat -l INFO
