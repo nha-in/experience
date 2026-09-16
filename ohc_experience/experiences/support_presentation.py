@@ -20,13 +20,12 @@ def support_inbox(tickets, params, form, *, reviewer=False):
         )
     statuses = [
         ("", "All tickets"),
-        ("open", "Open"),
+        ("open", "Needs a reply" if reviewer else "With NHA team"),
         (
             "awaiting_integrator",
             "Awaiting integrator" if reviewer else "Awaiting your reply",
         ),
-        ("resolved", "Resolved"),
-        ("closed", "Closed"),
+        ("closed", "Resolved"),
     ]
     counts = dict(
         tickets.order_by().values_list("status").annotate(count=Count("pk")),

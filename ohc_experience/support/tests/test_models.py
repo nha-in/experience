@@ -1,8 +1,8 @@
 """Ticket rules the inbox, the thread and the OHC console all lean on.
 
-These live at the model layer on purpose: post_reply() and
-record_status_change() are the only sanctioned way to move a ticket, so they
-are pinned here independently of any view that calls them.
+These live at the model layer on purpose: post_reply() is the only sanctioned
+way to move a ticket, so it is pinned here independently of any view that
+calls it.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import TicketMessage
 from ohc_experience.support.models import post_reply
-from ohc_experience.support.models import record_status_change
 from ohc_experience.support.tests.factories import product_for
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -173,62 +172,86 @@ class TestPostReply:
         ]
 
 
-class TestRecordStatusChange:
-    def test_resolving_writes_an_event_and_stamps_resolved_at(
+class TestResolving:
+    def test_the_reply_is_followed_by_a_resolved_entry(
         self,
         ticket: Ticket,
         nha_member,
     ):
-        message = record_status_change(ticket, nha_member, Status.RESOLVED)
+        message = post_reply(
+            ticket,
+            nha_member,
+            "Restored from the nightly backup.",
+            from_nha_team=True,
+            resolve=True,
+        )
         ticket.refresh_from_db()
 
-        assert ticket.status == Status.RESOLVED
+        assert ticket.status == Status.CLOSED
         assert ticket.resolved_at is not None
-        assert message.kind == TicketMessage.Kind.EVENT
-        assert message.is_event is True
-        assert message.body == str(Status.RESOLVED.label)
+        assert ticket.first_responded_at is not None
+        assert message.kind == TicketMessage.Kind.REPLY
+        assert list(ticket.messages.values_list("kind", "body", "from_nha_team")) == [
+            (TicketMessage.Kind.REPLY, "Restored from the nightly backup.", True),
+            (TicketMessage.Kind.EVENT, str(Status.CLOSED.label), True),
+        ]
 
     def test_resolving_again_keeps_the_original_stamp(
         self,
         ticket: Ticket,
         nha_member,
+        integrator,
     ):
-        record_status_change(ticket, nha_member, Status.RESOLVED)
+        post_reply(
+            ticket,
+            nha_member,
+            "Restored from backup.",
+            from_nha_team=True,
+            resolve=True,
+        )
         ticket.refresh_from_db()
         resolved_at = ticket.resolved_at
 
-        record_status_change(ticket, nha_member, Status.OPEN)
-        record_status_change(ticket, nha_member, Status.RESOLVED)
+        post_reply(ticket, integrator, "One is still missing.", from_nha_team=False)
+        post_reply(
+            ticket,
+            nha_member,
+            "Restored that one too.",
+            from_nha_team=True,
+            resolve=True,
+        )
         ticket.refresh_from_db()
 
         assert ticket.resolved_at == resolved_at
 
-    def test_closing_does_not_count_as_resolving(self, ticket: Ticket, nha_member):
-        record_status_change(ticket, nha_member, Status.CLOSED)
-        ticket.refresh_from_db()
-
-        assert ticket.status == Status.CLOSED
-        assert ticket.resolved_at is None
-
-    def test_the_entry_records_which_side_moved_the_ticket(
+    def test_a_plain_reply_does_not_count_as_resolving(
         self,
         ticket: Ticket,
         nha_member,
+    ):
+        post_reply(ticket, nha_member, "Looking into it.", from_nha_team=True)
+        ticket.refresh_from_db()
+
+        assert ticket.resolved_at is None
+        assert not ticket.messages.filter(kind=TicketMessage.Kind.EVENT).exists()
+
+    def test_an_integrator_can_resolve_their_own_ticket(
+        self,
+        ticket: Ticket,
         integrator,
     ):
-        from_ohc = record_status_change(ticket, nha_member, Status.RESOLVED)
-        from_integrator = record_status_change(ticket, integrator, Status.OPEN)
+        post_reply(
+            ticket,
+            integrator,
+            "Our payload was malformed.",
+            from_nha_team=False,
+            resolve=True,
+        )
+        ticket.refresh_from_db()
 
-        assert from_ohc.from_nha_team is True
-        assert from_integrator.from_nha_team is False
-
-    def test_an_event_is_not_mistaken_for_a_reply(self, ticket: Ticket, nha_member):
-        post_reply(ticket, nha_member, "On it.", from_nha_team=True)
-        record_status_change(ticket, nha_member, Status.RESOLVED)
-
-        kinds = list(ticket.messages.values_list("kind", flat=True))
-
-        assert kinds == [TicketMessage.Kind.REPLY, TicketMessage.Kind.EVENT]
+        assert ticket.status == Status.CLOSED
+        assert ticket.first_responded_at is None
+        assert ticket.messages.get(kind=TicketMessage.Kind.EVENT).from_nha_team is False
 
 
 class TestBadgeVariants:
@@ -237,12 +260,30 @@ class TestBadgeVariants:
         [
             (Status.OPEN, "info"),
             (Status.AWAITING_INTEGRATOR, "warning"),
-            (Status.RESOLVED, "success"),
             (Status.CLOSED, "neutral"),
         ],
     )
     def test_status_variant(self, status: str, variant: str):
         assert Ticket(status=status).status_variant == variant
+
+    @pytest.mark.parametrize(
+        ("status", "integrator_label", "queue_label"),
+        [
+            (Status.OPEN, "With NHA team", "Needs a reply"),
+            (Status.AWAITING_INTEGRATOR, "Awaiting your reply", "Awaiting integrator"),
+            (Status.CLOSED, "Resolved", "Resolved"),
+        ],
+    )
+    def test_status_labels_say_whose_turn_it_is(
+        self,
+        status: str,
+        integrator_label: str,
+        queue_label: str,
+    ):
+        ticket = Ticket(status=status)
+
+        assert ticket.get_status_display() == integrator_label
+        assert ticket.queue_status_label == queue_label
 
     @pytest.mark.parametrize(
         ("priority", "variant"),
@@ -264,7 +305,6 @@ class TestBadgeVariants:
         [
             (Status.OPEN, True),
             (Status.AWAITING_INTEGRATOR, True),
-            (Status.RESOLVED, False),
             (Status.CLOSED, False),
         ],
     )
@@ -284,12 +324,16 @@ class TestTicketQuerySet:
 
         assert list(Ticket.objects.for_organisation(organisation)) == [mine]
 
-    def test_open_only_drops_resolved_and_closed(self, organisation, nha_member):
+    def test_open_only_drops_closed(self, organisation, nha_member):
         live = open_ticket(organisation, "Still going")
-        settled = open_ticket(organisation, "Done with")
-        record_status_change(settled, nha_member, Status.RESOLVED)
         closed = open_ticket(organisation, "Filed away")
-        record_status_change(closed, nha_member, Status.CLOSED)
+        post_reply(
+            closed,
+            nha_member,
+            "Sorted on the sandbox.",
+            from_nha_team=True,
+            resolve=True,
+        )
 
         assert list(Ticket.objects.open_only()) == [live]
 

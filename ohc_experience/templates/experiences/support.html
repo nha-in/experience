@@ -9,7 +9,7 @@
         <div class="ui-rise min-w-0">
           <p class="ui-hero-eyebrow">{{ workspace.product.name|default:"Programme" }}</p>
           <h1 class="ui-hero-title">Support</h1>
-          <p class="ui-hero-lede">Raise a ticket and track the integration desk's replies. Keep your questions, supporting files and updates together.</p>
+          <p class="ui-hero-lede">{% if reviewer %}Reply to integrators and resolve their tickets. Questions, supporting files and updates stay together.{% else %}Raise a ticket and track the NHA team's replies. Keep your questions, supporting files and updates together.{% endif %}</p>
         </div>
         <div class="ui-rise flex flex-wrap items-end gap-x-9 gap-y-4 [animation-delay:50ms]">
           <div>
@@ -36,7 +36,7 @@
     </nav>
     <div class="mb-5">
       <h1 class="ui-page-title">New support ticket</h1>
-      <p class="ui-page-subtitle">Tell the integration desk what is happening. Include the relevant track, what you expected and any error messages.</p>
+      <p class="ui-page-subtitle">Tell the NHA team what is happening. Include the relevant track, what you expected and any error messages.</p>
     </div>
     <div class="max-w-[720px]">
       <div class="ui-card ui-card--layered">
@@ -163,10 +163,10 @@
           {% else %}
             <div class="border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">{{ tickets.paginator.count }} ticket{{ tickets.paginator.count|pluralize }}</div>
           {% endif %}
-        {% elif has_ticket_filters %}
+        {% elif has_ticket_filters or ticket_total %}
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
             <h3 class="ui-section-title">No support tickets to show</h3>
-            <p class="text-sm text-muted-foreground">{% if ticket_filters.status == 'awaiting_integrator' and not has_ticket_search_filters %}{% if reviewer %}No tickets are waiting for an organisation's reply.{% else %}No tickets need your reply right now.{% endif %}{% else %}Try another status, category or priority, or clear your search to see more tickets.{% endif %}</p>
+            <p class="text-sm text-muted-foreground">{% if ticket_filters.status == 'open' and not has_ticket_search_filters %}{% if reviewer %}No tickets need your reply right now.{% else %}None of your tickets are with the NHA team right now.{% endif %}{% elif ticket_filters.status == 'awaiting_integrator' and not has_ticket_search_filters %}{% if reviewer %}No tickets are waiting for an organisation's reply.{% else %}No tickets need your reply right now.{% endif %}{% elif ticket_filters.status == 'closed' and not has_ticket_search_filters %}No tickets have been resolved yet.{% else %}Try another status, category or priority, or clear your search to see more tickets.{% endif %}</p>
           </div>
         {% else %}
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">

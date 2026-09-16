@@ -276,14 +276,10 @@ def can_reply_ticket(user, ticket):
     return can_integrate(user, ticket.organisation)
 
 
-def can_resolve_ticket(user, ticket):
-    return visible_tickets(user, "approve").filter(pk=ticket.pk).exists()
-
-
 def can_close_ticket(user, ticket):
-    """Reviewers close what they may resolve; integrators close their own tickets."""
+    """Reviewers close what they may approve; integrators close their own tickets."""
     if reviewer(user):
-        return can_resolve_ticket(user, ticket)
+        return visible_tickets(user, "approve").filter(pk=ticket.pk).exists()
     return can_integrate(user, ticket.organisation)
 
 

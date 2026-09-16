@@ -35,17 +35,19 @@ class Priority(models.TextChoices):
 
 
 class Status(models.TextChoices):
-    """The four states from the support inbox screen.
+    """The three states from the support inbox screen.
 
-    AWAITING_INTEGRATOR is written from the integrator's point of view
-    ("Awaiting your reply"); the NHA console relabels it, because on the queue
-    side the same state means the ball is in the integrator's court.
+    OPEN and AWAITING_INTEGRATOR are written from the integrator's point of view
+    ("With NHA team", "Awaiting your reply"); the NHA console relabels both from
+    its own side ("Needs a reply", "Awaiting integrator").
+
+    CLOSED is labelled "Resolved": it absorbed the old resolved state, and the
+    stored value stayed "closed".
     """
 
-    OPEN = "open", _("Open")
+    OPEN = "open", _("With NHA team")
     AWAITING_INTEGRATOR = "awaiting_integrator", _("Awaiting your reply")
-    RESOLVED = "resolved", _("Resolved")
-    CLOSED = "closed", _("Closed")
+    CLOSED = "closed", _("Resolved")
 
     @classmethod
     def active(cls) -> list[str]:
@@ -56,7 +58,6 @@ class Status(models.TextChoices):
 STATUS_VARIANTS = {
     Status.OPEN: "info",
     Status.AWAITING_INTEGRATOR: "warning",
-    Status.RESOLVED: "success",
     Status.CLOSED: "neutral",
 }
 PRIORITY_VARIANTS = {
@@ -263,13 +264,16 @@ def post_reply(
     body: str,
     *,
     from_nha_team: bool,
+    resolve: bool = False,
 ) -> TicketMessage:
     """Add a reply and move the ticket to the other party's court.
 
     An integrator reply reopens the ticket; an NHA reply puts it on the
-    integrator. This lives here rather than in a view so the integrator inbox,
-    the NHA console and the admin all move a ticket the same way. Each reply is
-    mirrored into the support email thread.
+    integrator. Resolving closes it instead: the reply says how, and a Resolved
+    entry follows it in the thread. This lives here rather than in a view so the
+    integrator inbox, the NHA console and the admin all move a ticket the same
+    way. Each reply is mirrored into the support email thread, once the ticket
+    has moved, so a resolving reply goes out as a single email.
     """
     message = TicketMessage.objects.create(
         ticket=ticket,
@@ -279,31 +283,24 @@ def post_reply(
         from_nha_team=from_nha_team,
     )
     updates = ["status", "updated_at"]
-    ticket.status = Status.AWAITING_INTEGRATOR if from_nha_team else Status.OPEN
     if from_nha_team and ticket.first_responded_at is None:
         ticket.first_responded_at = timezone.now()
         updates.append("first_responded_at")
+    if resolve:
+        ticket.status = Status.CLOSED
+        if ticket.resolved_at is None:
+            ticket.resolved_at = timezone.now()
+            updates.append("resolved_at")
+        TicketMessage.objects.create(
+            ticket=ticket,
+            author=author,
+            kind=TicketMessage.Kind.EVENT,
+            body=str(Status.CLOSED.label),
+            from_nha_team=from_nha_team,
+        )
+    else:
+        ticket.status = Status.AWAITING_INTEGRATOR if from_nha_team else Status.OPEN
     ticket.save(update_fields=updates)
-    _mirror_to_support(ticket, message)
-    return message
-
-
-def record_status_change(ticket: Ticket, author, status: str) -> TicketMessage:
-    """Move a ticket and leave a trace of it in the thread."""
-    ticket.status = status
-    updates = ["status", "updated_at"]
-    if status == Status.RESOLVED and ticket.resolved_at is None:
-        ticket.resolved_at = timezone.now()
-        updates.append("resolved_at")
-    ticket.save(update_fields=updates)
-    label = Status(status).label
-    message = TicketMessage.objects.create(
-        ticket=ticket,
-        author=author,
-        kind=TicketMessage.Kind.EVENT,
-        body=str(label),
-        from_nha_team=bool(getattr(author, "is_nha_team", False)),
-    )
     _mirror_to_support(ticket, message)
     return message
 
