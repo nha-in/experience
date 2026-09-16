@@ -3,6 +3,6 @@
   <dd class="text-sm font-semibold tabular-nums {% if attention and count %}text-red-700{% endif %}">{{ count }}</dd>
   <dd class="ui-meter col-span-2" aria-hidden="true">
     <span class="ui-meter-fill {% if attention and count %}ui-meter-fill--danger{% endif %}"
-          style="width: {% widthratio count pending_count 100 %}%"></span>
+          style="width: {% widthratio count ready_count 100 %}%"></span>
   </dd>
 </div>

@@ -58,6 +58,8 @@ def test_dashboard_counts_use_current_reviewer_and_canonical_milestone(
     url = reverse("experiences:assess-dashboard")
     response = client.get(url)
     assert response.context["my_open"] == 1
+    # A meter whose total is missing from the context renders full width.
+    assert b"width: %" not in response.content
     workflows.decide(review_item, reviewer, action="approve", note="Verified")
     response = client.get(url)
     assert response.context["my_open"] == 0
