@@ -3,19 +3,18 @@
 {% load experience_ui %}
 
 {% block crumb_root %}
-  {% include 'components/crumb.html' with label='Products' %}
+  {% include 'components/crumb.html' with label='Organizations' %}
 {% endblock crumb_root %}
 {% block portal_hero %}
   <div class="ui-hero">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
-        <a class="ui-hero-back min-h-9" href="{% url 'experiences:products' %}"><span aria-hidden="true">‹</span> Products</a>
+        <a class="ui-hero-back min-h-9"
+           href="{% url 'experiences:organization-detail' organisation.slug %}"><span aria-hidden="true">‹</span> {{ organisation.display_name }}</a>
         <h1 class="ui-hero-title sm:text-[40px] sm:leading-[44px]">{{ product.name }}</h1>
         <p class="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
           <span class="inline-flex items-center gap-0.5"><span class="font-mono text-[13px] text-foreground">{{ reference }}</span>{% include 'components/copy_button.html' with value=reference label='product reference' %}</span>
           {% if product.workspace.solution_type %}<span aria-hidden="true">·</span><span>{{ product.workspace.get_solution_type_display }}</span>{% endif %}
-          <span aria-hidden="true">·</span><a class="text-foreground no-underline hover:text-primary hover:underline"
-   href="{% url 'experiences:organization-detail' organisation.slug %}">{{ organisation.display_name }}</a>
           {% if product.workspace.registered_at %}<span aria-hidden="true">·</span><span>Registered {{ product.workspace.registered_at|date:'j M Y' }}</span>{% endif %}
         </p>
         {% if progress.total %}

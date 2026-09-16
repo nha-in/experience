@@ -1,10 +1,14 @@
 {% extends 'experiences/base.html' %}
 
+{% block crumb_root %}
+  {% include 'components/crumb.html' with label='Organizations' %}
+{% endblock crumb_root %}
 {% block portal_hero %}
   <div class="ui-hero">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
-        <p class="ui-hero-eyebrow">Organization</p>
+        <a class="ui-hero-back min-h-9"
+           href="{% url 'experiences:organizations' %}"><span aria-hidden="true">‹</span> Organizations</a>
         <h1 class="ui-hero-title">{{ organization.display_name }}</h1>
         <p class="ui-hero-lede">{{ organization_details.description|default:'Organization verification and review activity.' }}</p>
       </div>
@@ -65,21 +69,13 @@
         <h2 class="ui-card-title" id="organization-products-title">Products</h2>
         <p class="ui-card-description">Products represented in review requests you can access.</p>
       </div>
-      <div class="divide-y divide-soft-border border-t border-soft-border">
+      <ul class="divide-y divide-soft-border border-t border-soft-border">
         {% for workspace in products %}
-          <a class="group flex flex-wrap items-center gap-4 px-6 py-4 text-foreground no-underline transition-colors hover:bg-primary/[0.035]"
-             href="{% url 'experiences:product-detail' workspace.reference %}">
-            <div class="min-w-0 flex-1">
-              <h3 class="text-sm font-semibold group-hover:text-primary">{{ workspace.product.name }}</h3>
-              <p class="mt-1 text-xs text-soft-foreground"><span class="font-mono">{{ workspace.reference }}</span> · {{ workspace.product.get_product_type_display }}</p>
-            </div>
-            {% if workspace.registered_at %}<span class="text-xs text-soft-foreground">Registered {{ workspace.registered_at|date:'j M Y' }}</span>{% endif %}
-            <span class="text-primary" aria-hidden="true">→</span>
-          </a>
+          {% include 'experiences/partials/organization_product.html' with padding='px-6 py-4' %}
         {% empty %}
-          <p class="px-6 py-6 text-sm text-muted-foreground">No products are visible with your review permissions.</p>
+          <li class="px-6 py-6 text-sm text-muted-foreground">No products are visible with your review permissions.</li>
         {% endfor %}
-      </div>
+      </ul>
     </section>
     <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.14s]"
              aria-labelledby="organization-reviews-title">

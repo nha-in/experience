@@ -1,0 +1,27 @@
+{% comment %}
+  Switches the staff Organizations screen between its two lists. It sits on the
+  hero band under the lede, where the review queue keeps its own switch, and
+  splits the width evenly on a phone. Context: tab ("organizations" or
+  "products").
+{% endcomment %}
+<nav class="ui-switch mt-4 flex w-full sm:inline-flex sm:w-auto"
+     aria-label="Organizations and products"
+     hx-boost="true"
+     hx-target="#main-content"
+     hx-select="#main-content"
+     hx-swap="outerHTML show:window:top"
+     hx-push-url="true"
+     hx-indicator="#nav-progress">
+  <a class="ui-switch-option min-h-11 flex-1 justify-center gap-2 sm:min-h-9 sm:flex-none [&>svg]:size-4"
+     href="{% url 'experiences:organizations' %}"
+     {% if tab == 'organizations' %}aria-current="page"{% endif %}>
+    {% include 'components/nav_icon.html' with icon='organisation' %}
+    Organizations
+  </a>
+  <a class="ui-switch-option min-h-11 flex-1 justify-center gap-2 sm:min-h-9 sm:flex-none [&>svg]:size-4"
+     href="{% url 'experiences:products' %}"
+     {% if tab == 'products' %}aria-current="page"{% endif %}>
+    {% include 'components/nav_icon.html' with icon='track' %}
+    Products
+  </a>
+</nav>

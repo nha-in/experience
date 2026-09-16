@@ -1,0 +1,17 @@
+{% comment %}
+  One of an organization's products as staff see it, linking to its staff page.
+  Context: workspace, annotated with open_count; optional padding.
+{% endcomment %}
+<li>
+  <a class="group flex flex-wrap items-center gap-x-4 gap-y-2 {{ padding|default:'px-4 py-3' }} text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+     href="{% url 'experiences:product-detail' workspace.reference %}">
+    <span class="min-w-0 flex-1">
+      <span class="block text-sm font-semibold break-words group-hover:text-primary">{{ workspace.product.name }}</span>
+      <span class="mt-0.5 block text-xs text-soft-foreground"><span class="font-mono">{{ workspace.reference }}</span> · {{ workspace.product.get_product_type_display }}{% if workspace.registered_at %} · Registered {{ workspace.registered_at|date:'j M Y' }}{% endif %}</span>
+    </span>
+    {% if workspace.open_count %}
+      <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ workspace.open_count }} open<span class="sr-only"> request{{ workspace.open_count|pluralize }}</span></span>
+    {% endif %}
+    <span class="text-primary" aria-hidden="true">→</span>
+  </a>
+</li>

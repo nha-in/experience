@@ -4,13 +4,31 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
+from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
+
+
+def register_locker(organization, owner, name):
+    workspace, form = services.register_product(
+        organization,
+        owner,
+        data={
+            **product_data(name),
+            "category": "health_locker",
+            "solution_type": ["health_locker"],
+            "applied_milestones": ["HealthLocker:locker1"],
+        },
+    )
+    assert workspace, form.errors
+    return workspace
 
 
 def test_reviewer_navigation_and_organization_detail(environment, client):
@@ -24,6 +42,7 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
 
     assert index.status_code == HTTPStatus.OK
     assert b'id="nav-organizations"' in index.content
+    assert b'id="nav-products"' not in index.content
     assert organization.display_name.encode() in index.content
     assert (
         reverse(
@@ -32,6 +51,7 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
         ).encode()
         in index.content
     )
+    assert f'href="{reverse("experiences:products")}"'.encode() in index.content
 
     detail = client.get(
         reverse("experiences:organization-detail", args=[organization.slug]),
@@ -84,6 +104,161 @@ def test_organization_pages_follow_category_review_scope(environment, client):
         ).status_code
         == HTTPStatus.NOT_FOUND
     )
+
+
+def test_staff_see_products_as_a_tab_of_organizations(environment, client):
+    workspace = environment["workspace"]
+    client.force_login(environment["admin"])
+
+    response = client.get(reverse("experiences:products"))
+    assert response.status_code == HTTPStatus.OK
+    assert "experiences/reviewer_products.html" in [t.name for t in response.templates]
+    assert response.context["nav"] == "organizations"
+    assert b'id="nav-products"' not in response.content
+    assert f'href="{reverse("experiences:organizations")}"'.encode() in response.content
+    staff_url = reverse("experiences:product-detail", args=[workspace.reference])
+    assert f'href="{staff_url}"'.encode() in response.content
+
+    client.force_login(environment["applicant"])
+    response = client.get(reverse("experiences:products"))
+    assert response.status_code == HTTPStatus.OK
+    assert "experiences/products.html" in [t.name for t in response.templates]
+    assert list(response.context["products"]) == [workspace]
+
+
+def test_open_request_counts_leave_out_drafts(environment, client):
+    submitted = submit(environment, "m1")
+    organization = environment["org"]
+    workspace = environment["workspace"]
+    quiet = register_locker(organization, environment["applicant"], "Aarogya Locker")
+    assert organization.review_items.filter(status="draft").exists()
+    client.force_login(environment["admin"])
+
+    index = client.get(reverse("experiences:organizations"))
+    [row] = index.context["organizations"]
+    assert (row.visible_product_count, row.open_count) == (2, 1)
+
+    products = client.get(reverse("experiences:products")).context["products"]
+    assert [(product, product.open_count) for product in products] == [
+        (quiet, 0),
+        (workspace, 1),
+    ]
+
+    detail = client.get(
+        reverse("experiences:organization-detail", args=[organization.slug]),
+    )
+    # The organization's own page leads with the products that need a decision.
+    assert [
+        (product, product.open_count) for product in detail.context["products"]
+    ] == [
+        (workspace, 1),
+        (quiet, 0),
+    ]
+    requests = list(detail.context["review_requests"])
+    assert submitted in requests
+    assert "draft" not in {item.status for item in requests}
+
+
+@pytest.fixture
+def catalogue(environment):
+    """An HMIS and a locker from the test organization, a locker from another one,
+    and a UHI reviewer who can see only the HMIS."""
+    other = OrganisationFactory(onboarded=True)
+    owner = UserFactory()
+    Membership.objects.create(organisation=other, user=owner, role="owner")
+    uhi_reviewer = UserFactory(is_nha_team=True, is_staff=True)
+    AccessGrant.objects.create(
+        user=uhi_reviewer,
+        program="abdm",
+        area="review",
+        category="UHI",
+    )
+    return {
+        "admin": environment["admin"],
+        "organization": environment["org"],
+        "hmis": environment["workspace"],
+        "locker": register_locker(
+            environment["org"],
+            environment["applicant"],
+            "Medibase Health Locker",
+        ),
+        "other": other,
+        "elsewhere": register_locker(other, owner, "Clinic Locker"),
+        "uhi_reviewer": uhi_reviewer,
+    }
+
+
+def listed(client, user, **params):
+    client.force_login(user)
+    response = client.get(reverse("experiences:products"), params)
+    return set(response.context["products"]), response.context
+
+
+def test_products_tab_filters_by_organization_within_scope(catalogue, client):
+    admin, organization, other = (
+        catalogue["admin"],
+        catalogue["organization"],
+        catalogue["other"],
+    )
+    hmis, locker, elsewhere = (
+        catalogue["hmis"],
+        catalogue["locker"],
+        catalogue["elsewhere"],
+    )
+    assert listed(client, admin)[0] == {hmis, locker, elsewhere}
+    assert listed(client, admin, organization=organization.slug)[0] == {hmis, locker}
+    assert listed(client, admin, organization=other.slug)[0] == {elsewhere}
+    assert listed(client, admin, organization=other.slug, q="hmis")[0] == set()
+    assert listed(client, admin, q=locker.reference.lower())[0] == {locker}
+
+    # An organization outside the reviewer's scope is not a filter they can apply.
+    uhi_reviewer = catalogue["uhi_reviewer"]
+    products, context = listed(client, uhi_reviewer, organization=other.slug)
+    assert products == {hmis}
+    assert context["selected_organization"] == ""
+    assert list(context["organization_choices"]) == [organization]
+    assert listed(client, uhi_reviewer, q="locker")[0] == set()
+
+
+def test_products_tab_filters_by_solution_type_within_scope(catalogue, client):
+    admin, other = catalogue["admin"], catalogue["other"]
+    hmis, locker, elsewhere = (
+        catalogue["hmis"],
+        catalogue["locker"],
+        catalogue["elsewhere"],
+    )
+
+    products, context = listed(client, admin, solution_type="health_locker")
+    assert products == {locker, elsewhere}
+    assert context["selected_solution_type"] == "health_locker"
+    # Only the types some product applied for, in the catalogue's order.
+    assert context["solution_type_choices"] == [
+        ("clinical_hmis", "Clinical HMIS"),
+        ("health_locker", "Health Locker"),
+    ]
+    assert listed(client, admin, solution_type="clinical_hmis")[0] == {hmis}
+    page = client.get(reverse("experiences:products"))
+    # Each row names the solution types the filter matches on.
+    assert f"{hmis.reference}</span> · Clinical HMIS ·".encode() in page.content
+    assert listed(
+        client,
+        admin,
+        solution_type="health_locker",
+        organization=other.slug,
+    )[0] == {elsewhere}
+    # A type no visible product applied for is not a filter at all.
+    products, context = listed(client, admin, solution_type="payers")
+    assert products == {hmis, locker, elsewhere}
+    assert context["selected_solution_type"] == ""
+
+    products, context = listed(
+        client,
+        catalogue["uhi_reviewer"],
+        solution_type="health_locker",
+    )
+    assert products == {hmis}
+    assert context["selected_solution_type"] == ""
+    assert context["solution_type_choices"] == [("clinical_hmis", "Clinical HMIS")]
 
 
 @pytest.mark.parametrize("route", ["organizations", "organization-detail"])
