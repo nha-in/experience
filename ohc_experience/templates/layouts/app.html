@@ -2,8 +2,7 @@
 
 {% comment %}
   Signed-in shell, as the prototype draws it: a 248px sidebar rail, a 64px
-  top bar (breadcrumb, environment pill, the person's initials) and a
-  soft-canvas content column.
+  top bar (breadcrumb, environment pill) and a soft-canvas content column.
 
   Below md the rail is replaced by a sticky top bar and a slide-in drawer. The
   drawer is a checkbox + label so it works with JavaScript disabled; the script
@@ -138,11 +137,6 @@
               {% include "components/status_dot.html" with variant="success" %}
               {{ experience_program.environment_name }}
             </span>
-            <span class="mx-0.5 h-5 w-px bg-border" aria-hidden="true"></span>
-            <a class="ui-avatar ui-avatar--muted size-8 text-xs no-underline"
-               href="{% url 'users:profile' %}"
-               title="{{ request.user.display_name }}"
-               aria-label="{% translate 'Your profile' %}">{{ request.user.display_name|slice:":2"|upper }}</a>
           </div>
         </div>
         {% block hero %}
