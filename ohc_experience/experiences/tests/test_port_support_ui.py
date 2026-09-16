@@ -187,7 +187,7 @@ def test_support_search_keeps_workspace_and_status(
     for workspace, subject, status in (
         (portal_workspaces[0], "Callback on another product", "open"),
         (portal_workspaces[1], "Callback investigation", "open"),
-        (portal_workspaces[1], "Callback fixed", "resolved"),
+        (portal_workspaces[1], "Callback fixed", "closed"),
         (portal_workspaces[1], "Other issue", "open"),
     ):
         Ticket.objects.create(
@@ -213,7 +213,7 @@ def test_support_counts_keep_filters_and_workspace_before_status(
 ):
     for product_index, subject, category, priority, status in (
         (1, "Callback investigation", "api", "high", "open"),
-        (1, "Callback fixed", "api", "high", "resolved"),
+        (1, "Callback fixed", "api", "high", "closed"),
         (1, "Unrelated issue", "api", "high", "open"),
         (1, "Callback medium priority", "api", "medium", "open"),
         (1, "Callback sandbox issue", "sandbox", "high", "open"),
@@ -241,8 +241,7 @@ def test_support_counts_keep_filters_and_workspace_before_status(
         "": 2,
         "open": 1,
         "awaiting_integrator": 0,
-        "resolved": 1,
-        "closed": 0,
+        "closed": 1,
     }
     assert response.context["has_ticket_filters"]
     assert b">Clear filters</a>" in response.content
@@ -270,6 +269,52 @@ def test_invalid_support_filters_do_not_create_a_false_active_state(portal_clien
         "q": "",
     }
     assert not response.context["has_ticket_filters"]
+
+
+@pytest.mark.parametrize(
+    ("as_reviewer", "labels"),
+    [
+        (False, ["All tickets", "With NHA team", "Awaiting your reply", "Resolved"]),
+        (True, ["All tickets", "Needs a reply", "Awaiting integrator", "Resolved"]),
+    ],
+)
+def test_status_tabs_say_whose_turn_it_is(portal_client, as_reviewer, labels):
+    if as_reviewer:
+        portal_client.force_login(ReviewerFactory(is_nha_team=True))
+    response = portal_client.get(reverse("experiences:support"))
+    assert response.status_code == HTTPStatus.OK
+    assert [tab["label"] for tab in response.context["status_tabs"]] == labels
+
+
+@pytest.mark.parametrize(
+    ("as_reviewer", "message"),
+    [
+        (False, b"None of your tickets are with the NHA team right now."),
+        (True, b"No tickets need your reply right now."),
+    ],
+)
+def test_an_empty_first_tab_does_not_claim_there_are_no_tickets(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+    as_reviewer,
+    message,
+):
+    Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_workspaces[0].product,
+        subject="Waiting on the integrator",
+        status="awaiting_integrator",
+    )
+    if as_reviewer:
+        portal_client.force_login(ReviewerFactory(is_nha_team=True))
+    response = portal_client.get(
+        reverse("experiences:support"),
+        {"product": portal_workspaces[0].reference},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert b"No tickets yet" not in response.content
+    assert message in response.content
 
 
 def test_event_counts_filter_by_kind_and_registrations_stay_private(
@@ -415,7 +460,7 @@ def test_event_register_cancel_and_filter_keep_product(
     ]
 
 
-def test_reviewer_can_render_tickets_and_resolve(
+def test_reviewer_can_reply_and_resolve(
     portal_client,
     portal_workspaces,
     owner_membership,
@@ -428,16 +473,15 @@ def test_reviewer_can_render_tickets_and_resolve(
     portal_client.force_login(ReviewerFactory(is_nha_team=True))
     response = portal_client.get(ticket.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
-    html = response.content.decode()
-    assert html.index("Mark resolved") < html.index("Close ticket")
+    assert b"Mark as resolved" in response.content
     response = portal_client.post(
         ticket.get_absolute_url(),
-        {"intent": "resolve"},
+        {"intent": "close", "body": "Callback acknowledged on our side."},
         follow=True,
     )
     assert response.status_code == HTTPStatus.OK
     ticket.refresh_from_db()
-    assert ticket.status == "resolved"
+    assert ticket.status == "closed"
 
 
 @pytest.mark.parametrize("route", ["experiences:events", "experiences:support"])
@@ -457,7 +501,7 @@ def test_reviewer_pages_do_not_select_a_product(
     assert portal_client.session["experience_product"] == portal_workspaces[1].reference
 
 
-def test_integrator_can_close_their_own_ticket(
+def test_integrator_can_resolve_their_own_ticket(
     portal_client,
     portal_workspaces,
     owner_membership,
@@ -467,14 +511,42 @@ def test_integrator_can_close_their_own_ticket(
         product=portal_workspaces[0].product,
         subject="Sorted on our side",
     )
-    page = portal_client.get(ticket.get_absolute_url())
-    assert b"Close ticket" in page.content
-    assert b"Mark resolved" not in page.content
+    url = ticket.get_absolute_url()
+    assert b"Mark as resolved" in portal_client.get(url).content
 
-    response = portal_client.post(ticket.get_absolute_url(), {"intent": "close"})
+    response = portal_client.post(url, {"intent": "close", "body": "Fixed now."})
 
     assert response.status_code == HTTPStatus.FOUND
     ticket.refresh_from_db()
     assert ticket.status == "closed"
-    assert ticket.messages.filter(kind="event", body="Closed").exists()
-    assert b"Close ticket" not in portal_client.get(ticket.get_absolute_url()).content
+    assert list(ticket.messages.values_list("kind", "body")) == [
+        ("reply", "Fixed now."),
+        ("event", "Resolved"),
+    ]
+    assert b"Mark as resolved" not in portal_client.get(url).content
+
+
+def test_resolving_takes_a_comment_of_at_least_ten_characters(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_workspaces[0].product,
+        subject="Sorted on our side",
+    )
+    url = ticket.get_absolute_url()
+    for body in ("", "Fixed now", "   Fixed now   "):
+        response = portal_client.post(url, {"intent": "close", "body": body})
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["form"].errors["body"] == [
+            "Add a comment of at least 10 characters to resolve this ticket.",
+        ]
+        assert b"This ticket has not been resolved." in response.content
+    ticket.refresh_from_db()
+    assert ticket.status == "open"
+    assert not ticket.messages.exists()
+    # A plain reply has no minimum length.
+    response = portal_client.post(url, {"body": "Fixed now"})
+    assert response.status_code == HTTPStatus.FOUND

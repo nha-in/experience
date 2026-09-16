@@ -1,4 +1,4 @@
-"""Every ticket entry is mirrored into one threaded conversation with support."""
+"""Every ticket reply is mirrored into one threaded conversation with support."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
-from ohc_experience.support.models import record_status_change
 from ohc_experience.support.tests.factories import product_for
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -144,11 +143,20 @@ def test_an_integrator_reply_copies_the_nha_member_who_answered(
     assert mail.outbox[2].cc == ["anand@ohc.network", "meera@sunrise.in"]
 
 
-def test_a_status_change_is_mirrored_too(ticket, integrator, nha_member):
+def test_resolving_sends_one_mail_with_the_comment(ticket, integrator, nha_member):
     post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
-    record_status_change(ticket, nha_member, Status.RESOLVED)
+    post_reply(
+        ticket,
+        nha_member,
+        "Restored from the nightly backup.",
+        from_nha_team=True,
+        resolve=True,
+    )
 
-    assert "changed the status to: Resolved" in mail.outbox[1].body
+    _opening, resolution = mail.outbox
+    assert "(NHA team) replied:" in resolution.body
+    assert "Restored from the nightly backup." in resolution.body
+    assert "Status: Resolved" in resolution.body
 
 
 def test_a_mail_failure_does_not_break_the_thread(ticket, integrator):

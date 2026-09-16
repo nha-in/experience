@@ -1,5 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import MinLengthValidator
 from django.utils.translation import gettext_lazy as _
 
 from ohc_experience.support.models import Category
@@ -134,6 +135,10 @@ class CredentialURLsForm(forms.Form):
         return cleaned
 
 
+#: Resolving a ticket takes a reply that says how it was resolved.
+RESOLVE_COMMENT_MIN_LENGTH = 10
+
+
 class SupportForm(forms.Form):
     subject = forms.CharField(max_length=255)
     category = forms.ChoiceField(
@@ -154,8 +159,15 @@ class SupportForm(forms.Form):
         accept=".pdf",
     )
 
-    def __init__(self, *args, program=None, workspace=None, **kwargs):
+    def __init__(self, *args, program=None, workspace=None, resolving=False, **kwargs):
         super().__init__(*args, **kwargs)
+        if resolving:
+            body = self.fields["body"]
+            body.validators.append(MinLengthValidator(RESOLVE_COMMENT_MIN_LENGTH))
+            body.error_messages["required"] = body.error_messages["min_length"] = (
+                f"Add a comment of at least {RESOLVE_COMMENT_MIN_LENGTH} characters "
+                "to resolve this ticket."
+            )
         program = program or (workspace.definition if workspace else get_program())
         applied = (
             {value.split(":", 1)[0] for value in workspace.applied_milestones}

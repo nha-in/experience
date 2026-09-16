@@ -40,7 +40,6 @@ from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import post_reply
-from ohc_experience.support.models import record_status_change
 
 from . import credentials as credential_services
 from . import permissions
@@ -2051,12 +2050,6 @@ def support(request):
     )
 
 
-TICKET_STATUS_INTENTS = {
-    "resolve": (permissions.can_resolve_ticket, Status.RESOLVED),
-    "close": (permissions.can_close_ticket, Status.CLOSED),
-}
-
-
 @login_required
 @require_http_methods(["GET", "POST"])
 def ticket(request, reference):
@@ -2066,21 +2059,19 @@ def ticket(request, reference):
     ticket = get_object_or_404(query, reference=reference)
     workspace = ticket.product.workspace
     request.session["experience_product"] = workspace.reference
+    resolving = request.POST.get("intent") == "close"
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
         files=request.FILES or None,
+        resolving=resolving,
     )
     for key in ("subject", "category", "track", "priority"):
         del form.fields[key]
     if request.method == "POST":
-        intent = request.POST.get("intent")
-        if intent in TICKET_STATUS_INTENTS:
-            allowed, status = TICKET_STATUS_INTENTS[intent]
-            if not allowed(request.user, ticket):
-                raise PermissionDenied
-            record_status_change(ticket, request.user, status)
-            return redirect("experiences:ticket", reference=reference)
-        if not permissions.can_reply_ticket(request.user, ticket):
+        allowed = (
+            permissions.can_close_ticket if resolving else permissions.can_reply_ticket
+        )
+        if not allowed(request.user, ticket):
             raise PermissionDenied
         if form.is_valid():
             with transaction.atomic():
@@ -2089,6 +2080,7 @@ def ticket(request, reference):
                     request.user,
                     form.cleaned_data["body"],
                     from_nha_team=permissions.reviewer(request.user),
+                    resolve=resolving,
                 )
                 for upload in form.cleaned_data["attachments"]:
                     TicketAttachment.objects.create(
@@ -2107,10 +2099,9 @@ def ticket(request, reference):
             nav="support",
             ticket=ticket,
             can_reply=permissions.can_reply_ticket(request.user, ticket),
-            can_resolve=ticket.is_open
-            and permissions.can_resolve_ticket(request.user, ticket),
             can_close=ticket.status != Status.CLOSED
             and permissions.can_close_ticket(request.user, ticket),
+            resolving=resolving,
             form=form,
         ),
     )

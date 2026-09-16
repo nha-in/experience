@@ -16,7 +16,7 @@
   </div>
   {% if ticket.status == 'awaiting_integrator' and not reviewer and can_reply %}
     <div class="ui-alert ui-alert--warning mb-4" role="status">
-      <p class="flex-1">The integration desk is waiting for your reply.</p>
+      <p class="flex-1">The NHA team is waiting for your reply.</p>
       <a class="font-semibold underline underline-offset-4" href="#reply-form">Write a reply</a>
     </div>
   {% endif %}
@@ -29,10 +29,10 @@
           {% include "experiences/partials/support_message.html" %}
         {% endfor %}
       </ol>
-      {% if can_reply %}
+      {% if can_reply or can_close %}
         <div class="ui-card ui-card--sm" id="reply-panel">
           <div class="ui-card-content">
-            <h2 class="mb-3 text-xs font-bold">Reply to this ticket</h2>
+            <h2 class="mb-3 text-xs font-bold">{% if can_reply %}Reply to this ticket{% else %}Resolve this ticket{% endif %}</h2>
             <form id="reply-form"
                   data-unsaved-form
                   class="flex scroll-mt-6 flex-col gap-3"
@@ -40,14 +40,22 @@
                   enctype="multipart/form-data"
                   hx-boost="false">
               {% csrf_token %}
-              {% if form.errors %}<div class="ui-alert ui-alert--destructive" role="alert"><p>Your reply has not been sent. Check the fields below and try again.</p></div>{% endif %}
+              {% if form.errors %}<div class="ui-alert ui-alert--destructive" role="alert"><p>{% if resolving %}This ticket has not been resolved.{% else %}Your reply has not been sent.{% endif %} Check the fields below and try again.</p></div>{% endif %}
               {% include "components/form_errors.html" %}
               {% ui_field form.body label="Your reply" placeholder="Add the requested details or an update" extra_class="min-h-36" %}
               {% ui_field form.attachments label="Attach files" %}
               <div class="mt-1 flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-                <button class="ui-btn ui-btn--default ui-btn--size-sm w-full sm:w-auto"
-                        type="submit">Send reply</button>
-                <span class="text-[10.5px] text-soft-foreground sm:ml-auto">{% if ticket.status == 'resolved' or ticket.status == 'closed' %}Sending a reply will reopen this ticket.{% elif reviewer %}Your reply is visible to the organisation's team.{% else %}The integration desk and your {{ ticket.organisation.noun }} can read this reply.{% endif %}</span>
+                {% if can_reply %}
+                  <button class="ui-btn ui-btn--default ui-btn--size-sm w-full sm:w-auto"
+                          type="submit">Send reply</button>
+                {% endif %}
+                {% if can_close %}
+                  <button class="ui-btn {% if can_reply %}ui-btn--outline{% else %}ui-btn--default{% endif %} ui-btn--size-sm w-full sm:w-auto"
+                          name="intent"
+                          value="close"
+                          type="submit">Mark as resolved</button>
+                {% endif %}
+                <span class="text-[10.5px] text-soft-foreground sm:ml-auto">{% if ticket.status == 'closed' %}Sending a reply will reopen this ticket.{% elif reviewer %}Your reply is visible to the organisation's team.{% else %}The NHA team and your {{ ticket.organisation.noun }} can read this reply.{% endif %}</span>
               </div>
             </form>
           </div>
@@ -69,7 +77,7 @@
             </dd>
             <dt class="text-soft-foreground">Assigned to</dt>
             <dd class="break-words">
-              {{ ticket.assignee.display_name|default:"Integration desk" }}
+              {{ ticket.assignee.display_name|default:"NHA team" }}
             </dd>
             <dt class="text-soft-foreground">Product</dt>
             <dd class="break-words">
@@ -84,28 +92,6 @@
               {{ ticket.created_at|date:"j M Y" }}
             </dd>
           </dl>
-          {% if can_resolve or can_close %}
-            <div class="mt-4 flex flex-col gap-2 border-t border-soft-border pt-3">
-              {% if can_resolve %}
-                <form method="post" hx-boost="false">
-                  {% csrf_token %}
-                  <button class="ui-btn ui-btn--outline ui-btn--size-sm w-full"
-                          name="intent"
-                          value="resolve"
-                          type="submit">Mark resolved</button>
-                </form>
-              {% endif %}
-              {% if can_close %}
-                <form method="post" hx-boost="false">
-                  {% csrf_token %}
-                  <button class="ui-btn ui-btn--outline ui-btn--size-sm w-full"
-                          name="intent"
-                          value="close"
-                          type="submit">Close ticket</button>
-                </form>
-              {% endif %}
-            </div>
-          {% endif %}
         </div>
       </section>
       <section class="ui-card ui-card--sm">

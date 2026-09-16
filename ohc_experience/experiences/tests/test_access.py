@@ -327,23 +327,24 @@ def test_uploads_preview_in_the_browser_and_still_download(
         assert response.status_code == 404
 
 
-def test_support_reply_and_resolve_have_distinct_permissions(tickets, staff, client):
+def test_support_reply_and_close_have_distinct_permissions(tickets, staff, client):
     access = grant(staff, area="support", category="NHCX", write=True)
     url = reverse("experiences:ticket", args=[tickets["NHCX"].reference])
     client.force_login(staff)
+    page = client.get(url)
+    assert b"Send reply" in page.content
+    assert b"Mark as resolved" not in page.content
     assert client.post(url, {"body": "Please retry"}).status_code == 302
-    assert client.post(url, {"intent": "resolve"}).status_code == 403
-    assert client.post(url, {"intent": "close"}).status_code == 403
+    resolution = {"intent": "close", "body": "Retried and it works."}
+    assert client.post(url, resolution).status_code == 403
     access.can_write = False
     access.can_approve = True
     access.save()
     page = client.get(url)
-    assert b'id="reply-form"' not in page.content
-    assert b"Mark resolved" in page.content
-    assert b"Close ticket" in page.content
+    assert b"Send reply" not in page.content
+    assert b"Mark as resolved" in page.content
     assert client.post(url, {"body": "Please retry"}).status_code == 403
-    assert client.post(url, {"intent": "resolve"}).status_code == 302
-    assert client.post(url, {"intent": "close"}).status_code == 302
+    assert client.post(url, resolution).status_code == 302
 
 
 @pytest.fixture

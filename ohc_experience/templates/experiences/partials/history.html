@@ -1,11 +1,11 @@
-{# Sits in a side column: once the events outgrow 28rem, or the room the column leaves, they scroll inside the card. #}
+{# Sits in a side column: once the events outgrow 28rem, they scroll inside the card. #}
 <section class="ui-card ui-card--sm ui-rise min-h-0 [animation-delay:.25s] {% if item.history.count > 2 %}xl:min-h-48{% endif %}"
          aria-labelledby="history-title">
   <div class="ui-card-content flex items-baseline justify-between gap-2">
     <h2 class="text-base font-bold" id="history-title">History</h2>
     <span class="text-xs text-soft-foreground tabular-nums">{% with count=item.history.count %}{% if count %}{{ count }} event{{ count|pluralize }}{% endif %}{% endwith %}</span>
   </div>
-  <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary xl:max-h-none"
+  <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
        tabindex="0"
        aria-labelledby="history-title">{% include 'experiences/partials/history_events.html' %}</div>
 </section>
