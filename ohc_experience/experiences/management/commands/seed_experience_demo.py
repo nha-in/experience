@@ -18,6 +18,11 @@ class Command(BaseCommand):
             action="store_true",
             help="Create demo permission accounts without resetting application data.",
         )
+        parser.add_argument(
+            "--skip-lgd",
+            action="store_true",
+            help="Use the demo PIN code's known location instead of calling LGD.",
+        )
 
     def handle(self, *args, **options):
         if not settings.DEBUG:
@@ -27,6 +32,7 @@ class Command(BaseCommand):
             reset=options["reset"],
             password=options["password"],
             permissions_only=options["permissions_only"],
+            skip_lgd=options["skip_lgd"],
             stdout=self.stdout,
             style=self.style,
         )

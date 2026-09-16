@@ -7,7 +7,9 @@ from django.core.management.base import CommandError
 from django.utils import timezone
 
 from ohc_experience.abdm import demo
+from ohc_experience.abdm import forms
 from ohc_experience.experiences.models import CertificationAgency
+from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.models import ProductWorkspace
@@ -58,6 +60,26 @@ def test_demo_lgd_preflight_preserves_existing_data(settings, monkeypatch, unava
 
     assert Organisation.objects.get(pk=organisation.pk).name == "Existing organisation"
     assert not ProductWorkspace.objects.exists()
+
+
+def test_demo_skip_lgd_seeds_while_lgd_is_unavailable(settings, monkeypatch):
+    settings.DEBUG = True
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+    }
+
+    def unavailable(pincode):
+        raise LGDLookupError
+
+    monkeypatch.setattr(demo, "lookup_pincode", unavailable)
+    monkeypatch.setattr(forms, "lookup_pincode", unavailable)
+    call_command("seed_experience_demo", skip_lgd=True, stdout=StringIO())
+
+    assert ProductWorkspace.objects.exists()
+    assert FormSubmission.objects.filter(data__district_lgd_code="525").exists()
+    # The stand-in answers only while the seed runs.
+    assert forms.lookup_pincode is unavailable
 
 
 def test_demo_evidence_uses_first_active_abdm_agency():

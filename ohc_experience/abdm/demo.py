@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 from datetime import timedelta
 from io import BytesIO
+from unittest.mock import patch
 
 from allauth.account.models import EmailAddress
 from django.conf import settings
@@ -17,6 +18,7 @@ from django.utils.datastructures import MultiValueDict
 from PIL import Image
 from PIL import ImageDraw
 
+from ohc_experience.abdm import forms
 from ohc_experience.events.models import Event
 from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
@@ -181,19 +183,41 @@ def _verify_demo_location():
         raise CommandError(msg)
 
 
+def _demo_lookup_pincode(pincode):
+    """LGD's answer for the demo PIN code, for seeding without LGD access."""
+    if pincode != "560001":
+        return []
+    return [
+        {
+            "state": "KARNATAKA",
+            "state_code": "29",
+            "district": "BENGALURU URBAN",
+            "district_code": "525",
+        },
+    ]
+
+
 class DemoBuilder:
     def __init__(self, stdout, style):
         self.stdout = stdout
         self.style = style
 
-    def handle(self, *args, **options):  # noqa: PLR0915
+    def handle(self, *args, **options):
         if not settings.DEBUG:
             msg = "Demo seeding is only available with DEBUG enabled."
             raise CommandError(msg)
         if options.get("permissions_only"):
             self.permission_accounts(options["password"])
             return
-        _verify_demo_location()
+        if options.get("skip_lgd"):
+            # The organisation form looks the PIN code up as well.
+            with patch.object(forms, "lookup_pincode", _demo_lookup_pincode):
+                self.seed(options)
+        else:
+            _verify_demo_location()
+            self.seed(options)
+
+    def seed(self, options):  # noqa: PLR0915
         _demo_agency()
         if options["reset"]:
             files = set(FormAttachment.objects.values_list("file", flat=True)) | set(
