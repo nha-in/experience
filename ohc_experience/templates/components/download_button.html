@@ -1,0 +1,25 @@
+{% comment %}
+  Icon link that downloads a file whose name opens a preview. `url` is the
+  download address, `name` the file name for screen readers, and `size` an
+  optional icon button size (icon-xs by default).
+{% endcomment %}
+{% load i18n %}
+
+<a class="ui-btn ui-btn--ghost ui-btn--size-{{ size|default:'icon-xs' }} shrink-0 text-muted-foreground no-underline hover:text-foreground"
+   href="{{ url }}"
+   download
+   hx-boost="false"
+   title="{% translate 'Download' %}"
+   aria-label="{% blocktranslate %}Download {{ name }}{% endblocktranslate %}">
+  <svg viewBox="0 0 24 24"
+       fill="none"
+       stroke="currentColor"
+       stroke-width="1.75"
+       stroke-linecap="round"
+       stroke-linejoin="round"
+       aria-hidden="true">
+    <path d="M12 3v12" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  </svg>
+</a>

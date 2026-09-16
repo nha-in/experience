@@ -65,6 +65,11 @@ urlpatterns = [
     path("portal/queries/<int:pk>/", views.query_action, name="query-action"),
     path("portal/attachments/<int:pk>/", views.attachment, name="attachment"),
     path(
+        "portal/attachments/<int:pk>/preview/<path:filename>",
+        views.attachment,
+        name="attachment-preview",
+    ),
+    path(
         "portal/reviews/<int:pk>/submissions/<int:submission_id>/",
         views.submission,
         name="submission",
@@ -109,5 +114,10 @@ urlpatterns = [
         "portal/support-files/<int:pk>/",
         views.ticket_attachment,
         name="ticket-attachment",
+    ),
+    path(
+        "portal/support-files/<int:pk>/preview/<path:filename>",
+        views.ticket_attachment,
+        name="ticket-attachment-preview",
     ),
 ]

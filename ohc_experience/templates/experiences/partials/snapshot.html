@@ -18,14 +18,19 @@
       <dd class="break-words text-sm leading-relaxed">
         {% if row.files %}
           {% for file in row.files %}
-            <a class="mb-1.5 flex items-center gap-2 rounded-lg border border-soft-border bg-soft-background p-2 text-primary no-underline hover:underline"
-               hx-boost="false"
-               href="{% url 'experiences:attachment' file.pk %}">
-              <span class="rounded bg-muted-background px-1.5 py-1 font-mono text-[11px]">FILE</span>
-              <span class="min-w-0 flex-1 break-all">{{ file.original_name }}<small class="block text-soft-foreground">{{ file.size|filesizeformat }}</small>
-              </span>
-              <span aria-hidden="true">↓</span>
-            </a>
+            <div class="mb-1.5 flex items-center gap-2 rounded-lg border border-soft-border bg-soft-background p-2">
+              <a class="flex min-w-0 flex-1 items-center gap-2 text-primary no-underline hover:underline"
+                 href="{% url 'experiences:attachment-preview' file.pk file.original_name %}"
+                 target="_blank"
+                 rel="noopener"
+                 hx-boost="false">
+                <span class="rounded bg-muted-background px-1.5 py-1 font-mono text-[11px]">FILE</span>
+                <span class="min-w-0 flex-1 break-all">{{ file.original_name }}<small class="block text-soft-foreground">{{ file.size|filesizeformat }}</small><span class="sr-only"> (opens in a new tab)</span>
+                </span>
+              </a>
+              {% url 'experiences:attachment' file.pk as download_url %}
+              {% include 'components/download_button.html' with url=download_url name=file.original_name %}
+            </div>
           {% endfor %}
         {% elif row.file_field %}
           <span class="text-soft-foreground">No file attached</span>
