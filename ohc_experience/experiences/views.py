@@ -1303,6 +1303,33 @@ def credentials(request, reference):  # noqa: C901, PLR0912
     )
 
 
+@login_required
+def reference_environment(request, reference):
+    workspace = _workspace(request, reference)
+    environment = workspace.definition.reference_environment
+    if environment is None:
+        raise Http404
+    permissions.require_integrator(request.user, workspace.product.organisation)
+    flows = [
+        (workspace.definition.milestones[key], names)
+        for key, names in environment.flows.items()
+    ]
+    milestones = readable_list(milestone.code for milestone, _ in flows)
+    return render(
+        request,
+        "experiences/reference_environment.html",
+        _context(
+            request,
+            workspace,
+            nav="reference",
+            page_title="Reference environment",
+            reference_environment=environment,
+            reference_flows=flows,
+            reference_milestones=milestones,
+        ),
+    )
+
+
 def _reviewer_required(request):
     if not permissions.has_area(request.user, "review"):
         msg = "This area is for reviewers."

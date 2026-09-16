@@ -24,6 +24,7 @@ from .forms import UhiParticipationForm
 from .forms import WasaReviewForm
 from .gateway import ABDMProductionCredentials
 from .gateway import ABDMSandboxCredentials
+from .reference import ABDMReferenceEnvironment
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
@@ -294,6 +295,7 @@ class ABDM(ProgramDefinition):
     sandbox_credentials = ABDMSandboxCredentials
     production_credentials = ABDMProductionCredentials
     handoffs = {"dhis": DHISHandoff}
+    reference_environment = ABDMReferenceEnvironment
     signup_organisation_choices = tuple(
         OrganisationForm.base_fields["entity_type"].choices,
     )

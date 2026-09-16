@@ -255,6 +255,20 @@ class ProductHandoffDefinition:
         raise NotImplementedError
 
 
+class ReferenceEnvironmentDefinition:
+    """A runnable implementation of the program's flows on synthetic data."""
+
+    run_command = ""
+    local_url = ""
+    requirements = ""
+    #: Logos as (name, static path) pairs.
+    built_on: ClassVar[tuple[tuple[str, str], ...]] = ()
+    maintained_by: ClassVar[tuple[tuple[str, str], ...]] = ()
+    licence = ""
+    #: Flow names by milestone key.
+    flows: ClassVar[dict[str, tuple[str, ...]]] = {}
+
+
 class ProgramDefinition:
     """Code-defined product workflow, catalog and portal presentation."""
 
@@ -282,6 +296,7 @@ class ProgramDefinition:
     sandbox_credentials: ClassVar[type[SandboxCredentialDefinition] | None] = None
     production_credentials: ClassVar[type[ProductionCredentialDefinition] | None] = None
     handoffs: ClassVar[dict[str, type[ProductHandoffDefinition]]] = {}
+    reference_environment: ClassVar[type[ReferenceEnvironmentDefinition] | None] = None
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     @classmethod

@@ -47,6 +47,11 @@ urlpatterns = [
         name="credentials",
     ),
     path(
+        "products/<str:reference>/reference-environment/",
+        views.reference_environment,
+        name="reference-environment",
+    ),
+    path(
         "products/<str:reference>/handoffs/<slug:handoff_key>/",
         views.product_handoff,
         name="product-handoff",

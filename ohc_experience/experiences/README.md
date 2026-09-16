@@ -52,7 +52,9 @@ Implementations contain no models, migrations, URL configuration or views:
    Optionally supply a `SandboxCredentialDefinition` provider as
    `sandbox_credentials`, a `ProductionCredentialDefinition` as
    `production_credentials` when staff should record each product's production
-   client ID after an approved exit, and a demo builder.
+   client ID after an approved exit, a `ReferenceEnvironmentDefinition` as
+   `reference_environment` when integrators can run the program's flows locally,
+   and a demo builder.
 
 Form hooks run inside the engine transaction: `initial_data` supplies defaults;
 `submission_block_reason` gates final submission; `pending_prerequisites` names

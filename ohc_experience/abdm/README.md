@@ -10,6 +10,8 @@ belong to `experiences`.
   product mappings, structured approval outcomes and portal labels.
 - `gateway.py`: ABDM credential eligibility and provider/demo integration.
 - `wasa.py`: approved product WASA selection, expiry checks and review outcomes.
+- `reference.py`: the reference environment's run command, attribution and the M1
+  and M2 flows its image implements.
 - `demo.py`: the ABDM data builder invoked by `seed_experience_demo`.
 - `tests/`: domain-specific regression coverage.
 
