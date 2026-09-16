@@ -105,20 +105,6 @@
         {% for handoff in handoffs %}
           {% include 'experiences/partials/product_handoff.html' %}
         {% endfor %}
-        <section class="ui-card ui-card--layered ui-rise"
-                 aria-labelledby="overview-activity-title">
-          <div class="ui-card-header">
-            <h2 class="ui-card-title" id="overview-activity-title">Recent activity</h2>
-          </div>
-          <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
-               tabindex="0"
-               aria-labelledby="overview-activity-title">
-            <ol class="ui-feed">
-              {% for event in activity %}<li class="ui-feed-row items-start"><span class="ui-feed-avatar {% if not event.actor %}ui-feed-avatar--system{% endif %}"
-      aria-hidden="true">{% if event.actor %}{{ event.actor.display_name|slice:':1' }}{% else %}↻{% endif %}</span><div class="ui-feed-body"><p class="font-medium">{{ event.action }}</p><p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'j M, H:i' }} IST</p>{% if event.detail.note %}<p class="mt-1 text-sm text-muted-foreground">{{ event.detail.note|linebreaksbr }}</p>{% endif %}</div></li>{% empty %}<li class="text-sm text-soft-foreground">Your product activity will appear here.</li>{% endfor %}
-            </ol>
-          </div>
-        </section>
         {% if outcomes %}
           <section class="ui-card ui-card--layered ui-card--sm ui-rise">
             <div class="ui-card-content">
@@ -251,6 +237,20 @@
                 <li class="text-sm leading-relaxed text-soft-foreground">No upcoming events. Office hours and webinars will appear here once dates are announced.</li>
               {% endfor %}
             </ul>
+          </div>
+        </section>
+        <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+                 aria-labelledby="overview-activity-title">
+          <div class="ui-card-header">
+            <h2 class="ui-card-title" id="overview-activity-title">Recent activity</h2>
+          </div>
+          <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+               tabindex="0"
+               aria-labelledby="overview-activity-title">
+            <ol class="ui-feed">
+              {% for event in activity %}<li class="ui-feed-row items-start"><span class="ui-feed-avatar {% if not event.actor %}ui-feed-avatar--system{% endif %}"
+      aria-hidden="true">{% if event.actor %}{{ event.actor.display_name|slice:':1' }}{% else %}↻{% endif %}</span><div class="ui-feed-body"><p class="font-medium">{{ event.action }}</p><p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'j M, H:i' }} IST</p>{% if event.detail.note %}<p class="mt-1 text-sm text-muted-foreground">{{ event.detail.note|linebreaksbr }}</p>{% endif %}</div></li>{% empty %}<li class="text-sm text-soft-foreground">Your product activity will appear here.</li>{% endfor %}
+            </ol>
           </div>
         </section>
       </aside>
