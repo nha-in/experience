@@ -313,6 +313,59 @@
     @apply h-9 pr-7 pl-2 md:h-7 md:text-xs;
   }
 
+  /*
+   * Searchable select (static/js/searchable-select.js), which every .ui-select
+   * without data-native-select becomes. The native select stays in the form,
+   * hidden, and keeps the value; the search box borrows its classes, so only
+   * what differs from .ui-select lives here. Popup and options follow upstream
+   * SelectContent and SelectItem.
+   */
+  select.ui-combobox__native {
+    @apply sr-only;
+  }
+
+  .ui-combobox__input {
+    @apply cursor-default truncate select-text placeholder:text-placeholder-foreground focus:cursor-text;
+  }
+
+  /* A popover in the top layer: the script sets its position, minimum width and side. */
+  .ui-combobox__popup {
+    @apply fixed inset-auto z-50 m-0 h-auto overflow-hidden rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-md;
+    width: max-content;
+    max-width: min(24rem, calc(100vw - 1rem));
+  }
+
+  .ui-combobox__listbox {
+    @apply max-h-72 overflow-y-auto overscroll-contain p-1;
+  }
+
+  .ui-combobox__group-label {
+    @apply px-2 py-1.5 text-xs font-medium text-muted-foreground;
+  }
+
+  .ui-combobox__option {
+    @apply relative cursor-default rounded-md py-2.5 pr-8 pl-2 text-base break-words select-none md:py-1.5 md:text-sm;
+    @apply aria-selected:bg-accent aria-selected:text-accent-foreground;
+    @apply aria-disabled:pointer-events-none aria-disabled:opacity-50;
+  }
+
+  .ui-combobox__option[data-chosen]::after {
+    content: "";
+    @apply pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 bg-current;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+  }
+
+  .ui-combobox__empty {
+    @apply px-2 py-6 text-center text-sm text-muted-foreground;
+  }
+
+  .ui-combobox__status {
+    @apply sr-only;
+  }
+
   .ui-checkbox {
     @apply size-4 shrink-0 rounded-sm border border-input text-primary accent-[var(--primary)];
     @apply focus-visible:ring-3 focus-visible:ring-ring/15 focus-visible:outline-none;

@@ -4,3 +4,9 @@
 - Never start another `runserver` on a different port. If port 8000 is busy, check what holds it (`lsof -nP -iTCP:8000 -sTCP:LISTEN`) and reuse or stop it. Stop any server or watcher you start yourself before you finish.
 - The server uses the `ohc_experience_demo` database. After switching branches, run `migrate` against it. If the new branch lacks a migration that was applied, recreate the database (`dropdb`, `createdb`, `migrate`, `seed_experience_demo --reset`) with the environment from `.claude/launch.json`.
 - A worktree in another folder needs its own port and database; never point it at `ohc_experience_demo`.
+
+# Dropdowns
+
+- Every dropdown is searchable. `ohc_experience/static/js/searchable-select.js` turns each single-choice `select.ui-select` on any page into a type-to-filter combobox, and the select underneath still holds and posts the value. New dropdowns get this by being careui selects: render the field with `{% ui_field %}`, or give a hand-written `<select>` the `ui-select` class inside a `.ui-select-wrapper`. Never build a custom dropdown or add a select library.
+- Keep a plain dropdown only when asked, with `data-native-select` (in a form, `forms.Select(attrs={"data-native-select": ""})`). The product category field is the one such exception.
+- A script that changes a select's value or options should dispatch `change` on the select, as `ohc_experience/static/js/pincode-lookup.js` does, so the search box shows the new choice.

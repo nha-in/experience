@@ -237,6 +237,9 @@ class ProductRegistrationForm(ReviewForm):
             ("claims_platform", "Payer or TPA system"),
             ("other", "Other"),
         ],
+        # The one dropdown kept as a plain select; every other careui select is
+        # searchable (see static/js/searchable-select.js).
+        widget=forms.Select(attrs={"data-native-select": ""}),
     )
     solution_type = forms.MultipleChoiceField(
         label="Solution types applying for",

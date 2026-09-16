@@ -241,6 +241,11 @@ def payer_payload(**overrides):
     }
 
 
+def test_product_category_keeps_the_plain_dropdown():
+    html = str(ProductRegistrationForm()["category"])
+    assert html.startswith('<select name="category" data-native-select=""')
+
+
 def test_payer_category_is_required_once_payers_is_chosen():
     form = ProductRegistrationForm(data=payer_payload(solution_type=["payers"]))
     assert not form.is_valid()
