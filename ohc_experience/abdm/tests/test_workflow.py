@@ -176,13 +176,13 @@ def test_shared_m1_and_independent_tracks(environment):
     assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
     assert get_program().track_milestones(TRACK_MAP["PHR"]) == ("m1", "phr1")
     assert MILESTONES["uhi1"].predecessor == MILESTONES["nhcx1"].predecessor == "m1"
-    for key in ("m2", "phr1", "uhi1"):
+    for key in ("m2", "m3", "phr1", "uhi1"):
         assert waiting_on(environment, key) == ["M1 - ABHA and identity"]
     assert waiting_on(environment, "locker1") == []
     approve(environment)
-    for key in ("m2", "phr1", "uhi1"):
+    for key in ("m2", "m3", "phr1", "uhi1"):
         assert waiting_on(environment, key) == []
-    assert waiting_on(environment, "m3") == ["M2 - HIP services"]
+    assert waiting_on(environment, "m4") == ["M3 - HIU services"]
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
 
 
@@ -190,10 +190,14 @@ def test_a_review_waits_on_every_earlier_milestone_and_the_organisation(environm
     """Earliest first, so a reviewer can see where the chain is held up."""
     reverify(environment)
 
+    assert waiting_on(environment, "m4") == [
+        "organisation verification",
+        "M1 - ABHA and identity",
+        "M3 - HIU services",
+    ]
     assert waiting_on(environment, "m3") == [
         "organisation verification",
         "M1 - ABHA and identity",
-        "M2 - HIP services",
     ]
     assert waiting_on(environment, "locker1") == ["organisation verification"]
 

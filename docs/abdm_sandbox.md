@@ -157,10 +157,12 @@ retired; reviewer work uses the engine's assessment screens.
   product applies at once, keeps its revision history and never enters the
   review queue. Registration starts sandbox provisioning, whether or not the
   organisation is verified yet.
-- A milestone's form opens once every milestone before it is submitted: M2 once
-  M1 is, M3 once M1 and M2 are. A sent-back milestone still counts as submitted;
-  a withdrawn one does not. A request cannot be withdrawn while a later milestone
-  built on it is under review; the integrator withdraws that one first. An
+- A milestone's form opens once every milestone before it is submitted: M2 and
+  M3 once M1 is, M4 once M1 and M3 are. M3 builds on M1, not M2: NHA's own
+  portal gates M3 on M1 alone, and no published document orders M3 after M2. A
+  sent-back milestone still counts as submitted; a withdrawn one does not. A
+  request cannot be withdrawn while a later milestone built on it is under
+  review; the integrator withdraws that one first. An
   integrator can still submit M2 before M1 is approved, or before the
   organisation is verified. The review keeps the order: approve and send back
   stay disabled, and are refused, while an earlier milestone or organisation

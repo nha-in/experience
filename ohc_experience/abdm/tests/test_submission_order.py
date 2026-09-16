@@ -2,8 +2,10 @@
 
 # ruff: noqa: F811
 import re
+from importlib import import_module
 
 import pytest
+from django.apps import apps as registry
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
@@ -15,6 +17,7 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.models import ApplicationDependency
 from ohc_experience.experiences.models import ReviewItem
 
 pytestmark = pytest.mark.django_db
@@ -54,8 +57,8 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
     with pytest.raises(ValidationError, match="cannot be reused"):
         workflows.reuse_evidence(m2, environment["applicant"])
     assert workflows.milestone_unavailable(milestone(environment, "m4")) == (
-        "M4 - HFR Registration opens once M1 - ABHA and identity, M2 - HIP services "
-        "and M3 - HIU services are submitted."
+        "M4 - HFR Registration opens once M1 - ABHA and identity and "
+        "M3 - HIU services are submitted."
     )
 
     submit(environment)
@@ -84,20 +87,27 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
     submit(environment)
     submit(environment, "m2")
     submit(environment, "m3")
+    submit(environment, "m4")
     submit(environment, "uhi1")
 
     with pytest.raises(ValidationError) as error:
         workflows.withdraw(milestone(environment), applicant)
     assert error.value.messages == [
         (
-            "Withdraw UHI1 - UHI participation, M3 - HIU services and M2 - HIP "
-            "services first. They build on this request."
+            "Withdraw UHI1 - UHI participation, M4 - HFR Registration, M3 - HIU "
+            "services and M2 - HIP services first. They build on this request."
         ),
     ]
-    with pytest.raises(ValidationError, match=r"Withdraw M3 - HIU services first\."):
-        workflows.withdraw(milestone(environment, "m2"), applicant)
+    with pytest.raises(
+        ValidationError,
+        match=r"Withdraw M4 - HFR Registration first\.",
+    ):
+        workflows.withdraw(milestone(environment, "m3"), applicant)
 
-    for key in ("m3", "m2", "uhi1", "m1"):
+    # M3 follows M1, so nothing is built on M2 and it comes off on its own.
+    workflows.withdraw(milestone(environment, "m2"), applicant)
+
+    for key in ("m4", "m3", "uhi1", "m1"):
         workflows.withdraw(milestone(environment, key), applicant)
 
     assert milestone(environment).status == ReviewItem.Status.DRAFT
@@ -120,7 +130,7 @@ def test_the_track_page_locks_a_milestone_and_links_what_opens_it(
         in html
     )
     assert "Locked · submit M1 first" in html
-    assert "M3 HIU services</a> · submit M1 and M2 first" in html.replace(
+    assert "M3 HIU services</a> · submit M1 first" in html.replace(
         '<span class="font-mono">M3</span>',
         "M3",
     )
@@ -223,3 +233,28 @@ def test_the_review_page_lists_the_requests_waiting_on_it(environment, client):
 
     html = client.get(m1.get_absolute_url()).content.decode()
     assert "wait on this one" not in html
+
+
+def test_the_migration_moves_a_saved_m3_request_from_m2_to_m1(environment):
+    """Requests created under the old catalog still depend on M2."""
+    migration = import_module(
+        "ohc_experience.experiences.migrations.0018_m3_builds_on_m1",
+    )
+    applications = {
+        row.key: row.application_id
+        for row in environment["workspace"].product.milestones.all()
+    }
+    saved = ApplicationDependency.objects.filter(application_id=applications["m3"])
+    saved.delete()
+    ApplicationDependency.objects.create(
+        application_id=applications["m3"],
+        depends_on_id=applications["m2"],
+    )
+
+    migration.forwards(registry, None)
+
+    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m1"]]
+
+    migration.backwards(registry, None)
+
+    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m2"]]
