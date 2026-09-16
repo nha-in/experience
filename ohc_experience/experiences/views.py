@@ -589,6 +589,14 @@ def product_edit(request, reference):
             application__status="approved",
         ).exists()
     ]
+    under_review_selections = [
+        value
+        for value in workspace.applied_milestones
+        if workspace.product.milestones.filter(
+            key=value.split(":", 1)[1],
+            application__review_item__status__in=services.PENDING_STATUSES,
+        ).exists()
+    ]
     return render(
         request,
         "experiences/product_form.html",
@@ -601,6 +609,7 @@ def product_edit(request, reference):
             nav="edit",
             can_edit=services.can_edit_review(item),
             approved_selections=approved_selections,
+            under_review_selections=under_review_selections,
         ),
     )
 

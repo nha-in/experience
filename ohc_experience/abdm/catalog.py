@@ -7,7 +7,7 @@ MILESTONES = {
         MilestoneDefinition("m1", "M1", "ABHA and identity"),
         MilestoneDefinition("m2", "M2", "HIP services", "m1"),
         MilestoneDefinition("m3", "M3", "HIU services", "m1"),
-        MilestoneDefinition("m4", "M4", "HFR Registration", "m3"),
+        MilestoneDefinition("m4", "M4", "HFR Registration"),
         MilestoneDefinition("phr1", "PHR1", "PHR application flows", "m1"),
         MilestoneDefinition("locker1", "HL1", "Health locker flows"),
         MilestoneDefinition("uhi1", "UHI1", "UHI participation", "m1"),

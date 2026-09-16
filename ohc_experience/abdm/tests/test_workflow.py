@@ -178,11 +178,11 @@ def test_shared_m1_and_independent_tracks(environment):
     assert MILESTONES["uhi1"].predecessor == MILESTONES["nhcx1"].predecessor == "m1"
     for key in ("m2", "m3", "phr1", "uhi1"):
         assert waiting_on(environment, key) == ["M1 - ABHA and identity"]
-    assert waiting_on(environment, "locker1") == []
+    for key in ("m4", "locker1"):
+        assert waiting_on(environment, key) == []
     approve(environment)
     for key in ("m2", "m3", "phr1", "uhi1"):
         assert waiting_on(environment, key) == []
-    assert waiting_on(environment, "m4") == ["M3 - HIU services"]
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
 
 
@@ -190,16 +190,12 @@ def test_a_review_waits_on_every_earlier_milestone_and_the_organisation(environm
     """Earliest first, so a reviewer can see where the chain is held up."""
     reverify(environment)
 
-    assert waiting_on(environment, "m4") == [
-        "organisation verification",
-        "M1 - ABHA and identity",
-        "M3 - HIU services",
-    ]
     assert waiting_on(environment, "m3") == [
         "organisation verification",
         "M1 - ABHA and identity",
     ]
-    assert waiting_on(environment, "locker1") == ["organisation verification"]
+    for key in ("m4", "locker1"):
+        assert waiting_on(environment, key) == ["organisation verification"]
 
 
 def test_uhi_shows_m1_as_a_prerequisite_it_does_not_offer(environment):
@@ -537,13 +533,10 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
 
     m3 = client.get(url, {"milestone": "m3"}).content.decode()
     m2 = client.get(url, {"milestone": "m2"}).content.decode()
-    m4 = client.get(url, {"milestone": "m4"}).content.decode()
 
     assert "data-request-submit" in m3
     assert "Milestone locked" not in m3
     assert "It can be approved once M1 - ABHA and identity is approved." in m2
-    assert "Milestone locked" in m4
-    assert "data-request-submit" not in m4
 
 
 def test_registering_a_product_records_it_without_a_review(environment):

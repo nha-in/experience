@@ -1,3 +1,4 @@
+{% load i18n %}
 <section class="ui-card ui-card--layered ui-card--sm shrink-0 scroll-mt-20 {% if item.pending and can_decide %}border-primary/25{% endif %}"
          id="decision"
          tabindex="-1"
@@ -134,7 +135,7 @@
         <form method="post" class="flex flex-wrap items-end gap-2">
           {% csrf_token %}
           <input type="hidden" name="intent" value="assign" />
-          <div class="min-w-0 flex-1"><label class="ui-label" for="assignee">Assigned reviewer</label><div class="ui-select-wrapper"><select class="ui-select min-h-11" name="assignee" id="assignee"><option value="">Unassigned</option>{% for user in reviewers %}<option value="{{ user.pk }}"
+          <div class="min-w-0 flex-1"><label class="ui-label" for="assignee">Assigned reviewer <span class="font-normal text-soft-foreground">({% translate "optional" %})</span></label><div class="ui-select-wrapper"><select class="ui-select min-h-11" name="assignee" id="assignee"><option value="">Unassigned</option>{% for user in reviewers %}<option value="{{ user.pk }}"
         {% if item.assignee_id == user.pk %}selected{% endif %}>{{ user.display_name }}</option>{% endfor %}</select></div></div>
           <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Assign</button>
         </form>
