@@ -62,125 +62,76 @@
      stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span></span><span class="mt-0.5 h-1.5" aria-hidden="true"></span><span class="ui-tile-note">{% if median_days != None %}Median {{ median_days|floatformat:'-1' }} days to a decision · last 8 weeks{% else %}No decisions in the last 8 weeks yet.{% endif %}</span>
       </a>
     </div>
-    <section class="ui-card ui-card--layered ui-rise gap-3.5 overflow-hidden pb-0 [animation-delay:.22s]"
-             aria-labelledby="needs-decision-title">
-      <div class="ui-card-header">
-        <h2 class="ui-card-title" id="needs-decision-title">Needs a decision</h2>
-        <p class="ui-card-description">Requests ready for review or a decision.</p>
-      </div>
-      {% if oldest %}
-        <div class="hidden overflow-x-auto md:block">
-          <table class="ui-grid-table min-w-[720px]">
-            <thead>
-              <tr>
-                <th scope="col">Subject</th>
-                <th scope="col">Organisation</th>
-                <th scope="col">Item</th>
-                <th scope="col">Submitted</th>
-                <th scope="col">Age</th>
-                <th scope="col">Assignee</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in oldest %}
-                <tr class="group relative">
-                  <td>
-                    <span class="font-semibold text-foreground group-hover:text-primary">{{ item.product.name|default:item.title }}</span>
-                    <span class="block font-mono text-xs text-soft-foreground">
-                      {% if item.product %}{{ item.product.workspace.reference }}{% else %}{{ item.reference }}{% endif %}
-                    </span>
-                    <a class="absolute inset-0" href="{{ item.get_absolute_url }}"></a>
-                  </td>
-                  <td class="text-muted-foreground">{{ item.organisation.display_name }}</td>
-                  <td>{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}{% include 'experiences/partials/reviewer_waiting.html' %}</td><td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}</td>
-                  <td>{% include 'experiences/partials/reviewer_age.html' %}</td>
-                  <td>{% include 'experiences/partials/reviewer_assignee.html' %}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+    <div class="grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.28s]"
+               aria-labelledby="by-track-title">
+        <div class="ui-card-header">
+          <h2 class="ui-card-title" id="by-track-title">Applications by track</h2>
+          <p class="ui-card-description">What is in the queue right now.</p>
         </div>
-        <ul class="divide-y divide-soft-border border-t border-soft-border md:hidden"
-            aria-label="Requests needing a decision">
-          {% for item in oldest %}
-            {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
-          {% endfor %}
-        </ul>
-{% else %}<p class="border-t border-soft-border px-6 py-8 text-center text-sm text-muted-foreground">No requests waiting for a decision.</p>{% endif %}
-<div class="flex flex-wrap items-center gap-3 border-t border-soft-border bg-soft-background px-6 py-2.5 text-xs text-soft-foreground"><span>Showing {{ oldest|length }} of {{ ready_count }}</span>{% if waiting_count %}<a class="inline-flex min-h-9 items-center font-semibold text-soft-foreground no-underline hover:text-primary hover:underline"
-   href="{% url 'experiences:queue' %}?scope=waiting">{{ waiting_count }} waiting on prerequisites</a>{% endif %}<a class="ml-auto inline-flex min-h-9 items-center font-semibold text-primary no-underline hover:underline"
-   href="{% url 'experiences:queue' %}?scope=ready">Full queue <span class="ml-1" aria-hidden="true">→</span></a></div>
-  </section>
-  <div class="grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">
-    <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.28s]"
-             aria-labelledby="by-track-title">
-      <div class="ui-card-header">
-        <h2 class="ui-card-title" id="by-track-title">Applications by track</h2>
-        <p class="ui-card-description">What is in the queue right now.</p>
-      </div>
-      <div class="ui-card-content"><dl class="flex flex-col">{% for row in by_track %}<div class="grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><dt class="font-mono font-semibold">{{ row.code }}</dt><dd class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
+        <div class="ui-card-content"><dl class="flex flex-col">{% for row in by_track %}<div class="grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><dt class="font-mono font-semibold">{{ row.code }}</dt><dd class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
       style="width: {% widthratio row.count ready_count 100 %}%"></span></dd><dd class="text-right font-bold tabular-nums"><a class="text-foreground no-underline hover:text-primary"
    href="{% url 'experiences:queue' %}?scope=ready&amp;kind=application&amp;item={{ row.code|urlencode }}"
    aria-label="View {{ row.count }} request{{ row.count|pluralize }} for {{ row.code }}">{{ row.count }}</a></dd></div>{% empty %}<div><dt class="text-sm text-muted-foreground">No pending applications.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div>
-    </section>
-    <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.34s]"
-             aria-labelledby="by-milestone-title">
-      <div class="ui-card-header">
-        <h2 class="ui-card-title" id="by-milestone-title">Approved by milestone</h2>
-        <p class="ui-card-description">This month.</p>
-      </div>
-      <div class="ui-card-content"><dl class="flex flex-col">{% for row in approved_by_milestone %}<div class="grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><dt class="truncate font-mono font-semibold" title="{{ row.name }}">{{ row.label }}</dt><dd class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
-      style="width: {% widthratio row.count approved_month 100 %}%"></span></dd><dd class="text-right font-bold tabular-nums">{{ row.count }}</dd></div>{% empty %}<div><dt class="text-sm text-muted-foreground">Nothing approved yet this month.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div>
-    </section>
-    <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 lg:col-span-2 xl:col-span-1 [animation-delay:.4s]"
-             aria-labelledby="decisions-title">
-      <div class="ui-card-header">
-        <h2 class="ui-card-title" id="decisions-title">Decisions over the last 8 weeks</h2>
-        <p class="ui-card-description flex flex-wrap items-center gap-3.5"><span class="inline-flex items-center gap-1.5 text-xs"><span class="size-2 rounded-[2px] bg-primary" aria-hidden="true"></span>Approved</span><span class="inline-flex items-center gap-1.5 text-xs"><span class="size-2 rounded-[2px] bg-amber-400" aria-hidden="true"></span>Sent back</span></p>
-      </div>
-      <div class="ui-card-content">
-        <div class="grid h-[110px] grid-cols-8 gap-2.5 px-1"
-             role="img"
-             aria-label="Weekly approved and sent-back decisions; exact counts in the table below">
-          {% for week in weeks %}
-            <div class="flex h-full flex-col justify-end">
-              <span class="block rounded-t-[3px] bg-amber-400"
-                    style="height: {{ week.sent_back_height }}px"
-                    title="{{ week.sent_back }} sent back"></span><span class="block rounded-b-[3px] bg-primary {% if not week.sent_back %}rounded-t-[3px]{% endif %}"
-      style="height: {{ week.approved_height }}px"
-      title="{{ week.approved }} approved"></span>
-            </div>
-          {% endfor %}
-        </div>
-        <div class="grid grid-cols-8 gap-2.5 px-1 pt-1.5 text-center text-[11px] text-soft-foreground">{% for week in weeks %}<span>{{ week.label }}</span>{% endfor %}</div>
-        <table class="sr-only"><caption>Decisions per week</caption><thead><tr><th scope="col">Week</th><th scope="col">Approved</th><th scope="col">Sent back</th></tr></thead><tbody>{% for week in weeks %}<tr><td>{{ week.label }}</td><td>{{ week.approved }}</td><td>{{ week.sent_back }}</td></tr>{% endfor %}</tbody></table>
-      </div>
-    </section>
-  </div>
-  <div class="grid items-start gap-6 lg:grid-cols-3">
-    <section class="ui-card ui-card--layered ui-card--sm"
-             aria-labelledby="by-type-title">
-      <div class="ui-card-header">
-        <h2 class="ui-card-title" id="by-type-title">Queue by type</h2>
-      </div><div class="ui-card-content"><dl class="flex flex-col gap-4">{% for row in by_type %}{% include 'experiences/partials/reviewer_breakdown.html' with label=row.kind|readable count=row.count %}{% empty %}<div><dt class="text-sm text-muted-foreground">No pending reviews.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div></section>
-      <section class="ui-card ui-card--layered ui-card--sm"
-               aria-labelledby="ageing-title">
+      </section>
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.34s]"
+               aria-labelledby="by-milestone-title">
         <div class="ui-card-header">
-          <h2 class="ui-card-title" id="ageing-title">Queue age</h2>
+          <h2 class="ui-card-title" id="by-milestone-title">Approved by milestone</h2>
+          <p class="ui-card-description">This month.</p>
+        </div>
+        <div class="ui-card-content"><dl class="flex flex-col">{% for row in approved_by_milestone %}<div class="grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><dt class="truncate font-mono font-semibold" title="{{ row.name }}">{{ row.label }}</dt><dd class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
+      style="width: {% widthratio row.count approved_month 100 %}%"></span></dd><dd class="text-right font-bold tabular-nums">{{ row.count }}</dd></div>{% empty %}<div><dt class="text-sm text-muted-foreground">Nothing approved yet this month.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div>
+      </section>
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 lg:col-span-2 xl:col-span-1 [animation-delay:.4s]"
+               aria-labelledby="decisions-title">
+        <div class="ui-card-header">
+          <h2 class="ui-card-title" id="decisions-title">Decisions over the last 8 weeks</h2>
+          <p class="ui-card-description flex flex-wrap items-center gap-3.5"><span class="inline-flex items-center gap-1.5 text-xs"><span class="size-2 rounded-[2px] bg-primary" aria-hidden="true"></span>Approved</span><span class="inline-flex items-center gap-1.5 text-xs"><span class="size-2 rounded-[2px] bg-amber-400" aria-hidden="true"></span>Sent back</span></p>
         </div>
         <div class="ui-card-content">
-          <dl class="flex flex-col gap-4">
-            {% for label,count in ageing %}
-              {% include 'experiences/partials/reviewer_breakdown.html' with attention=forloop.last %}
+          <div class="grid h-[110px] grid-cols-8 gap-2.5 px-1"
+               role="img"
+               aria-label="Weekly approved and sent-back decisions; exact counts in the table below">
+            {% for week in weeks %}
+              <div class="flex h-full flex-col justify-end">
+                <span class="block rounded-t-[3px] bg-amber-400"
+                      style="height: {{ week.sent_back_height }}px"
+                      title="{{ week.sent_back }} sent back"></span><span class="block rounded-b-[3px] bg-primary {% if not week.sent_back %}rounded-t-[3px]{% endif %}"
+      style="height: {{ week.approved_height }}px"
+      title="{{ week.approved }} approved"></span>
+              </div>
             {% endfor %}
-          </dl>
+          </div>
+          <div class="grid grid-cols-8 gap-2.5 px-1 pt-1.5 text-center text-[11px] text-soft-foreground">{% for week in weeks %}<span>{{ week.label }}</span>{% endfor %}</div>
+          <table class="sr-only"><caption>Decisions per week</caption><thead><tr><th scope="col">Week</th><th scope="col">Approved</th><th scope="col">Sent back</th></tr></thead><tbody>{% for week in weeks %}<tr><td>{{ week.label }}</td><td>{{ week.approved }}</td><td>{{ week.sent_back }}</td></tr>{% endfor %}</tbody></table>
         </div>
       </section>
-      <section class="ui-card ui-card--layered ui-card--sm"
-               aria-labelledby="reviewer-load-title">
-        <div class="ui-card-header">
-          <h2 class="ui-card-title" id="reviewer-load-title">Reviewer load</h2>
-        </div><div class="ui-card-content"><dl class="flex flex-col text-sm">{% for row in by_assignee %}<div class="flex items-center gap-3 border-t border-soft-border py-2.5 first:border-t-0 first:pt-0 last:pb-0"><dt class="min-w-0 flex-1 break-words {% if not row.assignee__email %}text-soft-foreground{% endif %}">{{ row.assignee__name|default:row.assignee__email|default:'Unassigned' }}</dt><dd class="font-bold tabular-nums">{{ row.count }}</dd></div>{% empty %}<div><dt class="text-muted-foreground">No pending reviews.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div></section>
-      </div>
     </div>
+    <div class="grid items-start gap-6 lg:grid-cols-3">
+      <section class="ui-card ui-card--layered ui-card--sm"
+               aria-labelledby="by-type-title">
+        <div class="ui-card-header">
+          <h2 class="ui-card-title" id="by-type-title">Queue by type</h2>
+        </div><div class="ui-card-content"><dl class="flex flex-col gap-4">{% for row in by_type %}{% include 'experiences/partials/reviewer_breakdown.html' with label=row.kind|readable count=row.count %}{% empty %}<div><dt class="text-sm text-muted-foreground">No pending reviews.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div></section>
+        <section class="ui-card ui-card--layered ui-card--sm"
+                 aria-labelledby="ageing-title">
+          <div class="ui-card-header">
+            <h2 class="ui-card-title" id="ageing-title">Queue age</h2>
+          </div>
+          <div class="ui-card-content">
+            <dl class="flex flex-col gap-4">
+              {% for label,count in ageing %}
+                {% include 'experiences/partials/reviewer_breakdown.html' with attention=forloop.last %}
+              {% endfor %}
+            </dl>
+          </div>
+        </section>
+        <section class="ui-card ui-card--layered ui-card--sm"
+                 aria-labelledby="reviewer-load-title">
+          <div class="ui-card-header">
+            <h2 class="ui-card-title" id="reviewer-load-title">Reviewer load</h2>
+          </div><div class="ui-card-content"><dl class="flex flex-col text-sm">{% for row in by_assignee %}<div class="flex items-center gap-3 border-t border-soft-border py-2.5 first:border-t-0 first:pt-0 last:pb-0"><dt class="min-w-0 flex-1 break-words {% if not row.assignee__email %}text-soft-foreground{% endif %}">{{ row.assignee__name|default:row.assignee__email|default:'Unassigned' }}</dt><dd class="font-bold tabular-nums">{{ row.count }}</dd></div>{% empty %}<div><dt class="text-muted-foreground">No pending reviews.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div></section>
+        </div>
+      </div>
 {% endblock portal_content %}

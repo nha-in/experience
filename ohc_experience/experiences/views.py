@@ -1319,7 +1319,6 @@ def assess_dashboard(request):
             created_at__date__gte=today.replace(day=1),
         ).count(),
         median_days=round(median(durations), 1) if durations else None,
-        oldest=_queue_rows(list(ready.exclude(status="query_raised")[:5])),
         weeks=weeks,
         by_type=ready.values("kind").annotate(count=Count("pk")),
         by_assignee=ready.values("assignee__name", "assignee__email").annotate(
