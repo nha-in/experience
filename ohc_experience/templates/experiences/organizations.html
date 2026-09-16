@@ -15,7 +15,7 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
-    <form class="flex flex-wrap items-end gap-3 border-b border-soft-border px-5 py-4"
+    <form class="grid items-end gap-3 border-b border-soft-border px-5 py-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_auto]"
           method="get"
           action="{% url 'experiences:organizations' %}"
           role="search"
@@ -23,8 +23,9 @@
           hx-target="#main-content"
           hx-select="#main-content"
           hx-swap="outerHTML"
+          hx-trigger="change, submit"
           hx-push-url="true">
-      <div class="min-w-0 flex-[1_1_14rem]">
+      <div class="min-w-0">
         <label class="ui-label" for="organization-search">Search organizations</label>
         <input class="ui-input"
                id="organization-search"
@@ -33,11 +34,49 @@
                placeholder="Organization or legal name"
                type="search" />
       </div>
-      <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Search</button>
-      {% if search %}
-        <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
-           href="{% url 'experiences:organizations' %}">Clear search</a>
-      {% endif %}
+      <div class="min-w-0">
+        <label class="ui-label" for="organization-status">Verification</label>
+        <div class="ui-select-wrapper">
+          <select class="ui-select" id="organization-status" name="status">
+            <option value="">All statuses</option>
+            {% for value, label in status_choices %}
+              <option value="{{ value }}"
+                      {% if value == selected_status %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="min-w-0">
+        <label class="ui-label" for="organization-entity-type">Type of entity</label>
+        <div class="ui-select-wrapper">
+          <select class="ui-select" id="organization-entity-type" name="entity_type">
+            <option value="">All types</option>
+            {% for value, label in entity_type_choices %}
+              <option value="{{ value }}"
+                      {% if value == selected_entity_type %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="min-w-0">
+        <label class="ui-label" for="organization-state">State</label>
+        <div class="ui-select-wrapper">
+          <select class="ui-select" id="organization-state" name="state">
+            <option value="">All states</option>
+            {% for value, label in state_choices %}
+              <option value="{{ value }}"
+                      {% if value == selected_state %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Filter</button>
+        {% if filtered %}
+          <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
+             href="{% url 'experiences:organizations' %}">Clear filters</a>
+        {% endif %}
+      </div>
     </form>
     <div class="divide-y divide-soft-border">
       {% for organization in organizations %}
@@ -57,9 +96,9 @@
         </a>
       {% empty %}
         <div class="px-5 py-12 text-center">
-          {% if search %}
-            <h2 class="text-base font-semibold">No organizations match “{{ search }}”</h2>
-            <p class="mt-2 text-sm text-soft-foreground">Search by organization or legal name. Products have their own tab.</p>
+          {% if filtered %}
+            <h2 class="text-base font-semibold">No organizations match these filters</h2>
+            <p class="mt-2 text-sm text-soft-foreground">Try another name, or widen the verification, type or state filters.</p>
           {% else %}
             <h2 class="text-base font-semibold">No organizations available</h2>
             <p class="mt-2 text-sm text-soft-foreground">Organizations will appear when a review request matches your permissions.</p>

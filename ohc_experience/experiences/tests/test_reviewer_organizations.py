@@ -163,7 +163,12 @@ def test_open_request_counts_leave_out_drafts(environment, client):
 def catalogue(environment):
     """An HMIS and a locker from the test organization, a locker from another one,
     and a UHI reviewer who can see only the HMIS."""
-    other = OrganisationFactory(onboarded=True)
+    other = OrganisationFactory(
+        onboarded=True,
+        verification_status="sent_back",
+        entity_type="sole_proprietor",
+        state="JAMMU AND KASHMIR",
+    )
     owner = UserFactory()
     Membership.objects.create(organisation=other, user=owner, role="owner")
     uhi_reviewer = UserFactory(is_nha_team=True, is_staff=True)
@@ -188,10 +193,48 @@ def catalogue(environment):
     }
 
 
-def listed(client, user, **params):
+def listed(client, user, route="products", **params):
     client.force_login(user)
-    response = client.get(reverse("experiences:products"), params)
-    return set(response.context["products"]), response.context
+    response = client.get(reverse(f"experiences:{route}"), params)
+    return set(response.context[route]), response.context
+
+
+def test_organizations_tab_filters_within_scope(catalogue, client):
+    admin, organization, other = (
+        catalogue["admin"],
+        catalogue["organization"],
+        catalogue["other"],
+    )
+
+    def organizations(user, **params):
+        return listed(client, user, "organizations", **params)
+
+    assert organizations(admin)[0] == {organization, other}
+    assert organizations(admin, status="verified")[0] == {organization}
+    assert organizations(admin, status="sent_back")[0] == {other}
+    assert organizations(admin, entity_type="sole_proprietor")[0] == {other}
+    assert organizations(admin, state="JAMMU AND KASHMIR")[0] == {other}
+    assert (
+        organizations(admin, status="verified", state="JAMMU AND KASHMIR")[0] == set()
+    )
+
+    rows, context = organizations(admin, status="unknown")
+    assert rows == {organization, other}
+    assert context["selected_status"] == ""
+    assert not context["filtered"]
+    # Only values some organization holds, with LGD's capitals made readable.
+    assert context["entity_type_choices"] == [
+        ("private_company", "Private company"),
+        ("sole_proprietor", "Individual/sole proprietorship"),
+    ]
+    assert ("JAMMU AND KASHMIR", "Jammu and Kashmir") in context["state_choices"]
+
+    # Values held only by organizations outside the reviewer's scope are not offered.
+    rows, context = organizations(catalogue["uhi_reviewer"], state="JAMMU AND KASHMIR")
+    assert rows == {organization}
+    assert context["selected_state"] == ""
+    assert context["entity_type_choices"] == [("private_company", "Private company")]
+    assert "JAMMU AND KASHMIR" not in dict(context["state_choices"])
 
 
 def test_products_tab_filters_by_organization_within_scope(catalogue, client):

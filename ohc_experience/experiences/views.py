@@ -12,6 +12,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.db.models import F
 from django.db.models import Q
+from django.db.models.functions import Upper
 from django.http import FileResponse
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -34,6 +35,7 @@ from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.selectors import provisioning_can_be_retried
 from ohc_experience.integrations.selectors import provisioning_progress
 from ohc_experience.integrations.services import start_provisioning
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
@@ -351,13 +353,56 @@ def _solution_type_choices(user):
     ]
 
 
+def _state_label(state):
+    """LGD names states in capitals: "JAMMU AND KASHMIR" reads "Jammu and Kashmir"."""
+    return " ".join(
+        word.lower() if word == "And" else word for word in state.title().split()
+    )
+
+
+def _organization_filter_choices(organizations):
+    """Entity types and states the reviewer's organizations hold, and nothing else."""
+    held = set(organizations.order_by().values_list("entity_type", flat=True))
+    states = (
+        organizations.exclude(state="")
+        .order_by()
+        .values_list(Upper("state"), flat=True)
+        .distinct()
+    )
+    return (
+        [
+            (value, label)
+            for value, label in get_program().signup_organisation_choices
+            if value in held
+        ],
+        [(state, _state_label(state)) for state in sorted(states)],
+    )
+
+
 @login_required
 def organizations(request):
     _require_reviewer_area(request.user)
-    rows = permissions.visible_organisations(request.user)
+    visible = permissions.visible_organisations(request.user)
+    rows = visible
     search = request.GET.get("q", "").strip()
     if search:
         rows = rows.filter(Q(name__icontains=search) | Q(legal_name__icontains=search))
+    status = request.GET.get("status", "")
+    if status in Organisation.VerificationStatus.values:
+        rows = rows.filter(verification_status=status)
+    else:
+        status = ""
+    entity_type_choices, state_choices = _organization_filter_choices(visible)
+    entity_type = request.GET.get("entity_type", "")
+    if entity_type in dict(entity_type_choices):
+        rows = rows.filter(entity_type=entity_type)
+    else:
+        entity_type = ""
+    state = request.GET.get("state", "")
+    if state in dict(state_choices):
+        rows = rows.filter(state__iexact=state)
+    else:
+        state = ""
     rows = rows.annotate(
         visible_product_count=Count(
             "products",
@@ -379,6 +424,13 @@ def organizations(request):
             nav="organizations",
             organizations=_page(request, rows),
             search=search,
+            status_choices=Organisation.VerificationStatus.choices,
+            selected_status=status,
+            entity_type_choices=entity_type_choices,
+            selected_entity_type=entity_type,
+            state_choices=state_choices,
+            selected_state=state,
+            filtered=bool(search or status or entity_type or state),
         ),
     )
 
