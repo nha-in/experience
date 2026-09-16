@@ -272,8 +272,10 @@
     box-shadow: inset 0 0 0 1px var(--hero-hairline);
   }
 
+  /* The track scrolls sideways, so it clips anything drawn outside an option:
+     the focus ring sits inside the option's edge to stay whole. */
   .ui-switch-option {
-    @apply inline-flex min-h-9 shrink-0 items-center rounded-[11px] px-3.5 text-[13px] font-medium text-muted-foreground no-underline transition-[color,background-color,box-shadow] duration-150 ease-out hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
+    @apply inline-flex min-h-9 shrink-0 items-center rounded-[11px] px-3.5 text-[13px] font-medium text-muted-foreground no-underline transition-[color,background-color,box-shadow] duration-150 ease-out hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring;
   }
 
   .ui-switch-option:not([aria-current]):hover {
@@ -425,11 +427,6 @@
     @apply font-medium text-soft-foreground;
   }
 
-  /* PHR's M1 is HIE-CM's M1 — one record on two tracks, said under the name. */
-  .ui-station-alias {
-    @apply mt-0.5 block text-xs font-normal text-soft-foreground;
-  }
-
   .ui-station-status {
     @apply mt-0.5 block text-xs text-muted-foreground;
   }
@@ -441,31 +438,6 @@
   .ui-station--locked .ui-station-status,
   .ui-station--idle .ui-station-status {
     @apply text-placeholder-foreground;
-  }
-
-  /* Large: the track hero. */
-  .ui-stepper--lg .ui-station {
-    @apply gap-3;
-  }
-
-  .ui-stepper--lg .ui-station-dot {
-    @apply size-8;
-  }
-
-  .ui-stepper--lg .ui-station-rail {
-    @apply top-[15px] left-10;
-  }
-
-  .ui-stepper--lg .ui-station--done > .ui-station-rail {
-    @apply top-[14px];
-  }
-
-  .ui-stepper--lg .ui-station--current .ui-station-dot::after {
-    @apply size-2.5;
-  }
-
-  .ui-stepper--lg .ui-station-name {
-    @apply text-sm leading-5;
   }
 
   /* Small: the review item's history line. */
@@ -503,6 +475,102 @@
 
   .ui-stepper--sm .ui-station-status {
     @apply text-[11px] leading-4;
+  }
+
+  /* ── Milestone tiles ────────────────────────────────────────────────── */
+
+  .ui-milestone-tiles {
+    @apply m-0 grid list-none grid-cols-2 gap-2 p-0 sm:flex;
+  }
+
+  .ui-milestone-tiles > li {
+    @apply min-w-0 sm:max-w-60 sm:flex-1;
+  }
+
+  .ui-milestone-tile {
+    @apply flex h-full flex-col gap-0.5 rounded-xl border border-border bg-card/55 px-3 pt-2.5 pb-0.5 text-foreground no-underline transition-colors hover:border-stronger-border hover:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary;
+  }
+
+  .ui-milestone-tile[aria-current] {
+    @apply border-primary bg-card;
+    box-shadow: 0 0 0 1px var(--primary), var(--layered-shadow);
+  }
+
+  .ui-milestone-tile-dot {
+    @apply mb-2 flex size-7 shrink-0 items-center justify-center rounded-full bg-card;
+    box-shadow: inset 0 0 0 2.5px var(--primary);
+  }
+
+  .ui-milestone-tile-dot svg {
+    @apply size-[13px];
+  }
+
+  .ui-milestone-tile--current .ui-milestone-tile-dot::after {
+    content: "";
+    @apply size-2.5 rounded-full bg-primary;
+  }
+
+  .ui-milestone-tile--done .ui-milestone-tile-dot {
+    @apply bg-primary text-primary-foreground;
+    box-shadow: none;
+  }
+
+  .ui-milestone-tile--locked .ui-milestone-tile-dot {
+    @apply bg-soft-background text-soft-foreground;
+    box-shadow: inset 0 0 0 1.5px var(--border);
+  }
+
+  .ui-milestone-tile-code {
+    @apply font-mono text-[11px] font-bold tracking-[0.04em] text-soft-foreground;
+  }
+
+  .ui-milestone-tile--current .ui-milestone-tile-code,
+  .ui-milestone-tile[aria-current] .ui-milestone-tile-code {
+    @apply text-primary;
+  }
+
+  .ui-milestone-tile-viewing {
+    @apply ml-1 inline-block rounded-full bg-primary/12 px-1.5 align-[1px] font-sans text-[10px] leading-4 font-semibold tracking-[0.02em];
+  }
+
+  .ui-milestone-tile-name {
+    @apply text-sm leading-[19px] font-semibold break-words;
+  }
+
+  .ui-milestone-tile--locked .ui-milestone-tile-name {
+    @apply font-medium text-soft-foreground;
+  }
+
+  .ui-milestone-tile[aria-current] .ui-milestone-tile-name {
+    @apply font-bold text-primary;
+  }
+
+  .ui-milestone-tile-alias {
+    @apply text-xs text-soft-foreground;
+  }
+
+  .ui-milestone-tile-status {
+    @apply mb-2 text-xs leading-[17px] text-muted-foreground;
+  }
+
+  .ui-milestone-tile--done .ui-milestone-tile-status {
+    @apply text-green-800;
+  }
+
+  .ui-milestone-tile--locked .ui-milestone-tile-status {
+    @apply text-soft-foreground;
+  }
+
+  .ui-milestone-tile-needs {
+    @apply mt-auto flex items-center gap-1.5 border-t border-soft-border py-2 text-[11.5px] leading-[15px] font-semibold text-green-800;
+  }
+
+  .ui-milestone-tile-needs svg {
+    @apply size-3 shrink-0;
+  }
+
+  .ui-milestone-tile-needs--locked {
+    color: var(--status-warning-text);
   }
 
   /* ── Ring gauge and live dot ────────────────────────────────────────── */

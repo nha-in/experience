@@ -154,6 +154,9 @@ def _tracks(workspace, user):
                     + f"?milestone={key}",
                 },
             )
+        codes = {tile["definition"].key: tile["definition"].code for tile in tiles}
+        for tile in tiles:
+            tile["needs"] = codes.get(tile["definition"].predecessor, "")
         result.append(
             {
                 "definition": track,
@@ -294,6 +297,8 @@ def dashboard(request):
 @login_required
 def products(request):
     permissions.require_area(request.user, "review")
+    if permissions.reviewer(request.user):
+        return _reviewer_products(request)
     return render(
         request,
         "experiences/products.html",
@@ -313,26 +318,57 @@ def _require_reviewer_area(user):
     permissions.require_area(user, "review")
 
 
+def _open_requests(user):
+    return _review_requests(user).filter(status__in=services.PENDING_STATUSES)
+
+
+def _product_rows(user):
+    """The products a reviewer can see, each with its open request count."""
+    return _workspaces(user).annotate(
+        open_count=Count(
+            "product__review_items",
+            filter=Q(product__review_items__in=_open_requests(user)),
+            distinct=True,
+        ),
+    )
+
+
+def _solution_type_choices(user):
+    """The solution types the reviewer's products applied for, in catalogue order."""
+    applied = {
+        key
+        for keys in _workspaces(user)
+        .order_by()
+        .values_list("solution_type", flat=True)
+        .distinct()
+        for key in keys
+    }
+    return [
+        (key, label)
+        for key, label in get_program().solution_types.items()
+        if key in applied
+    ]
+
+
 @login_required
 def organizations(request):
     _require_reviewer_area(request.user)
-    visible_reviews = _review_requests(request.user)
-    rows = (
-        permissions.visible_organisations(request.user)
-        .annotate(
-            visible_product_count=Count(
-                "products",
-                filter=Q(products__in=permissions.visible_products(request.user)),
-                distinct=True,
-            ),
-            visible_review_count=Count(
-                "review_items",
-                filter=Q(review_items__in=visible_reviews),
-                distinct=True,
-            ),
-        )
-        .order_by("name")
-    )
+    rows = permissions.visible_organisations(request.user)
+    search = request.GET.get("q", "").strip()
+    if search:
+        rows = rows.filter(Q(name__icontains=search) | Q(legal_name__icontains=search))
+    rows = rows.annotate(
+        visible_product_count=Count(
+            "products",
+            filter=Q(products__in=permissions.visible_products(request.user)),
+            distinct=True,
+        ),
+        open_count=Count(
+            "review_items",
+            filter=Q(review_items__in=_open_requests(request.user)),
+            distinct=True,
+        ),
+    ).order_by("name")
     return render(
         request,
         "experiences/organizations.html",
@@ -341,6 +377,47 @@ def organizations(request):
             page_title="Organizations",
             nav="organizations",
             organizations=_page(request, rows),
+            search=search,
+        ),
+    )
+
+
+def _reviewer_products(request):
+    rows = _product_rows(request.user)
+    organization_choices = (
+        permissions.visible_organisations(request.user)
+        .filter(pk__in=_workspaces(request.user).values("product__organisation"))
+        .order_by("name")
+    )
+    organization = request.GET.get("organization", "")
+    if organization and organization_choices.filter(slug=organization).exists():
+        rows = rows.filter(product__organisation__slug=organization)
+    else:
+        organization = ""
+    solution_type_choices = _solution_type_choices(request.user)
+    solution_type = request.GET.get("solution_type", "")
+    if solution_type in dict(solution_type_choices):
+        rows = rows.filter(solution_type__contains=[solution_type])
+    else:
+        solution_type = ""
+    search = request.GET.get("q", "").strip()
+    if search:
+        rows = rows.filter(
+            Q(product__name__icontains=search) | Q(reference__icontains=search),
+        )
+    return render(
+        request,
+        "experiences/reviewer_products.html",
+        _context(
+            request,
+            page_title="Products",
+            nav="organizations",
+            products=_page(request, rows),
+            organization_choices=organization_choices,
+            selected_organization=organization,
+            solution_type_choices=solution_type_choices,
+            selected_solution_type=solution_type,
+            search=search,
         ),
     )
 
@@ -364,9 +441,9 @@ def organization_detail(request, slug):
         .order_by("-submitted_at", "-pk")
     )
     products = (
-        _workspaces(request.user)
+        _product_rows(request.user)
         .filter(product__organisation=organization)
-        .select_related("product")
+        .order_by("-open_count", "product__name")
     )
     verification = visible_reviews.filter(kind=ReviewItem.Kind.ORGANISATION).first()
     return render(
@@ -383,7 +460,8 @@ def organization_detail(request, slug):
                 else {}
             ),
             products=products,
-            review_requests=_page(request, visible_reviews),
+            # A draft is the integrator's unsent work, not yet a request.
+            review_requests=_page(request, visible_reviews.exclude(status="draft")),
         ),
     )
 
@@ -440,7 +518,7 @@ def product_detail(request, reference):
         _context(
             request,
             page_title=product.name,
-            nav="products",
+            nav="organizations",
             experience_program=program,
             product=product,
             reference=workspace.reference,

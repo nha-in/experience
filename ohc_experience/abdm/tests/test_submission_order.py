@@ -152,6 +152,40 @@ def test_the_track_page_locks_a_milestone_and_links_what_opens_it(
     assert "data-review-form" in html
 
 
+def milestone_tiles(html):
+    """The text of each milestone tile on a track page, by milestone code."""
+    texts = [
+        " ".join(re.sub(r"<[^>]+>", " ", tile).split())
+        for tile in re.findall(r'<a class="ui-milestone-tile .*?</a>', html, flags=re.S)
+    ]
+    return {text.split()[0]: text for text in texts}
+
+
+def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
+    client.force_login(environment["applicant"])
+
+    html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
+
+    assert milestone_tiles(html) == {
+        "M1": "M1 ABHA and identity Shared with UHI and PHR Open · waiting on you",
+        "M2": "M2 Viewing HIP services Locked · submit M1 first Needs M1",
+        "M3": "M3 HIU services Locked · submit M1 first Needs M1",
+        "M4": "M4 HFR Registration Open · waiting on you",
+    }
+    assert "ui-milestone-tile-needs--locked" in html
+
+    uhi = milestone_tiles(client.get(track_url(environment, "UHI")).content.decode())
+
+    assert "Needs" not in uhi["M1"]
+    assert uhi["UHI1"].endswith("Needs M1")
+
+    submit(environment)
+    html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
+
+    assert milestone_tiles(html)["M2"].endswith("Needs M1")
+    assert "ui-milestone-tile-needs--locked" not in html
+
+
 def test_withdrawing_names_the_requests_to_withdraw_first(environment, client):
     submit(environment)
     submit(environment, "m2")

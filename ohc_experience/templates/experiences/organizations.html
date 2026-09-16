@@ -7,10 +7,7 @@
         <p class="ui-hero-eyebrow">{{ experience_program.review_heading }}</p>
         <h1 class="ui-hero-title">Organizations</h1>
         <p class="ui-hero-lede">Organizations represented in the review requests you can access.</p>
-        <div class="mt-6 flex items-baseline gap-2.5">
-          <span class="ui-figure ui-figure--xl">{{ organizations.paginator.count }}</span>
-          <span class="ui-figure-unit">organization{{ organizations.paginator.count|pluralize }}</span>
-        </div>
+        {% include 'experiences/partials/organization_tabs.html' with tab='organizations' %}
       </div>
     </div>
   </div>
@@ -18,15 +15,40 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
+    <form class="flex flex-wrap items-end gap-3 border-b border-soft-border px-5 py-4"
+          method="get"
+          action="{% url 'experiences:organizations' %}"
+          role="search"
+          hx-get="{% url 'experiences:organizations' %}"
+          hx-target="#main-content"
+          hx-select="#main-content"
+          hx-swap="outerHTML"
+          hx-push-url="true">
+      <div class="min-w-0 flex-[1_1_14rem]">
+        <label class="ui-label" for="organization-search">Search organizations</label>
+        <input class="ui-input"
+               id="organization-search"
+               name="q"
+               value="{{ search }}"
+               placeholder="Organization or legal name"
+               type="search" />
+      </div>
+      <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Search</button>
+      {% if search %}
+        <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
+           href="{% url 'experiences:organizations' %}">Clear search</a>
+      {% endif %}
+    </form>
     <div class="divide-y divide-soft-border">
       {% for organization in organizations %}
-        <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+        <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
            href="{% url 'experiences:organization-detail' organization.slug %}">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary">{{ organization.initials }}</span>
-          <div class="min-w-0 flex-1">
-            <h2 class="text-base font-bold group-hover:text-primary">{{ organization.display_name }}</h2>
+          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
+                aria-hidden="true">{{ organization.initials }}</span>
+          <div class="min-w-0 flex-[1_1_12rem]">
+            <h2 class="text-base font-bold break-words group-hover:text-primary">{{ organization.display_name }}</h2>
             <p class="mt-1 text-xs text-soft-foreground">
-              {{ organization.visible_product_count }} visible product{{ organization.visible_product_count|pluralize }} · {{ organization.visible_review_count }} review request{{ organization.visible_review_count|pluralize }}
+              {{ organization.visible_product_count }} product{{ organization.visible_product_count|pluralize }} · {{ organization.open_count }} open request{{ organization.open_count|pluralize }}
             </p>
           </div>
           {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
@@ -35,8 +57,13 @@
         </a>
       {% empty %}
         <div class="px-5 py-12 text-center">
-          <h2 class="text-base font-semibold">No organizations available</h2>
-          <p class="mt-2 text-sm text-soft-foreground">Organizations will appear when a review request matches your permissions.</p>
+          {% if search %}
+            <h2 class="text-base font-semibold">No organizations match “{{ search }}”</h2>
+            <p class="mt-2 text-sm text-soft-foreground">Search by organization or legal name. Products have their own tab.</p>
+          {% else %}
+            <h2 class="text-base font-semibold">No organizations available</h2>
+            <p class="mt-2 text-sm text-soft-foreground">Organizations will appear when a review request matches your permissions.</p>
+          {% endif %}
         </div>
       {% endfor %}
     </div>

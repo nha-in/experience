@@ -2,7 +2,7 @@
 
 {% block portal_hero %}
   <div class="ui-hero">
-    <div class="ui-hero-inner {% if track.tiles %}xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,580px)] xl:items-end{% endif %}">
+    <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
         <p class="ui-hero-eyebrow">Track</p>
         <h1 class="ui-hero-title">
@@ -38,10 +38,10 @@
         {% endif %}
       </div>
       {% if track.tiles %}
-        <ol class="ui-stepper ui-stepper--lg ui-rise w-full xl:w-auto [animation-delay:.05s]"
+        <ol class="ui-milestone-tiles ui-rise w-full [animation-delay:.05s]"
             aria-label="Milestones">
           {% for choice in track.tiles %}
-            {% include 'experiences/partials/milestone_station.html' with tile=choice selected_key=tile.definition.key final=forloop.last shared_label=choice.shared_label %}
+            {% include 'experiences/partials/milestone_tile.html' with tile=choice selected_key=tile.definition.key %}
           {% endfor %}
         </ol>
       {% endif %}

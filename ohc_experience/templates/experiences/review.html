@@ -16,8 +16,8 @@
         <div class="ui-rise [animation-delay:.22s]">{% include 'experiences/partials/reviewer_queries.html' %}</div>
       {% endif %}
     </div>
-    {# Held to the viewport on wide screens: a long history scrolls in its own card, and the column scrolls only when a decision form alone outgrows the screen. The negative margin and matching padding keep card shadows clear of the scroll box's clipping. #}
-    <aside class="ui-rise flex min-w-0 flex-col gap-4 xl:sticky xl:top-2 xl:-m-4 xl:max-h-[calc(100dvh-1rem)] xl:overflow-y-auto xl:p-4 [animation-delay:.1s]"
+    {# Held to the viewport on wide screens. The column itself never scrolls: the history card takes the leftover height and scrolls inside itself. #}
+    <aside class="ui-rise flex min-w-0 flex-col gap-4 xl:sticky xl:top-2 xl:max-h-[calc(100dvh-1rem)] [animation-delay:.1s]"
            aria-label="Decision and history">
       {% include 'experiences/partials/reviewer_decision.html' %}
       {% include 'experiences/partials/reviewer_history.html' %}
