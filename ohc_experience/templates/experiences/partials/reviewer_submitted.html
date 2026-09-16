@@ -23,13 +23,28 @@
           <dd class="flex min-w-0 flex-wrap items-center gap-2.5 text-sm font-medium leading-relaxed break-words">
             {% if row.files %}
               {% for file in row.files %}
-                <a class="flex min-h-9 min-w-0 max-w-full items-center gap-2 text-primary no-underline hover:underline"
-                   hx-boost="false"
-                   href="{% url 'experiences:attachment' file.pk %}">
-                  <span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-soft-background text-xs text-soft-foreground"
-                        aria-hidden="true">↓</span>
-                  <span class="min-w-0 break-all">{{ file.original_name }}<span class="ml-1 text-xs font-normal text-soft-foreground">{{ file.size|filesizeformat }}</span></span>
-                </a>
+                <span class="flex min-w-0 max-w-full items-center gap-1">
+                  <a class="flex min-h-9 min-w-0 items-center gap-2 text-primary no-underline hover:underline"
+                     href="{% url 'experiences:attachment-preview' file.pk file.original_name %}"
+                     target="_blank"
+                     rel="noopener"
+                     hx-boost="false">
+                    <span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-soft-background text-soft-foreground"
+                          aria-hidden="true">
+                      <svg viewBox="0 0 24 24"
+                           class="size-3.5"
+                           fill="none"
+                           stroke="currentColor"
+                           stroke-width="1.8">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                        <path d="M14 2v6h6M8 13h8M8 17h6" />
+                      </svg>
+                    </span>
+                    <span class="min-w-0 break-all">{{ file.original_name }}<span class="ml-1 text-xs font-normal text-soft-foreground">{{ file.size|filesizeformat }}</span><span class="sr-only"> (opens in a new tab)</span></span>
+                  </a>
+                  {% url 'experiences:attachment' file.pk as download_url %}
+                  {% include 'components/download_button.html' with url=download_url name=file.original_name %}
+                </span>
               {% endfor %}
             {% elif row.file_field %}<span class="font-normal text-soft-foreground">No file attached</span>
       {% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}

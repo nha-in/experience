@@ -23,8 +23,10 @@
       {% endif %}
       {% if certification.certificate %}
         <a class="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-           href="{% url 'experiences:attachment' certification.certificate.pk %}"
-           hx-boost="false">View certificate</a>
+           href="{% url 'experiences:attachment-preview' certification.certificate.pk certification.certificate.original_name %}"
+           target="_blank"
+           rel="noopener"
+           hx-boost="false">View certificate<span class="sr-only"> (opens in a new tab)</span></a>
       {% endif %}
     {% elif can_integrate %}
       <a class="mt-1 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
