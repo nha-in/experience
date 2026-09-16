@@ -123,6 +123,15 @@ def test_an_unchecked_required_milestone_warns_but_still_saves():
     assert not any(rows[code]["warning"] for code in ("M1", "M2", "M4", "UHI1"))
 
 
+def test_m4_can_be_chosen_without_m1():
+    form = ProductRegistrationForm(
+        data={**product_data(), "applied_milestones": ["HIE-CM:m4"]},
+    )
+
+    assert form.is_valid(), form.errors
+    assert ABDM.milestone_keys(form.cleaned_data["applied_milestones"]) == {"m4"}
+
+
 def test_a_warning_names_only_the_chosen_types_that_require_it():
     form = ProductRegistrationForm(
         data={

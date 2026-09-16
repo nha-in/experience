@@ -158,8 +158,9 @@ retired; reviewer work uses the engine's assessment screens.
   review queue. Registration starts sandbox provisioning, whether or not the
   organisation is verified yet.
 - A milestone's form opens once every milestone before it is submitted: M2 and
-  M3 once M1 is, M4 once M1 and M3 are. M3 builds on M1, not M2: NHA's own
-  portal gates M3 on M1 alone, and no published document orders M3 after M2. A
+  M3 once M1 is. M3 builds on M1, not M2: NHA's own portal gates M3 on M1 alone,
+  and no published document orders M3 after M2. M4 needs no earlier milestone,
+  not even M1, so its form is open from the start. A
   sent-back milestone still counts as submitted; a withdrawn one does not. A
   request cannot be withdrawn while a later milestone built on it is under
   review; the integrator withdraws that one first. An

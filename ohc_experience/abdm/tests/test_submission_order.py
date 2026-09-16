@@ -56,15 +56,26 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
             )
     with pytest.raises(ValidationError, match="cannot be reused"):
         workflows.reuse_evidence(m2, environment["applicant"])
-    assert workflows.milestone_unavailable(milestone(environment, "m4")) == (
-        "M4 - HFR Registration opens once M1 - ABHA and identity and "
-        "M3 - HIU services are submitted."
-    )
 
     submit(environment)
 
     assert submit(environment, "m2").status == ReviewItem.Status.NEW
     assert submit(environment, "uhi1").status == ReviewItem.Status.NEW
+
+
+def test_m4_opens_and_is_approved_before_m1_is_submitted(environment, client):
+    client.force_login(environment["applicant"])
+    html = client.get(track_url(environment), {"milestone": "m4"}).content.decode()
+
+    assert "data-milestone-locked" not in html
+    assert "data-review-form" in html
+
+    m4 = submit(environment, "m4")
+
+    assert milestone(environment).status == ReviewItem.Status.DRAFT
+    assert workflows.pending_prerequisites(m4) == []
+    approve_submitted(environment, "m4")
+    assert milestone(environment, "m4").status == ReviewItem.Status.APPROVED
 
 
 def test_a_sent_back_milestone_leaves_the_next_one_open(environment):
@@ -87,27 +98,26 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
     submit(environment)
     submit(environment, "m2")
     submit(environment, "m3")
-    submit(environment, "m4")
     submit(environment, "uhi1")
 
     with pytest.raises(ValidationError) as error:
         workflows.withdraw(milestone(environment), applicant)
     assert error.value.messages == [
         (
-            "Withdraw UHI1 - UHI participation, M4 - HFR Registration, M3 - HIU "
-            "services and M2 - HIP services first. They build on this request."
+            "Withdraw UHI1 - UHI participation, M3 - HIU services and M2 - HIP "
+            "services first. They build on this request."
         ),
     ]
+
+    for key in ("m3", "m2"):
+        workflows.withdraw(milestone(environment, key), applicant)
     with pytest.raises(
         ValidationError,
-        match=r"Withdraw M4 - HFR Registration first\.",
+        match=r"Withdraw UHI1 - UHI participation first\. It builds on this request\.",
     ):
-        workflows.withdraw(milestone(environment, "m3"), applicant)
+        workflows.withdraw(milestone(environment), applicant)
 
-    # M3 follows M1, so nothing is built on M2 and it comes off on its own.
-    workflows.withdraw(milestone(environment, "m2"), applicant)
-
-    for key in ("m4", "m3", "uhi1", "m1"):
+    for key in ("uhi1", "m1"):
         workflows.withdraw(milestone(environment, key), applicant)
 
     assert milestone(environment).status == ReviewItem.Status.DRAFT
@@ -258,3 +268,29 @@ def test_the_migration_moves_a_saved_m3_request_from_m2_to_m1(environment):
     migration.backwards(registry, None)
 
     assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m2"]]
+
+
+def test_the_migration_drops_a_saved_m4_dependency_on_m3(environment):
+    migration = import_module(
+        "ohc_experience.experiences.migrations.0019_m4_has_no_prerequisite",
+    )
+    applications = {
+        row.key: row.application_id
+        for row in environment["workspace"].product.milestones.all()
+    }
+    saved = ApplicationDependency.objects.filter(application_id=applications["m4"])
+    ApplicationDependency.objects.create(
+        application_id=applications["m4"],
+        depends_on_id=applications["m3"],
+    )
+    others = ApplicationDependency.objects.exclude(application_id=applications["m4"])
+    unrelated = set(others.values_list("pk", flat=True))
+
+    migration.forwards(registry, None)
+
+    assert not saved.exists()
+    assert set(others.values_list("pk", flat=True)) == unrelated
+
+    migration.backwards(registry, None)
+
+    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m3"]]
