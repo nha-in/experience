@@ -133,7 +133,9 @@
         <div class="ui-card-header">
           <h2 class="ui-card-title" id="activity-title">Recent activity</h2>
         </div>
-        <div class="ui-card-content">
+        <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+             tabindex="0"
+             aria-labelledby="activity-title">
           <ol class="ui-feed">
             {% for event in activity %}
               <li class="ui-feed-row items-start">
