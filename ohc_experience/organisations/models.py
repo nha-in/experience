@@ -64,6 +64,7 @@ class Organisation(models.Model):
 
     # Company profile — collected during onboarding (screen 1b).
     legal_name = models.CharField(_("Legal entity name"), max_length=255, blank=True)
+    entity_type = models.CharField(_("Type of entity"), max_length=32, blank=True)
     website = models.URLField(_("Website"), blank=True)
     city = models.CharField(_("City"), max_length=120, blank=True)
     state = models.CharField(_("State"), max_length=120, blank=True)
@@ -110,6 +111,13 @@ class Organisation(models.Model):
     @property
     def display_name(self) -> str:
         return self.legal_name or self.name
+
+    @property
+    def noun(self) -> str:
+        """What copy calls this organisation: a sole proprietorship is a business."""
+        if self.entity_type == "sole_proprietor":
+            return _("business")
+        return _("organisation")
 
     @property
     def is_verified(self) -> bool:

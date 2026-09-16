@@ -1,7 +1,11 @@
 {% extends "account/base_entrance.html" %}
 
-{% load careui i18n %}
+{% load careui i18n static %}
 
+{% block javascript %}
+  {{ block.super }}
+  <script defer src="{% static 'js/email-domain-callout.js' %}"></script>
+{% endblock javascript %}
 {% block title %}Create your account | {{ experience_program.name|default:"Developer Sandbox" }}{% endblock title %}
 {% block header_action %}
   <span class="marketing-auth-headerhint">{% translate "Already have an account?" %}</span>
@@ -27,7 +31,7 @@
   {% if invitation %}
     {% translate "Join your organisation's sandbox workspace to work on products, evidence and reviews together." %}
   {% else %}
-    {% translate "Create your account, verify your organisation and register a product. Then follow your integration from the sandbox through review." %}
+    {% translate "Create your account, verify your organisation or business and register a product. Then follow your integration from the sandbox through review." %}
   {% endif %}
 {% endblock entrance_story_lede %}
 {% block entrance_story_body %}
@@ -44,7 +48,7 @@
       </li>
       <li>
         <span class="marketing-auth-step-number" aria-hidden="true">02</span>
-        <div><strong>{% translate "Organisation" %}</strong><span>{% translate "Submit your organisation details for verification." %}</span></div>
+        <div><strong>{% translate "Organisation/Business" %}</strong><span>{% translate "Submit your organisation or business details for verification." %}</span></div>
       </li>
       <li>
         <span class="marketing-auth-step-number" aria-hidden="true">03</span>
@@ -73,7 +77,7 @@
   {% if invitation %}
     {% translate "Create an account with your invited email address to join the team." %}
   {% else %}
-    {% translate "Start with your work details. You'll verify your organisation in the next step." %}
+    {% translate "Start with your details. You'll verify your organisation or business in the next step." %}
   {% endif %}
 {% endblock entrance_lede %}
 {% block entrance_body %}
@@ -111,7 +115,7 @@
       <legend>{% translate "About you" %}</legend>
       {% ui_field form.name label="Full name" %}
       <div class="marketing-auth-field-grid">
-        {% ui_field form.email label="Work email" %}
+        {% ui_field form.email label="Email" %}
         {% if form.mobile_number %}
           {% ui_field form.mobile_number %}
         {% endif %}
@@ -119,11 +123,15 @@
     </fieldset>
     {% if form.organisation %}
       <fieldset class="marketing-auth-fieldset">
-        <legend>{% translate "Your organisation" %}</legend>
+        <legend>{% translate "Your organisation/business" %}</legend>
         <div class="marketing-auth-field-grid">
-          {% ui_field form.organisation label="Organisation name" %}
+          {% ui_field form.organisation %}
           {% ui_field form.organisation_type %}
         </div>
+        {% ui_field form.website help_text="We check your email address against this domain." %}
+        <p class="ui-alert ui-alert--info" data-email-domain-callout hidden>
+          {% translate "This email address is not on your organisation's own domain. You can continue, but the reviewer may ask about it." %}
+        </p>
       </fieldset>
     {% endif %}
     <fieldset class="marketing-auth-fieldset">

@@ -47,7 +47,7 @@
               <div class="mt-1 flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
                 <button class="ui-btn ui-btn--default ui-btn--size-sm w-full sm:w-auto"
                         type="submit">Send reply</button>
-                <span class="text-[10.5px] text-soft-foreground sm:ml-auto">{% if ticket.status == 'resolved' or ticket.status == 'closed' %}Sending a reply will reopen this ticket.{% elif reviewer %}Your reply is visible to the organisation's team.{% else %}The integration desk and your organisation can read this reply.{% endif %}</span>
+                <span class="text-[10.5px] text-soft-foreground sm:ml-auto">{% if ticket.status == 'resolved' or ticket.status == 'closed' %}Sending a reply will reopen this ticket.{% elif reviewer %}Your reply is visible to the organisation's team.{% else %}The integration desk and your {{ ticket.organisation.noun }} can read this reply.{% endif %}</span>
               </div>
             </form>
           </div>

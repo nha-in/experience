@@ -124,7 +124,7 @@ def test_withdrawn_organisation_guidance_requires_resubmission(
     response = client.get(environment["workspace"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     next_step = response.context["next_step"]
-    assert next_step["action"] == "Continue organisation"
+    assert next_step["action"] == "Continue verification"
     assert next_step["url"] == reverse("experiences:organisation")
 
 

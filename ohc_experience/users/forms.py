@@ -9,7 +9,6 @@ from django.forms import EmailField
 from django.utils.translation import gettext_lazy as _
 
 from ohc_experience.experiences.registry import get_program
-from ohc_experience.experiences.workflows import organisation_review
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
@@ -81,6 +80,8 @@ class OrganisationSignupMixin:
             return
         organisation = Organisation.objects.create(
             name=self.cleaned_data["organisation"].strip(),
+            entity_type=self.cleaned_data.get("organisation_type", ""),
+            website=self.cleaned_data.get("website", ""),
         )
         Membership.objects.create(
             organisation=organisation,
@@ -104,15 +105,17 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
         widget=forms.TextInput(attrs={"autocomplete": "tel", "inputmode": "tel"}),
     )
     organisation = forms.CharField(
-        label=_("Organisation"),
+        label=_("Organisation/business name"),
         max_length=255,
-        error_messages={"required": _("Tell us which company you work for.")},
+        error_messages={"required": _("Enter your organisation or business name.")},
         widget=forms.TextInput(attrs={"autocomplete": "organization"}),
     )
 
-    organisation_type = forms.ChoiceField(
-        label=_("Type of organisation"),
+    organisation_type = forms.ChoiceField(label=_("Type of entity"))
+    website = forms.URLField(
+        label=_("Website"),
         required=False,
+        widget=forms.URLInput(attrs={"autocomplete": "url"}),
     )
 
     field_order = [
@@ -121,6 +124,7 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
         "mobile_number",
         "organisation",
         "organisation_type",
+        "website",
         "password1",
         "password2",
     ]
@@ -128,9 +132,10 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
     def __init__(self, *args, invitation=None, **kwargs):
         self.invitation = invitation
         super().__init__(*args, **kwargs)
-        self.fields[
-            "organisation_type"
-        ].choices = get_program().signup_organisation_choices
+        self.fields["organisation_type"].choices = [
+            ("", _("Select a type")),
+            *get_program().signup_organisation_choices,
+        ]
         if invitation is not None:
             # The organisation is already decided by the invite.
             del self.fields["organisation"]
@@ -177,11 +182,6 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
         user.phone_number = self.cleaned_data["mobile_number"].strip()
         user.save(update_fields=["name", "phone_number"])
         self.attach_organisation(user)
-        if self.invitation is None:
-            organisation = user.memberships.get().organisation
-            item = organisation_review(organisation, user)
-            item.form.metadata.update(get_program().signup_metadata(self.cleaned_data))
-            item.form.save(update_fields=["metadata"])
         request.session.pop("signup_challenge", None)
         return user
 
@@ -190,9 +190,9 @@ class UserSocialSignupForm(OrganisationSignupMixin, SocialSignupForm):
     """Signup completion for accounts arriving from a social provider."""
 
     organisation = forms.CharField(
-        label=_("Organisation"),
+        label=_("Organisation/business name"),
         max_length=255,
-        error_messages={"required": _("Tell us which company you work for.")},
+        error_messages={"required": _("Enter your organisation or business name.")},
     )
 
     def __init__(self, *args, invitation=None, **kwargs):

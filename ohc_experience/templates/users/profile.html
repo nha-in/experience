@@ -23,7 +23,9 @@
     </div>
     {% include "users/partials/profile_form.html" %}
     <div class="ui-card-content flex flex-col gap-3 border-t border-border pt-5">
-      <div>
+      <div class="flex flex-wrap gap-2">
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm"
+           href="{% url 'account_email' %}">{% translate "Change email" %}</a>
         <a class="ui-btn ui-btn--outline ui-btn--size-sm"
            href="{% url 'account_change_password' %}">{% translate "Change password" %}</a>
       </div>

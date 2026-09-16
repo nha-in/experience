@@ -18,7 +18,7 @@
        class="ui-subnav-link shrink-0 {% if settings_section == 'organisation' %}ui-subnav-link--active{% endif %}"
        href="{% url 'experiences:organisation' %}"
        hx-boost="false"
-       {% if settings_section == 'organisation' %}aria-current="page"{% endif %}>{% translate "Organisation" %}</a>
+       {% if settings_section == 'organisation' %}aria-current="page"{% endif %}>{{ current_organisation.noun|capfirst }}</a>
     <a id="settings-nav-team"
        class="ui-subnav-link shrink-0 {% if settings_section == 'team' %}ui-subnav-link--active{% endif %}"
        href="{% url 'organisations:team' %}"

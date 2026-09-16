@@ -29,6 +29,8 @@ SIGNUP_DATA = {
     "email": "meera@sunrise.in",
     "mobile_number": "+91 98765 43210",
     "organisation": "Sunrise Health Systems",
+    "organisation_type": "private_company",
+    "website": "https://sunrise.in",
     "password1": "sandbox-Kerala-2026",
     "password2": "sandbox-Kerala-2026",
 }
@@ -81,12 +83,21 @@ class TestUserSignupForm:
         membership = Membership.objects.get(user=user)
         assert membership.organisation == organisation
         assert membership.role == Role.OWNER
+        assert organisation.website == "https://sunrise.in"
 
     def test_rejects_a_blank_organisation(self):
         form = UserSignupForm(data={**SIGNUP_DATA, "organisation": "   "})
 
         assert not form.is_valid()
-        assert form.errors["organisation"] == ["Tell us which company you work for."]
+        assert form.errors["organisation"] == [
+            "Enter your organisation or business name.",
+        ]
+
+    def test_requires_the_type_of_entity(self):
+        form = UserSignupForm(data={**SIGNUP_DATA, "organisation_type": ""})
+
+        assert not form.is_valid()
+        assert "organisation_type" in form.errors
 
     def test_an_existing_email_is_only_revealed_once_the_captcha_passes(
         self,

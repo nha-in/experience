@@ -76,19 +76,20 @@ def overview_next_step(workspace, tracks, organisation_review):
     attention = _review_attention(requests)
     if attention:
         return attention
+    organisation = workspace.product.organisation
     if (
-        not workspace.product.organisation.is_verified
+        not organisation.is_verified
         and organisation_review
         and organisation_review.status == "draft"
     ):
         return _step(
-            "Complete your organisation verification",
+            f"Complete your {organisation.noun} verification",
             (
-                "Submit your organisation details for verification. You can "
+                f"Submit your {organisation.noun} details for verification. You can "
                 "submit milestones meanwhile, but they are approved only once "
-                "your organisation is verified."
+                f"your {organisation.noun} is verified."
             ),
-            "Continue organisation",
+            "Continue verification",
             organisation_url,
         )
     return _milestone_next_step(tiles, product_url)

@@ -103,6 +103,9 @@ class OrganisationForm(ReviewForm):
     )
     required_uploads = ("supporting_document",)
 
+    class Media:
+        js = ("js/organisation-form.js", "js/email-domain-callout.js")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not isinstance(self.initial.get("logo", ""), str):
@@ -169,6 +172,14 @@ class OrganisationForm(ReviewForm):
 
     def clean(self):
         cleaned = super().clean()
+        if (
+            cleaned.get("entity_type") == "sole_proprietor"
+            and cleaned.get("verification_document_type") == "CIN"
+        ):
+            self.add_error(
+                "verification_document_type",
+                "A sole proprietorship has no CIN. Choose PAN or GSTIN.",
+            )
         # Codes are always derived from this PIN's response, never from POST or
         # from an earlier submission whose PIN may have changed.
         cleaned["state_lgd_code"] = cleaned["district_lgd_code"] = ""

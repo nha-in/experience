@@ -18,6 +18,7 @@ from django.shortcuts import redirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import capfirst
 from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
@@ -499,7 +500,7 @@ def organisation(request):
             if saved:
                 messages.success(
                     request,
-                    "Organisation submitted for verification. "
+                    f"{capfirst(item.organisation.noun)} submitted for verification. "
                     "You can register your product while it is reviewed.",
                 )
                 return redirect(
@@ -516,7 +517,7 @@ def organisation(request):
             request,
             item=item,
             form=form,
-            page_title="Organisation details",
+            page_title=f"{capfirst(item.organisation.noun)} details",
             onboarding=not org.products.exists(),
             nav="organisation",
             can_edit=services.can_edit_review(item),
