@@ -27,7 +27,7 @@ class User(AbstractUser):
         _("NHA team member"),
         default=False,
         help_text=_(
-            "Works the support queue across all vendors and publishes events. "
+            "Works the support queue across all integrators and publishes events. "
             "Separate from staff status, which only controls Django admin access.",
         ),
     )

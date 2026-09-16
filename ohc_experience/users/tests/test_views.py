@@ -44,7 +44,7 @@ class TestUserRedirectView:
         assert response.status_code == HTTPStatus.FOUND
         assert response["Location"].startswith(reverse("account_login"))
 
-    def test_sends_a_new_vendor_to_onboarding(
+    def test_sends_a_new_integrator_to_onboarding(
         self,
         sign_in: Callable[[User], Client],
         organisation: Organisation,
@@ -59,7 +59,7 @@ class TestUserRedirectView:
         assert response.status_code == HTTPStatus.FOUND
         assert response["Location"] == reverse("experiences:organisation")
 
-    def test_sends_an_onboarded_vendor_to_the_dashboard(
+    def test_sends_an_onboarded_integrator_to_the_dashboard(
         self,
         sign_in: Callable[[User], Client],
         owner_membership: MembershipType,
@@ -271,7 +271,7 @@ class TestUserSignupView:
         assert "organisation" in response.context["form"].fields
         assert INVITATION_SESSION_KEY not in client.session
 
-    def test_signing_up_creates_the_vendor_account(self, client: Client):
+    def test_signing_up_creates_the_integrator_account(self, client: Client):
         response = client.post(
             SIGNUP_URL,
             data={

@@ -17,7 +17,7 @@ from ohc_experience.users.tests.factories import UserFactory
 
 
 class OrganisationFactory(DjangoModelFactory[Organisation]):
-    name = Sequence(lambda n: f"Vendor {n} Health Systems")
+    name = Sequence(lambda n: f"Integrator {n} Health Systems")
 
     class Meta:
         model = Organisation

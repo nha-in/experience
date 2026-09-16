@@ -149,7 +149,7 @@ def set_staff_active(actor, pk, *, active, revision):
             assign_review(item, actor, None)
         Ticket.objects.filter(
             assignee=user,
-            status__in=["open", "awaiting_vendor"],
+            status__in=["open", "awaiting_integrator"],
         ).update(assignee=None)
     staff_log(
         actor,

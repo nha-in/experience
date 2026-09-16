@@ -51,11 +51,11 @@ class OrganisationQuerySet(models.QuerySet["Organisation"]):
 
 
 class Organisation(models.Model):
-    """A vendor company: the unit that owns a sandbox, certifications and a team."""
+    """An integrator company: the unit owning a sandbox, certifications and a team."""
 
     class VerificationStatus(models.TextChoices):
         PENDING = "pending", _("Verification pending")
-        VERIFIED = "verified", _("Verified vendor")
+        VERIFIED = "verified", _("Verified integrator")
         REJECTED = "rejected", _("Verification rejected")
         SENT_BACK = "sent_back", _("Sent back")
 
@@ -127,8 +127,9 @@ class Organisation(models.Model):
     def verification_variant(self) -> str:
         """The badge variant for this status — one mapping, every screen.
 
-        The vendor's settings page and the NHA console draw the same badge, and
-        a three-way branch written out in each template is a branch that drifts.
+        The integrator's settings page and the NHA console draw the same badge,
+        and a three-way branch written out in each template is a branch that
+        drifts.
         """
         return {
             self.VerificationStatus.VERIFIED: "success",
@@ -139,8 +140,8 @@ class Organisation(models.Model):
         """Record the NHA team's decision. True when something actually moved.
 
         `verified_at` is the date shown beside the badge, so it belongs to the
-        verified state and to nothing else: a vendor moved back to pending or
-        to rejected has it cleared, rather than left reading "Verified 3 Mar"
+        verified state and to nothing else: an integrator moved back to pending
+        or to rejected has it cleared, rather than left reading "Verified 3 Mar"
         under a badge that no longer says verified.
         """
         if self.verification_status == status:

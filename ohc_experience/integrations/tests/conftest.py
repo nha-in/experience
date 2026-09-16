@@ -25,7 +25,7 @@ from ohc_experience.users.tests.factories import UserFactory
 
 @pytest.fixture
 def owner(db):
-    return UserFactory.create(email="owner@vendor.in")
+    return UserFactory.create(email="owner@integrator.in")
 
 
 @pytest.fixture

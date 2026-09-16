@@ -91,7 +91,7 @@ class OrganisationSignupMixin:
 
 
 class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupForm):
-    """Vendor account creation — screen 1a of the hub mockups."""
+    """Integrator account creation — screen 1a of the hub mockups."""
 
     name = forms.CharField(
         label=_("Full name"),

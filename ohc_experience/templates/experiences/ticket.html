@@ -14,7 +14,7 @@
     <a class="mt-1.5 inline-block text-[11px] font-semibold text-primary no-underline hover:underline"
        href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">‹ All tickets</a>
   </div>
-  {% if ticket.status == 'awaiting_vendor' and not reviewer and can_reply %}
+  {% if ticket.status == 'awaiting_integrator' and not reviewer and can_reply %}
     <div class="ui-alert ui-alert--warning mb-4" role="status">
       <p class="flex-1">The integration desk is waiting for your reply.</p>
       <a class="font-semibold underline underline-offset-4" href="#reply-form">Write a reply</a>

@@ -468,7 +468,7 @@ def product_detail(request, reference):
             general_access=general_access,
             open_tickets=permissions.visible_tickets(request.user).filter(
                 product=product,
-                status__in=["open", "awaiting_vendor"],
+                status__in=["open", "awaiting_integrator"],
             )[:5],
             activity=activity.select_related("actor", "item")[:10],
             outcomes=outcomes.exclude(
@@ -1650,7 +1650,7 @@ def review(request, pk):
             else {},
             open_tickets=permissions.visible_tickets(request.user).filter(
                 organisation=item.organisation,
-                status__in=["open", "awaiting_vendor"],
+                status__in=["open", "awaiting_integrator"],
             )[:5],
         ),
     )

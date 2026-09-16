@@ -240,7 +240,7 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     assert {tab["value"]: tab["count"] for tab in response.context["status_tabs"]} == {
         "": 2,
         "open": 1,
-        "awaiting_vendor": 0,
+        "awaiting_integrator": 0,
         "resolved": 1,
         "closed": 0,
     }
@@ -457,7 +457,7 @@ def test_reviewer_pages_do_not_select_a_product(
     assert portal_client.session["experience_product"] == portal_workspaces[1].reference
 
 
-def test_vendor_can_close_their_own_ticket(
+def test_integrator_can_close_their_own_ticket(
     portal_client,
     portal_workspaces,
     owner_membership,

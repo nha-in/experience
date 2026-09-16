@@ -24,7 +24,7 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def vendor():
+def integrator():
     return UserFactory.create(name="Meera Krishnan", email="meera@sunrise.in")
 
 
@@ -38,14 +38,14 @@ def nha_member():
 
 
 @pytest.fixture
-def ticket(organisation, vendor) -> Ticket:
+def ticket(organisation, integrator) -> Ticket:
     return Ticket.objects.create(
         organisation=organisation,
         product=product_for(organisation),
         subject="Sandbox reset wiped our seeded patient records",
         category=Category.SANDBOX,
         priority=Priority.HIGH,
-        created_by=vendor,
+        created_by=integrator,
     )
 
 
@@ -93,7 +93,7 @@ class TestReference:
 
 
 class TestPostReply:
-    def test_an_ohc_reply_puts_the_ticket_back_on_the_vendor(
+    def test_an_ohc_reply_puts_the_ticket_back_on_the_integrator(
         self,
         ticket: Ticket,
         nha_member,
@@ -106,7 +106,7 @@ class TestPostReply:
         )
         ticket.refresh_from_db()
 
-        assert ticket.status == Status.AWAITING_VENDOR
+        assert ticket.status == Status.AWAITING_INTEGRATOR
         assert ticket.first_responded_at is not None
         assert message.kind == TicketMessage.Kind.REPLY
         assert message.from_nha_team is True
@@ -115,29 +115,29 @@ class TestPostReply:
         self,
         ticket: Ticket,
         nha_member,
-        vendor,
+        integrator,
     ):
         post_reply(ticket, nha_member, "Looking into it.", from_nha_team=True)
         ticket.refresh_from_db()
         stamped_at = ticket.first_responded_at
 
-        post_reply(ticket, vendor, "Thanks.", from_nha_team=False)
+        post_reply(ticket, integrator, "Thanks.", from_nha_team=False)
         post_reply(ticket, nha_member, "Fixed on our side.", from_nha_team=True)
         ticket.refresh_from_db()
 
         assert ticket.first_responded_at == stamped_at
 
-    def test_a_vendor_reply_reopens_the_ticket(
+    def test_an_integrator_reply_reopens_the_ticket(
         self,
         ticket: Ticket,
         nha_member,
-        vendor,
+        integrator,
     ):
         post_reply(ticket, nha_member, "Any request ids?", from_nha_team=True)
 
         message = post_reply(
             ticket,
-            vendor,
+            integrator,
             "Request id 8f2c1a94.",
             from_nha_team=False,
         )
@@ -146,8 +146,12 @@ class TestPostReply:
         assert ticket.status == Status.OPEN
         assert message.from_nha_team is False
 
-    def test_a_vendor_reply_is_not_a_first_response(self, ticket: Ticket, vendor):
-        post_reply(ticket, vendor, "Adding more detail.", from_nha_team=False)
+    def test_an_integrator_reply_is_not_a_first_response(
+        self,
+        ticket: Ticket,
+        integrator,
+    ):
+        post_reply(ticket, integrator, "Adding more detail.", from_nha_team=False)
         ticket.refresh_from_db()
 
         assert ticket.first_responded_at is None
@@ -156,11 +160,11 @@ class TestPostReply:
         self,
         ticket: Ticket,
         nha_member,
-        vendor,
+        integrator,
     ):
-        post_reply(ticket, vendor, "First", from_nha_team=False)
+        post_reply(ticket, integrator, "First", from_nha_team=False)
         post_reply(ticket, nha_member, "Second", from_nha_team=True)
-        post_reply(ticket, vendor, "Third", from_nha_team=False)
+        post_reply(ticket, integrator, "Third", from_nha_team=False)
 
         assert list(ticket.messages.values_list("body", flat=True)) == [
             "First",
@@ -210,13 +214,13 @@ class TestRecordStatusChange:
         self,
         ticket: Ticket,
         nha_member,
-        vendor,
+        integrator,
     ):
         from_ohc = record_status_change(ticket, nha_member, Status.RESOLVED)
-        from_vendor = record_status_change(ticket, vendor, Status.OPEN)
+        from_integrator = record_status_change(ticket, integrator, Status.OPEN)
 
         assert from_ohc.from_nha_team is True
-        assert from_vendor.from_nha_team is False
+        assert from_integrator.from_nha_team is False
 
     def test_an_event_is_not_mistaken_for_a_reply(self, ticket: Ticket, nha_member):
         post_reply(ticket, nha_member, "On it.", from_nha_team=True)
@@ -232,7 +236,7 @@ class TestBadgeVariants:
         ("status", "variant"),
         [
             (Status.OPEN, "info"),
-            (Status.AWAITING_VENDOR, "warning"),
+            (Status.AWAITING_INTEGRATOR, "warning"),
             (Status.RESOLVED, "success"),
             (Status.CLOSED, "neutral"),
         ],
@@ -259,7 +263,7 @@ class TestBadgeVariants:
         ("status", "is_open"),
         [
             (Status.OPEN, True),
-            (Status.AWAITING_VENDOR, True),
+            (Status.AWAITING_INTEGRATOR, True),
             (Status.RESOLVED, False),
             (Status.CLOSED, False),
         ],
@@ -273,7 +277,7 @@ class TestBadgeVariants:
 
 
 class TestTicketQuerySet:
-    def test_for_organisation_keeps_one_vendor_in_view(self, organisation):
+    def test_for_organisation_keeps_one_integrator_in_view(self, organisation):
         mine = open_ticket(organisation, "Mine")
         other = OrganisationFactory.create(name="Arogya Systems")
         open_ticket(other, "Theirs")
@@ -293,10 +297,10 @@ class TestTicketQuerySet:
         self,
         organisation,
         nha_member,
-        vendor,
+        integrator,
     ):
-        waiting_on_us = open_ticket(organisation, "Vendor spoke last")
-        post_reply(waiting_on_us, vendor, "Any news?", from_nha_team=False)
+        waiting_on_us = open_ticket(organisation, "Integrator spoke last")
+        post_reply(waiting_on_us, integrator, "Any news?", from_nha_team=False)
         waiting_on_them = open_ticket(organisation, "We spoke last")
         post_reply(waiting_on_them, nha_member, "Over to you.", from_nha_team=True)
 

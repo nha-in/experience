@@ -1,5 +1,5 @@
 {% if mobile %}
-  <li class="border-b border-soft-border px-6 py-3.5 last:border-b-0 {% if ticket.status == 'awaiting_vendor' %}bg-orange-50/60{% endif %}">
+  <li class="border-b border-soft-border px-6 py-3.5 last:border-b-0 {% if ticket.status == 'awaiting_integrator' %}bg-orange-50/60{% endif %}">
     <a class="text-[13.5px] font-semibold text-foreground no-underline hover:underline"
        href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.subject }}</a>
     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -11,7 +11,7 @@
     {% if reviewer %}<p class="mt-1 text-xs text-soft-foreground">{{ ticket.product.name }}</p>{% endif %}
   </li>
 {% else %}
-  <tr class="{% if ticket.status == 'awaiting_vendor' %}bg-orange-50/60 hover:bg-orange-50{% endif %}">
+  <tr class="{% if ticket.status == 'awaiting_integrator' %}bg-orange-50/60 hover:bg-orange-50{% endif %}">
     <td>
       <a class="font-semibold text-foreground no-underline hover:text-primary"
          href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.subject }}</a>
