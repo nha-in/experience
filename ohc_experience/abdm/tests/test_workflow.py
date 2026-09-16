@@ -266,7 +266,7 @@ def test_the_shared_m1_note_follows_the_catalogue_not_a_hardcoded_track(
         reverse("experiences:track", args=[environment["workspace"].reference, code]),
     ).content.decode()
 
-    assert f'<span class="ui-station-alias">{expected}</span>' in html
+    assert f'<span class="ui-milestone-tile-alias">{expected}</span>' in html
 
 
 def test_uhi_participation_is_recorded_rather_than_decided(environment):

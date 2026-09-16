@@ -155,6 +155,9 @@ def _tracks(workspace, user):
                     + f"?milestone={key}",
                 },
             )
+        codes = {tile["definition"].key: tile["definition"].code for tile in tiles}
+        for tile in tiles:
+            tile["needs"] = codes.get(tile["definition"].predecessor, "")
         result.append(
             {
                 "definition": track,

@@ -1,0 +1,58 @@
+<li>
+  <a class="ui-milestone-tile {% if tile.status == 'approved' %}ui-milestone-tile--done{% elif tile.locked_by %}ui-milestone-tile--locked{% else %}ui-milestone-tile--current{% endif %}"
+     href="{{ tile.url }}"
+     {% if tile.definition.key == selected_key %}aria-current="page"{% endif %}>
+    <span class="ui-milestone-tile-dot" aria-hidden="true">
+      {% if tile.status == 'approved' %}
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="3"
+             stroke-linecap="round"
+             stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      {% elif tile.locked_by %}
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2.2"
+             stroke-linecap="round"
+             stroke-linejoin="round">
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+        </svg>
+      {% endif %}
+    </span>
+    <span class="ui-milestone-tile-code">
+      {{ tile.definition.code }}
+      {% if tile.definition.key == selected_key %}
+        <span class="ui-milestone-tile-viewing" aria-hidden="true">Viewing</span>
+      {% endif %}
+    </span>
+    <span class="ui-milestone-tile-name">{{ tile.definition.name }}</span>
+    {% if tile.shared_label %}<span class="ui-milestone-tile-alias">{{ tile.shared_label }}</span>{% endif %}
+    <span class="ui-milestone-tile-status">
+      {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'j M' }}{% elif tile.locked_by %}Locked · submit {{ tile.locked_by }} first{% elif tile.status == 'query_raised' %}Query raised · {% if tile.reply_needed %}reply needed{% else %}with {{ experience_program.reviewer_name }}{% endif %}{% elif tile.item.pending %}Under review · with {{ experience_program.reviewer_name }}{% elif tile.status == 'sent_back' %}Sent back · waiting on you{% else %}{{ tile.label }} · waiting on you{% endif %}
+    </span>
+    {% if tile.needs %}
+      <span class="ui-milestone-tile-needs {% if tile.locked_by %}ui-milestone-tile-needs--locked{% endif %}">
+        <svg viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2.4"
+             stroke-linecap="round"
+             stroke-linejoin="round"
+             aria-hidden="true">
+          {% if tile.locked_by %}
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          {% else %}
+            <path d="M20 6 9 17l-5-5" />
+          {% endif %}
+        </svg>
+        Needs {{ tile.needs }}
+      </span>
+    {% endif %}
+  </a>
+</li>
