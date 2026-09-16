@@ -49,6 +49,18 @@ TRACKS = (
     ),
 )
 TRACK_MAP = {track.code: track for track in TRACKS}
+#: Milestones each solution type requires, from NHA's intent-for-request matrix.
+#: Registration preselects them and warns when one is left unchecked, but still
+#: saves. Types not listed require none.
+REQUIRED_MILESTONES = {
+    "hmis": ("m1", "m2", "m3"),
+    "clinical_hmis": ("m1", "m2", "m3"),
+    "healthtech": ("m1", "m2", "m3"),
+    "lmis": ("m1", "m2", "m3"),
+    "insurance": ("m1", "m3"),
+    "telemedicine": ("m1", "m2", "m3"),
+    "pharmacy": ("m1", "m2", "m3"),
+}
 MILESTONE_CHOICES = [
     (
         track.name,

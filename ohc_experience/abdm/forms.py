@@ -13,6 +13,7 @@ from ohc_experience.organisations.widgets import PincodeInput
 
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
+from .catalog import REQUIRED_MILESTONES
 from .catalog import TRACKS
 from .catalog import canonical_keys
 from .wasa import WASA_FIELDS
@@ -206,6 +207,14 @@ class OrganisationForm(ReviewForm):
         return cleaned
 
 
+def required_warning(labels):
+    """Why an unchecked milestone is required. The picker script says the same."""
+    if not labels:
+        return ""
+    noun = "solution types" if len(labels) > 1 else "solution type"
+    return f"Required for the {readable_list(labels)} {noun}."
+
+
 class ProductRegistrationForm(ReviewForm):
     full_width_fields = ("applied_milestones", "solution_type")
     conditional_fields = {"payer_category": ("solution_type", "payers")}
@@ -249,7 +258,9 @@ class ProductRegistrationForm(ReviewForm):
             ("telemedicine", "Telemedicine"),
             ("other", "Other"),
         ],
-        widget=forms.CheckboxSelectMultiple(attrs={"class": "ui-checkbox shrink-0"}),
+        widget=forms.CheckboxSelectMultiple(
+            attrs={"class": "ui-checkbox shrink-0", "data-solution-type": ""},
+        ),
     )
     payer_category = forms.MultipleChoiceField(
         label="Payer categories",
@@ -270,13 +281,16 @@ class ProductRegistrationForm(ReviewForm):
             kwargs["initial"] = {
                 "category": "hmis",
                 "solution_type": ["clinical_hmis"],
-                "applied_milestones": ["HIE-CM:m1"],
+                "applied_milestones": [
+                    f"HIE-CM:{key}" for key in REQUIRED_MILESTONES["clinical_hmis"]
+                ],
             }
         super().__init__(*args, **kwargs)
 
     @property
     def milestone_tracks(self):
         selected = self["applied_milestones"].value() or []
+        solutions = self["solution_type"].value() or []
         return [
             {
                 "definition": track,
@@ -284,16 +298,32 @@ class ProductRegistrationForm(ReviewForm):
                     MILESTONES[key].code for key in track.prerequisites(MILESTONES)
                 ),
                 "milestones": [
-                    {
-                        "definition": MILESTONES[key],
-                        "value": f"{track.code}:{key}",
-                        "selected": f"{track.code}:{key}" in selected,
-                    }
+                    self._milestone_row(f"{track.code}:{key}", selected, solutions)
                     for key in track.keys
                 ],
             }
             for track in TRACKS
         ]
+
+    def _milestone_row(self, value, selected, solutions):
+        key = value.split(":", 1)[1]
+        required_for = [
+            (solution, label)
+            for solution, label in self.fields["solution_type"].choices
+            if key in REQUIRED_MILESTONES.get(solution, ())
+        ]
+        missing_for = (
+            []
+            if value in selected
+            else [label for solution, label in required_for if solution in solutions]
+        )
+        return {
+            "definition": MILESTONES[key],
+            "value": value,
+            "selected": value in selected,
+            "required_for": " ".join(solution for solution, _ in required_for),
+            "warning": required_warning(missing_for),
+        }
 
     def clean(self):
         cleaned = super().clean()

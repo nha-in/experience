@@ -8,6 +8,8 @@ from importlib import import_module
 import pytest
 from django.urls import reverse
 
+from ohc_experience.abdm.catalog import MILESTONES
+from ohc_experience.abdm.catalog import REQUIRED_MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
 from ohc_experience.abdm.definitions import ABDM
 from ohc_experience.abdm.demo import evidence_data
@@ -43,7 +45,8 @@ def test_registration_defaults_only_apply_to_new_unbound_forms():
     new = ProductRegistrationForm()
     assert new["category"].value() == "hmis"
     assert new["solution_type"].value() == ["clinical_hmis"]
-    assert new["applied_milestones"].value() == ["HIE-CM:m1"]
+    assert new["applied_milestones"].value() == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
+    assert not any(row["warning"] for row in milestone_rows(new).values())
     assert not ProductRegistrationForm(initial={})["applied_milestones"].value()
     saved = ProductRegistrationForm(
         initial={"applied_milestones": ["UHI:uhi1"], "category": "other"},
@@ -71,9 +74,99 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         for field in inputs
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
-    assert selected == ["HIE-CM:m1"]
+    assert selected == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
     assert b"M1 required for enablement" in response.content
     assert b"Shared with" not in response.content
+
+
+def milestone_rows(form):
+    return {
+        row["definition"].code: row
+        for track in form.milestone_tracks
+        for row in track["milestones"]
+    }
+
+
+def test_solution_types_require_the_intent_matrix_milestones():
+    choices = dict(ProductRegistrationForm.base_fields["solution_type"].choices)
+    matrix = {
+        choices[solution]: [MILESTONES[key].code for key in keys]
+        for solution, keys in REQUIRED_MILESTONES.items()
+    }
+
+    assert matrix == {
+        "HMIS": ["M1", "M2", "M3"],
+        "Clinical HMIS": ["M1", "M2", "M3"],
+        "Healthtech": ["M1", "M2", "M3"],
+        "LMIS": ["M1", "M2", "M3"],
+        "Insurance": ["M1", "M3"],
+        "Telemedicine": ["M1", "M2", "M3"],
+        "Pharmacy": ["M1", "M2", "M3"],
+    }
+
+
+def test_an_unchecked_required_milestone_warns_but_still_saves():
+    form = ProductRegistrationForm(
+        data={
+            **product_data(),
+            "solution_type": ["hmis", "insurance", "pharmacy"],
+            "applied_milestones": ["HIE-CM:m1", "HIE-CM:m2"],
+        },
+    )
+
+    assert form.is_valid(), form.errors
+    rows = milestone_rows(form)
+    assert rows["M3"]["warning"] == (
+        "Required for the HMIS, Insurance and Pharmacy solution types."
+    )
+    assert not any(rows[code]["warning"] for code in ("M1", "M2", "M4", "UHI1"))
+
+
+def test_a_warning_names_only_the_chosen_types_that_require_it():
+    form = ProductRegistrationForm(
+        data={
+            **product_data(),
+            "solution_type": ["insurance", "payers"],
+            "payer_category": ["tpa"],
+            "applied_milestones": ["HIE-CM:m1"],
+        },
+    )
+
+    rows = milestone_rows(form)
+    assert rows["M3"]["warning"] == "Required for the Insurance solution type."
+    assert not rows["M2"]["warning"]
+    assert "insurance" in rows["M3"]["required_for"].split()
+    assert "insurance" not in rows["M2"]["required_for"].split()
+    assert not rows["M4"]["required_for"]
+
+
+@pytest.mark.django_db
+def test_the_picker_shows_why_a_saved_product_lacks_a_required_milestone(
+    environment,
+    client,
+):
+    workspace, form = workflows.register_product(
+        environment["org"],
+        environment["applicant"],
+        data={
+            **product_data("Claims desk"),
+            "solution_type": ["insurance"],
+            "applied_milestones": ["HIE-CM:m1"],
+        },
+    )
+    assert workspace, form.errors
+    client.force_login(environment["applicant"])
+
+    html = client.get(
+        reverse("experiences:product-edit", args=[workspace.reference]),
+    ).content.decode()
+
+    inputs = {field.get("id"): field for field in Inputs(html).fields}
+    assert "data-solution-type" in inputs["id_solution_type_0"]
+    m3 = inputs["milestone-hie-cmm3"]
+    assert "insurance" in m3["data-required-for"].split()
+    assert m3["aria-describedby"] == "milestone-hie-cmm3-required"
+    assert html.count("Required for the Insurance solution type.") == 1
 
 
 def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
@@ -253,6 +346,9 @@ def test_approved_picker_carries_locked_selections(environment, client):
         if field.get("name") == "applied_milestones" and field.get("type") == "hidden"
     ]
     assert "HIE-CM:m1" in carried
+    locked = next(field for field in inputs if field.get("id") == "milestone-hie-cmm1")
+    assert "disabled" in locked
+    assert "data-required-for" not in locked
 
 
 @pytest.mark.django_db
