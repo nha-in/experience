@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import io
+import json
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth.models import AnonymousUser
@@ -106,23 +109,27 @@ class TestUserSignupForm:
         user: User,
     ):
         settings.SANDBOX_SIGNUP_CAPTCHA = True
-        settings.TURNSTILE_SITE_KEY = ""
-        settings.DEBUG = True
+        settings.TURNSTILE_SITE_KEY = "test-site"
+        settings.TURNSTILE_SECRET_KEY = "test-secret"  # noqa: S105 - mocked provider key
         request = signup_request(rf)
-        UserSignupForm(request=request)
-        first, second = request.session["signup_challenge"][:2]
-        data = {**SIGNUP_DATA, "email": user.email}
+        data = {**SIGNUP_DATA, "email": user.email, "captcha": "response-token"}
 
-        guessed = UserSignupForm(data={**data, "captcha": -1}, request=request)
-        assert not guessed.is_valid()
-        assert not guessed.has_error("email")
+        def turnstile(*, success):
+            response = {"success": success, "hostname": "testserver"}
+            return patch(
+                "ohc_experience.users.captcha.urlopen",
+                return_value=io.BytesIO(json.dumps(response).encode()),
+            )
 
-        solved = UserSignupForm(
-            data={**data, "captcha": first + second},
-            request=request,
-        )
-        assert not solved.is_valid()
-        assert solved.account_exists
+        with turnstile(success=False):
+            failed = UserSignupForm(data=data, request=request)
+            assert not failed.is_valid()
+            assert not failed.has_error("email")
+
+        with turnstile(success=True):
+            passed = UserSignupForm(data=data, request=request)
+            assert not passed.is_valid()
+            assert passed.account_exists
 
     def test_an_invite_drops_the_organisation_field(self, organisation: Organisation):
         invitation = InvitationFactory.create(
@@ -202,10 +209,10 @@ class TestSignupContactDetails:
         assert user.phone_number == SIGNUP_DATA["mobile_number"]
 
     @pytest.mark.django_db
-    def test_mobile_number_is_optional_for_sandbox_signup(self):
+    def test_requires_a_mobile_number(self):
         payload = {k: v for k, v in SIGNUP_DATA.items() if k != "mobile_number"}
 
         form = UserSignupForm(data=payload)
 
-        assert form.is_valid(), form.errors
-        assert form.cleaned_data["mobile_number"] == ""
+        assert not form.is_valid()
+        assert form.errors["mobile_number"] == ["Enter your mobile number."]

@@ -77,7 +77,7 @@
   {% if invitation %}
     {% translate "Create an account with your invited email address to join the team." %}
   {% else %}
-    {% translate "Start with your details. You'll verify your organisation or business in the next step." %}
+    {% translate "Tell us about your organisation or business, then about yourself. Verification is the next step." %}
   {% endif %}
 {% endblock entrance_lede %}
 {% block entrance_body %}
@@ -111,29 +111,31 @@
     {% else %}
       {% include "components/form_errors.html" %}
     {% endif %}
-    <fieldset class="marketing-auth-fieldset">
-      <legend>{% translate "About you" %}</legend>
-      {% ui_field form.name label="Full name" %}
-      <div class="marketing-auth-field-grid">
-        {% ui_field form.email label="Email" %}
-        {% if form.mobile_number %}
-          {% ui_field form.mobile_number %}
-        {% endif %}
-      </div>
-    </fieldset>
     {% if form.organisation %}
       <fieldset class="marketing-auth-fieldset">
         <legend>{% translate "Your organisation/business" %}</legend>
+        {% ui_field form.organisation_type %}
         <div class="marketing-auth-field-grid">
           {% ui_field form.organisation %}
-          {% ui_field form.organisation_type %}
+          {% ui_field form.website help_text="We check your email address against this domain." %}
         </div>
-        {% ui_field form.website help_text="We check your email address against this domain." %}
-        <p class="ui-alert ui-alert--info" data-email-domain-callout hidden>
-          {% translate "This email address is not on your organisation's own domain. You can continue, but the reviewer may ask about it." %}
-        </p>
       </fieldset>
     {% endif %}
+    <fieldset class="marketing-auth-fieldset">
+      <legend>{% translate "About you" %}</legend>
+      {% ui_field form.name label="Full name" %}
+      <div>
+        {% ui_field form.email label="Email" %}
+        {% if form.organisation %}
+          <p class="ui-alert ui-alert--info mt-2" data-email-domain-callout hidden>
+            {% translate "This email address is not on your organisation's own domain. You can continue, but the reviewer may ask about it." %}
+          </p>
+        {% endif %}
+      </div>
+      {% if form.mobile_number %}
+        {% ui_field form.mobile_number %}
+      {% endif %}
+    </fieldset>
     <fieldset class="marketing-auth-fieldset">
       <legend>{% translate "Secure your account" %}</legend>
       {% ui_field form.password1 label="Password" help_text="Use at least 12 characters. Avoid common words and personal details." %}

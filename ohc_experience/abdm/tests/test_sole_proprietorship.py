@@ -34,6 +34,7 @@ def sign_up(client, entity_type, name="Rao Health Apps"):
         data={
             "name": "Anita Rao",
             "email": f"{entity_type}@example.org",
+            "mobile_number": "+91 98765 43210",
             "organisation": name,
             "organisation_type": entity_type,
             "password1": "sandbox-Kerala-2026",
@@ -55,7 +56,7 @@ def test_a_sole_proprietorship_verifies_with_pan_or_gstin_not_cin(lgd_lookup):
     )
 
     assert with_cin.errors["verification_document_type"] == [
-        "A sole proprietorship has no CIN. Choose PAN or GSTIN.",
+        "An individual or sole proprietorship has no CIN. Choose PAN or GSTIN.",
     ]
     assert with_pan.is_valid(), with_pan.errors
 

@@ -1,14 +1,10 @@
 import json
-import secrets
-import time
 from urllib.parse import urlencode
 from urllib.request import Request
 from urllib.request import urlopen
 
 from django import forms
 from django.conf import settings
-
-CHALLENGE_TTL = 300
 
 
 class SignupVerificationMixin:
@@ -23,19 +19,8 @@ class SignupVerificationMixin:
                 max_length=2048,
                 widget=forms.HiddenInput,
             )
-        elif settings.DEBUG and request:
-            challenge = request.session.get("signup_challenge")
-            if not challenge or time.time() - challenge[2] > CHALLENGE_TTL:
-                challenge = [
-                    secrets.randbelow(8) + 2,
-                    secrets.randbelow(8) + 2,
-                    time.time(),
-                ]
-                request.session["signup_challenge"] = challenge
-            self.fields["captcha"] = forms.IntegerField(
-                label=f"Verification: {challenge[0]} + {challenge[1]} = ?",
-            )
-        else:
+        elif not settings.DEBUG:
+            # Without Turnstile, production signup fails closed.
             self.fields["captcha"] = forms.CharField(
                 label="Verification",
                 widget=forms.HiddenInput,
@@ -63,13 +48,5 @@ class SignupVerificationMixin:
                     return value
             except OSError, ValueError:
                 pass
-        elif settings.DEBUG and request and not self.turnstile_site_key:
-            challenge = request.session.get("signup_challenge")
-            if (
-                challenge
-                and time.time() - challenge[2] <= CHALLENGE_TTL
-                and value == challenge[0] + challenge[1]
-            ):
-                return value
         msg = "Verification failed. Refresh the page and try again."
         raise forms.ValidationError(msg)

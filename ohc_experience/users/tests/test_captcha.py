@@ -1,6 +1,5 @@
 import io
 import json
-import time
 from unittest.mock import patch
 
 import pytest
@@ -23,25 +22,18 @@ def signup_request(rf, settings):
     return request
 
 
-def test_local_challenge_requires_correct_unexpired_answer(signup_request, settings):
+def test_local_development_asks_no_verification_question(signup_request, settings):
     settings.DEBUG = True
-    VerificationForm(request=signup_request)
-    first, second, _ = signup_request.session["signup_challenge"]
-    assert VerificationForm(
-        data={"captcha": first + second},
-        request=signup_request,
-    ).is_valid()
-    assert not VerificationForm(data={"captcha": -1}, request=signup_request).is_valid()
-    form = VerificationForm(data={"captcha": first + second}, request=signup_request)
-    signup_request.session["signup_challenge"][2] = time.time() - 301
-    assert not form.is_valid()
+    form = VerificationForm(data={}, request=signup_request)
+
+    assert "captcha" not in form.fields
+    assert form.is_valid()
 
 
-def test_production_cannot_fall_back_to_local_challenge(signup_request, settings):
+def test_production_without_turnstile_fails_closed(signup_request, settings):
     settings.DEBUG = False
-    signup_request.session["signup_challenge"] = [2, 3, time.time()]
     assert not VerificationForm(
-        data={"captcha": "5"},
+        data={"captcha": "anything"},
         request=signup_request,
     ).is_valid()
 

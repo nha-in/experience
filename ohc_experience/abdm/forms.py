@@ -46,7 +46,7 @@ class OrganisationForm(ReviewForm):
         choices=[
             ("private_company", "Private company"),
             ("government", "Government body"),
-            ("sole_proprietor", "Sole proprietorship"),
+            ("sole_proprietor", "Individual/sole proprietorship"),
             ("trust", "Trust or society"),
             ("section8", "Section 8 company"),
             ("llp", "LLP"),
@@ -179,7 +179,7 @@ class OrganisationForm(ReviewForm):
         ):
             self.add_error(
                 "verification_document_type",
-                "A sole proprietorship has no CIN. Choose PAN or GSTIN.",
+                "An individual or sole proprietorship has no CIN. Choose PAN or GSTIN.",
             )
         # Codes are always derived from this PIN's response, never from POST or
         # from an earlier submission whose PIN may have changed.

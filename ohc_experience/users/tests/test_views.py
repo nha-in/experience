@@ -223,6 +223,19 @@ class TestUserSignupView:
         assert "data-email-domain-callout" in html
         assert "js/email-domain-callout.js" in html
 
+    def test_asks_about_the_organisation_before_the_person(self, client: Client):
+        html = client.get(SIGNUP_URL).content.decode()
+        positions = [
+            html.index('name="organisation_type"'),
+            html.index('name="organisation"'),
+            html.index('name="website"'),
+            html.index('name="email"'),
+            html.index("data-email-domain-callout"),
+            html.index('name="mobile_number"'),
+        ]
+
+        assert positions == sorted(positions)
+
     def test_asks_for_the_password_twice_with_a_reveal_toggle(self, client: Client):
         response = client.get(SIGNUP_URL)
         password_fields = ("password1", "password2")
@@ -250,6 +263,8 @@ class TestUserSignupView:
         assert response.status_code == HTTPStatus.OK
         assert "organisation" not in response.context["form"].fields
         assert response.context["invitation"] == invitation
+        # The invite fixes the email address, so there is nothing to advise on.
+        assert b"data-email-domain-callout" not in response.content
 
     def test_a_stale_token_is_dropped_from_the_session(
         self,

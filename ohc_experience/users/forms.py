@@ -101,7 +101,7 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
     mobile_number = forms.CharField(
         label=_("Mobile number"),
         max_length=32,
-        required=False,
+        error_messages={"required": _("Enter your mobile number.")},
         widget=forms.TextInput(attrs={"autocomplete": "tel", "inputmode": "tel"}),
     )
     organisation = forms.CharField(
@@ -119,12 +119,12 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
     )
 
     field_order = [
+        "organisation_type",
+        "organisation",
+        "website",
         "name",
         "email",
         "mobile_number",
-        "organisation",
-        "organisation_type",
-        "website",
         "password1",
         "password2",
     ]
@@ -182,7 +182,6 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
         user.phone_number = self.cleaned_data["mobile_number"].strip()
         user.save(update_fields=["name", "phone_number"])
         self.attach_organisation(user)
-        request.session.pop("signup_challenge", None)
         return user
 
 

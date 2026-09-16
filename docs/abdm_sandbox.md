@@ -377,8 +377,9 @@ injected environment variables. See
 
 Turnstile tokens are verified server-side, including their hostname, using
 [Cloudflare's Siteverify API](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).
-The arithmetic challenge is a local development fallback only. Production signup
-fails closed when Turnstile is not configured. Email verification remains enabled.
+Local development (`DEBUG`) signs up without a CAPTCHA when Turnstile is not
+configured. Production signup fails closed when Turnstile is not configured.
+Email verification remains enabled.
 
 The credential provider is called as `provider(product=product, operation=operation)`.
 For `issue` and `rotate`, return `client_id`, `client_secret` and `gateway_url`.
@@ -489,7 +490,7 @@ organisation scoping, read-only reviews, query state transitions, withdrawal,
 resubmission history, schema snapshots, multi-file append/removal, CSRF,
 credential encryption and reveal limits, callback address validation, queue
 filters, legacy-route protection, and file type/size validation. Signup tests cover
-local challenge expiry and remote CAPTCHA verification failures.
+remote CAPTCHA verification failures and fail-closed production signup.
 Organisation lookup tests use controlled provider responses to cover autofill,
 ambiguous matches, invalid and unknown PINs, service failures, and server-side
 location validation without requiring live credentials.
