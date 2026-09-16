@@ -135,5 +135,4 @@ class SupplierQuality(ProgramDefinition):
         return {
             "name": data["equipment_name"],
             "description": data["summary"],
-            "product_type": "equipment",
         }

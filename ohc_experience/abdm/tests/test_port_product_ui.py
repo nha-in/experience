@@ -44,16 +44,20 @@ class Inputs(HTMLParser):
 
 def test_registration_defaults_only_apply_to_new_unbound_forms():
     new = ProductRegistrationForm()
-    assert new["category"].value() == "hmis"
     assert new["solution_type"].value() == ["clinical_hmis"]
-    assert new["applied_milestones"].value() == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
+    assert new["applied_milestones"].value() == [
+        "HIE-CM:m1",
+        "HIE-CM:m2",
+        "HIE-CM:m3",
+        "HIE-CM:m4",
+    ]
     assert not any(row["warning"] for row in milestone_rows(new).values())
     assert not ProductRegistrationForm(initial={})["applied_milestones"].value()
     saved = ProductRegistrationForm(
-        initial={"applied_milestones": ["UHI:uhi1"], "category": "other"},
+        initial={"applied_milestones": ["UHI:uhi1"], "solution_type": ["other"]},
     )
     assert saved["applied_milestones"].value() == ["UHI:uhi1"]
-    assert saved["category"].value() == "other"
+    assert saved["solution_type"].value() == ["other"]
     posted = ProductRegistrationForm(data={"name": "Incomplete"})
     assert not posted["applied_milestones"].value()
     assert not any(
@@ -75,7 +79,7 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         for field in inputs
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
-    assert selected == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
+    assert selected == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3", "HIE-CM:m4"]
     assert b"M1 required for enablement" in response.content
     assert b"Shared with" not in response.content
 
@@ -96,13 +100,15 @@ def test_solution_types_require_the_intent_matrix_milestones():
     }
 
     assert matrix == {
-        "HMIS": ["M1", "M2", "M3"],
-        "Clinical HMIS": ["M1", "M2", "M3"],
-        "Healthtech": ["M1", "M2", "M3"],
-        "LMIS": ["M1", "M2", "M3"],
+        "HMIS": ["M1", "M2", "M3", "M4"],
+        "Clinic HMIS": ["M1", "M2", "M3", "M4"],
+        "LMIS": ["M1", "M2", "M3", "M4"],
+        "Pharmacy": ["M1", "M2", "M3", "M4"],
+        "PHR": ["PHR1", "HL1"],
+        "Health Locker": ["HL1"],
+        "HealthTech": ["M1", "M2", "M3", "M4"],
         "Insurance": ["M1", "M3"],
-        "Telemedicine": ["M1", "M2", "M3"],
-        "Pharmacy": ["M1", "M2", "M3"],
+        "Telemedicine": ["M1", "M2", "M3", "M4"],
     }
 
 
@@ -118,9 +124,10 @@ def test_an_unchecked_required_milestone_warns_but_still_saves():
     assert form.is_valid(), form.errors
     rows = milestone_rows(form)
     assert rows["M3"]["warning"] == (
-        "Required for the HMIS, Insurance and Pharmacy solution types."
+        "Required for the HMIS, Pharmacy and Insurance solution types."
     )
-    assert not any(rows[code]["warning"] for code in ("M1", "M2", "M4", "UHI1"))
+    assert rows["M4"]["warning"] == "Required for the HMIS and Pharmacy solution types."
+    assert not any(rows[code]["warning"] for code in ("M1", "M2", "UHI1"))
 
 
 def test_m4_can_be_chosen_without_m1():
@@ -136,8 +143,7 @@ def test_a_warning_names_only_the_chosen_types_that_require_it():
     form = ProductRegistrationForm(
         data={
             **product_data(),
-            "solution_type": ["insurance", "payers"],
-            "payer_category": ["tpa"],
+            "solution_type": ["insurance", "other"],
             "applied_milestones": ["HIE-CM:m1"],
         },
     )
@@ -147,7 +153,7 @@ def test_a_warning_names_only_the_chosen_types_that_require_it():
     assert not rows["M2"]["warning"]
     assert "insurance" in rows["M3"]["required_for"].split()
     assert "insurance" not in rows["M2"]["required_for"].split()
-    assert not rows["M4"]["required_for"]
+    assert not rows["UHI1"]["required_for"]
 
 
 @pytest.mark.django_db
@@ -231,66 +237,61 @@ def test_solution_type_accepts_several_values():
         data={
             "name": "Claims platform",
             "description": "Exchanges claims with payers.",
-            "category": "claims_platform",
-            "solution_type": ["payers", "providers"],
-            "payer_category": ["tpa"],
+            "solution_type": ["insurance", "telemedicine"],
             "applied_milestones": ["HIE-CM:m1"],
         },
     )
     assert form.is_valid(), form.errors
-    assert form.cleaned_data["solution_type"] == ["payers", "providers"]
+    assert form.cleaned_data["solution_type"] == ["insurance", "telemedicine"]
 
 
-def payer_payload(**overrides):
+def other_payload(**overrides):
     return {
-        "name": "Claims platform",
-        "description": "Exchanges claims with payers.",
-        "category": "claims_platform",
+        "name": "Queue desk",
+        "description": "Manages patient queues at the front desk.",
+        "solution_type": ["other"],
         "applied_milestones": ["HIE-CM:m1"],
         **overrides,
     }
 
 
-def test_product_category_keeps_the_plain_dropdown():
-    html = str(ProductRegistrationForm()["category"])
-    assert html.startswith('<select name="category" data-native-select=""')
-
-
-def test_payer_category_is_required_once_payers_is_chosen():
-    form = ProductRegistrationForm(data=payer_payload(solution_type=["payers"]))
+def test_other_solution_type_needs_a_description():
+    form = ProductRegistrationForm(data=other_payload())
     assert not form.is_valid()
-    assert "Select at least one payer category." in str(form.errors["payer_category"])
+    assert form.errors["solution_type_other"] == ["Describe the other solution type."]
 
-
-def test_payer_category_is_dropped_when_payers_is_not_chosen():
     form = ProductRegistrationForm(
-        data=payer_payload(solution_type=["clinical_hmis"], payer_category=["tpa"]),
+        data=other_payload(solution_type_other="Queue management system"),
     )
     assert form.is_valid(), form.errors
-    assert form.cleaned_data["payer_category"] == []
+    assert form.cleaned_data["solution_type_other"] == "Queue management system"
 
 
-def test_a_draft_may_leave_payer_category_unanswered():
+def test_other_description_is_dropped_when_other_is_not_chosen():
     form = ProductRegistrationForm(
-        data=payer_payload(solution_type=["payers"]),
-        draft=True,
+        data=other_payload(solution_type=["hmis"], solution_type_other="Leftover"),
     )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["solution_type_other"] == ""
+
+
+def test_a_draft_may_leave_the_other_description_empty():
+    form = ProductRegistrationForm(data=other_payload(), draft=True)
     assert form.is_valid(), form.errors
 
 
-def test_payer_category_starts_hidden_and_opens_with_payers():
+def test_other_description_starts_hidden_and_opens_with_other():
     from ohc_experience.experiences.templatetags.experience_ui import (  # noqa: PLC0415
         show_when,
     )
 
-    shut = show_when(ProductRegistrationForm(), "payer_category")
-    assert shut == {"field": "solution_type", "value": "payers", "active": False}
+    shut = show_when(ProductRegistrationForm(), "solution_type_other")
+    assert shut == {"field": "solution_type", "value": "other", "active": False}
     opened = show_when(
-        ProductRegistrationForm(initial={"solution_type": ["payers"]}),
-        "payer_category",
+        ProductRegistrationForm(initial={"solution_type": ["other"]}),
+        "solution_type_other",
     )
     assert opened["active"] is True
-    assert show_when(ProductRegistrationForm(), "name") is None
 
 
 @pytest.mark.django_db
@@ -310,15 +311,14 @@ def test_editing_a_product_persists_several_solution_types(environment, client):
     assert response.status_code == 200
     workspace.refresh_from_db()
     assert workspace.solution_type == ["clinical_hmis", "pharmacy"]
-    assert workspace.get_solution_type_display() == "Clinical HMIS, Pharmacy"
+    assert workspace.get_solution_type_display() == "Clinic HMIS, Pharmacy"
 
 
 def uhi_payload(**overrides):
     return {
         "name": "Discovery app",
         "description": "Finds and books consultations.",
-        "category": "other",
-        "solution_type": ["eua"],
+        "solution_type": ["telemedicine"],
         "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
         **overrides,
     }

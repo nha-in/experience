@@ -217,60 +217,40 @@ def required_warning(labels):
 
 class ProductRegistrationForm(ReviewForm):
     full_width_fields = ("applied_milestones", "solution_type")
-    conditional_fields = {"payer_category": ("solution_type", "payers")}
+    conditional_fields = {"solution_type_other": ("solution_type", "other")}
 
     sections = (
         (
             "Product details",
-            ("name", "description", "category", "solution_type", "payer_category"),
+            ("name", "description", "solution_type", "solution_type_other"),
         ),
         ("Tracks and milestones", ("applied_milestones",)),
     )
     name = forms.CharField(label="Product name", max_length=255)
     description = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}))
-    category = forms.ChoiceField(
-        choices=[
-            ("hmis", "HMIS"),
-            ("lmis", "LMIS"),
-            ("phr_locker", "PHR application"),
-            ("health_locker", "Health locker"),
-            ("claims_platform", "Payer or TPA system"),
-            ("other", "Other"),
-        ],
-        # The one dropdown kept as a plain select; every other careui select is
-        # searchable (see static/js/searchable-select.js).
-        widget=forms.Select(attrs={"data-native-select": ""}),
-    )
     solution_type = forms.MultipleChoiceField(
         label="Solution types applying for",
         choices=[
-            ("clinical_hmis", "Clinical HMIS"),
             ("hmis", "HMIS"),
-            ("govt_hmis", "Government HMIS"),
+            ("clinical_hmis", "Clinic HMIS"),
             ("lmis", "LMIS"),
-            ("phr", "PHR"),
-            ("govt_phr", "Government PHR"),
-            ("health_locker", "Health Locker"),
-            ("eua", "End user application (EUA)"),
-            ("govt_program", "Government programme"),
-            ("healthtech", "Healthtech"),
-            ("insurance", "Insurance"),
-            ("payers", "Payers"),
-            ("providers", "Providers"),
             ("pharmacy", "Pharmacy"),
+            ("phr", "PHR"),
+            ("health_locker", "Health Locker"),
+            ("healthtech", "HealthTech"),
+            ("insurance", "Insurance"),
             ("telemedicine", "Telemedicine"),
+            ("govt_program", "Government Programme"),
             ("other", "Other"),
         ],
         widget=forms.CheckboxSelectMultiple(
             attrs={"class": "ui-checkbox shrink-0", "data-solution-type": ""},
         ),
     )
-    payer_category = forms.MultipleChoiceField(
-        label="Payer categories",
-        required=False,
-        choices=[("tpa", "TPA"), ("insurance_company", "Insurance company")],
-        widget=forms.CheckboxSelectMultiple(attrs={"class": "ui-checkbox shrink-0"}),
-        help_text="Applies when Payers is one of the solution types.",
+    solution_type_other = forms.CharField(
+        label="Other solution type",
+        max_length=255,
+        error_messages={"required": "Describe the other solution type."},
     )
     applied_milestones = forms.MultipleChoiceField(
         label="Tracks and milestones",
@@ -282,13 +262,14 @@ class ProductRegistrationForm(ReviewForm):
         # Defaults belong to new registrations, never a saved or bound form.
         if not args and kwargs.get("data") is None and kwargs.get("initial") is None:
             kwargs["initial"] = {
-                "category": "hmis",
                 "solution_type": ["clinical_hmis"],
                 "applied_milestones": [
                     f"HIE-CM:{key}" for key in REQUIRED_MILESTONES["clinical_hmis"]
                 ],
             }
         super().__init__(*args, **kwargs)
+        if self.is_bound and "other" not in (self["solution_type"].value() or []):
+            self.fields["solution_type_other"].required = False
 
     @property
     def milestone_tracks(self):
@@ -330,12 +311,8 @@ class ProductRegistrationForm(ReviewForm):
 
     def clean(self):
         cleaned = super().clean()
-        solutions = cleaned.get("solution_type") or []
-        if "payers" in solutions:
-            if not cleaned.get("payer_category") and not self.draft:
-                self.add_error("payer_category", "Select at least one payer category.")
-        elif cleaned.get("payer_category"):
-            cleaned["payer_category"] = []
+        if "other" not in (cleaned.get("solution_type") or []):
+            cleaned["solution_type_other"] = ""
         return cleaned
 
     def clean_applied_milestones(self):

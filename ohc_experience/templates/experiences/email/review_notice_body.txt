@@ -3,7 +3,7 @@
 {% translate "Reference" %}: {{ item.reference }}
 {% translate "Organisation" %}: {{ item.organisation.display_name }}
 {% if item.product %}{% translate "Product" %}: {{ item.product.name }}{% if item.product.workspace.reference %} ({{ item.product.workspace.reference }}){% endif %}
-{% endif %}{% if registered %}{% translate "Product type" %}: {{ item.product.get_product_type_display }}
+{% endif %}{% if registered %}{% translate "Solution types" %}: {{ item.product.workspace.get_solution_type_display }}
 {% if applicant %}{% translate "Registered by" %}: {{ applicant.name|default:applicant.email }}
 {% endif %}{% endif %}{% translate "Status" %}: {{ item.get_status_display }}
 {% if item.assignee %}{% translate "Reviewer" %}: {{ item.assignee.name|default:item.assignee.email }}

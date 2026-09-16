@@ -94,6 +94,8 @@ def ui_field(  # noqa: PLR0913, PLR0917
     placeholder: str = "",
     help_text: str = "",
     extra_class: str = "",
+    *,
+    choices_in_columns: bool = False,
 ) -> dict:
     """Render a full label + control + help + errors block.
 
@@ -118,6 +120,7 @@ def ui_field(  # noqa: PLR0913, PLR0917
         "field": _style(field, extra_class),
         "label": label or field.label,
         "help_text": help_text or field.help_text,
+        "choices_in_columns": choices_in_columns,
         "submit_required": (
             form.base_fields.get(field.name, field.field).required
             if getattr(form, "draft", False)

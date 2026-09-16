@@ -95,8 +95,7 @@ class DependencyInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(SuperuserAdminMixin, admin.ModelAdmin):
-    list_display = ["name", "product_type", "organisation", "updated_at"]
-    list_filter = ["product_type"]
+    list_display = ["name", "organisation", "updated_at"]
     search_fields = ["name", "organisation__name", "slug"]
     autocomplete_fields = ["organisation", "created_by"]
     # The production client ID changes only through the audited staff screen.

@@ -36,15 +36,13 @@ def run_upgrade():
     migration = import_module(
         "ohc_experience.experiences.migrations.0011_upgrade_uhi_participation",
     )
-    historical_apps = (
-        MigrationExecutor(connection)
-        .loader.project_state(
-            [("experiences", "0010_notification_delivery")],
-        )
-        .apps
+    state = MigrationExecutor(connection).loader.project_state(
+        [("experiences", "0010_notification_delivery")],
     )
+    # The tables are at the latest migration, which dropped this column.
+    state.remove_field("experiences", "product", "product_type")
     with connection.schema_editor() as editor:
-        migration.upgrade_uhi_participation(historical_apps, editor)
+        migration.upgrade_uhi_participation(state.apps, editor)
 
 
 @pytest.fixture

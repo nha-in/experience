@@ -482,7 +482,7 @@ def project_product(item, actor, *, product_values, solution_type, selections):
         raise ValidationError(msg)
     for key, value in product_values.items():
         setattr(product, key, value)
-    product.save(update_fields=["name", "description", "product_type", "updated_at"])
+    product.save(update_fields=["name", "description", "updated_at"])
     workspace.solution_type = solution_type
     workspace.applied_milestones = selections
     workspace.save()

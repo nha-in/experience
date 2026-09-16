@@ -132,11 +132,12 @@ uv run python manage.py shell -c 'from ohc_experience.experiences.tasks import d
 ```
 
 The UI from `bodhi-test` is implemented against the reusable engine's existing
-models, migrations, services and routes. Product registration defaults to HMIS,
-Clinical HMIS and HIE-CM M1 to M3 for a new product; editing preserves saved
-choices. Checking a solution type ticks the milestones NHA's intent-for-request
-matrix requires of it (`REQUIRED_MILESTONES`): M1, M2 and M3 for HMIS, Clinical
-HMIS, Healthtech, LMIS, Telemedicine and Pharmacy; M1 and M3 for Insurance.
+models, migrations, services and routes. Product registration defaults to Clinic
+HMIS and HIE-CM M1 to M4 for a new product; editing preserves saved choices.
+Checking a solution type ticks the milestones NHA's intent-for-request matrix
+requires of it (`REQUIRED_MILESTONES`): M1 to M4 for HMIS, Clinic HMIS, LMIS,
+Pharmacy, HealthTech and Telemedicine; PHR1 and HL1 for PHR; HL1 for Health
+Locker; M1 and M3 for Insurance.
 Unchecking the type clears those again unless another checked type requires
 them or the integrator changed them. A required milestone left unchecked shows
 which types require it, but the product still saves.

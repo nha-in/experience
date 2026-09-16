@@ -556,6 +556,7 @@ def test_registering_a_product_records_it_without_a_review(environment):
     notice = mail.outbox[-1]
     assert "Product Registration" in notice.subject
     assert "has registered a new product, Second product" in notice.body
+    assert "Solution types: Clinic HMIS\n" in notice.body
 
 
 def test_withdraw_and_resubmit_preserves_original_fields_and_files(environment):

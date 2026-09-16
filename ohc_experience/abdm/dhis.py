@@ -37,7 +37,7 @@ SOLUTION_MILESTONES = {
     "health_locker": ("HealthLocker", ("phr1", "locker1"), "Healthlocker"),
     "pharmacy": ("Pharmacy", ("m1", "m2"), "M2"),
 }
-SOLUTION_ALIASES = {"clinical_hmis": "hmis", "govt_hmis": "hmis"}
+SOLUTION_ALIASES = {"clinical_hmis": "hmis"}
 MILESTONE_LABELS = {
     "m1": "M1",
     "m2": "M2",

@@ -81,7 +81,6 @@ def product_data(name="Medibase HMIS 4.2"):
     return {
         "name": name,
         "description": "Hospital information management, patient records and connected health services.",
-        "category": "hmis",
         "solution_type": ["clinical_hmis"],
         "applied_milestones": [
             "HIE-CM:m1",
@@ -309,7 +308,6 @@ class DemoBuilder:
             applicant,
             data={
                 **product_data("Medibase Health Locker"),
-                "category": "health_locker",
                 "solution_type": ["health_locker"],
                 "applied_milestones": ["HealthLocker:locker1"],
             },

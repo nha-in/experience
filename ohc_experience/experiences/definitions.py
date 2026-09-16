@@ -270,7 +270,6 @@ class ProgramDefinition:
     authority_logo = ""
     authority_name = ""
     product_reference_prefix = "PRD"
-    product_types: ClassVar[dict[str, str]] = {}
     solution_types: ClassVar[dict[str, str]] = {}
     organisation_form: ClassVar[type[ApplicationFormDefinition]]
     applications: ClassVar[ApplicationSet]
@@ -366,7 +365,7 @@ class ProgramDefinition:
 
     @classmethod
     def product_values(cls, data):
-        return {key: data[key] for key in ("name", "description", "product_type")}
+        return {key: data[key] for key in ("name", "description")}
 
     @classmethod
     def certification_context(cls, product):

@@ -35,7 +35,6 @@ def product(owner_membership):
     return Product.objects.create(
         organisation=owner_membership.organisation,
         name="Shared evidence product",
-        product_type="hmis",
         description="Generic test product",
         created_by=owner_membership.user,
     )
@@ -69,7 +68,6 @@ def test_form_reuse_is_scoped_to_the_product(product):
     other = Product.objects.create(
         organisation=product.organisation,
         name="Other product",
-        product_type="hmis",
         description="Separate scope",
         created_by=product.created_by,
     )
@@ -90,7 +88,6 @@ def test_form_use_rejects_cross_product_links_and_foreign_submissions(product):
     other_product = Product.objects.create(
         organisation=other_member.organisation,
         name="Private product",
-        product_type="hmis",
         description="Other organisation",
         created_by=other_member.user,
     )

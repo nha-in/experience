@@ -281,7 +281,6 @@ class ABDM(ProgramDefinition):
     authority_logo = "images/nha-logo.png"
     authority_name = "National Health Authority"
     product_reference_prefix = "SBX"
-    product_types = dict(ProductRegistrationForm.base_fields["category"].choices)
     solution_types = dict(ProductRegistrationForm.base_fields["solution_type"].choices)
     organisation_form = OrganisationVerification
     applications = ApplicationSet(
@@ -302,14 +301,6 @@ class ABDM(ProgramDefinition):
     @classmethod
     def certification_context(cls, product):
         return wasa_context(product)
-
-    @classmethod
-    def product_values(cls, data):
-        return {
-            "name": data["name"],
-            "description": data["description"],
-            "product_type": data["category"],
-        }
 
     @classmethod
     def on_product_created(cls, product, actor):

@@ -8,5 +8,5 @@
 # Dropdowns
 
 - Every dropdown is searchable. `ohc_experience/static/js/searchable-select.js` turns each single-choice `select.ui-select` on any page into a type-to-filter combobox, and the select underneath still holds and posts the value. New dropdowns get this by being careui selects: render the field with `{% ui_field %}`, or give a hand-written `<select>` the `ui-select` class inside a `.ui-select-wrapper`. Never build a custom dropdown or add a select library.
-- Keep a plain dropdown only when asked, with `data-native-select` (in a form, `forms.Select(attrs={"data-native-select": ""})`). The product category field is the one such exception.
+- Keep a plain dropdown only when asked, with `data-native-select` (in a form, `forms.Select(attrs={"data-native-select": ""})`).
 - A script that changes a select's value or options should dispatch `change` on the select, as `ohc_experience/static/js/pincode-lookup.js` does, so the search box shows the new choice.

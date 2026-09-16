@@ -114,10 +114,6 @@ class Product(models.Model):
     )
     name = models.CharField(_("Product name"), max_length=255)
     slug = models.SlugField(_("Slug"), max_length=255)
-    product_type = models.CharField(
-        _("Product type"),
-        max_length=80,
-    )
     description = models.TextField(_("Product and intended use"))
     metadata = models.JSONField(_("Metadata"), default=dict, blank=True)
     #: Issued by the gateway team, which hands the secret to the integrator
@@ -160,13 +156,6 @@ class Product(models.Model):
 
     def get_absolute_url(self) -> str:
         return self.workspace.get_absolute_url()
-
-    def get_product_type_display(self):
-        from .registry import get_program  # noqa: PLC0415
-
-        workspace = getattr(self, "workspace", None)
-        program = workspace.definition if workspace else get_program()
-        return program.product_types.get(self.product_type, self.product_type)
 
     def _build_unique_slug(self) -> str:
         base = slugify(self.name)[:220] or "product"

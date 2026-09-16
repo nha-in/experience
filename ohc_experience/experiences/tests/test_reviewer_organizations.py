@@ -22,7 +22,6 @@ def register_locker(organization, owner, name):
         owner,
         data={
             **product_data(name),
-            "category": "health_locker",
             "solution_type": ["health_locker"],
             "applied_milestones": ["HealthLocker:locker1"],
         },
@@ -276,13 +275,13 @@ def test_products_tab_filters_by_solution_type_within_scope(catalogue, client):
     assert context["selected_solution_type"] == "health_locker"
     # Only the types some product applied for, in the catalogue's order.
     assert context["solution_type_choices"] == [
-        ("clinical_hmis", "Clinical HMIS"),
+        ("clinical_hmis", "Clinic HMIS"),
         ("health_locker", "Health Locker"),
     ]
     assert listed(client, admin, solution_type="clinical_hmis")[0] == {hmis}
     page = client.get(reverse("experiences:products"))
     # Each row names the solution types the filter matches on.
-    assert f"{hmis.reference}</span> · Clinical HMIS ·".encode() in page.content
+    assert f"{hmis.reference}</span> · Clinic HMIS ·".encode() in page.content
     assert listed(
         client,
         admin,
@@ -290,7 +289,7 @@ def test_products_tab_filters_by_solution_type_within_scope(catalogue, client):
         organization=other.slug,
     )[0] == {elsewhere}
     # A type no visible product applied for is not a filter at all.
-    products, context = listed(client, admin, solution_type="payers")
+    products, context = listed(client, admin, solution_type="pharmacy")
     assert products == {hmis, locker, elsewhere}
     assert context["selected_solution_type"] == ""
 
@@ -301,7 +300,7 @@ def test_products_tab_filters_by_solution_type_within_scope(catalogue, client):
     )
     assert products == {hmis}
     assert context["selected_solution_type"] == ""
-    assert context["solution_type_choices"] == [("clinical_hmis", "Clinical HMIS")]
+    assert context["solution_type_choices"] == [("clinical_hmis", "Clinic HMIS")]
 
 
 @pytest.mark.parametrize("route", ["organizations", "organization-detail"])

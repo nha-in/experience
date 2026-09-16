@@ -3,7 +3,7 @@
           tabindex="-1"
           {% if submit_required %}data-required-checkbox-group="{{ field.html_name }}"{% endif %}>
   <legend class="ui-label">{{ label }}</legend>
-  <div class="mt-1.5 flex flex-wrap gap-x-6 gap-y-2.5">
+  <div class="mt-1.5 {% if choices_in_columns %}grid grid-cols-2 gap-x-6 gap-y-2.5 sm:grid-cols-3{% else %}flex flex-wrap gap-x-6 gap-y-2.5{% endif %}">
     {% for choice in field %}
       <label class="flex cursor-pointer items-start gap-2.5 text-sm select-none"
              for="{{ choice.id_for_label }}">

@@ -8,7 +8,6 @@ def product_for(organisation):
         Product.objects.create(
             organisation=organisation,
             name="Sandbox HMIS",
-            product_type="hmis",
             description="Hospital information system under test.",
             created_by=UserFactory.create(),
         )

@@ -53,13 +53,15 @@ TRACK_MAP = {track.code: track for track in TRACKS}
 #: Registration preselects them and warns when one is left unchecked, but still
 #: saves. Types not listed require none.
 REQUIRED_MILESTONES = {
-    "hmis": ("m1", "m2", "m3"),
-    "clinical_hmis": ("m1", "m2", "m3"),
-    "healthtech": ("m1", "m2", "m3"),
-    "lmis": ("m1", "m2", "m3"),
+    "hmis": ("m1", "m2", "m3", "m4"),
+    "clinical_hmis": ("m1", "m2", "m3", "m4"),
+    "lmis": ("m1", "m2", "m3", "m4"),
+    "pharmacy": ("m1", "m2", "m3", "m4"),
+    "phr": ("phr1", "locker1"),
+    "health_locker": ("locker1",),
+    "healthtech": ("m1", "m2", "m3", "m4"),
     "insurance": ("m1", "m3"),
-    "telemedicine": ("m1", "m2", "m3"),
-    "pharmacy": ("m1", "m2", "m3"),
+    "telemedicine": ("m1", "m2", "m3", "m4"),
 }
 MILESTONE_CHOICES = [
     (

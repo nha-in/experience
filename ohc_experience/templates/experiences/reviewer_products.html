@@ -78,7 +78,7 @@
           <div class="min-w-0 flex-[1_1_12rem]">
             <h2 class="text-base font-bold break-words group-hover:text-primary">{{ workspace.product.name }}</h2>
             <p class="mt-1 text-xs text-soft-foreground">
-              <span class="font-mono">{{ workspace.reference }}</span> · {{ workspace.get_solution_type_display|default:workspace.product.get_product_type_display }} · {{ workspace.product.organisation.display_name }}
+              <span class="font-mono">{{ workspace.reference }}</span>{% if workspace.solution_type %} · {{ workspace.get_solution_type_display }}{% endif %} · {{ workspace.product.organisation.display_name }}
             </p>
           </div>
           {% if workspace.open_count %}
