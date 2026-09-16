@@ -131,6 +131,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
 
 def test_nhcx_grant_does_not_allow_uhi_or_hicm(environment, staff, client):
     approve(environment)
+    approve(environment, "m2")
     uhi = submit(environment, "uhi1")
     grant(staff, category="NHCX", write=True, approve=True)
     client.force_login(staff)
@@ -194,6 +195,7 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
 
 def test_read_only_assignment_and_revocation(environment, staff, client):
     approve(environment)
+    approve(environment, "m2")
     item = submit(environment, "uhi1")
     access = grant(staff)
     with pytest.raises(ValidationError):

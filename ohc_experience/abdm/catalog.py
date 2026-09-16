@@ -10,7 +10,7 @@ MILESTONES = {
         MilestoneDefinition("m4", "M4", "HFR Registration"),
         MilestoneDefinition("phr1", "PHR1", "PHR application flows", "m1"),
         MilestoneDefinition("locker1", "HL1", "Health locker flows"),
-        MilestoneDefinition("uhi1", "UHI1", "UHI participation", "m1"),
+        MilestoneDefinition("uhi1", "UHI1", "UHI participation", "m2"),
         MilestoneDefinition("nhcx1", "NHCX1", "Claims exchange flows", "m1"),
     )
 }

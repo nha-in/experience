@@ -175,14 +175,19 @@ def test_shared_m1_and_independent_tracks(environment):
     assert TRACK_MAP["HealthLocker"].keys == ("locker1",)
     assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
     assert get_program().track_milestones(TRACK_MAP["PHR"]) == ("m1", "phr1")
-    assert MILESTONES["uhi1"].predecessor == MILESTONES["nhcx1"].predecessor == "m1"
-    for key in ("m2", "m3", "phr1", "uhi1"):
+    assert MILESTONES["nhcx1"].predecessor == "m1"
+    for key in ("m2", "m3", "phr1"):
         assert waiting_on(environment, key) == ["M1 - ABHA and identity"]
+    assert waiting_on(environment, "uhi1") == [
+        "M1 - ABHA and identity",
+        "M2 - HIP services",
+    ]
     for key in ("m4", "locker1"):
         assert waiting_on(environment, key) == []
     approve(environment)
-    for key in ("m2", "m3", "phr1", "uhi1"):
+    for key in ("m2", "m3", "phr1"):
         assert waiting_on(environment, key) == []
+    assert waiting_on(environment, "uhi1") == ["M2 - HIP services"]
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
 
 
@@ -198,10 +203,10 @@ def test_a_review_waits_on_every_earlier_milestone_and_the_organisation(environm
         assert waiting_on(environment, key) == ["organisation verification"]
 
 
-def test_uhi_shows_m1_as_a_prerequisite_it_does_not_offer(environment):
+def test_uhi_shows_m1_and_m2_as_prerequisites_it_does_not_offer(environment):
     """M1 is one shared record, so approving it completes it on UHI too."""
     assert TRACK_MAP["UHI"].keys == ("uhi1",)
-    assert get_program().track_milestones(TRACK_MAP["UHI"]) == ("m1", "uhi1")
+    assert get_program().track_milestones(TRACK_MAP["UHI"]) == ("m1", "m2", "uhi1")
     product = environment["workspace"].product
     assert product.milestones.filter(key="m1").count() == 1
 
@@ -224,7 +229,12 @@ def test_a_tracks_description_names_its_shared_milestones(environment, client):
     """The sentence was hand-written on three tracks and stale on all three."""
     program = get_program()
     assert program.shared_note("PHR") == "M1 is shared with HIE-CM, UHI and NHCX."
-    assert program.shared_note("HIE-CM") == "M1 is shared with UHI, NHCX and PHR."
+    assert program.shared_note("HIE-CM") == (
+        "M1 is shared with UHI, NHCX and PHR. M2 is shared with UHI."
+    )
+    assert program.shared_note("UHI") == (
+        "M1 is shared with HIE-CM, NHCX and PHR. M2 is shared with HIE-CM."
+    )
     assert program.shared_note("HealthLocker") == ""
     client.force_login(environment["applicant"])
 
@@ -272,6 +282,7 @@ def test_the_shared_m1_note_follows_the_catalogue_not_a_hardcoded_track(
 def test_uhi_participation_is_recorded_rather_than_decided(environment):
     """Legacy never reviewed UHI, so submitting is the whole process."""
     approve(environment)
+    approve(environment, "m2")
 
     item = submit(environment, "uhi1")
 
@@ -284,6 +295,7 @@ def test_uhi_participation_is_recorded_rather_than_decided(environment):
 
 def test_a_recorded_uhi_application_still_reaches_the_queue(environment, client):
     approve(environment)
+    approve(environment, "m2")
     item = submit(environment, "uhi1")
     client.force_login(environment["admin"])
 
@@ -298,6 +310,7 @@ def test_a_recorded_uhi_application_still_reaches_the_queue(environment, client)
 
 def test_nobody_decides_a_uhi_application_twice(environment):
     approve(environment)
+    approve(environment, "m2")
     item = submit(environment, "uhi1")
     services.assign_review(item, environment["admin"], environment["reviewer"])
 
@@ -307,6 +320,7 @@ def test_nobody_decides_a_uhi_application_twice(environment):
 
 def test_uhi_answers_can_be_corrected_after_recording(environment):
     approve(environment)
+    approve(environment, "m2")
     item = submit(environment, "uhi1")
 
     item, form, saved = services.save_review_form(
@@ -322,8 +336,11 @@ def test_uhi_answers_can_be_corrected_after_recording(environment):
     assert item.history.filter(action="Record updated").exists()
 
 
-def test_uhi_submitted_before_m1_is_approved_is_recorded_when_it_is(environment):
+def test_uhi_submitted_before_m1_and_m2_are_approved_is_recorded_when_they_are(
+    environment,
+):
     submit(environment)
+    submit(environment, "m2")
     uhi = submit(environment, "uhi1")
     assert uhi.status == ReviewItem.Status.NEW
     assert uhi.application.status == "under_review"
@@ -333,6 +350,11 @@ def test_uhi_submitted_before_m1_is_approved_is_recorded_when_it_is(environment)
             services.decide(uhi, environment["reviewer"], action=action, note="Hold.")
 
     approve_submitted(environment)
+
+    uhi.refresh_from_db()
+    assert uhi.status == ReviewItem.Status.IN_REVIEW
+
+    approve_submitted(environment, "m2")
 
     uhi.refresh_from_db()
     assert uhi.status == ReviewItem.Status.APPROVED
@@ -346,6 +368,7 @@ def test_a_waiting_uhi_application_is_recorded_once_verification_is_approved(
 ):
     """Verification is no milestone's dependency, but approving it still counts."""
     approve(environment)
+    approve(environment, "m2")
     verification = reverify(environment)
     uhi = submit(environment, "uhi1")
     assert uhi.status == ReviewItem.Status.NEW
@@ -1035,13 +1058,17 @@ def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
 
 def test_a_waiting_recorded_request_offers_reviewers_no_decision(environment, client):
     submit(environment)
+    submit(environment, "m2")
     uhi = submit(environment, "uhi1")
     client.force_login(environment["reviewer"])
 
     html = client.get(uhi.get_absolute_url()).content.decode()
 
     assert 'id="recording-hold"' in html
-    assert "recorded automatically once M1 - ABHA and identity is approved" in html
+    assert (
+        "recorded automatically once M1 - ABHA and identity and M2 - HIP services "
+        "are approved"
+    ) in html
     assert "data-decision-form" not in html
 
 

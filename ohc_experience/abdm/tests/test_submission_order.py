@@ -56,6 +56,10 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
             )
     with pytest.raises(ValidationError, match="cannot be reused"):
         workflows.reuse_evidence(m2, environment["applicant"])
+    assert workflows.milestone_unavailable(milestone(environment, "uhi1")) == (
+        "UHI1 - UHI participation opens once M1 - ABHA and identity and "
+        "M2 - HIP services are submitted."
+    )
 
     submit(environment)
 
@@ -104,20 +108,19 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
         workflows.withdraw(milestone(environment), applicant)
     assert error.value.messages == [
         (
-            "Withdraw UHI1 - UHI participation, M3 - HIU services and M2 - HIP "
+            "Withdraw M3 - HIU services, UHI1 - UHI participation and M2 - HIP "
             "services first. They build on this request."
         ),
     ]
 
-    for key in ("m3", "m2"):
-        workflows.withdraw(milestone(environment, key), applicant)
+    workflows.withdraw(milestone(environment, "m3"), applicant)
     with pytest.raises(
         ValidationError,
         match=r"Withdraw UHI1 - UHI participation first\. It builds on this request\.",
     ):
-        workflows.withdraw(milestone(environment), applicant)
+        workflows.withdraw(milestone(environment, "m2"), applicant)
 
-    for key in ("uhi1", "m1"):
+    for key in ("uhi1", "m2", "m1"):
         workflows.withdraw(milestone(environment, key), applicant)
 
     assert milestone(environment).status == ReviewItem.Status.DRAFT
@@ -168,7 +171,9 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
 
     assert milestone_tiles(html) == {
         "M1": "M1 ABHA and identity Shared with UHI and PHR Open · waiting on you",
-        "M2": "M2 Viewing HIP services Locked · submit M1 first Needs M1",
+        "M2": (
+            "M2 Viewing HIP services Shared with UHI Locked · submit M1 first Needs M1"
+        ),
         "M3": "M3 HIU services Locked · submit M1 first Needs M1",
         "M4": "M4 HFR Registration Open · waiting on you",
     }
@@ -177,7 +182,8 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
     uhi = milestone_tiles(client.get(track_url(environment, "UHI")).content.decode())
 
     assert "Needs" not in uhi["M1"]
-    assert uhi["UHI1"].endswith("Needs M1")
+    assert uhi["M2"].endswith("Needs M1")
+    assert uhi["UHI1"].endswith("Needs M2")
 
     submit(environment)
     html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
@@ -215,13 +221,17 @@ def test_the_queue_holds_waiting_requests_apart_from_ready_ones(environment, cli
     assert client.get(reverse("experiences:queue")).context["queue_scope"] == "ready"
     assert set(queue(client, scope="waiting")) == {m2, uhi}
     assert "2 waiting on this" in queue_text(client)
-    assert "Waiting on M1 · new" in queue_text(client, scope="waiting")
+    assert "Waiting on M1 · new, M2 · new" in queue_text(client, scope="waiting")
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
     assert (dashboard["ready_count"], dashboard["waiting_count"]) == (2, 2)
 
     approve_submitted(environment)
 
     assert set(queue(client)) == {m2, locker}
+    assert queue(client, scope="waiting") == [uhi]
+
+    approve_submitted(environment, "m2")
+
     assert queue(client, scope="waiting") == []
     uhi.refresh_from_db()
     assert uhi.status == ReviewItem.Status.APPROVED
@@ -328,3 +338,40 @@ def test_the_migration_drops_a_saved_m4_dependency_on_m3(environment):
     migration.backwards(registry, None)
 
     assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m3"]]
+
+
+def test_the_migration_moves_a_saved_uhi_request_from_m1_to_m2(environment):
+    migration = import_module(
+        "ohc_experience.experiences.migrations.0021_uhi_builds_on_m2",
+    )
+    applications = {
+        row.key: row.application_id
+        for row in environment["workspace"].product.milestones.all()
+    }
+    saved = ApplicationDependency.objects.filter(application_id=applications["uhi1"])
+    saved.update(depends_on_id=applications["m1"])
+
+    migration.forwards(registry, None)
+
+    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m2"]]
+
+    migration.backwards(registry, None)
+
+    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m1"]]
+
+
+def test_the_migration_keeps_a_uhi_request_on_m1_when_m2_was_never_chosen(
+    environment,
+):
+    migration = import_module(
+        "ohc_experience.experiences.migrations.0021_uhi_builds_on_m2",
+    )
+    product = environment["workspace"].product
+    applications = {row.key: row.application_id for row in product.milestones.all()}
+    saved = ApplicationDependency.objects.filter(application_id=applications["uhi1"])
+    saved.update(depends_on_id=applications["m1"])
+    product.milestones.filter(key="m2").delete()
+
+    migration.forwards(registry, None)
+
+    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m1"]]

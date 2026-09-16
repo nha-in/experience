@@ -50,6 +50,10 @@ def test_uhi_defaults_to_next_open_application_and_respects_explicit_milestone(
 
     approve(environment)
 
+    assert client.get(url).context["tile"]["definition"].key == "m2"
+
+    approve(environment, "m2")
+
     page = client.get(url)
     assert page.context["tile"]["definition"].key == "uhi1"
     assert b'name="uhi_role"' in page.content
@@ -63,6 +67,7 @@ def test_recorded_uhi_answers_remain_editable_after_invalid_submission(
     client,
 ):
     approve(environment)
+    approve(environment, "m2")
     item = submit(environment, "uhi1")
     client.force_login(environment["applicant"])
     url = f"{uhi_url(environment)}?milestone=uhi1"
@@ -102,6 +107,7 @@ def test_recorded_uhi_answers_remain_editable_after_invalid_submission(
 
 def test_draft_post_cannot_reopen_recorded_uhi_participation(environment, client):
     approve(environment)
+    approve(environment, "m2")
     item = submit(environment, "uhi1")
     client.force_login(environment["applicant"])
     snapshot_id = item.selected_submission_id

@@ -48,6 +48,7 @@ def run_upgrade():
 @pytest.fixture
 def legacy_uhi(environment):
     m1 = approve(environment)
+    approve(environment, "m2")
     item = milestone(environment, "uhi1")
     unused_form = item.form
     ApplicationInstance.objects.filter(pk=item.application_id).update(
@@ -141,7 +142,7 @@ def test_upgrade_preserves_identity_and_history(  # noqa: PLR0915
     item.application.milestone.save(update_fields=["enabled"])
     if not dependency_ready:
         ApplicationInstance.objects.filter(
-            pk=milestone(environment).application_id,
+            pk=milestone(environment, "m2").application_id,
         ).update(status="draft")
     ReviewQuery.objects.create(
         item=item,
@@ -351,6 +352,7 @@ def test_upgrade_is_idempotent(legacy_uhi):
 
 def test_modern_uhi_application_is_unchanged(environment):
     approve(environment)
+    approve(environment, "m2")
     item, form, saved = workflows.save_review_form(
         milestone(environment, "uhi1"),
         environment["applicant"],

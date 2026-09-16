@@ -185,11 +185,15 @@ class TrackDefinition:
     keys: tuple[str, ...]
 
     def prerequisites(self, milestones):
-        """Milestones this track depends on that another track offers."""
-        predecessors = (milestones[key].predecessor for key in self.keys)
-        return tuple(
-            dict.fromkeys(key for key in predecessors if key and key not in self.keys),
-        )
+        """Other tracks' milestones this track builds on, directly or not."""
+
+        def chain(key):
+            predecessor = milestones[key].predecessor
+            if not predecessor or predecessor in self.keys:
+                return []
+            return [*chain(predecessor), predecessor]
+
+        return tuple(dict.fromkeys(key for own in self.keys for key in chain(own)))
 
 
 class CredentialDefinition:

@@ -197,7 +197,7 @@ def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
 
     assert tracks == {
         "HIE-CM": (["m1", "m2", "m3", "m4"], ""),
-        "UHI": (["uhi1"], "M1"),
+        "UHI": (["uhi1"], "M1 and M2"),
         "NHCX": (["nhcx1"], "M1"),
         "PHR": (["phr1"], "M1"),
         "HealthLocker": (["locker1"], ""),
@@ -205,11 +205,11 @@ def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
 
 
 def test_a_dependant_track_lists_its_prerequisite_once_chosen():
-    """The product page shows M1 under UHI without UHI storing it."""
-    selections = ["HIE-CM:m1", "UHI:uhi1"]
+    """The product page shows M1 and M2 under UHI without UHI storing them."""
+    selections = ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"]
 
-    assert ABDM.applied_keys(TRACK_MAP["UHI"], selections) == ["m1", "uhi1"]
-    assert ABDM.applied_keys(TRACK_MAP["HIE-CM"], selections) == ["m1"]
+    assert ABDM.applied_keys(TRACK_MAP["UHI"], selections) == ["m1", "m2", "uhi1"]
+    assert ABDM.applied_keys(TRACK_MAP["HIE-CM"], selections) == ["m1", "m2"]
     assert ABDM.applied_keys(TRACK_MAP["PHR"], selections) == []
 
 
@@ -319,7 +319,7 @@ def uhi_payload(**overrides):
         "name": "Discovery app",
         "description": "Finds and books consultations.",
         "solution_type": ["telemedicine"],
-        "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
+        "applied_milestones": ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"],
         **overrides,
     }
 
@@ -330,6 +330,15 @@ def test_registration_no_longer_asks_about_uhi():
 
     assert form.is_valid(), form.errors
     assert not [name for name in form.fields if name.startswith("uhi_")]
+
+
+def test_uhi_cannot_be_chosen_without_m2():
+    form = ProductRegistrationForm(
+        data=uhi_payload(applied_milestones=["HIE-CM:m1", "UHI:uhi1"]),
+    )
+
+    assert not form.is_valid()
+    assert form.errors["applied_milestones"] == ["Select M2 before UHI participation."]
 
 
 def test_uhi_participation_requires_a_role_and_a_service():

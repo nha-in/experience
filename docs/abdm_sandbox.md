@@ -92,8 +92,8 @@ docker compose -f docker-compose.local.yml exec django python manage.py seed_exp
 ```
 
 `SBX-2026-00001` demonstrates an approved shared M1 with a recorded (fake)
-production client ID, an M2 query, an M3 review waiting on M2, a PHR1 review,
-a sent-back HealthLocker request and a recorded UHI application. The second
+production client ID, an M2 query, an M3 review, a PHR1 review, a sent-back
+HealthLocker request and a UHI application waiting on M2. The second
 product is registered, with no milestone requests yet. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
 Local mail is visible at http://localhost:3550/.
@@ -159,7 +159,8 @@ retired; reviewer work uses the engine's assessment screens.
   review queue. Registration starts sandbox provisioning, whether or not the
   organisation is verified yet.
 - A milestone's form opens once every milestone before it is submitted: M2 and
-  M3 once M1 is. M3 builds on M1, not M2: NHA's own portal gates M3 on M1 alone,
+  M3 once M1 is, UHI1 once M1 and M2 are, since UHI requires both. M3 builds on
+  M1, not M2: NHA's own portal gates M3 on M1 alone,
   and no published document orders M3 after M2. M4 needs no earlier milestone,
   not even M1, so its form is open from the start. A
   sent-back milestone still counts as submitted; a withdrawn one does not. A
