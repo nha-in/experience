@@ -36,13 +36,13 @@ class NhaTeamFilter(admin.SimpleListFilter):
     def lookups(self, request, model_admin):
         return [
             ("nha", _("NHA team")),
-            ("vendor", _("Vendor users")),
+            ("integrator", _("Integrator users")),
         ]
 
     def queryset(self, request, queryset):
         if self.value() == "nha":
             return queryset.filter(is_nha_team=True)
-        if self.value() == "vendor":
+        if self.value() == "integrator":
             return queryset.filter(is_nha_team=False)
         return queryset
 
@@ -113,7 +113,7 @@ class UserAdmin(SuperuserAdminMixin, auth_admin.UserAdmin):
 
     @admin.display(description=_("Account type"), ordering="is_nha_team")
     def account_type(self, obj) -> str:
-        return _("NHA team") if obj.is_nha_team else _("Vendor")
+        return _("NHA team") if obj.is_nha_team else _("Integrator")
 
     @admin.display(description=_("Organisations"))
     def organisation_names(self, obj) -> str:

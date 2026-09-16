@@ -31,11 +31,11 @@ class LandingView(TemplateView):
 def resolve_post_login_destination(user) -> str:
     """Where a freshly signed-in user belongs.
 
-    Most people have exactly one vendor organisation. OHC staff usually have
-    none — the console is their home, so send them there rather than to a
+    Most people have exactly one integrator organisation. OHC staff usually
+    have none — the console is their home, so send them there rather than to a
     dashboard that would 403 or a landing page that tells them nothing. Staff
-    who also belong to a vendor keep the vendor route; the console is one click
-    away in the sidebar.
+    who also belong to an integrator keep the integrator route; the console is
+    one click away in the sidebar.
     """
     membership = get_membership_for(user)
     if membership is None:

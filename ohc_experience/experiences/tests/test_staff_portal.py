@@ -12,6 +12,8 @@ from django.core.exceptions import ValidationError
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
+from pytest_django.asserts import assertContains
+from pytest_django.asserts import assertNotContains
 
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
@@ -20,6 +22,7 @@ from ohc_experience.events.models import Event
 from ohc_experience.experiences import permissions
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.experiences.models import EventRegistration
 from ohc_experience.experiences.staff_forms import StaffForm
 from ohc_experience.experiences.staff_forms import staff_revision
 from ohc_experience.experiences.staff_services import save_staff
@@ -456,6 +459,72 @@ def test_event_manager_cannot_access_other_categories(staff, client):
         ).status_code
         == 404
     )
+    assert (
+        client.post(reverse("experiences:event-delete", args=[event.pk])).status_code
+        == 404
+    )
+
+
+def test_event_editors_delete_drafts_but_not_published_events(staff, client):
+    access = AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="events",
+        category="UHI",
+        can_write=True,
+        can_approve=True,
+    )
+    starts_at = timezone.now() + timedelta(days=3)
+    published = Event.objects.create(
+        title="Published event",
+        category="UHI",
+        starts_at=starts_at,
+        published_at=timezone.now(),
+    )
+    draft = Event.objects.create(title="Draft", category="UHI", starts_at=starts_at)
+    EventRegistration.objects.create(event=draft, user=UserFactory())
+    delete_draft = reverse("experiences:event-delete", args=[draft.pk])
+    delete_published = reverse("experiences:event-delete", args=[published.pk])
+    client.force_login(staff)
+    page = client.get(reverse("experiences:event-manage"))
+    # The intent must not depend on the button keeping focus through the confirm.
+    assertContains(
+        page,
+        '<input type="hidden" name="intent" value="unpublish">',
+        html=True,
+    )
+    assertContains(page, f'action="{delete_draft}"')
+    assertContains(page, "Delete this event and its 1 registration? This cannot")
+    assertNotContains(page, f'action="{delete_published}"')
+    assert client.get(delete_draft).status_code == 405
+    assert client.post(delete_published).status_code == 403
+    access.can_write = False
+    access.save()
+    assert client.post(delete_draft).status_code == 403
+    access.can_write = True
+    access.save()
+    assert client.post(delete_draft).status_code == 302
+    assert list(Event.objects.all()) == [published]
+    assert not EventRegistration.objects.exists()
+    assert LogEntry.objects.get(change_message="Event deleted").is_deletion()
+
+
+def test_superadmins_can_delete_published_events(superadmin, client):
+    event = Event.objects.create(
+        title="Published event",
+        starts_at=timezone.now() + timedelta(days=3),
+        published_at=timezone.now(),
+    )
+    client.force_login(superadmin)
+    assertContains(
+        client.get(reverse("experiences:event-manage")),
+        "Delete this event? Integrators will no longer see it. This cannot be undone.",
+    )
+    assert (
+        client.post(reverse("experiences:event-delete", args=[event.pk])).status_code
+        == 302
+    )
+    assert not Event.objects.exists()
 
 
 def test_archive_releases_pending_assignments_and_preserves_evidence(

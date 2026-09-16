@@ -38,7 +38,7 @@ def user(db) -> User:
 
 @pytest.fixture
 def organisation(db) -> Organisation:
-    """A vendor company that signed up but has not finished onboarding."""
+    """An integrator company that signed up but has not finished onboarding."""
     return OrganisationFactory.create(name="Sunrise Health Systems")
 
 

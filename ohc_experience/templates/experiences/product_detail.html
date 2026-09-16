@@ -245,8 +245,10 @@
               {% endif %}
               {% if certification.certificate %}
                 <a class="inline-flex min-h-9 items-center text-xs font-semibold text-primary hover:underline"
-                   href="{% url 'experiences:attachment' certification.certificate.pk %}"
-                   hx-boost="false">View approved certificate</a>
+                   href="{% url 'experiences:attachment-preview' certification.certificate.pk certification.certificate.original_name %}"
+                   target="_blank"
+                   rel="noopener"
+                   hx-boost="false">View approved certificate<span class="sr-only"> (opens in a new tab)</span></a>
               {% endif %}
             </div>
           </div>

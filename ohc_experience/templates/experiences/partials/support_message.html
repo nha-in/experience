@@ -15,9 +15,11 @@
       </div>
       <div class="text-xs leading-[1.6] break-words [&>p+p]:mt-2.5">{{ message.body|linebreaks }}</div>
       {% for file in message.attachments.all %}
-        <p class="mt-2.5"><a class="inline-flex max-w-full items-center gap-[7px] rounded-[9px] border border-border bg-soft-background px-2.5 py-[7px] text-[11px] text-foreground no-underline hover:border-stronger-border"
-   href="{% url 'experiences:ticket-attachment' file.pk %}"
-   hx-boost="false"><span class="font-mono text-[9.5px] font-bold text-soft-foreground uppercase">PDF</span><span class="break-all">{{ file.original_name }}</span></a></p>
+        <p class="mt-2.5"><span class="inline-flex max-w-full items-center rounded-[9px] border border-border bg-soft-background pr-0.5 text-[11px] hover:border-stronger-border"><a class="inline-flex min-w-0 items-center gap-[7px] py-[7px] pl-2.5 pr-1 text-foreground no-underline"
+   href="{% url 'experiences:ticket-attachment-preview' file.pk file.original_name %}"
+   target="_blank"
+   rel="noopener"
+   hx-boost="false"><span class="font-mono text-[9.5px] font-bold text-soft-foreground uppercase">PDF</span><span class="break-all">{{ file.original_name }}</span><span class="sr-only"> (opens in a new tab)</span></a>{% url 'experiences:ticket-attachment' file.pk as download_url %}{% include 'components/download_button.html' with url=download_url name=file.original_name %}</span></p>
       {% endfor %}
     </div>
   </li>

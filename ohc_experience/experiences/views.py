@@ -1,4 +1,5 @@
 from datetime import timedelta
+from pathlib import Path
 from statistics import median
 
 from django.contrib import messages
@@ -468,7 +469,7 @@ def product_detail(request, reference):
             general_access=general_access,
             open_tickets=permissions.visible_tickets(request.user).filter(
                 product=product,
-                status__in=["open", "awaiting_vendor"],
+                status__in=["open", "awaiting_integrator"],
             )[:5],
             activity=activity.select_related("actor", "item")[:10],
             outcomes=outcomes.exclude(
@@ -589,6 +590,14 @@ def product_edit(request, reference):
             application__status="approved",
         ).exists()
     ]
+    under_review_selections = [
+        value
+        for value in workspace.applied_milestones
+        if workspace.product.milestones.filter(
+            key=value.split(":", 1)[1],
+            application__review_item__status__in=services.PENDING_STATUSES,
+        ).exists()
+    ]
     return render(
         request,
         "experiences/product_form.html",
@@ -601,6 +610,7 @@ def product_edit(request, reference):
             nav="edit",
             can_edit=services.can_edit_review(item),
             approved_selections=approved_selections,
+            under_review_selections=under_review_selections,
         ),
     )
 
@@ -1650,7 +1660,7 @@ def review(request, pk):
             else {},
             open_tickets=permissions.visible_tickets(request.user).filter(
                 organisation=item.organisation,
-                status__in=["open", "awaiting_vendor"],
+                status__in=["open", "awaiting_integrator"],
             )[:5],
         ),
     )
@@ -1666,9 +1676,40 @@ def open_record(request, pk):
     return redirect(workspace or "experiences:organisation")
 
 
+# Uploads are PDFs; organisation logos were images before they became links.
+PREVIEW_TYPES = {
+    ".gif": "image/gif",
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
+
+
+def _file_response(upload, *, preview):
+    # Only these types open in the browser, and never with a guessed type, so
+    # a file that could run script on this site downloads instead.
+    content_type = PREVIEW_TYPES.get(Path(upload.original_name).suffix.lower())
+    inline = preview and content_type is not None
+    response = FileResponse(
+        upload.file.open("rb"),
+        as_attachment=not inline,
+        filename=upload.original_name,
+        content_type=content_type if inline else None,
+    )
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 @login_required
 @never_cache
-def attachment(request, pk):
+def attachment(request, pk, filename=None):
+    """Download an upload, or preview it when the URL ends with its name.
+
+    Browsers title a preview's tab from the end of its URL.
+    """
     attachment = get_object_or_404(
         FormAttachment.objects.select_related("submission__form__organisation"),
         pk=pk,
@@ -1680,14 +1721,7 @@ def attachment(request, pk):
         and not organisation.memberships.filter(user=request.user).exists()
     ):
         raise Http404
-    response = FileResponse(
-        attachment.file.open("rb"),
-        as_attachment=True,
-        filename=attachment.original_name,
-    )
-    response["Cache-Control"] = "private, no-store"
-    response["X-Content-Type-Options"] = "nosniff"
-    return response
+    return _file_response(attachment, preview=filename is not None)
 
 
 @login_required
@@ -1954,7 +1988,7 @@ def ticket(request, reference):
 
 @login_required
 @never_cache
-def ticket_attachment(request, pk):
+def ticket_attachment(request, pk, filename=None):
     upload = get_object_or_404(
         TicketAttachment,
         pk=pk,
@@ -1967,8 +2001,4 @@ def ticket_attachment(request, pk):
         ).exists()
     ):
         raise Http404
-    return FileResponse(
-        upload.file.open("rb"),
-        as_attachment=True,
-        filename=upload.original_name,
-    )
+    return _file_response(upload, preview=filename is not None)

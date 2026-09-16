@@ -299,7 +299,6 @@ class DemoBuilder:
         self.exit(workspace, "m2", applicant, admin, reviewer, "query")
         # M3 builds on M1, which is approved, so this review is ready to decide.
         self.exit(workspace, "m3", applicant, admin, reviewer, "review")
-        # Submitted ahead of M3, so its review waits on M3's approval.
         self.exit(workspace, "m4", applicant, admin, reviewer, "review")
         self.exit(workspace, "phr1", applicant, admin, reviewer, "review")
         self.exit(workspace, "locker1", applicant, admin, reviewer, "sent_back")

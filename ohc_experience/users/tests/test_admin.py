@@ -82,7 +82,7 @@ def nha_member(db) -> User:
 
 
 @pytest.fixture
-def vendor_member(db) -> User:
+def integrator_member(db) -> User:
     membership = MembershipFactory.create(
         organisation__name="Arogya Systems",
         user__email="meera@arogyasystems.in",
@@ -103,19 +103,26 @@ def changelist_emails(response) -> set[str]:
 
 
 class TestUserChangelist:
-    def test_it_lists_both_populations(self, admin_client, nha_member, vendor_member):
+    def test_it_lists_both_populations(
+        self,
+        admin_client,
+        nha_member,
+        integrator_member,
+    ):
         url = reverse("admin:users_user_changelist")
 
         response = admin_client.get(url)
 
         assert response.status_code == HTTPStatus.OK
-        assert {nha_member.email, vendor_member.email} <= changelist_emails(response)
+        assert {nha_member.email, integrator_member.email} <= changelist_emails(
+            response,
+        )
 
     def test_the_account_type_filter_narrows_to_the_nha_team(
         self,
         admin_client,
         nha_member,
-        vendor_member,
+        integrator_member,
     ):
         url = reverse("admin:users_user_changelist")
 
@@ -123,48 +130,48 @@ class TestUserChangelist:
 
         assert changelist_emails(response) == {nha_member.email}
 
-    def test_the_account_type_filter_narrows_to_vendors(
+    def test_the_account_type_filter_narrows_to_integrators(
         self,
         admin_client,
         nha_member,
-        vendor_member,
+        integrator_member,
     ):
         url = reverse("admin:users_user_changelist")
 
-        response = admin_client.get(url, data={"population": "vendor"})
+        response = admin_client.get(url, data={"population": "integrator"})
 
         emails = changelist_emails(response)
 
-        assert vendor_member.email in emails
+        assert integrator_member.email in emails
         assert nha_member.email not in emails
 
     def test_the_columns_name_the_population_and_the_organisations(
         self,
         nha_member,
-        vendor_member,
+        integrator_member,
     ):
         user_admin = admin.site.get_model_admin(User)
 
         assert str(user_admin.account_type(nha_member)) == "NHA team"
-        assert str(user_admin.account_type(vendor_member)) == "Vendor"
-        assert user_admin.organisation_names(vendor_member) == "Arogya Systems"
+        assert str(user_admin.account_type(integrator_member)) == "Integrator"
+        assert user_admin.organisation_names(integrator_member) == "Arogya Systems"
         assert user_admin.organisation_names(nha_member) == "—"
 
 
 class TestNhaTeamActions:
-    def test_granting_nha_team_access(self, admin_client, vendor_member):
+    def test_granting_nha_team_access(self, admin_client, integrator_member):
         response = admin_client.post(
             reverse("admin:users_user_changelist"),
             data={
                 "action": "grant_nha_team",
                 "index": "0",
-                "_selected_action": [str(vendor_member.pk)],
+                "_selected_action": [str(integrator_member.pk)],
             },
         )
-        vendor_member.refresh_from_db()
+        integrator_member.refresh_from_db()
 
         assert response.status_code == HTTPStatus.FOUND
-        assert vendor_member.is_nha_team is True
+        assert integrator_member.is_nha_team is True
 
     def test_revoking_nha_team_access(self, admin_client, nha_member):
         response = admin_client.post(
@@ -184,14 +191,14 @@ class TestNhaTeamActions:
         self,
         admin_client,
         nha_member,
-        vendor_member,
+        integrator_member,
     ):
         admin_client.post(
             reverse("admin:users_user_changelist"),
             data={
                 "action": "grant_nha_team",
                 "index": "0",
-                "_selected_action": [str(vendor_member.pk)],
+                "_selected_action": [str(integrator_member.pk)],
             },
         )
         untouched = User.objects.get(email="admin@example.com")
@@ -280,29 +287,33 @@ class TestAddOhcMember:
         assert User.objects.filter(email=nha_member.email).count() == 1
 
 
-class TestVendorsAreLockedOutOfTheAdmin:
-    """A vendor is not staff, so every OHC-only admin route bounces them.
+class TestIntegratorsAreLockedOutOfTheAdmin:
+    """An integrator is not staff, so every OHC-only admin route bounces them.
 
     The console gate (NhaTeamRequiredMixin) is asserted in ohc/tests/test_views.py;
     this is the other half of the same boundary — the admin screens that mint and
-    revoke NHA team access. A vendor reaching either of them would be able to
+    revoke NHA team access. An integrator reaching either of them would be able to
     grant themselves the entire support queue.
     """
 
-    def test_a_vendor_cannot_open_the_add_nha_member_form(
+    def test_an_integrator_cannot_open_the_add_nha_member_form(
         self,
         sign_in,
-        vendor_member,
+        integrator_member,
     ):
-        client = sign_in(vendor_member)
+        client = sign_in(integrator_member)
 
         response = client.get(reverse("admin:users_user_add_nha_member"))
 
         assert response.status_code == HTTPStatus.FOUND
         assert response.url.startswith(reverse("admin:login"))
 
-    def test_a_vendor_post_creates_no_ohc_account(self, sign_in, vendor_member):
-        client = sign_in(vendor_member)
+    def test_an_integrator_post_creates_no_ohc_account(
+        self,
+        sign_in,
+        integrator_member,
+    ):
+        client = sign_in(integrator_member)
 
         response = client.post(
             reverse("admin:users_user_add_nha_member"),
@@ -317,20 +328,24 @@ class TestVendorsAreLockedOutOfTheAdmin:
         assert response.status_code == HTTPStatus.FOUND
         assert not User.objects.filter(email="sneaky@arogyasystems.in").exists()
 
-    def test_a_vendor_cannot_run_the_grant_action(self, sign_in, vendor_member):
-        client = sign_in(vendor_member)
+    def test_an_integrator_cannot_run_the_grant_action(
+        self,
+        sign_in,
+        integrator_member,
+    ):
+        client = sign_in(integrator_member)
 
         client.post(
             reverse("admin:users_user_changelist"),
             data={
                 "action": "grant_nha_team",
                 "index": "0",
-                "_selected_action": [str(vendor_member.pk)],
+                "_selected_action": [str(integrator_member.pk)],
             },
         )
-        vendor_member.refresh_from_db()
+        integrator_member.refresh_from_db()
 
-        assert vendor_member.is_nha_team is False
+        assert integrator_member.is_nha_team is False
 
     def test_a_staff_account_without_change_permission_cannot_run_the_action(
         self,

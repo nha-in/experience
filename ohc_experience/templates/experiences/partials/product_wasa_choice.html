@@ -13,8 +13,10 @@
     </p>
     {% if form.product_wasa.certificate %}
       <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
-         href="{% url 'experiences:attachment' form.product_wasa.certificate.pk %}"
-         hx-boost="false">View certificate</a>
+         href="{% url 'experiences:attachment-preview' form.product_wasa.certificate.pk form.product_wasa.certificate.original_name %}"
+         target="_blank"
+         rel="noopener"
+         hx-boost="false">View certificate<span class="sr-only"> (opens in a new tab)</span></a>
     {% endif %}
   </div>
   <details class="mt-1"
@@ -43,9 +45,11 @@
         </fieldset>
         {% if form.latest_product_wasa.certificate %}
           <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
-             href="{% url 'experiences:attachment' form.latest_product_wasa.certificate.pk %}"
+             href="{% url 'experiences:attachment-preview' form.latest_product_wasa.certificate.pk form.latest_product_wasa.certificate.original_name %}"
+             target="_blank"
+             rel="noopener"
              hx-boost="false"
-             data-wasa-source-options>View latest certificate</a>
+             data-wasa-source-options>View latest certificate<span class="sr-only"> (opens in a new tab)</span></a>
         {% endif %}
       {% endif %}
       <noscript>

@@ -56,10 +56,14 @@
             </span>
             <span class="min-w-0 flex-1 peer-checked:opacity-50 peer-checked:line-through">
               <a class="block truncate text-sm font-medium"
-                 hx-boost="false"
-                 href="{% url 'experiences:attachment' attachment.pk %}">{{ attachment.original_name }}</a>
+                 href="{% url 'experiences:attachment-preview' attachment.pk attachment.original_name %}"
+                 target="_blank"
+                 rel="noopener"
+                 hx-boost="false">{{ attachment.original_name }}<span class="sr-only"> {% translate "(opens in a new tab)" %}</span></a>
               <span class="block text-xs text-soft-foreground">{{ attachment.size|filesizeformat }}</span>
             </span>
+            {% url 'experiences:attachment' attachment.pk as download_url %}
+            {% include 'components/download_button.html' with url=download_url name=attachment.original_name size='icon-sm' %}
             <label class="ui-btn ui-btn--ghost ui-btn--size-icon-sm shrink-0 cursor-pointer"
                    for="{{ field.auto_id }}_existing_{{ attachment.pk }}"
                    data-existing-file-toggle

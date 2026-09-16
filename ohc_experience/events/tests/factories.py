@@ -24,7 +24,7 @@ class EventFactory(DjangoModelFactory[Event]):
         model = Event
 
     class Params:
-        # EventFactory(published=True) — visible to vendors.
+        # EventFactory(published=True) — visible to integrators.
         published = Trait(published_at=LazyFunction(timezone.now))
         # EventFactory(past=True) — already over. ends_at stays null, so the
         # model falls back to starts_at and the check constraint is moot.

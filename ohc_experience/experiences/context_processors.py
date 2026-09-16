@@ -67,7 +67,7 @@ def navigation_context(request, workspace=None):
                     },
                 )
     tickets = permissions.visible_tickets(request.user).filter(
-        status__in=["open", "awaiting_vendor"],
+        status__in=["open", "awaiting_integrator"],
     )
     if not is_reviewer:
         tickets = tickets.filter(organisation=organisation)

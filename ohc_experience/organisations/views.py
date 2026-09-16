@@ -78,10 +78,11 @@ class OrganisationMixin(LoginRequiredMixin):
             return super().dispatch(request, *args, **kwargs)
         self.membership = get_membership_for(request.user)
         if self.membership is None:
-            # OHC staff routinely have no vendor account. Sending them to the
-            # console beats a 403 that reads as breakage on a page they were
-            # never meant to open. Staff who *do* belong to a vendor keep the
-            # vendor route; the console stays one click away in the sidebar.
+            # OHC staff routinely have no integrator account. Sending them to
+            # the console beats a 403 that reads as breakage on a page they were
+            # never meant to open. Staff who *do* belong to an integrator keep
+            # the integrator route; the console stays one click away in the
+            # sidebar.
             if is_nha_team(request.user):
                 messages.info(
                     request,

@@ -149,7 +149,7 @@ class TestOhcStaffLanding:
 
         assert response.status_code == HTTPStatus.FORBIDDEN
 
-    def test_a_vendor_with_no_organisation_still_gets_403(self, client, user):
+    def test_an_integrator_with_no_organisation_still_gets_403(self, client, user):
         client.force_login(user)
 
         assert client.get(reverse("dashboard")).status_code == HTTPStatus.FORBIDDEN

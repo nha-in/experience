@@ -37,25 +37,25 @@ class Priority(models.TextChoices):
 class Status(models.TextChoices):
     """The four states from the support inbox screen.
 
-    AWAITING_VENDOR is written from the vendor's point of view ("Awaiting your
-    reply"); the NHA console relabels it, because on the queue side the same
-    state means the ball is in the vendor's court.
+    AWAITING_INTEGRATOR is written from the integrator's point of view
+    ("Awaiting your reply"); the NHA console relabels it, because on the queue
+    side the same state means the ball is in the integrator's court.
     """
 
     OPEN = "open", _("Open")
-    AWAITING_VENDOR = "awaiting_vendor", _("Awaiting your reply")
+    AWAITING_INTEGRATOR = "awaiting_integrator", _("Awaiting your reply")
     RESOLVED = "resolved", _("Resolved")
     CLOSED = "closed", _("Closed")
 
     @classmethod
     def active(cls) -> list[str]:
-        return [cls.OPEN, cls.AWAITING_VENDOR]
+        return [cls.OPEN, cls.AWAITING_INTEGRATOR]
 
 
-# Badge variant per status, so the vendor inbox and the OHC queue never drift.
+# Badge variant per status, so the integrator inbox and the OHC queue never drift.
 STATUS_VARIANTS = {
     Status.OPEN: "info",
-    Status.AWAITING_VENDOR: "warning",
+    Status.AWAITING_INTEGRATOR: "warning",
     Status.RESOLVED: "success",
     Status.CLOSED: "neutral",
 }
@@ -78,7 +78,7 @@ class TicketQuerySet(models.QuerySet["Ticket"]):
 
 
 class Ticket(models.Model):
-    """A support conversation about one vendor product, answered by the NHA team."""
+    """A support conversation about one integrator product, answered by the NHA team."""
 
     reference = models.CharField(
         _("Reference"),
@@ -132,7 +132,7 @@ class Ticket(models.Model):
         blank=True,
         related_name="tickets_assigned",
         verbose_name=_("Assignee"),
-        # Only NHA staff answer tickets, so the picker never offers a vendor.
+        # Only NHA staff answer tickets, so the picker never offers an integrator.
         limit_choices_to={"is_nha_team": True},
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -198,14 +198,14 @@ class Ticket(models.Model):
         return self.status in Status.active()
 
     @property
-    def vendor_status_label(self) -> str:
+    def integrator_status_label(self) -> str:
         return self.get_status_display()
 
     @property
     def queue_status_label(self) -> str:
         """The same state, read from the NHA team's side of the conversation."""
-        if self.status == Status.AWAITING_VENDOR:
-            return _("Awaiting vendor")
+        if self.status == Status.AWAITING_INTEGRATOR:
+            return _("Awaiting integrator")
         if self.status == Status.OPEN:
             return _("Needs a reply")
         return self.get_status_display()
@@ -266,10 +266,10 @@ def post_reply(
 ) -> TicketMessage:
     """Add a reply and move the ticket to the other party's court.
 
-    A vendor reply reopens the ticket; an NHA reply puts it on the vendor. This
-    lives here rather than in a view so the vendor inbox, the NHA console and
-    the admin all move a ticket the same way. Each reply is mirrored into the
-    support email thread.
+    An integrator reply reopens the ticket; an NHA reply puts it on the
+    integrator. This lives here rather than in a view so the integrator inbox,
+    the NHA console and the admin all move a ticket the same way. Each reply is
+    mirrored into the support email thread.
     """
     message = TicketMessage.objects.create(
         ticket=ticket,
@@ -279,7 +279,7 @@ def post_reply(
         from_nha_team=from_nha_team,
     )
     updates = ["status", "updated_at"]
-    ticket.status = Status.AWAITING_VENDOR if from_nha_team else Status.OPEN
+    ticket.status = Status.AWAITING_INTEGRATOR if from_nha_team else Status.OPEN
     if from_nha_team and ticket.first_responded_at is None:
         ticket.first_responded_at = timezone.now()
         updates.append("first_responded_at")

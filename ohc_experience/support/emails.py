@@ -39,7 +39,7 @@ def _participants(ticket: Ticket) -> list[str]:
     """Everyone who has taken part in the thread, requester included.
 
     Copying them keeps the OHC member who answered on the conversation once the
-    vendor replies, instead of leaving them to spot it in the shared inbox.
+    integrator replies, instead of leaving them to spot it in the shared inbox.
     """
     addresses = set(
         ticket.messages.exclude(author=None).values_list("author__email", flat=True),

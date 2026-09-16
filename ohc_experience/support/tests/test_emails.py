@@ -29,7 +29,7 @@ def _inbox(settings):
 
 
 @pytest.fixture
-def vendor():
+def integrator():
     return UserFactory.create(name="Meera Krishnan", email="meera@sunrise.in")
 
 
@@ -48,19 +48,22 @@ def nha_member():
 
 
 @pytest.fixture
-def ticket(organisation, vendor) -> Ticket:
+def ticket(organisation, integrator) -> Ticket:
     return Ticket.objects.create(
         organisation=organisation,
         product=product_for(organisation),
         subject="Sandbox reset wiped our seeded records",
         category=Category.SANDBOX,
         priority=Priority.HIGH,
-        created_by=vendor,
+        created_by=integrator,
     )
 
 
-def test_the_opening_message_reaches_support_and_copies_the_requester(ticket, vendor):
-    post_reply(ticket, vendor, "Our records vanished.", from_nha_team=False)
+def test_the_opening_message_reaches_support_and_copies_the_requester(
+    ticket,
+    integrator,
+):
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
 
     sent = mail.outbox[0]
     assert sent.to == ["support@ohc.network"]
@@ -72,8 +75,8 @@ def test_the_opening_message_reaches_support_and_copies_the_requester(ticket, ve
     assert f"https://hub.example.in{ticket.get_absolute_url()}" in sent.body
 
 
-def test_the_opening_message_owns_the_thread_anchor(ticket, vendor):
-    post_reply(ticket, vendor, "Our records vanished.", from_nha_team=False)
+def test_the_opening_message_owns_the_thread_anchor(ticket, integrator):
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
 
     headers = mail.outbox[0].extra_headers
     assert headers["Message-ID"] == f"<{ticket.reference}@experience.ohc.network>"
@@ -81,8 +84,8 @@ def test_the_opening_message_owns_the_thread_anchor(ticket, vendor):
     assert "In-Reply-To" not in headers
 
 
-def test_later_entries_reply_to_the_anchor(ticket, vendor, nha_member):
-    post_reply(ticket, vendor, "Our records vanished.", from_nha_team=False)
+def test_later_entries_reply_to_the_anchor(ticket, integrator, nha_member):
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
     message = post_reply(ticket, nha_member, "Restoring now.", from_nha_team=True)
 
     anchor = f"<{ticket.reference}@experience.ohc.network>"
@@ -95,7 +98,7 @@ def test_later_entries_reply_to_the_anchor(ticket, vendor, nha_member):
     assert "(NHA team) replied:" in mail.outbox[1].body
 
 
-def test_the_gateway_gets_a_template_instead_of_headers(settings, ticket, vendor):
+def test_the_gateway_gets_a_template_instead_of_headers(settings, ticket, integrator):
     """The Global Email API rejects custom headers, so drop them for that transport."""
     settings.EMAIL_BACKEND = "ohc_experience.core.mail.backends.GlobalEmailBackend"
     settings.GLOBAL_EMAIL_TEMPLATE_IDS = {"support_ticket": "200001"}
@@ -107,14 +110,14 @@ def test_the_gateway_gets_a_template_instead_of_headers(settings, ticket, vendor
         autospec=True,
         side_effect=lambda self, **_: sent.append(self),
     ):
-        post_reply(ticket, vendor, "Our records vanished.", from_nha_team=False)
+        post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
 
     assert sent[0].extra_headers == {}
     assert sent[0].template_id == "200001"
 
 
-def test_one_entry_sends_exactly_one_mail(ticket, vendor, colleague):
-    post_reply(ticket, vendor, "Our records vanished.", from_nha_team=False)
+def test_one_entry_sends_exactly_one_mail(ticket, integrator, colleague):
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
     post_reply(ticket, colleague, "Ours too.", from_nha_team=False)
 
     assert [sent.to for sent in mail.outbox] == [
@@ -129,29 +132,33 @@ def test_a_colleague_reply_copies_the_requester_too(ticket, colleague):
     assert mail.outbox[0].cc == ["meera@sunrise.in", "raj@sunrise.in"]
 
 
-def test_a_vendor_reply_copies_the_nha_member_who_answered(ticket, vendor, nha_member):
-    post_reply(ticket, vendor, "Our records vanished.", from_nha_team=False)
+def test_an_integrator_reply_copies_the_nha_member_who_answered(
+    ticket,
+    integrator,
+    nha_member,
+):
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
     post_reply(ticket, nha_member, "Restoring now.", from_nha_team=True)
-    post_reply(ticket, vendor, "Still missing.", from_nha_team=False)
+    post_reply(ticket, integrator, "Still missing.", from_nha_team=False)
 
     assert mail.outbox[2].cc == ["anand@ohc.network", "meera@sunrise.in"]
 
 
-def test_a_status_change_is_mirrored_too(ticket, vendor, nha_member):
-    post_reply(ticket, vendor, "Our records vanished.", from_nha_team=False)
+def test_a_status_change_is_mirrored_too(ticket, integrator, nha_member):
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
     record_status_change(ticket, nha_member, Status.RESOLVED)
 
     assert "changed the status to: Resolved" in mail.outbox[1].body
 
 
-def test_a_mail_failure_does_not_break_the_thread(ticket, vendor):
+def test_a_mail_failure_does_not_break_the_thread(ticket, integrator):
     with patch(
         "ohc_experience.support.models.notify_support",
         side_effect=OSError("smtp down"),
     ):
         message = post_reply(
             ticket,
-            vendor,
+            integrator,
             "Our records vanished.",
             from_nha_team=False,
         )

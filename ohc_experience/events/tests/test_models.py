@@ -1,4 +1,4 @@
-"""Which events a vendor sees, in which order, and when.
+"""Which events an integrator sees, in which order, and when.
 
 The dashboard and the events page both read straight off these querysets, so
 the "published, not finished, soonest first" rule is pinned here rather than in
@@ -52,7 +52,7 @@ class TestUpcoming:
             "Next month",
         ]
 
-    def test_a_draft_is_not_shown_to_vendors(self):
+    def test_a_draft_is_not_shown_to_integrators(self):
         make_event("Announced", starts_in=timedelta(days=2))
         make_event("Still a draft", starts_in=timedelta(days=3), published=False)
 

@@ -1,4 +1,5 @@
 # ruff: noqa: F811, PLR2004
+import re
 from datetime import timedelta
 
 import pytest
@@ -266,6 +267,64 @@ def test_support_is_separate_and_category_scoped(tickets, category, staff, clien
         assert response.status_code == expected
         if response.streaming:
             assert b"".join(response.streaming_content)
+
+
+def test_uploads_preview_in_the_browser_and_still_download(
+    environment,
+    tickets,
+    client,
+):
+    upload = submit(environment).selected_submission.attachments.first()
+    reply = TicketAttachment.objects.get(message__ticket=tickets["UHI"])
+    client.force_login(environment["applicant"])
+    for route, file in [("attachment", upload), ("ticket-attachment", reply)]:
+        download = client.get(reverse(f"experiences:{route}", args=[file.pk]))
+        assert download["Content-Disposition"].startswith("attachment;")
+        preview_url = reverse(
+            f"experiences:{route}-preview",
+            args=[file.pk, file.original_name],
+        )
+        assert preview_url.endswith(f"/preview/{file.original_name}")
+        preview = client.get(preview_url)
+        assert preview["Content-Type"] == "application/pdf"
+        assert preview["Content-Disposition"] == (
+            f'inline; filename="{file.original_name}"'
+        )
+        assert preview["X-Content-Type-Options"] == "nosniff"
+        assert b"".join(preview.streaming_content).startswith(b"%PDF-")
+    page = client.get(
+        reverse("experiences:ticket", args=[tickets["UHI"].reference]),
+    ).content.decode()
+    preview_url = reverse(
+        "experiences:ticket-attachment-preview",
+        args=[reply.pk, reply.original_name],
+    )
+    download_url = reverse("experiences:ticket-attachment", args=[reply.pk])
+    assert re.search(rf'href="{re.escape(preview_url)}"\s+target="_blank"', page)
+    assert f'href="{download_url}"' in page
+    # Earlier organisation logos were images. Anything a browser could run
+    # script from downloads even from a preview link.
+    for name, disposition, content_type in [
+        ("logo.PNG", "inline", "image/png"),
+        ("logo.svg", "attachment", "image/svg+xml"),
+        ("notes.html", "attachment", "text/html"),
+    ]:
+        upload.original_name = name
+        upload.save(update_fields=["original_name"])
+        response = client.get(
+            reverse("experiences:attachment-preview", args=[upload.pk, name]),
+        )
+        assert response["Content-Disposition"] == f'{disposition}; filename="{name}"'
+        assert response["Content-Type"].startswith(content_type)
+    client.force_login(environment["outsider"])
+    for route, file in [("attachment", upload), ("ticket-attachment", reply)]:
+        response = client.get(
+            reverse(
+                f"experiences:{route}-preview",
+                args=[file.pk, file.original_name],
+            ),
+        )
+        assert response.status_code == 404
 
 
 def test_support_reply_and_resolve_have_distinct_permissions(tickets, staff, client):

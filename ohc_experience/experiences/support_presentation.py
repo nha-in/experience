@@ -21,7 +21,10 @@ def support_inbox(tickets, params, form, *, reviewer=False):
     statuses = [
         ("", "All tickets"),
         ("open", "Open"),
-        ("awaiting_vendor", "Awaiting vendor" if reviewer else "Awaiting your reply"),
+        (
+            "awaiting_integrator",
+            "Awaiting integrator" if reviewer else "Awaiting your reply",
+        ),
         ("resolved", "Resolved"),
         ("closed", "Closed"),
     ]
