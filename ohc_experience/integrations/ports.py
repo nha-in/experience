@@ -17,11 +17,12 @@ from typing import Protocol
 
 
 class ExternalSystem(enum.StrEnum):
-    """Systems we provision into. Mirrors `ProvisionedResource.system`."""
+    """Systems we call: the three we provision into, and ABDM notifications."""
 
     KEYCLOAK = "KEYCLOAK"
     WSO2 = "WSO2"
     HIECM = "HIECM"
+    NOTIFICATION = "NOTIFICATION"
 
 
 class AdapterError(Exception):
@@ -138,3 +139,32 @@ class BridgeRegistry(Protocol):
     def get_bridge_status(self, bridge_id: str) -> BridgeStatus: ...
 
     def deactivate_bridge(self, bridge_id: str) -> None: ...
+
+
+class NotificationChannel(enum.StrEnum):
+    EMAIL = "email"
+    SMS = "sms"
+
+
+class NotificationContentType(enum.StrEnum):
+    OTP = "otp"
+    INFO = "info"
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationMessage:
+    """An approved template and the values for its `{0}`, `{1}`… placeholders."""
+
+    channel: NotificationChannel
+    receiver: str
+    template_id: str
+    subject: str
+    # repr=False: the values carry one-time codes.
+    values: tuple[str, ...] = field(repr=False)
+    content_type: NotificationContentType = NotificationContentType.INFO
+
+
+class NotificationGateway(Protocol):
+    """ABDM's notification service, which only delivers approved templates."""
+
+    def send(self, message: NotificationMessage) -> None: ...

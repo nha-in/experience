@@ -437,6 +437,17 @@ ACCOUNT_SIGNUP_REDIRECT_URL = "users:redirect"
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# Verification codes, not links, sent by email and SMS through the notification gateway.
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT = {
+    "numeric": True,
+    "length": 6,
+    "dashed": False,
+}
+ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = True
+ACCOUNT_PHONE_VERIFICATION_CODE_FORMAT = ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT
+ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = True
+ACCOUNT_PHONE_VERIFICATION_SUPPORTS_CHANGE = True
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "ohc_experience.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html
@@ -471,7 +482,37 @@ INTEGRATION_PORTS = {
         "INTEGRATION_BRIDGE_REGISTRY",
         default="ohc_experience.integrations.local.LocalBridgeRegistry",
     ),
+    "NOTIFICATION": env.str(
+        "INTEGRATION_NOTIFICATION",
+        default="ohc_experience.integrations.local.LocalNotificationGateway",
+    ),
 }
+
+# NOTIFICATION GATEWAY
+# ------------------------------------------------------------------------------
+# Reachable only from inside the ABDM VPC.
+NOTIFICATION_APP_BASE_URL = env.str(
+    "NOTIFICATION_APP_BASE_URL",
+    default="https://notification-app.invalid",
+)
+NOTIFICATION_DB_BASE_URL = env.str(
+    "NOTIFICATION_DB_BASE_URL",
+    default="https://notification-db.invalid",
+)
+NOTIFICATION_ORIGIN = env.str("NOTIFICATION_ORIGIN", default="abha")
+NOTIFICATION_SENDER = env.str("NOTIFICATION_SENDER", default="NHASMS")
+NOTIFICATION_READ_TIMEOUT_SECONDS = env.float(
+    "NOTIFICATION_READ_TIMEOUT_SECONDS",
+    default=5.0,
+)
+NOTIFICATION_EMAIL_OTP_TEMPLATE_ID = env.str(
+    "NOTIFICATION_EMAIL_OTP_TEMPLATE_ID",
+    default="1007164181681962329",
+)
+NOTIFICATION_SMS_OTP_TEMPLATE_ID = env.str(
+    "NOTIFICATION_SMS_OTP_TEMPLATE_ID",
+    default="1007164181681962323",
+)
 
 # KEYCLOAK
 # ------------------------------------------------------------------------------

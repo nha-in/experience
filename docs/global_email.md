@@ -3,9 +3,13 @@
 Production email uses ABDM's internal Global Notification Service.
 A Django mail backend validates and writes outgoing messages to the
 existing `experiences.Notification` outbox. Celery submits those messages through
-a custom Anymail HTTP backend. Account verification, password resets, organisation
-invitations and workflow notifications use the same delivery job. Web requests
-do not contact the gateway. Local development keeps console mail.
+a custom Anymail HTTP backend. Password resets, organisation invitations and
+workflow notifications use the same delivery job. Web requests do not contact
+the gateway. Local development keeps console mail.
+
+Email and mobile verification codes do not use this outbox. The web request
+sends them through ABDM's notification service, using approved templates; see
+the verification codes section of `abdm-experience-deployment-variables.md`.
 
 Application code uses Django's `send_mail()` or `EmailMessage.send()` as usual.
 The backends implement `BaseEmailBackend.send_messages()`, and allauth's standard
@@ -81,8 +85,6 @@ keys are message purposes and whose values are approved template ID strings:
 | `notification` | General workflow, review, support and event notifications |
 | `support_ticket` | Support ticket thread entries sent to the support inbox |
 | `organisation_invitation` | Organisation membership invitation |
-| `account/email/email_confirmation_signup` | Account signup verification |
-| `account/email/email_confirmation` | Existing-account email verification |
 | `account/email/password_reset_key` | Password reset link |
 | Other allauth template prefixes | Corresponding allauth account notices |
 

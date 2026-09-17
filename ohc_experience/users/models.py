@@ -23,6 +23,7 @@ class User(AbstractUser):
     last_name = None  # type: ignore[assignment]
     email = EmailField(_("email address"), unique=True)
     phone_number = CharField(_("Mobile number"), blank=True, max_length=32)
+    phone_verified = BooleanField(_("Mobile number verified"), default=False)
     is_nha_team = BooleanField(
         _("NHA team member"),
         default=False,

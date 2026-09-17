@@ -81,13 +81,28 @@ The main purpose keys for `GLOBAL_EMAIL_TEMPLATE_IDS` are:
 | --- | --- |
 | `notification` | Workflow, review, support, and event notifications. |
 | `organisation_invitation` | Organisation membership invitation. |
-| `account/email/email_confirmation_signup` | Signup verification. |
-| `account/email/email_confirmation` | Existing-account email verification. |
 | `account/email/password_reset_key` | Password reset link. |
 
 Other account notices may require additional allauth template-prefix keys. Obtain approved template IDs for each purpose or an approved fallback; the code does not assume sample IDs are valid. The Global Email integration does not require NIC SMTP credentials. Its gateway sender determines the actual From address. Celery worker and beat are needed for automatic delivery.
 
 Source: `config/settings/base.py`, `config/settings/production.py`, `docs/global_email.md`.
+
+For **email and mobile verification codes**, the web process calls ABDM's notification service directly. Signup emails a 6-digit code, and texts one to the optional mobile number, which is saved only once that code is confirmed. The service is reachable only from inside the ABDM VPC:
+
+| Variable | Requirement / default |
+| --- | --- |
+| `INTEGRATION_NOTIFICATION` | Production default: `ohc_experience.integrations.notification.adapter.AbdmNotificationGateway`. Local and test settings use `ohc_experience.integrations.local.LocalNotificationGateway`, which delivers nothing. |
+| `NOTIFICATION_APP_BASE_URL` | **Required for delivery.** Notification app service base URL, without a path, e.g. `http://notificationapp-svc.global-services.svc.cluster.local:9102`. Default: `https://notification-app.invalid`. |
+| `NOTIFICATION_DB_BASE_URL` | **Required for delivery.** Notification DB (template) service base URL, without a path, e.g. `http://notificationdb-svc.global-services.svc.cluster.local:9101`. Default: `https://notification-db.invalid`. |
+| `NOTIFICATION_EMAIL_OTP_TEMPLATE_ID` | Default: `1007164181681962329`. |
+| `NOTIFICATION_SMS_OTP_TEMPLATE_ID` | Default: `1007164181681962323`. |
+| `NOTIFICATION_ORIGIN` | Default: `abha`. |
+| `NOTIFICATION_SENDER` | Default: `NHASMS`. |
+| `NOTIFICATION_READ_TIMEOUT_SECONDS` | Default: `5` seconds. |
+
+Template text comes from `/internal/v3/notification/template/name/SANDBOX`, or `/internal/v3/notification/template/id/{id}` for a template outside that list, and is cached for an hour. Only the template's `{0}` placeholder is filled, with the code, before the message is posted to `/internal/v3/notification/message`. The `svc.cluster.local` names resolve only inside the Kubernetes cluster, so an ECS task needs whatever address the notification team provides for callers outside it. A code that cannot be sent is reported to the user, who can request another; the failure is logged without the code.
+
+Source: `config/settings/base.py`, `ohc_experience/integrations/notification/adapter.py`, `ohc_experience/users/adapters.py`.
 
 For **live credential provisioning**, explicitly select all three real adapters:
 

@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from allauth.account import views as account_views
+from allauth.account.stages import LoginStageController
+from allauth.account.stages import PhoneVerificationStage
 from allauth.account.views import SignupView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.shortcuts import redirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
+from django.views.decorators.http import require_POST
 from django.views.generic import RedirectView
 from django.views.generic import UpdateView
 
@@ -131,6 +136,39 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 
     def get_redirect_url(self, *args, **kwargs) -> str:
         return reverse(resolve_post_login_destination(self.request.user))
+
+
+def _in_settings_shell(response, request, template_name):
+    """Signed in, a verification code belongs in the app shell: the entrance
+    shell it uses during signup reads as a signed-out landing page."""
+    if request.user.is_authenticated and hasattr(response, "template_name"):
+        response.template_name = template_name
+    return response
+
+
+def verify_phone_view(request):
+    return _in_settings_shell(
+        account_views.verify_phone(request),
+        request,
+        "account/confirm_phone_verification_code_settings.html",
+    )
+
+
+def email_verification_sent_view(request):
+    return _in_settings_shell(
+        account_views.email_verification_sent(request),
+        request,
+        "account/confirm_email_verification_code_settings.html",
+    )
+
+
+@require_POST
+def skip_phone_verification_view(request):
+    """Finish signing up without the mobile number, which stays unsaved."""
+    stage = LoginStageController.enter(request, PhoneVerificationStage.key)
+    if stage is None:
+        return redirect("account_login")
+    return stage.exit()
 
 
 user_signup_view = UserSignupView.as_view()

@@ -47,9 +47,14 @@ INTEGRATION_PORTS = {
     "IDP": "ohc_experience.integrations.local.LocalIdpAdmin",
     "API_GATEWAY": "ohc_experience.integrations.local.LocalApiGateway",
     "BRIDGE_REGISTRY": "ohc_experience.integrations.local.LocalBridgeRegistry",
+    "NOTIFICATION": "ohc_experience.integrations.local.LocalNotificationGateway",
 }
 # The local adapters stand in for all three systems; these are the names they know.
 WSO2_API_NAMES = {"abdm": ("HealthIdAPI", "GatewayAPI")}
+
+# The limits live in the cache, which outlasts a test, so one test's verification
+# code would rate-limit the next test's signup with the same address.
+ACCOUNT_RATE_LIMITS = False
 
 # Your stuff...
 # ------------------------------------------------------------------------------

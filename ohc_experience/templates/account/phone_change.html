@@ -1,0 +1,61 @@
+{% extends "account/base_manage_email.html" %}
+
+{% comment %}
+  Settings → Your profile → mobile number. A number is saved only once the
+  code texted to it is confirmed; numbers from before that rule show as
+  unverified until they are confirmed the same way.
+
+  Context: form (ChangePhoneForm), phone, phone_verified.
+{% endcomment %}
+{% load i18n careui %}
+
+{% block title %}
+  {% translate "Mobile number" %}
+{% endblock title %}
+{% block settings_content %}
+  <div class="ui-card">
+    <div class="ui-card-header">
+      <h2 class="ui-card-title">{% translate "Mobile number" %}</h2>
+      <p class="ui-card-description">{% translate "We text a code to a new number before saving it." %}</p>
+    </div>
+    {% if phone %}
+      <div class="ui-card-content flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span class="text-sm font-medium text-foreground">{{ phone }}</span>
+        {% if phone_verified %}
+          <span class="ui-badge ui-badge--success ui-badge--size-sm">{% translate "Verified" %}</span>
+        {% else %}
+          <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Unverified" %}</span>
+          <button type="submit"
+                  form="verify-phone"
+                  class="ui-btn ui-btn--outline ui-btn--size-sm">{% translate "Confirm this number" %}</button>
+        {% endif %}
+      </div>
+    {% endif %}
+    <form method="post" action="{% url 'account_change_phone' %}">
+      {% csrf_token %}
+      <div class="ui-card-content flex flex-col gap-4">
+        {% include "components/form_errors.html" %}
+        {% if phone %}
+          {% translate "New mobile number" as phone_label %}
+        {% else %}
+          {% translate "Mobile number" as phone_label %}
+        {% endif %}
+        {% ui_field form.phone label=phone_label %}
+        <div class="flex sm:justify-end">
+          <button type="submit"
+                  class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block sm:w-auto">
+            {% translate "Text me a code" %}
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+  {% if phone and not phone_verified %}
+    <form id="verify-phone"
+          method="post"
+          action="{% url 'account_change_phone' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="verify" />
+    </form>
+  {% endif %}
+{% endblock settings_content %}
