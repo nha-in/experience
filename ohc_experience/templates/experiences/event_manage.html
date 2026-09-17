@@ -10,7 +10,7 @@
       <h1 class="ui-page-title">Manage events</h1>
       <div class="flex gap-2"><a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
    href="{% url 'experiences:events' %}">Events</a>{% if can_create_events %}<a class="ui-btn ui-btn--default ui-btn--size-sm min-h-11"
-   href="{% url 'experiences:event-create' %}">{% include 'components/nav_icon.html' with icon='add' %}New event</a>{% endif %}</div></header>
+   href="{% url 'experiences:event-create' %}">{% include 'components/nav_icon.html' with icon='add' icon_size='size-4' %}New event</a>{% endif %}</div></header>
     <nav class="flex gap-2 border-b border-border pb-4"
          aria-label="Publication status"><a class="ui-pill min-h-11"
    href="?status=all"
@@ -25,12 +25,12 @@
           <div class="min-w-0 flex-1 basis-64">
             <h2 class="break-words text-base font-semibold">{{ event.title }}</h2>
             <p class="mt-1 text-sm text-soft-foreground">{{ event.category|default:'General / onboarding' }} · {{ event.get_kind_display }} · {{ event.starts_at|date:'j M Y, H:i' }} IST</p><p class="mt-2 break-words text-sm">{{ event.summary }}</p><span class="ui-badge ui-badge--size-xs mt-3 {% if event.is_published %}ui-badge--success{% else %}ui-badge--neutral{% endif %}">{% if event.is_published %}Published{% else %}Draft{% endif %}</span></div>
-          <div class="flex flex-wrap gap-2">{% if event.can_edit %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-   href="{% url 'experiences:event-edit' event.pk %}">{% include 'components/nav_icon.html' with icon='edit' %}Edit</a>{% endif %}{% if event.can_publish %}<form method="post"
+          <div class="flex flex-wrap gap-2">{% if event.can_edit %}<a class="ui-btn ui-btn--secondary ui-btn--size-sm min-h-11"
+   href="{% url 'experiences:event-edit' event.pk %}">{% include 'components/nav_icon.html' with icon='edit' icon_size='size-4' %}Edit</a>{% endif %}{% if event.can_publish %}<form method="post"
       action="{% url 'experiences:event-publication' event.pk %}"
       data-confirm="{% if event.is_published %}Unpublish this event?{% else %}Publish this event for applicants?{% endif %}">{% csrf_token %}<input type="hidden"
        name="intent"
-       value="{% if event.is_published %}unpublish{% else %}publish{% endif %}" /><button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">{% if event.is_published %}Unpublish{% else %}Publish{% endif %}</button></form>{% endif %}{% if event.can_edit %}<form method="post"
+       value="{% if event.is_published %}unpublish{% else %}publish{% endif %}" /><button class="ui-btn {% if event.is_published %}ui-btn--caution{% else %}ui-btn--outline{% endif %} ui-btn--size-sm min-h-11" type="submit">{% if event.is_published %}Unpublish{% else %}Publish{% endif %}</button></form>{% endif %}{% if event.can_edit %}<form method="post"
       action="{% url 'experiences:event-delete' event.pk %}"
       data-confirm="Delete this event{% if event.registration_count %} and its {{ event.registration_count }} registration{{ event.registration_count|pluralize }}{% endif %}? {% if event.is_published %}Integrators will no longer see it. {% endif %}This cannot be undone.">{% csrf_token %}<button class="ui-btn ui-btn--destructive ui-btn--size-sm min-h-11"
         type="submit">Delete</button></form>{% endif %}</div>
