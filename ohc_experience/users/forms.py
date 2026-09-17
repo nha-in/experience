@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from allauth.account.forms import ChangePasswordForm
+from allauth.account.forms import LoginForm
+from allauth.account.forms import ResetPasswordForm
+from allauth.account.forms import ResetPasswordKeyForm
+from allauth.account.forms import SetPasswordForm
 from allauth.account.forms import SignupForm
 from allauth.socialaccount.forms import SignupForm as SocialSignupForm
 from django import forms
@@ -17,6 +22,7 @@ from .captcha import SignupVerificationMixin
 from .models import User
 
 MIN_PASSWORD_LENGTH = 12
+MOBILE_NUMBER_LENGTH = 10
 
 
 class UserAdminChangeForm(admin_forms.UserChangeForm):
@@ -90,16 +96,35 @@ class OrganisationSignupMixin:
         )
 
 
-class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupForm):
+class PasswordConfirmationMixin:
+    """Report a mistyped confirmation even when the new password is rejected.
+
+    allauth compares the two only after the new password passes validation.
+    """
+
+    def clean_password2(self) -> str:
+        password2 = self.cleaned_data["password2"]
+        if password2 != self["password1"].data:
+            msg = _("You must type the same password each time.")
+            raise forms.ValidationError(msg, code="password_mismatch")
+        return password2
+
+
+class UserSignupForm(
+    SignupVerificationMixin,
+    OrganisationSignupMixin,
+    PasswordConfirmationMixin,
+    SignupForm,
+):
     """Integrator account creation — screen 1a of the hub mockups."""
 
     name = forms.CharField(
-        label=_("Full name"),
+        label=_("Full Name"),
         max_length=255,
         widget=forms.TextInput(attrs={"autocomplete": "name"}),
     )
     mobile_number = forms.CharField(
-        label=_("Mobile number"),
+        label=_("Mobile Number"),
         max_length=10,
         error_messages={
             "required": _("Enter your mobile number."),
@@ -117,13 +142,13 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
         ),
     )
     organisation = forms.CharField(
-        label=_("Organisation/business name"),
+        label=_("Organisation/Business Name"),
         max_length=255,
         error_messages={"required": _("Enter your organisation or business name.")},
         widget=forms.TextInput(attrs={"autocomplete": "organization"}),
     )
 
-    organisation_type = forms.ChoiceField(label=_("Type of entity"))
+    organisation_type = forms.ChoiceField(label=_("Type of Entity"))
     website = forms.URLField(
         label=_("Website"),
         required=False,
@@ -153,6 +178,8 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
             del self.fields["organisation"]
             del self.fields["organisation_type"]
         self.fields["email"].widget.attrs["autocomplete"] = "email"
+        if "password2" in self.fields:
+            self.fields["password2"].label = _("Confirm Password")
 
     def clean_organisation(self) -> str:
         organisation = self.cleaned_data["organisation"].strip()
@@ -175,7 +202,7 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
 
     def clean_mobile_number(self) -> str:
         mobile_number = self.cleaned_data["mobile_number"].strip()
-        if not mobile_number.isdigit() or len(mobile_number) != 10:
+        if not mobile_number.isdigit() or len(mobile_number) != MOBILE_NUMBER_LENGTH:
             raise forms.ValidationError(
                 _("Enter a valid 10-digit phone number without the country code."),
             )
@@ -234,6 +261,41 @@ class UserSocialSignupForm(OrganisationSignupMixin, SocialSignupForm):
         user = super().save(request)
         self.attach_organisation(user)
         return user
+
+
+class UserLoginForm(LoginForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["login"].label = _("Work email")
+        if "remember" in self.fields:
+            self.fields["remember"].label = _("Keep me signed in")
+
+
+class UserResetPasswordForm(ResetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].label = _("Work email")
+
+
+class UserChangePasswordForm(PasswordConfirmationMixin, ChangePasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["oldpassword"].label = _("Current password")
+        self.fields["password1"].label = _("New password")
+        self.fields["password2"].label = _("Confirm new password")
+
+
+class UserSetPasswordForm(PasswordConfirmationMixin, SetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["password2"].label = _("Confirm password")
+
+
+class UserResetPasswordKeyForm(PasswordConfirmationMixin, ResetPasswordKeyForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["password1"].label = _("New password")
+        self.fields["password2"].label = _("Confirm new password")
 
 
 class UserProfileForm(forms.ModelForm):

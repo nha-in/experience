@@ -1,2 +1,4 @@
-django: .venv/bin/python manage.py runserver 127.0.0.1:8000
+# Honcho gives PORT to the first process, which is django. The portless proxy
+# sets PORT to a free port. The launch config sets PORT to 8000 without portless.
+django: .venv/bin/python manage.py runserver 127.0.0.1:${PORT:-8000}
 tailwind: cd theme && TAILWINDCSS_VERSION=v4.3.0 ../.venv/bin/tailwindcss -i static_src/src/styles.css -o static/css/dist/styles.css --watch=always

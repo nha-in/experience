@@ -20,7 +20,7 @@ def signup_data():
     return {
         "name": "Applicant Example",
         "email": f"{uuid4().hex}@example.org",
-        "mobile_number": "+91 98765 43210",
+        "mobile_number": "9876543210",
         "organisation": "Example Health",
         "organisation_type": "private_company",
         "password1": "portal-test-password-2026",

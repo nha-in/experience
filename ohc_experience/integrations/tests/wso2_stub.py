@@ -12,7 +12,7 @@ import uuid
 
 import httpx
 
-DEVPORTAL = "/api/am/devportal/v3"
+DEVPORTAL = "/api/am/devportal/v2.1"
 TOKEN_PATH = "/oauth2/token"  # noqa: S105 - a URL path, not a token
 
 CREATED = 201
@@ -20,12 +20,8 @@ OK = 200
 NOT_FOUND = 404
 CONFLICT = 409
 
-#: Published APIs, by name. Ids are opaque, as they are on a real gateway.
-API_IDS = {
-    "abha-v3": "api-0001-abha",
-    "hip-v3": "api-0002-hip",
-    "hiu-v3": "api-0003-hiu",
-}
+#: Ids of the published APIs, opaque as they are on a real gateway.
+PUBLISHED_API_IDS = {"api-0001-abha", "api-0002-hip", "api-0003-hiu"}
 
 
 class Wso2StubTransport(httpx.BaseTransport):
@@ -60,7 +56,7 @@ class Wso2StubTransport(httpx.BaseTransport):
         if raw is not None:
             return httpx.Response(OK, text=raw)
 
-        for handler in (self._token, self._applications, self._apis, self._subs):
+        for handler in (self._token, self._applications, self._subs):
             response = handler(method, path, request)
             if response is not None:
                 return response
@@ -102,17 +98,6 @@ class Wso2StubTransport(httpx.BaseTransport):
 
         return None
 
-    def _apis(self, method, path, request):
-        if path != f"{DEVPORTAL}/apis" or method != "GET":
-            return None
-        wanted = request.url.params.get("query", "").removeprefix("name:")
-        found = [
-            {"id": api_id, "name": name}
-            for name, api_id in API_IDS.items()
-            if name == wanted
-        ]
-        return httpx.Response(OK, json={"list": found})
-
     def _subs(self, method, path, request):
         if path == f"{DEVPORTAL}/subscriptions" and method == "GET":
             application_id = request.url.params.get("applicationId", "")
@@ -121,27 +106,27 @@ class Wso2StubTransport(httpx.BaseTransport):
                 OK,
                 json={
                     "list": [
-                        {"subscriptionId": sub_id, "apiInfo": {"name": name}}
-                        for name, sub_id in held.items()
+                        {"subscriptionId": sub_id, "apiId": api_id}
+                        for api_id, sub_id in held.items()
                     ],
                 },
             )
 
         if path == f"{DEVPORTAL}/subscriptions/multiple" and method == "POST":
-            for entry in json.loads(request.content):
-                name = next(
-                    key for key, value in API_IDS.items() if value == entry["apiId"]
-                )
+            entries = json.loads(request.content)
+            if any(entry["apiId"] not in PUBLISHED_API_IDS for entry in entries):
+                return httpx.Response(NOT_FOUND, json={"error": "no such API"})
+            for entry in entries:
                 held = self.subscriptions.setdefault(entry["applicationId"], {})
-                held[name] = f"sub-{uuid.uuid4().hex[:8]}"
+                held[entry["apiId"]] = f"sub-{uuid.uuid4().hex[:8]}"
             return httpx.Response(OK, json={"list": []})
 
         if path.startswith(f"{DEVPORTAL}/subscriptions/") and method == "DELETE":
             subscription_id = path.rpartition("/")[2]
             for held in self.subscriptions.values():
-                for name, existing in list(held.items()):
+                for api_id, existing in list(held.items()):
                     if existing == subscription_id:
-                        del held[name]
+                        del held[api_id]
                         return httpx.Response(OK)
             return httpx.Response(NOT_FOUND, json={"error": "no such subscription"})
 

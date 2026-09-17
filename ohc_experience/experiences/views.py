@@ -1320,9 +1320,9 @@ def reference_environment(request, reference):
         for key, names in environment.flows.items()
     ]
     credential = ProductCredential.objects.filter(product=workspace.product).first()
-    client_id = credential.client_id if credential else None
+    client_id = credential.client_id if credential else ""
     shells = [
-        (key, shell, *environment.command_parts(shell, client_id))
+        (key, shell, environment.command_segments(shell, client_id))
         for key, shell in environment.shells.items()
     ]
     return render(
@@ -1336,6 +1336,7 @@ def reference_environment(request, reference):
             reference_environment=environment,
             reference_milestones=milestones,
             reference_shells=shells,
+            reference_client_id=client_id,
             has_credential=credential is not None,
         ),
     )
@@ -1368,7 +1369,7 @@ def _requests(program):
     certification = program.applications.certification
     if certification:
         requests["certification"] = (
-            certification.name,
+            certification.filter_name or certification.name,
             Q(application__application_type=certification.key),
         )
     return requests
@@ -1398,7 +1399,7 @@ def _type_tabs(program, item):
         return {item: requests[item]}
     applications = {
         ReviewItem.Kind.APPLICATION.value: (
-            ReviewItem.Kind.APPLICATION.label,
+            "Milestone application",
             Q(application__milestone__isnull=False),
         ),
     }
@@ -1636,10 +1637,10 @@ def queue(request):
         )
     type_tabs = _type_tabs(get_program(), item)
     queue_tabs = [
-        {"value": "", "label": "All", "count": query.count()},
+        {"value": "", "label": "All requests", "count": query.count()},
         {
             "value": "mine",
-            "label": "Mine",
+            "label": "Assigned to me",
             "count": query.filter(assignee=request.user).count(),
         },
         *[

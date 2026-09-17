@@ -86,7 +86,7 @@ class IdpAdmin(Protocol):
 class GatewayAppSpec:
     reference: str
     name: str
-    api_names: tuple[str, ...]
+    api_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +100,7 @@ class ApiGateway(Protocol):
 
     def create_application(self, spec: GatewayAppSpec) -> GatewayAppCreated: ...
 
-    def subscribe(self, external_id: str, api_names: tuple[str, ...]) -> None: ...
+    def subscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None: ...
 
     def map_keys(
         self,
@@ -109,7 +109,7 @@ class ApiGateway(Protocol):
         secret_ref: str,
     ) -> None: ...
 
-    def unsubscribe(self, external_id: str, api_names: tuple[str, ...]) -> None: ...
+    def unsubscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +117,7 @@ class BridgeSpec:
     bridge_id: str
     name: str
     url: str
+    entity: str
 
 
 @dataclass(frozen=True, slots=True)

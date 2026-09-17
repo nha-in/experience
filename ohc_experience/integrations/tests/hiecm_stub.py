@@ -3,6 +3,8 @@
 Registration is a PUT on the real gateway, so the stub upserts too \u2014 that is the
 property `create_bridge` re-run safety rests on, and a stub that appended would
 quietly make the test meaningless.
+
+It also answers Keycloak's token call, which is where the adapter signs in.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ import json
 import httpx
 
 API = "/api/v3"
-SESSION_PATH = f"{API}/sessions"
+KEYCLOAK_TOKEN_PATH = "/realms/master/protocol/openid-connect/token"  # noqa: S105
 BRIDGE_PATH = f"{API}/gateway/bridge"
 BRIDGE_SERVICES = f"{API}/gateway/v3/bridge-services"
 
@@ -38,6 +40,7 @@ class HiecmStubTransport(httpx.BaseTransport):
             "url": "https://existing.test",
             "active": True,
             "blocklisted": False,
+            "entity": "Private",
         } | overrides
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
@@ -48,19 +51,22 @@ class HiecmStubTransport(httpx.BaseTransport):
         if forced is not None:
             return httpx.Response(forced, json={"error": "forced"})
 
-        for handler in (self._session, self._bridge, self._status):
+        for handler in (self._keycloak_token, self._bridge, self._status):
             response = handler(method, path, request)
             if response is not None:
                 return response
         return httpx.Response(NOT_FOUND, json={"error": f"unstubbed {method} {path}"})
 
-    def _session(self, method, path, request):
-        if path != SESSION_PATH or method != "POST":
+    def _keycloak_token(self, method, path, request):
+        if path != KEYCLOAK_TOKEN_PATH or method != "POST":
             return None
         self.token_calls += 1
         return httpx.Response(
             OK,
-            json={"accessToken": f"hiecm-token-{self.token_calls}", "expiresIn": 300},
+            json={
+                "access_token": f"keycloak-admin-token-{self.token_calls}",
+                "expires_in": 300,
+            },
         )
 
     def _bridge(self, method, path, request):
@@ -76,6 +82,7 @@ class HiecmStubTransport(httpx.BaseTransport):
                 "url": body["url"],
                 "active": body["active"],
                 "blocklisted": body["blocklisted"],
+                "entity": body["entity"],
             }
             return httpx.Response(OK, json={})
 

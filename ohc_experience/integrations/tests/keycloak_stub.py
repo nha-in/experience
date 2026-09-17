@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 REALM = "abdm-sandbox"
 ADMIN = f"/admin/realms/{REALM}"
-TOKEN_PATH = f"/realms/{REALM}/protocol/openid-connect/token"
+TOKEN_PATH = "/realms/master/protocol/openid-connect/token"  # noqa: S105 - a URL path
 
 CREATED_CLIENT_UUID = "11111111-2222-3333-4444-555555555555"
 SERVICE_ACCOUNT_USER_ID = "99999999-8888-7777-6666-555555555555"

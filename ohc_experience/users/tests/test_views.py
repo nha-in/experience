@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from django.core import mail
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
@@ -345,6 +346,54 @@ class TestUserSignupView:
         assert membership.role == Role.SUPPORT
         assert Organisation.objects.count() == 1
         assert INVITATION_SESSION_KEY not in client.session
+
+
+class TestAccountPagesShowEachErrorOnceInTheSummary:
+    def test_sign_in(self, client: Client):
+        response = client.post(
+            reverse("account_login"),
+            data={"login": "not-an-email", "password": "sandbox-Kerala-2026"},
+        )
+        text = strip_tags(response.content.decode())
+
+        assert text.count("Enter a valid email address.") == 1
+        assert "Work email: Enter a valid email address." in text
+
+    def test_sign_up(self, client: Client):
+        response = client.post(
+            SIGNUP_URL,
+            data={
+                **SIGNUP_DATA,
+                "organisation": "Sunrise Health Systems",
+                "organisation_type": "private_company",
+                "password2": "sandbox-Kerala-2025",
+            },
+        )
+        text = strip_tags(response.content.decode())
+
+        assert text.count("You must type the same password each time.") == 1
+        assert "Confirm Password: You must type the same password each time." in text
+
+    def test_change_password(
+        self,
+        sign_in: Callable[[User], Client],
+        user: User,
+    ):
+        response = sign_in(user).post(
+            reverse("account_change_password"),
+            data={
+                "oldpassword": "not-the-current-password",
+                "password1": "sandbox",
+                "password2": "sandbox-2",
+            },
+        )
+        text = strip_tags(response.content.decode())
+
+        assert text.count("This password is too short.") == 1
+        assert "New password: This password is too short." in text
+        assert (
+            "Confirm new password: You must type the same password each time." in text
+        )
 
 
 class TestSignOut:
