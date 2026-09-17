@@ -1376,45 +1376,22 @@ def _requests(program):
 
 
 def _request_choices(program, user):
-    """Requests offered in the Item filter, to reviewers who can see them."""
+    """Requests offered in the Type filter, to reviewers who can see them."""
     if not permissions.has_access(user, "review", program=program.key):
         return []
     return [(value, label) for value, (label, _query) in _requests(program).items()]
 
 
 def _item_filter(program, item):
-    """The queue's Item filter: one request, or one track's milestones."""
+    """The queue's Type filter: one request, every milestone, or one track's."""
     requests = _requests(program)
     if item in requests:
         return requests[item][1]
+    if item == "milestones":
+        return Q(application__milestone__isnull=False)
     if item in program.track_map():
         return _track_filter(item)
     return None
-
-
-def _type_tabs(program, item):
-    """Review-type tabs that can still have results under the Item filter."""
-    requests = _requests(program)
-    if item in requests:
-        return {item: requests[item]}
-    applications = {
-        ReviewItem.Kind.APPLICATION.value: (
-            "Milestone application",
-            Q(application__milestone__isnull=False),
-        ),
-    }
-    if item in program.track_map():
-        return applications
-    return {**requests, **applications}
-
-
-def _kind_filter(request, kind, type_tabs):
-    """The selected tab, falling back to All when it cannot match the Item filter."""
-    if kind == "mine":
-        return kind, Q(assignee=request.user)
-    if kind in type_tabs:
-        return kind, type_tabs[kind][1]
-    return "", Q()
 
 
 @login_required
@@ -1588,26 +1565,36 @@ def queue(request):
             "form",
         )
     )
-    product_choices = _workspaces(request.user).filter(
-        product__in=query.values("product_id"),
+    assignee, item, search = (
+        request.GET.get(key, "") for key in ("assignee", "item", "q")
     )
-    kind, status, assignee, item, product_reference, search = (
-        request.GET.get(key, "")
-        for key in ("kind", "status", "assignee", "item", "product", "q")
-    )
-    if (
-        product_reference
-        and product_choices.filter(reference=product_reference).exists()
-    ):
-        query = query.filter(product__workspace__reference=product_reference)
-    else:
-        product_reference = ""
+    if assignee == "me":
+        query = query.filter(assignee=request.user)
+    elif assignee == "unassigned":
+        query = query.filter(assignee=None)
+    elif assignee.isdigit():
+        query = query.filter(assignee_id=assignee)
+    item_filter = _item_filter(get_program(), item)
+    if item_filter is not None:
+        query = query.filter(item_filter)
+    if search:
+        query = query.filter(
+            Q(product__name__icontains=search)
+            | Q(product__workspace__reference__icontains=search)
+            | Q(organisation__name__icontains=search)
+            | Q(application__reference__icontains=search),
+        )
     waiting = services.waiting_reviews()
     scopes = {
         "ready": (services.PENDING_STATUSES, ~waiting),
         "waiting": (services.PENDING_STATUSES, waiting),
         "decided": ((ReviewItem.Status.APPROVED, ReviewItem.Status.SENT_BACK), Q()),
     }
+    stage_counts = {
+        stage: query.filter(stage_filter, status__in=stage_statuses).count()
+        for stage, (stage_statuses, stage_filter) in scopes.items()
+    }
+    stage_counts["all"] = query.count()
     scope = request.GET.get("scope", "")
     if scope != "all":
         scope = scope if scope in scopes else "ready"
@@ -1618,48 +1605,18 @@ def queue(request):
         for value, label in ReviewItem.Status.choices
         if value != "draft" and (scope == "all" or value in scopes[scope][0])
     ]
+    status = request.GET.get("status", "")
     if status in dict(statuses):
         query = query.filter(status=status)
     else:
         status = ""
-    if assignee == "unassigned":
-        query = query.filter(assignee=None)
-    elif assignee.isdigit():
-        query = query.filter(assignee_id=assignee)
-    item_filter = _item_filter(get_program(), item)
-    if item_filter is not None:
-        query = query.filter(item_filter)
-    if search:
-        query = query.filter(
-            Q(product__name__icontains=search)
-            | Q(organisation__name__icontains=search)
-            | Q(application__reference__icontains=search),
-        )
-    type_tabs = _type_tabs(get_program(), item)
-    queue_tabs = [
-        {"value": "", "label": "All requests", "count": query.count()},
-        {
-            "value": "mine",
-            "label": "Assigned to me",
-            "count": query.filter(assignee=request.user).count(),
-        },
-        *[
-            {"value": value, "label": label, "count": query.filter(tab).count()}
-            for value, (label, tab) in type_tabs.items()
-        ],
-    ]
-    kind, kind_filter = _kind_filter(request, kind, type_tabs)
-    query = query.filter(kind_filter)
     sort = _queue_sort(request)
     query = query.order_by(*QUEUE_ORDER[sort])
     params = request.GET.copy()
     params.pop("page", None)
     params["scope"] = scope
-    params["kind"] = kind
     if not status:
         params.pop("status", None)
-    if not product_reference:
-        params.pop("product", None)
     return render(
         request,
         "experiences/queue.html",
@@ -1668,7 +1625,7 @@ def queue(request):
             page_title="Review queue",
             nav="queue",
             page=_queue_rows(_page(request, query)),
-            queue_tabs=queue_tabs,
+            stage_counts=stage_counts,
             queue_scope=scope,
             queue_sort=sort,
             statuses=statuses,
@@ -1678,7 +1635,6 @@ def queue(request):
             ),
             filters=params,
             filter_query=params.urlencode(),
-            product_choices=product_choices,
             request_choices=_request_choices(get_program(), request.user),
             track_choices=permissions.allowed_tracks(request.user),
         ),

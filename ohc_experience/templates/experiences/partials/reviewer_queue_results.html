@@ -88,15 +88,15 @@
     <div class="border-t border-soft-border px-6 py-12 text-center">
       <span class="mx-auto mb-4 flex size-11 items-center justify-center rounded-full bg-primary-50 text-xl text-primary"
             aria-hidden="true">⌕</span>
-      {% if filters.q or filters.status or filters.item or filters.product or filters.assignee %}
+      {% if filters.q or filters.status or filters.item or filters.assignee %}
         <h2 class="text-base font-semibold">No matching requests</h2>
         <p class="mt-2 text-sm text-muted-foreground">No reviews match these filters.</p>
         <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"
-           href="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}"
-           hx-get="?kind={{ filters.kind|urlencode }}&amp;scope={{ queue_scope }}">Clear filters</a>
+           href="?scope={{ queue_scope }}"
+           hx-get="?scope={{ queue_scope }}">Clear filters</a>
       {% else %}
         <h2 class="text-base font-semibold">No requests in this view</h2>
-        <p class="mt-2 text-sm text-muted-foreground">There are no requests in the selected review type and scope.</p>
+        <p class="mt-2 text-sm text-muted-foreground">There are no requests in the selected review stage.</p>
         <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"
            href="{% url 'experiences:queue' %}">View all requests</a>
       {% endif %}
