@@ -87,22 +87,18 @@ Other account notices may require additional allauth template-prefix keys. Obtai
 
 Source: `config/settings/base.py`, `config/settings/production.py`, `docs/global_email.md`.
 
-For **email and mobile verification codes**, the web process calls ABDM's notification service directly. Signup emails a 6-digit code, and texts one to the mobile number, which is saved only once that code is confirmed. The service is reachable only from inside the ABDM VPC:
+For **email and mobile verification codes**, the web process calls ABDM's notification service directly. Signup confirms the address and the number on one screen, each with its own 6-digit code; the number is saved only once its code is confirmed. The service is reachable only from inside the ABDM VPC:
 
 | Variable | Requirement / default |
 | --- | --- |
-| `INTEGRATION_NOTIFICATION` | Production default: `ohc_experience.integrations.notification.adapter.AbdmNotificationGateway`. Local and test settings use `ohc_experience.integrations.local.LocalNotificationGateway`, which delivers nothing. |
 | `NOTIFICATION_APP_BASE_URL` | **Required for delivery.** Notification app service base URL, without a path, e.g. `http://notificationapp-svc.global-services.svc.cluster.local:9102`. Default: `https://notification-app.invalid`. |
 | `NOTIFICATION_DB_BASE_URL` | **Required for delivery.** Notification DB (template) service base URL, without a path, e.g. `http://notificationdb-svc.global-services.svc.cluster.local:9101`. Default: `https://notification-db.invalid`. |
-| `NOTIFICATION_EMAIL_OTP_TEMPLATE_ID` | Default: `1007164181681962329`. |
-| `NOTIFICATION_SMS_OTP_TEMPLATE_ID` | Default: `1007164181681962323`. |
-| `NOTIFICATION_ORIGIN` | Default: `abha`. |
-| `NOTIFICATION_SENDER` | Default: `NHASMS`. |
-| `NOTIFICATION_READ_TIMEOUT_SECONDS` | Default: `5` seconds. |
 
-Template text comes from `/internal/v3/notification/template/name/SANDBOX`, or `/internal/v3/notification/template/id/{id}` for a template outside that list, and is cached for an hour. Only the template's `{0}` placeholder is filled, with the code, before the message is posted to `/internal/v3/notification/message`. The `svc.cluster.local` names resolve only inside the Kubernetes cluster, so an ECS task needs whatever address the notification team provides for callers outside it. A code that cannot be sent is reported to the user, who can request another; the failure is logged without the code.
+Nothing else about this integration is configurable, because nothing else differs between deployments. Production always uses the real gateway and local and test settings always use `LocalNotificationGateway`, which delivers nothing. The origin (`abha`), sender (`NHASMS`) and read timeout are the notification team's contract and live in `ohc_experience/integrations/notification/adapter.py`. Every notification this portal sends is listed in `ohc_experience/integrations/notification/templates.py`, with its template ID, subject and the values that fill its placeholders. Add a notification there; no new environment variable is needed.
 
-Source: `config/settings/base.py`, `ohc_experience/integrations/notification/adapter.py`, `ohc_experience/users/adapters.py`.
+Template text comes from `/internal/v3/notification/template/name/SANDBOX`, or `/internal/v3/notification/template/id/{id}` for a template outside that list, and is cached for an hour. Only the template's `{0}` placeholder is filled, with the code. An SMS is then posted to `/internal/v3/notification/message`, and an email to `/internal/v3/notification/email/send` with the same flat body the Global Email backend sends. The `svc.cluster.local` names resolve only inside the Kubernetes cluster, so an ECS task needs whatever address the notification team provides for callers outside it. A code that cannot be sent is reported to the user, who can request another; the failure is logged without the code.
+
+Source: `config/settings/base.py`, `ohc_experience/integrations/notification/`, `ohc_experience/users/adapters.py`.
 
 For **live credential provisioning**, explicitly select all three real adapters:
 

@@ -29,7 +29,7 @@ Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getti
 
 ### Setting Up Your Users
 
-- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Confirm your email address" page. The local notification gateway logs the 6-digit code to your console instead of sending it; enter it on that page. The mobile number gets its own code the same way.
+- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Confirm your details" page asking for a code for your email address and another for your mobile number. The local notification gateway logs both codes to your console instead of sending them; enter them there.
 
 - To create a **superuser account**, use this command:
 

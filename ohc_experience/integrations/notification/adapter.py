@@ -1,8 +1,9 @@
 """ABDM's notification service.
 
-Template text comes from notification-db and is sent through notification-app.
-Only a template's `{0}`, `{1}`… placeholders may vary: SMS carriers reject any
-text that differs from the registered template.
+Template text comes from notification-db and is sent through notification-app:
+SMS as a message, email through the email endpoint the Global Email backend
+also posts to. Only a template's `{0}`, `{1}`… placeholders may vary, since SMS
+carriers reject any text that differs from the registered template.
 """
 
 from __future__ import annotations
@@ -32,7 +33,8 @@ if TYPE_CHECKING:
 
     from ohc_experience.integrations.ports import NotificationMessage
 
-MESSAGE_PATH = "/internal/v3/notification/message"
+SMS_PATH = "/internal/v3/notification/message"
+EMAIL_PATH = "/internal/v3/notification/email/send"
 TEMPLATES_PATH = "/internal/v3/notification/template/name/SANDBOX"
 TEMPLATE_PATH = "/internal/v3/notification/template/id/{template_id}"
 
@@ -42,10 +44,11 @@ TIMESTAMP_HEADER = "TIMESTAMP"
 TEMPLATES_CACHE_KEY = "notification:templates"
 TEMPLATES_CACHE_SECONDS = 60 * 60
 
-RECEIVER_KEYS = {
-    NotificationChannel.EMAIL: "emailId",
-    NotificationChannel.SMS: "mobile",
-}
+# Fixed by the notification team's contract, the same for every deployment.
+ORIGIN = "abha"
+SENDER = "NHASMS"
+READ_TIMEOUT_SECONDS = 5.0
+
 SENT_STATUSES = frozenset({"SENT", "SUCCESS"})
 PLACEHOLDER = re.compile(r"\{(\d+)\}")
 
@@ -62,35 +65,31 @@ class AbdmNotificationGateway:
         )
 
     def send(self, message: NotificationMessage) -> None:
-        content = _fill(self._template(message.template_id), message.values)
+        template = message.template
+        content = _fill(self._template(template.id), message.values)
+        op = f"send_{template.channel.value}"
+        request_id = str(uuid.uuid4())
+        at = datetime.now(UTC)
+        by_email = template.channel is NotificationChannel.EMAIL
         response = self._app.request(
             "POST",
-            MESSAGE_PATH,
-            op="send_message",
-            headers=_headers(),
-            json={
-                "origin": settings.NOTIFICATION_ORIGIN,
-                "type": [message.channel.value],
-                "contentType": message.content_type.value,
-                "sender": settings.NOTIFICATION_SENDER,
-                "receiver": [
-                    {"key": RECEIVER_KEYS[message.channel], "value": message.receiver},
-                ],
-                "notification": [
-                    {"key": "templateId", "value": message.template_id},
-                    {"key": "subject", "value": message.subject},
-                    {"key": "content", "value": content},
-                ],
-            },
+            EMAIL_PATH if by_email else SMS_PATH,
+            op=op,
+            headers=_headers(request_id, at),
+            json=(
+                _email_body(message, content, request_id=request_id, at=at)
+                if by_email
+                else _sms_body(message, content)
+            ),
         )
-        payload = _json(response, "send_message")
+        payload = _json(response, op)
         status = payload.get("status") if isinstance(payload, dict) else None
         if not isinstance(status, str) or status.upper() not in SENT_STATUSES:
             raise AdapterError(
                 ExternalSystem.NOTIFICATION,
                 "NOT_SENT",
                 retryable=False,
-                message=f"send_message returned status {status!r}",
+                message=f"{op} returned status {status!r}",
             )
 
     def close(self) -> None:
@@ -116,7 +115,14 @@ class AbdmNotificationGateway:
         return templates[template_id]
 
     def _fetch(self, path: str, op: str) -> dict[str, str]:
-        payload = _json(self._db.request("GET", path, op=op, headers=_headers()), op)
+        request_id = str(uuid.uuid4())
+        response = self._db.request(
+            "GET",
+            path,
+            op=op,
+            headers=_headers(request_id, datetime.now(UTC)),
+        )
+        payload = _json(response, op)
         records = payload if isinstance(payload, list) else [payload]
         templates = {}
         for record in records:
@@ -134,16 +140,51 @@ def _policy(base_url: str) -> HttpPolicy:
     return HttpPolicy(
         system=ExternalSystem.NOTIFICATION,
         base_url=base_url.rstrip("/"),
-        read_timeout=settings.NOTIFICATION_READ_TIMEOUT_SECONDS,
+        read_timeout=READ_TIMEOUT_SECONDS,
     )
 
 
-def _headers() -> dict[str, str]:
+def _headers(request_id: str, at: datetime) -> dict[str, str]:
     return {
-        REQUEST_ID_HEADER: str(uuid.uuid4()),
-        TIMESTAMP_HEADER: datetime.now(UTC)
-        .isoformat(timespec="milliseconds")
-        .replace("+00:00", "Z"),
+        REQUEST_ID_HEADER: request_id,
+        TIMESTAMP_HEADER: at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+    }
+
+
+def _sms_body(message: NotificationMessage, content: str) -> dict[str, Any]:
+    template = message.template
+    return {
+        "origin": ORIGIN,
+        "type": [template.channel.value],
+        "contentType": template.content_type.value,
+        "sender": SENDER,
+        "receiver": [{"key": "mobile", "value": message.receiver}],
+        "notification": [
+            {"key": "templateId", "value": template.id},
+            {"key": "content", "value": content},
+        ],
+    }
+
+
+def _email_body(
+    message: NotificationMessage,
+    content: str,
+    *,
+    request_id: str,
+    at: datetime,
+) -> dict[str, Any]:
+    template = message.template
+    return {
+        "requestId": request_id,
+        # Epoch milliseconds, as the Global Email backend sends.
+        "timestamp": int(at.timestamp() * 1000),
+        "origin": ORIGIN,
+        "contentType": template.content_type.value,
+        "sender": SENDER,
+        "receiver": message.receiver,
+        "templateId": template.id,
+        "subject": template.subject,
+        "content": content,
     }
 
 

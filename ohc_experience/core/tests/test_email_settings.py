@@ -32,8 +32,7 @@ def test_production_defaults_to_queued_gateway():
 
 
 @pytest.mark.usefixtures("production_environment")
-def test_production_sends_verification_codes_through_the_gateway(monkeypatch):
-    monkeypatch.delenv("INTEGRATION_NOTIFICATION", raising=False)
+def test_production_sends_verification_codes_through_the_gateway():
     base_ports = dict(base.INTEGRATION_PORTS)
     result = runpy.run_module("config.settings.production")
     assert result["INTEGRATION_PORTS"]["NOTIFICATION"] == (

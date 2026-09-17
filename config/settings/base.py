@@ -452,6 +452,7 @@ ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT = {
     "dashed": False,
 }
 ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = True
+ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_CHANGE = True
 ACCOUNT_PHONE_VERIFICATION_CODE_FORMAT = ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT
 ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = True
 ACCOUNT_PHONE_VERIFICATION_SUPPORTS_CHANGE = True
@@ -465,6 +466,8 @@ ACCOUNT_FORMS = {
     "reset_password_from_key": "ohc_experience.users.forms.UserResetPasswordKeyForm",
     "change_password": "ohc_experience.users.forms.UserChangePasswordForm",
     "set_password": "ohc_experience.users.forms.UserSetPasswordForm",
+    "change_email": "ohc_experience.users.forms.UserChangeEmailForm",
+    "change_phone": "ohc_experience.users.forms.UserChangePhoneForm",
 }
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_ADAPTER = "ohc_experience.users.adapters.SocialAccountAdapter"
@@ -496,10 +499,7 @@ INTEGRATION_PORTS = {
         "INTEGRATION_BRIDGE_REGISTRY",
         default="ohc_experience.integrations.local.LocalBridgeRegistry",
     ),
-    "NOTIFICATION": env.str(
-        "INTEGRATION_NOTIFICATION",
-        default="ohc_experience.integrations.local.LocalNotificationGateway",
-    ),
+    "NOTIFICATION": "ohc_experience.integrations.local.LocalNotificationGateway",
 }
 
 # NOTIFICATION GATEWAY
@@ -512,20 +512,6 @@ NOTIFICATION_APP_BASE_URL = env.str(
 NOTIFICATION_DB_BASE_URL = env.str(
     "NOTIFICATION_DB_BASE_URL",
     default="https://notification-db.invalid",
-)
-NOTIFICATION_ORIGIN = env.str("NOTIFICATION_ORIGIN", default="abha")
-NOTIFICATION_SENDER = env.str("NOTIFICATION_SENDER", default="NHASMS")
-NOTIFICATION_READ_TIMEOUT_SECONDS = env.float(
-    "NOTIFICATION_READ_TIMEOUT_SECONDS",
-    default=5.0,
-)
-NOTIFICATION_EMAIL_OTP_TEMPLATE_ID = env.str(
-    "NOTIFICATION_EMAIL_OTP_TEMPLATE_ID",
-    default="1007164181681962329",
-)
-NOTIFICATION_SMS_OTP_TEMPLATE_ID = env.str(
-    "NOTIFICATION_SMS_OTP_TEMPLATE_ID",
-    default="1007164181681962323",
 )
 
 # KEYCLOAK

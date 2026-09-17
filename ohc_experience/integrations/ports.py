@@ -153,16 +153,27 @@ class NotificationContentType(enum.StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
-class NotificationMessage:
-    """An approved template and the values for its `{0}`, `{1}`… placeholders."""
+class NotificationTemplate:
+    """One notification, as the notification team registered it.
 
+    `values` names the template's `{0}`, `{1}`… placeholders, in order.
+    """
+
+    id: str
     channel: NotificationChannel
-    receiver: str
-    template_id: str
     subject: str
+    values: tuple[str, ...]
+    content_type: NotificationContentType = NotificationContentType.INFO
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationMessage:
+    """A template, its receiver, and the values that fill its placeholders."""
+
+    template: NotificationTemplate
+    receiver: str
     # repr=False: the values carry one-time codes.
     values: tuple[str, ...] = field(repr=False)
-    content_type: NotificationContentType = NotificationContentType.INFO
 
 
 class NotificationGateway(Protocol):

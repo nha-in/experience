@@ -7,8 +7,8 @@ from django.urls import path
 from django.views import defaults as default_views
 
 from ohc_experience.core.health import ping
+from ohc_experience.users.views import account_verification_view
 from ohc_experience.users.views import email_verification_sent_view
-from ohc_experience.users.views import skip_phone_verification_view
 from ohc_experience.users.views import user_signup_view
 from ohc_experience.users.views import verify_phone_view
 
@@ -25,8 +25,14 @@ urlpatterns = [
     path("", include("ohc_experience.organisations.urls", namespace="organisations")),
     # Signup is ours so an invite token can shape the form; the rest is allauth's.
     path("accounts/signup/", user_signup_view, name="account_signup"),
-    # Both screens are ours so a signed-in visitor gets the app shell; allauth
-    # also routes its phone screens only when phone is a signup field.
+    # Signup confirms the address and the number on one screen of ours.
+    path(
+        "accounts/verify/",
+        account_verification_view,
+        name="account_verification",
+    ),
+    # The settings screens are ours so a signed-in visitor gets the app shell;
+    # allauth also routes its phone screens only when phone is a signup field.
     path(
         "accounts/confirm-email/",
         email_verification_sent_view,
@@ -36,11 +42,6 @@ urlpatterns = [
         "accounts/phone/verify/",
         verify_phone_view,
         name="account_verify_phone",
-    ),
-    path(
-        "accounts/phone/verify/skip/",
-        skip_phone_verification_view,
-        name="account_skip_phone_verification",
     ),
     path(
         "accounts/phone/change/",
