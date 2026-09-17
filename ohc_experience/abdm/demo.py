@@ -73,7 +73,7 @@ def organisation_data(name="Medibase Technologies Private Limited"):
         "state": "Karnataka",
         "district": "Bengaluru Urban",
         "verification_document_type": "CIN",
-        "verification_document_number": "DEMO-CIN-2026",
+        "verification_document_number": "L12345KA2020PLC123456",
     }
 
 
