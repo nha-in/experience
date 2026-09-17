@@ -877,18 +877,6 @@
 .marketing-landing .marketing-footer :is(.marketing-eyebrow, dt) {
   color: var(--marketing-text);
 }
-.marketing-landing .marketing-footer-store-link {
-  border-color: var(--sbx-control-border);
-  background: #fff;
-  min-height: 56px;
-}
-.marketing-landing .marketing-footer-store-link > span {
-  font-size: 0.75rem;
-}
-.marketing-landing .marketing-footer-store-link > strong {
-  color: var(--marketing-text);
-  font-size: 0.9375rem;
-}
 .marketing-landing .marketing-partners > span {
   color: var(--marketing-muted);
 }

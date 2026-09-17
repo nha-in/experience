@@ -303,48 +303,67 @@
 .marketing-footer-qr {
   display: flex;
   align-items: center;
-  gap: 13px;
-  margin-top: 20px;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #dce6df;
+  border-radius: 10px;
+  background: #fff;
 }
 .marketing-footer-qr > a {
   display: block;
   flex-shrink: 0;
-  width: 104px;
-  padding: 5px;
-  border: 1px solid #dce6df;
-  border-radius: 7px;
+  width: 96px;
+  padding: 4px;
+  border-radius: 4px;
   background: #fff;
 }
 .marketing-footer-qr img {
+  display: block;
   width: 100%;
   height: auto;
 }
 .marketing-footer-qr figcaption {
+  min-width: 0;
   font-size: 11px;
   line-height: 1.6;
+}
+.marketing-footer-qr figcaption strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #244d37;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 .marketing-footer-store-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 10px;
 }
 .marketing-footer-store-link {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  padding: 8px 10px;
-  border: 1px solid #c9d8cd;
-  border-radius: 7px;
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 44px;
+  border-radius: 6px;
 }
-.marketing-footer-store-link > span {
-  font-size: 8px;
+.marketing-footer-store-link img {
+  display: block;
+  flex-shrink: 0;
+  width: auto;
+  height: 32px;
 }
-.marketing-footer-store-link > strong {
-  color: #244d37;
-  font-size: 12px;
-  font-weight: 600;
+/* Account for the transparent clear space in Google's official badge. */
+.marketing-footer-store-link--google {
+  width: 107.43px;
+}
+.marketing-footer-store-link--google img {
+  max-width: none;
+  height: 47.62px;
 }
 .marketing-footer .marketing-eyebrow {
   color: #4f6b5d;

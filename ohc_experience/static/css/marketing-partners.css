@@ -18,15 +18,28 @@
   align-items: center;
   justify-content: center;
   min-width: 0;
+  height: 64px;
 }
 
 .marketing-institution-logos img {
   display: block;
   width: auto;
-  height: auto;
+  height: 64px;
   max-width: 100%;
   max-height: 64px;
   object-fit: contain;
+}
+
+.marketing-institution-logos .marketing-institution-logo--mohfw {
+  height: 70.4px;
+  max-height: 70.4px;
+}
+
+/* The official portal artwork includes its own clear space around the mark. */
+.marketing-institution-logos .marketing-institution-logo--india {
+  width: 200px;
+  height: auto;
+  max-height: none;
 }
 
 .marketing-footer-social-links {
@@ -90,6 +103,11 @@
 
   .marketing-institution-logos img {
     max-height: 56px;
+  }
+
+  .marketing-institution-logos .marketing-institution-logo--mohfw {
+    height: 61.6px;
+    max-height: 61.6px;
   }
 }
 

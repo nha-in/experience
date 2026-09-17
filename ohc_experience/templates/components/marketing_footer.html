@@ -12,31 +12,33 @@
              loading="lazy" />
       </li>
       <li>
-        <img src="{% static 'images/marketing/mohfw-logo.png' %}"
+        <img class="marketing-institution-logo--mohfw"
+             src="{% static 'images/marketing/mohfw-logo.png' %}"
              alt="{% translate 'Ministry of Health and Family Welfare, Government of India' %}"
              width="174"
-             height="68"
+             height="87"
              loading="lazy" />
       </li>
       <li>
-        <img src="{% static 'images/marketing/meity-logo.png' %}"
+        <img src="{% static 'images/marketing/meity-logo.svg' %}"
              alt="{% translate 'Ministry of Electronics and Information Technology' %}"
              width="192"
-             height="68"
-             loading="lazy" />
-      </li>
-      <li>
-        <img src="{% static 'images/marketing/india-gov-logo.png' %}"
-             alt="{% translate 'India.gov.in — The national portal of India' %}"
-             width="185"
              height="64"
              loading="lazy" />
       </li>
       <li>
-        <img src="{% static 'images/marketing/digital-india-logo.png' %}"
+        <img class="marketing-institution-logo--india"
+             src="{% static 'images/marketing/india-gov-logo.svg' %}"
+             alt="{% translate 'India.gov.in — The national portal of India' %}"
+             width="237"
+             height="122"
+             loading="lazy" />
+      </li>
+      <li>
+        <img src="{% static 'images/marketing/digital-india-logo.svg' %}"
              alt="{% translate 'Digital India — Power To Empower' %}"
-             width="133"
-             height="74"
+             width="142"
+             height="80"
              loading="lazy" />
       </li>
     </ul>
@@ -171,11 +173,7 @@
       </section>
       <section class="marketing-footer-app" aria-labelledby="footer-app-title">
         <h2 id="footer-app-title" class="marketing-eyebrow">{% translate "Aarogya Setu App" %}</h2>
-        <p>
-          {% translate "Download the Aarogya Setu app" %}
-          <br />
-          <em>{% translate "Bharat ka health app" %}</em>
-        </p>
+        <p>{% translate "Bharat ka health app" %}</p>
         <figure class="marketing-footer-qr">
           <a href="https://abdm.gov.in/arogya-setu/app-intro">
             <img src="{% static 'images/marketing/aarogya-setu-qr.png' %}"
@@ -184,16 +182,27 @@
                  height="116"
                  loading="lazy" />
           </a>
-          <figcaption>{% translate "Scan with your phone camera to install." %}</figcaption>
+          <figcaption>
+            <strong>{% translate "Scan to download" %}</strong>
+            <span>{% translate "Use your phone camera to get the app." %}</span>
+          </figcaption>
         </figure>
         <div class="marketing-footer-store-links">
           <a class="marketing-footer-store-link"
-             href="https://play.google.com/store/apps/details?id=nic.goi.aarogyasetu">
-            <span>{% translate "GET IT ON" %}</span><strong>Google Play</strong>
-          </a>
-          <a class="marketing-footer-store-link"
              href="https://apps.apple.com/in/app/aarogyasetu-2-0/id1505825357">
-            <span>{% translate "Download on the" %}</span><strong>App Store</strong>
+            <img src="{% static 'images/marketing/app-store-badge.svg' %}"
+                 alt="{% translate 'Download Aarogya Setu on the App Store' %}"
+                 width="120"
+                 height="40"
+                 loading="lazy" />
+          </a>
+          <a class="marketing-footer-store-link marketing-footer-store-link--google"
+             href="https://play.google.com/store/apps/details?id=nic.goi.aarogyasetu">
+            <img src="{% static 'images/marketing/google-play-badge.png' %}"
+                 alt="{% translate 'Get Aarogya Setu on Google Play' %}"
+                 width="646"
+                 height="250"
+                 loading="lazy" />
           </a>
         </div>
       </section>
