@@ -39,14 +39,9 @@ def test_secret_carrying_dtos_never_render_the_secret(secret_dto):
         ClientSpec(reference="SBX-1", display_name="Acme", role_names=("hip",)),
         ClientCreated(client_id="SBX-1", external_id="uuid", initial_secret="s"),  # noqa: S106
         SecretRotated(external_id="uuid", secret="s"),  # noqa: S106
-        GatewayAppSpec(reference="SBX-1", name="Acme", api_ids=("abha",)),
+        GatewayAppSpec(reference="SBX-1", name="Acme", api_names=("abha",)),
         GatewayAppCreated(external_id="uuid", name="Acme"),
-        BridgeSpec(
-            bridge_id="SBX-1",
-            name="Acme",
-            url="https://acme.test",
-            entity="Private",
-        ),
+        BridgeSpec(bridge_id="SBX-1", name="Acme", url="https://acme.test"),
         BridgeCreated(bridge_id="SBX-1"),
         BridgeStatus(bridge_id="SBX-1", active=True),
     ],

@@ -169,7 +169,7 @@ def test_a_failed_chain_publishes_no_credential(provision):
 
 def test_a_missing_api_name_list_fails_without_retrying(provision):
     """Configuration is not a transient fault, so it must not burn five attempts."""
-    with override_settings(WSO2_API_IDS={"abdm": ()}):
+    with override_settings(WSO2_API_NAMES={"abdm": ()}):
         product = provision()
 
     # And the bridge is not built: a closed attempt stops the links after it.

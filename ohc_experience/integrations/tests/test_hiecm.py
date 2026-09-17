@@ -19,7 +19,6 @@ from ohc_experience.integrations.ports import BridgeSpec
 from ohc_experience.integrations.registry import get_bridge_registry
 from ohc_experience.integrations.tests.hiecm_stub import API
 from ohc_experience.integrations.tests.hiecm_stub import BRIDGE_PATH
-from ohc_experience.integrations.tests.hiecm_stub import KEYCLOAK_TOKEN_PATH
 from ohc_experience.integrations.tests.hiecm_stub import HiecmStubTransport
 
 BRIDGE_ID = "SBX_5DB47E2B6E3CDFC1"
@@ -27,7 +26,6 @@ SPEC = BridgeSpec(
     bridge_id=BRIDGE_ID,
     name="Demo HMIS",
     url="https://demo-hmis.example/abdm",
-    entity="Private",
 )
 
 SERVER_ERROR = 500
@@ -36,10 +34,10 @@ REGISTRATIONS = 2
 hiecm_settings = override_settings(
     HIECM_BASE_URL="https://hiecm.test",
     HIECM_API_PATH=API,
+    HIECM_SESSION_PATH="/sessions",
+    HIECM_CLIENT_ID="portal",
+    HIECM_CLIENT_SECRET="portal-secret",  # noqa: S106 - test value
     HIECM_CM_ID="sbx",
-    KEYCLOAK_BASE_URL="https://keycloak.test",
-    KEYCLOAK_USERNAME="provisioning-admin",
-    KEYCLOAK_PASSWORD="admin-password",  # noqa: S106 - test value
 )
 
 
@@ -73,7 +71,6 @@ def test_creating_a_bridge_registers_it_active(registry, transport):
     assert transport.bridges[BRIDGE_ID]["active"] is True
     assert transport.bridges[BRIDGE_ID]["blocklisted"] is False
     assert transport.bridges[BRIDGE_ID]["url"] == SPEC.url
-    assert transport.bridges[BRIDGE_ID]["entity"] == "Private"
 
 
 def test_the_bridge_id_is_whatever_it_was_given(registry, transport):
@@ -172,14 +169,10 @@ def test_deactivating_still_reports_a_real_failure(registry, transport):
 # Gateway headers
 
 
-def gateway_calls(transport):
-    return [c for c in transport.calls if c.url.path.startswith(API)]
-
-
 def test_every_gateway_call_carries_the_abdm_headers(registry, transport):
     registry.create_bridge(SPEC)
 
-    for call in gateway_calls(transport):
+    for call in transport.calls:
         assert call.headers[CM_ID_HEADER] == "sbx"
         uuid.UUID(call.headers[REQUEST_ID_HEADER])  # raises if malformed
         assert re.fullmatch(
@@ -192,26 +185,18 @@ def test_each_call_gets_its_own_request_id(registry, transport):
     registry.create_bridge(SPEC)
     registry.get_bridge_status(BRIDGE_ID)
 
-    request_ids = [c.headers[REQUEST_ID_HEADER] for c in gateway_calls(transport)]
+    request_ids = [c.headers[REQUEST_ID_HEADER] for c in transport.calls]
     assert len(set(request_ids)) == len(request_ids)
 
 
 # Config and transport policy
 
 
-def test_the_keycloak_admin_token_is_fetched_once_and_reused(registry, transport):
+def test_the_session_token_is_fetched_once_and_reused(registry, transport):
     registry.create_bridge(SPEC)
     registry.get_bridge_status(BRIDGE_ID)
 
     assert transport.token_calls == 1
-
-
-def test_the_token_comes_from_keycloak_as_legacy_did(registry, transport):
-    """NHA issued no HIE-CM credentials; legacy sent its Keycloak admin token."""
-    registry.create_bridge(SPEC)
-
-    token_call = next(c for c in transport.calls if c.url.path == KEYCLOAK_TOKEN_PATH)
-    assert token_call.url.host == "keycloak.test"
 
 
 def test_bridge_calls_carry_the_bearer_token(registry, transport):
@@ -220,8 +205,7 @@ def test_bridge_calls_carry_the_bearer_token(registry, transport):
     bridge_calls = [c for c in transport.calls if c.url.path == BRIDGE_PATH]
     assert bridge_calls
     assert all(
-        c.headers["Authorization"] == "Bearer keycloak-admin-token-1"
-        for c in bridge_calls
+        c.headers["Authorization"] == "Bearer hiecm-token-1" for c in bridge_calls
     )
 
 

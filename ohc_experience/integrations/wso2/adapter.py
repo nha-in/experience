@@ -89,12 +89,12 @@ class Wso2ApiGateway:
             name=name,
         )
 
-    def subscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None:
-        if not api_ids:
+    def subscribe(self, external_id: str, api_names: tuple[str, ...]) -> None:
+        if not api_names:
             return
 
         already = self._subscriptions(external_id)
-        wanted = [api_id for api_id in api_ids if api_id not in already]
+        wanted = [name for name in api_names if name not in already]
         if not wanted:
             return
 
@@ -104,12 +104,11 @@ class Wso2ApiGateway:
             op="subscribe",
             json=[
                 {
+                    "apiId": self._api_id(name),
                     "applicationId": external_id,
-                    "apiId": api_id,
                     "throttlingPolicy": settings.WSO2_THROTTLING_POLICY,
-                    "requestedThrottlingPolicy": settings.WSO2_THROTTLING_POLICY,
                 }
-                for api_id in wanted
+                for name in wanted
             ],
         )
 
@@ -127,11 +126,11 @@ class Wso2ApiGateway:
             },
         )
 
-    def unsubscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None:
+    def unsubscribe(self, external_id: str, api_names: tuple[str, ...]) -> None:
         """Idempotent: what was never subscribed, or already gone, is success."""
         subscriptions = self._subscriptions(external_id)
-        for api_id in api_ids:
-            subscription_id = subscriptions.get(api_id)
+        for name in api_names:
+            subscription_id = subscriptions.get(name)
             if subscription_id is None:
                 continue
             try:
@@ -181,8 +180,27 @@ class Wso2ApiGateway:
                 return self._require(entry, "applicationId", "find_application")
         return None
 
+    def _api_id(self, name: str) -> str:
+        """Resolved by name at call time, so no instance UUID sits in config."""
+        response = self._client.request(
+            "GET",
+            f"{self._devportal}/apis",
+            op="find_api",
+            params={"query": f"name:{name}"},
+        )
+        payload = self._json(response, "find_api")
+        for entry in payload.get("list") or []:
+            if isinstance(entry, dict) and entry.get("name") == name:
+                return self._require(entry, "id", "find_api")
+        raise AdapterError(
+            ExternalSystem.WSO2,
+            NOT_FOUND,
+            retryable=False,
+            message=f"no API published under the name {name!r}",
+        )
+
     def _subscriptions(self, external_id: str) -> dict[str, str]:
-        """API id → subscription id for one application."""
+        """API name → subscription id for one application."""
         response = self._client.request(
             "GET",
             f"{self._devportal}/subscriptions",
@@ -194,10 +212,11 @@ class Wso2ApiGateway:
         for entry in payload.get("list") or []:
             if not isinstance(entry, dict):
                 continue
-            api_id = entry.get("apiId")
+            info = entry.get("apiInfo") or {}
+            name = info.get("name") if isinstance(info, dict) else None
             subscription_id = entry.get("subscriptionId")
-            if isinstance(api_id, str) and isinstance(subscription_id, str):
-                found[api_id] = subscription_id
+            if isinstance(name, str) and isinstance(subscription_id, str):
+                found[name] = subscription_id
         return found
 
     def _json(self, response: httpx.Response, op: str) -> dict[str, Any]:

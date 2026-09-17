@@ -220,27 +220,27 @@ class LocalApiGateway:
         apps[external_id] = {
             "name": name,
             "reference": spec.reference,
-            "subscriptions": sorted(spec.api_ids),
+            "subscriptions": sorted(spec.api_names),
             "keys_mapped": False,
         }
         _save(ExternalSystem.WSO2, apps)
         return GatewayAppCreated(external_id=external_id, name=name)
 
-    def subscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None:
+    def subscribe(self, external_id: str, api_names: tuple[str, ...]) -> None:
         _guard(ExternalSystem.WSO2, "subscribe")
         apps = _store(ExternalSystem.WSO2)
         record = self._require(apps, external_id)
-        record["subscriptions"] = sorted(set(record["subscriptions"]) | set(api_ids))
+        record["subscriptions"] = sorted(set(record["subscriptions"]) | set(api_names))
         _save(ExternalSystem.WSO2, apps)
 
-    def unsubscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None:
+    def unsubscribe(self, external_id: str, api_names: tuple[str, ...]) -> None:
         """Idempotent: unsubscribing from what was never subscribed succeeds."""
         _guard(ExternalSystem.WSO2, "unsubscribe")
         apps = _store(ExternalSystem.WSO2)
         record = apps.get(external_id)
         if record is None:
             return
-        record["subscriptions"] = sorted(set(record["subscriptions"]) - set(api_ids))
+        record["subscriptions"] = sorted(set(record["subscriptions"]) - set(api_names))
         _save(ExternalSystem.WSO2, apps)
 
     def map_keys(self, external_id: str, consumer_key: str, secret_ref: str) -> None:

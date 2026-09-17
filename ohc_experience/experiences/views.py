@@ -1320,9 +1320,9 @@ def reference_environment(request, reference):
         for key, names in environment.flows.items()
     ]
     credential = ProductCredential.objects.filter(product=workspace.product).first()
-    client_id = credential.client_id if credential else ""
+    client_id = credential.client_id if credential else None
     shells = [
-        (key, shell, environment.command_segments(shell, client_id))
+        (key, shell, *environment.command_parts(shell, client_id))
         for key, shell in environment.shells.items()
     ]
     return render(
@@ -1336,7 +1336,6 @@ def reference_environment(request, reference):
             reference_environment=environment,
             reference_milestones=milestones,
             reference_shells=shells,
-            reference_client_id=client_id,
             has_credential=credential is not None,
         ),
     )

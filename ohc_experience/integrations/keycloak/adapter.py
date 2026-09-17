@@ -10,9 +10,6 @@ A realm role reaches a `client_credentials` token only if it is *both*
 scope-mapped to the client and granted to the client's service-account user.
 Scope-mapping alone filters what may appear in a token without putting anything
 in it.
-
-It signs in as the legacy portal did, as a master-realm admin with a password
-grant: those are the only Keycloak credentials NHA issued.
 """
 
 from __future__ import annotations
@@ -47,8 +44,6 @@ CLIENT_ID_ENTROPY_BYTES = 8
 
 NOT_FOUND = "HTTP_404"
 
-ADMIN_TOKEN_REALM = "master"  # noqa: S105 - a realm name, not a password
-
 
 class KeycloakIdpAdmin:
     def __init__(self, *, transport: httpx.BaseTransport | None = None) -> None:
@@ -62,7 +57,7 @@ class KeycloakIdpAdmin:
         self._client = IntegrationClient(
             policy,
             transport=transport,
-            token_cache=TokenCache(self.fetch_admin_token),
+            token_cache=TokenCache(self._fetch_token),
         )
 
     def create_client(self, spec: ClientSpec) -> ClientCreated:
@@ -123,24 +118,17 @@ class KeycloakIdpAdmin:
     def _admin(self) -> str:
         return f"/admin/realms/{_segment(self._realm)}"
 
-    def fetch_admin_token(self) -> Token:
-        """Legacy's admin sign-in, which HIE-CM also takes for bridge registration."""
-        api_key = settings.KEYCLOAK_API_KEY
+    def _fetch_token(self) -> Token:
         response = self._auth.request(
             "POST",
-            f"/realms/{ADMIN_TOKEN_REALM}/protocol/openid-connect/token",
+            f"/realms/{_segment(self._realm)}/protocol/openid-connect/token",
             op="fetch_token",
             # Retry-safe despite being a POST: it mints nothing durable.
             idempotent=True,
-            # Legacy sent the API key with this call and no other.
-            headers={"apikey": api_key} if api_key else None,
             data={
-                "grant_type": "password",
-                "scope": "openid",
+                "grant_type": "client_credentials",
                 "client_id": settings.KEYCLOAK_CLIENT_ID,
                 "client_secret": settings.KEYCLOAK_CLIENT_SECRET,
-                "username": settings.KEYCLOAK_USERNAME,
-                "password": settings.KEYCLOAK_PASSWORD,
             },
         )
         payload = self._json(response, "fetch_token")

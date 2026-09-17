@@ -28,5 +28,4 @@ DJANGO_AWS_S3_REGION_NAME=us-east-1
 # http://localhost:8080 when Django runs on the host rather than in compose.
 INTEGRATION_IDP=ohc_experience.integrations.keycloak.adapter.KeycloakIdpAdmin
 KEYCLOAK_BASE_URL=http://keycloak:8080
-KEYCLOAK_USERNAME=admin
-KEYCLOAK_PASSWORD=admin
+KEYCLOAK_CLIENT_SECRET=local-development-only

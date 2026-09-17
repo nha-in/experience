@@ -114,16 +114,16 @@
     {% if form.organisation %}
       <fieldset class="marketing-auth-fieldset">
         <legend>{% translate "Your organisation/business" %}</legend>
-        {% ui_field form.organisation_type %}
+        {% ui_field form.organisation_type label="Type of Entity" %}
         <div class="marketing-auth-field-grid">
-          {% ui_field form.organisation %}
-          {% ui_field form.website help_text="We check your email address against this domain." %}
+          {% ui_field form.organisation label="Organisation/Business Name" %}
+          {% ui_field form.website label="Website" %}
         </div>
       </fieldset>
     {% endif %}
     <fieldset class="marketing-auth-fieldset">
       <legend>{% translate "About you" %}</legend>
-      {% ui_field form.name label="Full name" %}
+      {% ui_field form.name label="Full Name" %}
       <div>
         {% ui_field form.email label="Email" %}
         {% if form.organisation %}
@@ -133,14 +133,14 @@
         {% endif %}
       </div>
       {% if form.mobile_number %}
-        {% ui_field form.mobile_number %}
+        {% ui_field form.mobile_number label="Mobile Number" help_text="Enter your 10-digit phone number without the country code." %}
       {% endif %}
     </fieldset>
     <fieldset class="marketing-auth-fieldset">
       <legend>{% translate "Secure your account" %}</legend>
       {% ui_field form.password1 label="Password" help_text="Use at least 12 characters. Avoid common words and personal details." %}
       {% if form.password2 %}
-        {% ui_field form.password2 label="Confirm password" %}
+        {% ui_field form.password2 label="Confirm Password" %}
       {% endif %}
       {% if form.captcha %}
         <div>

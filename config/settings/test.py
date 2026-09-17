@@ -48,8 +48,8 @@ INTEGRATION_PORTS = {
     "API_GATEWAY": "ohc_experience.integrations.local.LocalApiGateway",
     "BRIDGE_REGISTRY": "ohc_experience.integrations.local.LocalBridgeRegistry",
 }
-# The local adapters stand in for all three systems; these are the ids they know.
-WSO2_API_IDS = {"abdm": ("api-healthid", "api-gateway")}
+# The local adapters stand in for all three systems; these are the names they know.
+WSO2_API_NAMES = {"abdm": ("HealthIdAPI", "GatewayAPI")}
 
 # Your stuff...
 # ------------------------------------------------------------------------------

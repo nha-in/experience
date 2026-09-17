@@ -6,13 +6,11 @@ still move nothing.
 
 The bridge id is whatever it is given rather than derived, and the callback is
 the integrator's own endpoint rather than a shared one.
-
-Calls carry the Keycloak admin token, as legacy's did: NHA issued no HIE-CM
-credentials of its own.
 """
 
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import UTC
 from datetime import datetime
@@ -25,8 +23,8 @@ from django.conf import settings
 
 from ohc_experience.integrations.http import HttpPolicy
 from ohc_experience.integrations.http import IntegrationClient
+from ohc_experience.integrations.http import Token
 from ohc_experience.integrations.http import TokenCache
-from ohc_experience.integrations.keycloak.adapter import KeycloakIdpAdmin
 from ohc_experience.integrations.ports import AdapterError
 from ohc_experience.integrations.ports import BridgeCreated
 from ohc_experience.integrations.ports import BridgeStatus
@@ -55,11 +53,11 @@ class HiecmBridgeRegistry:
             system=ExternalSystem.HIECM,
             base_url=settings.HIECM_BASE_URL.rstrip("/"),
         )
-        self._keycloak = KeycloakIdpAdmin(transport=transport)
+        self._auth = IntegrationClient(policy, transport=transport)
         self._client = IntegrationClient(
             policy,
             transport=transport,
-            token_cache=TokenCache(self._keycloak.fetch_admin_token),
+            token_cache=TokenCache(self._fetch_token),
         )
 
     def create_bridge(self, spec: BridgeSpec) -> BridgeCreated:
@@ -75,7 +73,6 @@ class HiecmBridgeRegistry:
                 "url": spec.url,
                 "active": True,
                 "blocklisted": False,
-                "entity": spec.entity,
             },
         )
         return BridgeCreated(bridge_id=spec.bridge_id)
@@ -111,6 +108,25 @@ class HiecmBridgeRegistry:
             if error.code != NOT_FOUND:
                 raise
 
+    def _fetch_token(self) -> Token:
+        response = self._auth.request(
+            "POST",
+            f"{self._api}{settings.HIECM_SESSION_PATH}",
+            op="fetch_token",
+            # Retry-safe despite being a POST: a session mints nothing durable.
+            idempotent=True,
+            headers=self._gateway_headers(),
+            json={
+                "clientId": settings.HIECM_CLIENT_ID,
+                "clientSecret": settings.HIECM_CLIENT_SECRET,
+            },
+        )
+        payload = self._json(response, "fetch_token")
+        return Token(
+            value=self._require(payload, "accessToken", "fetch_token"),
+            expires_at=time.monotonic() + float(payload.get("expiresIn", 60)),
+        )
+
     @staticmethod
     def _gateway_headers() -> dict[str, str]:
         return {
@@ -130,6 +146,12 @@ class HiecmBridgeRegistry:
             self._malformed(op, "expected a JSON object")
         return payload
 
+    def _require(self, payload: dict[str, Any], key: str, op: str) -> str:
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            self._malformed(op, f"response had no usable {key!r}")
+        return value
+
     def _malformed(
         self,
         op: str,
@@ -146,7 +168,7 @@ class HiecmBridgeRegistry:
 
     def close(self) -> None:
         self._client.close()
-        self._keycloak.close()
+        self._auth.close()
 
 
 def _segment(value: str) -> str:

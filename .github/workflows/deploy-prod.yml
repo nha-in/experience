@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Extra tag to apply to the built image (e.g. a version, optional)"
+        description: 'Extra tag to apply to the built image (e.g. a version, optional)'
         required: false
-        default: ""
+        default: ''
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   contents: read
@@ -31,53 +31,6 @@ jobs:
     outputs:
       image_ref: ${{ steps.ref.outputs.image_ref }}
     steps:
-      - name: Check integration settings
-        env:
-          KEYCLOAK_BASE_URL: ${{ vars.KEYCLOAK_BASE_URL }}
-          KEYCLOAK_REALM: ${{ vars.KEYCLOAK_REALM }}
-          KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID }}
-          KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
-          KEYCLOAK_USERNAME: ${{ vars.KEYCLOAK_USERNAME }}
-          KEYCLOAK_PASSWORD: ${{ secrets.KEYCLOAK_PASSWORD }}
-          KEYCLOAK_API_KEY: ${{ secrets.KEYCLOAK_API_KEY }}
-          WSO2_BASE_URL: ${{ vars.WSO2_BASE_URL }}
-          WSO2_CLIENT_ID: ${{ vars.WSO2_CLIENT_ID }}
-          WSO2_CLIENT_SECRET: ${{ secrets.WSO2_CLIENT_SECRET }}
-          WSO2_USERNAME: ${{ vars.WSO2_USERNAME }}
-          WSO2_PASSWORD: ${{ secrets.WSO2_PASSWORD }}
-          WSO2_KEY_MANAGER: ${{ vars.WSO2_KEY_MANAGER }}
-          WSO2_SCOPES: ${{ vars.WSO2_SCOPES }}
-          WSO2_SANDBOX_API_IDS: ${{ vars.WSO2_SANDBOX_API_IDS }}
-          HIECM_BASE_URL: ${{ vars.HIECM_BASE_URL }}
-          HIECM_CM_ID: ${{ vars.HIECM_CM_ID }}
-          EXPERIENCE_CREDENTIAL_KEY: ${{ secrets.EXPERIENCE_CREDENTIAL_KEY }}
-        run: |
-          missing=""
-          for name in KEYCLOAK_BASE_URL \
-            KEYCLOAK_REALM \
-            KEYCLOAK_CLIENT_ID \
-            KEYCLOAK_CLIENT_SECRET \
-            KEYCLOAK_USERNAME \
-            KEYCLOAK_PASSWORD \
-            KEYCLOAK_API_KEY \
-            WSO2_BASE_URL \
-            WSO2_CLIENT_ID \
-            WSO2_CLIENT_SECRET \
-            WSO2_USERNAME \
-            WSO2_PASSWORD \
-            WSO2_KEY_MANAGER \
-            WSO2_SCOPES \
-            WSO2_SANDBOX_API_IDS \
-            HIECM_BASE_URL \
-            HIECM_CM_ID \
-            EXPERIENCE_CREDENTIAL_KEY; do
-            if [ -z "${!name}" ]; then missing="$missing $name"; fi
-          done
-          if [ -n "$missing" ]; then
-            echo "::error::Set these in the production environment:$missing"
-            exit 1
-          fi
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
@@ -182,28 +135,6 @@ jobs:
           task-definition: task-definition.json
           container-name: ${{ env.ECS_PREFIX }}-${{ matrix.service }}
           image: ${{ env.IMAGE_REF }}
-          environment-variables: |
-            INTEGRATION_IDP=ohc_experience.integrations.keycloak.adapter.KeycloakIdpAdmin
-            INTEGRATION_API_GATEWAY=ohc_experience.integrations.wso2.adapter.Wso2ApiGateway
-            INTEGRATION_BRIDGE_REGISTRY=ohc_experience.integrations.hiecm.adapter.HiecmBridgeRegistry
-            KEYCLOAK_BASE_URL=${{ vars.KEYCLOAK_BASE_URL }}
-            KEYCLOAK_REALM=${{ vars.KEYCLOAK_REALM }}
-            KEYCLOAK_CLIENT_ID=${{ vars.KEYCLOAK_CLIENT_ID }}
-            KEYCLOAK_CLIENT_SECRET=${{ secrets.KEYCLOAK_CLIENT_SECRET }}
-            KEYCLOAK_USERNAME=${{ vars.KEYCLOAK_USERNAME }}
-            KEYCLOAK_PASSWORD=${{ secrets.KEYCLOAK_PASSWORD }}
-            KEYCLOAK_API_KEY=${{ secrets.KEYCLOAK_API_KEY }}
-            WSO2_BASE_URL=${{ vars.WSO2_BASE_URL }}
-            WSO2_CLIENT_ID=${{ vars.WSO2_CLIENT_ID }}
-            WSO2_CLIENT_SECRET=${{ secrets.WSO2_CLIENT_SECRET }}
-            WSO2_USERNAME=${{ vars.WSO2_USERNAME }}
-            WSO2_PASSWORD=${{ secrets.WSO2_PASSWORD }}
-            WSO2_KEY_MANAGER=${{ vars.WSO2_KEY_MANAGER }}
-            WSO2_SCOPES=${{ vars.WSO2_SCOPES }}
-            WSO2_SANDBOX_API_IDS=${{ vars.WSO2_SANDBOX_API_IDS }}
-            HIECM_BASE_URL=${{ vars.HIECM_BASE_URL }}
-            HIECM_CM_ID=${{ vars.HIECM_CM_ID }}
-            EXPERIENCE_CREDENTIAL_KEY=${{ secrets.EXPERIENCE_CREDENTIAL_KEY }}
 
       - name: Deploy task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2

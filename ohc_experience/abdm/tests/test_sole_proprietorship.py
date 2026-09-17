@@ -34,7 +34,7 @@ def sign_up(client, entity_type, name="Rao Health Apps"):
         data={
             "name": "Anita Rao",
             "email": f"{entity_type}@example.org",
-            "mobile_number": "+91 98765 43210",
+            "mobile_number": "9876543210",
             "organisation": name,
             "organisation_type": entity_type,
             "password1": "sandbox-Kerala-2026",

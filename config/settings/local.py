@@ -135,9 +135,9 @@ if env("USE_DOCKER", default="no") != "yes":
 
 # INTEGRATIONS
 # ------------------------------------------------------------------------------
-# Set so the local gateway has something to subscribe to offline.
-WSO2_API_IDS = {
+# Named so the local gateway has something to subscribe to offline.
+WSO2_API_NAMES = {
     "abdm": tuple(
-        env.list("WSO2_SANDBOX_API_IDS", default=["api-healthid", "api-gateway"]),
+        env.list("WSO2_SANDBOX_API_NAMES", default=["HealthIdAPI", "GatewayAPI"]),
     ),
 }

@@ -2,43 +2,30 @@ from ohc_experience.experiences.definitions import ReferenceEnvironmentDefinitio
 from ohc_experience.experiences.definitions import ReferenceShell
 
 # CARE and care_fe are built from their latest develop on every run, and care-abdm
-# from a pinned commit. The compose file is on care_create's reference branch.
+# from a pinned commit. The compose file lives on a fork of care_create until its
+# origin carries it.
 COMPOSE_FILE = (
-    "https://github.com/ohcnetwork/care_create.git#reference:reference/compose.yaml"
+    "https://github.com/amjithtitus09/care_create.git#reference:reference/compose.yaml"
 )
-LOCAL_URL = "http://localhost:4400"
-# `up --wait` returns once CARE is ready and fails if it cannot start, so each
-# shell opens the browser only after it succeeds.
 RUN = f"docker compose -f {COMPOSE_FILE} {{options}}up --build --wait --yes"
-POSIX_CREDENTIALS = "ABDM_CLIENT_ID='{client_id}' ABDM_CLIENT_SECRET='{client_secret}' "
-POSIX_SINGLE_QUOTE = "'\\''"
 
 
 class ABDMReferenceEnvironment(ReferenceEnvironmentDefinition):
     shells = {
-        "macos": ReferenceShell(
-            "macOS",
+        "posix": ReferenceShell(
+            "macOS and Linux",
             "$",
-            f"{POSIX_CREDENTIALS}{RUN} && open {LOCAL_URL}",
-            POSIX_SINGLE_QUOTE,
-        ),
-        "linux": ReferenceShell(
-            "Linux",
-            "$",
-            f"{POSIX_CREDENTIALS}{RUN} && xdg-open {LOCAL_URL}",
-            POSIX_SINGLE_QUOTE,
+            "ABDM_CLIENT_ID={client_id} ABDM_CLIENT_SECRET={client_secret} " + RUN,
         ),
         "powershell": ReferenceShell(
             "Windows PowerShell",
             ">",
-            "$env:ABDM_CLIENT_ID='{client_id}'; "
-            "$env:ABDM_CLIENT_SECRET='{client_secret}'; "
-            f"{RUN}; if ($LASTEXITCODE -eq 0) {{ Start-Process {LOCAL_URL} }}",
-            "''",
+            '$env:ABDM_CLIENT_ID="{client_id}"; '
+            '$env:ABDM_CLIENT_SECRET="{client_secret}"; ' + RUN,
         ),
     }
     stop_command = "docker compose -p care-reference down"
-    local_url = LOCAL_URL
+    local_url = "http://localhost:4400"
     requirements = (
         "Docker with Compose 2.37 or later. The first run takes about 10 minutes."
     )
@@ -46,8 +33,7 @@ class ABDMReferenceEnvironment(ReferenceEnvironmentDefinition):
         "CARE with the care-abdm plug and demo data. CARE and care_fe are built from "
         "their latest code on every run; care-abdm is pinned to its M1 version for now."
     )
-    # The superuser care's demo data creates, so every flow is open to it.
-    sign_in = ("admin", "admin")
+    sign_in = ("care-admin", "Ohcn@123")
     built_on = (
         ("CARE", "images/marketing/care-logo-trim.svg"),
         ("Open Healthcare Network", "images/marketing/ohc-logo-trim.png"),

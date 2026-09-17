@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 SIGNUP_DATA = {
     "name": "Meera Krishnan",
     "email": "meera@sunrise.in",
-    "mobile_number": "+91 98765 43210",
+    "mobile_number": "9876543210",
     "organisation": "Sunrise Health Systems",
     "organisation_type": "private_company",
     "website": "https://sunrise.in",
@@ -216,3 +216,15 @@ class TestSignupContactDetails:
 
         assert not form.is_valid()
         assert form.errors["mobile_number"] == ["Enter your mobile number."]
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize(
+        "mobile_number", ["123456789", "12345678901", "+919876543210", "98765 43210"]
+    )
+    def test_rejects_an_invalid_mobile_number(self, mobile_number: str):
+        form = UserSignupForm(data={**SIGNUP_DATA, "mobile_number": mobile_number})
+
+        assert not form.is_valid()
+        assert form.errors["mobile_number"] == [
+            "Enter a valid 10-digit phone number without the country code.",
+        ]

@@ -475,36 +475,17 @@ INTEGRATION_PORTS = {
 
 # KEYCLOAK
 # ------------------------------------------------------------------------------
-# Legacy's admin sign-in: a master-realm client and user, with a password grant.
 KEYCLOAK_BASE_URL = env.str("KEYCLOAK_BASE_URL", default="http://keycloak:8080")
 KEYCLOAK_REALM = env.str("KEYCLOAK_REALM", default="abdm-sandbox")
-KEYCLOAK_CLIENT_ID = env.str("KEYCLOAK_CLIENT_ID", default="admin-cli")
+KEYCLOAK_CLIENT_ID = env.str("KEYCLOAK_CLIENT_ID", default="sandbox-provisioner")
 KEYCLOAK_CLIENT_SECRET = env.str("KEYCLOAK_CLIENT_SECRET", default="")
-KEYCLOAK_USERNAME = env.str("KEYCLOAK_USERNAME", default="")
-KEYCLOAK_PASSWORD = env.str("KEYCLOAK_PASSWORD", default="")
-KEYCLOAK_API_KEY = env.str("KEYCLOAK_API_KEY", default="")
-# Role NAMES per program, never realm UUIDs. The default is the set legacy gave
-# every sandbox client.
+# Role NAMES per program, never realm UUIDs. This subset is provisional: NHA has
+# not confirmed the per-milestone set, and sandbox clients hold every realm role.
 KEYCLOAK_ROLE_NAMES = {
     "abdm": tuple(
         env.list(
             "KEYCLOAK_SANDBOX_ROLE_NAMES",
-            default=[
-                "bridge",
-                "HIU_PAYER",
-                "DIGI_DOCTOR",
-                "healthId",
-                "health_locker",
-                "hip",
-                "HIP_PAYER",
-                "hiu",
-                "hfr",
-                "offline_access",
-                "phr",
-                "OIDC",
-                "HidAbhaSearch",
-                "hp_id",
-            ],
+            default=["healthId", "hip", "hiu", "hfr"],
         ),
     ),
 }
@@ -512,7 +493,7 @@ KEYCLOAK_ROLE_NAMES = {
 # WSO2
 # ------------------------------------------------------------------------------
 WSO2_BASE_URL = env.str("WSO2_BASE_URL", default="https://wso2.invalid")
-WSO2_DEVPORTAL_PATH = env.str("WSO2_DEVPORTAL_PATH", default="/api/am/devportal/v2.1")
+WSO2_DEVPORTAL_PATH = env.str("WSO2_DEVPORTAL_PATH", default="/api/am/devportal/v3")
 WSO2_TOKEN_PATH = env.str("WSO2_TOKEN_PATH", default="/oauth2/token")
 WSO2_CLIENT_ID = env.str("WSO2_CLIENT_ID", default="")
 WSO2_CLIENT_SECRET = env.str("WSO2_CLIENT_SECRET", default="")
@@ -530,10 +511,10 @@ WSO2_TOKEN_TYPE = env.str("WSO2_TOKEN_TYPE", default="JWT")
 WSO2_KEY_MANAGER = env.str("WSO2_KEY_MANAGER", default="Resident Key Manager")
 WSO2_KEY_TYPE = env.str("WSO2_KEY_TYPE", default="PRODUCTION")
 WSO2_READ_TIMEOUT_SECONDS = env.float("WSO2_READ_TIMEOUT_SECONDS", default=15.0)
-# API ids, as legacy subscribed. No default: a wrong or empty guess would fail
-# silently at provisioning time.
-WSO2_API_IDS = {
-    "abdm": tuple(env.list("WSO2_SANDBOX_API_IDS", default=[])),
+# API NAMES, never ids. No default: NHA has not published the sandbox API names,
+# and a wrong or empty guess would fail silently at provisioning time.
+WSO2_API_NAMES = {
+    "abdm": tuple(env.list("WSO2_SANDBOX_API_NAMES", default=[])),
 }
 
 # How long a secret parked for `map_keys` stays readable.
@@ -544,6 +525,9 @@ SECRET_REF_TTL_SECONDS = env.int("SECRET_REF_TTL_SECONDS", default=900)
 # Internal base URL only — the external rewrite is owned by infrastructure.
 HIECM_BASE_URL = env.str("HIECM_BASE_URL", default="https://hiecm.invalid")
 HIECM_API_PATH = env.str("HIECM_API_PATH", default="/api/v3")
+HIECM_SESSION_PATH = env.str("HIECM_SESSION_PATH", default="/sessions")
+HIECM_CLIENT_ID = env.str("HIECM_CLIENT_ID", default="")
+HIECM_CLIENT_SECRET = env.str("HIECM_CLIENT_SECRET", default="")
 HIECM_CM_ID = env.str("HIECM_CM_ID", default="sbx")
 # Where HIE-CM delivers an integrator's gateway callbacks. `.invalid` by default,
 # so an unconfigured deployment cannot quietly publish somebody else's host.
@@ -580,7 +564,6 @@ LOCAL_KEYCLOAK_REALM_ROLES = env.list(
         "hiu",
         "healthId",
         "health_locker",
-        "offline_access",
         "phr",
         "hfr",
         "hp_id",

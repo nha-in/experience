@@ -46,7 +46,7 @@ from ohc_experience.integrations.registry import get_bridge_registry
 from ohc_experience.integrations.registry import get_idp_admin
 from ohc_experience.integrations.secret_ref import has_secret
 from ohc_experience.integrations.secret_ref import store_secret
-from ohc_experience.integrations.wso2.apis import api_ids_for
+from ohc_experience.integrations.wso2.apis import api_names_for
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -257,16 +257,16 @@ def provision_wso2(task: Task, product_id: int) -> int:
             message = "WSO2 needs the Keycloak client that should already exist"
             raise ImproperlyConfigured(message)
 
-        api_ids = api_ids_for(_program(product))
+        api_names = api_names_for(_program(product))
         gateway = get_api_gateway()
         created = gateway.create_application(
             GatewayAppSpec(
                 reference=_reference(product),
                 name=_external_name(product),
-                api_ids=api_ids,
+                api_names=api_names,
             ),
         )
-        gateway.subscribe(created.external_id, api_ids)
+        gateway.subscribe(created.external_id, api_names)
         gateway.map_keys(
             created.external_id,
             consumer_key=client.public_ref,
@@ -296,7 +296,6 @@ def provision_hiecm(task: Task, product_id: int) -> int:
                 bridge_id=bridge_id,
                 name=_external_name(product),
                 url=_callback_url(product),
-                entity=_bridge_entity(product),
             ),
         )
         _record(
@@ -423,16 +422,6 @@ def _callback_url(product: Product) -> str:
     return f"{base}/{_reference(product)}"
 
 
-def _bridge_entity(product: Product) -> str:
-    """The bridge's `entity`, valued as legacy sent it."""
-    entity_type = product.organisation.entity_type
-    if entity_type == "sole_proprietor":
-        return "NA"
-    if entity_type == "government":
-        return "Government"
-    return "Private"
-
-
 #: The chain, in the order the data forces.
 CHAIN = (provision_keycloak, provision_wso2, provision_hiecm, complete_provisioning)
 
@@ -538,7 +527,7 @@ def deprovision_wso2(task: Task, product_id: int) -> int:
         # has changed since, the difference is left behind rather than guessed.
         get_api_gateway().unsubscribe(
             row.external_ref,
-            api_ids_for(_program(product)),
+            api_names_for(_program(product)),
         )
 
     return _teardown_step(task, product_id, ProvisionedSystem.WSO2, run)
