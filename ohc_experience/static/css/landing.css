@@ -870,25 +870,12 @@
 }
 .marketing-landing .marketing-footer :is(address, p, li, dd, a, figcaption) {
   color: var(--marketing-muted);
-  font-size: 0.9375rem;
 }
 .marketing-landing .marketing-footer-policy-list span {
   color: var(--marketing-muted);
 }
 .marketing-landing .marketing-footer :is(.marketing-eyebrow, dt) {
   color: var(--marketing-text);
-  font-size: 0.8125rem;
-}
-.marketing-landing .marketing-footer :is(nav a, dd a, .marketing-footer-socials > a, .marketing-footer-policy-list a, .marketing-footer-policy-source) {
-  display: inline-block;
-  min-height: 28px;
-  padding-block: 3px;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  text-decoration-thickness: 1px;
-}
-.marketing-landing .marketing-footer nav a {
-  display: block;
 }
 .marketing-landing .marketing-footer-store-link {
   border-color: var(--sbx-control-border);
@@ -904,11 +891,6 @@
 }
 .marketing-landing .marketing-partners > span {
   color: var(--marketing-muted);
-  font-size: 0.8125rem;
-}
-.marketing-landing .marketing-partners img {
-  filter: none;
-  opacity: 1;
 }
 .marketing-landing .marketing-footer nav a {
   color: var(--marketing-text);
