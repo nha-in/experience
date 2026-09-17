@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{% static 'fonts/marketing/fonts.css' %}" />
   <link rel="stylesheet" href="{% static 'css/marketing.css' %}" />
   <link rel="stylesheet" href="{% static 'css/marketing-auth.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/marketing-partners.css' %}" />
 {% endblock css %}
 {% block javascript %}
   {{ block.super }}
@@ -25,6 +26,11 @@
                alt="{% translate 'National Health Authority' %}"
                width="90"
                height="32" />
+          <img class="marketing-brand-abdm"
+               src="{% static 'images/marketing/abdm-logo-trim.png' %}"
+               alt="{% translate 'Ayushman Bharat Digital Mission' %}"
+               width="48"
+               height="45" />
           <span>ABDM <span class="marketing-brand-long">Developer </span>Sandbox</span>
         </a>
         <nav class="marketing-desktop-nav"
@@ -65,7 +71,7 @@
         </details>
       </div>
     </header>
-    <main id="main-content">
+    <main id="main-content" tabindex="-1">
       {% block content %}
       {% endblock content %}
     </main>

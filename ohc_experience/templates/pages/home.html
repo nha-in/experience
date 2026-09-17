@@ -1,333 +1,510 @@
 {% extends "layouts/marketing.html" %}
 
-{% load i18n %}
+{% load static i18n %}
 
 {% block title %}
   {% translate "ABDM Developer Sandbox" %}
 {% endblock title %}
 {% block meta_description %}
-  {% translate "Build on India’s health data network. Find ABDM documentation, develop your integration, and take your product from sandbox testing to production review." %}
+  {% translate "Build on India’s interoperable digital health infrastructure. Explore HIE-CM, UHI and NHCX, develop with AI-ready documentation, and take your ABDM integration from sandbox to production review." %}
 {% endblock meta_description %}
+{% block css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/landing.css' %}" />
+{% endblock css %}
+{% block bodyclass %}marketing-body marketing-landing{% endblock bodyclass %}
 {% block content %}
-  <section id="top" class="landing-hero" aria-labelledby="landing-title">
-    <div class="landing-hero-glow" aria-hidden="true"></div>
-    <span class="landing-watermark" aria-hidden="true">ABDM</span>
-    <div class="marketing-container landing-hero-inner">
-      <p class="marketing-eyebrow landing-hero-eyebrow">
-        <span aria-hidden="true"></span>{% translate "National Health Authority · Developer sandbox" %}
-      </p>
-      <h1 id="landing-title">{% translate "Build on India’s" %} <em>{% translate "health data network" %}<span class="landing-hero-period">.</span></em></h1>
-      <p class="landing-hero-lede">{% translate "The National Health Authority’s developer sandbox for the Ayushman Bharat Digital Mission. From sandbox credentials to your first call to going live." %}</p>
-      <div class="marketing-actions">
-        <a class="marketing-button marketing-button--primary"
-           href="{% url 'account_signup' %}">{% translate "Create sandbox account" %} <span aria-hidden="true">→</span>
-        </a>
-        <a class="marketing-button"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">{% translate "Read the documentation" %}</a>
+  <section id="top"
+           class="sbx-hero"
+           aria-labelledby="landing-title"
+           tabindex="-1">
+    <div class="marketing-container sbx-hero-content">
+      <div class="sbx-hero-copy">
+        <p class="sbx-eyebrow sbx-hero-eyebrow">
+          <span aria-hidden="true"></span>{% translate "Ayushman Bharat Digital Mission · Agentic AI Sandbox" %}
+        </p>
+        <h1 id="landing-title">
+          {% translate "Build on India’s" %} <em>{% translate "interoperable" %}</em> {% translate "digital health infrastructure." %}
+        </h1>
+        <p class="sbx-hero-lede">{% translate "Integrate with the ABDM ecosystem faster with Agentic AI." %}</p>
+        <p class="sbx-hero-description">{% translate "A controlled, self-service sandbox where integrators build and validate their solutions with India’s National Digital Health Ecosystem. Explore integration artefacts, skills and guides for HIE-CM, UHI and NHCX." %}</p>
+        <div class="marketing-actions">
+          <a class="marketing-button marketing-button--primary"
+             href="{% url 'account_signup' %}">{% translate "Register for the Sandbox" %}
+            <span aria-hidden="true">→</span>
+          </a>
+          <a class="marketing-button" href="#how">{% translate "See the integration journey" %}
+            <span aria-hidden="true">↗&#xFE0E;</span>
+          </a>
+        </div>
       </div>
-      <div class="landing-path-cards">
-        <a class="landing-path-card" href="#paths">
-          <span class="marketing-eyebrow">{% translate "Path 01" %}</span>
-          <h2>{% translate "Health facility" %}<span aria-hidden="true">→</span>
-          </h2>
-          <p>{% translate "A hospital, clinic, lab or pharmacy. You hold records and share them." %}</p>
+    </div>
+    <div class="marketing-container">
+      <nav class="sbx-section-nav"
+           aria-label="{% translate 'Explore the sandbox' %}">
+        <a href="#gateways">
+          <strong>3 <span aria-hidden="true">↗&#xFE0E;</span></strong>
+          <span>{% translate "National gateways" %}</span>
         </a>
-        <a class="landing-path-card" href="#paths">
-          <span class="marketing-eyebrow">{% translate "Path 02" %}</span>
-          <h2>{% translate "IMS integrator" %}<span aria-hidden="true">→</span>
-          </h2>
-          <p>{% translate "You build the EMR, HIMS, LIMS or PMS a facility runs." %}</p>
+        <a href="#milestones">
+          <strong>M1–M4 <span aria-hidden="true">↗&#xFE0E;</span></strong>
+          <span>{% translate "Integration milestones" %}</span>
         </a>
-        <a class="landing-path-card" href="#phr-path">
-          <span class="marketing-eyebrow">{% translate "Path 03" %}</span>
-          <h2>{% translate "PHR app" %}<span aria-hidden="true">→</span>
+        <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/fhir">
+          <strong>FHIR R4 <span aria-hidden="true">↗&#xFE0E;</span></strong>
+          <span>{% translate "Health data standards" %}</span>
+        </a>
+        <a href="#ai">
+          <strong>{% translate "Agentic AI" %} <span aria-hidden="true">↗&#xFE0E;</span></strong>
+          <span>{% translate "Integration guidance" %}</span>
+        </a>
+      </nav>
+    </div>
+  </section>
+  <section id="gateways"
+           class="sbx-section sbx-gateways"
+           tabindex="-1"
+           aria-labelledby="gateways-title">
+    <div class="marketing-container">
+      <div class="sbx-section-heading">
+        <div>
+          <p class="sbx-eyebrow">{% translate "01 / The ecosystem" %}</p>
+          <h2 id="gateways-title">
+            {% translate "Three national gateways." %}
+            <br />
+            {% translate "One digital health ecosystem." %}
           </h2>
-          <p>{% translate "You build the app a patient uses to hold records and give consent." %}</p>
+        </div>
+        <p class="sbx-section-description">{% translate "Health records, care delivery and claims. Find the building blocks for your product in India’s digital health ecosystem." %}</p>
+      </div>
+      <div class="sbx-gateway-grid">
+        <a class="sbx-gateway sbx-gateway--records"
+           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">
+          <div class="sbx-gateway-top">
+            <span class="sbx-gateway-symbol" aria-hidden="true">
+              <svg viewBox="0 0 32 32"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="1.5">
+                <rect x="11" y="11" width="10" height="10" rx="2" />
+                <path d="M16 3v8M16 21v8M3 16h8M21 16h8" />
+                <circle cx="16" cy="3" r="2" fill="currentColor" />
+                <circle cx="16" cy="29" r="2" fill="currentColor" />
+                <circle cx="3" cy="16" r="2" fill="currentColor" />
+                <circle cx="29" cy="16" r="2" fill="currentColor" />
+              </svg>
+            </span>
+            <span class="sbx-gateway-category">{% translate "Health records" %}</span>
+            <span class="sbx-card-arrow" aria-hidden="true">↗&#xFE0E;</span>
+          </div>
+          <h3>HIE-CM</h3>
+          <p class="sbx-gateway-full">{% translate "Health Information Exchange & Consent Manager" %}</p>
+          <p class="sbx-gateway-description">{% translate "Create and link ABHA, manage consent, and exchange health records across the digital health ecosystem as a HIP or HIU." %}</p>
+          <div class="sbx-gateway-bottom">
+            <span>ABHA · HIP · HIU · PHR</span>
+            <strong>{% translate "Explore HIE-CM" %}
+              <span aria-hidden="true">→</span>
+            </strong>
+          </div>
+        </a>
+        <a class="sbx-gateway sbx-gateway--services"
+           href="https://abdm-docs.dev.eka.care/docs/uhi/v1">
+          <div class="sbx-gateway-top">
+            <span class="sbx-gateway-symbol" aria-hidden="true">
+              <svg viewBox="0 0 32 32"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="1.5">
+                <rect x="5" y="7" width="22" height="22" rx="4" />
+                <path d="M10 3v8M22 3v8M5 15h22M16 19v6M13 22h6" />
+              </svg>
+            </span>
+            <span class="sbx-gateway-category">{% translate "Health services" %}</span>
+            <span class="sbx-card-arrow" aria-hidden="true">↗&#xFE0E;</span>
+          </div>
+          <h3>UHI</h3>
+          <p class="sbx-gateway-full">{% translate "Unified Health Interface" %}</p>
+          <p class="sbx-gateway-description">{% translate "Enable discovery and booking of health services, such as doctor consultations, ambulance and blood bank services, over the UHI network." %}</p>
+          <div class="sbx-gateway-bottom">
+            <span>{% translate "Discover · Book · Connect" %}</span>
+            <strong>{% translate "Explore UHI" %}
+              <span aria-hidden="true">→</span>
+            </strong>
+          </div>
+        </a>
+        <a class="sbx-gateway sbx-gateway--claims"
+           href="https://abdm-docs.dev.eka.care/docs/nhcx/v1">
+          <div class="sbx-gateway-top">
+            <span class="sbx-gateway-symbol" aria-hidden="true">
+              <svg viewBox="0 0 32 32"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="1.5">
+                <path d="m16 3 11 4v9c0 7-11 13-11 13S5 23 5 16V7l11-4Z" />
+                <path d="m11 16 4 4 7-8" />
+              </svg>
+            </span>
+            <span class="sbx-gateway-category">{% translate "Health claims" %}</span>
+            <span class="sbx-card-arrow" aria-hidden="true">↗&#xFE0E;</span>
+          </div>
+          <h3>NHCX</h3>
+          <p class="sbx-gateway-full">{% translate "National Health Claims Exchange" %}</p>
+          <p class="sbx-gateway-description">{% translate "Exchange insurance claims, eligibility checks and pre-authorisation requests over the standardised NHCX rails." %}</p>
+          <div class="sbx-gateway-bottom">
+            <span>{% translate "Providers · Payers · TPAs" %}</span>
+            <strong>{% translate "Explore NHCX" %}
+              <span aria-hidden="true">→</span>
+            </strong>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+  <section id="ai"
+           class="sbx-section sbx-ai"
+           aria-labelledby="ai-title"
+           tabindex="-1">
+    <div class="marketing-container">
+      <div class="sbx-section-heading">
+        <div>
+          <p class="sbx-eyebrow">{% translate "02 / Agentic AI artefacts" %}</p>
+          <h2 id="ai-title">{% translate "AI assistants that do the groundwork of integration" %}</h2>
+        </div>
+        <p class="sbx-section-description">{% translate "Describe what you want to build. Use AI artefacts to guide implementation, generate code, work through error scenarios and prepare your integration for review." %}</p>
+      </div>
+      <div class="sbx-ai-features">
+        <div>
+          <span aria-hidden="true">01</span>
+          <div>
+            <h3>{% translate "Integration Assistant" %}</h3>
+            <p>{% translate "Understand each gateway flow in plain language, find the right APIs for your use case, and get answers to specific questions in context." %}</p>
+          </div>
+        </div>
+        <div>
+          <span aria-hidden="true">02</span>
+          <div>
+            <h3>{% translate "Code & Config Generator" %}</h3>
+            <p>{% translate "Generate client code, request payloads, consent artefacts and gateway configuration for HIE-CM, UHI and NHCX in your stack of choice." %}</p>
+          </div>
+        </div>
+        <div>
+          <span aria-hidden="true">03</span>
+          <div>
+            <h3>{% translate "Test & Simulation Agent" %}</h3>
+            <p>{% translate "Develop end-to-end scenarios for HIPs, HIUs, service providers and payers, covering functional workflows and error paths." %}</p>
+          </div>
+        </div>
+        <div>
+          <span aria-hidden="true">04</span>
+          <div>
+            <h3>{% translate "Standards Compliance" %}</h3>
+            <p>{% translate "Check your requests against ABDM specifications and FHIR R4, identify gaps and prepare for each milestone." %}</p>
+          </div>
+        </div>
+        <div>
+          <span aria-hidden="true">05</span>
+          <div>
+            <h3>{% translate "Debug & Error Explainer" %}</h3>
+            <p>{% translate "Understand gateway responses and error codes, pinpoint issues and find the right fix, without decoding cryptic failures alone." %}</p>
+          </div>
+        </div>
+        <div>
+          <span aria-hidden="true">06</span>
+          <div>
+            <h3>{% translate "Milestone Guide" %}</h3>
+            <p>{% translate "Follow milestone-based integration journeys, understand the evidence each milestone needs and prepare your certification submission." %}</p>
+          </div>
+        </div>
+      </div>
+      <div class="sbx-agent-workspace">
+        <div class="sbx-prompt-panel">
+          <div class="sbx-prompt-header">
+            <span>
+              <span aria-hidden="true"></span>{% translate "Agent setup prompt" %}</span>
+            <button type="button"
+                    data-copy-target="agent-setup-prompt"
+                    data-copied-label="{% translate 'Copied' %}"
+                    data-copy-fallback-label="{% translate 'Prompt selected. Use your keyboard or device menu to copy it.' %}"
+                    hidden>
+              {% translate "Copy prompt" %}
+              <span aria-hidden="true">⧉</span>
+            </button>
+          </div>
+          <div class="sbx-prompt-body">
+            <span class="sbx-prompt-label">{% translate "Paste into your coding agent" %}</span>
+            <p id="agent-setup-prompt" tabindex="-1">{% translate "Read https://abdm-docs.dev.eka.care/agent-setup/prompt.md and help me set up my agent for an ABDM integration." %}</p>
+            <span class="sbx-prompt-cursor" aria-hidden="true"></span>
+          </div>
+          <div class="sbx-prompt-footer">
+            <span aria-hidden="true">↳</span>{% translate "Your agent. Your editor. The right context." %}</div>
+        </div>
+        <div class="sbx-agent-support">
+          <div class="sbx-agent-heading">
+            <span class="sbx-agent-spark" aria-hidden="true">✦</span>
+            <div>
+              <h3>{% translate "A little context. A better build." %}</h3>
+              <p>{% translate "Your first step to an AI-assisted integration." %}</p>
+            </div>
+          </div>
+          <div class="sbx-skills">
+            <p class="sbx-eyebrow">{% translate "Explore the integration guides" %}</p>
+            <div role="group" aria-label="{% translate 'Integration guides' %}">
+              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m1">
+                <span>M1</span>{% translate "ABHA identity" %}
+                <span aria-hidden="true">↗&#xFE0E;</span>
+              </a>
+              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m2">
+                <span>M2</span>{% translate "Link & share" %}
+                <span aria-hidden="true">↗&#xFE0E;</span>
+              </a>
+              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m3">
+                <span>M3</span>{% translate "Consent" %}
+                <span aria-hidden="true">↗&#xFE0E;</span>
+              </a>
+              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m4">
+                <span>M4</span>{% translate "Registries" %}
+                <span aria-hidden="true">↗&#xFE0E;</span>
+              </a>
+              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/api/phr-services/">
+                <span>PHR</span>{% translate "PHR services" %}
+                <span aria-hidden="true">↗&#xFE0E;</span>
+              </a>
+              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/fhir">
+                <span>FHIR</span>{% translate "FHIR bundles" %}
+                <span aria-hidden="true">↗&#xFE0E;</span>
+              </a>
+            </div>
+          </div>
+          <p class="sbx-agent-note">{% translate "Review generated code against the documentation and test it in the sandbox." %}</p>
+          <a class="sbx-text-link"
+             href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/build-with-ai">{% translate "Read the agent setup guide" %}<span aria-hidden="true">↗&#xFE0E;</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="milestones"
+           class="sbx-section sbx-milestones"
+           tabindex="-1"
+           aria-labelledby="milestones-title">
+    <div class="marketing-container">
+      <div class="sbx-section-heading">
+        <div>
+          <p class="sbx-eyebrow">{% translate "03 / Progression" %}</p>
+          <h2 id="milestones-title">
+            {% translate "Four milestones." %}
+            <br />
+            {% translate "A clear path to integration." %}
+          </h2>
+        </div>
+        <p class="sbx-section-description">{% translate "From ABHA creation and record linking to consent-based exchange and registry integration. Implement the milestones applicable to your solution." %}</p>
+      </div>
+      <div class="sbx-milestone-grid">
+        <a class="sbx-milestone"
+           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m1">
+          <div class="sbx-milestone-marker">
+            <span>M1</span>
+            <span aria-hidden="true">↗&#xFE0E;</span>
+          </div>
+          <span class="sbx-milestone-role">{% translate "Identity" %}</span>
+          <h3>{% translate "Create and verify ABHA" %}</h3>
+          <p>{% translate "Enable ABHA Number creation and verification of an existing ABHA Number for seamless patient registration." %}</p>
+          <strong>{% translate "Explore M1" %}
+            <span aria-hidden="true">→</span>
+          </strong>
+        </a>
+        <a class="sbx-milestone"
+           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m2">
+          <div class="sbx-milestone-marker">
+            <span>M2</span>
+            <span aria-hidden="true">↗&#xFE0E;</span>
+          </div>
+          <span class="sbx-milestone-role">{% translate "Health Information Provider" %}</span>
+          <h3>{% translate "Create and link records" %}</h3>
+          <p>{% translate "Enable a health facility to link a patient’s health records with their ABHA Address and let the user discover the records through a Personal Health Record application." %}</p>
+          <strong>{% translate "Explore M2" %}
+            <span aria-hidden="true">→</span>
+          </strong>
+        </a>
+        <a class="sbx-milestone"
+           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m3">
+          <div class="sbx-milestone-marker">
+            <span>M3</span>
+            <span aria-hidden="true">↗&#xFE0E;</span>
+          </div>
+          <span class="sbx-milestone-role">{% translate "Health Information User" %}</span>
+          <h3>{% translate "Fetch data with consent" %}</h3>
+          <p>{% translate "Enable Health Information User (HIU) services to provide a view of a patient’s medical history to authorised healthcare workers with complete consent." %}</p>
+          <strong>{% translate "Explore M3" %}
+            <span aria-hidden="true">→</span>
+          </strong>
+        </a>
+        <a class="sbx-milestone"
+           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m4">
+          <div class="sbx-milestone-marker">
+            <span>M4</span>
+            <span aria-hidden="true">↗&#xFE0E;</span>
+          </div>
+          <span class="sbx-milestone-role">{% translate "Registry integration" %}</span>
+          <h3>{% translate "Register facilities and professionals" %}</h3>
+          <p>{% translate "Integrate NHPR functions into your healthcare application to enable native registration of healthcare professionals and health facilities." %}</p>
+          <strong>{% translate "Explore M4" %}
+            <span aria-hidden="true">→</span>
+          </strong>
+        </a>
+      </div>
+      <div id="phr-path" class="sbx-phr-note">
+        <span class="sbx-phr-icon" aria-hidden="true">
+          <svg width="24"
+               height="24"
+               viewBox="0 0 24 24"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="1.5">
+            <rect x="6" y="2" width="12" height="20" rx="3" />
+            <path d="M10 5h4M11 19h2" />
+          </svg>
+        </span>
+        <div>
+          <h3>{% translate "Building a personal health records app?" %}</h3>
+          <p>{% translate "Explore the PHR track for patient identity, record discovery, linking and consent management." %}</p>
+        </div>
+        <a class="sbx-text-link"
+           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/p1">{% translate "Explore PHR" %}
+          <span aria-hidden="true">→</span>
         </a>
       </div>
     </div>
   </section>
   <section id="how"
-           class="landing-section landing-how"
-           aria-labelledby="how-title">
-    <div class="marketing-container">
-      <p class="marketing-eyebrow">{% translate "How it works" %}</p>
-      <h2 id="how-title" class="landing-heading">{% translate "Credentials. Build. Go live." %}</h2>
-      <p class="landing-section-lede">{% translate "One workspace follows your integration from sign-up to production review. Your team and the NHA reviewer share the same submissions, evidence, queries and decisions." %}</p>
-      <ol class="landing-steps">
+           class="sbx-section sbx-journey"
+           aria-labelledby="how-title"
+           tabindex="-1">
+    <div class="marketing-container sbx-journey-grid">
+      <div class="sbx-journey-intro">
+        <p class="sbx-eyebrow">{% translate "04 / The journey" %}</p>
+        <h2 id="how-title">
+          {% translate "From sandbox registration" %}
+          <br />
+          {% translate "to exit: end to end." %}
+        </h2>
+        <p class="sbx-section-description">{% translate "Follow the full lifecycle of an ABDM integration. From registering your organisation to testing your workflows, submitting evidence and moving to production." %}</p>
+        <a class="sbx-text-link"
+           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/going-live">{% translate "Read the go-live guide" %}
+          <span aria-hidden="true">↗&#xFE0E;</span>
+        </a>
+        <div class="sbx-journey-aside">
+          <span aria-hidden="true">↗&#xFE0E;</span>
+          <p>
+            {% translate "Start small. Test thoroughly." %}
+            <br />
+            <strong>{% translate "Build for the ecosystem." %}</strong>
+          </p>
+        </div>
+      </div>
+      <ol class="sbx-journey-steps" role="list">
         <li>
-          <span class="landing-step-number">01</span>
-          <h3>{% translate "Credentials" %}</h3>
-          <ul>
-            <li>{% translate "Create your account and verify your organisation or business." %}</li>
-            <li>{% translate "Register your product and select the capabilities you are building." %}</li>
-            <li>{% translate "Access your sandbox credentials and configure your public callback URL." %}</li>
-          </ul>
+          <span class="sbx-step-number">01</span>
+          <div>
+            <span class="sbx-step-phase">{% translate "Onboard" %}</span>
+            <h3>{% translate "Register & create your sandbox account" %}</h3>
+            <p>{% translate "Sign up as an eligible entity—HIP, HIU, service provider, payer or health-tech—and verify your organisation details to begin your integration journey." %}</p>
+          </div>
         </li>
         <li>
-          <span class="landing-step-number">02</span>
-          <h3>{% translate "Build" %}</h3>
-          <ul>
-            <li>{% translate "Make your first call against the sandbox gateway." %}</li>
-            <li>{% translate "Build and test the milestones for your selected integration track." %}</li>
-            <li>{% translate "Use the API reference to check each request and collect your test evidence." %}</li>
-          </ul>
+          <span class="sbx-step-number">02</span>
+          <div>
+            <span class="sbx-step-phase">{% translate "Access" %}</span>
+            <h3>{% translate "Get credentials and connect" %}</h3>
+            <p>{% translate "Access your sandbox credentials, configure your callback URL and establish your first authenticated connection to the chosen gateway." %}</p>
+          </div>
         </li>
         <li>
-          <span class="landing-step-number">03</span>
-          <h3>{% translate "Go live" %}</h3>
-          <ul>
-            <li>{% translate "Submit your integration and supporting evidence for review." %}</li>
-            <li>{% translate "Complete the required demonstrations, functional testing and security audit." %}</li>
-            <li>{% translate "Resolve review queries and track the decision and production handoff." %}</li>
-          </ul>
+          <span class="sbx-step-number">03</span>
+          <div>
+            <span class="sbx-step-phase">{% translate "Build" %}</span>
+            <h3>{% translate "Implement the core integration flows" %}</h3>
+            <p>{% translate "Integrate with APIs across the milestones, UHI and NHCX as required by your solution. Use the integration guides, code payloads and skill files as you build." %}</p>
+          </div>
+        </li>
+        <li>
+          <span class="sbx-step-number">04</span>
+          <div>
+            <span class="sbx-step-phase">{% translate "Test" %}</span>
+            <h3>{% translate "Simulate & validate end to end" %}</h3>
+            <p>{% translate "Complete functional testing for your workflows, cover error paths and check your requests against ABDM specifications and FHIR R4." %}</p>
+          </div>
+        </li>
+        <li>
+          <span class="sbx-step-number">05</span>
+          <div>
+            <span class="sbx-step-phase">{% translate "Certify · Go-live" %}</span>
+            <h3>{% translate "Certify and go live" %}</h3>
+            <p>{% translate "Package and submit evidence of gateway integration completion for review. Complete the required testing and security audit, then receive production access upon approval." %}</p>
+          </div>
+        </li>
+        <li>
+          <span class="sbx-step-number">06</span>
+          <div>
+            <span class="sbx-step-phase">{% translate "Explore" %}</span>
+            <h3>{% translate "Continue using the sandbox" %}</h3>
+            <p>{% translate "Keep using the sandbox after going live to test new workflows, join events and explore new use cases." %}</p>
+          </div>
         </li>
       </ol>
-      <div class="landing-section-end">
-        <span>{% translate "From your first request to a reviewable integration." %}</span>
-        <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/going-live">{% translate "How going live works" %} <span aria-hidden="true">→</span>
-        </a>
-      </div>
     </div>
   </section>
-  <section id="milestones"
-           class="landing-section landing-milestones"
-           aria-labelledby="milestones-title">
-    <div class="marketing-container">
-      <p class="marketing-eyebrow">{% translate "Milestones" %}</p>
-      <h2 id="milestones-title" class="landing-heading">{% translate "Four milestones." %}</h2>
-      <p class="landing-section-lede">{% translate "Health records stay in the system that created them. The network connects identity, consent and secure exchange. Build the milestones that apply to your product." %}</p>
-      <div class="landing-milestone-grid">
-        <a class="landing-milestone"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m1">
-          <span class="landing-milestone-letter" aria-hidden="true">C</span>
-          <span class="marketing-eyebrow">M1 <span aria-hidden="true">↗&#xFE0E;</span>
-          </span>
-          <h3>{% translate "Create" %}</h3>
-          <p>{% translate "Create and verify the patient’s ABHA, the identity their records connect to." %}</p>
-          <div>
-            <span>{% translate "Gets you" %}</span>
-            <strong>{% translate "ABHA identity and verification" %}</strong>
-          </div>
-        </a>
-        <a class="landing-milestone"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m2">
-          <span class="landing-milestone-letter" aria-hidden="true">A</span>
-          <span class="marketing-eyebrow">M2 <span aria-hidden="true">↗&#xFE0E;</span>
-          </span>
-          <h3>{% translate "Attach" %}</h3>
-          <p>{% translate "Attach the records you hold to that identity: care contexts, linking and sharing as a HIP." %}</p>
-          <div>
-            <span>{% translate "Gets you" %}</span>
-            <strong>{% translate "Linking and sharing records" %}</strong>
-          </div>
-        </a>
-        <a class="landing-milestone"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m3">
-          <span class="landing-milestone-letter" aria-hidden="true">R</span>
-          <span class="marketing-eyebrow">M3 <span aria-hidden="true">↗&#xFE0E;</span>
-          </span>
-          <h3>{% translate "Retrieve" %}</h3>
-          <p>{% translate "Retrieve records held elsewhere, with the patient’s consent, as a Health Information User." %}</p>
-          <div>
-            <span>{% translate "Gets you" %}</span>
-            <strong>{% translate "Consent and record fetching" %}</strong>
-          </div>
-        </a>
-        <a class="landing-milestone"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m4">
-          <span class="landing-milestone-letter" aria-hidden="true">E</span>
-          <span class="marketing-eyebrow">M4 <span aria-hidden="true">↗&#xFE0E;</span>
-          </span>
-          <h3>{% translate "Enrol" %}</h3>
-          <p>{% translate "Register your facility in the Health Facility Registry and connect it to your integration." %}</p>
-          <div>
-            <span>{% translate "Gets you" %}</span>
-            <strong>{% translate "Health Facility Registry registration" %}</strong>
-          </div>
-        </a>
-      </div>
-      <div id="phr-path" class="landing-phr-note">
-        <strong>{% translate "Building the patient’s app?" %}</strong>
-        <p>{% translate "Select the PHR track for ABHA identity (M1) and PHR services (PHR1), including record discovery, linking and consent." %} <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/p1">{% translate "Explore PHR documentation" %} <span aria-hidden="true">→</span>
-          </a>
-        </p>
-      </div>
-    </div>
-  </section>
-  <section id="paths"
-           class="landing-section landing-roles"
-           aria-labelledby="paths-title">
-    <div class="marketing-container landing-split">
-      <div>
-        <p class="marketing-eyebrow">{% translate "Which milestones you need" %}</p>
-        <h2 id="paths-title" class="landing-heading">{% translate "Roles, not kinds of software." %}</h2>
-        <p class="landing-section-lede">{% translate "Whoever holds a record and publishes it is the HIP. Whoever asks to read records they did not create is the HIU. Your product’s role shapes its integration path." %}</p>
-      </div>
-      <div class="landing-role-list">
-        <div class="landing-role">
-          <h3>{% translate "A facility or its software" %}</h3>
-          <p>{% translate "You hold and share records, and may also read records from other providers." %}</p>
-          <div class="landing-tags">
-            <span>M1</span>
-            <span>M2</span>
-            <span>M3</span>
-            <span>M4</span>
-          </div>
-        </div>
-        <div class="landing-role">
-          <h3>{% translate "A service that uses health records" %}</h3>
-          <p>{% translate "You request records you did not create, with the patient’s consent. Select the capabilities that apply to your product." %}</p>
-          <div class="landing-tags">
-            <span>M1</span>
-            <span>M2</span>
-            <span>M3</span>
-          </div>
-        </div>
-        <div class="landing-role">
-          <h3>{% translate "A citizen, through a PHR app" %}</h3>
-          <p>{% translate "The same network from the patient’s side: identity, record discovery and consent control." %}</p>
-          <div class="landing-tags">
-            <span>M1</span>
-            <span>PHR1</span>
-          </div>
-        </div>
-        <p class="landing-other-gateways">{% translate "Other gateways" %}<a href="https://abdm-docs.dev.eka.care/docs/uhi/v1">UHI · {% translate "Health services" %} <span aria-hidden="true">↗&#xFE0E;</span>
-          </a>
-          <a href="https://abdm-docs.dev.eka.care/docs/nhcx/v1">NHCX · {% translate "Insurance claims" %} <span aria-hidden="true">↗&#xFE0E;</span>
-          </a>
-        </p>
-      </div>
-    </div>
-  </section>
-  <section id="ai" class="landing-section landing-ai" aria-labelledby="ai-title">
-    <div class="marketing-container">
-      <p class="marketing-eyebrow">{% translate "Build with AI" %}</p>
-      <h2 id="ai-title" class="landing-heading">{% translate "Give your coding agent the whole picture." %}</h2>
-      <p class="landing-section-lede">{% translate "Bring the documentation into the tools you already use. Connect your agent to the guides, endpoint references and milestone skills that support your integration." %}</p>
-      <div class="landing-ai-options">
+  <section class="sbx-resources"
+           aria-label="{% translate 'Developer resources' %}">
+    <div class="marketing-container sbx-resource-grid">
+      <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/first-fifteen-minutes">
+        <span class="sbx-resource-number">01</span>
         <div>
-          <span class="marketing-eyebrow">01</span>
-          <h3>{% translate "Docs MCP server" %}</h3>
-          <p>{% translate "Query the documentation as you work. Find an endpoint, look up an error code or check the shape of a request." %}</p>
+          <h2>{% translate "Make your first API call" %}</h2>
+          <p>{% translate "Start with the quickstart guide" %}</p>
         </div>
+        <span aria-hidden="true">↗&#xFE0E;</span>
+      </a>
+      <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/api">
+        <span class="sbx-resource-number">02</span>
         <div>
-          <span class="marketing-eyebrow">02</span>
-          <h3>{% translate "Agent setup" %}</h3>
-          <p>{% translate "Follow the setup guide for Claude Code, Cursor, Codex or another coding assistant. Start with one prompt." %}</p>
+          <h2>{% translate "Find the right endpoint" %}</h2>
+          <p>{% translate "Explore the API reference" %}</p>
         </div>
+        <span aria-hidden="true">↗&#xFE0E;</span>
+      </a>
+      <a href="https://abdm-docs.dev.eka.care/docs/support">
+        <span class="sbx-resource-number">03</span>
         <div>
-          <span class="marketing-eyebrow">03</span>
-          <h3>{% translate "Milestone skills" %}</h3>
-          <p>{% translate "Give your agent a focused reference for the job: identity, linking, consent, registries or FHIR bundles." %}</p>
+          <h2>{% translate "Get a little guidance" %}</h2>
+          <p>{% translate "Find integration support" %}</p>
         </div>
-      </div>
-      <div class="landing-code-panel">
-        <div class="landing-code-header">
-          <span>
-            <span class="landing-code-dot" aria-hidden="true"></span>{% translate "Paste into your coding agent" %}</span>
-          <button type="button"
-                  data-copy-target="agent-setup-prompt"
-                  data-copied-label="{% translate 'Copied' %}"
-                  data-copy-fallback-label="{% translate 'Prompt selected. Use your keyboard or device menu to copy it.' %}"
-                  hidden>{% translate "Copy prompt" %} <span aria-hidden="true">⧉</span>
-          </button>
+        <span aria-hidden="true">↗&#xFE0E;</span>
+      </a>
+    </div>
+  </section>
+  <section class="sbx-final" aria-labelledby="start-title">
+    <div class="marketing-container">
+      <div class="sbx-final-panel">
+        <div>
+          <p class="sbx-eyebrow">{% translate "Start your integration" %}</p>
+          <h2 id="start-title">
+            {% translate "Ready to start" %}
+            <br />
+            {% translate "integrating?" %}
+          </h2>
+          <p>{% translate "Register for the Agentic AI Sandbox and explore the artefacts that guide you from M1 to go-live." %}</p>
         </div>
-        <p id="agent-setup-prompt" tabindex="-1">{% translate "Read https://abdm-docs.dev.eka.care/agent-setup/prompt.md and help me set up my agent for an ABDM integration." %}</p>
-        <div class="landing-code-footer">
-          <span>{% translate "Review generated code against the documentation and test it in the sandbox." %}</span>
-          <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/build-with-ai">{% translate "Agent setup guide" %} <span aria-hidden="true">↗&#xFE0E;</span>
+        <div class="sbx-final-actions">
+          <a class="marketing-button marketing-button--primary"
+             href="{% url 'account_signup' %}">{% translate "Register for Sandbox" %}
+            <span aria-hidden="true">→</span>
+          </a>
+          <a class="marketing-button marketing-button--secondary"
+             href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">{% translate "Read the overview" %}
+            <span aria-hidden="true">↗&#xFE0E;</span>
           </a>
         </div>
-      </div>
-      <div class="landing-skill-links"
-           aria-label="{% translate 'Agent skills' %}">
-        <a href="https://abdm-docs.dev.eka.care/skills/abdm-m1/SKILL.md">
-          <span>M1</span>{% translate "ABHA identity" %}</a>
-        <a href="https://abdm-docs.dev.eka.care/skills/abdm-m2/SKILL.md">
-          <span>M2</span>{% translate "Link and share" %}</a>
-        <a href="https://abdm-docs.dev.eka.care/skills/abdm-m3/SKILL.md">
-          <span>M3</span>{% translate "Consent and fetching" %}</a>
-        <a href="https://abdm-docs.dev.eka.care/skills/abdm-m4/SKILL.md">
-          <span>M4</span>{% translate "Registries" %}</a>
-        <a href="https://abdm-docs.dev.eka.care/skills/abdm-phr-services/SKILL.md">
-          <span>PHR</span>{% translate "PHR services" %}</a>
-        <a href="https://abdm-docs.dev.eka.care/skills/abdm-fhir/SKILL.md">
-          <span>FHIR</span>{% translate "FHIR bundles" %}</a>
-      </div>
-    </div>
-  </section>
-  <section id="products"
-           class="landing-section landing-products"
-           aria-labelledby="products-title">
-    <div class="marketing-container">
-      <p class="marketing-eyebrow">{% translate "The developer experience" %}</p>
-      <h2 id="products-title" class="landing-heading">{% translate "Everything you build against, in one place." %}</h2>
-      <p class="landing-section-lede">{% translate "Find the documentation, agent tools and reference projects for your next integration." %}</p>
-      <div class="landing-product-grid">
-        <a class="landing-product"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">
-          <span class="marketing-eyebrow">01 <span aria-hidden="true">↗&#xFE0E;</span>
-          </span>
-          <h3>{% translate "Documentation site" %}</h3>
-          <p>{% translate "Versioned guides, API references, milestones, errors and change logs for HIE-CM, UHI and NHCX. Public pages your team and your agent can read." %}</p>
-          <div>
-            <span class="landing-status">{% translate "Available" %}</span>
-            <strong>{% translate "Open the docs" %} <span aria-hidden="true">→</span>
-            </strong>
-          </div>
-        </a>
-        <a class="landing-product" href="#ai">
-          <span class="marketing-eyebrow">02 <span aria-hidden="true">↗&#xFE0E;</span>
-          </span>
-          <h3>{% translate "Agent integration tools" %}</h3>
-          <p>{% translate "Milestone skills, FHIR references and a Docs MCP server. Give the coding agent you already use the context it needs to help you build." %}</p>
-          <div>
-            <span class="landing-status">{% translate "Available" %}</span>
-            <strong>{% translate "Build with AI" %} <span aria-hidden="true">→</span>
-            </strong>
-          </div>
-        </a>
-        <a class="landing-product"
-           href="https://abdm-docs.dev.eka.care/docs/nhcx/v1">
-          <span class="marketing-eyebrow">03 <span aria-hidden="true">↗&#xFE0E;</span>
-          </span>
-          <h3>NHCX</h3>
-          <p>{% translate "A connected flow for health claims. Explore how payers, third-party administrators and providers exchange claims over the National Health Claims Exchange." %}</p>
-          <div>
-            <span class="landing-status">{% translate "Docs available" %}</span>
-            <strong>{% translate "NHCX documentation" %} <span aria-hidden="true">→</span>
-            </strong>
-          </div>
-        </a>
-        <a class="landing-product landing-product--planned"
-           href="https://github.com/ohcnetwork/care">
-          <span class="marketing-eyebrow">04 <span aria-hidden="true">↗&#xFE0E;</span>
-          </span>
-          <h3>{% translate "CARE reference environment" %}</h3>
-          <p>{% translate "A planned reference environment for exploring ABDM flows. Follow the open-source work and its progress on GitHub." %}</p>
-          <div>
-            <span class="landing-status landing-status--planned">{% translate "Planned" %}</span>
-            <strong>{% translate "Explore CARE" %} <span aria-hidden="true">→</span>
-            </strong>
-          </div>
-        </a>
-      </div>
-    </div>
-  </section>
-  <section class="landing-section landing-final" aria-labelledby="start-title">
-    <div class="marketing-container">
-      <p class="marketing-eyebrow">{% translate "Your next build starts here" %}</p>
-      <h2 id="start-title">{% translate "Create your sandbox account" %}<span>.</span>
-      </h2>
-      <p>{% translate "Bring your team, register your organisation or business and take the first step towards connecting your product to India’s health data network." %}</p>
-      <div class="marketing-actions">
-        <a class="marketing-button marketing-button--primary"
-           href="{% url 'account_signup' %}">{% translate "Create sandbox account" %} <span aria-hidden="true">→</span>
-        </a>
-        <a class="marketing-button"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/first-fifteen-minutes">{% translate "Read the quickstart" %} <span aria-hidden="true">↗&#xFE0E;</span>
-        </a>
       </div>
     </div>
   </section>

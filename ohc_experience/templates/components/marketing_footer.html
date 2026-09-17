@@ -1,45 +1,205 @@
 {% load static i18n %}
 
+<section class="marketing-institution-strip"
+         aria-label="{% translate 'Government of India institutions and initiatives' %}">
+  <div class="marketing-container">
+    <ul class="marketing-institution-logos" role="list">
+      <li>
+        <img src="{% static 'images/marketing/nha-logo-trim.png' %}"
+             alt="{% translate 'National Health Authority' %}"
+             width="132"
+             height="48"
+             loading="lazy" />
+      </li>
+      <li>
+        <img src="{% static 'images/marketing/mohfw-logo.png' %}"
+             alt="{% translate 'Ministry of Health and Family Welfare, Government of India' %}"
+             width="174"
+             height="68"
+             loading="lazy" />
+      </li>
+      <li>
+        <img src="{% static 'images/marketing/meity-logo.png' %}"
+             alt="{% translate 'Ministry of Electronics and Information Technology' %}"
+             width="192"
+             height="68"
+             loading="lazy" />
+      </li>
+      <li>
+        <img src="{% static 'images/marketing/india-gov-logo.png' %}"
+             alt="{% translate 'India.gov.in — The national portal of India' %}"
+             width="185"
+             height="64"
+             loading="lazy" />
+      </li>
+      <li>
+        <img src="{% static 'images/marketing/digital-india-logo.png' %}"
+             alt="{% translate 'Digital India — Power To Empower' %}"
+             width="133"
+             height="74"
+             loading="lazy" />
+      </li>
+    </ul>
+  </div>
+</section>
 <footer class="marketing-footer">
   <div class="marketing-container">
-    <div class="marketing-footer-grid">
-      <div class="marketing-footer-about">
-        <div class="marketing-footer-logos">
-          <img src="{% static 'images/marketing/nha-logo-trim.png' %}"
-               alt="{% translate 'National Health Authority' %}"
-               width="132"
-               height="48"
-               loading="lazy" />
-          <img src="{% static 'images/marketing/abdm-logo-trim.png' %}"
-               alt="{% translate 'Ayushman Bharat Digital Mission' %}"
-               width="102"
-               height="56"
-               loading="lazy" />
-        </div>
-        <p>{% translate "The ABDM Developer Sandbox is operated by the National Health Authority, Ministry of Health and Family Welfare, Government of India." %}</p>
-        <a href="https://abdm.gov.in/">{% translate "National Health Authority" %} <span aria-hidden="true">↗&#xFE0E;</span></a>
-        <a href="mailto:abdm@nha.gov.in">abdm@nha.gov.in</a>
+    <div class="marketing-footer-intro">
+      <div class="marketing-footer-logos">
+        <img src="{% static 'images/marketing/nha-logo-trim.png' %}"
+             alt="{% translate 'National Health Authority' %}"
+             width="132"
+             height="48"
+             loading="lazy" />
+        <img src="{% static 'images/marketing/abdm-logo-trim.png' %}"
+             alt="{% translate 'Ayushman Bharat Digital Mission' %}"
+             width="102"
+             height="56"
+             loading="lazy" />
       </div>
-      <nav aria-label="{% translate 'Developer links' %}">
-        <h2 class="marketing-eyebrow">{% translate "Developers" %}</h2>
-        <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">{% translate "Documentation" %}</a>
-        <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/api">{% translate "API reference" %}</a>
-        <a href="{% url 'home' %}#ai">{% translate "Build with AI" %}</a>
-        <a href="https://abdm-docs.dev.eka.care/docs/whats-new">{% translate "What’s new" %}</a>
-        <a href="https://abdm-docs.dev.eka.care/docs/support">{% translate "Support" %}</a>
-        <a href="https://github.com/nha-in">GitHub <span aria-hidden="true">↗&#xFE0E;</span></a>
+      <p>{% translate "The ABDM Developer Sandbox is operated by the National Health Authority, Ministry of Health and Family Welfare, Government of India." %}</p>
+    </div>
+    <div class="marketing-footer-grid">
+      <section class="marketing-footer-contact"
+               aria-labelledby="footer-contact-title">
+        <h2 id="footer-contact-title" class="marketing-eyebrow">{% translate "Contact" %}</h2>
+        <address>
+          <dl class="marketing-footer-contact-list">
+            <div>
+              <dt>{% translate "Address" %}</dt>
+              <dd>
+                {% translate "9th Floor, Tower-I, Jeevan Bharati Building, Connaught Place, New Delhi – 110 001" %}
+              </dd>
+            </div>
+            <div>
+              <dt>{% translate "Toll-free number" %}</dt>
+              <dd>
+                <a href="tel:1800114477">1800-11-4477</a>
+              </dd>
+            </div>
+            <div>
+              <dt>{% translate "Email" %}</dt>
+              <dd>
+                <a href="mailto:abdm@nha.gov.in">abdm@nha.gov.in</a>
+              </dd>
+            </div>
+          </dl>
+        </address>
+        <div class="marketing-footer-socials">
+          <h3 class="marketing-eyebrow">{% translate "Social Media" %}</h3>
+          <div class="marketing-footer-social-links">
+            <a href="https://www.facebook.com/AyushmanNHA"
+               aria-label="{% translate 'National Health Authority on Facebook' %}">
+              <svg width="20"
+                   height="20"
+                   viewBox="0 0 24 24"
+                   fill="currentColor"
+                   aria-hidden="true">
+                <path d="M22 12a10 10 0 1 0-11.5 9.87v-6.98H7.9V12h2.6V9.8c0-2.57 1.53-4 3.87-4 1.12 0 2.3.2 2.3.2v2.53h-1.3c-1.28 0-1.68.8-1.68 1.62V12h2.86l-.46 2.89h-2.4v6.98A10 10 0 0 0 22 12Z" />
+              </svg>
+            </a>
+            <a href="https://www.youtube.com/channel/UCkd7w2rww0HQB4lZ-l3dB6g"
+               aria-label="{% translate 'National Health Authority on YouTube' %}">
+              <svg width="21"
+                   height="21"
+                   viewBox="0 0 24 24"
+                   fill="currentColor"
+                   aria-hidden="true">
+                <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.2 3.6-6.2 3.6Z" />
+              </svg>
+            </a>
+            <a href="https://x.com/AyushmanNHA"
+               aria-label="{% translate 'National Health Authority on X' %}">
+              <svg width="18"
+                   height="18"
+                   viewBox="0 0 24 24"
+                   fill="currentColor"
+                   aria-hidden="true">
+                <path d="M18.24 3H21l-6.55 7.49L22 21h-6.19l-4.84-6.33L5.4 21H2.63l7.02-8.03L2 3h6.34l4.37 5.78L18.24 3Zm-1.08 16h1.53L7 5h-1.6l11.76 14Z" />
+              </svg>
+            </a>
+            <a href="https://www.instagram.com/ayushmannha/"
+               aria-label="{% translate 'National Health Authority on Instagram' %}">
+              <svg width="20"
+                   height="20"
+                   viewBox="0 0 24 24"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="1.8"
+                   aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="5" />
+                <circle cx="12" cy="12" r="4.2" />
+                <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+              </svg>
+            </a>
+            <a href="https://www.linkedin.com/company/ayushmannha"
+               aria-label="{% translate 'National Health Authority on LinkedIn' %}">
+              <svg width="19"
+                   height="19"
+                   viewBox="0 0 24 24"
+                   fill="currentColor"
+                   aria-hidden="true">
+                <path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2 3.77-2 4.03 0 4.78 2.65 4.78 6.1V21H17.4v-5.3c0-1.27-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21H9.6V9Z" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+      <nav class="marketing-footer-links"
+           aria-label="{% translate 'Important links' %}">
+        <h2 class="marketing-eyebrow">{% translate "Important Links" %}</h2>
+        <a href="https://www.mohfw.gov.in/">{% translate "Ministry of Health and Family Welfare" %}</a>
+        <a href="https://abha.abdm.gov.in/">{% translate "Ayushman Bharat Health Account (ABHA)" %}</a>
+        <a href="https://nhpr.abdm.gov.in/">{% translate "Healthcare Professionals Registry (HPR)" %}</a>
+        <a href="https://facility.abdm.gov.in/">{% translate "Health Facility Registry (HFR)" %}</a>
+        <a href="https://grievance.abdm.gov.in/">{% translate "Grievance Portal" %}</a>
+        <a href="mailto:abdm@nha.gov.in?subject=Website%20feedback">{% translate "Tell us what you think of our website" %}</a>
+        <a href="mailto:abdm@nha.gov.in?subject=Feedback%20or%20suggestion">{% translate "Feedback/Suggestion" %}</a>
       </nav>
-      <nav aria-label="{% translate 'Important links' %}">
-        <h2 class="marketing-eyebrow">{% translate "Important links" %}</h2>
-        <a href="https://www.mohfw.gov.in/">{% translate "Ministry of Health & Family Welfare" %}</a>
-        <a href="https://abha.abdm.gov.in/">{% translate "Ayushman Bharat Health Account" %}</a>
-        <a href="https://nhpr.abdm.gov.in/">{% translate "Healthcare Professionals Registry" %}</a>
-        <a href="https://facility.abdm.gov.in/">{% translate "Health Facility Registry" %}</a>
-        <a href="https://grievance.abdm.gov.in/">{% translate "Grievance portal" %}</a>
-      </nav>
+      <section class="marketing-footer-policies"
+               aria-labelledby="footer-policies-title">
+        <h2 id="footer-policies-title" class="marketing-eyebrow">{% translate "Policies" %}</h2>
+        <ul class="marketing-footer-policy-list" role="list">
+          <li><span>{% translate "Terms & Conditions" %}</span></li>
+          <li><span>{% translate "Website Policy" %}</span></li>
+          <li><span>{% translate "Data Privacy Policy" %}</span></li>
+          <li><a href="https://abdm.gov.in/publications/policies_regulations/health_data_management_policy">{% translate "Health Data Management Policy" %}</a></li>
+          <li><a href="https://abdm.gov.in/abha-PRIVACY-POLICY-english">{% translate "ABDM Health Records (PHR) Mobile App Privacy Policy" %}</a></li>
+          <li><span>{% translate "ABDM Health Records (PHR) Mobile App Privacy Policy (Hindi)" %}</span></li>
+        </ul>
+        <a class="marketing-footer-policy-source" href="https://abdm.gov.in/">{% translate "Visit the official ABDM website" %} <span aria-hidden="true">↗&#xFE0E;</span></a>
+      </section>
+      <section class="marketing-footer-app" aria-labelledby="footer-app-title">
+        <h2 id="footer-app-title" class="marketing-eyebrow">{% translate "Aarogya Setu App" %}</h2>
+        <p>
+          {% translate "Download the Aarogya Setu app" %}
+          <br />
+          <em>{% translate "Bharat ka health app" %}</em>
+        </p>
+        <figure class="marketing-footer-qr">
+          <a href="https://abdm.gov.in/arogya-setu/app-intro">
+            <img src="{% static 'images/marketing/aarogya-setu-qr.png' %}"
+                 alt="{% translate 'Aarogya Setu app download QR code' %}"
+                 width="120"
+                 height="116"
+                 loading="lazy" />
+          </a>
+          <figcaption>{% translate "Scan with your phone camera to install." %}</figcaption>
+        </figure>
+        <div class="marketing-footer-store-links">
+          <a class="marketing-footer-store-link"
+             href="https://play.google.com/store/apps/details?id=nic.goi.aarogyasetu">
+            <span>{% translate "GET IT ON" %}</span><strong>Google Play</strong>
+          </a>
+          <a class="marketing-footer-store-link"
+             href="https://apps.apple.com/in/app/aarogyasetu-2-0/id1505825357">
+            <span>{% translate "Download on the" %}</span><strong>App Store</strong>
+          </a>
+        </div>
+      </section>
     </div>
     <div class="marketing-footer-bottom">
-      <p>© {% now "Y" %} {% translate "National Health Authority, Government of India." %}</p>
+      <p>© {% now "Y" %} {% translate "National Health Authority, Government of India. All rights reserved." %}</p>
       <div class="marketing-partners">
         <span>{% translate "Built in open source with" %}</span>
         <div>

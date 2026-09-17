@@ -1,0 +1,133 @@
+.marketing-institution-strip {
+  background: #fff;
+  border-block: 1px solid #dce6df;
+}
+
+.marketing-institution-logos {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  gap: 36px;
+  margin: 0;
+  padding: 34px 0;
+  list-style: none;
+}
+
+.marketing-institution-logos > li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.marketing-institution-logos img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 64px;
+  object-fit: contain;
+}
+
+.marketing-footer-social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.marketing-shell .marketing-footer .marketing-footer-social-links > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #718776;
+  border-radius: 7px;
+  background: #fff;
+  color: #174e35;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.marketing-shell .marketing-footer .marketing-footer-social-links > a:hover {
+  border-color: #174e35;
+  background: #174e35;
+  color: #fff;
+  text-decoration: none;
+}
+
+.marketing-shell .marketing-footer .marketing-footer-social-links > a:focus-visible {
+  outline: 3px solid #174e35;
+  outline-offset: 3px;
+}
+
+.marketing-footer-social-links svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+  .marketing-institution-logos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 28px 36px;
+    padding-block: 28px;
+  }
+
+  .marketing-institution-logos > li {
+    flex: 0 1 150px;
+    min-height: 64px;
+  }
+
+  .marketing-institution-logos img {
+    max-height: 56px;
+  }
+}
+
+@media (max-width: 420px) {
+  .marketing-institution-logos {
+    column-gap: 24px;
+  }
+
+  .marketing-institution-logos > li {
+    flex-basis: calc(50% - 12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-shell .marketing-footer .marketing-footer-social-links > a {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .marketing-institution-logos img {
+    forced-color-adjust: none;
+    background: #fff;
+  }
+
+  .marketing-shell .marketing-footer .marketing-footer-social-links > a {
+    border-color: ButtonText;
+    background: Canvas;
+    color: LinkText;
+  }
+
+  .marketing-shell .marketing-footer .marketing-footer-social-links > a:hover {
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .marketing-shell .marketing-footer .marketing-footer-social-links > a:focus-visible {
+    outline-color: Highlight;
+  }
+}
