@@ -85,7 +85,11 @@ def test_register_another_product_keeps_new_defaults(environment, client):
     assert b"About Clinic HMIS" in response.content
     assert b"data-popover" in response.content
     assert b"data-popover-panel" in response.content
-    assert b"#hmis-his-hims" in response.content
+    assert b"/concepts/hip-hiu" in response.content
+    assert b"/concepts/participants/pharmacy" in response.content
+    assert b"/concepts/phr" in response.content
+    assert b"/concepts/participants/insurer" in response.content
+    assert b"/uhi/v1/getting-started/onboarding" in response.content
 
 
 def milestone_rows(form):

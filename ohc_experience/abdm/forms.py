@@ -233,11 +233,11 @@ class ProductRegistrationForm(ReviewForm):
         ),
         "pharmacy": (
             "A system that manages pharmacy dispensing and medication records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/participants/pharmacy",
         ),
         "phr": (
             "An application that helps people access and control their health records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/p1",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr",
         ),
         "health_locker": (
             "A service that stores and retrieves personal health records.",
@@ -245,23 +245,23 @@ class ProductRegistrationForm(ReviewForm):
         ),
         "healthtech": (
             "A digital health product integrating with ABDM services.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
         ),
         "insurance": (
             "A payer or insurer that exchanges health insurance claims.",
-            "https://abdm-docs.dev.eka.care/docs/nhcx/v1",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/participants/insurer",
         ),
         "telemedicine": (
             "A service that delivers healthcare remotely through digital channels.",
-            "https://abdm-docs.dev.eka.care/docs/uhi/v1",
+            "https://abdm-docs.dev.eka.care/docs/uhi/v1/getting-started/onboarding",
         ),
         "govt_program": (
             "A government programme that integrates with ABDM services.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
         ),
         "other": (
             "A solution type not listed above. Describe it in the field that appears.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
         ),
     }
 
