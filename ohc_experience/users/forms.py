@@ -19,7 +19,9 @@ from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 
 from .captcha import SignupVerificationMixin
+from .fields import INDIA
 from .models import User
+from .stages import PENDING_MOBILE_NUMBER_SESSION_KEY
 
 MIN_PASSWORD_LENGTH = 12
 MOBILE_NUMBER_LENGTH = 10
@@ -226,8 +228,12 @@ class UserSignupForm(
     def save(self, request):
         user = super().save(request)
         user.name = self.cleaned_data["name"].strip()
-        user.phone_number = self.cleaned_data["mobile_number"].strip()
-        user.save(update_fields=["name", "phone_number"])
+        user.save(update_fields=["name"])
+        # The field takes the ten digits; the gateway needs the country code.
+        request.session[PENDING_MOBILE_NUMBER_SESSION_KEY] = {
+            "user_id": user.pk,
+            "phone": f"{INDIA}{self.cleaned_data['mobile_number']}",
+        }
         self.attach_organisation(user)
         return user
 

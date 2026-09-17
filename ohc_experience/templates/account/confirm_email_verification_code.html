@@ -1,0 +1,23 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  Signup's email code, in the signed-out shell. Signed in, the settings
+  version of this screen is used instead. Context adds: email.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Confirm your email address" %}
+{% endblock title %}
+{% block entrance_title %}
+  {% translate "Confirm your email address" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% blocktranslate trimmed %}
+    We emailed a code to {{ email }}. It expires shortly, so use it soon. If it has not arrived in a few minutes, check your spam folder.
+  {% endblocktranslate %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  {% translate "Sent to the wrong address?" as change_title %}
+  {% include "account/partials/confirm_code.html" %}
+{% endblock entrance_body %}

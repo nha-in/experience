@@ -2,8 +2,8 @@
 
 {% comment %}
   Settings → Your profile. The only editable thing here is the person's name;
-  email and password live behind allauth's own screens, so this page links out
-  to them rather than duplicating those flows.
+  email, mobile number and password live behind allauth's own screens, so this
+  page links out to them rather than duplicating those flows.
 
   The form itself lives in partials/profile_form.html, because that fragment is
   what htmx swaps back in after a save.
@@ -23,9 +23,29 @@
     </div>
     {% include "users/partials/profile_form.html" %}
     <div class="ui-card-content flex flex-col gap-3 border-t border-border pt-5">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {% if request.user.phone_number %}
+          <span class="text-sm font-medium text-foreground">{{ request.user.phone_number }}</span>
+          {% if request.user.phone_verified %}
+            <span class="ui-badge ui-badge--success ui-badge--size-sm">{% translate "Verified" %}</span>
+          {% else %}
+            <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Unverified" %}</span>
+          {% endif %}
+        {% else %}
+          <span class="text-sm text-soft-foreground">{% translate "No mobile number" %}</span>
+        {% endif %}
+      </div>
       <div class="flex flex-wrap gap-2">
         <a class="ui-btn ui-btn--outline ui-btn--size-sm"
            href="{% url 'account_email' %}">{% translate "Change email" %}</a>
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm"
+           href="{% url 'account_change_phone' %}">
+          {% if request.user.phone_number %}
+            {% translate "Change mobile number" %}
+          {% else %}
+            {% translate "Add mobile number" %}
+          {% endif %}
+        </a>
         <a class="ui-btn ui-btn--outline ui-btn--size-sm"
            href="{% url 'account_change_password' %}">{% translate "Change password" %}</a>
       </div>

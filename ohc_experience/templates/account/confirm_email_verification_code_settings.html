@@ -1,0 +1,28 @@
+{% extends "account/base_manage_email.html" %}
+
+{% comment %}
+  Confirming an address added from Settings → Email addresses, in the app
+  shell. Signup uses the signed-out version of this screen.
+  Context: verify_form, change_form, can_resend, can_change, cancel_url, email.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Confirm your email address" %}
+{% endblock title %}
+{% block settings_content %}
+  <div class="ui-card">
+    <div class="ui-card-header">
+      <h2 class="ui-card-title">{% translate "Confirm your email address" %}</h2>
+      <p class="ui-card-description">
+        {% blocktranslate trimmed %}
+          We emailed a code to {{ email }}. It expires shortly, so use it soon.
+        {% endblocktranslate %}
+      </p>
+    </div>
+    <div class="ui-card-content flex flex-col gap-4">
+      {% translate "Sent to the wrong address?" as change_title %}
+      {% include "account/partials/confirm_code.html" %}
+    </div>
+  </div>
+{% endblock settings_content %}

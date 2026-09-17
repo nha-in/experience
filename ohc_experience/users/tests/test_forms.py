@@ -11,18 +11,21 @@ import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import InvitationFactory
+from ohc_experience.users.fields import MobileNumberField
 from ohc_experience.users.forms import UserAdminCreationForm
 from ohc_experience.users.forms import UserChangePasswordForm
 from ohc_experience.users.forms import UserProfileForm
 from ohc_experience.users.forms import UserResetPasswordKeyForm
 from ohc_experience.users.forms import UserSetPasswordForm
 from ohc_experience.users.forms import UserSignupForm
+from ohc_experience.users.stages import PENDING_MOBILE_NUMBER_SESSION_KEY
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -248,16 +251,39 @@ class TestUserProfileForm:
 
 
 class TestSignupContactDetails:
-    """The mockup's signup card asks for a mobile number; it must reach the user."""
+    """The mockup's signup card asks for a mobile number; it is saved once confirmed."""
 
     @pytest.mark.django_db
-    def test_stores_the_mobile_number(self, rf: RequestFactory):
+    def test_holds_the_mobile_number_until_a_code_confirms_it(
+        self,
+        rf: RequestFactory,
+    ):
         form = UserSignupForm(data=SIGNUP_DATA)
+        request = signup_request(rf)
 
         assert form.is_valid(), form.errors
-        user = form.save(signup_request(rf))
+        user = form.save(request)
 
-        assert user.phone_number == SIGNUP_DATA["mobile_number"]
+        assert user.phone_number == ""
+        assert request.session[PENDING_MOBILE_NUMBER_SESSION_KEY] == {
+            "user_id": user.pk,
+            "phone": "+919876543210",
+        }
+
+    @pytest.mark.parametrize(
+        "typed",
+        ["9876543210", "+91 98765 43210", "919876543210", "098765-43210"],
+    )
+    def test_cleans_an_indian_mobile_number(self, typed: str):
+        assert MobileNumberField().clean(typed) == "+919876543210"
+
+    @pytest.mark.parametrize(
+        "typed",
+        ["12345", "5876543210", "+1 415 555 0100", "98765432101"],
+    )
+    def test_rejects_anything_but_an_indian_mobile_number(self, typed: str):
+        with pytest.raises(ValidationError):
+            MobileNumberField().clean(typed)
 
     @pytest.mark.django_db
     def test_requires_a_mobile_number(self):

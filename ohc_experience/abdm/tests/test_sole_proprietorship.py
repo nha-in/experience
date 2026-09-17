@@ -4,6 +4,7 @@ from importlib import import_module
 import pytest
 from django.apps import apps
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client
 from django.urls import reverse
 
 from ohc_experience.abdm.demo import organisation_data
@@ -115,7 +116,9 @@ def test_the_migration_fills_the_type_from_the_latest_submission_else_signup(
         files=verification_document(),
         submit=True,
     )
-    signed_up = sign_up(client, "government", name="Signed Up Health")
+    # A pending verification code owns the session, so the second signup
+    # needs its own client.
+    signed_up = sign_up(Client(), "government", name="Signed Up Health")
     review = workflows.organisation_review(signed_up, signed_up.owner)
     review.form.metadata["entity_type"] = "government"
     review.form.save(update_fields=["metadata"])

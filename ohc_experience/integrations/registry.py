@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from ohc_experience.integrations.ports import ApiGateway
     from ohc_experience.integrations.ports import BridgeRegistry
     from ohc_experience.integrations.ports import IdpAdmin
+    from ohc_experience.integrations.ports import NotificationGateway
 
 
 def _build(port: str) -> object:
@@ -49,3 +50,7 @@ def get_api_gateway() -> ApiGateway:
 
 def get_bridge_registry() -> BridgeRegistry:
     return cast("BridgeRegistry", _build("BRIDGE_REGISTRY"))
+
+
+def get_notification_gateway() -> NotificationGateway:
+    return cast("NotificationGateway", _build("NOTIFICATION"))

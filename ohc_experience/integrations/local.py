@@ -12,6 +12,7 @@ and the retry button can be rehearsed without breaking anything real.
 
 from __future__ import annotations
 
+import logging
 import secrets
 import time
 import uuid
@@ -30,8 +31,11 @@ from ohc_experience.integrations.ports import ClientSpec
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.ports import GatewayAppCreated
 from ohc_experience.integrations.ports import GatewayAppSpec
+from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.ports import SecretRotated
 from ohc_experience.integrations.secret_ref import resolve_secret
+
+logger = logging.getLogger(__name__)
 
 _PREFIX = "local_integrations"
 _CONTROL_KEY = f"{_PREFIX}:control"
@@ -316,3 +320,33 @@ class LocalBridgeRegistry:
                 DEFAULT_BRIDGE_ACTIVATION_DELAY,
             ),
         )
+
+
+class LocalNotificationGateway:
+    """Keeps each message instead of sending it. Under DEBUG it also logs the
+    values, so a verification code can be read off the runserver console."""
+
+    def send(self, message: NotificationMessage) -> None:
+        _guard(ExternalSystem.NOTIFICATION, "send")
+        store = _store(ExternalSystem.NOTIFICATION)
+        store.setdefault("sent", []).append(
+            {
+                "channel": message.channel.value,
+                "receiver": message.receiver,
+                "template_id": message.template_id,
+                "subject": message.subject,
+                "values": list(message.values),
+                "content_type": message.content_type.value,
+            },
+        )
+        _save(ExternalSystem.NOTIFICATION, store)
+        if settings.DEBUG:
+            logger.info(
+                "%s to %s: %s",
+                message.subject,
+                message.receiver,
+                ", ".join(message.values),
+            )
+
+    def sent(self) -> list[dict[str, Any]]:
+        return _store(ExternalSystem.NOTIFICATION).get("sent", [])

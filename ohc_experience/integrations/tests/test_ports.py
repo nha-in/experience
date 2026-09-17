@@ -6,6 +6,7 @@ import dataclasses
 
 import pytest
 
+from ohc_experience.integrations.models import ProvisionedSystem
 from ohc_experience.integrations.ports import AdapterError
 from ohc_experience.integrations.ports import ApiGateway
 from ohc_experience.integrations.ports import BridgeCreated
@@ -18,7 +19,18 @@ from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.ports import GatewayAppCreated
 from ohc_experience.integrations.ports import GatewayAppSpec
 from ohc_experience.integrations.ports import IdpAdmin
+from ohc_experience.integrations.ports import NotificationChannel
+from ohc_experience.integrations.ports import NotificationGateway
+from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.ports import SecretRotated
+
+OTP_MESSAGE = NotificationMessage(
+    channel=NotificationChannel.SMS,
+    receiver="9999999999",
+    template_id="1007164181681962323",
+    subject="Mobile verification",
+    values=("s3cret",),
+)
 
 
 @pytest.mark.parametrize(
@@ -26,6 +38,7 @@ from ohc_experience.integrations.ports import SecretRotated
     [
         ClientCreated(client_id="SBX-1", external_id="uuid", initial_secret="s3cret"),  # noqa: S106
         SecretRotated(external_id="uuid", secret="s3cret"),  # noqa: S106
+        OTP_MESSAGE,
     ],
 )
 def test_secret_carrying_dtos_never_render_the_secret(secret_dto):
@@ -49,6 +62,7 @@ def test_secret_carrying_dtos_never_render_the_secret(secret_dto):
         ),
         BridgeCreated(bridge_id="SBX-1"),
         BridgeStatus(bridge_id="SBX-1", active=True),
+        OTP_MESSAGE,
     ],
 )
 def test_dtos_are_frozen(dto):
@@ -66,7 +80,7 @@ def test_roles_are_named_not_identified():
 
 
 def test_external_system_covers_every_provisioned_system():
-    assert {s.value for s in ExternalSystem} == {"KEYCLOAK", "WSO2", "HIECM"}
+    assert set(ProvisionedSystem.values) <= {s.value for s in ExternalSystem}
 
 
 @pytest.mark.parametrize(
@@ -75,6 +89,7 @@ def test_external_system_covers_every_provisioned_system():
         (IdpAdmin, {"create_client", "rotate_client_secret", "disable_client"}),
         (ApiGateway, {"create_application", "subscribe", "map_keys", "unsubscribe"}),
         (BridgeRegistry, {"create_bridge", "get_bridge_status", "deactivate_bridge"}),
+        (NotificationGateway, {"send"}),
     ],
 )
 def test_ports_declare_their_operations(protocol, methods):
