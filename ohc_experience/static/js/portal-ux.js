@@ -79,7 +79,10 @@
   }
 
   function initialize() {
-    document.querySelectorAll('[data-permission-group]').forEach(updatePermissionSummary);
+    document.querySelectorAll('[data-permission-group]').forEach(group => {
+      updatePermissionLocks(group);
+      updatePermissionSummary(group);
+    });
     document.querySelectorAll('[data-password-toggle][hidden]').forEach(button => { button.hidden = false; });
     document.querySelectorAll('form:has([data-milestone-key])').forEach(form => {
       refreshMilestones(form);
@@ -146,6 +149,39 @@
     summary.classList.toggle('has-access', count > 0);
   }
 
+  // A wildcard tick already grants that action to every category, so the editor
+  // shows the column below it as granted and locks it. A locked box sends no
+  // value, and the form treats the wildcard tick as the read access instead.
+  function updatePermissionLocks(group) {
+    const wildcard = group.querySelector('[data-all-categories]');
+    if (!wildcard) return;
+    ['read', 'write', 'approve'].forEach(action => {
+      const locked = Boolean(wildcard.querySelector(`[data-permission-action="${action}"]`)?.checked);
+      group.querySelectorAll(`[data-permission-row]:not([data-all-categories]) [data-permission-action="${action}"]`).forEach(input => {
+        if (locked && !input.disabled) input.dataset.permissionChoice = String(input.checked);
+        if (locked) {
+          input.checked = true;
+        } else if (input.disabled) {
+          input.checked = input.dataset.permissionChoice === 'true';
+          delete input.dataset.permissionChoice;
+        }
+        input.disabled = locked;
+        const label = input.closest('label');
+        label?.classList.toggle('is-permission-implied', locked);
+        const note = label?.querySelector('.sr-only');
+        if (!note) return;
+        if (!note.dataset.permissionLabel) note.dataset.permissionLabel = note.textContent;
+        note.textContent = locked ? `${note.dataset.permissionLabel}, granted by all categories` : note.dataset.permissionLabel;
+      });
+    });
+    // An unlocked column can leave a row with write or approve but no read.
+    group.querySelectorAll('[data-permission-row]').forEach(row => {
+      const read = row.querySelector('[data-permission-action="read"]');
+      const others = [...row.querySelectorAll('[data-permission-action]')].filter(input => input !== read);
+      if (read && !read.checked && others.some(input => input.checked)) read.checked = true;
+    });
+  }
+
   function updatePermissionToggle(button) {
     const groups = [...button.closest('form').querySelectorAll('[data-permission-group]')];
     const expanded = groups.length > 0 && groups.every(group => group.open);
@@ -192,7 +228,10 @@
       read.checked = true;
     }
     const group = input.closest('[data-permission-group]');
-    if (group) updatePermissionSummary(group);
+    if (group) {
+      updatePermissionLocks(group);
+      updatePermissionSummary(group);
+    }
   });
   // A milestone opens once its prerequisite is ticked; unticking one clears
   // everything after it. The form re-checks this on submit regardless.

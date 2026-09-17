@@ -191,6 +191,34 @@ def test_edit_account_email_password_and_permissions_atomically(
     assert audit[1]["portal"]["permissions_before"][0]["category"] == "*"
 
 
+def test_wildcard_read_supplies_read_for_a_category_row(superadmin, staff, client):
+    # The editor locks the read column under a wildcard read tick, and a locked
+    # box sends no value. The category row must still save its approve access.
+    client.force_login(superadmin)
+    data = payload(
+        staff,
+        grants=[("review", "*", ["read"]), ("review", "HIE-CM", ["approve"])],
+    )
+    response = client.post(reverse("experiences:staff-edit", args=[staff.pk]), data)
+    assert response.status_code == 302
+    assert permissions.has_access(staff, "review", "HIE-CM", "approve")
+    assert permissions.has_access(staff, "review", "UHI")
+    assert not permissions.has_access(staff, "review", "UHI", "approve")
+    assert not permissions.has_area(staff, "support")
+    saved = staff.experience_access.get(area="review", category="HIE-CM")
+    assert saved.can_read
+    assert not saved.can_write
+
+
+def test_a_row_that_grants_nothing_is_not_saved(superadmin, staff):
+    save_staff(
+        superadmin,
+        payload(staff, grants=[("events", "*", ["read"])]),
+        pk=staff.pk,
+    )
+    assert [grant.category for grant in staff.experience_access.all()] == ["*"]
+
+
 @pytest.mark.parametrize(
     "invalid",
     [
