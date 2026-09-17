@@ -31,7 +31,8 @@ MILESTONES = {
             "m4",
             "M4",
             "HFR Registration",
-            description="Register your health facility and professionals for ABDM services.",
+            description="Register your health facility and professionals for "
+            "ABDM services.",
             docs_url="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m4",
         ),
         MilestoneDefinition(
@@ -46,8 +47,9 @@ MILESTONES = {
             "locker1",
             "HL1",
             "Health locker flows",
-            description="Store and retrieve personal health records in a health locker.",
-            docs_url="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#health-locker",
+            description="Store and retrieve personal health records in a health "
+            "locker.",
+            docs_url="https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
         ),
         MilestoneDefinition(
             "uhi1",
@@ -75,7 +77,7 @@ TRACKS = (
         "Health information & consent management",
         "ABHA identity, health information exchange and facility registration.",
         ("m1", "m2", "m3", "m4"),
-        "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#hmis-his-hims",
+        "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
     ),
     TrackDefinition(
         "UHI",
@@ -103,7 +105,7 @@ TRACKS = (
         "Health Locker",
         "Storage and retrieval of personal health records.",
         ("locker1",),
-        "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#health-locker",
+        "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
     ),
 )
 TRACK_MAP = {track.code: track for track in TRACKS}

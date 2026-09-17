@@ -220,15 +220,15 @@ class ProductRegistrationForm(ReviewForm):
     conditional_fields = {"solution_type_other": ("solution_type", "other")}
     solution_type_details = {
         "hmis": (
-            "A hospital information system that manages clinical and administrative records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#hmis-his-hims",
+            "A hospital system that manages clinical and administrative records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/hip-hiu",
         ),
         "clinical_hmis": (
             "A clinic information system that manages patient care and health records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#hmis-his-hims",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/hip-hiu",
         ),
         "lmis": (
-            "A laboratory information management system for lab operations and results.",
+            "A laboratory system for lab operations and test results.",
             "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#lmis",
         ),
         "pharmacy": (
@@ -241,7 +241,7 @@ class ProductRegistrationForm(ReviewForm):
         ),
         "health_locker": (
             "A service that stores and retrieves personal health records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#health-locker",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
         ),
         "healthtech": (
             "A digital health product integrating with ABDM services.",

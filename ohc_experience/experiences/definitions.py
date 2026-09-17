@@ -321,6 +321,8 @@ class ProgramDefinition:
     environment_name = "Application workspace"
     footer_note = ""
     docs_url = ""
+    #: Where "Milestone documentation" points. Falls back to docs_url.
+    milestones_docs_url = ""
     logo = ""
     authority_logo = ""
     authority_name = ""

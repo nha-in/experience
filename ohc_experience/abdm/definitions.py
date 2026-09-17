@@ -278,6 +278,7 @@ class ABDM(ProgramDefinition):
     environment_name = "Sandbox environment"
     footer_note = "Synthetic data only"
     docs_url = "https://abdm-docs.dev.eka.care/docs/hiecm/v3"
+    milestones_docs_url = "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones"
     logo = "images/abdm-logo.png"
     authority_logo = "images/nha-logo.png"
     authority_name = "National Health Authority"
