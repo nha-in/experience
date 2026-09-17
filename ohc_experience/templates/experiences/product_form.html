@@ -38,10 +38,10 @@
 {% block canvas_padding %}pt-0{% endblock %}
 {% block portal_content %}
   <div class="ui-float grid w-full items-start gap-6 {% if item %}max-w-[1084px] xl:grid-cols-[minmax(0,1fr)_300px]{% else %}max-w-[760px]{% endif %}">
-    <div class="ui-rise min-w-0 [animation-delay:.1s]">
+    <div class="ui-rise relative z-50 min-w-0 [animation-delay:.1s]">
       {% if not item or can_edit %}
         <form id="product-form"
-              class="ui-card ui-card--layered"
+            class="ui-card ui-card--layered ui-card--popover"
               method="post"
               data-unsaved-form
               novalidate>

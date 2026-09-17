@@ -225,10 +225,37 @@
     // Escape, the way a menu is expected to behave.
     (() => {
       const openSwitchers = () => document.querySelectorAll("details[data-popover][open]");
+      const positionPopover = (popover) => {
+        const panel = popover.querySelector("[data-popover-panel]");
+        if (!panel) return;
+        const margin = 8;
+        panel.style.right = "";
+        const panelRect = panel.getBoundingClientRect();
+        const shift = panelRect.left < margin
+          ? margin - panelRect.left
+          : panelRect.right > window.innerWidth - margin
+            ? window.innerWidth - margin - panelRect.right
+            : 0;
+        panel.style.right = shift ? `${-shift}px` : "";
+      };
       document.addEventListener("click", (event) => {
         openSwitchers().forEach((popover) => {
           if (!popover.contains(event.target)) popover.removeAttribute("open");
         });
+      });
+      document.addEventListener("mouseover", (event) => {
+        const popover = event.target.closest("details[data-popover]");
+        if (popover) positionPopover(popover);
+      });
+      document.addEventListener("focusin", (event) => {
+        const popover = event.target.closest("details[data-popover]");
+        if (popover) positionPopover(popover);
+      });
+      document.addEventListener("toggle", (event) => {
+        if (event.target.matches("details[data-popover]")) positionPopover(event.target);
+      }, true);
+      window.addEventListener("resize", () => {
+        openSwitchers().forEach(positionPopover);
       });
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") openSwitchers().forEach((popover) => {

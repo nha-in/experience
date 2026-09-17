@@ -86,6 +86,11 @@ def is_select(field: BoundField) -> bool:
     return isinstance(field.field.widget, _SELECT_WIDGETS)
 
 
+@register.filter
+def getitem(value, key):
+    return value.get(key, ())
+
+
 @register.inclusion_tag("components/form_field.html", takes_context=True)
 def ui_field(  # noqa: PLR0913, PLR0917
     context,

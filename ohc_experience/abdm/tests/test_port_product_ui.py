@@ -82,6 +82,10 @@ def test_register_another_product_keeps_new_defaults(environment, client):
     assert selected == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3", "HIE-CM:m4"]
     assert b"M1 required for enablement" in response.content
     assert b"Shared with" not in response.content
+    assert b"About Clinic HMIS" in response.content
+    assert b"data-popover" in response.content
+    assert b"data-popover-panel" in response.content
+    assert b"#hmis-his-hims" in response.content
 
 
 def milestone_rows(form):

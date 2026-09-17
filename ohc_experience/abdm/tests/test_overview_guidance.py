@@ -18,6 +18,9 @@ def test_progress_counts_shared_m1_only_once(client, environment):  # noqa: F811
     client.force_login(environment["applicant"])
     response = client.get(environment["workspace"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
+    assert (
+        b"https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones" in response.content
+    )
     assert response.context["progress"] == {
         "total": 7,
         "approved": 1,

@@ -218,6 +218,52 @@ def required_warning(labels):
 class ProductRegistrationForm(ReviewForm):
     full_width_fields = ("applied_milestones", "solution_type")
     conditional_fields = {"solution_type_other": ("solution_type", "other")}
+    solution_type_details = {
+        "hmis": (
+            "A hospital information system that manages clinical and administrative records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#hmis-his-hims",
+        ),
+        "clinical_hmis": (
+            "A clinic information system that manages patient care and health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#hmis-his-hims",
+        ),
+        "lmis": (
+            "A laboratory information management system for lab operations and results.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#lmis",
+        ),
+        "pharmacy": (
+            "A system that manages pharmacy dispensing and medication records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+        ),
+        "phr": (
+            "An application that helps people access and control their health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/p1",
+        ),
+        "health_locker": (
+            "A service that stores and retrieves personal health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#health-locker",
+        ),
+        "healthtech": (
+            "A digital health product integrating with ABDM services.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+        ),
+        "insurance": (
+            "A payer or insurer that exchanges health insurance claims.",
+            "https://abdm-docs.dev.eka.care/docs/nhcx/v1",
+        ),
+        "telemedicine": (
+            "A service that delivers healthcare remotely through digital channels.",
+            "https://abdm-docs.dev.eka.care/docs/uhi/v1",
+        ),
+        "govt_program": (
+            "A government programme that integrates with ABDM services.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+        ),
+        "other": (
+            "A solution type not listed above. Describe it in the field that appears.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+        ),
+    }
 
     sections = (
         (

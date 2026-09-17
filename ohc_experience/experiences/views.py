@@ -2085,6 +2085,7 @@ def ticket(request, reference):
     )
     ticket = get_object_or_404(query, reference=reference)
     workspace = ticket.product.workspace
+    track = workspace.definition.track_map().get(ticket.track)
     request.session["experience_product"] = workspace.reference
     resolving = request.POST.get("intent") == "close"
     form = SupportForm(
@@ -2125,6 +2126,11 @@ def ticket(request, reference):
             page_title=ticket.reference,
             nav="support",
             ticket=ticket,
+            ticket_docs_url=(
+                track.docs_url
+                if track and track.docs_url
+                else workspace.definition.docs_url
+            ),
             can_reply=permissions.can_reply_ticket(request.user, ticket),
             can_close=ticket.status != Status.CLOSED
             and permissions.can_close_ticket(request.user, ticket),

@@ -128,6 +128,10 @@
     box-shadow: var(--shadow-surface);
   }
 
+  .ui-card--popover {
+    @apply overflow-visible;
+  }
+
   .ui-card--sm {
     @apply gap-5 py-5;
   }

@@ -103,10 +103,6 @@
       <div class="ui-card-header">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="ui-card-title" id="reference-flows-title">Reference flows included</h2>
-          <a class="text-xs font-semibold text-primary no-underline hover:underline"
-             href="{{ experience_program.docs_url }}"
-             target="_blank"
-             rel="noopener noreferrer">Milestone documentation ↗&#xFE0E;</a>
         </div>
         <p class="ui-card-description">Each flow follows its milestone's documentation.</p>
       </div>
@@ -116,7 +112,10 @@
             {% for name in names %}
               <li class="bg-card px-4 py-3.5">
                 <p class="font-mono text-xs text-soft-foreground">{{ milestone.code }}</p>
-                <p class="mt-1 text-sm font-medium">{{ name }}</p>
+                <a class="mt-1 block text-sm font-medium hover:text-primary hover:underline"
+                   href="{{ milestone.docs_url|default:experience_program.docs_url }}"
+                   target="_blank"
+                   rel="noopener noreferrer">{{ name }} <span aria-hidden="true">↗&#xFE0E;</span></a>
               </li>
             {% endfor %}
           {% endfor %}

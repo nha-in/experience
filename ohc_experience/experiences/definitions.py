@@ -175,6 +175,8 @@ class MilestoneDefinition:
     code: str
     name: str
     predecessor: str = ""
+    description: str = ""
+    docs_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -183,6 +185,7 @@ class TrackDefinition:
     name: str
     description: str
     keys: tuple[str, ...]
+    docs_url: str = ""
 
     def prerequisites(self, milestones):
         """Other tracks' milestones this track builds on, directly or not."""

@@ -199,6 +199,24 @@ def test_generic_portal_renders_other_program(equipment, owner_membership, clien
     assert b"Request for exit" not in response.content
 
 
+def test_product_registration_links_each_track_to_its_documentation(
+    owner_membership,
+    client,
+):
+    client.force_login(owner_membership.user)
+    response = client.get(reverse("experiences:product-create"))
+
+    assert response.status_code == HTTPStatus.OK
+    assert (
+        b"https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m1"
+        in response.content
+    )
+    assert b"Create and verify ABHA identities" in response.content
+    assert b"data-popover" in response.content
+    assert b"https://abdm-docs.dev.eka.care/docs/uhi/v1" in response.content
+    assert b"https://abdm-docs.dev.eka.care/docs/nhcx/v1" in response.content
+
+
 def test_catalog_rejects_missing_prerequisites(supplier_program):
     with pytest.raises(ValidationError, match="Select"):
         supplier_program.milestone_keys(["Quality:release"])
