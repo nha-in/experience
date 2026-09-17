@@ -10,6 +10,17 @@ The ABDM Developer Sandbox portal is documented in
 
 License: MIT
 
+## Contributing
+
+After you clone the repo, run these commands once:
+
+    uv sync
+    uv run pre-commit install
+
+The first command installs the Python dependencies. The second command sets up
+a git hook. The hook runs the linter and formatter checks on each commit. Fix
+any reported issue before you commit again.
+
 ## Settings
 
 Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getting-started/settings.html).

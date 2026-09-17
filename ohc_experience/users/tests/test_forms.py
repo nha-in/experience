@@ -219,7 +219,8 @@ class TestSignupContactDetails:
 
     @pytest.mark.django_db
     @pytest.mark.parametrize(
-        "mobile_number", ["123456789", "12345678901", "+919876543210", "98765 43210"]
+        "mobile_number",
+        ["123456789", "12345678901", "+919876543210", "98765 43210"],
     )
     def test_rejects_an_invalid_mobile_number(self, mobile_number: str):
         form = UserSignupForm(data={**SIGNUP_DATA, "mobile_number": mobile_number})

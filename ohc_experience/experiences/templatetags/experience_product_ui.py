@@ -12,7 +12,6 @@ def evidence_readiness(form):
     required_uploads = getattr(form, "required_uploads", ())
     field_states = {}
     for key, field in form.fields.items():
-        field = form.fields[key]
         declared_field = form.base_fields.get(key, field)
         if not declared_field.required and key not in required_uploads:
             continue

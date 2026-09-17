@@ -17,6 +17,7 @@ from .captcha import SignupVerificationMixin
 from .models import User
 
 MIN_PASSWORD_LENGTH = 12
+MOBILE_NUMBER_LENGTH = 10
 
 
 class UserAdminChangeForm(admin_forms.UserChangeForm):
@@ -175,7 +176,7 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
 
     def clean_mobile_number(self) -> str:
         mobile_number = self.cleaned_data["mobile_number"].strip()
-        if not mobile_number.isdigit() or len(mobile_number) != 10:
+        if not mobile_number.isdigit() or len(mobile_number) != MOBILE_NUMBER_LENGTH:
             raise forms.ValidationError(
                 _("Enter a valid 10-digit phone number without the country code."),
             )

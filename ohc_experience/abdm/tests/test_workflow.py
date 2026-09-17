@@ -1015,14 +1015,23 @@ def test_the_type_tabs_only_offer_what_the_item_filter_can_match(environment, cl
 
     wasa = "WASA certification"
     requests = ["Organisation verification", wasa]
-    assert tabs() == ["All requests", "Assigned to me", *requests, "Milestone application"]
+    assert tabs() == [
+        "All requests",
+        "Assigned to me",
+        *requests,
+        "Milestone application",
+    ]
     assert tabs(item="organisation_verification") == [
         "All requests",
         "Assigned to me",
         "Organisation verification",
     ]
     assert tabs(item="certification") == ["All requests", "Assigned to me", wasa]
-    assert tabs(item="UHI") == ["All requests", "Assigned to me", "Milestone application"]
+    assert tabs(item="UHI") == [
+        "All requests",
+        "Assigned to me",
+        "Milestone application",
+    ]
 
     stale = client.get(
         reverse("experiences:queue"),
