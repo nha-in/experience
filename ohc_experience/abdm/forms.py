@@ -21,6 +21,7 @@ from .wasa import WASA_VALIDITY_YEARS
 from .wasa import approved_wasa_submission
 from .wasa import certificate_context
 from .wasa import current_wasa
+from .widgets import WasaCertificateInput
 
 
 class OrganisationForm(ReviewForm):
@@ -372,12 +373,14 @@ class UhiParticipationForm(ReviewForm):
 
 
 class WasaReviewForm(ReviewForm):
+    # The certificate leads: the audit fields below are read from it.
     sections = (
         (
             "WASA audit",
-            ("wasa_agency", "wasa_date", "wasa_valid_until", "wasa_certificate"),
+            ("wasa_certificate", "wasa_agency", "wasa_date", "wasa_valid_until"),
         ),
     )
+    full_width_fields = ("wasa_certificate",)
     section_notes = {
         "WASA audit": (
             "Upload your certificate and enter the expiry date stated on it."
@@ -412,7 +415,7 @@ class WasaReviewForm(ReviewForm):
         label="WASA certificate",
         required=False,
         validators=[validate_pdf],
-        widget=forms.FileInput(attrs={"accept": ".pdf"}),
+        widget=WasaCertificateInput,
     )
     required_uploads = ("wasa_certificate",)
 
@@ -459,7 +462,7 @@ class WasaReviewForm(ReviewForm):
 
 
 class ExitEvidenceForm(WasaReviewForm):
-    full_width_fields = ("use_product_wasa",)
+    full_width_fields = ("use_product_wasa", "wasa_certificate")
     section_notes = {
         "WASA audit": (
             "The certificate must cover the application and version being submitted."
@@ -472,10 +475,10 @@ class ExitEvidenceForm(WasaReviewForm):
             (
                 "use_product_wasa",
                 "wasa_source_submission",
+                "wasa_certificate",
                 "wasa_agency",
                 "wasa_date",
                 "wasa_valid_until",
-                "wasa_certificate",
             ),
         ),
         (

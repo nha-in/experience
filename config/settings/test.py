@@ -50,6 +50,8 @@ INTEGRATION_PORTS = {
 }
 # The local adapters stand in for all three systems; these are the names they know.
 WSO2_API_NAMES = {"abdm": ("HealthIdAPI", "GatewayAPI")}
+# Pinned off for the same reason: a test must never reach a model provider.
+WASA_EXTRACTION_MODEL = ""
 
 # Your stuff...
 # ------------------------------------------------------------------------------

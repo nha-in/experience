@@ -21,6 +21,18 @@ class Prerequisite:
     review: Any = None
 
 
+class DocumentReadError(Exception):
+    """A `read_document` hook could not read the upload; safe to show a user.
+
+    `retryable` is False when the document itself is the problem, so that the
+    browser can say so instead of offering an attempt that must fail again.
+    """
+
+    def __init__(self, message: str, *, retryable: bool = True):
+        self.retryable = retryable
+        super().__init__(message)
+
+
 class ApplicationFormDefinition:
     """Form identity, validation class and application-specific lifecycle hooks."""
 
@@ -78,6 +90,16 @@ class ApplicationFormDefinition:
     @classmethod
     def snapshot_valid_until(cls, form):
         """Optional validity date for this exact submission revision."""
+
+    @classmethod
+    def read_document(cls, field_key, upload):
+        """Propose field values read out of a document the user just chose.
+
+        Return `{form field name: value}`, empty where nothing could be read, or
+        raise `DocumentReadError`. Nothing returned here is trusted: the fields
+        stay editable and the form validates them again on save.
+        """
+        return {}
 
     @classmethod
     def on_submit(cls, item, data, actor):

@@ -1,0 +1,39 @@
+{% load i18n %}
+
+<div data-read-document-field>
+  {% include "django/forms/widgets/file.html" %}
+  <p
+    id="{{ widget.read_status_id }}"
+    class="mt-2 text-sm text-muted-foreground"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    data-read-document-status
+    hidden
+  ></p>
+  <button
+    type="button"
+    class="ui-btn ui-btn--outline mt-2"
+    data-read-document-retry
+    hidden
+  >
+    {% translate "Retry reading the certificate" %}
+  </button>
+  {% comment %} Sits over the section while the reading runs so the fields about
+  to change cannot be typed into. Positioned against the fieldset, which the
+  script marks relative for the duration. {% endcomment %}
+  <div
+    class="absolute inset-0 z-10 flex items-center justify-center"
+    data-read-document-overlay
+    aria-hidden="true"
+    hidden
+  >
+    <span
+      class="flex size-12 items-center justify-center rounded-full border border-border bg-card shadow-lg"
+    >
+      <span
+        class="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent"
+      ></span>
+    </span>
+  </div>
+</div>
