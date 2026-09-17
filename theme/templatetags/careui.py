@@ -167,7 +167,7 @@ def dot_class(variant) -> str:
     """The status-dot colour for a badge variant (success, info, warning...)."""
     return {
         "success": "bg-emerald-500",
-        "primary": "bg-emerald-500",
+        "primary": "bg-primary",
         "info": "bg-sky-500",
         "warning": "bg-amber-500",
         "destructive": "bg-red-500",
