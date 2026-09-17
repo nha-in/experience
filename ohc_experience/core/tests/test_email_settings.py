@@ -32,6 +32,17 @@ def test_production_defaults_to_queued_gateway():
 
 
 @pytest.mark.usefixtures("production_environment")
+def test_production_sends_verification_codes_through_the_gateway(monkeypatch):
+    monkeypatch.delenv("INTEGRATION_NOTIFICATION", raising=False)
+    base_ports = dict(base.INTEGRATION_PORTS)
+    result = runpy.run_module("config.settings.production")
+    assert result["INTEGRATION_PORTS"]["NOTIFICATION"] == (
+        "ohc_experience.integrations.notification.adapter.AbdmNotificationGateway"
+    )
+    assert base_ports == base.INTEGRATION_PORTS
+
+
+@pytest.mark.usefixtures("production_environment")
 def test_production_allows_explicit_backend_override(monkeypatch):
     backend = "django.core.mail.backends.console.EmailBackend"
     monkeypatch.setenv("DJANGO_EMAIL_BACKEND", backend)

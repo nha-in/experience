@@ -14,7 +14,9 @@ from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 
 from .captcha import SignupVerificationMixin
+from .fields import MobileNumberField
 from .models import User
+from .stages import PENDING_MOBILE_NUMBER_SESSION_KEY
 
 MIN_PASSWORD_LENGTH = 12
 
@@ -98,11 +100,8 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
         max_length=255,
         widget=forms.TextInput(attrs={"autocomplete": "name"}),
     )
-    mobile_number = forms.CharField(
-        label=_("Mobile number"),
-        max_length=32,
+    mobile_number = MobileNumberField(
         error_messages={"required": _("Enter your mobile number.")},
-        widget=forms.TextInput(attrs={"autocomplete": "tel", "inputmode": "tel"}),
     )
     organisation = forms.CharField(
         label=_("Organisation/business name"),
@@ -179,8 +178,12 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
     def save(self, request):
         user = super().save(request)
         user.name = self.cleaned_data["name"].strip()
-        user.phone_number = self.cleaned_data["mobile_number"].strip()
-        user.save(update_fields=["name", "phone_number"])
+        user.save(update_fields=["name"])
+        if mobile_number := self.cleaned_data["mobile_number"]:
+            request.session[PENDING_MOBILE_NUMBER_SESSION_KEY] = {
+                "user_id": user.pk,
+                "phone": mobile_number,
+            }
         self.attach_organisation(user)
         return user
 

@@ -9,6 +9,7 @@ from ohc_experience.integrations import registry
 from ohc_experience.integrations.local import LocalApiGateway
 from ohc_experience.integrations.local import LocalBridgeRegistry
 from ohc_experience.integrations.local import LocalIdpAdmin
+from ohc_experience.integrations.local import LocalNotificationGateway
 from ohc_experience.integrations.ports import ClientCreated
 from ohc_experience.integrations.ports import ClientSpec
 from ohc_experience.integrations.ports import SecretRotated
@@ -58,6 +59,7 @@ def test_unimportable_adapter_fails_loudly(settings):
         (registry.get_idp_admin, "IDP"),
         (registry.get_api_gateway, "API_GATEWAY"),
         (registry.get_bridge_registry, "BRIDGE_REGISTRY"),
+        (registry.get_notification_gateway, "NOTIFICATION"),
     ],
 )
 def test_every_port_has_an_accessor(settings, accessor, port):
@@ -72,6 +74,7 @@ def test_every_port_has_an_accessor(settings, accessor, port):
         (registry.get_idp_admin, LocalIdpAdmin),
         (registry.get_api_gateway, LocalApiGateway),
         (registry.get_bridge_registry, LocalBridgeRegistry),
+        (registry.get_notification_gateway, LocalNotificationGateway),
     ],
 )
 def test_shipped_defaults_resolve_to_the_local_adapters(accessor, expected):

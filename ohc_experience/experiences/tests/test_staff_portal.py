@@ -228,6 +228,25 @@ def test_invalid_staff_forms_do_not_create_users_or_grants(superadmin, invalid):
     assert not AccessGrant.objects.exists()
 
 
+def test_changing_a_staff_number_clears_its_verification(superadmin, staff):
+    staff.phone_number = "+919876543210"
+    staff.phone_verified = True
+    staff.save()
+
+    save_staff(
+        superadmin,
+        payload(staff) | {"phone_number": "+919876543210"},
+        pk=staff.pk,
+    )
+    staff.refresh_from_db()
+    assert staff.phone_verified
+
+    save_staff(superadmin, payload(staff), pk=staff.pk)
+    staff.refresh_from_db()
+    assert staff.phone_number == "1234567890"
+    assert not staff.phone_verified
+
+
 def test_invalid_edit_preserves_existing_account_and_grants(superadmin, staff):
     grant = AccessGrant.objects.create(
         user=staff,

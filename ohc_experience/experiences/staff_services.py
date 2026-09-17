@@ -97,8 +97,11 @@ def save_staff(actor, data, *, pk=None):
         is_active=True,
     )
     old_email = user.email
+    old_phone_number = user.phone_number
     for field in ("name", "email", "phone_number"):
         setattr(user, field, form.cleaned_data[field])
+    if user.phone_number != old_phone_number:
+        user.phone_verified = False
     password = form.cleaned_data["password1"]
     if password:
         user.set_password(password)
