@@ -244,8 +244,18 @@
     });
   }
 
+  function updateSandboxDateConstraints(form) {
+    const start = form.querySelector('[name="start_date"]');
+    const end = form.querySelector('[name="end_date"]');
+    const demo = form.querySelector('[name="tentative_demo_date"]');
+    if (!start || !end || !demo) return;
+    end.min = start.value || '';
+    demo.min = end.value || '';
+  }
+
   function updateSubmission(form) {
     updateWasaFields(form);
+    updateSandboxDateConstraints(form);
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');
     if (!button) return;
@@ -299,6 +309,7 @@
     // Drafts and rejected submissions can arrive with the audit date saved and
     // the expiry still blank; fill it before counting what needs attention.
     scope.querySelectorAll?.('[data-autofill-target]').forEach(autofillFromDate);
+    scope.querySelectorAll?.('[data-review-form]').forEach(updateSandboxDateConstraints);
     scope.querySelectorAll?.('[data-review-form]').forEach(updateSubmission);
     scope.querySelectorAll?.('[data-decision-form]').forEach(updateDecision);
     scope.querySelectorAll?.('[data-revealed-secret]').forEach(secret => {
