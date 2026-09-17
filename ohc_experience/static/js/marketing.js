@@ -1,6 +1,6 @@
 /* Small progressive enhancements for the public website. */
 (() => {
-  const header = document.querySelector(".marketing-landing .marketing-header");
+  const header = document.querySelector(".marketing-light .marketing-header");
   if (header && "ResizeObserver" in window) {
     // Keep anchors and keyboard focus below the header when text is enlarged.
     const headerObserver = new ResizeObserver(() => {

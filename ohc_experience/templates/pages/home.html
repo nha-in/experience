@@ -12,7 +12,7 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/landing.css' %}" />
 {% endblock css %}
-{% block bodyclass %}marketing-body marketing-landing{% endblock bodyclass %}
+{% block bodyclass %}{{ block.super }} marketing-landing{% endblock bodyclass %}
 {% block content %}
   <section id="top"
            class="sbx-hero"
