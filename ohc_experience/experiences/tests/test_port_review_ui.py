@@ -192,6 +192,7 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     client.force_login(UserFactory(is_superuser=True))
     response = client.get(review_item.get_absolute_url())
     assert b'name="assignee"' in response.content
+    assert b"Reassign" not in response.content
     response = client.post(
         review_item.get_absolute_url(),
         {"intent": "assign", "assignee": reviewer.pk},
@@ -199,6 +200,7 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     assert response.status_code == HTTPStatus.FOUND
     review_item.refresh_from_db()
     assert review_item.assignee == reviewer
+    assert b"Reassign" in client.get(review_item.get_absolute_url()).content
 
     # Someone other than the assignee can still record the decision.
     client.force_login(ReviewerFactory(is_nha_team=True))

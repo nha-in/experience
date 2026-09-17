@@ -22,7 +22,7 @@
         <span class="inline-flex items-center gap-2 rounded-full bg-card py-1 pl-1 pr-3 text-xs ring-1 ring-primary/20">
           {% if item.assignee %}
             <span class="ui-feed-avatar" aria-hidden="true">{{ item.assignee.display_name|slice:':1'|upper }}</span>
-            <span>{% if item.assignee == request.user %}Assigned to you{% else %}{{ item.assignee.display_name }}{% endif %}</span>
+            <span>Assigned to <span class="font-semibold">{% if item.assignee == request.user %}you{% else %}{{ item.assignee.display_name }}{% endif %}</span></span>
           {% else %}
             <span class="ui-feed-avatar ui-feed-avatar--system" aria-hidden="true"></span><span class="text-soft-foreground">Unassigned</span>
           {% endif %}
