@@ -27,6 +27,11 @@
           {% if row.requires %}
             <span class="text-xs text-soft-foreground">· {{ row.requires }} required for enablement</span>
           {% endif %}
+          {% if row.milestones %}
+            <span class="ml-auto self-center">
+              {% include "components/info_popover.html" with scope="track" key=row.definition.code label=row.definition.name description=row.definition.description url=row.definition.docs_url|default:experience_program.docs_url only %}
+            </span>
+          {% endif %}
         </div>
         {% if row.milestones %}
           <div class="flex flex-col">
@@ -45,21 +50,7 @@
                           id="milestone-{{ milestone.value|slugify }}-why">Under review · withdraw to remove</span>
                   {% endif %}
                 </label>
-                <details class="group relative shrink-0" data-popover>
-                  <summary class="flex size-7 cursor-pointer list-none items-center justify-center rounded-md text-soft-foreground hover:bg-soft-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&::-webkit-details-marker]:hidden"
-                           aria-label="About {{ milestone.definition.name }}">
-                    {% include "components/nav_icon.html" with icon="info" %}
-                  </summary>
-                        <div class="invisible absolute right-0 z-50 mt-1 w-72 max-w-[calc(100vw-1rem)] rounded-md border border-soft-border bg-background p-3 text-left opacity-0 shadow-md transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 group-open:visible group-open:opacity-100"
-                       data-popover-panel>
-                    <p class="text-xs leading-relaxed text-soft-foreground">{{ milestone.definition.description|default:milestone.definition.name }}</p>
-                    <a class="mt-2 inline-block text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                       href="{{ milestone.definition.docs_url|default:experience_program.docs_url }}"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       hx-boost="false">Open documentation ↗&#xFE0E;</a>
-                  </div>
-                </details>
+                {% include "components/info_popover.html" with scope="milestone" key=milestone.definition.key label=milestone.definition.name description=milestone.definition.description|default:milestone.definition.name url=milestone.definition.docs_url|default:experience_program.docs_url only %}
                 {% if milestone.required_for and milestone.value not in approved_selections and milestone.value not in under_review_selections %}
                   <p class="basis-full pl-7 text-xs font-medium text-amber-800 sm:pl-21"
                      id="milestone-{{ milestone.value|slugify }}-required"

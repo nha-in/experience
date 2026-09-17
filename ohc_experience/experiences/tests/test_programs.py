@@ -212,7 +212,7 @@ def test_product_registration_links_each_track_to_its_documentation(
         in response.content
     )
     assert b"Create and verify ABHA identities" in response.content
-    assert b"data-popover" in response.content
+    assert b'id="info-milestone-m1"' in response.content
     assert b"https://abdm-docs.dev.eka.care/docs/uhi/v1" in response.content
     assert b"https://abdm-docs.dev.eka.care/docs/nhcx/v1" in response.content
 

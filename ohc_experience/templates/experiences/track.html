@@ -212,7 +212,7 @@
            href="{% url 'experiences:events' %}">See events</a>
       {% endif %}
       <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
-        href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
+         href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
          target="_blank"
          rel="noopener noreferrer"
          hx-boost="false">Track documentation ↗&#xFE0E;</a>

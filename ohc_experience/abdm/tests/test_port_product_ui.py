@@ -2,6 +2,8 @@
 
 # ruff: noqa: PLR2004
 
+import re
+from html import unescape
 from html.parser import HTMLParser
 from importlib import import_module
 
@@ -83,13 +85,38 @@ def test_register_another_product_keeps_new_defaults(environment, client):
     assert b"M1 required for enablement" in response.content
     assert b"Shared with" not in response.content
     assert b"About Clinic HMIS" in response.content
-    assert b"data-popover" in response.content
-    assert b"data-popover-panel" in response.content
+    assert b'popovertarget="info-solution-clinical_hmis"' in response.content
+    assert b'id="info-solution-clinical_hmis"' in response.content
     assert b"/concepts/hip-hiu" in response.content
     assert b"/concepts/participants/pharmacy" in response.content
     assert b"/concepts/phr" in response.content
     assert b"/concepts/participants/insurer" in response.content
     assert b"/uhi/v1/getting-started/onboarding" in response.content
+
+
+@pytest.mark.django_db
+def test_each_track_heading_has_an_info_button_with_its_documentation(
+    environment,
+    client,
+):
+    client.force_login(environment["applicant"])
+
+    response = client.get(reverse("experiences:product-create"))
+
+    picker = response.content.decode().split('id="id_applied_milestones"', 1)[1]
+    documented = {
+        unescape(label): url
+        for label, url in re.findall(
+            r'aria-label="About ([^"]+)".+?href="([^"]+)"[^>]*>Open documentation',
+            picker,
+            re.S,
+        )
+    }
+    assert {track.name: documented.get(track.name) for track in TRACK_MAP.values()} == {
+        track.name: track.docs_url for track in TRACK_MAP.values()
+    }
+    # One page each, not the program's documentation five times over.
+    assert len({track.docs_url for track in TRACK_MAP.values()}) == len(TRACK_MAP)
 
 
 def milestone_rows(form):

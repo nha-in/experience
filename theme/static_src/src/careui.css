@@ -135,10 +135,6 @@
     box-shadow: var(--shadow-surface);
   }
 
-  .ui-card--popover {
-    @apply overflow-visible;
-  }
-
   .ui-card--sm {
     @apply gap-5 py-5;
   }
@@ -375,6 +371,22 @@
 
   .ui-combobox__status {
     @apply sr-only;
+  }
+
+  /* ── Info popover ──────────────────────────────────────────────────────── */
+
+  /* The (i) beside a choice, a milestone or a track. */
+  .ui-info-button {
+    @apply flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-soft-foreground transition-colors;
+    @apply hover:bg-soft-background hover:text-foreground;
+    @apply focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none;
+  }
+
+  /* Its panel is a popover in the top layer, like the combobox list: a card
+     that clips its overflow cannot cut it off and nothing on the page can
+     cover it. info-popover.js sets the position. */
+  .ui-info-panel {
+    @apply fixed inset-auto z-50 m-0 w-72 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover p-3 text-left text-popover-foreground shadow-md;
   }
 
   .ui-checkbox {
