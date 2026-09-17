@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from dataclasses import field
 from datetime import date  # noqa: TC003
@@ -261,9 +262,11 @@ class ReferenceShell(NamedTuple):
 
     label: str
     prompt: str
-    #: `{client_id}` and `{client_secret}` are filled in for the product, and
-    #: `{options}` marks where the chosen milestones' options go.
+    #: `{client_id}` and `{client_secret}` mark where the credentials go, inside
+    #: single quotes, and `{options}` where the chosen milestones' options go.
     command: str
+    #: How a single quote is written inside a single-quoted value.
+    single_quote: str
 
 
 class ReferenceEnvironmentDefinition:
@@ -287,20 +290,31 @@ class ReferenceEnvironmentDefinition:
     milestone_options: ClassVar[dict[str, str]] = {}
     #: Milestones whose flows are still being built.
     in_progress: ClassVar[tuple[str, ...]] = ()
-    #: Stand-ins for credentials the page cannot show. Plain words, so a shell
+    #: Stand-ins for credentials that are not entered yet. Plain words, so a shell
     #: reads them as text if they are run unchanged.
     client_id_placeholder = "YOUR_CLIENT_ID"
     client_secret_placeholder = "YOUR_CLIENT_SECRET"  # noqa: S105
 
     @classmethod
-    def command_parts(cls, shell, client_id=None):
-        """A shell's command for one product, split where milestone options go."""
-        command = shell.command.replace(
-            "{client_id}",
-            client_id or cls.client_id_placeholder,
-        ).replace("{client_secret}", cls.client_secret_placeholder)
-        before, _, after = command.partition("{options}")
-        return before, after
+    def command_segments(cls, shell, client_id=""):
+        """A shell's command as (slot, text) pairs, in order.
+
+        The slot is empty for plain text. A `client_id` or `client_secret` slot
+        holds the credential, or its placeholder, for the page to fill in. An
+        `options` slot marks where milestone options go and has no text.
+        """
+        values = {
+            "client_id": client_id.replace("'", shell.single_quote)
+            or cls.client_id_placeholder,
+            "client_secret": cls.client_secret_placeholder,
+            "options": "",
+        }
+        parts = re.split(r"\{(client_id|client_secret|options)\}", shell.command)
+        return [
+            (part, values[part]) if index % 2 else ("", part)
+            for index, part in enumerate(parts)
+            if index % 2 or part
+        ]
 
 
 class ProgramDefinition:

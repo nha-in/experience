@@ -7,25 +7,39 @@ from ohc_experience.experiences.definitions import ReferenceShell
 COMPOSE_FILE = (
     "https://github.com/amjithtitus09/care_create.git#reference:reference/compose.yaml"
 )
+LOCAL_URL = "http://localhost:4400"
+# `up --wait` returns once CARE is ready and fails if it cannot start, so each
+# shell opens the browser only after it succeeds.
 RUN = f"docker compose -f {COMPOSE_FILE} {{options}}up --build --wait --yes"
+POSIX_CREDENTIALS = "ABDM_CLIENT_ID='{client_id}' ABDM_CLIENT_SECRET='{client_secret}' "
+POSIX_SINGLE_QUOTE = "'\\''"
 
 
 class ABDMReferenceEnvironment(ReferenceEnvironmentDefinition):
     shells = {
-        "posix": ReferenceShell(
-            "macOS and Linux",
+        "macos": ReferenceShell(
+            "macOS",
             "$",
-            "ABDM_CLIENT_ID={client_id} ABDM_CLIENT_SECRET={client_secret} " + RUN,
+            f"{POSIX_CREDENTIALS}{RUN} && open {LOCAL_URL}",
+            POSIX_SINGLE_QUOTE,
+        ),
+        "linux": ReferenceShell(
+            "Linux",
+            "$",
+            f"{POSIX_CREDENTIALS}{RUN} && xdg-open {LOCAL_URL}",
+            POSIX_SINGLE_QUOTE,
         ),
         "powershell": ReferenceShell(
             "Windows PowerShell",
             ">",
-            '$env:ABDM_CLIENT_ID="{client_id}"; '
-            '$env:ABDM_CLIENT_SECRET="{client_secret}"; ' + RUN,
+            "$env:ABDM_CLIENT_ID='{client_id}'; "
+            "$env:ABDM_CLIENT_SECRET='{client_secret}'; "
+            f"{RUN}; if ($LASTEXITCODE -eq 0) {{ Start-Process {LOCAL_URL} }}",
+            "''",
         ),
     }
     stop_command = "docker compose -p care-reference down"
-    local_url = "http://localhost:4400"
+    local_url = LOCAL_URL
     requirements = (
         "Docker with Compose 2.37 or later. The first run takes about 10 minutes."
     )
@@ -33,7 +47,8 @@ class ABDMReferenceEnvironment(ReferenceEnvironmentDefinition):
         "CARE with the care-abdm plug and demo data. CARE and care_fe are built from "
         "their latest code on every run; care-abdm is pinned to its M1 version for now."
     )
-    sign_in = ("care-admin", "Ohcn@123")
+    # The superuser care's demo data creates, so every flow is open to it.
+    sign_in = ("admin", "admin")
     built_on = (
         ("CARE", "images/marketing/care-logo-trim.svg"),
         ("Open Healthcare Network", "images/marketing/ohc-logo-trim.png"),
