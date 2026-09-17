@@ -22,10 +22,15 @@ from ohc_experience.integrations.ports import IdpAdmin
 from ohc_experience.integrations.secret_ref import store_secret
 
 SPEC = ClientSpec(reference="SBX-2026-00001", display_name="Acme", role_names=("hip",))
-APP_SPEC = GatewayAppSpec(reference="SBX-2026-00001", name="Acme", api_names=("abha",))
+APP_SPEC = GatewayAppSpec(reference="SBX-2026-00001", name="Acme", api_ids=("abha",))
 #: WSO2 derives the name from the reference, and so does the local adapter.
 APP_NAME = "sbx-SBX-2026-00001"
-BRIDGE_SPEC = BridgeSpec(bridge_id="SBX_ABC", name="Acme", url="https://acme.test")
+BRIDGE_SPEC = BridgeSpec(
+    bridge_id="SBX_ABC",
+    name="Acme",
+    url="https://acme.test",
+    entity="Private",
+)
 # A pointer into a secret store, never a secret value. Deliberately never parked,
 # so it stands in for one that has expired.
 SECRET_REF = "vault://x"  # noqa: S105

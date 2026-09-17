@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from urllib.parse import parse_qs
 
 import pytest
 from django.conf import settings
@@ -21,6 +22,7 @@ from ohc_experience.integrations.registry import get_idp_admin
 from ohc_experience.integrations.tests.keycloak_stub import ADMIN
 from ohc_experience.integrations.tests.keycloak_stub import CREATED_CLIENT_UUID
 from ohc_experience.integrations.tests.keycloak_stub import SERVICE_ACCOUNT_USER_ID
+from ohc_experience.integrations.tests.keycloak_stub import TOKEN_PATH
 from ohc_experience.integrations.tests.keycloak_stub import KeycloakStubTransport
 
 SANDBOX_ROLES = ("healthId", "hip", "hiu")
@@ -37,8 +39,11 @@ DISTINCT_IDS = 200
 keycloak_settings = override_settings(
     KEYCLOAK_BASE_URL="http://kc.test",
     KEYCLOAK_REALM="abdm-sandbox",
-    KEYCLOAK_CLIENT_ID="sandbox-provisioner",
-    KEYCLOAK_CLIENT_SECRET="provisioner-secret",  # noqa: S106 - test value
+    KEYCLOAK_CLIENT_ID="sandbox-admin",
+    KEYCLOAK_CLIENT_SECRET="admin-client-secret",  # noqa: S106 - test value
+    KEYCLOAK_USERNAME="provisioning-admin",
+    KEYCLOAK_PASSWORD="admin-password",  # noqa: S106 - test value
+    KEYCLOAK_API_KEY="gateway-api-key",
     KEYCLOAK_ROLE_NAMES={"SANDBOX": SANDBOX_ROLES},
 )
 
@@ -214,11 +219,46 @@ def test_disabling_still_reports_a_real_failure(adapter, transport):
 # Token handling
 
 
-def test_the_service_account_token_is_fetched_once_and_reused(adapter, transport):
+def test_the_admin_token_is_fetched_once_and_reused(adapter, transport):
     adapter.create_client(SPEC)
     adapter.rotate_client_secret(CREATED_CLIENT_UUID)
 
     assert transport.token_calls == 1
+
+
+def test_the_token_is_requested_as_legacy_requested_it(adapter, transport):
+    """NHA issued only legacy's master-realm admin sign-in."""
+    adapter.create_client(SPEC)
+
+    token_call = next(c for c in transport.calls if c.url.path == TOKEN_PATH)
+    assert token_call.method == "POST"
+    assert token_call.headers["apikey"] == "gateway-api-key"
+    assert parse_qs(token_call.content.decode()) == {
+        "grant_type": ["password"],
+        "scope": ["openid"],
+        "client_id": ["sandbox-admin"],
+        "client_secret": ["admin-client-secret"],
+        "username": ["provisioning-admin"],
+        "password": ["admin-password"],
+    }
+
+
+def test_only_the_token_call_carries_the_api_key(adapter, transport):
+    adapter.create_client(SPEC)
+
+    admin_calls = [c for c in transport.calls if c.url.path.startswith(ADMIN)]
+    assert admin_calls
+    assert not any("apikey" in c.headers for c in admin_calls)
+
+
+def test_no_api_key_header_is_sent_when_none_is_configured(transport):
+    with override_settings(KEYCLOAK_API_KEY=""):
+        adapter = KeycloakIdpAdmin(transport=transport)
+        adapter.create_client(SPEC)
+        adapter.close()
+
+    token_call = next(c for c in transport.calls if c.url.path == TOKEN_PATH)
+    assert "apikey" not in token_call.headers
 
 
 def test_admin_calls_carry_the_bearer_token(adapter, transport):
@@ -277,6 +317,7 @@ def test_no_secret_is_ever_logged(adapter, transport, caplog):
     assert created.initial_secret not in logged
     assert rotated.secret not in logged
     assert settings.KEYCLOAK_CLIENT_SECRET not in logged
+    assert settings.KEYCLOAK_PASSWORD not in logged
 
 
 def test_role_names_come_from_settings_by_kind():
