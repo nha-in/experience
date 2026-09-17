@@ -65,6 +65,7 @@ def files():
             "wasa_certificate": [pdf("wasa.pdf")],
             "functional_certificate": [pdf("certificate.pdf")],
             "functional_report": [pdf("report.pdf")],
+            "undertaking_form": [pdf("undertaking-form.pdf")],
         },
     )
 
