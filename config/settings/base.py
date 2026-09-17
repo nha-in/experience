@@ -205,7 +205,9 @@ AUTH_PASSWORD_VALIDATORS = [
         "OPTIONS": {"min_length": 12},
     },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {
+        "NAME": "ohc_experience.users.password_validation.LetterNumberAndSpecialCharacterValidator",
+    },
 ]
 
 # MIDDLEWARE
@@ -445,7 +447,14 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "ohc_experience.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html
-ACCOUNT_FORMS = {"signup": "ohc_experience.users.forms.UserSignupForm"}
+ACCOUNT_FORMS = {
+    "login": "ohc_experience.users.forms.UserLoginForm",
+    "signup": "ohc_experience.users.forms.UserSignupForm",
+    "reset_password": "ohc_experience.users.forms.UserResetPasswordForm",
+    "reset_password_from_key": "ohc_experience.users.forms.UserResetPasswordKeyForm",
+    "change_password": "ohc_experience.users.forms.UserChangePasswordForm",
+    "set_password": "ohc_experience.users.forms.UserSetPasswordForm",
+}
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_ADAPTER = "ohc_experience.users.adapters.SocialAccountAdapter"
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html

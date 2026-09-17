@@ -142,7 +142,7 @@
   </div>
   <p class="ui-error hidden" data-file-limit-error></p>
   {% if help_text %}<span class="ui-hint" id="{{ field.auto_id }}_helptext">{{ help_text }}</span>{% endif %}
-  {% if field.errors %}
+  {% if field.errors and inline_errors %}
     <div id="{{ field.auto_id }}_errors">
       {% for error in field.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
     </div>

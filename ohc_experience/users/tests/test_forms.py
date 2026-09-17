@@ -18,7 +18,10 @@ from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import InvitationFactory
 from ohc_experience.users.forms import UserAdminCreationForm
+from ohc_experience.users.forms import UserChangePasswordForm
 from ohc_experience.users.forms import UserProfileForm
+from ohc_experience.users.forms import UserResetPasswordKeyForm
+from ohc_experience.users.forms import UserSetPasswordForm
 from ohc_experience.users.forms import UserSignupForm
 
 if TYPE_CHECKING:
@@ -71,6 +74,17 @@ class TestUserSignupForm:
 
         assert not form.is_valid()
         assert "password2" in form.errors
+
+    def test_a_mistyped_confirmation_is_reported_with_a_rejected_password(self):
+        form = UserSignupForm(
+            data={**SIGNUP_DATA, "password1": "sandbox", "password2": "sandbox-2"},
+        )
+
+        assert not form.is_valid()
+        assert "password1" in form.errors
+        assert form.errors["password2"] == [
+            "You must type the same password each time.",
+        ]
 
     def test_creates_the_organisation_and_an_owner_membership(
         self,
@@ -185,6 +199,43 @@ class TestUserSignupForm:
         form = UserSignupForm(data=SIGNUP_DATA, invitation=invitation)
 
         assert form.is_valid(), form.errors
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "form_class",
+    [UserChangePasswordForm, UserSetPasswordForm, UserResetPasswordKeyForm],
+)
+class TestPasswordConfirmation:
+    def test_a_mistyped_confirmation_is_reported_once(self, form_class, user: User):
+        form = form_class(
+            data={
+                "password1": "sandbox-Kerala-2026",
+                "password2": "sandbox-Kerala-2025",
+            },
+            user=user,
+        )
+
+        assert not form.is_valid()
+        assert form.errors["password2"] == [
+            "You must type the same password each time.",
+        ]
+
+    def test_a_mistyped_confirmation_is_reported_with_a_rejected_password(
+        self,
+        form_class,
+        user: User,
+    ):
+        form = form_class(
+            data={"password1": "sandbox", "password2": "sandbox-2"},
+            user=user,
+        )
+
+        assert not form.is_valid()
+        assert "password1" in form.errors
+        assert form.errors["password2"] == [
+            "You must type the same password each time.",
+        ]
 
 
 @pytest.mark.django_db
