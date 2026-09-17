@@ -142,6 +142,17 @@ def test_m1_always_runs_and_m2_adds_its_profile(environment, client):
         )
 
 
+def test_the_flows_card_links_to_the_milestone_documentation(environment, client):
+    client.force_login(environment["applicant"])
+
+    page = client.get(reference_url(environment["workspace"]))
+
+    card = page.content.decode().split('id="reference-flows-title"', 1)[1]
+    card = card.split("</section>", 1)[0]
+    assert f'href="{ABDM.milestones_docs_url}"' in card
+    assert f'href="{ABDM.milestones["m1"].docs_url}"' in card
+
+
 def test_credential_fields_fill_every_command_and_are_never_submitted(
     environment,
     client,

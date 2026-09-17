@@ -28,11 +28,9 @@
             <span class="text-xs text-soft-foreground">· {{ row.requires }} required for enablement</span>
           {% endif %}
           {% if row.milestones %}
-            <a class="ml-auto shrink-0 text-xs text-soft-foreground hover:underline"
-               href="{{ experience_program.docs_url }}"
-               target="_blank"
-               rel="noopener noreferrer"
-               hx-boost="false">Docs ↗&#xFE0E;</a>
+            <span class="ml-auto self-center">
+              {% include "components/info_popover.html" with scope="track" key=row.definition.code label=row.definition.name description=row.definition.description url=row.definition.docs_url|default:experience_program.docs_url only %}
+            </span>
           {% endif %}
         </div>
         {% if row.milestones %}
@@ -52,6 +50,7 @@
                           id="milestone-{{ milestone.value|slugify }}-why">Under review · withdraw to remove</span>
                   {% endif %}
                 </label>
+                {% include "components/info_popover.html" with scope="milestone" key=milestone.definition.key label=milestone.definition.name description=milestone.definition.description|default:milestone.definition.name url=milestone.definition.docs_url|default:experience_program.docs_url only %}
                 {% if milestone.required_for and milestone.value not in approved_selections and milestone.value not in under_review_selections %}
                   <p class="basis-full pl-7 text-xs font-medium text-amber-800 sm:pl-21"
                      id="milestone-{{ milestone.value|slugify }}-required"

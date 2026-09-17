@@ -22,7 +22,7 @@
                 {% elif field.name == 'use_product_wasa' %}
                   {% include 'experiences/partials/product_wasa_choice.html' %}
                 {% elif field.name == 'solution_type' %}
-                  {% ui_field field choices_in_columns=True %}
+                  {% include 'experiences/partials/product_solution_type_picker.html' %}
                 {% else %}
                   {% ui_field field %}
                 {% endif %}

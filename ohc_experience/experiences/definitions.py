@@ -178,6 +178,8 @@ class MilestoneDefinition:
     code: str
     name: str
     predecessor: str = ""
+    description: str = ""
+    docs_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -186,6 +188,7 @@ class TrackDefinition:
     name: str
     description: str
     keys: tuple[str, ...]
+    docs_url: str = ""
 
     def prerequisites(self, milestones):
         """Other tracks' milestones this track builds on, directly or not."""
@@ -333,6 +336,8 @@ class ProgramDefinition:
     environment_name = "Application workspace"
     footer_note = ""
     docs_url = ""
+    #: Where "Milestone documentation" points. Falls back to docs_url.
+    milestones_docs_url = ""
     logo = ""
     authority_logo = ""
     authority_name = ""
