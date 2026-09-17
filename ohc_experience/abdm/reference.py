@@ -2,10 +2,9 @@ from ohc_experience.experiences.definitions import ReferenceEnvironmentDefinitio
 from ohc_experience.experiences.definitions import ReferenceShell
 
 # CARE and care_fe are built from their latest develop on every run, and care-abdm
-# from a pinned commit. The compose file lives on a fork of care_create until its
-# origin carries it.
+# from a pinned commit. The compose file is on care_create's reference branch.
 COMPOSE_FILE = (
-    "https://github.com/amjithtitus09/care_create.git#reference:reference/compose.yaml"
+    "https://github.com/ohcnetwork/care_create.git#reference:reference/compose.yaml"
 )
 LOCAL_URL = "http://localhost:4400"
 # `up --wait` returns once CARE is ready and fails if it cannot start, so each
