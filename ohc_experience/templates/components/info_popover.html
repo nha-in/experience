@@ -4,13 +4,14 @@
 
   {% include "components/info_popover.html" with scope="milestone" key=milestone.key label=milestone.name description=milestone.description url=milestone.docs_url only %}
 
-  `scope` and `key` only make the panel's id unique on the page. The panel is a
+  `scope` and `key` only make the panel's id unique on the page, and
+  `extra_class` pulls the button closer to the words it follows. The panel is a
   native popover, so the browser draws it in the top layer: the card around it
   cannot clip it, nothing on the page can cover it, and Escape and a click
   elsewhere close it. js/info-popover.js places it under its button and opens
   it on hover and on focus as well; the button alone works without scripting.
 {% endcomment %}
-<button class="ui-info-button"
+<button class="ui-info-button {{ extra_class }}"
         type="button"
         popovertarget="info-{{ scope }}-{{ key|slugify }}"
         aria-label="About {{ label }}"
