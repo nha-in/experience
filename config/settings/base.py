@@ -320,7 +320,12 @@ GLOBAL_EMAIL_TEMPLATE_IDS = env.json("GLOBAL_EMAIL_TEMPLATE_IDS", default={})
 SUPPORT_INBOX_EMAIL = env("SUPPORT_INBOX_EMAIL", default="support@ohc.network")
 SUPPORT_EMAIL_DOMAIN = env("SUPPORT_EMAIL_DOMAIN", default="sandbox.aws.ohc.network")
 # Absolute base for links in emails (no request is available there).
-SITE_BASE_URL = env("SITE_BASE_URL", default="http://localhost:8010")
+# The portless proxy gives each git worktree a different origin and puts it in
+# PORTLESS_URL. Use it, so a link points to the worktree that sent the mail.
+SITE_BASE_URL = env(
+    "SITE_BASE_URL",
+    default=env("PORTLESS_URL", default="http://localhost:8010"),
+)
 
 # ADMIN
 # ------------------------------------------------------------------------------

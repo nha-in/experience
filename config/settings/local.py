@@ -17,7 +17,19 @@ SECRET_KEY = env(
     default="Qd9BQgaZTfBla314VCgXRQACfpWO9rhHHKtFIci0KFDjucdzvrVfHkqCOvrg39la",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
+# ".localhost" accepts every portless host, such as
+# "experience.localhost" and "my-branch.experience.localhost".
+ALLOWED_HOSTS = [
+    "localhost",
+    "0.0.0.0",  # noqa: S104
+    "127.0.0.1",
+    ".localhost",
+]
+# The portless proxy terminates TLS and sends the plain request to Django.
+# Without these two settings, Django reads the request as insecure and
+# rejects every POST with a CSRF origin error.
+CSRF_TRUSTED_ORIGINS = ["https://*.localhost", "http://*.localhost"]
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # CACHES
 # ------------------------------------------------------------------------------
