@@ -1368,7 +1368,7 @@ def _requests(program):
     certification = program.applications.certification
     if certification:
         requests["certification"] = (
-            certification.name,
+            certification.filter_name or certification.name,
             Q(application__application_type=certification.key),
         )
     return requests
@@ -1398,7 +1398,7 @@ def _type_tabs(program, item):
         return {item: requests[item]}
     applications = {
         ReviewItem.Kind.APPLICATION.value: (
-            ReviewItem.Kind.APPLICATION.label,
+            "Milestone application",
             Q(application__milestone__isnull=False),
         ),
     }
@@ -1636,10 +1636,10 @@ def queue(request):
         )
     type_tabs = _type_tabs(get_program(), item)
     queue_tabs = [
-        {"value": "", "label": "All", "count": query.count()},
+        {"value": "", "label": "All requests", "count": query.count()},
         {
             "value": "mine",
-            "label": "Mine",
+            "label": "Assigned to me",
             "count": query.filter(assignee=request.user).count(),
         },
         *[

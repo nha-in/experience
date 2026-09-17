@@ -32,6 +32,12 @@
     @apply mt-2.5 max-w-[640px] text-sm text-muted-foreground;
   }
 
+  /* Names a group of hero controls. Sentence case, so it does not compete with
+     the uppercase kicker inside each tab. */
+  .ui-hero-caption {
+    @apply mb-1.5 block text-xs font-semibold text-muted-foreground;
+  }
+
   .ui-hero-back {
     @apply mb-2 inline-flex items-center gap-1 text-xs font-bold tracking-[0.02em] text-primary no-underline hover:underline;
   }

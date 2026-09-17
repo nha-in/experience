@@ -103,6 +103,7 @@ class ApplicationDefinition:
 
     key: ClassVar[str]
     name: ClassVar[str]
+    filter_name: ClassVar[str] = ""
     reference_prefix: ClassVar[str] = "APP"
     initial_status: ClassVar[str] = "draft"
     forms: ClassVar[tuple[type[ApplicationFormDefinition], ...]]

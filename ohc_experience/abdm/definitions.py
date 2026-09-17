@@ -261,6 +261,7 @@ class SandboxProduct(ApplicationDefinition):
 class WasaCertification(ApplicationDefinition):
     key = "abdm_wasa_review"
     name = "WASA certification review"
+    filter_name = "WASA certification"
     reference_prefix = "WASA"
     forms = (WasaReview,)
 
