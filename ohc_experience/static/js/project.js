@@ -442,3 +442,29 @@ document.addEventListener("keydown", (event) => {
     syncConditionalFields(event.target),
   );
 })();
+
+// The reference environment's credential fields fill in its run commands as they are
+// typed, escaping single quotes the way each shell needs. The form never submits.
+(() => {
+  document.addEventListener("input", (event) => {
+    const input = event.target.closest?.("[data-reference-credential]");
+    const form = input?.closest("[data-reference-run]");
+    if (!form) return;
+    const value = input.value.trim();
+    form
+      .querySelectorAll(`[data-credential-slot="${input.dataset.referenceCredential}"]`)
+      .forEach((slot) => {
+        const { singleQuote } = slot.closest("[data-single-quote]").dataset;
+        slot.textContent = value ? value.replaceAll("'", singleQuote) : input.placeholder;
+      });
+  });
+  document.addEventListener(
+    "submit",
+    (event) => {
+      if (!event.target.matches?.("[data-reference-run]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
+})();
