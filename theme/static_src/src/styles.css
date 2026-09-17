@@ -156,6 +156,10 @@
   --destructive: var(--color-red-600);
   --destructive-foreground: var(--color-red-50);
 
+  /* Reversible actions that retract, pause, or expose work. Between neutral and destructive. */
+  --caution: var(--color-amber-700);
+  --caution-foreground: var(--color-amber-50);
+
   --soft-border: var(--color-neutral-100);
   --border: var(--color-neutral-200);
   --strong-border: var(--color-neutral-300);
@@ -241,6 +245,9 @@
 
   --destructive: var(--color-red-400);
   --destructive-foreground: var(--color-red-50);
+
+  --caution: var(--color-amber-400);
+  --caution-foreground: var(--color-amber-950);
 
   --soft-border: --alpha(var(--color-white) / 5%);
   --border: --alpha(var(--color-white) / 9%);
@@ -339,6 +346,9 @@
 
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-caution: var(--caution);
+  --color-caution-foreground: var(--caution-foreground);
 
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);

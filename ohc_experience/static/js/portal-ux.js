@@ -59,11 +59,11 @@
     document.querySelectorAll('[data-readiness-form]').forEach(list => {
       if (list.dataset.readinessForm !== form.id) return;
       list.querySelectorAll('[data-readiness-item]').forEach(item => {
-        const input = document.getElementById(item.dataset.readinessItem);
-        const filled = input && !input.disabled && (
+        const inputs = item.dataset.readinessFields.split(',').map(id => document.getElementById(id)).filter(Boolean);
+        const filled = inputs.length > 0 && inputs.every(input => !input.disabled && (
           input.type === 'file' ? input.files.length > 0 :
             input.type === 'checkbox' || input.type === 'radio' ? input.checked : input.value.trim() !== ''
-        );
+        ));
         const indicator = item.querySelector('[data-readiness-indicator]');
         const label = item.querySelector('[data-readiness-label]');
         if (indicator) indicator.className = filled

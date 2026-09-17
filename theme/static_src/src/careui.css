@@ -19,7 +19,7 @@
   /* ── Button ────────────────────────────────────────────────────────────── */
 
   .ui-btn {
-    @apply inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-transparent bg-clip-padding px-3 text-sm font-semibold whitespace-nowrap outline-0 transition-colors duration-150 select-none;
+    @apply inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-transparent bg-clip-padding px-3 text-sm font-semibold whitespace-nowrap outline-0 transition-colors duration-150 select-none;
     @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
     @apply disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50;
     @apply aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive;
@@ -70,9 +70,16 @@
     @apply dark:text-primary-300 dark:hover:text-primary-200 dark:active:text-primary-100;
   }
 
+  /* Consequence ladder: outline (neutral) → caution (retracts work) → destructive (irreversible). */
+  .ui-btn--caution {
+    @apply border-caution/35 bg-card text-caution;
+    @apply hover:border-caution/55 hover:bg-caution/8 focus-visible:outline-caution;
+    @apply dark:border-caution/30 dark:hover:border-caution/50 dark:hover:bg-caution/10;
+  }
+
   .ui-btn--destructive {
     @apply border-destructive/20 bg-card text-destructive;
-    @apply hover:border-destructive/40 hover:bg-destructive/5 focus-visible:outline-destructive;
+    @apply hover:border-destructive/45 hover:bg-destructive/10 focus-visible:outline-destructive;
   }
 
   .ui-btn--destructive-solid {

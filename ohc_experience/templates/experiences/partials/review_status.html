@@ -41,7 +41,7 @@
               class="mt-3"
               hx-confirm="Withdraw this request and unlock the submitted form?">
           {% csrf_token %}
-          <button class="ui-btn ui-btn--outline ui-btn--size-sm" type="submit">Withdraw request</button>
+          <button class="ui-btn ui-btn--destructive ui-btn--size-sm" type="submit">Withdraw request</button>
         </form>
       {% endif %}
     </div>

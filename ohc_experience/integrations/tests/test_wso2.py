@@ -21,13 +21,13 @@ from ohc_experience.integrations.secret_ref import store_secret
 from ohc_experience.integrations.tests.wso2_stub import DEVPORTAL
 from ohc_experience.integrations.tests.wso2_stub import Wso2StubTransport
 from ohc_experience.integrations.wso2.adapter import Wso2ApiGateway
-from ohc_experience.integrations.wso2.apis import api_names_for
+from ohc_experience.integrations.wso2.apis import api_ids_for
 
-API_NAMES = ("abha-v3", "hip-v3")
+API_IDS = ("api-0001-abha", "api-0002-hip")
 SPEC = GatewayAppSpec(
     reference="SBX-2026-00001",
     name="Demo HMIS",
-    api_names=API_NAMES,
+    api_ids=API_IDS,
 )
 APP_NAME = "sbx-SBX-2026-00001"
 
@@ -42,7 +42,7 @@ wso2_settings = override_settings(
     WSO2_CLIENT_SECRET="portal-secret",  # noqa: S106 - test value
     WSO2_USERNAME="portal-admin",
     WSO2_PASSWORD="portal-password",  # noqa: S106 - test value
-    WSO2_API_NAMES={"SANDBOX": API_NAMES},
+    WSO2_API_IDS={"SANDBOX": API_IDS},
 )
 
 
@@ -114,21 +114,28 @@ def test_a_conflict_with_no_findable_application_still_raises(gateway, transport
 # Subscribe
 
 
-def test_subscribing_resolves_api_names_to_ids(gateway, transport):
+def test_subscribing_sends_the_configured_api_ids_as_legacy_did(gateway, transport):
     created = gateway.create_application(SPEC)
 
-    gateway.subscribe(created.external_id, API_NAMES)
+    gateway.subscribe(created.external_id, API_IDS)
 
-    assert set(transport.subscriptions[created.external_id]) == set(API_NAMES)
-    assert f"{DEVPORTAL}/apis" in transport.paths("GET")
+    assert set(transport.subscriptions[created.external_id]) == set(API_IDS)
+    assert f"{DEVPORTAL}/apis" not in transport.paths("GET")
+    call = next(
+        c
+        for c in transport.calls
+        if c.url.path == f"{DEVPORTAL}/subscriptions/multiple"
+    )
+    for entry in json.loads(call.content):
+        assert entry["requestedThrottlingPolicy"] == entry["throttlingPolicy"]
 
 
 def test_subscribing_twice_adds_nothing_the_second_time(gateway, transport):
     created = gateway.create_application(SPEC)
 
-    gateway.subscribe(created.external_id, API_NAMES)
+    gateway.subscribe(created.external_id, API_IDS)
     before = dict(transport.subscriptions[created.external_id])
-    gateway.subscribe(created.external_id, API_NAMES)
+    gateway.subscribe(created.external_id, API_IDS)
 
     assert transport.subscriptions[created.external_id] == before
 
@@ -142,11 +149,11 @@ def test_subscribing_to_nothing_makes_no_call(gateway, transport):
     assert len(transport.calls) == calls
 
 
-def test_an_unpublished_api_name_fails_loudly(gateway, transport):
+def test_an_unpublished_api_id_fails_loudly(gateway, transport):
     created = gateway.create_application(SPEC)
 
     with pytest.raises(AdapterError) as error:
-        gateway.subscribe(created.external_id, ("no-such-api",))
+        gateway.subscribe(created.external_id, ("api-9999-none",))
 
     assert error.value.code == "HTTP_404"
     assert error.value.retryable is False
@@ -157,26 +164,26 @@ def test_an_unpublished_api_name_fails_loudly(gateway, transport):
 
 def test_unsubscribing_removes_the_named_subscriptions(gateway, transport):
     created = gateway.create_application(SPEC)
-    gateway.subscribe(created.external_id, API_NAMES)
+    gateway.subscribe(created.external_id, API_IDS)
 
-    gateway.unsubscribe(created.external_id, API_NAMES)
+    gateway.unsubscribe(created.external_id, API_IDS)
 
     assert transport.subscriptions[created.external_id] == {}
 
 
 def test_unsubscribing_leaves_the_others_alone(gateway, transport):
     created = gateway.create_application(SPEC)
-    gateway.subscribe(created.external_id, API_NAMES)
+    gateway.subscribe(created.external_id, API_IDS)
 
-    gateway.unsubscribe(created.external_id, ("abha-v3",))
+    gateway.unsubscribe(created.external_id, ("api-0001-abha",))
 
-    assert set(transport.subscriptions[created.external_id]) == {"hip-v3"}
+    assert set(transport.subscriptions[created.external_id]) == {"api-0002-hip"}
 
 
 def test_unsubscribing_what_was_never_subscribed_succeeds(gateway):
     created = gateway.create_application(SPEC)
 
-    gateway.unsubscribe(created.external_id, API_NAMES)  # B8 reruns this
+    gateway.unsubscribe(created.external_id, API_IDS)  # B8 reruns this
 
 
 def test_unsubscribing_survives_a_subscription_vanishing_underneath(
@@ -184,11 +191,11 @@ def test_unsubscribing_survives_a_subscription_vanishing_underneath(
     transport,
 ):
     created = gateway.create_application(SPEC)
-    gateway.subscribe(created.external_id, ("abha-v3",))
-    subscription_id = transport.subscriptions[created.external_id]["abha-v3"]
+    gateway.subscribe(created.external_id, ("api-0001-abha",))
+    subscription_id = transport.subscriptions[created.external_id]["api-0001-abha"]
     transport.failures[("DELETE", f"{DEVPORTAL}/subscriptions/{subscription_id}")] = 404
 
-    gateway.unsubscribe(created.external_id, ("abha-v3",))
+    gateway.unsubscribe(created.external_id, ("api-0001-abha",))
 
 
 # Key mapping and the secret
@@ -254,7 +261,7 @@ def test_tls_verification_is_never_disabled():
 
 def test_the_token_is_fetched_once_and_reused(gateway, transport):
     created = gateway.create_application(SPEC)
-    gateway.subscribe(created.external_id, API_NAMES)
+    gateway.subscribe(created.external_id, API_IDS)
 
     assert transport.token_calls == 1
 
@@ -288,14 +295,14 @@ def test_the_adapter_resolves_through_the_port_registry():
         assert isinstance(get_api_gateway(), Wso2ApiGateway)
 
 
-def test_api_names_come_from_settings_by_kind():
-    assert api_names_for("SANDBOX") == API_NAMES
+def test_api_ids_come_from_settings_by_kind():
+    assert api_ids_for("SANDBOX") == API_IDS
 
 
 def test_an_unconfigured_kind_refuses_rather_than_subscribing_to_nothing():
     """An empty list would provision a client that silently reaches no API."""
     with (
-        override_settings(WSO2_API_NAMES={"SANDBOX": ()}),
+        override_settings(WSO2_API_IDS={"SANDBOX": ()}),
         pytest.raises(ImproperlyConfigured),
     ):
-        api_names_for("SANDBOX")
+        api_ids_for("SANDBOX")

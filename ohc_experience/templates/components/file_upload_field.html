@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n static %}
 
 <div class="rounded-xl focus-within:ring-2 focus-within:ring-primary/30 focus-within:ring-offset-4"
      data-file-upload
@@ -16,6 +16,9 @@
       {{ label }}
       {% if is_optional %}
         <span class="font-normal text-soft-foreground">({% translate "optional" %})</span>
+      {% endif %}
+      {% if field.name == 'undertaking_form' %}
+        <span class="font-normal text-soft-foreground">(<a class="ui-prose-link" href="{% static 'docs/UNDERTAKING_TEMPLATE.docx' %}" download>Download Format</a>)</span>
       {% endif %}
     </label>
     <span class="text-xs tabular-nums text-soft-foreground" data-file-summary>

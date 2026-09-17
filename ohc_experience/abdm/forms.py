@@ -526,7 +526,12 @@ class ExitEvidenceForm(WasaReviewForm):
         ),
         (
             "Functional testing",
-            ("functional_certificate", "functional_report", "supporting_evidence"),
+            (
+                "functional_certificate",
+                "functional_report",
+                "undertaking_form",
+                "supporting_evidence",
+            ),
         ),
     )
     start_date = forms.DateField(
@@ -569,10 +574,16 @@ class ExitEvidenceForm(WasaReviewForm):
         accept=".pdf",
         validators=[validate_pdf],
     )
+    undertaking_form = forms.FileField(
+        label="Undertaking form",
+        required=False,
+        widget=forms.FileInput(attrs={"accept": ".doc,.docx,.pdf"}),
+    )
     required_uploads = (
         "wasa_certificate",
         "functional_certificate",
         "functional_report",
+        "undertaking_form",
     )
 
     def __init__(
