@@ -100,9 +100,21 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
     )
     mobile_number = forms.CharField(
         label=_("Mobile number"),
-        max_length=32,
-        error_messages={"required": _("Enter your mobile number.")},
-        widget=forms.TextInput(attrs={"autocomplete": "tel", "inputmode": "tel"}),
+        max_length=10,
+        error_messages={
+            "required": _("Enter your mobile number."),
+            "max_length": _(
+                "Enter a valid 10-digit phone number without the country code.",
+            ),
+        },
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "tel",
+                "inputmode": "numeric",
+                "maxlength": "10",
+                "pattern": "[0-9]{10}",
+            },
+        ),
     )
     organisation = forms.CharField(
         label=_("Organisation/business name"),
@@ -160,6 +172,14 @@ class UserSignupForm(SignupVerificationMixin, OrganisationSignupMixin, SignupFor
             msg = _("Sign up with the address the invite was sent to.")
             raise forms.ValidationError(msg)
         return email
+
+    def clean_mobile_number(self) -> str:
+        mobile_number = self.cleaned_data["mobile_number"].strip()
+        if not mobile_number.isdigit() or len(mobile_number) != 10:
+            raise forms.ValidationError(
+                _("Enter a valid 10-digit phone number without the country code."),
+            )
+        return mobile_number
 
     def clean(self) -> dict:
         cleaned_data = super().clean()
