@@ -5,6 +5,7 @@ from graphlib import CycleError
 from graphlib import TopologicalSorter
 from typing import Any
 from typing import ClassVar
+from typing import NamedTuple
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError
@@ -255,18 +256,51 @@ class ProductHandoffDefinition:
         raise NotImplementedError
 
 
+class ReferenceShell(NamedTuple):
+    """How to run the reference environment from one kind of terminal."""
+
+    label: str
+    prompt: str
+    #: `{client_id}` and `{client_secret}` are filled in for the product, and
+    #: `{options}` marks where the chosen milestones' options go.
+    command: str
+
+
 class ReferenceEnvironmentDefinition:
     """A runnable implementation of the program's flows on synthetic data."""
 
-    run_command = ""
+    #: Run commands by shell key. The first is shown by default.
+    shells: ClassVar[dict[str, ReferenceShell]] = {}
+    stop_command = ""
     local_url = ""
     requirements = ""
+    includes = ""
+    #: Demo sign-in as (username, password).
+    sign_in: ClassVar[tuple[str, str] | None] = None
     #: Logos as (name, static path) pairs.
     built_on: ClassVar[tuple[tuple[str, str], ...]] = ()
     maintained_by: ClassVar[tuple[tuple[str, str], ...]] = ()
     licence = ""
     #: Flow names by milestone key.
     flows: ClassVar[dict[str, tuple[str, ...]]] = {}
+    #: Command options that add a milestone, by milestone key. Others always run.
+    milestone_options: ClassVar[dict[str, str]] = {}
+    #: Milestones whose flows are still being built.
+    in_progress: ClassVar[tuple[str, ...]] = ()
+    #: Stand-ins for credentials the page cannot show. Plain words, so a shell
+    #: reads them as text if they are run unchanged.
+    client_id_placeholder = "YOUR_CLIENT_ID"
+    client_secret_placeholder = "YOUR_CLIENT_SECRET"  # noqa: S105
+
+    @classmethod
+    def command_parts(cls, shell, client_id=None):
+        """A shell's command for one product, split where milestone options go."""
+        command = shell.command.replace(
+            "{client_id}",
+            client_id or cls.client_id_placeholder,
+        ).replace("{client_secret}", cls.client_secret_placeholder)
+        before, _, after = command.partition("{options}")
+        return before, after
 
 
 class ProgramDefinition:

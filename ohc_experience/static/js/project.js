@@ -360,10 +360,14 @@
 
 // Copy controls use only values already visible to the authorised account.
 document.addEventListener("click", async (event) => {
-  const copy = event.target.closest("[data-copy], [data-copy-value]");
+  const copy = event.target.closest("[data-copy], [data-copy-value], [data-copy-from]");
   if (!copy || !navigator.clipboard) return;
+  // data-copy-from names an element whose visible text is copied, leaving out its hidden parts.
+  const source = copy.dataset.copyFrom && document.getElementById(copy.dataset.copyFrom);
   try {
-    await navigator.clipboard.writeText(copy.dataset.copy ?? copy.dataset.copyValue);
+    await navigator.clipboard.writeText(
+      source ? source.innerText.replace(/\s+/g, " ").trim() : copy.dataset.copy ?? copy.dataset.copyValue,
+    );
     const idle = copy.querySelector("[data-icon-copy]");
     const done = copy.querySelector("[data-icon-done]");
     idle?.classList.add("hidden");

@@ -1310,11 +1310,21 @@ def reference_environment(request, reference):
     if environment is None:
         raise Http404
     permissions.require_integrator(request.user, workspace.product.organisation)
-    flows = [
-        (workspace.definition.milestones[key], names)
+    milestones = [
+        (
+            workspace.definition.milestones[key],
+            names,
+            environment.milestone_options.get(key, ""),
+            key in environment.in_progress,
+        )
         for key, names in environment.flows.items()
     ]
-    milestones = readable_list(milestone.code for milestone, _ in flows)
+    credential = ProductCredential.objects.filter(product=workspace.product).first()
+    client_id = credential.client_id if credential else None
+    shells = [
+        (key, shell, *environment.command_parts(shell, client_id))
+        for key, shell in environment.shells.items()
+    ]
     return render(
         request,
         "experiences/reference_environment.html",
@@ -1324,8 +1334,9 @@ def reference_environment(request, reference):
             nav="reference",
             page_title="Reference environment",
             reference_environment=environment,
-            reference_flows=flows,
             reference_milestones=milestones,
+            reference_shells=shells,
+            has_credential=credential is not None,
         ),
     )
 

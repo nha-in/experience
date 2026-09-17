@@ -10,8 +10,9 @@ belong to `experiences`.
   product mappings, structured approval outcomes and portal labels.
 - `gateway.py`: ABDM credential eligibility and provider/demo integration.
 - `wasa.py`: approved product WASA selection, expiry checks and review outcomes.
-- `reference.py`: the reference environment's run command, attribution and the M1
-  and M2 flows its image implements.
+- `reference.py`: the reference environment's run commands, which build CARE with the
+  care-abdm plug from the latest code with Docker Compose, the option each milestone
+  adds, attribution, and the care-abdm flows by milestone.
 - `demo.py`: the ABDM data builder invoked by `seed_experience_demo`.
 - `tests/`: domain-specific regression coverage.
 
