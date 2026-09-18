@@ -50,6 +50,7 @@ jobs:
           WSO2_SANDBOX_API_IDS: ${{ vars.WSO2_SANDBOX_API_IDS }}
           HIECM_BASE_URL: ${{ vars.HIECM_BASE_URL }}
           HIECM_CM_ID: ${{ vars.HIECM_CM_ID }}
+          NOTIFICATION_APP_BASE_URL: ${{ vars.NOTIFICATION_APP_BASE_URL }}
         run: |
           missing=""
           for name in KEYCLOAK_BASE_URL \
@@ -68,7 +69,8 @@ jobs:
             WSO2_SCOPES \
             WSO2_SANDBOX_API_IDS \
             HIECM_BASE_URL \
-            HIECM_CM_ID; do
+            HIECM_CM_ID \
+            NOTIFICATION_APP_BASE_URL; do
             if [ -z "${!name}" ]; then missing="$missing $name"; fi
           done
           if [ -n "$missing" ]; then
@@ -201,6 +203,7 @@ jobs:
             WSO2_SANDBOX_API_IDS=${{ vars.WSO2_SANDBOX_API_IDS }}
             HIECM_BASE_URL=${{ vars.HIECM_BASE_URL }}
             HIECM_CM_ID=${{ vars.HIECM_CM_ID }}
+            NOTIFICATION_APP_BASE_URL=${{ vars.NOTIFICATION_APP_BASE_URL }}
 
       - name: Deploy task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
