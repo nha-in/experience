@@ -450,6 +450,7 @@ class DemoBuilder:
                 item,
                 reviewer,
                 action="send_back",
+                reason="Incomplete documentation",
                 note="Include the data-retention and document-retrieval scenarios, then resubmit the functional report.",
             )
 

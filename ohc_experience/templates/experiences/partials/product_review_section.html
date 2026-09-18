@@ -160,18 +160,38 @@
                   </div>
                   <p class="ui-hint">Choose the part of the submission that needs clarification.</p>
                 </div>
+                {% if send_back_reasons %}
+                  <div data-send-back-controls
+                       {% if decision_action != 'send_back' %}hidden{% endif %}>
+                    <label class="ui-label" for="decision-reason-{{ item.pk }}">Reason</label>
+                    <div class="ui-select-wrapper">
+                      <select class="ui-select"
+                              id="decision-reason-{{ item.pk }}"
+                              name="reason"
+                              data-reason-select>
+                        <option value="">Choose a reason</option>
+                        {% for reason in send_back_reasons %}
+                          <option value="{{ reason }}"
+                                  {% if reason == other_reason %}data-note-required{% endif %}
+                                  {% if reason == decision_reason %}selected{% endif %}>{{ reason }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <p class="ui-hint" data-reason-hint>The integrator sees this reason above your note.</p>
+                  </div>
+                {% endif %}
                 <div>
                   <label class="ui-label"
                          for="decision-note-{{ item.pk }}"
-                         data-decision-label>{% if decision_action == 'query' %}Question{% elif decision_action == 'send_back' %}Reason for sending back{% else %}Decision note{% endif %}</label>
+                         data-decision-label>{% if decision_action == 'query' %}Question{% elif decision_action == 'send_back' %}Note for the integrator{% else %}Decision note{% endif %}</label>
                   <textarea class="ui-textarea min-h-20"
                             id="decision-note-{{ item.pk }}"
                             name="note"
                             rows="3"
                             maxlength="10000"
-                            {% if decision_action != 'approve' %}required{% endif %}
+                            {% if decision_action == 'query' or decision_action == 'send_back' and not send_back_reasons %}required{% endif %}
                             aria-describedby="decision-help-{{ item.pk }}">{{ decision_note }}</textarea>
-                  <p class="ui-hint" id="decision-help-{{ item.pk }}">Saved in this request's history and shared with the integrator. A reason or question is required for send-back and query actions.</p>
+                  <p class="ui-hint" id="decision-help-{{ item.pk }}">Saved in this request's history and shared with the integrator. Required for a query{% if send_back_reasons %}, and for a send-back when the reason is {{ other_reason }}{% else %} and a send-back{% endif %}.</p>
                 </div>
                 <div>
                   <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11 w-full"

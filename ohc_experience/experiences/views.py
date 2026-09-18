@@ -587,6 +587,7 @@ def _product_review_post(request, workspace):
             request.user,
             action=request.POST.get("action"),
             note=request.POST.get("note", ""),
+            reason=request.POST.get("reason", ""),
             field_key=request.POST.get("field_key", "form"),
             expected_revision=request.POST.get("revision", ""),
         )
@@ -641,6 +642,9 @@ def _product_review_sections(request, items):
                 "available_actions": available,
                 "unresolved_query_count": unresolved,
                 "decision_note": request.POST.get("note", "") if posted else "",
+                "send_back_reasons": services.send_back_reasons(item.definition),
+                "other_reason": services.OTHER_REASON,
+                "decision_reason": request.POST.get("reason", "") if posted else "",
                 "decision_action": action
                 if action in available
                 else next(iter(available), ""),
@@ -2014,6 +2018,7 @@ def review(request, pk):
                     request.user,
                     action=request.POST.get("action"),
                     note=request.POST.get("note", ""),
+                    reason=request.POST.get("reason", ""),
                     field_key=request.POST.get("field_key", "form"),
                 )
             messages.success(request, "Review updated.")
@@ -2056,6 +2061,9 @@ def review(request, pk):
             ),
             decision_action=selected_action,
             decision_note=request.POST.get("note", ""),
+            send_back_reasons=services.send_back_reasons(item.definition),
+            other_reason=services.OTHER_REASON,
+            decision_reason=request.POST.get("reason", ""),
             query_field=request.POST.get("field_key", request.GET.get("field", "form")),
             awaiting_reply_count=item.queries.filter(
                 submission_id=item.selected_submission_id,

@@ -41,6 +41,9 @@ class ApplicationFormDefinition:
     submit_label = "Submit application"
     submitted_message = "Application submitted."
     approval_notice = ""
+    #: What a reviewer sending this form back chooses from. A form with no list
+    #: takes the reviewer's note alone.
+    send_back_reasons: ClassVar[tuple[str, ...]] = ()
 
     @classmethod
     def initial_data(cls, item):

@@ -25,6 +25,8 @@ from .forms import WasaReviewForm
 from .gateway import ABDMProductionCredentials
 from .gateway import ABDMSandboxCredentials
 from .reference import ABDMReferenceEnvironment
+from .send_back_reasons import EXIT_SEND_BACK_REASONS
+from .send_back_reasons import ORGANISATION_SEND_BACK_REASONS
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
@@ -58,6 +60,7 @@ class OrganisationVerification(ApplicationFormDefinition):
     reuse_scope = FormReuseScope.ORGANISATION
     form_class = OrganisationForm
     allow_approved_updates = True
+    send_back_reasons = ORGANISATION_SEND_BACK_REASONS
 
     @classmethod
     def initial_data(cls, item):
@@ -100,6 +103,7 @@ class ExitEvidence(ApplicationFormDefinition):
     request_label = "exit request"
     submit_label = "Request for exit"
     submitted_message = "Exit requested."
+    send_back_reasons = EXIT_SEND_BACK_REASONS
     approval_notice = (
         "The NHA gateway team issues production credentials. Your production "
         "client ID appears on the Credentials page once it is issued."

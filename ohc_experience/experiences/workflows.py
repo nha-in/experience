@@ -50,6 +50,8 @@ from .services import issue_outcome
 logger = logging.getLogger(__name__)
 
 MAX_REVIEW_TEXT = 10000
+#: Chosen when no listed reason fits. The reviewer then has to write the reason.
+OTHER_REASON = "Other"
 PENDING_STATUSES = (
     ReviewItem.Status.NEW,
     ReviewItem.Status.IN_REVIEW,
@@ -57,24 +59,29 @@ PENDING_STATUSES = (
 )
 
 
-def _notice(item, event, *, note="", after_commit=False):
+def _notice(item, event, *, note="", reason="", after_commit=False):
     if after_commit:
-        transaction.on_commit(partial(_notice, item, event, note=note))
+        transaction.on_commit(partial(_notice, item, event, note=note, reason=reason))
         return
     try:
-        notify_review(item, event, note=note)
+        notify_review(item, event, note=note, reason=reason)
     except Exception:
         # Email must never break a workflow transition.
         logger.exception("Failed to email the %s notice for %s", event, item.reference)
 
 
-def _announce(item, action, note, *, after_commit=False):
+def _announce(item, action, note, reason="", *, after_commit=False):
     """Only an approval leaves the review thread; the rest keep its subject."""
     if after_commit:
-        transaction.on_commit(partial(_announce, item, action, note))
+        transaction.on_commit(partial(_announce, item, action, note, reason))
         return
     if action != "approve":
-        _notice(item, "query_raised" if action == "query" else "sent_back", note=note)
+        _notice(
+            item,
+            "query_raised" if action == "query" else "sent_back",
+            note=note,
+            reason=reason,
+        )
         return
     try:
         notify_decision(item, note)
@@ -243,6 +250,7 @@ def _request_review(item, *, resubmitting, defer_notifications=False):
     item.decided_at = None
     item.decided_by = None
     item.decision_note = ""
+    item.decision_reason = ""
     _set_application_status(item, "under_review")
     _notice(item, "received", after_commit=defer_notifications)
 
@@ -1011,6 +1019,7 @@ def _auto_approve(item, actor, *, defer_notifications=False):
     item.decided_at = timezone.now()
     item.decided_by = None
     item.decision_note = ""
+    item.decision_reason = ""
     _set_application_status(item, "approved")
     _approve_subject(item, actor)
     _notice(item, "recorded", after_commit=defer_notifications)
@@ -1069,6 +1078,31 @@ def _require_decidable(item, action, *, settling_reviews=()):
         raise ValidationError(msg)
 
 
+def send_back_reasons(definition):
+    """What this form offers, with Other last, or nothing when it lists none."""
+    reasons = definition.send_back_reasons
+    return (*reasons, OTHER_REASON) if reasons else ()
+
+
+def _decision_reason(item, action, reason):
+    """The reason a send-back is given, when the form offers a list to choose from.
+
+    None means the decision offered no choice, as a bulk rejection of requests
+    with different lists does; the note then carries the reason.
+    """
+    offered = send_back_reasons(item.definition)
+    if action != "send_back" or not offered or reason is None:
+        return ""
+    reason = reason.strip()
+    if not reason:
+        msg = "Choose a reason for sending this back."
+        raise ValidationError(msg)
+    if reason not in offered:
+        msg = "Choose a reason from the list."
+        raise ValidationError(msg)
+    return reason
+
+
 @transaction.atomic
 def decide(  # noqa: PLR0913
     item,
@@ -1076,6 +1110,7 @@ def decide(  # noqa: PLR0913
     *,
     action,
     note="",
+    reason="",
     field_key="form",
     expected_revision=None,
 ):
@@ -1085,7 +1120,14 @@ def decide(  # noqa: PLR0913
     ):
         msg = "A submission changed. Reload the product page before deciding."
         raise ValidationError(msg)
-    return _decide(item, actor, action=action, note=note, field_key=field_key)
+    return _decide(
+        item,
+        actor,
+        action=action,
+        note=note,
+        reason=reason,
+        field_key=field_key,
+    )
 
 
 def _decide(  # noqa: PLR0913
@@ -1094,6 +1136,7 @@ def _decide(  # noqa: PLR0913
     *,
     action,
     note="",
+    reason=None,
     field_key="form",
     defer_notifications=False,
     rejecting_reviews=(),
@@ -1106,7 +1149,13 @@ def _decide(  # noqa: PLR0913
         settling_reviews=rejecting_reviews if action == "send_back" else (),
     )
     note = note.strip()
-    if action in {"send_back", "query"} and not note:
+    reason = _decision_reason(item, action, reason)
+    # A listed reason speaks for itself. A query, Other, and a form with no list
+    # to choose from need the reviewer's own words.
+    if not note and reason == OTHER_REASON:
+        msg = "Write the reason when you choose Other."
+        raise ValidationError(msg)
+    if not note and (action == "query" or (action == "send_back" and not reason)):
         msg = "Enter a reason or question before continuing."
         raise ValidationError(msg)
     if len(note) > MAX_REVIEW_TEXT:
@@ -1148,6 +1197,7 @@ def _decide(  # noqa: PLR0913
             actor,
             note,
         )
+        item.decision_reason = reason
         _set_application_status(item, "approved" if action == "approve" else "draft")
         if action == "approve":
             _approve_subject(item, actor)
@@ -1157,12 +1207,16 @@ def _decide(  # noqa: PLR0913
             actor=actor,
             action="Approved" if action == "approve" else "Sent back",
             item=item,
-            detail={"note": note, "submission_id": item.selected_submission_id},
+            detail={
+                "note": note,
+                "submission_id": item.selected_submission_id,
+                **({"reason": reason} if reason else {}),
+            },
         )
     item.save()
     if action == "approve":
         _record_released(item.organisation, defer_notifications=defer_notifications)
-    _announce(item, action, note, after_commit=defer_notifications)
+    _announce(item, action, note, reason, after_commit=defer_notifications)
     return item
 
 

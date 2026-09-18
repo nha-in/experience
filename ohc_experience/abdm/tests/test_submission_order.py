@@ -94,6 +94,7 @@ def test_a_sent_back_milestone_leaves_the_next_one_open(environment):
         m1,
         environment["reviewer"],
         action="send_back",
+        reason="Incomplete integration",
         note="Add the consent revocation scenarios.",
     )
 

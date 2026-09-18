@@ -94,6 +94,14 @@ is under review. The engine refuses approval or send-back until every
 prerequisite reaches its success status. Queries stay open. The review queue
 separates requests still waiting on a prerequisite from ready ones.
 
+A form definition lists the reasons a reviewer chooses from in
+`send_back_reasons`, and a send-back on such a form takes exactly one, stored in
+`ReviewItem.decision_reason` and in the audit event's `reason`; the engine offers
+`Other` after the listed ones. The integrator sees the reason above the reviewer's
+note, in the portal and in the notice email. The note is required for a query,
+for `Other`, and for a send-back on a form that lists no reasons. Resubmitting
+clears the reason along with the note.
+
 ### Staff Permissions
 
 `AccessGrant` grants a user access to a registered program, an area (`review`,

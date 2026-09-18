@@ -50,7 +50,7 @@
         {% endif %}
         <div class="divide-y divide-soft-border">
           {% for section in review_sections %}
-            {% include 'experiences/partials/product_review_section.html' with item=section.item snapshot=section.snapshot prerequisites=section.prerequisites can_approve=section.can_approve can_send_back=section.can_send_back can_query=section.can_query unresolved_query_count=section.unresolved_query_count decision_note=section.decision_note decision_action=section.decision_action query_field=section.query_field %}
+            {% include 'experiences/partials/product_review_section.html' with item=section.item snapshot=section.snapshot prerequisites=section.prerequisites can_approve=section.can_approve can_send_back=section.can_send_back can_query=section.can_query unresolved_query_count=section.unresolved_query_count decision_note=section.decision_note send_back_reasons=section.send_back_reasons other_reason=section.other_reason decision_reason=section.decision_reason decision_action=section.decision_action query_field=section.query_field %}
           {% empty %}
             <p class="px-5 py-6 text-sm text-muted-foreground">No submitted requests to review.</p>
           {% endfor %}

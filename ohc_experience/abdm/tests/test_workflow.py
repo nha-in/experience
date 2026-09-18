@@ -919,6 +919,7 @@ def test_sent_back_draft_retains_reason_and_decision_history(environment, client
         item,
         environment["reviewer"],
         action="send_back",
+        reason="Incomplete documentation",
         note="Revise scope.",
     )
     item, form, saved = services.save_review_form(
@@ -929,6 +930,7 @@ def test_sent_back_draft_retains_reason_and_decision_history(environment, client
     assert saved, form.errors
     assert item.status == "sent_back"
     assert item.decision_note == "Revise scope."
+    assert item.decision_reason == "Incomplete documentation"
     item, form, saved = services.save_review_form(
         item,
         environment["applicant"],

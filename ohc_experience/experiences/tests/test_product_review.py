@@ -133,6 +133,7 @@ def test_unsent_corrections_after_rejection_are_not_shown_to_reviewers(
         item,
         environment["reviewer"],
         action="send_back",
+        reason="Incorrect document",
         note="Please correct the evidence.",
     )
     item, form, saved = workflows.save_review_form(

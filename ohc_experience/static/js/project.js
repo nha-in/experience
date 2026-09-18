@@ -350,19 +350,31 @@
   function updateDecision(form) {
     const action = form.querySelector('[name="action"]:checked')?.value || 'approve';
     const note = form.querySelector('[name="note"]');
-    const labels = { approve: ['Decision note', 'Record approval'], send_back: ['Reason for sending back', 'Send back to integrator'], query: ['Question', 'Send query'] };
+    const labels = { approve: ['Decision note', 'Record approval'], send_back: ['Note for the integrator', 'Send back to integrator'], query: ['Question', 'Send query'] };
     const label = form.querySelector('[data-decision-label]');
     if (label) label.textContent = labels[action][0];
+    // Forms that list reasons ask for one; the rest take the note alone.
+    const reason = form.querySelector('[data-reason-select]');
+    const chosen = reason?.options[reason.selectedIndex];
+    const hint = form.querySelector('[data-reason-hint]');
+    if (hint) hint.textContent = reason && !reason.value
+      ? 'Choose a reason before sending back.'
+      : 'The integrator sees this reason above your note.';
     const button = form.querySelector('[data-decision-submit]');
     if (button) {
       button.textContent = labels[action][1];
       // Prerequisites hold every decision but a query; open queries hold approval.
       button.disabled = (action !== 'query' && form.dataset.decisionBlocked === 'true')
-        || (action === 'approve' && form.dataset.approvalBlocked === 'true');
+        || (action === 'approve' && form.dataset.approvalBlocked === 'true')
+        || (action === 'send_back' && Boolean(reason) && !reason.value);
     }
-    if (note) note.required = action !== 'approve';
+    // A listed reason speaks for itself; a query, Other, and a form with no list
+    // to choose from need the reviewer's own words.
+    if (note) note.required = action === 'query'
+      || (action === 'send_back' && (!reason || 'noteRequired' in (chosen?.dataset || {})));
     form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
     form.querySelectorAll('[data-approval-controls]').forEach(el => { el.hidden = action !== 'approve'; });
+    form.querySelectorAll('[data-send-back-controls]').forEach(el => { el.hidden = action !== 'send_back'; });
   }
 
   function initialize(scope = document) {

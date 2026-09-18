@@ -774,6 +774,8 @@ class ReviewItem(models.Model):
         related_name="decided_review_items",
     )
     decision_note = models.TextField(blank=True)
+    #: The reason chosen when the request was sent back, from its form's list.
+    decision_reason = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
