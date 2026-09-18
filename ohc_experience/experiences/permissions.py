@@ -58,9 +58,15 @@ def grants(user, area, action="read", program=None):
 
 
 def has_area(user, area, action="read", program=None):
+    """A grant in any running program opens the area.
+
+    Each screen behind it lists every program the grants reach, so gating on
+    the portal's own program would shut a reviewer out of work they hold.
+    """
+    programs = [program] if program else [item.key for item in registry.programs()]
     return reviewer(user) and (
         user.is_superuser
-        or grants(user, area, action, program or get_program().key).exists()
+        or grants(user, area, action).filter(program__in=programs).exists()
     )
 
 
