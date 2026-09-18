@@ -12,6 +12,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError
 
 from .models import FormReuseScope
+from .models import ReviewItem
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,15 @@ class Prerequisite:
     name: str
     #: The review that settles it, when one exists.
     review: Any = None
+
+    @property
+    def withdrawn(self):
+        """Submitted once, then taken back by the integrator to change."""
+        return bool(
+            self.review
+            and self.review.status == ReviewItem.Status.DRAFT
+            and self.review.submitted_at,
+        )
 
 
 class ApplicationFormDefinition:

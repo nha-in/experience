@@ -8,7 +8,7 @@
       <div id="recording-hold"
            class="mt-4 rounded-xl border border-border bg-soft-background p-4 text-sm leading-relaxed text-soft-foreground">
         <p class="mb-1 font-semibold text-foreground">Recorded without a decision</p>
-        <p>This request is recorded automatically once {{ waiting_on }} approved. It needs no action from reviewers.</p>
+        <p>{% if withdrawn_hold %}{{ withdrawn_hold }}{% else %}This request is recorded automatically once {{ waiting_on }} approved.{% endif %} It needs no action from reviewers.</p>
         {% include 'experiences/partials/reviewer_prerequisites.html' %}
       </div>
     {% elif item.pending and can_decide %}
@@ -17,7 +17,7 @@
         <div id="decision-hold"
              class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950">
           <p class="font-semibold">Waiting on prerequisites</p>
-          <p class="mt-1">Approve or send back this request once {{ waiting_on }} approved.{% if can_query %} You can raise queries meanwhile.{% endif %}</p>
+          <p class="mt-1">{% if withdrawn_hold %}{{ withdrawn_hold }}{% else %}Approve or send back this request once {{ waiting_on }} approved.{% endif %}{% if can_query %} You can raise queries meanwhile.{% endif %}</p>
           {% include 'experiences/partials/reviewer_prerequisites.html' %}
         </div>
       {% endif %}

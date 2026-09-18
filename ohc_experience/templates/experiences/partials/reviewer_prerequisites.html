@@ -8,7 +8,9 @@
       {% else %}
         <span class="font-semibold">{{ prerequisite.name|capfirst }}</span>
       {% endif %}
-      {% if not prerequisite.review or prerequisite.review.status == 'draft' %}
+      {% if prerequisite.withdrawn %}
+        {% include 'experiences/partials/status.html' with status='withdrawn' label='Withdrawn' %}
+      {% elif not prerequisite.review or prerequisite.review.status == 'draft' %}
         {% include 'experiences/partials/status.html' with status='draft' label='Not submitted' %}
       {% else %}
         {% include 'experiences/partials/status.html' with status=prerequisite.review.status label=prerequisite.review.get_status_display %}

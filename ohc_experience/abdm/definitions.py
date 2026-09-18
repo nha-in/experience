@@ -94,6 +94,11 @@ class OrganisationVerification(ApplicationFormDefinition):
     def on_send_back(cls, item, actor):
         item.organisation.set_verification("sent_back")
 
+    @classmethod
+    def on_withdraw(cls, item, actor):
+        # Pending would tell reviewers the next move is theirs. It is the integrator's.
+        item.organisation.set_verification("withdrawn")
+
 
 class ExitEvidence(ApplicationFormDefinition):
     key = "sandbox_exit_evidence"

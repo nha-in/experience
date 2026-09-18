@@ -233,6 +233,10 @@ def _context(request, workspace=None, **kwargs):
             if result["prerequisites"]
             else ""
         )
+        result["withdrawn_hold"] = services.withdrawn_hold(
+            item,
+            result["prerequisites"],
+        )
         if item.pending and not is_reviewer:
             # Latest first, the order they can be withdrawn in.
             result["withdraw_first"] = [
@@ -503,6 +507,11 @@ def organization_detail(request, slug):
         .order_by("-open_count", "product__name")
     )
     verification = visible_reviews.filter(kind=ReviewItem.Kind.ORGANISATION).first()
+    withdrawn = (
+        verification
+        and organization.verification_status
+        == Organisation.VerificationStatus.WITHDRAWN
+    )
     return render(
         request,
         "experiences/organization_detail.html",
@@ -516,6 +525,8 @@ def organization_detail(request, slug):
                 if verification and verification.selected_submission
                 else {}
             ),
+            withdrawn_verification=verification if withdrawn else None,
+            withdrawn_at=services.withdrawn_at(verification) if withdrawn else None,
             products=products,
             # A draft is the integrator's unsent work, not yet a request.
             review_requests=_page(request, visible_reviews.exclude(status="draft")),
@@ -636,6 +647,10 @@ def _product_review_sections(request, items):
                 "item": item,
                 "snapshot": snapshot,
                 "prerequisites": prerequisites,
+                "withdrawn_hold": services.withdrawn_hold(item, prerequisites),
+                "withdrawn_at": services.withdrawn_at(item)
+                if item.status == ReviewItem.Status.DRAFT
+                else None,
                 "can_approve": can_approve,
                 "can_send_back": can_send_back,
                 "can_query": can_query,
@@ -673,7 +688,17 @@ def product_detail(request, reference):
     product_items = sorted(
         visible_items.filter(_product_review_scope(product))
         .exclude(kind=ReviewItem.Kind.PRODUCT)
-        .exclude(status=ReviewItem.Status.DRAFT)
+        # A draft is the integrator's unsent work. A withdrawn organisation
+        # verification stays in view, read only, since every milestone waits on it.
+        .filter(
+            ~Q(status=ReviewItem.Status.DRAFT)
+            | Q(
+                kind=ReviewItem.Kind.ORGANISATION,
+                organisation__verification_status=(
+                    Organisation.VerificationStatus.WITHDRAWN
+                ),
+            ),
+        )
         .select_related(
             "selected_submission__form",
             "form",
@@ -1831,6 +1856,8 @@ def _prerequisite_label(program, prerequisite):
     review = prerequisite.review
     milestone = getattr(review.application, "milestone", None) if review else None
     name = program.milestones[milestone.key].code if milestone else prerequisite.name
+    if prerequisite.withdrawn:
+        return name, "withdrawn"
     if review is None or review.status == ReviewItem.Status.DRAFT:
         return name, "not submitted"
     return name, review.get_status_display().lower()
