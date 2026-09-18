@@ -1,0 +1,21 @@
+<div class="grid gap-3.5 sm:grid-cols-2">
+  {% for date in dates %}
+    <div class="ui-field min-w-0">
+      <label class="ui-label" for="{{ date.id }}">{{ date.label }}</label>
+      <input class="ui-input w-full min-w-0"
+             type="date"
+             name="{{ date.name }}"
+             id="{{ date.id }}"
+             value="{{ date.value }}"
+             max="{{ date.max }}"
+             {% if date.is_start %}data-testing-start{% else %}data-testing-end{% endif %}
+             {% if active %}required{% else %}disabled{% endif %}
+             {% if date.errors %}aria-invalid="true" aria-describedby="{{ date.id }}_errors"{% endif %} />
+      {% if date.errors %}
+        <div id="{{ date.id }}_errors">
+          {% for error in date.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>

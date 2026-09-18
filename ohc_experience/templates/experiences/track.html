@@ -103,120 +103,55 @@
               {% if submission_blocked %}
                 <div class="ui-alert ui-alert--info mb-5" role="status">{{ submission_blocked }}</div>
               {% endif %}
-              <div class="mb-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-soft-border bg-soft-background/60 px-4 py-3">
-                <div class="min-w-0">
-                  <p class="text-xs font-semibold text-foreground">
-                    {% if item.definition.auto_approve %}{% if item.selected_submission %}Saved answers{% else %}UHI participation details{% endif %}{% elif item.selected_submission %}Saved evidence{% else %}Start your evidence{% endif %}
-                  </p>
-                  <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
-                    {% if item.selected_submission %}Submission {{ item.selected_submission.submission_number }} · Revision {{ item.selected_submission.revision }}{% if item.selected_submission.origin_application_id != item.application_id %} · Reused from another application{% endif %}
-  {% else %}Complete the required fields below. You can save a draft at any time.{% endif %}
-    </p>
-    </div>
-    {% if item.definition.allow_reuse %}
-      <details class="w-full border-t border-soft-border pt-3">
-        <summary class="min-h-11 cursor-pointer rounded-md py-2.5 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">Already completed evidence for this product?</summary>
-        <p class="mt-2 max-w-[560px] text-xs leading-relaxed text-soft-foreground">Reuse the latest completed submission with the same evidence requirements. This replaces the evidence selected for this milestone; earlier versions remain in history.</p>
-        <form method="post"
-              class="mt-3"
-              data-confirm="Use the latest completed evidence for this product? It will replace the selected evidence and discard unsaved changes on this page. Earlier saved versions remain in history."
-              hx-confirm="Use the latest completed evidence for this product? It will replace the selected evidence and discard unsaved changes on this page. Earlier saved versions remain in history.">
-          {% csrf_token %}
-          <input type="hidden" name="intent" value="reuse" />
-          <button type="submit" class="ui-btn ui-btn--outline ui-btn--size-sm">Reuse completed evidence</button>
-        </form>
-      </details>
-    {% endif %}
-    </div>
-    <form id="evidence-form"
-          method="post"
-          enctype="multipart/form-data"
-          hx-encoding="multipart/form-data"
-          novalidate
-          data-review-form
-          {% if item.definition.auto_approve %}data-auto-approve="true"{% endif %}
-          {% if item.definition.auto_approve and item.status == 'approved' %}data-approved-updates="true"{% endif %}>
-      {% csrf_token %}
-      <input type="hidden"
-             name="revision"
-             value="{{ item.selected_submission_id|default:'' }}" />
-      {% include 'experiences/partials/form.html' %}
-      <div id="evidence-actions"
-           class="mt-8 flex scroll-mt-6 flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium">{% if item.definition.auto_approve and item.status == 'approved' %}Update recorded participation{% elif item.definition.auto_approve %}Save your progress or record participation{% else %}Save your progress or request review{% endif %}</p>
-          <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">{% if item.definition.auto_approve and item.status == 'approved' %}Submit your changes to update the recorded answers. Your participation stays recorded.{% elif item.definition.auto_approve %}Submitting records your participation. You can return to update your answers.{% else %}Drafts stay editable. Submitting sends this milestone for review and locks the form.{% endif %}</p>
-          <p class="mt-1.5 text-xs text-soft-foreground"
-             data-unsaved-status
-             aria-live="polite">{% if item.definition.auto_approve and item.status == 'approved' %}Changes are saved when you submit your update.{% else %}Changes are saved when you save a draft.{% endif %}</p>
-          <p class="mt-1.5 text-xs font-medium text-amber-800"
-             id="evidence-submit-reason"
-             data-submit-reason
-             aria-live="polite">{% if submission_blocked %}Required approvals are pending.{% endif %}</p>
-          <button type="button"
-                  class="mt-1 min-h-11 text-sm font-semibold text-primary underline underline-offset-4"
-                  data-submit-missing
-                  hidden>Go to first incomplete field</button>
-        </div>
-        <div class="flex flex-col gap-2 sm:flex-row">
-          {% if not item.definition.auto_approve or item.status != 'approved' %}
-            <button class="ui-btn ui-btn--outline ui-btn--size-sm"
-                    type="submit"
-                    name="intent"
-                    value="draft"
-                    formnovalidate>Save draft</button>
-          {% endif %}
-          {% if not submission_blocked %}
-            <button class="ui-btn ui-btn--default ui-btn--size-sm"
-                    type="submit"
-                    name="intent"
-                    value="submit"
-                    aria-describedby="evidence-submit-reason"
-                    data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% else %}{{ item.definition.submit_label }}{% endif %}</button>
-          {% endif %}
-        </div>
+              <div class="mb-7 rounded-xl border border-soft-border bg-soft-background/60 px-4 py-3">
+                <p class="text-xs font-semibold text-foreground">
+                  {% if item.definition.auto_approve %}{% if item.selected_submission %}Saved answers{% else %}UHI participation details{% endif %}{% elif item.selected_submission %}Saved evidence{% else %}Start your evidence{% endif %}
+                </p>
+                <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
+                  {% if item.selected_submission %}Submission {{ item.selected_submission.submission_number }} · Revision {{ item.selected_submission.revision }}{% if item.selected_submission.origin_application_id != item.application_id %} · Reused from another application{% endif %}{% else %}Complete the required fields below. You can save a draft at any time.{% endif %}
+                </p>
+              </div>
+              {% include 'experiences/partials/milestone_evidence_form.html' %}
+            {% else %}
+              {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission embedded=True %}
+            {% endif %}
+          </div>
+        </section>
+        {% include 'experiences/partials/queries.html' %}
       </div>
-    </form>
+      {# One column held to the viewport on wide screens, as on the review page. Narrower, it dissolves into the page: saved progress moves above the form and history follows the queries. #}
+      <div class="contents xl:sticky xl:top-2 xl:col-start-2 xl:row-start-1 xl:-m-4 xl:flex xl:max-h-[calc(100dvh-1rem)] xl:flex-col xl:gap-4 xl:overflow-y-auto xl:p-4">
+        {% if can_edit and can_integrate and not locked_by %}
+          <div class="ui-rise -order-1 shrink-0 [animation-delay:.2s]">
+            {% include 'experiences/partials/product_evidence_readiness.html' %}
+          </div>
+        {% endif %}
+        {% include 'experiences/partials/history.html' %}
+      </div>
+    </div>
   {% else %}
-    {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission embedded=True %}
-  {% endif %}
-  </div>
-  </section>
-  {% include 'experiences/partials/queries.html' %}
-  </div>
-  {# One column held to the viewport on wide screens, as on the review page. Narrower, it dissolves into the page: saved progress moves above the form and history follows the queries. #}
-  <div class="contents xl:sticky xl:top-2 xl:col-start-2 xl:row-start-1 xl:-m-4 xl:flex xl:max-h-[calc(100dvh-1rem)] xl:flex-col xl:gap-4 xl:overflow-y-auto xl:p-4">
-    {% if can_edit and can_integrate and not locked_by %}
-      <div class="ui-rise -order-1 shrink-0 [animation-delay:.2s]">
-        {% include 'experiences/partials/product_evidence_readiness.html' %}
+    <div class="ui-float ui-card ui-card--layered items-center px-5 py-11 text-center">
+      <h2 class="text-[15px] font-semibold">
+        {% if track.definition.keys %}This track is not applied for{% else %}No milestones published yet{% endif %}
+        <span class="font-normal text-soft-foreground">· {{ track.definition.code }}</span>
+      </h2>
+      <p class="max-w-[460px] text-sm text-muted-foreground">
+        {% if track.definition.keys %}Add this track to the product to start its milestone applications.{% else %}{{ track.definition.description }}{% endif %}
+      </p>
+      <div class="flex flex-wrap justify-center gap-2">
+        {% if track.definition.keys and can_integrate %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+             href="{% url 'experiences:product-edit' workspace.reference %}">Edit product</a>
+        {% elif not track.definition.keys %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+             href="{% url 'experiences:events' %}">See events</a>
+        {% endif %}
+        <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
+           href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           hx-boost="false">Track documentation ↗&#xFE0E;</a>
       </div>
-    {% endif %}
-    {% include 'experiences/partials/history.html' %}
-  </div>
-  </div>
-{% else %}
-  <div class="ui-float ui-card ui-card--layered items-center px-5 py-11 text-center">
-    <h2 class="text-[15px] font-semibold">
-      {% if track.definition.keys %}This track is not applied for{% else %}No milestones published yet{% endif %}
-      <span class="font-normal text-soft-foreground">· {{ track.definition.code }}</span>
-    </h2>
-    <p class="max-w-[460px] text-sm text-muted-foreground">
-      {% if track.definition.keys %}Add this track to the product to start its milestone applications.{% else %}{{ track.definition.description }}{% endif %}
-    </p>
-    <div class="flex flex-wrap justify-center gap-2">
-      {% if track.definition.keys and can_integrate %}
-        <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
-           href="{% url 'experiences:product-edit' workspace.reference %}">Edit product</a>
-      {% elif not track.definition.keys %}
-        <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
-           href="{% url 'experiences:events' %}">See events</a>
-      {% endif %}
-      <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
-         href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
-         target="_blank"
-         rel="noopener noreferrer"
-         hx-boost="false">Track documentation ↗&#xFE0E;</a>
     </div>
-  </div>
-{% endif %}
+  {% endif %}
 {% endblock %}

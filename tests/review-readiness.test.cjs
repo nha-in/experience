@@ -6,11 +6,15 @@ const vm = require('node:vm');
 
 // Like Django's CheckboxSelectMultiple, individual choices have valid native
 // validity even when a required group has no selected option.
-function createPage({ autoApprove = false, approvedUpdate = false, draft = true, submit = true } = {}) {
+function createPage({ autoApprove = false, approvedUpdate = false, draft = true, submit = true, currentMilestoneCode = '' } = {}) {
   const listeners = new Map();
   const tasks = [];
   const controls = [];
   const groups = [];
+  const choices = [];
+  const testingDates = [];
+  const submitLabel = { textContent: 'Original submit label' };
+  const selectionSummary = { textContent: '' };
   const document = {
     activeElement: null,
     hidden: false,
@@ -31,7 +35,7 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     closest: selector => selector === '[data-continue-form]' ? continueForm : null,
   };
   const form = {
-    dataset: { autoApprove: String(autoApprove), approvedUpdates: String(approvedUpdate) },
+    dataset: { autoApprove: String(autoApprove), approvedUpdates: String(approvedUpdate), currentMilestoneCode },
     parentElement: null,
     closest: () => null,
     matches: () => false,
@@ -42,12 +46,16 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
         '[data-request-submit]': submit ? button : null,
         '[data-submit-reason]': reason,
         '[data-submit-missing]': jump,
+        '[data-submit-label]': submitLabel,
+        '[data-milestone-selection-summary]': selectionSummary,
         '[name="intent"][value="draft"]:not(:disabled)': draft ? {} : null,
       }[selector] || null;
     },
     querySelectorAll(selector) {
       if (selector === 'input, select, textarea') return controls;
       if (selector === '[data-required-checkbox-group]') return groups;
+      if (selector === '[name="additional_reviews"]') return choices;
+      if (selector === '[data-testing-dates]' || selector === '[data-milestone-dates]') return testingDates;
       return [];
     },
   };
@@ -77,14 +85,46 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     groups.push(result);
     return { group: result, input };
   }
-  function date(name, { value = '', min = '', max = '' } = {}) {
+  function date(name, { value = '', min = '', max = '', required = false, disabled = false, parent = form } = {}) {
     const input = {
-      name, value, min, max, validity: { valid: true }, parentElement: form,
-      matches: selector => selector !== ':disabled' && selector.includes('input'),
-      closest: selector => ['[data-review-form]', 'form'].includes(selector) ? form : null,
+      name, value, min, max, required, disabled, parentElement: parent,
+      get validity() {
+        return { valid: this.disabled || ((!this.required || Boolean(this.value))
+          && (!this.value || ((!this.min || this.value >= this.min) && (!this.max || this.value <= this.max)))) };
+      },
+      matches(selector) {
+        return selector === ':disabled' ? this.disabled : selector.includes('input');
+      },
+      closest(selector) {
+        if (selector === '[hidden]') return parent.hidden ? parent : null;
+        return ['[data-review-form]', 'form'].includes(selector) ? form : null;
+      },
     };
     controls.push(input);
     return input;
+  }
+  function milestoneDates(id, { startValue = '', endValue = '', max = '2026-09-18' } = {}) {
+    const fields = {
+      dataset: { milestoneDates: id },
+      hidden: true,
+      parentElement: form,
+      querySelector: selector => ({ '[data-testing-start]': start, '[data-testing-end]': end })[selector] || null,
+      querySelectorAll: () => [start, end],
+    };
+    const start = date(`milestone_${id}_start_date`, { value: startValue, max, disabled: true, parent: fields });
+    const end = date(`milestone_${id}_end_date`, { value: endValue, max, disabled: true, parent: fields });
+    testingDates.push(fields);
+    return { fields, start, end };
+  }
+  function milestone(code, id, requires = '') {
+    const choice = {
+      checked: false,
+      disabled: false,
+      dataset: { milestoneCode: code, reviewId: id, requires },
+      closest: selector => ['[data-review-form]', 'form'].includes(selector) ? form : null,
+    };
+    choices.push(choice);
+    return choice;
   }
   const window = { addEventListener() {}, location: { hash: '' } };
   const context = vm.createContext({
@@ -104,7 +144,7 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     while (tasks.length) tasks.shift()();
   }
   return {
-    form, button, reason, jump, group, date, document, window,
+    form, button, reason, jump, group, date, document, window, milestone, milestoneDates, submitLabel, selectionSummary,
     initialize: () => fire('DOMContentLoaded'),
     change: input => fire('change', input),
     input: input => fire('input', input),
@@ -234,4 +274,158 @@ test('sandbox end date follows the start date while retaining its latest allowed
     assert.equal(start.max, today);
     assert.equal(demo.min, today);
   }
+});
+
+test('milestone selection includes prerequisites and names exactly what will be submitted', () => {
+  const page = createPage({ currentMilestoneCode: 'M4' });
+  const m1 = page.milestone('M1', '1');
+  const m2 = page.milestone('M2', '2', '1');
+  page.initialize();
+  assert.equal(page.submitLabel.textContent, 'Submit M4');
+  assert.equal(page.selectionSummary.textContent, 'Only M4 will be submitted.');
+
+  m2.checked = true;
+  page.change(m2);
+  assert.equal(m1.checked, true);
+  assert.equal(page.submitLabel.textContent, 'Submit 3 milestones');
+  assert.equal(page.selectionSummary.textContent, 'M4, M1, M2 will be submitted together.');
+
+  m1.checked = false;
+  page.change(m1);
+  assert.equal(m2.checked, false);
+  assert.equal(page.submitLabel.textContent, 'Submit M4');
+});
+
+test('milestone selection is restored with its prerequisites after a form error', () => {
+  const page = createPage({ currentMilestoneCode: 'M4' });
+  const m1 = page.milestone('M1', '1');
+  const m2 = page.milestone('M2', '2', '1');
+  const m3 = page.milestone('M3', '3', '1 2');
+  m3.checked = true;
+  page.initialize();
+  assert.equal(m1.checked, true);
+  assert.equal(m2.checked, true);
+  assert.equal(page.submitLabel.textContent, 'Submit 4 milestones');
+
+  m2.checked = false;
+  page.change(m2);
+  assert.equal(m1.checked, true);
+  assert.equal(m3.checked, false);
+  assert.equal(page.submitLabel.textContent, 'Submit M4 + M1');
+});
+
+test('participation keeps its own submit label', () => {
+  const page = createPage({ currentMilestoneCode: 'UHI1', autoApprove: true });
+  page.initialize();
+  assert.equal(page.submitLabel.textContent, 'Original submit label');
+});
+
+test('selecting an extra milestone requires its own dates and preserves them when deselected', () => {
+  const page = createPage({ currentMilestoneCode: 'M1' });
+  page.date('start_date', { value: '2026-09-01', max: '2026-09-18' });
+  page.date('end_date', { value: '2026-09-05', max: '2026-09-18' });
+  const m2 = page.milestone('M2', '2');
+  const dates = page.milestoneDates('2');
+  page.initialize();
+  assert.equal(dates.fields.hidden, true);
+  assert.equal(dates.start.disabled, true);
+  assert.equal(dates.end.required, false);
+  assert.equal(page.button.disabled, false);
+
+  m2.checked = true;
+  page.change(m2);
+  assert.equal(dates.fields.hidden, false);
+  assert.equal(dates.start.disabled, false);
+  assert.equal(dates.start.required, true);
+  assert.equal(dates.end.required, true);
+  assert.equal(dates.start.value, '', 'the primary start date must not be copied');
+  assert.equal(dates.end.value, '', 'the primary end date must not be copied');
+  assert.equal(page.button.disabled, true);
+  assert.match(page.reason.textContent, /^2 fields need attention/);
+
+  dates.start.value = '2026-09-10';
+  dates.end.value = '2026-09-12';
+  page.input(dates.start);
+  assert.equal(page.button.disabled, false);
+  m2.checked = false;
+  page.change(m2);
+  assert.equal(dates.fields.hidden, true);
+  for (const input of [dates.start, dates.end]) {
+    assert.equal(input.disabled, true);
+    assert.equal(input.required, false);
+  }
+  assert.equal(dates.start.value, '2026-09-10');
+  assert.equal(dates.end.value, '2026-09-12');
+  assert.equal(page.button.disabled, false);
+
+  m2.checked = true;
+  page.change(m2);
+  assert.equal(dates.start.value, '2026-09-10');
+  assert.equal(dates.end.value, '2026-09-12');
+  assert.equal(page.button.disabled, false);
+});
+
+test('auto-selected prerequisite milestones require dates and deselected dependants release them', () => {
+  const page = createPage({ currentMilestoneCode: 'M1' });
+  const m2 = page.milestone('M2', '2');
+  const m3 = page.milestone('M3', '3', '2');
+  const dates2 = page.milestoneDates('2');
+  const dates3 = page.milestoneDates('3');
+  m3.checked = true;
+  page.initialize();
+  assert.equal(m2.checked, true);
+  for (const dates of [dates2, dates3]) {
+    assert.equal(dates.fields.hidden, false);
+    assert.equal(dates.start.required, true);
+    assert.equal(dates.end.disabled, false);
+  }
+  assert.equal(page.button.disabled, true);
+  assert.match(page.reason.textContent, /^4 fields need attention/);
+
+  dates2.start.value = '2026-09-10';
+  dates2.end.value = '2026-09-12';
+  page.change(dates2.end);
+  assert.equal(page.button.disabled, true);
+  assert.match(page.reason.textContent, /^2 fields need attention/);
+
+  m2.checked = false;
+  page.change(m2);
+  assert.equal(m3.checked, false);
+  for (const dates of [dates2, dates3]) {
+    assert.equal(dates.fields.hidden, true);
+    assert.equal(dates.start.required, false);
+    assert.equal(dates.end.disabled, true);
+  }
+  assert.equal(page.button.disabled, false);
+});
+
+test('each selected milestone constrains its end date using only its own start date', () => {
+  const page = createPage({ currentMilestoneCode: 'M1' });
+  const primaryStart = page.date('start_date', { value: '2026-09-01', max: '2026-09-18' });
+  const primaryEnd = page.date('end_date', { value: '2026-09-05', max: '2026-09-18' });
+  const demo = page.date('tentative_demo_date', { min: '2026-09-18' });
+  page.milestone('M2', '2').checked = true;
+  page.milestone('M3', '3').checked = true;
+  const dates2 = page.milestoneDates('2', { startValue: '2026-09-10', endValue: '2026-09-12' });
+  const dates3 = page.milestoneDates('3', { startValue: '2026-09-15', endValue: '2026-09-14' });
+  page.initialize();
+  assert.equal(primaryEnd.min, '2026-09-01');
+  assert.equal(dates2.end.min, '2026-09-10');
+  assert.equal(dates3.end.min, '2026-09-15');
+  assert.equal(dates3.end.max, '2026-09-18');
+  assert.equal(page.button.disabled, true, 'M3 end precedes its own start');
+
+  dates3.end.value = '2026-09-16';
+  page.input(dates3.end);
+  assert.equal(page.button.disabled, false);
+  primaryStart.value = '2026-09-02';
+  page.change(primaryStart);
+  assert.equal(dates2.end.min, '2026-09-10');
+  assert.equal(dates3.end.min, '2026-09-15');
+  dates2.start.value = '';
+  page.input(dates2.start);
+  assert.equal(dates2.end.min, '');
+  assert.equal(dates3.end.min, '2026-09-15');
+  assert.equal(demo.min, '2026-09-18');
+  assert.equal(page.button.disabled, true, 'M2 still needs its own start date');
 });

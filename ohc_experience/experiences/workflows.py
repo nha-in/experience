@@ -172,6 +172,23 @@ def organisation_review(organisation, user):
 
 def build_form(item, *, data=None, files=None, draft=False):
     submission = item.selected_submission
+    inherited = bool(
+        submission
+        and item.definition.allow_reuse
+        and getattr(item.application, "milestone", None)
+        and _fresh_evidence_target(item),
+    )
+    if inherited:
+        source_milestone = getattr(submission.origin_application, "milestone", None)
+        if (
+            not source_milestone
+            or source_milestone.key not in _evidence_track_keys(item)
+            or submission.origin_application.product_id != item.product_id
+        ):
+            # Application creation can pin a product-wide form's last revision.
+            # That pin is still the concurrency token, not permission to copy
+            # another category's answers or functional-testing documents.
+            submission = None
     existing = defaultdict(list)
     if submission:
         for attachment in submission.attachments.filter(is_current=True):
@@ -179,6 +196,10 @@ def build_form(item, *, data=None, files=None, draft=False):
     initial = dict(submission.data) if submission else {}
     if not submission:
         initial.update(item.definition.initial_data(item))
+    if inherited and data is None:
+        # Shared documents do not imply shared testing dates for a new milestone.
+        initial.pop("start_date", None)
+        initial.pop("end_date", None)
     form_class = item.definition.form_class
     for key, field in form_class.base_fields.items():
         if isinstance(field, forms.FileField):
@@ -195,21 +216,25 @@ def build_form(item, *, data=None, files=None, draft=False):
     return form
 
 
-def _complete_submission(item, actor):
+def _complete_submission(item, actor, *, defer_notifications=False):
     resubmitting = item.submitted_at is not None
     updating = item.status == ReviewItem.Status.APPROVED
     item.resubmission_count += int(resubmitting)
     item.submitted_at = timezone.now()
     if item.definition.auto_approve and not pending_prerequisites(item):
-        _auto_approve(item, actor)
+        _auto_approve(item, actor, defer_notifications=defer_notifications)
         action = "Record updated" if updating else "Recorded"
     else:
-        _request_review(item, resubmitting=resubmitting)
+        _request_review(
+            item,
+            resubmitting=resubmitting,
+            defer_notifications=defer_notifications,
+        )
         action = "Resubmitted for review" if resubmitting else "Requested review"
     audit(actor=actor, action=action, item=item)
 
 
-def _request_review(item, *, resubmitting):
+def _request_review(item, *, resubmitting, defer_notifications=False):
     item.status = (
         ReviewItem.Status.IN_REVIEW
         if resubmitting or item.assignee_id
@@ -219,7 +244,7 @@ def _request_review(item, *, resubmitting):
     item.decided_by = None
     item.decision_note = ""
     _set_application_status(item, "under_review")
-    _notice(item, "received")
+    _notice(item, "received", after_commit=defer_notifications)
 
 
 def _snapshot(item, form, actor, *, completed):
@@ -583,18 +608,218 @@ def save_review_form(  # noqa: PLR0913
     form = build_form(item, data=data, files=files, draft=not submit)
     if not form.is_valid():
         return item, form, False
+    _save_valid_review_form(item, actor, form, submit=submit)
+    return item, form, True
+
+
+def _save_valid_review_form(item, actor, form, *, submit, defer_notifications=False):
     if submit:
         item.definition.on_submit(item, form.cleaned_data, actor)
     _snapshot(item, form, actor, completed=submit)
     if submit:
-        _complete_submission(item, actor)
+        _complete_submission(item, actor, defer_notifications=defer_notifications)
     else:
         if item.status != ReviewItem.Status.SENT_BACK:
             item.status = ReviewItem.Status.DRAFT
         _set_application_status(item, "draft")
     item.save()
     if item.status == ReviewItem.Status.APPROVED:
-        _record_released(item.organisation)
+        _record_released(item.organisation, defer_notifications=defer_notifications)
+
+
+def _fresh_evidence_target(item):
+    """A new request may inherit a source pin, but must not contain its own work."""
+    return (
+        item.status == ReviewItem.Status.DRAFT
+        and not item.submitted_at
+        and (
+            not item.selected_submission_id
+            or item.selected_submission.origin_application_id != item.application_id
+        )
+    )
+
+
+def _evidence_track_keys(item):
+    """Only a track's own milestones can share evidence; prerequisites do not."""
+    milestone = getattr(item.application, "milestone", None)
+    if not milestone:
+        return set()
+    return {
+        key
+        for track in item.program.tracks
+        if milestone.key in track.keys
+        for key in track.keys
+    }
+
+
+def submission_targets(item):
+    """Compatible fresh siblings whose prerequisites can join this submission."""
+    if not item.definition.allow_reuse or not item.product_id or not item.editable:
+        return []
+    candidates = [
+        candidate
+        for candidate in ReviewItem.objects.filter(
+            product_id=item.product_id,
+            form_id=item.form_id,
+            status=ReviewItem.Status.DRAFT,
+            submitted_at__isnull=True,
+            application__milestone__enabled=True,
+            application__milestone__key__in=_evidence_track_keys(item),
+        )
+        .exclude(pk=item.pk)
+        .select_related("selected_submission", "form", "application__milestone")
+        .order_by("pk")
+        if _fresh_evidence_target(candidate)
+        and candidate.definition.schema_version == item.definition.schema_version
+        and candidate.definition.allow_reuse
+    ]
+    while True:
+        selected = {item.pk, *(candidate.pk for candidate in candidates)}
+        possible = [
+            candidate
+            for candidate in candidates
+            if all(
+                prerequisite.pk in selected
+                for prerequisite in unsubmitted_prerequisites(candidate)
+            )
+        ]
+        if len(possible) == len(candidates):
+            return possible
+        candidates = possible
+
+
+def _evidence_form(item, source, *, data, files=None, draft=False):
+    """Validate another request using the displayed evidence, without changing pins."""
+    original = item.selected_submission
+    item.selected_submission = source
+    try:
+        return build_form(item, data=data, files=files, draft=draft)
+    finally:
+        item.selected_submission = original
+
+
+def _require_evidence_revision(item, expected_revision):
+    if str(item.selected_submission_id or "") != str(expected_revision or ""):
+        msg = "A teammate updated this form. Reload the page before submitting."
+        raise ValidationError(msg)
+
+
+def _submission_batch(item, additional_revisions):
+    try:
+        revisions = {int(pk): revision for pk, revision in additional_revisions.items()}
+    except (AttributeError, TypeError, ValueError) as error:
+        msg = "Choose valid additional milestones. Reload the page before submitting."
+        raise ValidationError(msg) from error
+    eligible = {candidate.pk for candidate in submission_targets(item)}
+    if len(revisions) != len(additional_revisions) or not set(revisions) <= eligible:
+        msg = "An additional milestone changed or has saved work. Reload the page."
+        raise ValidationError(msg)
+    additional = list(
+        ReviewItem.objects.select_for_update(of=("self",))
+        .filter(pk__in=revisions)
+        .select_related(
+            "selected_submission",
+            "form",
+            "organisation",
+            "product",
+            "application",
+        )
+        .order_by("pk"),
+    )
+    for candidate in additional:
+        _require_evidence_revision(candidate, revisions[candidate.pk])
+    selected = {item.pk, *revisions}
+    for candidate in [item, *additional]:
+        if any(
+            prerequisite.pk not in selected
+            for prerequisite in unsubmitted_prerequisites(candidate)
+        ):
+            raise ValidationError(milestone_unavailable(candidate))
+        milestone = getattr(candidate.application, "milestone", None)
+        if milestone and not milestone.enabled:
+            raise ValidationError(milestone_unavailable(candidate))
+        reason = candidate.definition.submission_block_reason(candidate)
+        if reason:
+            raise ValidationError(reason)
+    return [item, *additional]
+
+
+def _use_uploaded_evidence(form, source):
+    """Upload once; every selected milestone gets independent attachment rows."""
+    existing = defaultdict(list)
+    for attachment in source.attachments.filter(is_current=True):
+        existing[attachment.field_key].append(attachment)
+    form.existing_files = dict(existing)
+    for key, field in form.fields.items():
+        if isinstance(field, forms.FileField):
+            form.cleaned_data[key] = None
+            form.removed_file_ids[key] = set()
+
+
+@transaction.atomic
+def save_review_forms(  # noqa: PLR0913
+    item,
+    actor,
+    *,
+    data,
+    files=None,
+    expected_revision=None,
+    additional_revisions=None,
+):
+    """Submit the displayed evidence for explicitly selected fresh milestones."""
+    item = _lock_review(item.pk)
+    require_integrator(actor, item.organisation)
+    _require_editable_submission(item, submit=True)
+    _require_evidence_revision(item, expected_revision)
+    items = _submission_batch(item, additional_revisions or {})
+    evidence = item.selected_submission
+    form = build_form(item, data=data, files=files)
+    valid = form.is_valid()
+    form.additional_forms = {}
+    validated = {item.pk: form}
+    for candidate in items[1:]:
+        candidate_data = data.copy()
+        for field in ("start_date", "end_date"):
+            candidate_data[field] = data.get(f"milestone_{candidate.pk}_{field}", "")
+        candidate_form = _evidence_form(
+            candidate,
+            evidence,
+            data=candidate_data,
+            files=files,
+        )
+        form.additional_forms[candidate.pk] = candidate_form
+        if not candidate_form.is_valid():
+            valid = False
+            for errors in candidate_form.errors.values():
+                for error in errors:
+                    form.add_error(None, f"{candidate.title}: {error}")
+        validated[candidate.pk] = candidate_form
+    if not valid:
+        return item, form, False
+    source = None
+    while items:
+        ready = next(
+            (
+                candidate
+                for candidate in items
+                if not unsubmitted_prerequisites(candidate)
+            ),
+            None,
+        )
+        if ready is None:
+            raise ValidationError(milestone_unavailable(items[0]))
+        ready_form = validated[ready.pk]
+        if source:
+            _use_uploaded_evidence(ready_form, source)
+        _save_valid_review_form(
+            ready,
+            actor,
+            ready_form,
+            submit=True,
+            defer_notifications=True,
+        )
+        source = source or ready.selected_submission
+        items.remove(ready)
     return item, form, True
 
 

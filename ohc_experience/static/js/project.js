@@ -248,14 +248,72 @@
     const start = form.querySelector('[name="start_date"]');
     const end = form.querySelector('[name="end_date"]');
     const demo = form.querySelector('[name="tentative_demo_date"]');
-    if (!start || !end || !demo) return;
-    end.min = start.value || '';
+    if (start && end) end.min = start.value || '';
+    form.querySelectorAll('[data-testing-dates]').forEach(fields => {
+      const ownStart = fields.querySelector('[data-testing-start]');
+      const ownEnd = fields.querySelector('[data-testing-end]');
+      if (ownStart && ownEnd) ownEnd.min = ownStart.value || '';
+    });
     // The server caps testing at today; a demo cannot be earlier than today
     // even when testing ended in the past or its end date is cleared.
-    demo.min = end.value > end.max ? end.value : end.max;
+    if (end && demo) demo.min = end.value > end.max ? end.value : end.max;
+  }
+
+  function updateMilestoneSelection(form, changed) {
+    const current = form.dataset.currentMilestoneCode;
+    if (!current || form.dataset.autoApprove === 'true') return;
+    const choices = [...form.querySelectorAll('[name="additional_reviews"]')];
+    const byId = new Map(choices.map(choice => [choice.dataset.reviewId, choice]));
+    const requires = choice => (choice.dataset.requires || '').split(/\s+/).filter(Boolean);
+    if (changed?.dataset?.reviewId && !changed.checked) {
+      const removed = new Set([changed.dataset.reviewId]);
+      let updated;
+      do {
+        updated = false;
+        for (const choice of choices) {
+          if (choice.checked && requires(choice).some(id => removed.has(id))) {
+            choice.checked = false;
+            removed.add(choice.dataset.reviewId);
+            updated = true;
+          }
+        }
+      } while (updated);
+    }
+    const visited = new Set();
+    function includeRequirements(choice) {
+      if (visited.has(choice.dataset.reviewId)) return;
+      visited.add(choice.dataset.reviewId);
+      for (const id of requires(choice)) {
+        const required = byId.get(id);
+        if (required && !required.disabled) {
+          required.checked = true;
+          includeRequirements(required);
+        }
+      }
+    }
+    choices.filter(choice => choice.checked).forEach(includeRequirements);
+    form.querySelectorAll('[data-milestone-dates]').forEach(fields => {
+      const choice = byId.get(fields.dataset.milestoneDates);
+      const selected = Boolean(choice?.checked && !choice.disabled);
+      fields.hidden = !selected;
+      fields.querySelectorAll('[data-testing-start], [data-testing-end]').forEach(input => {
+        input.disabled = !selected;
+        input.required = selected;
+      });
+    });
+    const codes = [current, ...choices.filter(choice => choice.checked).map(choice => choice.dataset.milestoneCode)];
+    const label = form.querySelector('[data-submit-label]');
+    if (label) label.textContent = codes.length > 2
+      ? `Submit ${codes.length} milestones`
+      : `Submit ${codes.join(' + ')}`;
+    const summary = form.querySelector('[data-milestone-selection-summary]');
+    if (summary) summary.textContent = codes.length > 1
+      ? `${codes.join(', ')} will be submitted together.`
+      : `Only ${current} will be submitted.`;
   }
 
   function updateSubmission(form) {
+    updateMilestoneSelection(form);
     updateWasaFields(form);
     updateSandboxDateConstraints(form);
     const button = form.querySelector('[data-request-submit]');
@@ -349,6 +407,7 @@
     const edited = event.target.closest('[data-autofilled]');
     if (edited && edited !== source) edited.dataset.autofilled = 'false';
     const form = event.target.closest('[data-review-form]');
+    if (form) updateMilestoneSelection(form, event.target);
     // Conditional fields are synchronized by another change listener below.
     if (form) queueMicrotask(() => updateSubmission(form));
   });

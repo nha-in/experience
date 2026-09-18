@@ -1165,6 +1165,121 @@ def _staff_track(request, reference, track_code):
     )
 
 
+def _additional_evidence_reviews(request):
+    revisions = {}
+    try:
+        for value in request.POST.getlist("additional_reviews"):
+            pk, revision = value.split(":")
+            pk = _product_review_id(pk)
+            if pk in revisions:
+                raise ValueError  # noqa: TRY301
+            revisions[pk] = _product_review_id(revision) if revision else ""
+    except (ValueError, ValidationError) as error:
+        msg = "Reload the milestone page before choosing submissions."
+        raise ValidationError(msg) from error
+    return revisions
+
+
+def _milestone_testing_dates(request, *, prefix, errors=None):
+    errors = errors or {}
+    return [
+        {
+            "name": f"{prefix}{key}",
+            "id": f"id_{prefix}{key}",
+            "label": label,
+            "value": request.POST.get(f"{prefix}{key}", ""),
+            "errors": errors.get(key, []),
+            "max": timezone.localdate().isoformat(),
+            "is_start": key == "start_date",
+        }
+        for key, label in (
+            ("start_date", "Testing start date"),
+            ("end_date", "Testing end date"),
+        )
+    ]
+
+
+def _track_evidence_context(request, item, form):
+    if not item or not permissions.can_integrate(request.user, item.organisation):
+        return {}
+    choices = []
+    additional_forms = getattr(form, "additional_forms", {})
+    selected = set(request.POST.getlist("additional_reviews"))
+    for target in sorted(services.submission_targets(item), key=review_order):
+        milestone = target.program.milestones[target.application.milestone.key]
+        token = f"{target.pk}:{target.selected_submission_id or ''}"
+        choices.append(
+            {
+                "item": target,
+                "code": milestone.code,
+                "name": milestone.name,
+                "token": token,
+                "selected": token in selected,
+                "dates": _milestone_testing_dates(
+                    request,
+                    prefix=f"milestone_{target.pk}_",
+                    errors=additional_forms[target.pk].errors
+                    if target.pk in additional_forms
+                    else None,
+                ),
+                "requires": [
+                    str(prerequisite.pk)
+                    for prerequisite in services.unsubmitted_prerequisites(target)
+                    if prerequisite.pk != item.pk
+                ],
+            },
+        )
+    return {
+        "submission_choices": choices,
+        "submission_track": next(
+            (
+                track.code
+                for track in item.program.tracks
+                if item.application.milestone.key in track.keys
+            ),
+            "",
+        ),
+    }
+
+
+def _save_track_evidence(request, item):
+    intent = request.POST.get("intent")
+    additional = {}
+    if intent in {"draft", "submit"}:
+        if intent == "submit":
+            additional = _additional_evidence_reviews(request)
+        kwargs = {
+            "data": request.POST,
+            "files": request.FILES,
+            "expected_revision": request.POST.get("revision", ""),
+        }
+        if additional:
+            result = services.save_review_forms(
+                item,
+                request.user,
+                additional_revisions=additional,
+                **kwargs,
+            )
+        else:
+            result = services.save_review_form(
+                item,
+                request.user,
+                submit=intent == "submit",
+                **kwargs,
+            )
+    else:
+        msg = "Choose a valid form action."
+        raise ValidationError(msg)
+    notice = (
+        f"Evidence submitted for {len(additional) + 1} milestones."
+        if additional
+        else item.definition.submitted_message
+        if intent == "submit"
+        else "Draft saved."
+    )
+    return *result, notice
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def track(request, reference, track_code):
@@ -1206,47 +1321,10 @@ def track(request, reference, track_code):
         if item is None:
             raise Http404
         try:
-            intent = request.POST.get("intent")
-            if intent == "reuse":
-                services.reuse_evidence(item, request.user)
-            elif intent in {"draft", "submit"}:
-                item, form, saved = services.save_review_form(
-                    item,
-                    request.user,
-                    data=request.POST,
-                    files=request.FILES,
-                    submit=intent == "submit",
-                    expected_revision=request.POST.get("revision", ""),
-                )
-                if not saved:
-                    return render(
-                        request,
-                        "experiences/track.html",
-                        _context(
-                            request,
-                            workspace,
-                            page_title=track_code,
-                            nav=track_code,
-                            track=track_data,
-                            tile=tile,
-                            item=item,
-                            form=form,
-                            can_edit=services.can_edit_review(item),
-                            locked_by=locked_by,
-                        ),
-                    )
-            else:
-                msg = "Choose a valid form action."
-                raise ValidationError(msg)  # noqa: TRY301
-            messages.success(
-                request,
-                item.definition.submitted_message
-                if intent == "submit"
-                else "Evidence reused."
-                if intent == "reuse"
-                else "Draft saved.",
-            )
-            return redirect(request.get_full_path())
+            item, form, saved, notice = _save_track_evidence(request, item)
+            if saved:
+                messages.success(request, notice)
+                return redirect(request.get_full_path())
         except ValidationError as error:
             _error(request, error)
     return render(
@@ -1263,6 +1341,7 @@ def track(request, reference, track_code):
             form=form,
             can_edit=services.can_edit_review(item) if item else False,
             locked_by=locked_by,
+            **_track_evidence_context(request, item, form),
         ),
     )
 
