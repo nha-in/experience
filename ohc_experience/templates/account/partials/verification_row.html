@@ -3,7 +3,7 @@
   to enter it, and the ways to correct or resend it. Confirmed, it is a badge.
 
   Include with channel ("email" or "phone"), label, value, done, expired,
-  expires_at, form, change_form, can_resend, can_change and change_title.
+  resend_at, form, change_form, can_resend, can_change and change_title.
 {% endcomment %}
 {% load i18n careui %}
 
@@ -33,22 +33,28 @@
       {% translate "Verification code" as code_label %}
       {% translate "6-digit code" as code_placeholder %}
       {% ui_field form.code label=code_label placeholder=code_placeholder extra_class="font-mono" %}
-      {% if expires_at %}
-        <p class="text-[13px] text-muted-foreground">
-          {% blocktranslate with left=expires_at|timeuntil %}This code works for another {{ left }}.{% endblocktranslate %}
-        </p>
-      {% endif %}
-      <div class="flex flex-wrap gap-2">
-        <button type="submit"
-                name="action"
-                value="verify_{{ channel }}"
-                class="ui-btn ui-btn--default ui-btn--size-default">{% translate "Confirm" %}</button>
-        {% if can_resend %}
+      <div class="flex flex-col gap-2"
+           {% if resend_at %}data-resend-countdown="{{ resend_at|date:'c' }}"{% endif %}>
+        <div class="flex flex-wrap gap-2">
           <button type="submit"
                   name="action"
-                  value="resend_{{ channel }}"
-                  formnovalidate
-                  class="ui-btn ui-btn--outline ui-btn--size-default">{% translate "Send a new code" %}</button>
+                  value="verify_{{ channel }}"
+                  class="ui-btn ui-btn--default ui-btn--size-default">{% translate "Confirm" %}</button>
+          {% if can_resend %}
+            <button type="submit"
+                    name="action"
+                    value="resend_{{ channel }}"
+                    formnovalidate
+                    data-resend-button
+                    {% if resend_at %}disabled{% endif %}
+                    class="ui-btn ui-btn--outline ui-btn--size-default">{% translate "Send a new code" %}</button>
+          {% endif %}
+        </div>
+        {% if resend_at %}
+          {% blocktranslate asvar resend_label with left="0:00" %}You can ask for a new code in {{ left }}.{% endblocktranslate %}
+          <p class="text-[13px] text-muted-foreground"
+             data-resend-note
+             data-resend-label="{{ resend_label }}">{{ resend_label }}</p>
         {% endif %}
       </div>
     </form>

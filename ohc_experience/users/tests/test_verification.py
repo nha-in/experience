@@ -7,6 +7,9 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import pytest
+from allauth.account.internal.flows.email_verification_by_code import (
+    EMAIL_VERIFICATION_CODE_SESSION_KEY,
+)
 from allauth.account.models import EmailAddress
 from django.core import mail
 from django.test import Client
@@ -167,13 +170,35 @@ class TestSignupVerification:
         ("action", "channel"),
         [("email", "email"), ("phone", "sms")],
     )
-    def test_a_new_code_can_be_sent(self, client: Client, action: str, channel: str):
+    def test_a_new_code_can_be_sent_once_the_wait_is_over(
+        self,
+        client: Client,
+        settings,
+        action: str,
+        channel: str,
+    ):
         sign_up(client)
+        settings.VERIFICATION_RESEND_AFTER_SECONDS = 0
 
         client.post(VERIFY_PAGE, {"action": f"resend_{action}"})
 
         codes = [message["values"][0] for message in sent(channel)]
         assert len(codes) == len({*codes}) == 2  # noqa: PLR2004
+
+    @pytest.mark.parametrize("action", ["email", "phone"])
+    def test_a_new_code_cannot_be_asked_for_straight_away(
+        self,
+        client: Client,
+        action: str,
+    ):
+        sign_up(client)
+        page = screen(client)
+        assert "You can ask for a new code in" in page
+        assert "disabled" in page
+
+        client.post(VERIFY_PAGE, {"action": f"resend_{action}"})
+
+        assert len(sent("email")) == len(sent("sms")) == 1
 
     def test_the_address_can_be_corrected(self, client: Client):
         sign_up(client)
@@ -275,7 +300,11 @@ class TestSignupVerification:
         confirm(client, "sms")
         assert User.objects.get(email=EMAIL).phone_verified
 
-    def test_an_undelivered_code_says_so_and_can_be_sent_again(self, client: Client):
+    def test_an_undelivered_code_says_so_and_can_be_sent_again(
+        self,
+        client: Client,
+        settings,
+    ):
         local.always_fail(ExternalSystem.NOTIFICATION)
         sign_up(client)
 
@@ -284,6 +313,7 @@ class TestSignupVerification:
         assert "We could not send your code" in page
         assert "Confirmation email sent" not in page
         local.clear_failures(ExternalSystem.NOTIFICATION)
+        settings.VERIFICATION_RESEND_AFTER_SECONDS = 0
         client.post(VERIFY_PAGE, {"action": "resend_email"})
         assert len(sent("email")) == 1
 
@@ -324,12 +354,22 @@ class TestSignupVerification:
         confirm(client, "email")
         assert EmailAddress.objects.get(email=EMAIL).verified
 
-    def test_the_screen_says_how_long_a_code_lasts(self, client: Client):
+    def test_the_screen_counts_down_to_the_next_code(self, client: Client):
         sign_up(client)
 
         page = screen(client)
 
-        assert "This code works for another" in page
+        assert "data-resend-countdown=" in page
+        assert "autofocus" in page
+
+    def test_a_new_code_starts_the_wait_again(self, client: Client, settings):
+        sign_up(client)
+        settings.VERIFICATION_RESEND_AFTER_SECONDS = 0
+        first = client.session[EMAIL_VERIFICATION_CODE_SESSION_KEY]["at"]
+
+        client.post(VERIFY_PAGE, {"action": "resend_email"})
+
+        assert client.session[EMAIL_VERIFICATION_CODE_SESSION_KEY]["at"] > first
 
     def test_the_screen_needs_a_signup_in_progress(self, client: Client):
         response = client.get(VERIFY_PAGE)

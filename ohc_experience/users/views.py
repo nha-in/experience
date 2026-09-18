@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING
 from allauth.account import app_settings as allauth_settings
 from allauth.account import views as account_views
 from allauth.account.adapter import get_adapter
-from allauth.account.forms import ConfirmEmailVerificationCodeForm
-from allauth.account.forms import VerifyPhoneForm
 from allauth.account.internal.flows.email_verification_by_code import (
     EMAIL_VERIFICATION_CODE_SESSION_KEY,
 )
@@ -23,6 +21,7 @@ from allauth.account.stages import LoginStageController
 from allauth.account.utils import has_verified_email
 from allauth.account.views import SignupView
 from allauth.core.exceptions import RateLimited
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
@@ -40,7 +39,9 @@ from ohc_experience.organisations.views import INVITATION_SESSION_KEY
 from ohc_experience.pages.views import resolve_post_login_destination
 from ohc_experience.users.forms import UserChangeEmailForm
 from ohc_experience.users.forms import UserChangePhoneForm
+from ohc_experience.users.forms import UserConfirmEmailVerificationCodeForm
 from ohc_experience.users.forms import UserProfileForm
+from ohc_experience.users.forms import UserVerifyPhoneForm
 from ohc_experience.users.models import User
 from ohc_experience.users.stages import VerificationStage
 
@@ -59,10 +60,18 @@ def _expired(state: dict, timeout: int) -> bool:
     return time.time() - state["at"] > timeout
 
 
-def _expires_at(state: dict | None, timeout: int) -> datetime | None:
+def _code_form(form_class, prefix: str, data=None, **kwargs):
+    return form_class(data, prefix=prefix, **kwargs)
+
+
+def _resend_at(state: dict | None) -> datetime | None:
+    """When a new code can be asked for, or None once it can be."""
     if not state:
         return None
-    return datetime.fromtimestamp(state["at"] + timeout, tz=UTC)
+    ready = state["at"] + settings.VERIFICATION_RESEND_AFTER_SECONDS
+    if ready <= time.time():
+        return None
+    return datetime.fromtimestamp(ready, tz=UTC)
 
 
 class UserSignupView(SignupView):
@@ -248,7 +257,7 @@ class AccountVerificationView(TemplateView):
                 actions["resend_email"] = self._restart_email
             else:
                 actions["verify_email"] = self._verify_email
-                if self.email_process.can_resend:
+                if self.email_process.can_resend and not _resend_at(self.email_state):
                     actions["resend_email"] = self._resend_email
                 if self.email_process.can_change:
                     actions["change_email"] = self._change_email
@@ -258,7 +267,7 @@ class AccountVerificationView(TemplateView):
             actions["resend_phone"] = self._restart_phone
             return actions
         actions["verify_phone"] = self._verify_phone
-        if self.phone_process.can_resend:
+        if self.phone_process.can_resend and not _resend_at(self.stage.state):
             actions["resend_phone"] = self._resend_phone
         if self.phone_process.can_change:
             actions["change_phone"] = self._change_phone
@@ -270,19 +279,13 @@ class AccountVerificationView(TemplateView):
         phone_done = self._phone_done()
         email_live = None if email_done else self.email_process
         phone_live = None if phone_done else self.phone_process
-        email_expires_at = _expires_at(
-            self.email_state,
-            allauth_settings.EMAIL_VERIFICATION_BY_CODE_TIMEOUT,
-        )
-        phone_expires_at = _expires_at(
-            self.stage.state,
-            allauth_settings.PHONE_VERIFICATION_TIMEOUT,
-        )
+        email_resend_at = _resend_at(self.email_state)
+        phone_resend_at = _resend_at(self.stage.state)
         context.update(
             email=self.user.email if email_done else self.email_state["email"],
             email_done=email_done,
             email_expired=not email_done and email_live is None,
-            email_expires_at=email_expires_at if email_live else None,
+            email_resend_at=email_resend_at if email_live else None,
             can_resend_email=not email_done
             and (email_live is None or email_live.can_resend),
             can_change_email=email_live is not None and email_live.can_change,
@@ -292,13 +295,19 @@ class AccountVerificationView(TemplateView):
             phone_expired=bool(self.pending_phone)
             and not phone_done
             and not phone_live,
-            phone_expires_at=phone_expires_at if phone_live else None,
+            phone_resend_at=phone_resend_at if phone_live else None,
             can_resend_phone=not phone_done
             and (phone_live is None or phone_live.can_resend),
             can_change_phone=phone_live is not None and phone_live.can_change,
         )
-        context.setdefault("email_form", ConfirmEmailVerificationCodeForm(prefix=EMAIL))
-        context.setdefault("phone_form", VerifyPhoneForm(prefix=PHONE))
+        context.setdefault(
+            "email_form",
+            _code_form(UserConfirmEmailVerificationCodeForm, EMAIL),
+        )
+        context.setdefault("phone_form", _code_form(UserVerifyPhoneForm, PHONE))
+        # The box waiting for a code is the one to type in.
+        waiting = context["email_form" if not email_done else "phone_form"]
+        waiting.fields["code"].widget.attrs["autofocus"] = True
         context.setdefault(
             "email_change_form",
             UserChangeEmailForm(prefix=EMAIL_CHANGE),
@@ -322,9 +331,10 @@ class AccountVerificationView(TemplateView):
         return not self.pending_phone or self.user.phone_verified
 
     def _verify_email(self):
-        form = ConfirmEmailVerificationCodeForm(
+        form = _code_form(
+            UserConfirmEmailVerificationCodeForm,
+            EMAIL,
             self.request.POST,
-            prefix=EMAIL,
             code=self.email_process.code,
             user=self.email_process.user,
             email=self.email_process.email,
@@ -335,9 +345,10 @@ class AccountVerificationView(TemplateView):
         return self._resume()
 
     def _verify_phone(self):
-        form = VerifyPhoneForm(
+        form = _code_form(
+            UserVerifyPhoneForm,
+            PHONE,
             self.request.POST,
-            prefix=PHONE,
             code=self.phone_process.code,
             phone=self.phone_process.phone,
             user=self.phone_process.user,
@@ -357,12 +368,13 @@ class AccountVerificationView(TemplateView):
             return self.render_to_response(
                 self.get_context_data(email_change_form=form),
             )
-        self._send(
+        if self._send(
             lambda: self.email_process.change_to(
                 form.cleaned_data["email"],
                 form.account_already_exists,
             ),
-        )
+        ):
+            self._restart_clock(self.email_process)
         return redirect(VerificationStage.urlname)
 
     def _change_phone(self):
@@ -376,20 +388,23 @@ class AccountVerificationView(TemplateView):
             return self.render_to_response(
                 self.get_context_data(phone_change_form=form),
             )
-        self._send(
+        if self._send(
             lambda: self.phone_process.change_to(
                 form.cleaned_data["phone"],
                 form.account_already_exists,
             ),
-        )
+        ):
+            self._restart_clock(self.phone_process)
         return redirect(VerificationStage.urlname)
 
     def _resend_email(self):
-        self._send(self.email_process.resend)
+        if self._send(self.email_process.resend):
+            self._restart_clock(self.email_process)
         return redirect(VerificationStage.urlname)
 
     def _resend_phone(self):
-        self._send(self.phone_process.resend)
+        if self._send(self.phone_process.resend):
+            self._restart_clock(self.phone_process)
         return redirect(VerificationStage.urlname)
 
     def _restart_email(self):
@@ -413,7 +428,7 @@ class AccountVerificationView(TemplateView):
         )
         return redirect(VerificationStage.urlname)
 
-    def _send(self, send) -> None:
+    def _send(self, send) -> bool:
         """Too soon for another code is a message, not an error page."""
         adapter = get_adapter(self.request)
         try:
@@ -424,6 +439,13 @@ class AccountVerificationView(TemplateView):
                 messages.ERROR,
                 message=adapter.error_messages["rate_limited"],
             )
+            return False
+        return True
+
+    def _restart_clock(self, process) -> None:
+        """A new code starts its own window; allauth keeps the first one's."""
+        process.state["at"] = time.time()
+        process.persist()
 
     def _wrong_code(self, process, **forms):
         if process.record_invalid_attempt():

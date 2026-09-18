@@ -4,11 +4,13 @@ from allauth.account.adapter import get_adapter
 from allauth.account.forms import ChangeEmailForm
 from allauth.account.forms import ChangePasswordForm
 from allauth.account.forms import ChangePhoneForm
+from allauth.account.forms import ConfirmEmailVerificationCodeForm
 from allauth.account.forms import LoginForm
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.forms import ResetPasswordKeyForm
 from allauth.account.forms import SetPasswordForm
 from allauth.account.forms import SignupForm
+from allauth.account.forms import VerifyPhoneForm
 from allauth.socialaccount.forms import SignupForm as SocialSignupForm
 from django import forms
 from django.contrib.auth import forms as admin_forms
@@ -30,6 +32,12 @@ MOBILE_NUMBER_LENGTH = 10
 # allauth's wording for an address or number that belongs to another account.
 EMAIL_TAKEN = "email_taken"
 PHONE_TAKEN = "phone_taken"
+# A six-digit code, on a phone keyboard, offered to the phone's SMS autofill.
+CODE_INPUT_ATTRS = {
+    "inputmode": "numeric",
+    "maxlength": "6",
+    "autocomplete": "one-time-code",
+}
 
 
 class UserAdminChangeForm(admin_forms.UserChangeForm):
@@ -344,6 +352,25 @@ class UserChangePhoneForm(ChangePhoneForm):
         if self.account_already_exists:
             raise get_adapter().validation_error(PHONE_TAKEN)
         return phone
+
+
+class CodeInputMixin:
+    """Every code field is the same, on this screen and in settings."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["code"].widget.attrs.update(CODE_INPUT_ATTRS)
+
+
+class UserConfirmEmailVerificationCodeForm(
+    CodeInputMixin,
+    ConfirmEmailVerificationCodeForm,
+):
+    pass
+
+
+class UserVerifyPhoneForm(CodeInputMixin, VerifyPhoneForm):
+    pass
 
 
 class UserProfileForm(forms.ModelForm):

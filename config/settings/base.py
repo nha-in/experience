@@ -451,11 +451,13 @@ ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT = {
     "length": 6,
     "dashed": False,
 }
-ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = True
+ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = 3
 ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_CHANGE = True
 ACCOUNT_PHONE_VERIFICATION_CODE_FORMAT = ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT
-ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = True
+ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = 3
 ACCOUNT_PHONE_VERIFICATION_SUPPORTS_CHANGE = True
+# How long before a new code can be asked for, as on the legacy portal.
+VERIFICATION_RESEND_AFTER_SECONDS = 90
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "ohc_experience.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html
@@ -467,6 +469,10 @@ ACCOUNT_FORMS = {
     "change_password": "ohc_experience.users.forms.UserChangePasswordForm",
     "set_password": "ohc_experience.users.forms.UserSetPasswordForm",
     "change_email": "ohc_experience.users.forms.UserChangeEmailForm",
+    "confirm_email_verification_code": (
+        "ohc_experience.users.forms.UserConfirmEmailVerificationCodeForm"
+    ),
+    "verify_phone": "ohc_experience.users.forms.UserVerifyPhoneForm",
     "change_phone": "ohc_experience.users.forms.UserChangePhoneForm",
 }
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
