@@ -5,6 +5,7 @@
       "name": "django",
       "runtimeExecutable": "/usr/bin/env",
       "runtimeArgs": [
+        "PORT=8000",
         "DATABASE_URL=postgres:///ohc_experience_demo",
         "REDIS_URL=redis://localhost:6379/0",
         "USE_DOCKER=no",
@@ -16,6 +17,23 @@
         "start"
       ],
       "port": 8000
+    },
+    {
+      "name": "portless",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "USE_DOCKER=no",
+        "DJANGO_SETTINGS_MODULE=config.settings.local",
+        "DJANGO_READ_DOT_ENV_FILE=true",
+        "portless",
+        "run",
+        "--name",
+        "experience",
+        ".venv/bin/honcho",
+        "-f",
+        ".claude/Procfile.dev",
+        "start"
+      ]
     }
   ]
 }

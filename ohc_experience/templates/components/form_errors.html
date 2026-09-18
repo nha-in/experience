@@ -15,9 +15,9 @@
               {% if field.is_hidden %}
                 {{ field.errors|join:' ' }}
               {% else %}
-                <a class="underline underline-offset-2"
+                <a id="{{ field.auto_id }}_error_summary"
                    href="#{{ field.auto_id }}"
-                   data-error-field="{{ field.html_name }}">{{ field.label }}: {{ field.errors|join:' ' }}</a>
+                   data-error-field="{{ field.html_name }}"><span class="underline underline-offset-2">{{ field.label }}</span>: {{ field.errors|join:' ' }}</a>
               {% endif %}
             </li>
           {% endif %}

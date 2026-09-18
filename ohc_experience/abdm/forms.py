@@ -219,6 +219,52 @@ def required_warning(labels):
 class ProductRegistrationForm(ReviewForm):
     full_width_fields = ("applied_milestones", "solution_type")
     conditional_fields = {"solution_type_other": ("solution_type", "other")}
+    solution_type_details = {
+        "hmis": (
+            "A hospital system that manages clinical and administrative records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/hip-hiu",
+        ),
+        "clinical_hmis": (
+            "A clinic information system that manages patient care and health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/hip-hiu",
+        ),
+        "lmis": (
+            "A laboratory system for lab operations and test results.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#lmis",
+        ),
+        "pharmacy": (
+            "A system that manages pharmacy dispensing and medication records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/participants/pharmacy",
+        ),
+        "phr": (
+            "An application that helps people access and control their health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr",
+        ),
+        "health_locker": (
+            "A service that stores and retrieves personal health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
+        ),
+        "healthtech": (
+            "A digital health product integrating with ABDM services.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+        ),
+        "insurance": (
+            "A payer or insurer that exchanges health insurance claims.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/participants/insurer",
+        ),
+        "telemedicine": (
+            "A service that delivers healthcare remotely through digital channels.",
+            "https://abdm-docs.dev.eka.care/docs/uhi/v1/getting-started/onboarding",
+        ),
+        "govt_program": (
+            "A government programme that integrates with ABDM services.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+        ),
+        "other": (
+            "A solution type not listed above. Describe it in the field that appears.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+        ),
+    }
 
     sections = (
         (
@@ -483,7 +529,12 @@ class ExitEvidenceForm(WasaReviewForm):
         ),
         (
             "Functional testing",
-            ("functional_certificate", "functional_report", "supporting_evidence"),
+            (
+                "functional_certificate",
+                "functional_report",
+                "undertaking_form",
+                "supporting_evidence",
+            ),
         ),
     )
     start_date = forms.DateField(
@@ -526,10 +577,16 @@ class ExitEvidenceForm(WasaReviewForm):
         accept=".pdf",
         validators=[validate_pdf],
     )
+    undertaking_form = forms.FileField(
+        label="Undertaking form",
+        required=False,
+        widget=forms.FileInput(attrs={"accept": ".doc,.docx,.pdf"}),
+    )
     required_uploads = (
         "wasa_certificate",
         "functional_certificate",
         "functional_report",
+        "undertaking_form",
     )
 
     def __init__(

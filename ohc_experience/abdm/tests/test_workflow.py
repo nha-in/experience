@@ -65,6 +65,7 @@ def files():
             "wasa_certificate": [pdf("wasa.pdf")],
             "functional_certificate": [pdf("certificate.pdf")],
             "functional_report": [pdf("report.pdf")],
+            "undertaking_form": [pdf("undertaking-form.pdf")],
         },
     )
 
@@ -1005,29 +1006,25 @@ def test_product_registrations_are_records_not_queue_requests(environment, clien
     assert "data-decision-form" not in record.content.decode()
 
 
-def test_the_type_tabs_only_offer_what_the_item_filter_can_match(environment, client):
+def test_the_type_filter_gathers_the_milestones_of_every_track(environment, client):
+    hie_cm = submit(environment)
+    locker = submit(environment, "locker1")
+    organisation = environment["org"].review_items.get(
+        kind=ReviewItem.Kind.ORGANISATION,
+    )
     client.force_login(environment["reviewer"])
 
-    def tabs(**params):
-        response = client.get(reverse("experiences:queue"), params)
-        return [tab["label"] for tab in response.context["queue_tabs"]]
+    def listed(item):
+        return client.get(
+            reverse("experiences:queue"),
+            {"item": item, "scope": "all"},
+        ).context["page"]
 
-    wasa = "WASA certification review"
-    requests = ["Organisation verification", wasa]
-    assert tabs() == ["All", "Mine", *requests, "Application request"]
-    assert tabs(item="organisation_verification") == [
-        "All",
-        "Mine",
-        "Organisation verification",
-    ]
-    assert tabs(item="certification") == ["All", "Mine", wasa]
-    assert tabs(item="UHI") == ["All", "Mine", "Application request"]
-
-    stale = client.get(
-        reverse("experiences:queue"),
-        {"item": "UHI", "kind": "organisation_verification"},
-    )
-    assert stale.context["filters"]["kind"] == ""
+    milestones = listed("milestones")
+    assert hie_cm in milestones
+    assert locker in milestones
+    assert organisation not in milestones
+    assert locker not in listed("HIE-CM")
 
 
 def test_the_review_page_holds_decisions_until_prerequisites_are_approved(

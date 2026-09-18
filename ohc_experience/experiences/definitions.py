@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from dataclasses import field
 from datetime import date  # noqa: TC003
@@ -5,6 +6,7 @@ from graphlib import CycleError
 from graphlib import TopologicalSorter
 from typing import Any
 from typing import ClassVar
+from typing import NamedTuple
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError
@@ -124,6 +126,7 @@ class ApplicationDefinition:
 
     key: ClassVar[str]
     name: ClassVar[str]
+    filter_name: ClassVar[str] = ""
     reference_prefix: ClassVar[str] = "APP"
     initial_status: ClassVar[str] = "draft"
     forms: ClassVar[tuple[type[ApplicationFormDefinition], ...]]
@@ -197,6 +200,8 @@ class MilestoneDefinition:
     code: str
     name: str
     predecessor: str = ""
+    description: str = ""
+    docs_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -205,6 +210,7 @@ class TrackDefinition:
     name: str
     description: str
     keys: tuple[str, ...]
+    docs_url: str = ""
 
     def prerequisites(self, milestones):
         """Other tracks' milestones this track builds on, directly or not."""
@@ -277,18 +283,64 @@ class ProductHandoffDefinition:
         raise NotImplementedError
 
 
+class ReferenceShell(NamedTuple):
+    """How to run the reference environment from one kind of terminal."""
+
+    label: str
+    prompt: str
+    #: `{client_id}` and `{client_secret}` mark where the credentials go, inside
+    #: single quotes, and `{options}` where the chosen milestones' options go.
+    command: str
+    #: How a single quote is written inside a single-quoted value.
+    single_quote: str
+
+
 class ReferenceEnvironmentDefinition:
     """A runnable implementation of the program's flows on synthetic data."""
 
-    run_command = ""
+    #: Run commands by shell key. The first is shown by default.
+    shells: ClassVar[dict[str, ReferenceShell]] = {}
+    stop_command = ""
     local_url = ""
     requirements = ""
+    includes = ""
+    #: Demo sign-in as (username, password).
+    sign_in: ClassVar[tuple[str, str] | None] = None
     #: Logos as (name, static path) pairs.
     built_on: ClassVar[tuple[tuple[str, str], ...]] = ()
     maintained_by: ClassVar[tuple[tuple[str, str], ...]] = ()
     licence = ""
     #: Flow names by milestone key.
     flows: ClassVar[dict[str, tuple[str, ...]]] = {}
+    #: Command options that add a milestone, by milestone key. Others always run.
+    milestone_options: ClassVar[dict[str, str]] = {}
+    #: Milestones whose flows are still being built.
+    in_progress: ClassVar[tuple[str, ...]] = ()
+    #: Stand-ins for credentials that are not entered yet. Plain words, so a shell
+    #: reads them as text if they are run unchanged.
+    client_id_placeholder = "YOUR_CLIENT_ID"
+    client_secret_placeholder = "YOUR_CLIENT_SECRET"  # noqa: S105
+
+    @classmethod
+    def command_segments(cls, shell, client_id=""):
+        """A shell's command as (slot, text) pairs, in order.
+
+        The slot is empty for plain text. A `client_id` or `client_secret` slot
+        holds the credential, or its placeholder, for the page to fill in. An
+        `options` slot marks where milestone options go and has no text.
+        """
+        values = {
+            "client_id": client_id.replace("'", shell.single_quote)
+            or cls.client_id_placeholder,
+            "client_secret": cls.client_secret_placeholder,
+            "options": "",
+        }
+        parts = re.split(r"\{(client_id|client_secret|options)\}", shell.command)
+        return [
+            (part, values[part]) if index % 2 else ("", part)
+            for index, part in enumerate(parts)
+            if index % 2 or part
+        ]
 
 
 class ProgramDefinition:
@@ -306,6 +358,8 @@ class ProgramDefinition:
     environment_name = "Application workspace"
     footer_note = ""
     docs_url = ""
+    #: Where "Milestone documentation" points. Falls back to docs_url.
+    milestones_docs_url = ""
     logo = ""
     authority_logo = ""
     authority_name = ""

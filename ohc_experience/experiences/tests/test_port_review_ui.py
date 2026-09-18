@@ -70,7 +70,12 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
     client.force_login(reviewer)
     response = client.get(
         reverse("experiences:queue"),
-        {"kind": "mine", "item": "Quality", "q": "Water pump", "status": "in_review"},
+        {
+            "assignee": "me",
+            "item": "Quality",
+            "q": "Water pump",
+            "status": "in_review",
+        },
         HTTP_HX_REQUEST="true",
     )
     assert response.status_code == HTTPStatus.OK
@@ -82,7 +87,7 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
     assert b"No reviews match these filters." in response.content
 
 
-def test_queue_filters_by_exact_product_and_preserves_it_in_navigation(
+def test_queue_searches_by_product_reference_and_preserves_it_in_navigation(
     review_item,
     owner_membership,
     client,
@@ -113,29 +118,22 @@ def test_queue_filters_by_exact_product_and_preserves_it_in_navigation(
     reference = review_item.product.workspace.reference
     response = client.get(
         reverse("experiences:queue"),
-        {"scope": "ready", "product": reference},
+        {"scope": "ready", "q": reference},
     )
 
     assert response.status_code == HTTPStatus.OK
-    assert response.context["filters"]["product"] == reference
+    assert response.context["filters"]["q"] == reference
     assert {item.product_id for item in response.context["page"]} == {
         review_item.product_id,
     }
     assert other_item not in response.context["page"]
-    assert set(
-        response.context["product_choices"].values_list("reference", flat=True),
-    ) == {reference, other_workspace.reference}
     assert f'value="{reference}"'.encode() in response.content
     assert (
-        f"?scope=decided&amp;kind=&amp;status=&amp;item=&amp;product={reference}".encode()
+        f"?scope=decided&amp;status=&amp;item=&amp;assignee=&amp;q={reference}".encode()
         in response.content
     )
-    assert (
-        f"?kind=mine&amp;scope=ready&amp;status=&amp;item=&amp;product={reference}".encode()
-        in response.content
-    )
-    assert f"product={reference}".encode() in response.context["filter_query"].encode()
-    assert b'href="?kind=&amp;scope=ready"' in response.content
+    assert f"q={reference}".encode() in response.context["filter_query"].encode()
+    assert b'href="?scope=ready"' in response.content
 
 
 def test_staff_product_page_links_open_requests_to_their_reviews(
@@ -156,7 +154,7 @@ def test_staff_product_page_links_open_requests_to_their_reviews(
     assert b"Supplier Quality Portal" in response.content
     assert b'id="product-switcher' not in response.content
     assert (
-        f"{reverse('experiences:queue')}?scope=ready&amp;product={workspace.reference}".encode()
+        f"{reverse('experiences:queue')}?scope=ready&amp;q={workspace.reference}".encode()
         in response.content
     )
 
@@ -333,7 +331,7 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
         {
             "scope": scope,
             "status": incompatible_status,
-            "kind": "mine",
+            "assignee": "me",
             "item": "Quality",
             "q": "Water pump",
         },
@@ -344,27 +342,24 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
     assert "status" not in response.context["filters"]
     assert "status=" not in response.context["filter_query"]
     assert set(dict(response.context["statuses"])) == expected_statuses
-    assert response.context["filters"]["kind"] == "mine"
+    assert response.context["filters"]["assignee"] == "me"
     assert response.context["filters"]["item"] == "Quality"
     assert response.context["filters"]["q"] == "Water pump"
-    assert f'href="?kind=mine&amp;scope={scope}"'.encode() in response.content
+    assert f'href="?scope={scope}"'.encode() in response.content
 
 
-def test_empty_personal_queue_keeps_its_scope_when_clearing_search(
+def test_empty_personal_queue_keeps_its_scope_when_clearing_filters(
     review_item,
     client,
 ):
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(
         reverse("experiences:queue"),
-        {"scope": "ready", "kind": "mine", "q": "not found"},
+        {"scope": "ready", "assignee": "me", "q": "not found"},
     )
     assert b"No reviews match these filters." in response.content
-    assert b'href="?kind=mine&amp;scope=ready"' in response.content
-    response = client.get(
-        reverse("experiences:queue"),
-        {"scope": "ready", "kind": "mine"},
-    )
+    assert b'href="?scope=ready"' in response.content
+    response = client.get(reverse("experiences:queue"), {"scope": "decided"})
     assert b"No requests in this view" in response.content
     assert b"View all requests" in response.content
     assert b"Clear filters" not in response.content

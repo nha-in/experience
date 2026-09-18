@@ -41,7 +41,12 @@ def _control_class(widget: forms.Widget) -> str:
     return _DEFAULT_CONTROL_CLASS
 
 
-def _style(field: BoundField, extra_class: str = "") -> BoundField:
+def _style(
+    field: BoundField,
+    extra_class: str = "",
+    *,
+    inline_errors: bool = True,
+) -> BoundField:
     """Merge careui classes and validation state into the widget's attrs."""
     widget = field.field.widget
     attrs = widget.attrs
@@ -58,8 +63,10 @@ def _style(field: BoundField, extra_class: str = "") -> BoundField:
     descriptions = attrs.get("aria-describedby", "").split()
     if field.help_text:
         descriptions.append(f"{field.auto_id}_helptext")
-    if field.errors:
+    if field.errors and inline_errors:
         descriptions.append(f"{field.auto_id}_errors")
+    if field.errors and not inline_errors:
+        descriptions.append(f"{field.auto_id}_error_summary")
     if descriptions:
         attrs["aria-describedby"] = " ".join(dict.fromkeys(descriptions))
     return field
@@ -86,6 +93,11 @@ def is_select(field: BoundField) -> bool:
     return isinstance(field.field.widget, _SELECT_WIDGETS)
 
 
+@register.filter
+def getitem(value, key):
+    return value.get(key, ())
+
+
 @register.inclusion_tag("components/form_field.html", takes_context=True)
 def ui_field(  # noqa: PLR0913, PLR0917
     context,
@@ -96,12 +108,12 @@ def ui_field(  # noqa: PLR0913, PLR0917
     extra_class: str = "",
     *,
     choices_in_columns: bool = False,
+    inline_errors: bool = True,
 ) -> dict:
     """Render a full label + control + help + errors block.
 
-    `label`, `placeholder` and `help_text` override whatever the form declared,
-    which is how the allauth screens pick up the mockup's copy without us
-    reaching into allauth's form classes.
+    `label`, `placeholder` and `help_text` override whatever the form declared.
+    `inline_errors=False` leaves the field's errors to the form's error summary.
     """
     if placeholder:
         field.field.widget.attrs["placeholder"] = placeholder
@@ -117,10 +129,11 @@ def ui_field(  # noqa: PLR0913, PLR0917
     )
     form = field.form
     return {
-        "field": _style(field, extra_class),
+        "field": _style(field, extra_class, inline_errors=inline_errors),
         "label": label or field.label,
         "help_text": help_text or field.help_text,
         "choices_in_columns": choices_in_columns,
+        "inline_errors": inline_errors,
         "submit_required": (
             form.base_fields.get(field.name, field.field).required
             if getattr(form, "draft", False)

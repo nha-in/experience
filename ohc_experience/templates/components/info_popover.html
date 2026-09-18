@@ -1,0 +1,32 @@
+{% comment %}
+  The (i) beside a choice, a milestone or a track: one sentence about it and a
+  link into the programme's documentation.
+
+  {% include "components/info_popover.html" with scope="milestone" key=milestone.key label=milestone.name description=milestone.description url=milestone.docs_url only %}
+
+  `scope` and `key` only make the panel's id unique on the page, and
+  `extra_class` pulls the button closer to the words it follows. The panel is a
+  native popover, so the browser draws it in the top layer: the card around it
+  cannot clip it, nothing on the page can cover it, and Escape and a click
+  elsewhere close it. js/info-popover.js places it under its button and opens
+  it on hover and on focus as well; the button alone works without scripting.
+{% endcomment %}
+<button class="ui-info-button {{ extra_class }}"
+        type="button"
+        popovertarget="info-{{ scope }}-{{ key|slugify }}"
+        aria-label="About {{ label }}"
+        aria-expanded="false"
+        data-info-button>{% include "components/nav_icon.html" with icon="info" %}</button>
+<div class="ui-info-panel"
+     id="info-{{ scope }}-{{ key|slugify }}"
+     popover
+     data-info-panel>
+  <p class="text-xs leading-relaxed text-soft-foreground">{{ description }}</p>
+  {% if url %}
+    <a class="mt-2 inline-block text-xs font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+       href="{{ url }}"
+       target="_blank"
+       rel="noopener noreferrer"
+       hx-boost="false">Open documentation ↗&#xFE0E;</a>
+  {% endif %}
+</div>

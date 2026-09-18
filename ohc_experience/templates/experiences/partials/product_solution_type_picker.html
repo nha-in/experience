@@ -1,0 +1,28 @@
+{% load careui %}
+
+<fieldset id="{{ field.auto_id }}"
+          class="scroll-mt-6"
+          tabindex="-1"
+          data-required-checkbox-group="{{ field.html_name }}">
+  <legend class="ui-label">{{ field.label }}</legend>
+  {# One column on a phone: a choice, its label and its (i) do not fit in half a screen. #}
+  <div class="mt-1.5 grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
+    {% for choice in field %}
+      {% with detail=form.solution_type_details|getitem:choice.data.value %}
+        <div class="flex min-w-0 items-center gap-1">
+          <label class="flex min-w-0 cursor-pointer items-center gap-2.5 text-sm select-none"
+                 for="{{ choice.id_for_label }}">
+            {{ choice.tag }}
+            <span class="min-w-0 leading-snug">{{ choice.choice_label }}</span>
+          </label>
+          {% include "components/info_popover.html" with scope="solution" key=choice.data.value label=choice.choice_label description=detail.0 url=detail.1 only %}
+        </div>
+      {% endwith %}
+    {% endfor %}
+  </div>
+  {% if field.errors %}
+    <div id="{{ field.auto_id }}_errors">
+      {% for error in field.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+    </div>
+  {% endif %}
+</fieldset>

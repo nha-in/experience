@@ -22,18 +22,25 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
         draft=True,
     )
     readiness = evidence_readiness(form)
-    assert readiness["total"] == 9  # noqa: PLR2004
-    assert readiness["completed"] == 3  # noqa: PLR2004
-    assert readiness["missing"] == 6  # noqa: PLR2004
-    assert [row["label"] for row in readiness["rows"][:3]] == [
-        "Sandbox testing start date",
-        "Sandbox testing end date",
-        "Tentative demo date",
+    assert readiness["total"] == 3  # noqa: PLR2004
+    assert readiness["completed"] == 0
+    assert readiness["missing"] == 3  # noqa: PLR2004
+    assert [row["label"] for row in readiness["rows"]] == [
+        "Sandbox testing",
+        "WASA audit",
+        "Functional testing",
     ]
-    assert all(row["field_id"] != "id_supporting_evidence" for row in readiness["rows"])
-    assert any(row["field_id"] == "id_wasa_date" for row in readiness["rows"])
-    assert any(row["field_id"] == "id_wasa_valid_until" for row in readiness["rows"])
-    assert any(row["field_id"] == "id_wasa_certificate" for row in readiness["rows"])
+    assert readiness["rows"][1]["field_ids"] == [
+        "id_wasa_certificate",
+        "id_wasa_agency",
+        "id_wasa_date",
+        "id_wasa_valid_until",
+    ]
+    assert readiness["rows"][2]["field_ids"] == [
+        "id_functional_certificate",
+        "id_functional_report",
+        "id_undertaking_form",
+    ]
 
 
 @pytest.mark.django_db
@@ -76,11 +83,13 @@ def test_non_abdm_schema_counts_required_upload_and_consent_in_draft():
         {
             "label": "Permission to proceed",
             "field_id": "id_consent",
+            "field_ids": ["id_consent"],
             "done": False,
         },
         {
             "label": "Signed attestation",
             "field_id": "id_attestation",
+            "field_ids": ["id_attestation"],
             "done": True,
         },
     ]
@@ -119,7 +128,7 @@ def test_readiness_jump_uses_first_missing_prefixed_field():
     assert 'href="#id_evidence-consent"' in html
     assert 'data-readiness-form="evidence-form"' in html
     assert 'data-readiness-item="id_evidence-consent"' in html
-    assert "required item not saved yet" in html
+    assert "section need attention" in html
 
 
 def test_complete_readiness_links_to_actions_without_claiming_approval():

@@ -244,8 +244,18 @@
     });
   }
 
+  function updateSandboxDateConstraints(form) {
+    const start = form.querySelector('[name="start_date"]');
+    const end = form.querySelector('[name="end_date"]');
+    const demo = form.querySelector('[name="tentative_demo_date"]');
+    if (!start || !end || !demo) return;
+    end.min = start.value || '';
+    demo.min = end.value || '';
+  }
+
   function updateSubmission(form) {
     updateWasaFields(form);
+    updateSandboxDateConstraints(form);
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');
     if (!button) return;
@@ -299,6 +309,7 @@
     // Drafts and rejected submissions can arrive with the audit date saved and
     // the expiry still blank; fill it before counting what needs attention.
     scope.querySelectorAll?.('[data-autofill-target]').forEach(autofillFromDate);
+    scope.querySelectorAll?.('[data-review-form]').forEach(updateSandboxDateConstraints);
     scope.querySelectorAll?.('[data-review-form]').forEach(updateSubmission);
     scope.querySelectorAll?.('[data-decision-form]').forEach(updateDecision);
     scope.querySelectorAll?.('[data-revealed-secret]').forEach(secret => {
@@ -360,10 +371,14 @@
 
 // Copy controls use only values already visible to the authorised account.
 document.addEventListener("click", async (event) => {
-  const copy = event.target.closest("[data-copy], [data-copy-value]");
+  const copy = event.target.closest("[data-copy], [data-copy-value], [data-copy-from]");
   if (!copy || !navigator.clipboard) return;
+  // data-copy-from names an element whose visible text is copied, leaving out its hidden parts.
+  const source = copy.dataset.copyFrom && document.getElementById(copy.dataset.copyFrom);
   try {
-    await navigator.clipboard.writeText(copy.dataset.copy ?? copy.dataset.copyValue);
+    await navigator.clipboard.writeText(
+      source ? source.innerText.replace(/\s+/g, " ").trim() : copy.dataset.copy ?? copy.dataset.copyValue,
+    );
     const idle = copy.querySelector("[data-icon-copy]");
     const done = copy.querySelector("[data-icon-done]");
     idle?.classList.add("hidden");
@@ -425,5 +440,31 @@ document.addEventListener("keydown", (event) => {
   document.addEventListener("DOMContentLoaded", () => syncConditionalFields(document));
   document.body?.addEventListener?.("htmx:afterSwap", (event) =>
     syncConditionalFields(event.target),
+  );
+})();
+
+// The reference environment's credential fields fill in its run commands as they are
+// typed, escaping single quotes the way each shell needs. The form never submits.
+(() => {
+  document.addEventListener("input", (event) => {
+    const input = event.target.closest?.("[data-reference-credential]");
+    const form = input?.closest("[data-reference-run]");
+    if (!form) return;
+    const value = input.value.trim();
+    form
+      .querySelectorAll(`[data-credential-slot="${input.dataset.referenceCredential}"]`)
+      .forEach((slot) => {
+        const { singleQuote } = slot.closest("[data-single-quote]").dataset;
+        slot.textContent = value ? value.replaceAll("'", singleQuote) : input.placeholder;
+      });
+  });
+  document.addEventListener(
+    "submit",
+    (event) => {
+      if (!event.target.matches?.("[data-reference-run]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
   );
 })();

@@ -44,14 +44,11 @@
           action="{% url 'account_login' %}">
       {% csrf_token %}
       {% include "components/form_errors.html" %}
-      {% translate "Work email" as login_label %}
       {% translate "you@company.in" as login_placeholder %}
-      {% ui_field form.login label=login_label placeholder=login_placeholder %}
-      {% translate "Password" as password_label %}
-      {% ui_field form.password label=password_label %}
+      {% ui_field form.login placeholder=login_placeholder inline_errors=False %}
+      {% ui_field form.password inline_errors=False %}
       {% if form.remember %}
-        {% translate "Keep me signed in" as remember_label %}
-        {% ui_field form.remember label=remember_label %}
+        {% ui_field form.remember inline_errors=False %}
       {% endif %}
       {{ redirect_field }}
       <button type="submit"

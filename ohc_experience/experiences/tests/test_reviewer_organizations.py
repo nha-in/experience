@@ -4,6 +4,7 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
+from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
@@ -14,6 +15,8 @@ from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
+
+VERIFICATION_DOCUMENT_NUMBER = organisation_data()["verification_document_number"]
 
 
 def register_locker(organization, owner, name):
@@ -59,7 +62,7 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
     assert detail.context["organization"] == organization
     assert list(detail.context["products"]) == [workspace]
     assert verification in detail.context["review_requests"]
-    assert b"DEMO-CIN-2026" in detail.content
+    assert VERIFICATION_DOCUMENT_NUMBER.encode() in detail.content
     staff_url = reverse("experiences:product-detail", args=[workspace.reference])
     assert f'href="{staff_url}"'.encode() in detail.content
     assert f'href="{workspace.get_absolute_url()}"'.encode() not in detail.content
@@ -89,7 +92,7 @@ def test_organization_pages_follow_category_review_scope(environment, client):
     )
     assert list(detail.context["products"]) == [environment["workspace"]]
     assert list(detail.context["review_requests"]) == [visible_item]
-    assert b"DEMO-CIN-2026" not in detail.content
+    assert VERIFICATION_DOCUMENT_NUMBER.encode() not in detail.content
 
     products = client.get(reverse("experiences:products"))
     assert list(products.context["workspaces"]) == [environment["workspace"]]

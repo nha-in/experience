@@ -17,11 +17,12 @@ from typing import Protocol
 
 
 class ExternalSystem(enum.StrEnum):
-    """Systems we provision into. Mirrors `ProvisionedResource.system`."""
+    """Systems we call: the three we provision into, and ABDM notifications."""
 
     KEYCLOAK = "KEYCLOAK"
     WSO2 = "WSO2"
     HIECM = "HIECM"
+    NOTIFICATION = "NOTIFICATION"
 
 
 class AdapterError(Exception):
@@ -86,7 +87,7 @@ class IdpAdmin(Protocol):
 class GatewayAppSpec:
     reference: str
     name: str
-    api_names: tuple[str, ...]
+    api_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +101,7 @@ class ApiGateway(Protocol):
 
     def create_application(self, spec: GatewayAppSpec) -> GatewayAppCreated: ...
 
-    def subscribe(self, external_id: str, api_names: tuple[str, ...]) -> None: ...
+    def subscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None: ...
 
     def map_keys(
         self,
@@ -109,7 +110,7 @@ class ApiGateway(Protocol):
         secret_ref: str,
     ) -> None: ...
 
-    def unsubscribe(self, external_id: str, api_names: tuple[str, ...]) -> None: ...
+    def unsubscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +118,7 @@ class BridgeSpec:
     bridge_id: str
     name: str
     url: str
+    entity: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,3 +140,43 @@ class BridgeRegistry(Protocol):
     def get_bridge_status(self, bridge_id: str) -> BridgeStatus: ...
 
     def deactivate_bridge(self, bridge_id: str) -> None: ...
+
+
+class NotificationChannel(enum.StrEnum):
+    EMAIL = "email"
+    SMS = "sms"
+
+
+class NotificationContentType(enum.StrEnum):
+    OTP = "otp"
+    INFO = "info"
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationTemplate:
+    """One notification, as the notification team registered it.
+
+    `values` names the template's `{0}`, `{1}`… placeholders, in order.
+    """
+
+    id: str
+    channel: NotificationChannel
+    subject: str
+    values: tuple[str, ...]
+    content_type: NotificationContentType = NotificationContentType.INFO
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationMessage:
+    """A template, its receiver, and the values that fill its placeholders."""
+
+    template: NotificationTemplate
+    receiver: str
+    # repr=False: the values carry one-time codes.
+    values: tuple[str, ...] = field(repr=False)
+
+
+class NotificationGateway(Protocol):
+    """ABDM's notification service, which only delivers approved templates."""
+
+    def send(self, message: NotificationMessage) -> None: ...

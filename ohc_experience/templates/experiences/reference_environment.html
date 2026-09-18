@@ -44,43 +44,134 @@
           <h2 class="ui-card-title" id="reference-run-title">Run locally</h2>
           <span class="ui-badge ui-badge--neutral ui-badge--size-sm">One command</span>
         </div>
+        <p class="ui-card-description">Choose the milestones and your terminal, add your sandbox credentials, then run the command. It needs only Docker.</p>
       </div>
-      <div class="ui-card-content grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div class="min-w-0">
-          <div class="rounded-xl bg-foreground px-4 py-4 font-mono text-[13px] leading-6 text-inverse-foreground sm:px-5">
-            <p class="wrap-anywhere">
-              <span class="text-primary-400 select-none" aria-hidden="true">$</span> {{ reference_environment.run_command }}
-            </p>
-            <p class="text-inverse-foreground/60">→ {{ reference_milestones }} flows on {{ reference_environment.local_url }}</p>
-          </div>
-          <button type="button"
-                  class="ui-btn ui-btn--outline ui-btn--size-sm mt-4 shadow-md"
-                  data-copy="{{ reference_environment.run_command }}"
-                  aria-label="Copy command">
-            <svg data-icon-copy
-                 viewBox="0 0 24 24"
-                 fill="none"
-                 stroke="currentColor"
-                 stroke-width="1.75"
-                 stroke-linecap="round"
-                 stroke-linejoin="round"
-                 aria-hidden="true">
-              <rect x="8" y="8" width="14" height="14" rx="2" />
-              <path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2" />
-            </svg>
-            <svg data-icon-done
-                 class="hidden text-green-600"
-                 viewBox="0 0 24 24"
-                 fill="none"
-                 stroke="currentColor"
-                 stroke-width="2"
-                 stroke-linecap="round"
-                 stroke-linejoin="round"
-                 aria-hidden="true">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-            <span data-copy-label>Copy command</span>
-          </button>
+      {# Nothing is submitted; the choices only change the command shown. #}
+      <form class="ui-card-content grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]"
+            data-reference-run>
+        <div class="flex min-w-0 flex-col gap-5">
+          <fieldset>
+            <legend class="ui-label">Milestones</legend>
+            <div class="flex flex-col">
+              {% for milestone, names, option, in_progress in reference_milestones %}
+                <label class="flex items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 {% if option %}cursor-pointer{% endif %}">
+                  <input class="ui-checkbox"
+                         type="checkbox"
+                         {% if option %}name="milestones" value="{{ milestone.key }}"{% else %}checked disabled{% endif %} />
+                  <span class="w-11 shrink-0 font-mono text-xs font-semibold text-soft-foreground">{{ milestone.code }}</span>
+                  <span class="min-w-0 flex-1">{{ milestone.name }}</span>
+                  {% if in_progress %}
+                    <span class="ui-badge ui-badge--warning ui-badge--size-xs">In progress</span>
+                  {% elif not option %}
+                    <span class="text-xs text-soft-foreground">Always included</span>
+                  {% endif %}
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend class="ui-label">Terminal</legend>
+            <div class="flex flex-wrap gap-x-6">
+              {% for key, shell, segments in reference_shells %}
+                <label class="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
+                  <input class="size-4 shrink-0 accent-primary"
+                         type="radio"
+                         name="shell"
+                         value="{{ key }}"
+                         {% if forloop.first %}checked{% endif %} />
+                  {{ shell.label }}
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+          {% if experience_program.sandbox_credentials %}
+            {# The fields have no names and the form never submits, so what is typed stays in the page. #}
+            <fieldset>
+              <legend class="ui-label">Sandbox credentials</legend>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label class="ui-label text-xs text-muted-foreground"
+                         for="reference-client-id">Client ID</label>
+                  <input class="ui-input font-mono"
+                         id="reference-client-id"
+                         type="text"
+                         value="{{ reference_client_id }}"
+                         placeholder="{{ reference_environment.client_id_placeholder }}"
+                         autocomplete="off"
+                         autocapitalize="off"
+                         spellcheck="false"
+                         aria-describedby="reference-credentials-hint"
+                         data-reference-credential="client_id" />
+                </div>
+                <div>
+                  <label class="ui-label text-xs text-muted-foreground"
+                         for="reference-client-secret">Client secret</label>
+                  <input class="ui-input font-mono"
+                         id="reference-client-secret"
+                         type="text"
+                         placeholder="{{ reference_environment.client_secret_placeholder }}"
+                         autocomplete="off"
+                         autocapitalize="off"
+                         spellcheck="false"
+                         aria-describedby="reference-credentials-hint"
+                         data-reference-credential="client_secret" />
+                </div>
+              </div>
+              <p class="ui-hint" id="reference-credentials-hint">
+                {% if has_credential %}
+                  Your client ID is filled in, and the secret is in
+                {% else %}
+                  Your client ID and secret appear in
+                {% endif %}
+                <a class="font-semibold text-primary no-underline hover:underline"
+                   href="{% url 'experiences:credentials' workspace.reference %}">Credentials</a>{% if not has_credential %} once they are issued{% endif %}. They only fill in the command here and are not saved or sent.
+              </p>
+            </fieldset>
+          {% endif %}
+          {% for key, shell, segments in reference_shells %}
+            <div data-show-when-field="shell"
+                 data-show-when-value="{{ key }}"
+                 {% if not forloop.first %}hidden{% endif %}>
+              <div class="rounded-xl bg-foreground px-4 py-4 font-mono text-[13px] leading-6 text-inverse-foreground sm:px-5">
+                <p class="flex gap-2">
+                  <span class="shrink-0 text-primary-400 select-none" aria-hidden="true">{{ shell.prompt }}</span>
+                  {# Kept on one line: whitespace between the parts would end up in the copied command. #}
+                  {# djlint:off #}
+                  <span class="min-w-0 wrap-anywhere" id="reference-command-{{ key }}" data-single-quote="{{ shell.single_quote }}">{% for slot, text in segments %}{% if not slot %}{{ text }}{% elif slot == "options" %}{% for milestone_key, milestone_option in reference_environment.milestone_options.items %}<span data-show-when-field="milestones" data-show-when-value="{{ milestone_key }}" hidden>{{ milestone_option }} </span>{% endfor %}{% else %}<span data-credential-slot="{{ slot }}">{{ text }}</span>{% endif %}{% endfor %}</span>
+                  {# djlint:on #}
+                </p>
+                <p class="text-inverse-foreground/60">→ Opens {{ reference_environment.local_url }} in your browser when CARE is ready</p>
+              </div>
+              <button type="button"
+                      class="ui-btn ui-btn--outline ui-btn--size-sm mt-4 shadow-md"
+                      data-copy-from="reference-command-{{ key }}"
+                      aria-label="Copy the {{ shell.label }} command">
+                <svg data-icon-copy
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.75"
+                     stroke-linecap="round"
+                     stroke-linejoin="round"
+                     aria-hidden="true">
+                  <rect x="8" y="8" width="14" height="14" rx="2" />
+                  <path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2" />
+                </svg>
+                <svg data-icon-done
+                     class="hidden text-green-600"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2"
+                     stroke-linecap="round"
+                     stroke-linejoin="round"
+                     aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                <span data-copy-label>Copy command</span>
+              </button>
+            </div>
+          {% endfor %}
         </div>
         <dl class="grid gap-4 text-sm">
           <div>
@@ -92,11 +183,38 @@
           <div>
             <dt class="ui-kicker">Includes</dt>
             <dd class="mt-1">
-              The {{ reference_milestones }} flows wired end to end, plus request and response logs you can read as you go.
+              {{ reference_environment.includes }}
+            </dd>
+          </div>
+          <div>
+            <dt class="ui-kicker">Open</dt>
+            <dd class="mt-1">
+              <a class="font-semibold text-primary no-underline hover:underline"
+                 href="{{ reference_environment.local_url }}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 hx-boost="false">{{ reference_environment.local_url }}<span class="sr-only"> (opens in a new tab)</span></a>
+            </dd>
+          </div>
+          {% if reference_environment.sign_in %}
+            <div>
+              <dt class="ui-kicker">Sign in</dt>
+              <dd class="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
+                <span class="text-muted-foreground">Username</span>
+                <code class="rounded-lg border border-border bg-muted-background px-2.5 py-1.5 font-mono text-[13px] break-all">{{ reference_environment.sign_in.0 }}</code>
+                <span class="text-muted-foreground">Password</span>
+                <code class="rounded-lg border border-border bg-muted-background px-2.5 py-1.5 font-mono text-[13px] break-all">{{ reference_environment.sign_in.1 }}</code>
+              </dd>
+            </div>
+          {% endif %}
+          <div>
+            <dt class="ui-kicker">Stop</dt>
+            <dd class="mt-1">
+              <code class="font-mono text-[13px] wrap-anywhere">{{ reference_environment.stop_command }}</code>
             </dd>
           </div>
         </dl>
-      </div>
+      </form>
     </section>
     <section class="ui-card ui-card--layered ui-rise [animation-delay:.12s]"
              aria-labelledby="reference-flows-title">
@@ -104,7 +222,7 @@
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="ui-card-title" id="reference-flows-title">Reference flows included</h2>
           <a class="text-xs font-semibold text-primary no-underline hover:underline"
-             href="{{ experience_program.docs_url }}"
+             href="{{ experience_program.milestones_docs_url|default:experience_program.docs_url }}"
              target="_blank"
              rel="noopener noreferrer">Milestone documentation ↗&#xFE0E;</a>
         </div>
@@ -112,11 +230,17 @@
       </div>
       <div class="ui-card-content">
         <ul class="grid gap-px overflow-hidden rounded-xl border border-soft-border bg-soft-border sm:grid-cols-2 lg:grid-cols-4">
-          {% for milestone, names in reference_flows %}
+          {% for milestone, names, option, in_progress in reference_milestones %}
             {% for name in names %}
               <li class="bg-card px-4 py-3.5">
-                <p class="font-mono text-xs text-soft-foreground">{{ milestone.code }}</p>
-                <p class="mt-1 text-sm font-medium">{{ name }}</p>
+                <p class="font-mono text-xs text-soft-foreground">
+                  {{ milestone.code }}
+                  {% if in_progress %}<span class="font-sans">· In progress</span>{% endif %}
+                </p>
+                <a class="mt-1 block text-sm font-medium hover:text-primary hover:underline"
+                   href="{{ milestone.docs_url|default:experience_program.docs_url }}"
+                   target="_blank"
+                   rel="noopener noreferrer">{{ name }} <span aria-hidden="true">↗&#xFE0E;</span></a>
               </li>
             {% endfor %}
           {% endfor %}

@@ -28,6 +28,6 @@
         hx-disabled-elt="find button[type=submit]"
         hx-indicator="#nav-progress">
     {% csrf_token %}
-    <button type="submit" class="ui-btn ui-btn--ghost ui-btn--size-xs">{% translate "Remove" %}</button>
+    <button type="submit" class="ui-btn ui-btn--destructive ui-btn--size-xs">{% translate "Remove" %}</button>
   </form>
 {% endif %}

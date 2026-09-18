@@ -1,21 +1,11 @@
 /* Public account screens only. The integration workspace keeps its own theme. */
 .marketing-shell .marketing-auth {
-  position: relative;
-  isolation: isolate;
   padding: clamp(44px, 7vw, 96px) clamp(20px, 4vw, 40px) 88px;
-  color: #eaf6ee;
-  background: radial-gradient(ellipse at 30% 20%, rgba(167, 243, 208, .07), transparent 52%);
-}
-
-.marketing-shell .marketing-auth::before {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-  background-image: radial-gradient(rgba(167, 243, 208, .18) .8px, transparent 1px);
-  background-size: 26px 26px;
-  mask-image: linear-gradient(110deg, #000, transparent 65%);
+  color: var(--marketing-text);
+  background:
+    radial-gradient(ellipse at 0% 100%, #d5e9dd 0, transparent 55%),
+    radial-gradient(ellipse at 100% 15%, #e0f0e5 0, transparent 50%),
+    linear-gradient(180deg, #f5fbf7 0%, #edf7f1 100%);
 }
 
 .marketing-shell .marketing-auth-layout {
@@ -50,7 +40,7 @@
 }
 
 .marketing-shell .marketing-auth-eyebrow {
-  color: #a7f3d0;
+  color: var(--sbx-green);
 }
 
 .marketing-shell .marketing-auth-eyebrow > span {
@@ -58,29 +48,29 @@
   height: 7px;
   flex: none;
   border-radius: 50%;
-  background: #a7f3d0;
-  box-shadow: 0 0 0 5px rgba(167, 243, 208, .08);
+  background: var(--sbx-green);
+  box-shadow: 0 0 0 5px #e1eee5;
 }
 
 .marketing-shell .marketing-auth-story-title {
   max-width: 11ch;
   margin: 26px 0 0;
   font-family: "Bricolage Grotesque", sans-serif;
-  font-size: clamp(44px, 5.3vw, 76px);
-  font-weight: 600;
-  line-height: .98;
-  letter-spacing: -.045em;
+  font-size: clamp(44px, 5.3vw, 72px);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -.04em;
   text-wrap: balance;
 }
 
 .marketing-shell .marketing-auth-story-title > span {
-  color: #e9c46a;
+  color: var(--sbx-green);
 }
 
 .marketing-shell .marketing-auth-story-lede {
   max-width: 40ch;
   margin: 28px 0 0;
-  color: #a3bfb0;
+  color: var(--marketing-muted);
   font-size: 18px;
   line-height: 1.6;
 }
@@ -89,17 +79,17 @@
   max-width: 390px;
   margin-top: 44px;
   padding-top: 24px;
-  border-top: 1px solid rgba(167, 243, 208, .18);
+  border-top: 1px solid var(--marketing-line);
 }
 
 .marketing-shell .marketing-auth-context-label {
-  color: #e9c46a;
+  color: var(--sbx-green);
   font-size: 10px;
 }
 
 .marketing-shell .marketing-auth-context p {
   margin: 13px 0 0;
-  color: #a3bfb0;
+  color: var(--marketing-muted);
   font-size: 15px;
   line-height: 1.65;
 }
@@ -110,7 +100,7 @@
   align-items: center;
   gap: 12px;
   margin-top: 8px;
-  color: #a7f3d0;
+  color: var(--sbx-green);
   font-size: 14px;
   font-weight: 600;
 }
@@ -124,28 +114,28 @@
 
 .marketing-shell .marketing-auth-panel,
 .marketing-shell .marketing-auth-feedback {
-  --background: #f6fbf7;
-  --foreground: #102b1f;
+  --background: #fff;
+  --foreground: var(--marketing-text);
   --card: #fff;
-  --card-foreground: #102b1f;
-  --muted-background: #edf4ee;
-  --muted-foreground: #405b4b;
-  --soft-foreground: #526a5d;
-  --soft-border: #d9e5dc;
-  --input: #bccfc2;
-  --primary: #145839;
-  --primary-foreground: #f7fcf8;
-  --ring: #26744f;
+  --card-foreground: var(--marketing-text);
+  --muted-background: var(--sbx-soft);
+  --muted-foreground: var(--marketing-muted);
+  --soft-foreground: var(--sbx-secondary);
+  --soft-border: var(--marketing-line);
+  --input: var(--sbx-control-border);
+  --primary: var(--sbx-green);
+  --primary-foreground: #fff;
+  --ring: var(--sbx-accent);
   --destructive: #b42318;
-  color: #102b1f;
+  color: var(--marketing-text);
 }
 
 .marketing-shell .marketing-auth-panel {
   padding: clamp(28px, 3vw, 40px);
-  border: 1px solid rgba(167, 243, 208, .26);
-  border-radius: 24px;
-  background: #f6fbf7;
-  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .48), 0 1px 0 rgba(255, 255, 255, .5) inset;
+  border: 1px solid var(--marketing-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 48px -24px #174d3530;
 }
 
 .marketing-shell .marketing-auth-panel-heading {
@@ -154,7 +144,7 @@
 
 .marketing-shell .marketing-auth-panel .marketing-auth-panel-eyebrow {
   margin: 0 0 12px;
-  color: #42634e;
+  color: var(--sbx-secondary);
   font-size: 10px;
 }
 
@@ -162,7 +152,7 @@
   margin: 0;
   font-family: "Bricolage Grotesque", sans-serif;
   font-size: clamp(28px, 2.8vw, 36px);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.08;
   letter-spacing: -.035em;
   text-wrap: balance;
@@ -171,7 +161,7 @@
 
 .marketing-shell .marketing-auth-panel-heading > p:not(.marketing-auth-panel-eyebrow) {
   margin: 13px 0 0;
-  color: #526a5d;
+  color: var(--sbx-secondary);
   font-size: 15px;
   line-height: 1.6;
 }
@@ -186,7 +176,7 @@
 
 .marketing-shell .marketing-auth-panel .ui-label {
   margin-bottom: 8px;
-  color: #193c29;
+  color: var(--marketing-text);
   font-family: "DM Mono", monospace;
   font-size: 12px;
   font-weight: 500;
@@ -195,10 +185,10 @@
 
 .marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea) {
   min-height: 48px;
-  border: 1px solid #bccfc2;
-  border-radius: 11px;
+  border: 1px solid var(--sbx-control-border);
+  border-radius: 8px;
   background: #fff;
-  color: #102b1f;
+  color: var(--marketing-text);
   padding-right: 13px;
   padding-left: 13px;
   font-family: "Albert Sans", sans-serif;
@@ -215,10 +205,10 @@
 }
 
 .marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea):focus-visible {
-  outline: 2px solid #26744f;
+  outline: 2px solid var(--sbx-accent);
   outline-offset: 2px;
-  border-color: #26744f;
-  box-shadow: 0 0 0 4px rgba(38, 116, 79, .1);
+  border-color: var(--sbx-accent);
+  box-shadow: 0 0 0 4px #e1eee5;
 }
 
 .marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea)[aria-invalid="true"] {
@@ -226,21 +216,28 @@
 }
 
 .marketing-shell .marketing-auth-panel .ui-hint {
-  color: #526a5d;
+  color: var(--sbx-secondary);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .marketing-shell .marketing-auth-panel a:not(.ui-btn) {
-  color: #145839;
+  color: var(--sbx-green);
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: rgba(20, 88, 57, .3);
+  text-decoration-color: #9ab4a4;
   text-underline-offset: 3px;
 }
 
 .marketing-shell .marketing-auth-panel a:not(.ui-btn):hover {
   text-decoration-color: currentColor;
+}
+
+/* Error summary lines read as alert text; only the field name is underlined. */
+.marketing-shell .marketing-auth-panel [data-error-summary] a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
 }
 
 .marketing-shell .marketing-auth-panel .ui-hint a {
@@ -252,13 +249,13 @@
 .marketing-shell .marketing-auth-panel .ui-checkbox {
   width: 18px;
   height: 18px;
-  accent-color: #145839;
+  accent-color: var(--sbx-green);
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn {
   min-height: 48px;
   padding: 10px 22px;
-  border-radius: 999px;
+  border-radius: 8px;
   font-family: "Albert Sans", sans-serif;
   font-size: 15px;
   font-weight: 600;
@@ -268,69 +265,69 @@
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--default {
-  border: 1px solid #145839;
-  color: #f6fbf7;
-  background: #145839;
-  box-shadow: 0 6px 18px -9px rgba(20, 88, 57, .45);
+  border: 1px solid var(--sbx-green);
+  color: #fff;
+  background: linear-gradient(140deg, #176543, #0c5034);
+  box-shadow: 0 5px 14px #104d3420;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--default:hover {
-  background: #0c432b;
-  border-color: #0c432b;
+  background: #093e2a;
+  border-color: #093e2a;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--outline {
-  color: #145839;
-  border-color: #b9cfc0;
+  color: var(--sbx-green);
+  border-color: var(--sbx-control-border);
   background: transparent;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--outline:hover {
-  background: #e8f2eb;
+  background: var(--sbx-soft);
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn:focus-visible,
 .marketing-shell .marketing-auth a:focus-visible,
 .marketing-shell .marketing-auth-footer a:focus-visible {
-  outline: 2px solid #26744f;
+  outline: 2px solid var(--sbx-accent);
   outline-offset: 4px;
 }
 
 .marketing-shell .marketing-auth-story a:focus-visible,
 .marketing-shell .marketing-auth-after a:focus-visible,
 .marketing-shell .marketing-auth-footer a:focus-visible {
-  outline-color: #a7f3d0;
+  outline-color: var(--sbx-accent);
 }
 
 .marketing-shell .marketing-auth-alternatives {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-top: 1px solid #d9e5dc;
+  border-top: 1px solid var(--marketing-line);
   padding-top: 20px;
 }
 
 .marketing-shell .marketing-auth-after {
   padding-top: 22px;
   text-align: center;
-  color: #a3bfb0;
+  color: var(--marketing-muted);
   font-size: 14px;
   line-height: 1.6;
 }
 
 .marketing-shell .marketing-auth-after p {
   margin: 0;
-  color: #a3bfb0;
+  color: var(--marketing-muted);
 }
 
 .marketing-shell .marketing-auth-after a:not(.ui-btn) {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  color: #a7f3d0;
+  color: var(--sbx-green);
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: rgba(167, 243, 208, .35);
+  text-decoration-color: #9ab4a4;
   text-underline-offset: 4px;
 }
 
@@ -366,16 +363,17 @@
   width: 34px;
   height: 34px;
   flex: none;
-  border: 1px solid rgba(167, 243, 208, .24);
-  border-radius: 50%;
-  color: #a3bfb0;
+  border: 1px solid var(--marketing-line);
+  border-radius: 8px;
+  background: #f5fbf7;
+  color: var(--marketing-muted);
   font: 12px "DM Mono", monospace;
 }
 
 .marketing-shell .marketing-auth-steps [aria-current="step"] .marketing-auth-step-number {
-  border-color: #a7f3d0;
-  background: #a7f3d0;
-  color: #071a12;
+  border-color: var(--sbx-green);
+  background: var(--sbx-green);
+  color: #fff;
 }
 
 .marketing-shell .marketing-auth-steps strong {
@@ -383,22 +381,22 @@
   margin: 2px 0 5px;
   font-size: 16px;
   font-weight: 600;
-  color: #eaf6ee;
+  color: var(--marketing-text);
 }
 
 .marketing-shell .marketing-auth-steps li div > span {
   display: block;
-  color: #a3bfb0;
+  color: var(--marketing-muted);
   font-size: 14px;
   line-height: 1.6;
 }
 
 .marketing-shell .marketing-auth-invitation {
   padding: 14px 16px;
-  border: 1px solid #c4dfce;
+  border: 1px solid var(--marketing-line);
   border-radius: 12px;
-  background: #e8f4ec;
-  color: #193c29;
+  background: var(--sbx-soft);
+  color: var(--marketing-text);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -411,13 +409,13 @@
   margin: 0;
   padding: 0 0 24px;
   border: 0;
-  border-bottom: 1px solid #d9e5dc;
+  border-bottom: 1px solid var(--marketing-line);
 }
 
 .marketing-shell .marketing-auth-fieldset legend {
   margin: 0 0 18px;
   padding: 0;
-  color: #193c29;
+  color: var(--marketing-text);
   font-family: "Bricolage Grotesque", sans-serif;
   font-size: 17px;
   font-weight: 600;
@@ -437,14 +435,14 @@
 
 .marketing-shell .marketing-auth-submit p {
   margin: 14px 0 0;
-  color: #526a5d;
+  color: var(--sbx-secondary);
   text-align: center;
   font-size: 12px;
   line-height: 1.6;
 }
 
 .marketing-shell .marketing-auth-headerhint {
-  color: #a3bfb0;
+  color: var(--marketing-muted);
   font-size: 13px;
 }
 
@@ -457,8 +455,8 @@
   gap: 16px;
   margin: 0 auto;
   padding: 24px clamp(20px, 4vw, 40px);
-  border-top: 1px solid rgba(167, 243, 208, .14);
-  color: #a3bfb0;
+  border-top: 1px solid var(--marketing-line);
+  color: var(--marketing-muted);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -475,7 +473,7 @@
   align-items: center;
   flex: none;
   gap: 7px;
-  color: #a7f3d0;
+  color: var(--sbx-green);
   font-size: 13px;
 }
 
@@ -522,8 +520,11 @@
     flex: 1;
     flex-direction: column;
     gap: 8px;
-    border-top: 1px solid rgba(167, 243, 208, .2);
+    border-top: 1px solid var(--marketing-line);
     padding-top: 16px;
+  }
+  .marketing-shell .marketing-auth-steps li:nth-child(2) {
+    flex-grow: 1.5;
   }
   .marketing-shell .marketing-auth-steps strong {
     margin: 0;
@@ -545,7 +546,7 @@
   }
   .marketing-shell .marketing-auth-panel {
     padding: 26px 22px;
-    border-radius: 20px;
+    border-radius: 14px;
   }
   .marketing-shell .marketing-auth-panel-heading h1 {
     font-size: 29px;

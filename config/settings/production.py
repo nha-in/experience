@@ -10,6 +10,7 @@ from sentry_sdk.integrations.redis import RedisIntegration
 from .base import *  # noqa: F403
 from .base import DATABASES
 from .base import INSTALLED_APPS
+from .base import INTEGRATION_PORTS
 from .base import REDIS_AUTH_TOKEN
 from .base import REDIS_URL
 from .base import env
@@ -159,6 +160,14 @@ EMAIL_BACKEND = env(
     "DJANGO_EMAIL_BACKEND",
     default="ohc_experience.core.mail.queue.QueuedGlobalEmailBackend",
 )
+# Verification codes block signup, so production never falls back to the local
+# stand-in, which delivers nothing.
+INTEGRATION_PORTS = {
+    **INTEGRATION_PORTS,
+    "NOTIFICATION": (
+        "ohc_experience.integrations.notification.adapter.AbdmNotificationGateway"
+    ),
+}
 
 # LOGGING
 # ------------------------------------------------------------------------------

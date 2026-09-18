@@ -14,14 +14,14 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 
-def test_queue_tabs_keep_search_and_assignee_filters(client, review_item):
+def test_stage_counts_keep_search_and_assignee_filters(client, review_item):
     reviewer = ReviewerFactory(is_nha_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     response = client.get(
         reverse("experiences:queue"),
         {
-            "kind": "application",
+            "item": "milestones",
             "q": "Water pump",
             "assignee": reviewer.pk,
             "scope": "ready",
@@ -29,10 +29,33 @@ def test_queue_tabs_keep_search_and_assignee_filters(client, review_item):
     )
     assert response.status_code == HTTPStatus.OK
     assert list(response.context["page"]) == [review_item]
-    counts = {row["value"]: row["count"] for row in response.context["queue_tabs"]}
-    assert counts[""] == counts["mine"] == counts["application"] == 1
-    assert counts["organisation_verification"] == 0
+    assert response.context["stage_counts"] == {
+        "ready": 1,
+        "waiting": 0,
+        "decided": 0,
+        "all": 1,
+    }
     assert response.context["queue_scope"] == "ready"
+
+
+def test_the_stage_select_carries_the_stage_that_the_tabs_show(client, review_item):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    response = client.get(reverse("experiences:queue"), {"scope": "decided"})
+    compact = " ".join(response.content.decode().split())
+
+    assert '<option value="decided" selected>Done (0)</option>' in compact
+    assert "Pending (1)</option>" in compact
+    assert 'type="hidden" name="scope"' not in compact
+
+
+def test_stage_counts_ignore_a_status_filter(client, review_item):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    response = client.get(
+        reverse("experiences:queue"),
+        {"scope": "ready", "status": "query_raised"},
+    )
+    assert list(response.context["page"]) == []
+    assert response.context["stage_counts"]["ready"] == 1
 
 
 def test_queue_scope_tracks_a_real_decision(client, review_item):

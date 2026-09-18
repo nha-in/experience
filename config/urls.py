@@ -1,3 +1,4 @@
+from allauth.account import views as account_views
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -6,7 +7,10 @@ from django.urls import path
 from django.views import defaults as default_views
 
 from ohc_experience.core.health import ping
+from ohc_experience.users.views import account_verification_view
+from ohc_experience.users.views import email_verification_sent_view
 from ohc_experience.users.views import user_signup_view
+from ohc_experience.users.views import verify_phone_view
 
 urlpatterns = [
     path("ping/", ping, name="ping"),
@@ -21,6 +25,29 @@ urlpatterns = [
     path("", include("ohc_experience.organisations.urls", namespace="organisations")),
     # Signup is ours so an invite token can shape the form; the rest is allauth's.
     path("accounts/signup/", user_signup_view, name="account_signup"),
+    # Signup confirms the address and the number on one screen of ours.
+    path(
+        "accounts/verify/",
+        account_verification_view,
+        name="account_verification",
+    ),
+    # The settings screens are ours so a signed-in visitor gets the app shell;
+    # allauth also routes its phone screens only when phone is a signup field.
+    path(
+        "accounts/confirm-email/",
+        email_verification_sent_view,
+        name="account_email_verification_sent",
+    ),
+    path(
+        "accounts/phone/verify/",
+        verify_phone_view,
+        name="account_verify_phone",
+    ),
+    path(
+        "accounts/phone/change/",
+        account_views.change_phone,
+        name="account_change_phone",
+    ),
     path("accounts/", include("allauth.urls")),
     # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),

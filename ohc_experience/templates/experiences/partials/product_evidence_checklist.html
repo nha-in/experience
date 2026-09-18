@@ -1,7 +1,7 @@
 <ul class="flex flex-col text-[13px]" data-readiness-form="evidence-form">
   {% for row in readiness.rows %}
     <li class="flex items-center gap-2.5 border-t border-soft-border py-[9px] first:border-t-0 first:pt-0 last:pb-0"
-        {% if not row.done %}data-readiness-item="{{ row.field_id }}"{% endif %}>
+        {% if not row.done %}data-readiness-item="{{ row.field_id }}" data-readiness-fields="{{ row.field_ids|join:',' }}"{% endif %}>
       {% if row.done %}
         <span class="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
               aria-hidden="true">
