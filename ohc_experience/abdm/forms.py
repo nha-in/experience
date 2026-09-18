@@ -594,6 +594,10 @@ class ExitEvidenceForm(WasaReviewForm):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        today = timezone.localdate().isoformat()
+        self.fields["start_date"].widget.attrs["max"] = today
+        self.fields["end_date"].widget.attrs["max"] = today
+        self.fields["tentative_demo_date"].widget.attrs["min"] = today
         saved_reuse = bool(self.initial.get("use_product_wasa"))
         source = wasa_source_submission
         if self.is_bound:
@@ -688,6 +692,22 @@ class ExitEvidenceForm(WasaReviewForm):
             cleaned.get(key)
             for key in ("start_date", "end_date", "tentative_demo_date")
         )
+        today = timezone.localdate()
+        if start and start > today:
+            self.add_error(
+                "start_date",
+                "The sandbox testing start date cannot be in the future.",
+            )
+        if end and end > today:
+            self.add_error(
+                "end_date",
+                "The sandbox testing end date cannot be in the future.",
+            )
+        if demo and demo < today:
+            self.add_error(
+                "tentative_demo_date",
+                "The tentative demo date cannot be in the past.",
+            )
         if start and end and end < start:
             self.add_error("end_date", "Testing must end on or after its start date.")
         if end and demo and demo < end:

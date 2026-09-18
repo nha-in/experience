@@ -36,6 +36,8 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     closest: () => null,
     matches: () => false,
     querySelector(selector) {
+      const name = selector.match(/^\[name="([^"]+)"\]$/)?.[1];
+      if (name) return controls.find(input => input.name === name) || null;
       return {
         '[data-request-submit]': submit ? button : null,
         '[data-submit-reason]': reason,
@@ -75,6 +77,15 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     groups.push(result);
     return { group: result, input };
   }
+  function date(name, { value = '', min = '', max = '' } = {}) {
+    const input = {
+      name, value, min, max, validity: { valid: true }, parentElement: form,
+      matches: selector => selector !== ':disabled' && selector.includes('input'),
+      closest: selector => ['[data-review-form]', 'form'].includes(selector) ? form : null,
+    };
+    controls.push(input);
+    return input;
+  }
   const window = { addEventListener() {}, location: { hash: '' } };
   const context = vm.createContext({
     document,
@@ -93,9 +104,10 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     while (tasks.length) tasks.shift()();
   }
   return {
-    form, button, reason, jump, group, document, window,
+    form, button, reason, jump, group, date, document, window,
     initialize: () => fire('DOMContentLoaded'),
     change: input => fire('change', input),
+    input: input => fire('input', input),
     clickJump: () => fire('click', { closest: selector => selector === '[data-submit-missing]' ? jump : null }),
     clickContinue: () => fire('click', { closest: selector => selector === '[data-continue-form]' ? continueForm : null }, { preventDefault() {} }),
   };
@@ -173,4 +185,53 @@ test('blocked forms keep the server-rendered pending notice', () => {
   page.reason.textContent = 'Required approvals are pending.';
   page.initialize();
   assert.equal(page.reason.textContent, 'Required approvals are pending.');
+});
+
+test('initializing sandbox dates preserves today as the earliest demo date', () => {
+  const today = '2026-09-18';
+  for (const endValue of ['', '2026-09-17', today]) {
+    const page = createPage();
+    page.date('start_date', { value: '2026-09-16', max: today });
+    const end = page.date('end_date', { value: endValue, max: today });
+    const demo = page.date('tentative_demo_date', { min: today });
+    page.initialize();
+
+    assert.equal(end.min, '2026-09-16');
+    assert.equal(demo.min, today, `demo minimum after loading end date ${endValue || '(empty)'}`);
+  }
+});
+
+test('editing and clearing the sandbox end date never allows a past demo date', () => {
+  const today = '2026-09-18';
+  const page = createPage();
+  page.date('start_date', { value: '2026-09-16', max: today });
+  const end = page.date('end_date', { value: '2026-09-17', max: today });
+  const demo = page.date('tentative_demo_date', { min: today });
+  page.initialize();
+
+  for (const fire of [page.input, page.change]) {
+    for (const value of ['2026-09-20', '2026-09-17', today, '']) {
+      end.value = value;
+      fire(end);
+      assert.equal(demo.min, value === '2026-09-20' ? value : today);
+    }
+  }
+});
+
+test('sandbox end date follows the start date while retaining its latest allowed date', () => {
+  const today = '2026-09-18';
+  const page = createPage();
+  const start = page.date('start_date', { value: '2026-09-16', max: today });
+  const end = page.date('end_date', { value: '2026-09-17', max: today });
+  const demo = page.date('tentative_demo_date', { min: today });
+  page.initialize();
+
+  for (const value of [today, '2026-09-15', '']) {
+    start.value = value;
+    page.change(start);
+    assert.equal(end.min, value);
+    assert.equal(end.max, today);
+    assert.equal(start.max, today);
+    assert.equal(demo.min, today);
+  }
 });

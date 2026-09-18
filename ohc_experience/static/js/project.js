@@ -250,7 +250,9 @@
     const demo = form.querySelector('[name="tentative_demo_date"]');
     if (!start || !end || !demo) return;
     end.min = start.value || '';
-    demo.min = end.value || '';
+    // The server caps testing at today; a demo cannot be earlier than today
+    // even when testing ended in the past or its end date is cleared.
+    demo.min = end.value > end.max ? end.value : end.max;
   }
 
   function updateSubmission(form) {
