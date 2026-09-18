@@ -12,6 +12,7 @@ from ohc_experience.integrations.local import LocalApiGateway
 from ohc_experience.integrations.local import LocalBridgeRegistry
 from ohc_experience.integrations.local import LocalIdpAdmin
 from ohc_experience.integrations.local import LocalNotificationGateway
+from ohc_experience.integrations.notification.templates import MOBILE_VERIFICATION_CODE
 from ohc_experience.integrations.ports import AdapterError
 from ohc_experience.integrations.ports import ApiGateway
 from ohc_experience.integrations.ports import BridgeRegistry
@@ -20,8 +21,6 @@ from ohc_experience.integrations.ports import ClientSpec
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.ports import GatewayAppSpec
 from ohc_experience.integrations.ports import IdpAdmin
-from ohc_experience.integrations.ports import NotificationChannel
-from ohc_experience.integrations.ports import NotificationContentType
 from ohc_experience.integrations.ports import NotificationGateway
 from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.secret_ref import store_secret
@@ -41,12 +40,9 @@ BRIDGE_SPEC = BridgeSpec(
 SECRET_REF = "vault://x"  # noqa: S105
 LATENCY = 0.05
 OTP_MESSAGE = NotificationMessage(
-    channel=NotificationChannel.SMS,
+    template=MOBILE_VERIFICATION_CODE,
     receiver="9999999999",
-    template_id="1007164181681962323",
-    subject="Mobile verification",
     values=("123456",),
-    content_type=NotificationContentType.OTP,
 )
 
 
@@ -280,7 +276,7 @@ def test_a_notification_is_kept_instead_of_sent():
         {
             "channel": "sms",
             "receiver": "9999999999",
-            "template_id": "1007164181681962323",
+            "template_id": MOBILE_VERIFICATION_CODE.id,
             "subject": "Mobile verification",
             "values": ["123456"],
             "content_type": "otp",

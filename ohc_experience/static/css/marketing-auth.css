@@ -1,21 +1,11 @@
-/* Public account screens only. The integration workspace keeps its own theme. */
+/* Public account screens, using the shared light blue palette. */
 .marketing-shell .marketing-auth {
-  position: relative;
-  isolation: isolate;
   padding: clamp(44px, 7vw, 96px) clamp(20px, 4vw, 40px) 88px;
   color: var(--marketing-text);
-  background: radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--marketing-accent) 7%, transparent), transparent 52%);
-}
-
-.marketing-shell .marketing-auth::before {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-  background-image: radial-gradient(color-mix(in srgb, var(--marketing-accent) 18%, transparent) .8px, transparent 1px);
-  background-size: 26px 26px;
-  mask-image: linear-gradient(110deg, #000, transparent 65%);
+  background:
+    radial-gradient(ellipse at 0% 100%, #dbe5f7 0, transparent 55%),
+    radial-gradient(ellipse at 100% 15%, #e4edfc 0, transparent 50%),
+    linear-gradient(180deg, var(--primary-50) 0%, #eef3fc 100%);
 }
 
 .marketing-shell .marketing-auth-layout {
@@ -50,7 +40,7 @@
 }
 
 .marketing-shell .marketing-auth-eyebrow {
-  color: var(--marketing-accent);
+  color: var(--sbx-link);
 }
 
 .marketing-shell .marketing-auth-eyebrow > span {
@@ -58,23 +48,23 @@
   height: 7px;
   flex: none;
   border-radius: 50%;
-  background: var(--marketing-accent);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--marketing-accent) 8%, transparent);
+  background: var(--sbx-link);
+  box-shadow: 0 0 0 5px var(--primary-100);
 }
 
 .marketing-shell .marketing-auth-story-title {
   max-width: 11ch;
   margin: 26px 0 0;
   font-family: "Bricolage Grotesque", sans-serif;
-  font-size: clamp(44px, 5.3vw, 76px);
-  font-weight: 600;
-  line-height: .98;
-  letter-spacing: -.045em;
+  font-size: clamp(44px, 5.3vw, 72px);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -.04em;
   text-wrap: balance;
 }
 
 .marketing-shell .marketing-auth-story-title > span {
-  color: var(--marketing-highlight);
+  color: var(--sbx-link);
 }
 
 .marketing-shell .marketing-auth-story-lede {
@@ -89,11 +79,11 @@
   max-width: 390px;
   margin-top: 44px;
   padding-top: 24px;
-  border-top: 1px solid color-mix(in srgb, var(--marketing-accent) 18%, transparent);
+  border-top: 1px solid var(--marketing-line);
 }
 
 .marketing-shell .marketing-auth-context-label {
-  color: var(--marketing-highlight);
+  color: var(--sbx-link);
   font-size: 10px;
 }
 
@@ -110,7 +100,7 @@
   align-items: center;
   gap: 12px;
   margin-top: 8px;
-  color: var(--marketing-accent);
+  color: var(--sbx-link);
   font-size: 14px;
   font-weight: 600;
 }
@@ -124,28 +114,28 @@
 
 .marketing-shell .marketing-auth-panel,
 .marketing-shell .marketing-auth-feedback {
-  --background: #f7f9fd;
-  --foreground: #182944;
+  --background: #fff;
+  --foreground: var(--marketing-text);
   --card: #fff;
-  --card-foreground: #182944;
-  --muted-background: var(--primary-50);
-  --muted-foreground: #435570;
-  --soft-foreground: #4c607d;
-  --soft-border: #ccd8ea;
-  --input: #b1c3df;
-  --primary: var(--primary-800);
-  --primary-foreground: #f7f9fd;
-  --ring: var(--primary-600);
+  --card-foreground: var(--marketing-text);
+  --muted-background: var(--sbx-soft);
+  --muted-foreground: var(--marketing-muted);
+  --soft-foreground: var(--sbx-secondary);
+  --soft-border: var(--marketing-line);
+  --input: var(--sbx-control-border);
+  --primary: var(--sbx-link);
+  --primary-foreground: #fff;
+  --ring: var(--sbx-accent);
   --destructive: #b42318;
-  color: var(--foreground);
+  color: var(--marketing-text);
 }
 
 .marketing-shell .marketing-auth-panel {
   padding: clamp(28px, 3vw, 40px);
-  border: 1px solid color-mix(in srgb, var(--marketing-accent) 26%, transparent);
-  border-radius: 24px;
-  background: var(--background);
-  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .48), 0 1px 0 rgba(255, 255, 255, .5) inset;
+  border: 1px solid var(--marketing-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 48px -24px #26448830;
 }
 
 .marketing-shell .marketing-auth-panel-heading {
@@ -154,7 +144,7 @@
 
 .marketing-shell .marketing-auth-panel .marketing-auth-panel-eyebrow {
   margin: 0 0 12px;
-  color: var(--muted-foreground);
+  color: var(--sbx-secondary);
   font-size: 10px;
 }
 
@@ -162,7 +152,7 @@
   margin: 0;
   font-family: "Bricolage Grotesque", sans-serif;
   font-size: clamp(28px, 2.8vw, 36px);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.08;
   letter-spacing: -.035em;
   text-wrap: balance;
@@ -171,7 +161,7 @@
 
 .marketing-shell .marketing-auth-panel-heading > p:not(.marketing-auth-panel-eyebrow) {
   margin: 13px 0 0;
-  color: var(--soft-foreground);
+  color: var(--sbx-secondary);
   font-size: 15px;
   line-height: 1.6;
 }
@@ -186,7 +176,7 @@
 
 .marketing-shell .marketing-auth-panel .ui-label {
   margin-bottom: 8px;
-  color: var(--foreground);
+  color: var(--marketing-text);
   font-family: "DM Mono", monospace;
   font-size: 12px;
   font-weight: 500;
@@ -195,15 +185,15 @@
 
 .marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea) {
   min-height: 48px;
-  border: 1px solid var(--input);
-  border-radius: 11px;
+  border: 1px solid var(--sbx-control-border);
+  border-radius: 8px;
   background: #fff;
-  color: var(--foreground);
+  color: var(--marketing-text);
   padding-right: 13px;
   padding-left: 13px;
   font-family: "Albert Sans", sans-serif;
   font-size: 16px;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--marketing-bg) 3%, transparent);
+  box-shadow: 0 1px 2px rgba(13, 27, 52, .03);
 }
 
 .marketing-shell .marketing-auth-panel .ui-select {
@@ -215,10 +205,10 @@
 }
 
 .marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea):focus-visible {
-  outline: 2px solid var(--primary-600);
+  outline: 2px solid var(--sbx-accent);
   outline-offset: 2px;
-  border-color: var(--primary-600);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-600) 10%, transparent);
+  border-color: var(--sbx-accent);
+  box-shadow: 0 0 0 4px var(--primary-100);
 }
 
 .marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea)[aria-invalid="true"] {
@@ -226,16 +216,16 @@
 }
 
 .marketing-shell .marketing-auth-panel .ui-hint {
-  color: var(--soft-foreground);
+  color: var(--sbx-secondary);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .marketing-shell .marketing-auth-panel a:not(.ui-btn) {
-  color: var(--primary-800);
+  color: var(--sbx-link);
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--primary-800) 30%, transparent);
+  text-decoration-color: var(--primary-300);
   text-underline-offset: 3px;
 }
 
@@ -259,13 +249,13 @@
 .marketing-shell .marketing-auth-panel .ui-checkbox {
   width: 18px;
   height: 18px;
-  accent-color: var(--primary-800);
+  accent-color: var(--sbx-link);
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn {
   min-height: 48px;
   padding: 10px 22px;
-  border-radius: 999px;
+  border-radius: 8px;
   font-family: "Albert Sans", sans-serif;
   font-size: 15px;
   font-weight: 600;
@@ -275,45 +265,45 @@
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--default {
-  border: 1px solid var(--primary-800);
-  color: var(--primary-foreground);
-  background: var(--primary-800);
-  box-shadow: 0 6px 18px -9px color-mix(in srgb, var(--primary-800) 45%, transparent);
+  border: 1px solid var(--sbx-link);
+  color: #fff;
+  background: linear-gradient(140deg, var(--primary-700), var(--primary-900));
+  box-shadow: 0 5px 14px #26448820;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--default:hover {
-  background: var(--primary-900);
-  border-color: var(--primary-900);
+  background: var(--primary-950);
+  border-color: var(--primary-950);
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--outline {
-  color: var(--primary-800);
-  border-color: var(--input);
+  color: var(--sbx-link);
+  border-color: var(--sbx-control-border);
   background: transparent;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--outline:hover {
-  background: var(--primary-100);
+  background: var(--sbx-soft);
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn:focus-visible,
 .marketing-shell .marketing-auth a:focus-visible,
 .marketing-shell .marketing-auth-footer a:focus-visible {
-  outline: 2px solid var(--primary-600);
+  outline: 2px solid var(--sbx-accent);
   outline-offset: 4px;
 }
 
 .marketing-shell .marketing-auth-story a:focus-visible,
 .marketing-shell .marketing-auth-after a:focus-visible,
 .marketing-shell .marketing-auth-footer a:focus-visible {
-  outline-color: var(--marketing-accent);
+  outline-color: var(--sbx-accent);
 }
 
 .marketing-shell .marketing-auth-alternatives {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-top: 1px solid var(--soft-border);
+  border-top: 1px solid var(--marketing-line);
   padding-top: 20px;
 }
 
@@ -334,10 +324,10 @@
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  color: var(--marketing-accent);
+  color: var(--sbx-link);
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--marketing-accent) 35%, transparent);
+  text-decoration-color: var(--primary-300);
   text-underline-offset: 4px;
 }
 
@@ -373,16 +363,17 @@
   width: 34px;
   height: 34px;
   flex: none;
-  border: 1px solid color-mix(in srgb, var(--marketing-accent) 24%, transparent);
-  border-radius: 50%;
+  border: 1px solid var(--marketing-line);
+  border-radius: 8px;
+  background: var(--primary-50);
   color: var(--marketing-muted);
   font: 12px "DM Mono", monospace;
 }
 
 .marketing-shell .marketing-auth-steps [aria-current="step"] .marketing-auth-step-number {
-  border-color: var(--marketing-accent);
-  background: var(--marketing-accent);
-  color: var(--marketing-bg);
+  border-color: var(--sbx-link);
+  background: var(--sbx-link);
+  color: #fff;
 }
 
 .marketing-shell .marketing-auth-steps strong {
@@ -402,10 +393,10 @@
 
 .marketing-shell .marketing-auth-invitation {
   padding: 14px 16px;
-  border: 1px solid var(--primary-200);
+  border: 1px solid var(--marketing-line);
   border-radius: 12px;
-  background: var(--primary-50);
-  color: var(--foreground);
+  background: var(--sbx-soft);
+  color: var(--marketing-text);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -418,13 +409,13 @@
   margin: 0;
   padding: 0 0 24px;
   border: 0;
-  border-bottom: 1px solid var(--soft-border);
+  border-bottom: 1px solid var(--marketing-line);
 }
 
 .marketing-shell .marketing-auth-fieldset legend {
   margin: 0 0 18px;
   padding: 0;
-  color: var(--foreground);
+  color: var(--marketing-text);
   font-family: "Bricolage Grotesque", sans-serif;
   font-size: 17px;
   font-weight: 600;
@@ -444,7 +435,7 @@
 
 .marketing-shell .marketing-auth-submit p {
   margin: 14px 0 0;
-  color: var(--soft-foreground);
+  color: var(--sbx-secondary);
   text-align: center;
   font-size: 12px;
   line-height: 1.6;
@@ -464,7 +455,7 @@
   gap: 16px;
   margin: 0 auto;
   padding: 24px clamp(20px, 4vw, 40px);
-  border-top: 1px solid color-mix(in srgb, var(--marketing-accent) 14%, transparent);
+  border-top: 1px solid var(--marketing-line);
   color: var(--marketing-muted);
   font-size: 12px;
   line-height: 1.6;
@@ -482,7 +473,7 @@
   align-items: center;
   flex: none;
   gap: 7px;
-  color: var(--marketing-accent);
+  color: var(--sbx-link);
   font-size: 13px;
 }
 
@@ -529,8 +520,11 @@
     flex: 1;
     flex-direction: column;
     gap: 8px;
-    border-top: 1px solid color-mix(in srgb, var(--marketing-accent) 20%, transparent);
+    border-top: 1px solid var(--marketing-line);
     padding-top: 16px;
+  }
+  .marketing-shell .marketing-auth-steps li:nth-child(2) {
+    flex-grow: 1.5;
   }
   .marketing-shell .marketing-auth-steps strong {
     margin: 0;
@@ -552,7 +546,7 @@
   }
   .marketing-shell .marketing-auth-panel {
     padding: 26px 22px;
-    border-radius: 20px;
+    border-radius: 14px;
   }
   .marketing-shell .marketing-auth-panel-heading h1 {
     font-size: 29px;

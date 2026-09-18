@@ -6,6 +6,7 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'fonts/marketing/fonts.css' %}" />
   <link rel="stylesheet" href="{% static 'css/marketing.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/marketing-light.css' %}" />
   <link rel="stylesheet" href="{% static 'css/marketing-auth.css' %}" />
   <link rel="stylesheet" href="{% static 'css/marketing-partners.css' %}" />
 {% endblock css %}
@@ -13,7 +14,7 @@
   {{ block.super }}
   <script defer src="{% static 'js/marketing.js' %}"></script>
 {% endblock javascript %}
-{% block bodyclass %}marketing-body{% endblock bodyclass %}
+{% block bodyclass %}marketing-body marketing-light{% endblock bodyclass %}
 {% block body %}
   {# Ordinary navigation preserves authentication session and CSRF redirects. #}
   <div class="marketing-shell">

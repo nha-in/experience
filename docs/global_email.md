@@ -7,9 +7,11 @@ a custom Anymail HTTP backend. Password resets, organisation invitations and
 workflow notifications use the same delivery job. Web requests do not contact
 the gateway. Local development keeps console mail.
 
-Email and mobile verification codes do not use this outbox. The web request
-sends them through ABDM's notification service, using approved templates; see
-the verification codes section of `abdm-experience-deployment-variables.md`.
+Email and mobile verification codes do not use this outbox. A code has to
+reach the person while they wait, so the web request posts it to the same
+`/internal/v3/notification/email/send` endpoint itself, or to the message
+endpoint for SMS, using approved templates; see the verification codes section
+of `abdm-experience-deployment-variables.md`.
 
 Application code uses Django's `send_mail()` or `EmailMessage.send()` as usual.
 The backends implement `BaseEmailBackend.send_messages()`, and allauth's standard

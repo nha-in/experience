@@ -7,6 +7,7 @@ import dataclasses
 import pytest
 
 from ohc_experience.integrations.models import ProvisionedSystem
+from ohc_experience.integrations.notification.templates import MOBILE_VERIFICATION_CODE
 from ohc_experience.integrations.ports import AdapterError
 from ohc_experience.integrations.ports import ApiGateway
 from ohc_experience.integrations.ports import BridgeCreated
@@ -19,16 +20,13 @@ from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.ports import GatewayAppCreated
 from ohc_experience.integrations.ports import GatewayAppSpec
 from ohc_experience.integrations.ports import IdpAdmin
-from ohc_experience.integrations.ports import NotificationChannel
 from ohc_experience.integrations.ports import NotificationGateway
 from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.ports import SecretRotated
 
 OTP_MESSAGE = NotificationMessage(
-    channel=NotificationChannel.SMS,
+    template=MOBILE_VERIFICATION_CODE,
     receiver="9999999999",
-    template_id="1007164181681962323",
-    subject="Mobile verification",
     values=("s3cret",),
 )
 

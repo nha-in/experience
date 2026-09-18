@@ -42,7 +42,7 @@ def gateway(settings, monkeypatch):
     return network
 
 
-def test_signup_sends_its_code_through_the_notification_gateway(
+def test_signup_sends_its_codes_through_the_notification_gateway(
     client,
     gateway,
     signup_data,
@@ -52,8 +52,10 @@ def test_signup_sends_its_code_through_the_notification_gateway(
         data=signup_data,
     )
     assert response.status_code == 302  # noqa: PLR2004
-    [sent] = LocalNotificationGateway().sent()
-    assert sent["receiver"] == signup_data["email"]
+    sent = LocalNotificationGateway().sent()
+    assert {message["channel"] for message in sent} == {"email", "sms"}
+    [emailed] = [message for message in sent if message["channel"] == "email"]
+    assert emailed["receiver"] == signup_data["email"]
     assert not Notification.objects.exists()
     gateway.assert_not_called()
 

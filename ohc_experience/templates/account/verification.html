@@ -1,0 +1,33 @@
+{% extends "account/base_entrance.html" %}
+
+{% comment %}
+  Signup confirms the address and the number here, one code each. Context:
+  email, phone, their done flags, their forms, and the can_* flags.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Confirm your details" %}
+{% endblock title %}
+{% block entrance_title %}
+  {% translate "Confirm your details" %}
+{% endblock entrance_title %}
+{% block entrance_lede %}
+  {% if phone_pending %}
+    {% translate "We sent a code to your email address and another to your mobile number." %}
+  {% else %}
+    {% translate "We emailed you a code." %}
+  {% endif %}
+{% endblock entrance_lede %}
+{% block entrance_body %}
+  <div class="flex flex-col gap-4">
+    {% translate "Email address" as email_label %}
+    {% translate "Sent to the wrong address?" as email_change_title %}
+    {% include "account/partials/verification_row.html" with channel="email" label=email_label value=email done=email_done expired=email_expired expires_at=email_expires_at form=email_form change_form=email_change_form can_resend=can_resend_email can_change=can_change_email change_title=email_change_title %}
+    {% if phone_pending %}
+      {% translate "Mobile number" as phone_label %}
+      {% translate "Wrong number?" as phone_change_title %}
+      {% include "account/partials/verification_row.html" with channel="phone" label=phone_label value=phone done=phone_done expired=phone_expired expires_at=phone_expires_at form=phone_form change_form=phone_change_form can_resend=can_resend_phone can_change=can_change_phone change_title=phone_change_title %}
+    {% endif %}
+  </div>
+{% endblock entrance_body %}

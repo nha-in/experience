@@ -25,7 +25,6 @@ from ohc_experience.users.forms import UserProfileForm
 from ohc_experience.users.forms import UserResetPasswordKeyForm
 from ohc_experience.users.forms import UserSetPasswordForm
 from ohc_experience.users.forms import UserSignupForm
-from ohc_experience.users.stages import PENDING_MOBILE_NUMBER_SESSION_KEY
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -254,7 +253,7 @@ class TestSignupContactDetails:
     """The mockup's signup card asks for a mobile number; it is saved once confirmed."""
 
     @pytest.mark.django_db
-    def test_holds_the_mobile_number_until_a_code_confirms_it(
+    def test_keeps_the_mobile_number_unverified_until_a_code_confirms_it(
         self,
         rf: RequestFactory,
     ):
@@ -264,11 +263,8 @@ class TestSignupContactDetails:
         assert form.is_valid(), form.errors
         user = form.save(request)
 
-        assert user.phone_number == ""
-        assert request.session[PENDING_MOBILE_NUMBER_SESSION_KEY] == {
-            "user_id": user.pk,
-            "phone": "+919876543210",
-        }
+        assert user.phone_number == "+919876543210"
+        assert not user.phone_verified
 
     @pytest.mark.parametrize(
         "typed",

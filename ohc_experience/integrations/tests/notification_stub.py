@@ -9,12 +9,16 @@ import json
 
 import httpx
 
-MESSAGE_PATH = "/internal/v3/notification/message"
+from ohc_experience.integrations.notification.templates import EMAIL_VERIFICATION_CODE
+from ohc_experience.integrations.notification.templates import MOBILE_VERIFICATION_CODE
+
+SMS_PATH = "/internal/v3/notification/message"
+EMAIL_PATH = "/internal/v3/notification/email/send"
 TEMPLATES_PATH = "/internal/v3/notification/template/name/SANDBOX"
 TEMPLATE_PATH = "/internal/v3/notification/template/id/"
 
-SMS_OTP_TEMPLATE_ID = "1007164181681962323"
-EMAIL_OTP_TEMPLATE_ID = "1007164181681962329"
+SMS_OTP_TEMPLATE_ID = MOBILE_VERIFICATION_CODE.id
+EMAIL_OTP_TEMPLATE_ID = EMAIL_VERIFICATION_CODE.id
 REACTIVATION_TEMPLATE_ID = "1007162235771710153"
 
 OK = 200
@@ -50,10 +54,14 @@ class NotificationStubTransport(httpx.BaseTransport):
             if call.method == method and call.url.path.startswith(path)
         ]
 
-    def sent(self) -> list[dict]:
-        return [
-            json.loads(call.content) for call in self.requests("POST", MESSAGE_PATH)
-        ]
+    def texted(self) -> list[dict]:
+        return self._bodies(SMS_PATH)
+
+    def emailed(self) -> list[dict]:
+        return self._bodies(EMAIL_PATH)
+
+    def _bodies(self, path: str) -> list[dict]:
+        return [json.loads(call.content) for call in self.requests("POST", path)]
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         self.calls.append(request)
@@ -65,6 +73,6 @@ class NotificationStubTransport(httpx.BaseTransport):
             if found is None:
                 return httpx.Response(NOT_FOUND, json={"error": "no template"})
             return httpx.Response(OK, json=found)
-        if method == "POST" and path == MESSAGE_PATH:
+        if method == "POST" and path in {SMS_PATH, EMAIL_PATH}:
             return httpx.Response(self.send_status_code, json=self.send_body)
         return httpx.Response(NOT_FOUND, json={"error": f"unstubbed {method} {path}"})

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from allauth.account.adapter import get_adapter
+from allauth.account.forms import ChangeEmailForm
 from allauth.account.forms import ChangePasswordForm
+from allauth.account.forms import ChangePhoneForm
 from allauth.account.forms import LoginForm
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.forms import ResetPasswordKeyForm
@@ -21,10 +24,12 @@ from ohc_experience.organisations.models import Role
 from .captcha import SignupVerificationMixin
 from .fields import INDIA
 from .models import User
-from .stages import PENDING_MOBILE_NUMBER_SESSION_KEY
 
 MIN_PASSWORD_LENGTH = 12
 MOBILE_NUMBER_LENGTH = 10
+# allauth's wording for an address or number that belongs to another account.
+EMAIL_TAKEN = "email_taken"
+PHONE_TAKEN = "phone_taken"
 
 
 class UserAdminChangeForm(admin_forms.UserChangeForm):
@@ -218,7 +223,19 @@ class UserSignupForm(
         ):
             msg = _("An account with this email already exists.")
             self.add_error("email", forms.ValidationError(msg, code="account_exists"))
+        if self._number_belongs_to_another_account(cleaned_data.get("mobile_number")):
+            # Its code could never confirm this account, and would text whoever
+            # registered the number.
+            self.add_error(
+                "mobile_number",
+                get_adapter().validation_error(PHONE_TAKEN),
+            )
         return cleaned_data
+
+    def _number_belongs_to_another_account(self, mobile_number: str | None) -> bool:
+        if not mobile_number or self.has_error("captcha"):
+            return False
+        return bool(get_adapter().get_user_by_phone(f"{INDIA}{mobile_number}"))
 
     @property
     def account_exists(self) -> bool:
@@ -228,12 +245,11 @@ class UserSignupForm(
     def save(self, request):
         user = super().save(request)
         user.name = self.cleaned_data["name"].strip()
-        user.save(update_fields=["name"])
         # The field takes the ten digits; the gateway needs the country code.
-        request.session[PENDING_MOBILE_NUMBER_SESSION_KEY] = {
-            "user_id": user.pk,
-            "phone": f"{INDIA}{self.cleaned_data['mobile_number']}",
-        }
+        # The number is kept unverified until its code is confirmed, so a later
+        # sign-in can ask for that code again.
+        user.phone_number = f"{INDIA}{self.cleaned_data['mobile_number']}"
+        user.save(update_fields=["name", "phone_number"])
         self.attach_organisation(user)
         return user
 
@@ -302,6 +318,32 @@ class UserResetPasswordKeyForm(PasswordConfirmationMixin, ResetPasswordKeyForm):
         super().__init__(*args, **kwargs)
         self.fields["password1"].label = _("New password")
         self.fields["password2"].label = _("Confirm new password")
+
+
+class UserChangeEmailForm(ChangeEmailForm):
+    """Correcting an address to one that is already registered gets nowhere.
+
+    allauth hides the clash to prevent enumeration: it takes the address,
+    notifies the account that holds it, and only then refuses every code. Say
+    so here instead, while the visitor can still type another.
+    """
+
+    def clean_email(self) -> str:
+        email = super().clean_email()
+        if self.account_already_exists:
+            raise get_adapter().validation_error(EMAIL_TAKEN)
+        return email
+
+
+class UserChangePhoneForm(ChangePhoneForm):
+    """The same for a number, which would otherwise be texted a code that
+    belongs to whoever already registered it."""
+
+    def clean_phone(self) -> str:
+        phone = super().clean_phone()
+        if self.account_already_exists:
+            raise get_adapter().validation_error(PHONE_TAKEN)
+        return phone
 
 
 class UserProfileForm(forms.ModelForm):

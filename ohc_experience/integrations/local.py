@@ -328,22 +328,23 @@ class LocalNotificationGateway:
 
     def send(self, message: NotificationMessage) -> None:
         _guard(ExternalSystem.NOTIFICATION, "send")
+        template = message.template
         store = _store(ExternalSystem.NOTIFICATION)
         store.setdefault("sent", []).append(
             {
-                "channel": message.channel.value,
+                "channel": template.channel.value,
                 "receiver": message.receiver,
-                "template_id": message.template_id,
-                "subject": message.subject,
+                "template_id": template.id,
+                "subject": template.subject,
                 "values": list(message.values),
-                "content_type": message.content_type.value,
+                "content_type": template.content_type.value,
             },
         )
         _save(ExternalSystem.NOTIFICATION, store)
         if settings.DEBUG:
             logger.info(
                 "%s to %s: %s",
-                message.subject,
+                template.subject,
                 message.receiver,
                 ", ".join(message.values),
             )

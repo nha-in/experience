@@ -164,9 +164,8 @@ EMAIL_BACKEND = env(
 # stand-in, which delivers nothing.
 INTEGRATION_PORTS = {
     **INTEGRATION_PORTS,
-    "NOTIFICATION": env.str(
-        "INTEGRATION_NOTIFICATION",
-        default="ohc_experience.integrations.notification.adapter.AbdmNotificationGateway",
+    "NOTIFICATION": (
+        "ohc_experience.integrations.notification.adapter.AbdmNotificationGateway"
     ),
 }
 

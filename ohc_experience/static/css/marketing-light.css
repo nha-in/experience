@@ -1,0 +1,140 @@
+/* Shared blue theme for the light landing page and public account screens. */
+.marketing-body.marketing-light {
+  background: #fff;
+}
+.marketing-light .marketing-shell {
+  --sbx-ink: #182944;
+  --sbx-muted: #435570;
+  --sbx-line: #ccd8ea;
+  --sbx-strong-line: #b7c9e3;
+  --marketing-bg: #fff;
+  --marketing-text: var(--sbx-ink);
+  --marketing-muted: var(--sbx-muted);
+  --marketing-accent: var(--primary-800);
+  --marketing-highlight: var(--primary-800);
+  --marketing-line: var(--sbx-line);
+  --sbx-secondary: #4c607d;
+  --sbx-control-border: #7085a4;
+  --sbx-accent: var(--primary-800);
+  --sbx-soft: var(--primary-50);
+  --sbx-link: var(--primary-800);
+  color-scheme: light;
+  overflow-wrap: anywhere;
+}
+.marketing-light .marketing-header {
+  background: #fff;
+  border-bottom: 1px solid var(--sbx-line);
+  box-shadow: 0 2px 14px #26448805;
+}
+.marketing-light .marketing-header-inner {
+  flex-wrap: wrap;
+  padding-block: 10px;
+}
+.marketing-light .marketing-brand {
+  min-width: 0;
+  flex-shrink: 1;
+  font-size: 0.9375rem;
+}
+.marketing-light .marketing-brand > span {
+  min-width: 0;
+}
+.marketing-light .marketing-brand img {
+  flex-shrink: 0;
+  filter: none;
+}
+.marketing-light .marketing-shell [id] {
+  scroll-margin-top: calc(var(--marketing-header-height, 76px) + 24px);
+}
+.marketing-light .marketing-desktop-nav a:hover,
+.marketing-light .marketing-mobile-menu nav a:hover {
+  background: var(--primary-50);
+}
+.marketing-light .marketing-button {
+  border-color: var(--sbx-control-border);
+  border-radius: 8px;
+  padding-inline: 22px;
+  background: #fff;
+  font-size: 1rem;
+  box-shadow: none;
+  font-weight: 600;
+}
+.marketing-light .marketing-button:hover {
+  background: var(--primary-50);
+  border-color: var(--primary-800);
+}
+.marketing-light .marketing-button--primary {
+  background: linear-gradient(140deg, var(--primary-700), var(--primary-900));
+  border-color: var(--primary-800);
+  color: #fff;
+  box-shadow: 0 5px 14px #26448820;
+}
+.marketing-light .marketing-button--primary:hover {
+  background: var(--primary-950);
+  border-color: var(--primary-950);
+  color: #fff;
+}
+.marketing-light .marketing-button--small {
+  font-size: 0.9375rem;
+  padding-inline: 17px;
+}
+.marketing-light .marketing-mobile-menu summary {
+  border-radius: 9px;
+}
+.marketing-light .marketing-mobile-menu[open] summary {
+  color: #fff;
+}
+.marketing-light .marketing-mobile-menu nav {
+  background: #fff;
+  border-color: var(--sbx-control-border);
+  box-shadow: 0 16px 40px #26448814;
+}
+.marketing-light .marketing-shell :is(a, button, summary, input, select):focus-visible {
+  outline: 3px solid var(--primary-800);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px #fff;
+}
+.marketing-light .marketing-shell :focus-visible {
+  scroll-margin-block: calc(var(--marketing-header-height, 76px) + 24px) 24px;
+}
+.marketing-light .marketing-mobile-menu summary {
+  border-color: var(--sbx-control-border);
+}
+.marketing-light .marketing-mobile-menu nav {
+  max-height: calc(100dvh - var(--marketing-header-height, 76px) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.marketing-light .marketing-mobile-menu nav a {
+  min-height: 44px;
+}
+.marketing-light .marketing-desktop-nav a {
+  color: var(--marketing-text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.marketing-light .marketing-shell ::selection {
+  color: var(--marketing-text);
+  background: var(--primary-100);
+}
+
+@media (forced-colors: active) {
+  .marketing-light :is(.marketing-brand, .marketing-footer-logos, .marketing-partners, .marketing-footer-qr) img {
+    forced-color-adjust: none;
+    background: #fff;
+    border-radius: 4px;
+    filter: none;
+  }
+}
+@media (max-width: 600px) {
+  .marketing-light .marketing-brand {
+    flex: 1;
+    flex-wrap: wrap;
+  }
+  .marketing-light .marketing-brand > span {
+    flex: 1 0 min-content;
+    max-width: none;
+  }
+  .marketing-light .marketing-mobile-menu {
+    flex-shrink: 0;
+  }
+}
