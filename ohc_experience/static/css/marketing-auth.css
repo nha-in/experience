@@ -234,7 +234,7 @@
 }
 
 /* Error summary lines read as alert text; only the field name is underlined. */
-.marketing-shell .marketing-auth-panel [data-error-summary] a {
+.marketing-shell .marketing-auth-panel [data-error-summary] a:not(.ui-btn) {
   color: inherit;
   font-weight: inherit;
   text-decoration: none;
