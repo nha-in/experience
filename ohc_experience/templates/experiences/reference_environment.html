@@ -9,27 +9,6 @@
         <p class="ui-hero-eyebrow">{{ workspace.product.name }}</p>
         <h1 class="ui-hero-title">Reference environment</h1>
         <p class="ui-hero-lede">An implementation of the approved {{ experience_program.short_name }} flows with synthetic test data. Run it locally to learn a flow in detail before you build your own.</p>
-        <div class="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <p class="flex items-center gap-3">
-            <span class="ui-kicker">Built on</span>
-            {% for name, logo in reference_environment.built_on %}
-              <img class="h-8 w-24 object-contain"
-                   src="{% static logo %}"
-                   alt="{{ name }}" />
-            {% endfor %}
-          </p>
-          <p class="flex items-center gap-3 xl:border-l xl:border-primary/15 xl:pl-6">
-            <span class="ui-kicker">Maintained by</span>
-            {% for name, logo in reference_environment.maintained_by %}
-              <img class="h-8 w-24 object-contain"
-                   src="{% static logo %}"
-                   alt="{{ name }}" />
-            {% endfor %}
-          </p>
-          <p class="text-sm text-muted-foreground xl:border-l xl:border-primary/15 xl:pl-6">
-            {{ reference_environment.licence }}
-          </p>
-        </div>
       </div>
     </div>
   </div>
@@ -249,3 +228,26 @@
     </section>
   </div>
 {% endblock portal_content %}
+{% block portal_footer %}
+  <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+    <p class="flex items-center gap-3">
+      <span class="ui-kicker">Built on</span>
+      {% for name, logo in reference_environment.built_on %}
+        <img class="h-7 w-21 object-contain grayscale"
+             src="{% static logo %}"
+             alt="{{ name }}"
+             loading="lazy" />
+      {% endfor %}
+    </p>
+    <p class="flex items-center gap-3 xl:border-l xl:border-border xl:pl-6">
+      <span class="ui-kicker">Maintained by</span>
+      {% for name, logo in reference_environment.maintained_by %}
+        <img class="h-7 w-21 object-contain grayscale"
+             src="{% static logo %}"
+             alt="{{ name }}"
+             loading="lazy" />
+      {% endfor %}
+    </p>
+    <p class="xl:border-l xl:border-border xl:pl-6">{{ reference_environment.licence }}</p>
+  </div>
+{% endblock portal_footer %}
