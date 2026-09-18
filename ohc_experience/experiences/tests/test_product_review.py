@@ -337,6 +337,57 @@ def test_organisation_queries_return_to_the_product(environment, client):
     assert query.status == "resolved"
 
 
+WITHDRAWN_HOLD = (
+    "Organisation verification was withdrawn by the integrator. Approve or send "
+    "back this request once it is resubmitted and approved."
+)
+
+
+def test_withdrawn_organisation_verification_waits_on_the_integrator(
+    environment,
+    client,
+):
+    items = [submit(environment), submit(environment, "m2")]
+    verification = reverify(environment)
+    workflows.withdraw(verification, environment["applicant"])
+    environment["org"].refresh_from_db()
+    assert environment["org"].verification_status == "withdrawn"
+    client.force_login(environment["reviewer"])
+
+    response = client.get(product_url(environment))
+
+    section = response.context["review_sections"][0]
+    assert section["item"] == verification
+    assert section["snapshot"] is None
+    assert section["withdrawn_at"]
+    assert verification not in response.context["bulk_items"]
+    assert response.context["bulk_approve_blockers"] == [
+        f"{item.title}: {WITHDRAWN_HOLD}" for item in items
+    ]
+    content = " ".join(response.content.decode().split())
+    assert "Verification withdrawn" in content
+    assert "Verification pending" not in content
+    assert WITHDRAWN_HOLD in content
+
+    response = client.get(items[0].get_absolute_url())
+    assert WITHDRAWN_HOLD in " ".join(response.content.decode().split())
+
+    response = client.get(reverse("experiences:queue") + "?scope=all")
+    assert "Waiting on organisation verification · withdrawn" in (
+        response.content.decode()
+    )
+
+    response = client.get(
+        reverse("experiences:organization-detail", args=[environment["org"].slug]),
+    )
+    assert response.context["withdrawn_verification"] == verification
+    assert verification.get_absolute_url() in response.content.decode()
+
+    reverify(environment)
+    environment["org"].refresh_from_db()
+    assert environment["org"].verification_status == "pending"
+
+
 def test_queries_can_be_raised_and_resolved_from_the_product(environment, client):
     item = submit(environment)
     client.force_login(environment["reviewer"])

@@ -58,6 +58,7 @@ class Organisation(models.Model):
         VERIFIED = "verified", _("Verified integrator")
         REJECTED = "rejected", _("Verification rejected")
         SENT_BACK = "sent_back", _("Sent back")
+        WITHDRAWN = "withdrawn", _("Verification withdrawn")
 
     name = models.CharField(_("Organisation"), max_length=255)
     slug = models.SlugField(_("Slug"), max_length=255, unique=True)
@@ -137,7 +138,7 @@ class Organisation(models.Model):
         }.get(self.verification_status, "warning")
 
     def set_verification(self, status: str) -> bool:
-        """Record the NHA team's decision. True when something actually moved.
+        """Record a decision or a withdrawal. True when something actually moved.
 
         `verified_at` is the date shown beside the badge, so it belongs to the
         verified state and to nothing else: an integrator moved back to pending

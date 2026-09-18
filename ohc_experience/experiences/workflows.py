@@ -13,6 +13,7 @@ from django.db.models import Max
 from django.db.models import OuterRef
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.text import capfirst
 
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
@@ -50,6 +51,7 @@ from .services import issue_outcome
 logger = logging.getLogger(__name__)
 
 MAX_REVIEW_TEXT = 10000
+REQUEST_WITHDRAWN = "Request withdrawn"
 PENDING_STATUSES = (
     ReviewItem.Status.NEW,
     ReviewItem.Status.IN_REVIEW,
@@ -452,6 +454,44 @@ def prerequisite_names(prerequisites):
     """ "M1 - ABHA and identity is" / "M1 and organisation verification are"."""
     verb = "is" if len(prerequisites) == 1 else "are"
     return f"{readable_list(item.name for item in prerequisites)} {verb}"
+
+
+def withdrawn_hold(item, prerequisites):
+    """Why `item` waits on the integrator, or "" when nothing was withdrawn.
+
+    A withdrawn prerequisite is not waiting on a reviewer, so the hold must not
+    ask one to approve it.
+    """
+    withdrawn = [
+        prerequisite for prerequisite in prerequisites if prerequisite.withdrawn
+    ]
+    if not withdrawn:
+        return ""
+    outcome = (
+        "This request is recorded automatically"
+        if item.definition.auto_approve
+        else "Approve or send back this request"
+    )
+    names = capfirst(readable_list(prerequisite.name for prerequisite in withdrawn))
+    if len(withdrawn) == 1:
+        return (
+            f"{names} was withdrawn by the integrator. "
+            f"{outcome} once it is resubmitted and approved."
+        )
+    return (
+        f"{names} were withdrawn by the integrator. "
+        f"{outcome} once they are resubmitted and approved."
+    )
+
+
+def withdrawn_at(item):
+    """When the integrator last took this request back, if they did."""
+    return (
+        item.history.filter(action=REQUEST_WITHDRAWN)
+        .order_by("-created_at")
+        .values_list("created_at", flat=True)
+        .first()
+    )
 
 
 def can_edit_review(item):
@@ -918,7 +958,7 @@ def withdraw(item, actor):
     item.save(update_fields=["status"])
     _set_application_status(item, "draft")
     item.definition.on_withdraw(item, actor)
-    audit(actor=actor, action="Request withdrawn", item=item)
+    audit(actor=actor, action=REQUEST_WITHDRAWN, item=item)
     _notice(item, "withdrawn")
 
 
@@ -1062,7 +1102,7 @@ def _require_decidable(item, action, *, settling_reviews=()):
         if not prerequisite.review or prerequisite.review.pk not in settling_reviews
     ]
     if prerequisites:
-        msg = (
+        msg = withdrawn_hold(item, prerequisites) or (
             "Approve or send back this request once "
             f"{prerequisite_names(prerequisites)} approved."
         )
