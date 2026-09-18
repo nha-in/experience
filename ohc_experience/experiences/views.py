@@ -2445,7 +2445,6 @@ def support(request):
                 ticket = Ticket.objects.create(
                     organisation=workspace.product.organisation,
                     product=workspace.product,
-                    track=form.cleaned_data["track"],
                     subject=form.cleaned_data["subject"],
                     category=form.cleaned_data["category"],
                     priority=form.cleaned_data["priority"],
@@ -2487,7 +2486,7 @@ def ticket(request, reference):
     )
     ticket = get_object_or_404(query, reference=reference)
     workspace = ticket.product.workspace
-    track = workspace.definition.track_map().get(ticket.track)
+    track = workspace.definition.track_map().get(ticket.category)
     request.session["experience_product"] = workspace.reference
     resolving = request.POST.get("intent") == "close"
     form = SupportForm(
@@ -2495,7 +2494,7 @@ def ticket(request, reference):
         files=request.FILES or None,
         resolving=resolving,
     )
-    for key in ("subject", "category", "track", "priority"):
+    for key in ("subject", "category", "priority"):
         del form.fields[key]
     if request.method == "POST":
         allowed = (

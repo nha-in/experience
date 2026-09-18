@@ -340,7 +340,7 @@ class DemoBuilder:
         ticket = Ticket.objects.create(
             organisation=org,
             product=workspace.product,
-            track="HIE-CM",
+            category="HIE-CM",
             subject="Clarification on consent callback acknowledgement",
             priority="medium",
             created_by=applicant,

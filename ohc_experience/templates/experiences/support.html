@@ -50,16 +50,13 @@
             {% include "components/form_errors.html" %}
             <div class="flex flex-col gap-4">
               {% ui_field form.subject placeholder="Briefly describe the problem" %}
-              <div class="grid gap-4 sm:grid-cols-2">{% ui_field form.category %}{% ui_field form.priority %}</div>
-              <div class="grid items-start gap-4 sm:grid-cols-2">
-                <div>
-                  <span class="ui-label">Product</span>
-                  <div class="rounded-lg border border-border bg-soft-background px-3 py-2 text-sm">
-                    <span class="block font-semibold">{{ workspace.product.name }}</span>
-                    <span class="font-mono text-xs text-soft-foreground">{{ workspace.reference }}</span>
-                  </div>
+              <div class="grid gap-4 sm:grid-cols-2">{% ui_field form.category help_text="Tracks this product has applied for." %}{% ui_field form.priority %}</div>
+              <div>
+                <span class="ui-label">Product</span>
+                <div class="rounded-lg border border-border bg-soft-background px-3 py-2 text-sm">
+                  <span class="block font-semibold">{{ workspace.product.name }}</span>
+                  <span class="font-mono text-xs text-soft-foreground">{{ workspace.reference }}</span>
                 </div>
-                {% ui_field form.track help_text="Tracks this product has applied for." %}
               </div>
               {% ui_field form.body label="What happened?" placeholder="Describe the issue and any error messages" help_text="Include the steps you tried, what you expected, and the response you received." extra_class="min-h-36" %}
               {% ui_field form.attachments help_text="Attach up to five PDF files to help us investigate." %}

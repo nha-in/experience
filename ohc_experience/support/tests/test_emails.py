@@ -8,7 +8,6 @@ import pytest
 from django.core import mail
 
 from ohc_experience.support import emails
-from ohc_experience.support.models import Category
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
@@ -52,7 +51,7 @@ def ticket(organisation, integrator) -> Ticket:
         organisation=organisation,
         product=product_for(organisation),
         subject="Sandbox reset wiped our seeded records",
-        category=Category.SANDBOX,
+        category="HIE-CM",
         priority=Priority.HIGH,
         created_by=integrator,
     )

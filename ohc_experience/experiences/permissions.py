@@ -213,7 +213,7 @@ def visible_tickets(user, action="read"):
         if grant.category == "*":
             scope |= program
         else:
-            scope |= program & Q(track=grant.category)
+            scope |= program & Q(category=grant.category)
     return query.filter(scope)
 
 

@@ -25,7 +25,7 @@ def portal_workspaces(owner_membership):
     result = []
     for name, milestones in (
         ("Alpha HMIS", ["HIE-CM:m1"]),
-        ("Zeta Locker", ["HealthLocker:locker1"]),
+        ("Zeta Locker", ["HealthLocker:locker1", "HIE-CM:m1"]),
     ):
         data = product_data(name)
         data["applied_milestones"] = milestones
@@ -52,9 +52,8 @@ def portal_client(client, owner_membership, portal_workspaces):
 def test_ticket_defaults_and_applied_track_choices(portal_workspaces):
     form = SupportForm(workspace=portal_workspaces[0])
     assert form["priority"].value() == "medium"
-    assert form["category"].value() == "sandbox"
-    assert [value for value, _label in form.fields["track"].choices] == ["", "HIE-CM"]
-    assert form.fields["track"].choices[0][1] == "Not track-specific"
+    assert [value for value, _label in form.fields["category"].choices] == ["", "HIE-CM"]
+    assert form.fields["category"].choices[0][1] == "Not track-specific"
 
 
 @pytest.mark.parametrize("track", ["PHR", "NHCX", "HealthLocker", "unknown"])
@@ -65,11 +64,11 @@ def test_ticket_refuses_unapplied_track(portal_workspaces, track):
             "subject": "Help",
             "priority": "medium",
             "body": "Details",
-            "track": track,
+            "category": track,
         },
     )
     assert not form.is_valid()
-    assert "track" in form.errors
+    assert "category" in form.errors
 
 
 @pytest.mark.parametrize("route", ["experiences:support", "experiences:events"])
@@ -113,17 +112,15 @@ def test_ticket_create_saves_category_and_scopes_product(
         reverse("experiences:support"),
         {
             "subject": "Callback rejects the request",
-            "category": "api",
+            "category": "HealthLocker",
             "priority": "medium",
-            "track": "HealthLocker",
             "body": "The callback returns an unexpected status.",
         },
     )
     ticket = Ticket.objects.get()
     assert response.status_code == HTTPStatus.FOUND
-    assert ticket.category == "api"
+    assert ticket.category == "HealthLocker"
     assert ticket.product == portal_workspaces[1].product
-    assert ticket.track == "HealthLocker"
     assert ticket.messages.get().body == "The callback returns an unexpected status."
 
 
@@ -134,13 +131,11 @@ def test_ticket_creation_error_keeps_form_and_does_not_write(portal_client):
             "subject": "Help",
             "category": "bad",
             "priority": "medium",
-            "track": "HIE-CM",
             "body": "Details",
         },
     )
     assert response.status_code == HTTPStatus.OK
     assert "category" in response.context["form"].errors
-    assert "track" in response.context["form"].errors
     assert b"New support ticket" in response.content
     assert not Ticket.objects.exists()
 
@@ -155,7 +150,7 @@ def test_ticket_reply_needs_no_category_and_keeps_downloads(
         product=portal_workspaces[0].product,
         subject="Existing ticket",
         created_by=owner_membership.user,
-        category="api",
+        category="HealthLocker",
     )
     upload = SimpleUploadedFile(
         "diagnostic.pdf",
@@ -176,7 +171,7 @@ def test_ticket_reply_needs_no_category_and_keeps_downloads(
     assert portal_client.session["experience_product"] == portal_workspaces[0].reference
     assert set(response.context["form"].fields) == {"body", "attachments"}
     ticket.refresh_from_db()
-    assert ticket.category == "api"
+    assert ticket.category == "HealthLocker"
 
 
 def test_support_search_keeps_workspace_and_status(
@@ -212,12 +207,12 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     owner_membership,
 ):
     for product_index, subject, category, priority, status in (
-        (1, "Callback investigation", "api", "high", "open"),
-        (1, "Callback fixed", "api", "high", "closed"),
-        (1, "Unrelated issue", "api", "high", "open"),
-        (1, "Callback medium priority", "api", "medium", "open"),
-        (1, "Callback sandbox issue", "sandbox", "high", "open"),
-        (0, "Callback on another product", "api", "high", "open"),
+        (1, "Callback investigation", "HealthLocker", "high", "open"),
+        (1, "Callback fixed", "HealthLocker", "high", "closed"),
+        (1, "Unrelated issue", "HealthLocker", "high", "open"),
+        (1, "Callback medium priority", "HealthLocker", "medium", "open"),
+        (1, "Callback sandbox issue", "HIE-CM", "high", "open"),
+        (0, "Callback on another product", "HealthLocker", "high", "open"),
     ):
         Ticket.objects.create(
             organisation=owner_membership.organisation,
@@ -229,7 +224,7 @@ def test_support_counts_keep_filters_and_workspace_before_status(
         )
     response = portal_client.get(
         reverse("experiences:support"),
-        {"q": "callback", "category": "api", "priority": "high", "status": "open"},
+        {"q": "callback", "category": "HealthLocker", "priority": "high", "status": "open"},
     )
     assert response.status_code == HTTPStatus.OK
     assert [ticket.subject for ticket in response.context["tickets"]] == [

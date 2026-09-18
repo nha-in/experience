@@ -8,7 +8,7 @@
       <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{% if reviewer %}{{ ticket.queue_status_label }}{% else %}{{ ticket.get_status_display }}{% endif %}</span>
       <span class="ui-badge ui-badge--{{ ticket.priority_variant }} ui-badge--size-sm">{{ ticket.get_priority_display }}</span>
     </div>
-    <p class="mt-1.5 text-xs text-soft-foreground">{{ ticket.get_category_display }}{% if ticket.track %} · {{ ticket.track }}{% endif %} · updated {{ ticket.updated_at|timesince }} ago</p>
+    <p class="mt-1.5 text-xs text-soft-foreground">{{ ticket.category|default:"Not track-specific" }} · updated {{ ticket.updated_at|timesince }} ago</p>
     {% if reviewer %}<p class="mt-1 text-xs text-soft-foreground">{{ ticket.product.name }}</p>{% endif %}
   </li>
 {% else %}
@@ -17,7 +17,7 @@
       <a class="font-semibold text-foreground no-underline group-hover:text-primary"
          href="{% url 'experiences:ticket' ticket.reference %}"
          data-row-link>{{ ticket.subject }}</a>
-      <span class="mt-0.5 block text-xs text-soft-foreground"><span class="font-mono">{{ ticket.reference }}</span> · {{ ticket.get_category_display }}{% if ticket.track %} · <span class="font-mono">{{ ticket.track }}</span>{% endif %}</span>
+      <span class="mt-0.5 block text-xs text-soft-foreground"><span class="font-mono">{{ ticket.reference }}</span> · {{ ticket.category|default:"Not track-specific" }}</span>
       {% if reviewer %}<span class="mt-0.5 block text-xs text-soft-foreground">{{ ticket.product.name }}</span>{% endif %}
     </td>
     <td class="align-top text-muted-foreground">{{ ticket.get_priority_display }}</td>

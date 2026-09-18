@@ -220,10 +220,9 @@ def tickets(environment):
         ticket = Ticket.objects.create(
             organisation=environment["org"],
             product=environment["workspace"].product,
-            track=category,
+            category=category,
             created_by=environment["applicant"],
             subject=f"{category or 'General'} support request",
-            category="api",
         )
         message = post_reply(
             ticket,

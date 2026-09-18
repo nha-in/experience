@@ -3,8 +3,6 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinLengthValidator
 from django.utils.translation import gettext_lazy as _
 
-from ohc_experience.support.models import Category
-
 from .fields import MultipleFileField
 from .production import validate_client_id
 from .production import validate_issued_on
@@ -150,12 +148,7 @@ RESOLVE_COMMENT_MIN_LENGTH = 10
 
 class SupportForm(forms.Form):
     subject = forms.CharField(max_length=255)
-    category = forms.ChoiceField(
-        choices=Category.choices,
-        initial=Category.SANDBOX,
-        required=False,
-    )
-    track = forms.ChoiceField(required=False)
+    category = forms.ChoiceField(required=False)
     priority = forms.ChoiceField(
         choices=[("low", "Low"), ("medium", "Medium"), ("high", "High")],
         initial="medium",
@@ -183,7 +176,7 @@ class SupportForm(forms.Form):
             if workspace
             else None
         )
-        self.fields["track"].choices = [
+        self.fields["category"].choices = [
             ("", "Not track-specific"),
             *(
                 (track.code, f"{track.code} · {track.name}")
@@ -191,6 +184,3 @@ class SupportForm(forms.Form):
                 if applied is None or track.code in applied
             ),
         ]
-
-    def clean_category(self):
-        return self.cleaned_data["category"] or Category.SANDBOX

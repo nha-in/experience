@@ -139,7 +139,7 @@ def test_staff_pages_never_offer_the_product_switcher(environment, client):
         product=environment["workspace"].product,
         created_by=environment["applicant"],
         subject="Callback help",
-        category="api",
+        category="HIE-CM",
     )
     staff_pages = [
         reverse("experiences:ticket", args=[ticket.reference]),

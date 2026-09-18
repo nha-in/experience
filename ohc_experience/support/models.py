@@ -20,14 +20,6 @@ REFERENCE_SEED = 2000
 REFERENCE_PREFIX = "TKT"
 
 
-class Category(models.TextChoices):
-    SANDBOX = "sandbox", _("Sandbox")
-    API = "api", _("API")
-    CERTIFICATION = "certification", _("Certification")
-    DEPLOYMENT = "deployment", _("Deployment")
-    BILLING = "billing", _("Billing")
-
-
 class Priority(models.TextChoices):
     HIGH = "high", _("High")
     MEDIUM = "medium", _("Medium")
@@ -99,14 +91,10 @@ class Ticket(models.Model):
         related_name="tickets",
         verbose_name=_("Product"),
     )
-    track = models.CharField(_("Track"), max_length=100, blank=True)
     subject = models.CharField(_("Subject"), max_length=255)
-    category = models.CharField(
-        _("Category"),
-        max_length=20,
-        choices=Category,
-        default=Category.SANDBOX,
-    )
+    # Holds the program track (the same categories staff permissions are scoped by),
+    # or blank for a ticket that is not track-specific.
+    category = models.CharField(_("Category"), max_length=100, blank=True)
     priority = models.CharField(
         _("Priority"),
         max_length=10,
