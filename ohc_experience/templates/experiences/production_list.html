@@ -101,10 +101,11 @@
               </thead>
               <tbody>
                 {% for product in rows %}
-                  <tr>
+                  <tr class="group">
                     <td class="min-w-[180px]">
-                      <a class="font-semibold text-foreground no-underline hover:text-primary"
-                         href="{% url 'experiences:production-detail' product.workspace.reference %}">{{ product.name }}</a>
+                      <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                         href="{% url 'experiences:production-detail' product.workspace.reference %}"
+                         data-row-link>{{ product.name }}</a>
                       <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.workspace.reference }}</span>
                     </td>
                     <td class="max-w-[180px] text-muted-foreground">{{ product.organisation.display_name }}</td>

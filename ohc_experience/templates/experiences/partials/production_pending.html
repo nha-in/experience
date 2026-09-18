@@ -31,10 +31,11 @@
         </thead>
         <tbody>
           {% for item in requests %}
-            <tr>
+            <tr class="group">
               <td class="min-w-[180px]">
-                <a class="font-semibold text-foreground no-underline hover:text-primary"
-                   href="{{ item.get_absolute_url }}">{{ item.product.name|default:item.title }}</a>
+                <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                   href="{{ item.get_absolute_url }}"
+                   data-row-link>{{ item.product.name|default:item.title }}</a>
                 <span class="mt-0.5 block font-mono text-xs text-soft-foreground">
                   {% if item.product %}{{ item.product.workspace.reference }} · {% endif %}{{ item.reference }}
                 </span>

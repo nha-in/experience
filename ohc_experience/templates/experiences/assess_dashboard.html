@@ -69,10 +69,11 @@
           <h2 class="ui-card-title" id="by-track-title">Applications by track</h2>
           <p class="ui-card-description">What is in the queue right now.</p>
         </div>
-        <div class="ui-card-content"><dl class="flex flex-col">{% for row in by_track %}<div class="grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><dt class="font-mono font-semibold">{{ row.code }}</dt><dd class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
-      style="width: {% widthratio row.count ready_count 100 %}%"></span></dd><dd class="text-right font-bold tabular-nums"><a class="text-foreground no-underline hover:text-primary"
+        <div class="ui-card-content"><ul class="flex flex-col">{% for row in by_track %}<li class="group grid grid-cols-[110px_minmax(0,1fr)_36px] items-center gap-3 border-t border-soft-border py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0"><span class="font-mono font-semibold group-hover:text-primary">{{ row.code }}</span><span class="ui-meter rounded-full" aria-hidden="true"><span class="ui-meter-fill rounded-full"
+      style="width: {% widthratio row.count ready_count 100 %}%"></span></span><span class="text-right font-bold tabular-nums"><a class="text-foreground no-underline group-hover:text-primary"
    href="{% url 'experiences:queue' %}?scope=ready&amp;item={{ row.code|urlencode }}"
-   aria-label="View {{ row.count }} request{{ row.count|pluralize }} for {{ row.code }}">{{ row.count }}</a></dd></div>{% empty %}<div><dt class="text-sm text-muted-foreground">No pending applications.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div>
+   aria-label="View {{ row.count }} request{{ row.count|pluralize }} for {{ row.code }}"
+   data-row-link>{{ row.count }}</a></span></li>{% empty %}<li class="text-sm text-muted-foreground">No pending applications.</li>{% endfor %}</ul></div>
       </section>
       <section class="ui-card ui-card--layered ui-card--sm ui-rise gap-3.5 [animation-delay:.34s]"
                aria-labelledby="by-milestone-title">

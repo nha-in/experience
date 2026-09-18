@@ -249,9 +249,10 @@
             </div>
             <ul class="flex flex-col gap-2.5 text-sm">
               {% for ticket in open_tickets %}
-                <li class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <a class="font-mono text-xs font-semibold text-primary no-underline hover:underline"
-                     href="{% url 'experiences:ticket' ticket.reference %}">{{ ticket.reference }}</a>
+                <li class="group flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <a class="font-mono text-xs font-semibold text-primary no-underline group-hover:underline"
+                     href="{% url 'experiences:ticket' ticket.reference %}"
+                     data-row-link>{{ ticket.reference }}</a>
                   <span class="text-xs text-soft-foreground">{{ ticket.get_priority_display }}</span>
                   <span class="min-w-0 break-words">{{ ticket.subject }}</span>
                 </li>

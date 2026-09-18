@@ -52,7 +52,8 @@
             <tr class="group" data-queue-entry="{{ entry.reference }}">
               <td class="relative min-w-[220px] align-top">
                 <a class="font-semibold text-foreground group-hover:text-primary hover:underline"
-                   href="{{ entry.url }}">{{ entry.title }}</a>
+                   href="{{ entry.url }}"
+                   data-row-link>{{ entry.title }}</a>
                 <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ entry.reference }}</span>
                 {% if entry.product %}<span class="mt-1 block text-xs text-muted-foreground">{{ entry.organisation.display_name }}</span>{% endif %}
                 <a class="mt-1.5 inline-flex text-xs font-semibold text-primary hover:underline"

@@ -4,6 +4,7 @@
     <li class="flex flex-wrap items-center gap-x-2 gap-y-1">
       {% if prerequisite.review.pk in linked_prerequisites %}
         <a class="font-semibold underline underline-offset-2"
+           data-row-link
            href="{{ prerequisite.review.get_absolute_url }}">{{ prerequisite.name|capfirst }}</a>
       {% else %}
         <span class="font-semibold">{{ prerequisite.name|capfirst }}</span>

@@ -353,4 +353,10 @@
   .htmx-request .htmx-indicator {
     @apply opacity-100;
   }
+
+  /* A row opens its link marked data-row-link from anywhere in the row
+     (static/js/row-link.js). */
+  :is(tr, li):has(a[data-row-link]) {
+    @apply cursor-pointer;
+  }
 }

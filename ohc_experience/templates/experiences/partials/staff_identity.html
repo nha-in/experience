@@ -3,7 +3,8 @@
         aria-hidden="true">{{ member.staff_initials }}</span>
   <div>
     {% if not member.is_superuser %}<a class="staff-name"
-   href="{% url 'experiences:staff-edit' member.pk %}">{{ member.display_name }}</a>{% else %}<span class="staff-name">{{ member.display_name }}</span>{% endif %}
+   href="{% url 'experiences:staff-edit' member.pk %}"
+   data-row-link>{{ member.display_name }}</a>{% else %}<span class="staff-name">{{ member.display_name }}</span>{% endif %}
     {% if member.pk == request.user.pk %}<span class="staff-you">You</span>{% endif %}
     <span class="staff-email">{{ member.email }}</span>
   </div>

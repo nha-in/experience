@@ -28,11 +28,12 @@
             {% if exits %}
               <ul class="flex flex-col gap-2.5 text-sm">
                 {% for milestone in exits %}
-                  <li class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <li class="group flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span class="ui-badge ui-badge--success ui-badge--size-xs">{{ milestone.definition.code }}</span>
                     {% if milestone.review %}
-                      <a class="font-medium text-primary no-underline hover:underline"
-                         href="{{ milestone.review.get_absolute_url }}">{{ milestone.definition.name }}</a>
+                      <a class="font-medium text-primary no-underline group-hover:underline"
+                         href="{{ milestone.review.get_absolute_url }}"
+                         data-row-link>{{ milestone.definition.name }}</a>
                     {% else %}
                       <span class="font-medium">{{ milestone.definition.name }}</span>
                     {% endif %}

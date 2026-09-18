@@ -34,13 +34,14 @@
   .staff-table th:first-child, .staff-table td:first-child { padding-left: 24px; }
   .staff-table th:last-child, .staff-table td:last-child { padding-right: 24px; }
   .staff-table tbody tr { transition: background-color .15s ease; }
-  .staff-table tbody tr:hover { background: color-mix(in srgb, var(--primary-50) 35%, var(--card)); }
+  .staff-table tbody tr:has(a[data-row-link]):hover { background: color-mix(in srgb, var(--primary-50) 35%, var(--card)); }
   .staff-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .staff-identity > div { min-width: 0; }
   .staff-avatar { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--soft-background); color: var(--soft-foreground); font-size: 12px; font-weight: 650; }
   .staff-avatar--admin { border-color: var(--primary-100); background: var(--primary-50); color: var(--primary); }
   .staff-name { color: var(--foreground); font-size: 14px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
   a.staff-name:hover { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+  .staff-table tbody tr:hover a.staff-name, .staff-mobile-list > li:hover a.staff-name { color: var(--primary); }
   .staff-email { display: block; margin-top: 3px; color: var(--soft-foreground); font-size: 11px; overflow-wrap: anywhere; }
   .staff-you { display: inline-block; margin-left: 5px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; color: var(--soft-foreground); font-size: 10px; vertical-align: 1px; }
   .staff-access-list { display: flex; flex-direction: column; gap: 6px; }
@@ -82,7 +83,8 @@
   @media (max-width: 1000px) {
     .staff-table-wrap { display: none; }
     .staff-mobile-list { display: block; }
-    .staff-mobile-list > li { padding: 20px; border-bottom: 1px solid var(--soft-border); }
+    .staff-mobile-list > li { padding: 20px; border-bottom: 1px solid var(--soft-border); transition: background-color .15s ease; }
+    .staff-mobile-list > li:has(a[data-row-link]):hover { background: color-mix(in srgb, var(--primary-50) 35%, var(--card)); }
     .staff-mobile-list > li:last-child { border-bottom: 0; }
     .staff-mobile-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .staff-mobile-heading .staff-status { padding-top: 3px; }
@@ -99,5 +101,5 @@
     .staff-search-context { padding-inline: 16px; }
     .staff-mobile-list > li { padding-inline: 16px; }
   }
-  @media (prefers-reduced-motion: reduce) { .staff-table tbody tr { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .staff-table tbody tr, .staff-mobile-list > li { transition: none; } }
 }
