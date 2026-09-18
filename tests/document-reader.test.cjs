@@ -164,6 +164,13 @@ function createPage(initial = {}) {
   function choose(name = "wasa.pdf", size = 1024) {
     input.files = [{ name, size, lastModified: 1 }];
     input.dispatchEvent(new Event("change"));
+    // The upload script re-renders its list and fires this straight after.
+    input.dispatchEvent(new Event("input"));
+  }
+  // What the "Remove file" button does: rewrite the list, fire `input` only.
+  function removeFile() {
+    input.files = [];
+    input.dispatchEvent(new Event("input"));
   }
   async function flush() {
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
@@ -194,6 +201,7 @@ function createPage(initial = {}) {
     field,
     requests,
     choose,
+    removeFile,
     tick,
     respond,
     flush,
@@ -358,23 +366,32 @@ test("a correction of the integrator's own survives a new document", async () =>
   assert.equal(page.auditDate.value, "");
 });
 
-test("removing the file takes its values with it", async () => {
+test("the remove file button takes the document's values with it", async () => {
   const page = createPage();
   page.choose();
   await page.respond(0, read);
+  assert.equal(page.agency.value, AGENCY);
 
-  page.input.files = [];
-  page.input.dispatchEvent(new Event("change"));
+  page.removeFile();
 
   assert.equal(page.agency.value, "");
   assert.equal(page.auditDate.value, "");
+  assert.equal(page.validUntil.value, "");
+  assert.equal(page.notesUnder(page.agency).length, 0);
+});
+
+test("choosing a file reads it once, not once per event", () => {
+  const page = createPage();
+  page.choose();
+
+  // `change` and `input` both fire; the file is the same, so one request.
+  assert.equal(page.requests.length, 1);
 });
 
 test("clearing the file uncovers the section", () => {
   const page = createPage();
   page.choose();
-  page.input.files = [];
-  page.input.dispatchEvent(new Event("change"));
+  page.removeFile();
 
   assert.equal(page.overlay.hidden, true);
   assert.ok(!page.fieldset.classList.contains("relative"));
@@ -597,8 +614,7 @@ test("a reading that outlasts the timeout reports a failure once", async () => {
 test("clearing the file cancels the reading and the message", async () => {
   const page = createPage();
   page.choose();
-  page.input.files = [];
-  page.input.dispatchEvent(new Event("change"));
+  page.removeFile();
   assert.equal(page.status.hidden, true);
   await page.respond(0, read);
   assert.equal(page.auditDate.value, "");

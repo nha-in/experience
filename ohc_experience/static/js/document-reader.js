@@ -299,7 +299,19 @@
       read(file, sequence);
     }
 
-    input.addEventListener("change", schedule);
+    // Choosing a file fires `change`, and the upload script then fires `input`;
+    // its remove button fires only `input`. So the file decides whether there
+    // is anything new to do, and removing one counts as a change.
+    let acted = "";
+    function fileChanged() {
+      const chosen = fingerprint(input.files?.[0]) || "";
+      if (chosen === acted) return;
+      acted = chosen;
+      schedule();
+    }
+
+    input.addEventListener("change", fileChanged);
+    input.addEventListener("input", fileChanged);
     controllers.set(input, {
       refresh() {},
       dispose() {
