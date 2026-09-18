@@ -34,6 +34,11 @@
       <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0"
                aria-labelledby="decisions-title">
         {% include 'experiences/partials/product_bulk_decision.html' %}
+        {% if review_groups.outside_tracks %}
+          <div class="divide-y divide-soft-border border-y border-soft-border">
+            {% include 'experiences/partials/product_review_rows.html' with sections=review_groups.outside_tracks %}
+          </div>
+        {% endif %}
         {% if tracks %}
           <nav class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-soft-border bg-soft-background px-5 py-3"
                aria-label="Compliance tracks">
@@ -48,13 +53,49 @@
             {% endfor %}
           </nav>
         {% endif %}
+        {% if review_groups.pending %}
+          <div class="border-b border-soft-border bg-soft-background/50 px-5 py-2.5">
+            <h3 class="ui-kicker">Open · {{ review_groups.pending|length }}</h3>
+          </div>
+        {% endif %}
         <div class="divide-y divide-soft-border">
-          {% for section in review_sections %}
-            {% include 'experiences/partials/product_review_section.html' with item=section.item snapshot=section.snapshot prerequisites=section.prerequisites withdrawn_hold=section.withdrawn_hold withdrawn_at=section.withdrawn_at can_approve=section.can_approve can_send_back=section.can_send_back can_query=section.can_query unresolved_query_count=section.unresolved_query_count decision_note=section.decision_note send_back_reasons=section.send_back_reasons other_reason=section.other_reason decision_reason=section.decision_reason decision_action=section.decision_action query_field=section.query_field %}
-          {% empty %}
-            <p class="px-5 py-6 text-sm text-muted-foreground">No submitted requests to review.</p>
-          {% endfor %}
+          {% include 'experiences/partials/product_review_rows.html' with sections=review_groups.pending %}
         </div>
+        {% if review_groups.sent_back %}
+          <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-soft-border bg-soft-background/50 px-5 py-2.5">
+            <h3 class="ui-kicker">Sent back · {{ review_groups.sent_back|length }}</h3>
+            <p class="text-xs text-soft-foreground">Waiting on the integrator. Accept all and Reject all don't include these.</p>
+          </div>
+          <div class="divide-y divide-soft-border border-t border-soft-border">
+            {% include 'experiences/partials/product_review_rows.html' with sections=review_groups.sent_back %}
+          </div>
+        {% endif %}
+        {% if review_groups.approved %}
+          <details class="group/approved border-t border-soft-border"
+                   data-approved-reviews>
+            <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-5 py-2.5 transition-colors hover:bg-soft-background focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+              <h3 class="ui-kicker shrink-0">Approved · {{ review_groups.approved|length }}</h3>
+              <span class="min-w-0 flex-1 truncate text-xs text-soft-foreground group-open/approved:invisible">{% for section in review_groups.approved %}{% if section.item.kind == 'organisation_verification' %}Organisation verification{% elif section.item.application.milestone %}{{ section.item.application.milestone.definition.code }}{% else %}{{ section.item.title }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+              <span class="text-xs font-semibold text-primary"><span class="group-open/approved:hidden">Show</span><span class="hidden group-open/approved:inline">Hide</span></span>
+              <svg viewBox="0 0 24 24"
+                   class="size-4 shrink-0 text-soft-foreground transition-transform group-open/approved:rotate-180 motion-reduce:transition-none"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="1.8"
+                   stroke-linecap="round"
+                   stroke-linejoin="round"
+                   aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </summary>
+            <div class="divide-y divide-soft-border border-t border-soft-border">
+              {% include 'experiences/partials/product_review_rows.html' with sections=review_groups.approved %}
+            </div>
+          </details>
+        {% endif %}
+        {% if not review_sections %}
+          <p class="px-5 py-6 text-sm text-muted-foreground">No submitted requests to review.</p>
+        {% endif %}
       </section>
       <section class="ui-card ui-card--layered ui-rise"
                aria-labelledby="activity-title">

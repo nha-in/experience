@@ -731,6 +731,35 @@ def _product_review_sections(request, items):
     return sections
 
 
+def _review_groups(sections):
+    """Open requests outside the tracks on top, then milestones, approved last."""
+    groups = {"outside_tracks": [], "pending": [], "sent_back": [], "approved": []}
+    for section in sections:
+        item = section["item"]
+        if item.status == ReviewItem.Status.APPROVED:
+            groups["approved"].append(section)
+        elif not getattr(item.application, "milestone", None):
+            groups["outside_tracks"].append(section)
+        elif item.status == ReviewItem.Status.SENT_BACK:
+            groups["sent_back"].append(section)
+        else:
+            groups["pending"].append(section)
+    return groups
+
+
+def _bulk_holds(approve_blockers, reject_blockers):
+    """Group hold reasons by the buttons they hold, so a shared one is said once."""
+    shared = [reason for reason in approve_blockers if reason in reject_blockers]
+    groups = (
+        ("Accept all and Reject all are", shared),
+        ("Accept all is", [r for r in approve_blockers if r not in shared]),
+        ("Reject all is", [r for r in reject_blockers if r not in shared]),
+    )
+    return [
+        {"label": label, "reasons": reasons} for label, reasons in groups if reasons
+    ]
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def product_detail(request, reference):
@@ -782,6 +811,16 @@ def product_detail(request, reference):
         and not item.definition.auto_approve
         and permissions.can_review(request.user, item, "approve")
     ]
+    bulk_approve_blockers = (
+        services.product_decision_blockers(bulk_items, request.user, action="approve")
+        if bulk_items
+        else []
+    )
+    bulk_reject_blockers = (
+        services.product_decision_blockers(bulk_items, request.user, action="send_back")
+        if bulk_items
+        else []
+    )
     pending = list(
         visible_items.filter(
             product_scope(workspace),
@@ -853,21 +892,11 @@ def product_detail(request, reference):
             else None,
             decidable=decidable,
             review_sections=review_sections,
+            review_groups=_review_groups(review_sections),
             bulk_items=bulk_items,
-            bulk_approve_blockers=services.product_decision_blockers(
-                bulk_items,
-                request.user,
-                action="approve",
-            )
-            if bulk_items
-            else [],
-            bulk_reject_blockers=services.product_decision_blockers(
-                bulk_items,
-                request.user,
-                action="send_back",
-            )
-            if bulk_items
-            else [],
+            bulk_approve_blockers=bulk_approve_blockers,
+            bulk_reject_blockers=bulk_reject_blockers,
+            bulk_holds=_bulk_holds(bulk_approve_blockers, bulk_reject_blockers),
             bulk_note=request.POST.get("note", "")
             if request.POST.get("intent") == "bulk_decision"
             else "",

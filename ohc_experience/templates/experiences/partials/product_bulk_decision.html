@@ -14,29 +14,21 @@
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-bold" id="decisions-title">Product review</h2>
-          <p class="mt-1 text-xs text-soft-foreground">{{ bulk_items|length }} submitted request{{ bulk_items|length|pluralize }} awaiting your decision</p>
+          <p class="mt-1 text-xs leading-relaxed text-soft-foreground">{{ bulk_items|length }} submitted request{{ bulk_items|length|pluralize }} awaiting your decision. Reject all sends {{ bulk_items|length|pluralize:'it,them' }} back for corrections.</p>
         </div>
         <div class="flex gap-2">
           <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11"
                   type="submit"
                   name="action"
                   value="approve"
-                  {% if bulk_approve_blockers %}disabled aria-describedby="bulk-approve-hold"{% endif %}>Accept all</button>
+                  {% if bulk_approve_blockers %}disabled aria-describedby="bulk-hold" {% endif %}>Accept all</button>
           <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
                   type="submit"
                   name="action"
                   value="send_back"
-                  {% if bulk_reject_blockers %}disabled aria-describedby="bulk-reject-hold"{% endif %}>Reject all</button>
+                  {% if bulk_reject_blockers %}disabled aria-describedby="bulk-hold" {% endif %}>Reject all</button>
         </div>
       </div>
-      <ul class="flex flex-wrap gap-x-3 gap-y-1 text-xs"
-          aria-label="Requests included in the bulk decision">
-        <li class="text-soft-foreground">Includes</li>
-        {% for item in bulk_items %}
-          <li><a class="inline-flex min-h-7 items-center font-semibold text-primary no-underline hover:underline"
-   href="#review-{{ item.pk }}">{% if item.kind == 'organisation_verification' %}Organisation verification{% else %}{{ item.title }}{% endif %}</a></li>
-        {% endfor %}
-      </ul>
       {% for item in bulk_items %}
         {% if item.kind == 'organisation_verification' %}
           <p class="text-xs leading-relaxed text-soft-foreground">Organisation verification applies to all products of {{ organisation.display_name }}.</p>
@@ -69,23 +61,15 @@
           <p class="ui-hint" id="bulk-decision-help">Saved to every included request and shared with the integrator. Optional for approval.</p>
         </div>
       </details>
-      <p class="text-xs leading-relaxed text-soft-foreground">Reject all sends the included requests back for corrections.</p>
-      {% if bulk_approve_blockers %}
+      {% if bulk_holds %}
         <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950"
-             id="bulk-approve-hold">
-          <p class="font-semibold">Accept all is on hold</p>
-          <ul class="mt-1 list-disc space-y-1 pl-4">
-            {% for blocker in bulk_approve_blockers %}<li>{{ blocker }}</li>{% endfor %}
-          </ul>
-        </div>
-      {% endif %}
-      {% if bulk_reject_blockers %}
-        <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950"
-             id="bulk-reject-hold">
-          <p class="font-semibold">Reject all is on hold</p>
-          <ul class="mt-1 list-disc space-y-1 pl-4">
-            {% for blocker in bulk_reject_blockers %}<li>{{ blocker }}</li>{% endfor %}
-          </ul>
+             id="bulk-hold">
+          {% for hold in bulk_holds %}
+            <p class="font-semibold {% if not forloop.first %}mt-2.5{% endif %}">{{ hold.label }} on hold</p>
+            <ul class="mt-1 list-disc space-y-1 pl-4">
+              {% for reason in hold.reasons %}<li>{{ reason }}</li>{% endfor %}
+            </ul>
+          {% endfor %}
         </div>
       {% endif %}
     </form>

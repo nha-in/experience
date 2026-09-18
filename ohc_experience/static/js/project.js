@@ -551,6 +551,8 @@ document.addEventListener("keydown", (event) => {
     const target = document.getElementById(id);
     const panel = target?.closest('details[data-product-review-panel]');
     if (!panel) return;
+    const approved = panel.closest('details[data-approved-reviews]');
+    if (approved) approved.open = true;
     panel.open = true;
     target.scrollIntoView({ block: 'start' });
   }

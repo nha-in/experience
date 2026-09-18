@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import product_data
+from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import reverify
@@ -152,6 +153,52 @@ def test_unsent_corrections_after_rejection_are_not_shown_to_reviewers(
     )
     assert section["snapshot"] is None
     assert response.context["bulk_items"] == []
+
+
+def test_product_review_lists_open_requests_first_and_folds_approved_ones(
+    environment,
+    client,
+):
+    m1 = approve(environment)
+    m2 = submit(environment, "m2")
+    m4 = submit(environment, "m4")
+    workflows.decide(
+        m4,
+        environment["reviewer"],
+        action="send_back",
+        reason="Incorrect document",
+        note="Please correct the evidence.",
+    )
+    client.force_login(environment["reviewer"])
+
+    response = client.get(product_url(environment))
+
+    groups = response.context["review_groups"]
+    assert groups["outside_tracks"] == []
+    assert [section["item"] for section in groups["pending"]] == [m2]
+    assert [section["item"] for section in groups["sent_back"]] == [m4]
+    assert [section["item"].kind for section in groups["approved"]] == [
+        "organisation_verification",
+        "application",
+    ]
+    assert groups["approved"][1]["item"] == m1
+    content = " ".join(response.content.decode().split())
+    assert "Accept all and Reject all don't include these." in content
+    assert "Approved · 2</h3>" in content
+    assert "Organisation verification, M1" in content
+    assert (
+        content.index(f'id="review-{m2.pk}"')
+        < content.index("Sent back · 1")
+        < content.index("data-approved-reviews")
+        < content.index(f'id="review-{m1.pk}"')
+    )
+
+    verification = reverify(environment)
+    response = client.get(product_url(environment))
+    groups = response.context["review_groups"]
+    assert [section["item"] for section in groups["outside_tracks"]] == [
+        verification,
+    ]
 
 
 def test_read_only_reviewer_has_no_bulk_or_individual_decisions(environment, client):
