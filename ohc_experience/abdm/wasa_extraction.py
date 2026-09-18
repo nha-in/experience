@@ -55,6 +55,20 @@ _NOT_A_WORD = re.compile(r"[^a-z0-9]+")
 # Only where the same word is genuinely written two ways; guessing more would
 # merge agencies that are not the same company.
 _SPELLINGS = {"pvt": "private", "ltd": "limited", "and": ""}
+# A legal form is how a company is registered, not what it is called, and the
+# two sides disagree about printing it: the list says "M/s Code Decode Labs"
+# where the certificate says "Code Decode Labs Private Limited".
+_LEGAL_FORMS = {
+    "co",
+    "company",
+    "corp",
+    "corporation",
+    "inc",
+    "incorporated",
+    "limited",
+    "llp",
+    "private",
+}
 
 
 def _comparable(name: str) -> str:
@@ -65,6 +79,14 @@ def _comparable(name: str) -> str:
     return " ".join(
         word for word in (_SPELLINGS.get(part, part) for part in text.split()) if word
     )
+
+
+def _core(key: str) -> str:
+    """The same name with its legal form dropped."""
+    words = key.split()
+    while words and words[-1] in _LEGAL_FORMS:
+        words.pop()
+    return " ".join(words) or key
 
 
 INSTRUCTION = (
@@ -280,16 +302,21 @@ def _agency(payload: dict) -> str:
     wanted = _comparable(value)
     if not wanted:
         return ""
-    matches = {
-        name
+    published = {
+        name: _comparable(name)
         for name in CertificationAgency.objects.filter(
             program="abdm",
             is_active=True,
         ).values_list("name", flat=True)
-        if _comparable(name) == wanted
     }
     # Two agencies that reduce to the same name are a coin toss, so neither wins.
-    return matches.pop() if len(matches) == 1 else ""
+    for matches in (
+        {name for name, key in published.items() if key == wanted},
+        {name for name, key in published.items() if _core(key) == _core(wanted)},
+    ):
+        if len(matches) == 1:
+            return matches.pop()
+    return ""
 
 
 def _refused(payload: dict) -> bool:
