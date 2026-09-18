@@ -20,7 +20,7 @@ def restore_review_kind(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('events', '0001_initial'),
+        ('events_and_activities', '0001_initial'),
         ('experiences', '0004_generalize_portal_records'),
         ('organisations', '0005_remove_legacy_features'),
         ('support', '0002_remove_legacy_features'),

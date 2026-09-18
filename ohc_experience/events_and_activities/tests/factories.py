@@ -8,14 +8,14 @@ from factory import Sequence
 from factory import Trait
 from factory.django import DjangoModelFactory
 
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 
 
 class EventFactory(DjangoModelFactory[Event]):
     """An event a week out. Unpublished by default — publishing is the choice."""
 
     title = Sequence(lambda n: f"Partner office hours {n}")
-    kind = Event.Kind.OFFICE_HOURS
+    kind = Event.Kind.EVENT
     summary = "Bring your integration questions."
     description = "Open floor with the OHC integration team."
     starts_at = LazyFunction(lambda: timezone.now() + timedelta(days=7))

@@ -1018,7 +1018,7 @@ class Notification(models.Model):
 
 class EventRegistration(models.Model):
     event = models.ForeignKey(
-        "events.Event",
+        "events_and_activities.Event",
         on_delete=models.CASCADE,
         related_name="registrations",
     )

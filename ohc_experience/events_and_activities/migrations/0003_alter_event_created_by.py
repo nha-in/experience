@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('events', '0002_event_category_event_program'),
+        ('events_and_activities', '0002_event_category_event_program'),
     ]
 
     operations = [

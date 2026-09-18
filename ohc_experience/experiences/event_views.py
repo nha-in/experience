@@ -17,7 +17,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 
 from . import permissions
 from .registry import get_program
@@ -38,8 +38,8 @@ class EventForm(forms.ModelForm):
         model = Event
         fields = [
             "title",
-            "category",
             "kind",
+            "category",
             "summary",
             "description",
             "starts_at",

@@ -15,7 +15,7 @@ from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import submit
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import permissions
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
@@ -66,7 +66,7 @@ def test_staff_identity_and_model_permissions_grant_no_portal_access(
         "experiences_accessgrant",
         "experiences_formsubmission",
         "users_user",
-        "events_event",
+        "events_and_activities_event",
     ]:
         assert client.get(reverse(f"admin:{name}_changelist")).status_code == 403
     assert not permissions.visible_reviews(staff).exists()
@@ -363,8 +363,8 @@ def event(staff):
 def test_event_creation_and_publication_are_separate(staff, client, event):
     access = grant(staff, area="events", write=True)
     client.force_login(staff)
-    add = reverse("admin:events_event_add")
-    listing = reverse("admin:events_event_changelist")
+    add = reverse("admin:events_and_activities_event_add")
+    listing = reverse("admin:events_and_activities_event_changelist")
     assert client.get(add).status_code == 200
     assert b"publish_events" not in client.get(listing).content
     fields = {
@@ -399,7 +399,7 @@ def test_event_creation_and_publication_are_separate(staff, client, event):
     access.can_write = True
     access.can_approve = False
     access.save()
-    change = reverse("admin:events_event_change", args=[event.pk])
+    change = reverse("admin:events_and_activities_event_change", args=[event.pk])
     assert client.post(change, fields).status_code == 403
 
 

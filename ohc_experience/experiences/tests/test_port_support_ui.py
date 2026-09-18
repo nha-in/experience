@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ohc_experience.abdm.demo import product_data
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.forms import SupportForm
 from ohc_experience.experiences.models import EventRegistration
@@ -415,7 +415,7 @@ def test_event_register_cancel_and_filter_keep_product(
 ):
     event = Event.objects.create(
         title="Integration office hours",
-        kind="office_hours",
+        kind="event",
         starts_at=timezone.now() + timedelta(days=2),
         published_at=timezone.now(),
         join_url="https://example.org/event",
@@ -423,7 +423,7 @@ def test_event_register_cancel_and_filter_keep_product(
     )
     url = (
         f"{reverse('experiences:events')}?product={portal_workspaces[1].reference}"
-        "&kind=office_hours&period=upcoming"
+        "&kind=event&period=upcoming"
     )
     response = portal_client.post(
         url,

@@ -71,7 +71,7 @@
    href="{% url 'experiences:pending-queries' %}">{% include "components/nav_icon.html" with icon="queries" %}<span class="flex-1">Pending queries</span>{% if query_count %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ query_count }}</span>{% endif %}</a></li>{% endif %}
         {% if can_read_events %}<li><a id="nav-events"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'events' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:events' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Events</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
+   href="{% url 'experiences:events' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Events and Activities</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
       {% endif %}
       {% if can_read_support %}<li><a id="nav-support"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"

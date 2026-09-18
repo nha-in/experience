@@ -18,7 +18,7 @@ from pytest_django.asserts import assertNotContains
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import permissions
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant

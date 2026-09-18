@@ -120,7 +120,7 @@ LOCAL_APPS = [
     "ohc_experience.organisations",
     "ohc_experience.pages",
     "ohc_experience.support",
-    "ohc_experience.events",
+    "ohc_experience.events_and_activities",
     "ohc_experience.experiences",
     "ohc_experience.integrations",
     # Your stuff: custom apps go here

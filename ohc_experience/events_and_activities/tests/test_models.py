@@ -14,7 +14,7 @@ from django.db import IntegrityError
 from django.db import transaction
 from django.utils import timezone
 
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 
 pytestmark = pytest.mark.django_db
 

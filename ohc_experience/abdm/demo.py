@@ -19,7 +19,7 @@ from PIL import Image
 from PIL import ImageDraw
 
 from ohc_experience.abdm import forms
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
@@ -457,7 +457,7 @@ class DemoBuilder:
     def events(self, admin):
         for index, (title, kind, days) in enumerate(
             [
-                ("HIE-CM integration office hours", "office_hours", 3),
+                ("HIE-CM integration office hours", "event", 3),
                 ("PHR application flows: developer workshop", "workshop", 7),
                 ("UHI participant integration clinic", "webinar", 14),
                 ("ABHA identity integration walkthrough", "webinar", -7),

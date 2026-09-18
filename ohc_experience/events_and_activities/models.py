@@ -37,16 +37,15 @@ class EventQuerySet(models.QuerySet["Event"]):
 
 
 class Event(models.Model):
-    """A partner event — office hours, an upgrade webinar, a certification AMA.
+    """A partner event — an activity, an upgrade webinar, a hands-on workshop.
 
     Authored by the NHA team and visible to every integrator once published, so
     there is no per-organisation scoping here on purpose.
     """
 
     class Kind(models.TextChoices):
-        OFFICE_HOURS = "office_hours", _("Office hours")
+        EVENT = "event", _("Event")
         WEBINAR = "webinar", _("Webinar")
-        AMA = "ama", _("AMA")
         WORKSHOP = "workshop", _("Workshop")
 
     title = models.CharField(_("Title"), max_length=255)
@@ -57,7 +56,7 @@ class Event(models.Model):
         _("Kind"),
         max_length=20,
         choices=Kind.choices,
-        default=Kind.WEBINAR,
+        default=Kind.EVENT,
     )
     summary = models.CharField(
         _("Summary"),

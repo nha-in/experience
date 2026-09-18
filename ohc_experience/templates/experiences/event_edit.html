@@ -19,7 +19,7 @@
       {% csrf_token %}
       {% include 'components/form_errors.html' %}
       {% ui_field form.title %}
-      <div class="grid gap-5 sm:grid-cols-2">{% ui_field form.category %}{% ui_field form.kind %}</div>
+      <div class="grid gap-5 sm:grid-cols-2">{% ui_field form.kind %}{% ui_field form.category %}</div>
       {% ui_field form.summary %}{% ui_field form.description %}
       <div class="grid gap-5 sm:grid-cols-2">{% ui_field form.starts_at label='Starts at (IST)' %}{% ui_field form.ends_at label='Ends at (IST)' %}</div>
       {% ui_field form.location %}{% ui_field form.join_url %}

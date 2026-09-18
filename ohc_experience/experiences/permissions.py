@@ -218,7 +218,7 @@ def visible_tickets(user, action="read"):
 
 
 def visible_events(user, action="read"):
-    from ohc_experience.events.models import Event  # noqa: PLC0415
+    from ohc_experience.events_and_activities.models import Event  # noqa: PLC0415
 
     query = Event.objects.all()
     if not user.is_authenticated or not user.is_active:

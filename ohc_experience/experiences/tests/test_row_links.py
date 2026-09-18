@@ -20,7 +20,7 @@ from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory

@@ -30,7 +30,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
-from ohc_experience.events.models import Event
+from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences.definitions import DocumentReadError
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
@@ -2382,7 +2382,7 @@ def events(request):
         _context(
             request,
             workspace,
-            page_title="Events",
+            page_title="Events and Activities",
             nav="events",
             events=_page(
                 request,
