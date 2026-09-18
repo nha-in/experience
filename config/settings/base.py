@@ -180,7 +180,7 @@ def _tuning(name, cast, default):
 
 WASA_EXTRACTION_MODEL = env(
     "WASA_EXTRACTION_MODEL",
-    default="bedrock/openai.gpt-5.6-luna",
+    default="bedrock/converse/in.openai.gpt-5.6-terra",
 )
 WASA_EXTRACTION_TIMEOUT = _tuning("WASA_EXTRACTION_TIMEOUT", float, 45.0)
 WASA_EXTRACTION_MAX_TOKENS = _tuning("WASA_EXTRACTION_MAX_TOKENS", int, 512)

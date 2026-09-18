@@ -293,7 +293,7 @@ test("a failed reading uncovers the section", async () => {
 
   assert.equal(page.overlay.hidden, true);
   assert.ok(!page.fieldset.classList.contains("relative"));
-  assert.match(page.status.textContent, /could not be read/);
+  assert.match(page.status.textContent, /Autofill failed/);
 });
 
 test("a document that can never be read uncovers the section too", async () => {
@@ -458,7 +458,7 @@ test("a failed reading asks for the details, with no way to try again", async ()
   page.choose();
   await page.respond(0, {}, 503);
 
-  assert.match(page.status.textContent, /could not be read/);
+  assert.match(page.status.textContent, /Autofill failed/);
   assert.doesNotMatch(page.status.textContent, /retry/i);
   assert.equal(page.auditDate.value, "");
 });
@@ -518,7 +518,7 @@ test("a reply describing another file is refused", async () => {
   page.choose("first.pdf");
   await page.respond(0, read, 200, "somewhere-else.pdf");
   assert.equal(page.auditDate.value, "");
-  assert.match(page.status.textContent, /could not be read/);
+  assert.match(page.status.textContent, /Autofill failed/);
 });
 
 test("a reading that outlasts the timeout reports a failure once", async () => {
@@ -526,7 +526,7 @@ test("a reading that outlasts the timeout reports a failure once", async () => {
   page.choose();
   page.tick();
   await page.flush();
-  assert.match(page.status.textContent, /could not be read/);
+  assert.match(page.status.textContent, /Autofill failed/);
 });
 
 test("clearing the file cancels the reading and the message", async () => {

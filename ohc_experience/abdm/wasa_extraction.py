@@ -183,7 +183,6 @@ def _page_images(content: bytes) -> list[bytes]:
             document[index].render(scale=scale).to_pil().convert("RGB").save(
                 page,
                 format="PNG",
-                optimize=True,
             )
             images.append(page.getvalue())
     except Exception as exc:
