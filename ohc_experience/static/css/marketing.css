@@ -7,7 +7,7 @@
   --marketing-text: #edf3fc;
   --marketing-muted: #afbed7;
   --marketing-accent: var(--primary-300);
-  --marketing-gold: #e9c46a;
+  --marketing-highlight: var(--primary-300);
   --marketing-line: rgba(171, 196, 237, 0.16);
   min-height: 100vh;
   display: flex;
@@ -38,14 +38,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 .marketing-shell :is(a, button, summary, input, select):focus-visible {
-  outline: 3px solid var(--marketing-gold);
+  outline: 3px solid var(--marketing-highlight);
   outline-offset: 5px;
 }
 .marketing-shell .marketing-footer a:focus-visible {
   outline-color: var(--primary-800);
 }
 .marketing-shell ::selection {
-  background: #e9c46a;
+  background: var(--marketing-highlight);
   color: #0d1b34;
 }
 .marketing-shell [id] {
@@ -214,7 +214,7 @@
     monospace;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--marketing-gold);
+  color: var(--marketing-highlight);
 }
 .marketing-actions {
   display: flex;

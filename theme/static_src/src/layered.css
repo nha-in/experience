@@ -161,7 +161,7 @@
   }
 
   .ui-meter-fill--info {
-    @apply bg-sky-500;
+    @apply bg-primary-500;
   }
 
   .ui-meter-fill--warning {
@@ -267,10 +267,10 @@
   }
 
   .ui-pill[aria-current] {
-    @apply bg-primary-50 font-semibold text-primary-900;
+    @apply bg-accent font-semibold text-accent-foreground;
   }
 
-  /* A switch that sits on the hero band. The pill's emerald-50 is the colour
+  /* A switch that sits on the hero band. The pill's blue tint is the colour
      of the wash, so here the current option lifts off a hairline track. */
   .ui-switch {
     @apply inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl p-[3px];

@@ -74,7 +74,7 @@
 }
 
 .marketing-shell .marketing-auth-story-title > span {
-  color: var(--marketing-gold);
+  color: var(--marketing-highlight);
 }
 
 .marketing-shell .marketing-auth-story-lede {
@@ -93,7 +93,7 @@
 }
 
 .marketing-shell .marketing-auth-context-label {
-  color: var(--marketing-gold);
+  color: var(--marketing-highlight);
   font-size: 10px;
 }
 

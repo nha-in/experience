@@ -1,4 +1,4 @@
-/* Light public palette, anchored to the shared ABDM indigo scale. */
+/* Light public palette, anchored to the shared ABDM blue scale. */
 .marketing-body.marketing-landing {
   background: #fff;
 }
@@ -11,7 +11,7 @@
   --marketing-text: var(--sbx-ink);
   --marketing-muted: var(--sbx-muted);
   --marketing-accent: var(--primary-800);
-  --marketing-gold: var(--primary-800);
+  --marketing-highlight: var(--primary-800);
   --marketing-line: var(--sbx-line);
   --sbx-secondary: #4c607d;
   --sbx-control-border: #7085a4;
