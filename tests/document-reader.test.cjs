@@ -305,6 +305,71 @@ test("a document that can never be read uncovers the section too", async () => {
   assert.ok(!page.fieldset.classList.contains("relative"));
 });
 
+test("a second document never inherits the first one's values", async () => {
+  const page = createPage();
+  page.choose("wrong.pdf");
+  await page.respond(0, read, 200, "wrong.pdf");
+  assert.equal(page.agency.value, AGENCY);
+
+  // The right certificate, whose agency this time cannot be read.
+  page.choose("right.pdf");
+  await page.respond(
+    1,
+    {
+      wasa_agency: "",
+      wasa_date: "2026-02-02",
+      wasa_valid_until: "2027-02-01",
+    },
+    200,
+    "right.pdf",
+  );
+
+  // One certificate's dates beside another's agency would be a bad record.
+  assert.equal(page.agency.value, "");
+  assert.equal(page.auditDate.value, "2026-02-02");
+  assert.equal(page.validUntil.value, "2027-02-01");
+  assert.equal(page.notesUnder(page.agency).length, 0);
+});
+
+test("the fields empty as soon as another document is chosen", async () => {
+  const page = createPage();
+  page.choose("wrong.pdf");
+  await page.respond(0, read, 200, "wrong.pdf");
+
+  page.choose("right.pdf");
+
+  // Before the reply lands, nothing from the first document is still showing.
+  assert.equal(page.agency.value, "");
+  assert.equal(page.auditDate.value, "");
+  assert.equal(page.validUntil.value, "");
+  assert.equal(page.notesUnder(page.auditDate).length, 0);
+});
+
+test("a correction of the integrator's own survives a new document", async () => {
+  const page = createPage();
+  page.choose("wrong.pdf");
+  await page.respond(0, read, 200, "wrong.pdf");
+  page.agency.value = AGENCY;
+  page.agency.dispatchEvent(new Event("change"));
+
+  page.choose("right.pdf");
+
+  assert.equal(page.agency.value, AGENCY);
+  assert.equal(page.auditDate.value, "");
+});
+
+test("removing the file takes its values with it", async () => {
+  const page = createPage();
+  page.choose();
+  await page.respond(0, read);
+
+  page.input.files = [];
+  page.input.dispatchEvent(new Event("change"));
+
+  assert.equal(page.agency.value, "");
+  assert.equal(page.auditDate.value, "");
+});
+
 test("clearing the file uncovers the section", () => {
   const page = createPage();
   page.choose();

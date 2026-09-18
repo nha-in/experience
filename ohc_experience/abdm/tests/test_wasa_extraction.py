@@ -97,7 +97,7 @@ def test_a_fenced_reply_is_still_read(reader):
 
 @pytest.mark.parametrize(
     "agency",
-    ["Unlisted new agency", "", None, 7, "M/s A3S Tech & Company Pvt"],
+    ["Unlisted new agency", "", None, 7, "A3S Technologies"],
 )
 def test_only_a_published_agency_survives(reader, agency):
     reader["reply"] = stated(agency=agency)
@@ -106,6 +106,21 @@ def test_only_a_published_agency_survives(reader, agency):
 
 def test_agency_matching_ignores_case_and_spacing(reader):
     reader["reply"] = stated(agency="m/s  a3s   TECH & company ")
+    assert extract_certificate(certificate())["wasa_agency"] == AGENCY
+
+
+@pytest.mark.parametrize(
+    "printed",
+    ["M/s A3S Tech & Company Pvt", "A3S Tech and Company Private Limited"],
+    ids=["extra legal form", "spelt out"],
+)
+def test_a_legal_form_is_how_a_company_registers_not_what_it_is_called(
+    reader,
+    printed,
+):
+    """The list says 'M/s A3S Tech & Company'; a letterhead adds Pvt Ltd."""
+    reader["reply"] = stated(agency=printed)
+
     assert extract_certificate(certificate())["wasa_agency"] == AGENCY
 
 
