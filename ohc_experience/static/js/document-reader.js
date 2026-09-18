@@ -85,11 +85,10 @@
     const form = input.closest("form");
     const field = input.closest("[data-read-document-field]");
     const status = field?.querySelector("[data-read-document-status]");
-    const retry = field?.querySelector("[data-read-document-retry]");
     const overlay = field?.querySelector("[data-read-document-overlay]");
     // The overlay is absolute, so the section has to be its containing block.
     const region = input.closest("fieldset") || field;
-    if (!form || !status || !retry) return;
+    if (!form || !status) return;
 
     const doc = () => input.ownerDocument || globalThis.document;
 
@@ -101,12 +100,11 @@
 
     // `quiet` keeps the sentence for a screen reader without printing it: the
     // spinner and the notes beside each field already show it on screen.
-    function message(text, { canRetry = false, quiet = false } = {}) {
+    function message(text, { quiet = false } = {}) {
       status.textContent = text;
       status.hidden = !text;
       if (text && quiet) status.classList.add("sr-only");
       else status.classList.remove("sr-only");
-      retry.hidden = !canRetry;
     }
 
     function setBusy(busy) {
@@ -257,10 +255,7 @@
       } catch (error) {
         if (!isCurrent() || (error.name === "AbortError" && !timedOut)) return;
         setBusy(false);
-        message(
-          "The document could not be read. Enter the details below, or retry.",
-          { canRetry: true },
-        );
+        message("Autofill failed. Enter the details below.");
       } finally {
         clearTimeout(timer);
         if (isCurrent()) {
@@ -285,7 +280,6 @@
     }
 
     input.addEventListener("change", schedule);
-    retry.addEventListener("click", schedule);
     controllers.set(input, {
       refresh() {},
       dispose() {

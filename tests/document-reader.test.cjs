@@ -67,7 +67,6 @@ function createPage(initial = {}) {
   const validUntil = wrap(new Element(initial.validUntil || ""));
   const csrf = new Element("token");
   const status = new Element();
-  const retry = new Element();
   const overlay = new Element();
   const fieldset = new Element();
   const field = new Element();
@@ -108,7 +107,6 @@ function createPage(initial = {}) {
   field.querySelector = (selector) =>
     ({
       "[data-read-document-status]": status,
-      "[data-read-document-retry]": retry,
       "[data-read-document-overlay]": overlay,
     })[selector];
   document.querySelectorAll = () => (input.isConnected ? [input] : []);
@@ -193,7 +191,6 @@ function createPage(initial = {}) {
     auditDate,
     validUntil,
     status,
-    retry,
     field,
     requests,
     choose,
@@ -233,7 +230,6 @@ test("fills the empty fields from the document without announcing it twice", asy
   // The note beside each field is the report; a summary would only repeat it.
   assert.equal(page.status.textContent, "");
   assert.equal(page.status.hidden, true);
-  assert.equal(page.retry.hidden, true);
   assert.equal(page.field.attributes.has("aria-busy"), false);
 });
 
@@ -457,28 +453,36 @@ test("a blank reading leaves the fields alone and says so", async () => {
   assert.match(page.status.textContent, /Nothing could be read/);
 });
 
-test("a failed reading offers a retry that asks again", async () => {
+test("a failed reading asks for the details, with no way to try again", async () => {
   const page = createPage();
   page.choose();
   await page.respond(0, {}, 503);
+
   assert.match(page.status.textContent, /could not be read/);
-  assert.equal(page.retry.hidden, false);
-  page.retry.dispatchEvent(new Event("click"));
-  assert.equal(page.requests.length, 2);
-  await page.respond(1, read);
-  assert.equal(page.auditDate.value, TODAY);
-  assert.equal(page.retry.hidden, true);
+  assert.doesNotMatch(page.status.textContent, /retry/i);
+  assert.equal(page.auditDate.value, "");
 });
 
-test("a rate-limited reading asks for the details instead of retrying", async () => {
+test("choosing the file again is what asks a second time", async () => {
+  const page = createPage();
+  page.choose();
+  await page.respond(0, {}, 503);
+
+  page.choose("second.pdf");
+  await page.respond(1, read, 200, "second.pdf");
+
+  assert.equal(page.requests.length, 2);
+  assert.equal(page.auditDate.value, TODAY);
+});
+
+test("a rate-limited reading asks for the details instead", async () => {
   const page = createPage();
   page.choose();
   await page.respond(0, {}, 429);
   assert.match(page.status.textContent, /Enter the details below/);
-  assert.equal(page.retry.hidden, true);
 });
 
-test("a document that can never be read says so without offering a retry", async () => {
+test("a document that can never be read says exactly why", async () => {
   const page = createPage();
   page.choose();
   await page.respond(
@@ -490,7 +494,6 @@ test("a document that can never be read says so without offering a retry", async
     page.status.textContent,
     "This certificate is a scan with no text to read.",
   );
-  assert.equal(page.retry.hidden, true);
   assert.equal(page.auditDate.value, "");
 });
 
