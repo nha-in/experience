@@ -371,6 +371,16 @@ class TestSignupVerification:
 
         assert client.session[EMAIL_VERIFICATION_CODE_SESSION_KEY]["at"] > first
 
+    def test_create_account_and_sign_in_stay_reachable_while_verifying(
+        self,
+        client: Client,
+    ):
+        sign_up(client)
+
+        assert client.get(reverse("account_signup")).status_code == HTTPStatus.OK
+        assert client.get(reverse("account_login")).status_code == HTTPStatus.OK
+        assert client.get(VERIFY_PAGE).status_code == HTTPStatus.OK
+
     def test_the_screen_needs_a_signup_in_progress(self, client: Client):
         response = client.get(VERIFY_PAGE)
 

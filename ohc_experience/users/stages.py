@@ -20,6 +20,11 @@ class VerificationStage(EmailVerificationStage):
     key = "verify_account"
     urlname = "account_verification"
 
+    def is_resumable(self, request) -> bool:
+        # allauth would send every visit to the sign-in or signup page back
+        # here; let those through, so someone can start over.
+        return False
+
     def handle(self):
         email_response, keep_going = super().handle()
         phone = self._unverified_phone()
