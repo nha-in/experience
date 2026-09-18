@@ -436,6 +436,7 @@ class WasaReviewForm(ReviewForm):
         label="WASA audit agency name",
         choices=[("", "Select an audit agency")],
         error_messages={"invalid_choice": "Select an audit agency from the list."},
+        widget=forms.Select(attrs={"autocomplete": "off"}),
     )
     wasa_date = forms.DateField(
         label="WASA audit date",
@@ -446,6 +447,7 @@ class WasaReviewForm(ReviewForm):
                 # a starting point the integrator can correct.
                 "data-autofill-target": "wasa_valid_until",
                 "data-autofill-years": WASA_VALIDITY_YEARS,
+                "autocomplete": "off",
             },
         ),
     )
@@ -455,13 +457,13 @@ class WasaReviewForm(ReviewForm):
             "Filled in to cover one year from the audit date. Change it if the "
             "certificate states a different expiry date."
         ),
-        widget=forms.DateInput(attrs={"type": "date"}),
+        widget=forms.DateInput(attrs={"type": "date", "autocomplete": "off"}),
     )
     wasa_certificate = forms.FileField(
         label="WASA certificate",
         required=False,
         validators=[validate_pdf],
-        widget=WasaCertificateInput,
+        widget=WasaCertificateInput(attrs={"autocomplete": "off"}),
     )
     required_uploads = ("wasa_certificate",)
 
