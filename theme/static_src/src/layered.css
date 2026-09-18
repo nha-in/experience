@@ -161,7 +161,7 @@
   }
 
   .ui-meter-fill--info {
-    @apply bg-sky-500;
+    @apply bg-primary-500;
   }
 
   .ui-meter-fill--warning {
@@ -187,7 +187,7 @@
   }
 
   .ui-feed-avatar {
-    @apply flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-[10px] font-bold text-primary;
+    @apply flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-primary;
   }
 
   .ui-feed-avatar--muted {
@@ -209,7 +209,7 @@
   /* ── Date block (events) ────────────────────────────────────────────── */
 
   .ui-dateblock {
-    @apply flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary-50 text-primary;
+    @apply flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-secondary text-primary;
   }
 
   .ui-dateblock-day {
@@ -267,10 +267,10 @@
   }
 
   .ui-pill[aria-current] {
-    @apply bg-primary-50 font-semibold text-primary-900;
+    @apply bg-accent font-semibold text-accent-foreground;
   }
 
-  /* A switch that sits on the hero band. The pill's emerald-50 is the colour
+  /* A switch that sits on the hero band. The pill's blue tint is the colour
      of the wash, so here the current option lifts off a hairline track. */
   .ui-switch {
     @apply inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl p-[3px];
@@ -342,7 +342,7 @@
   }
 
   .ui-grid-table tbody tr {
-    @apply transition-colors hover:bg-primary-50/40;
+    @apply transition-colors hover:bg-secondary/40;
   }
 
   /* ── Milestone stepper ──────────────────────────────────────────────── */
@@ -438,7 +438,7 @@
   }
 
   .ui-station--done .ui-station-status {
-    @apply text-green-800;
+    color: var(--status-success-text);
   }
 
   .ui-station--locked .ui-station-status,
@@ -560,7 +560,7 @@
   }
 
   .ui-milestone-tile--done .ui-milestone-tile-status {
-    @apply text-green-800;
+    color: var(--status-success-text);
   }
 
   .ui-milestone-tile--locked .ui-milestone-tile-status {
@@ -568,7 +568,8 @@
   }
 
   .ui-milestone-tile-needs {
-    @apply mt-auto flex items-center gap-1.5 border-t border-soft-border py-2 text-[11.5px] leading-[15px] font-semibold text-green-800;
+    @apply mt-auto flex items-center gap-1.5 border-t border-soft-border py-2 text-[11.5px] leading-[15px] font-semibold;
+    color: var(--status-success-text);
   }
 
   .ui-milestone-tile-needs svg {

@@ -248,8 +248,9 @@ and user API routes are no longer exposed.
 ## Visual design
 
 The portal adapts Amjith Titus’s Layered styling from `bodhi-test` commit
-`4bd4f07`: emerald hero bands, floating summary cards, connected milestone
-stations, evidence readiness, review history, and support/event count tabs.
+`4bd4f07`, using the shared blue theme for hero bands, floating summary cards,
+connected milestone stations, evidence readiness, review history, and
+support/event count tabs.
 The shared components live in `theme/static_src/src/layered.css`; hero bands
 remain inside the HTMX main-content target and queue filters refresh their
 hero counts out of band.

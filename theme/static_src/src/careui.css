@@ -42,7 +42,7 @@
     @apply border-primary-700 bg-background text-primary-900 shadow-md;
     @apply hover:border-primary-600 hover:bg-primary-700/10;
     @apply active:bg-primary-700/5 active:inset-shadow-sm active:inset-shadow-neutral-500/35 active:shadow-none;
-    @apply dark:text-primary-500 dark:active:inset-shadow-neutral-950;
+    @apply dark:text-primary-300 dark:active:inset-shadow-neutral-950;
   }
 
   .ui-btn--tertiary {
@@ -497,7 +497,7 @@
 
   .ui-nav-link {
     @apply flex min-h-10 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors;
-    @apply hover:bg-soft-background hover:text-foreground;
+    @apply hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
     @apply focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none;
   }
 
@@ -507,12 +507,12 @@
 
   .ui-subnav-link {
     @apply block rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors;
-    @apply hover:bg-muted-background hover:text-foreground;
+    @apply hover:bg-accent hover:text-accent-foreground;
     @apply focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none;
   }
 
   .ui-subnav-link--active {
-    @apply bg-muted-background font-semibold text-foreground;
+    @apply bg-accent font-semibold text-accent-foreground;
   }
 
   /* ── Typography helpers ────────────────────────────────────────────────── */

@@ -5,7 +5,7 @@ The public landing page should feel like a polished government technology servic
 ## Consolidated user requirements
 
 - Adapt the wording and content from `home-agentic-sandbox-updated1.2.html`.
-- Keep the application’s green identity. Use white and green tones, with restrained gradients to avoid an overwhelmingly white page. Preserve official logos in their original colours.
+- Use the application’s shared blue identity. Use white and blue tones, with restrained gradients to avoid an overwhelmingly white page. Preserve official logos in their original colours.
 - Keep the hero text-only. Do not reintroduce an illustration, ecosystem diagram, or decorative hero image.
 - Show both NHA and ABDM logos clearly in the header. Do not copy the reference’s utility header or screen-reader configuration toolbar.
 - Retain all three gateways, six AI artefacts, four milestones, and the six-step integration journey.
@@ -18,7 +18,7 @@ The supplied HTML is a content/design reference; it does not provide operational
 
 ## Visual direction
 
-A green-led civic technology page, with a pale-green gradient opening, white gateway cards, a deep forest-green AI section, a pale-green milestone section, a clear timeline, and a dark-green closing call to action. Institutional marks sit on white surfaces. Typography and spacing provide the hierarchy; gradients remain behind readable, solid-colour text.
+A civic technology page in blue, with a pale-blue gradient opening, white gateway cards, a deep navy AI section, a pale-blue milestone section, a clear timeline, and a dark-blue closing call to action. Institutional marks sit on white surfaces. Typography and spacing provide the hierarchy; gradients remain behind readable, solid-colour text.
 
 The opening reference facts double as navigation: three national gateways, M1–M4 milestones, FHIR R4 documentation, and Agentic AI guidance. They replace redundant introductory decoration. The closing section includes the reference’s registration and overview actions.
 
