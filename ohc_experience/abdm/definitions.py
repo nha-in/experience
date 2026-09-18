@@ -102,7 +102,7 @@ class ExitEvidence(ApplicationFormDefinition):
     submitted_message = "Exit requested."
     approval_notice = (
         "The NHA gateway team issues production credentials. Your production "
-        "client ID appears on the Credentials page once it is recorded."
+        "client ID appears on the Credentials page once it is issued."
     )
 
     @classmethod
@@ -148,7 +148,7 @@ class ExitEvidence(ApplicationFormDefinition):
                     "decision_note": item.decision_note,
                     "production_handoff": (
                         "Issued by the NHA gateway team. The production client ID "
-                        "appears on the Credentials page once it is recorded."
+                        "appears on the Credentials page once it is issued."
                     ),
                 },
             ),

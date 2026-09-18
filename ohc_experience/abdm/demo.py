@@ -296,6 +296,7 @@ class DemoBuilder:
             workspace.product,
             reviewer,
             client_id=f"DEMO_PROD_{workspace.reference.replace('-', '_')}",
+            issued_on=timezone.localdate() - timedelta(days=9),
             expected="",
         )
         self.exit(workspace, "m2", applicant, admin, reviewer, "query")

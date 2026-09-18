@@ -7,6 +7,7 @@ from ohc_experience.support.models import Category
 
 from .fields import MultipleFileField
 from .production import validate_client_id
+from .production import validate_issued_on
 from .registry import get_program
 from .uploads import validate_pdf
 
@@ -116,11 +117,19 @@ class ProductionAccessForm(forms.Form):
         max_length=255,
         help_text=_("As issued by the gateway team. No secret is stored here."),
     )
+    issued_on = forms.DateField(
+        label=_("Production issue date"),
+        help_text=_("The day the gateway team issued the production credentials."),
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
     #: The ID the form was opened with, so a concurrent change is not overwritten.
     expected = forms.CharField(required=False, widget=forms.HiddenInput)
 
     def clean_client_id(self):
         return validate_client_id(self.cleaned_data["client_id"])
+
+    def clean_issued_on(self):
+        return validate_issued_on(self.cleaned_data["issued_on"])
 
 
 class CredentialURLsForm(forms.Form):

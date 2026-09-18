@@ -117,12 +117,19 @@ class Product(models.Model):
     description = models.TextField(_("Product and intended use"))
     metadata = models.JSONField(_("Metadata"), default=dict, blank=True)
     #: Issued by the gateway team, which hands the secret to the integrator
-    #: directly; staff record the ID once an exit is approved.
+    #: directly; staff add the ID once an exit is approved.
     production_client_id = models.CharField(
         _("Production client ID"),
         max_length=255,
         blank=True,
     )
+    #: The day the gateway team issued the credentials, as staff entered it.
+    production_issued_on = models.DateField(
+        _("Production issue date"),
+        null=True,
+        blank=True,
+    )
+    #: When this portal saved the ID, which is not when it was issued.
     production_recorded_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

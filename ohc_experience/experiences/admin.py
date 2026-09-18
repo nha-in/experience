@@ -98,10 +98,11 @@ class ProductAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     list_display = ["name", "organisation", "updated_at"]
     search_fields = ["name", "organisation__name", "slug"]
     autocomplete_fields = ["organisation", "created_by"]
-    # The production client ID changes only through the audited staff screen.
+    # The production details change only through the audited staff screen.
     readonly_fields = [
         "slug",
         "production_client_id",
+        "production_issued_on",
         "production_recorded_at",
         "created_at",
         "updated_at",

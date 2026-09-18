@@ -1,0 +1,110 @@
+{% comment %}
+  Exit requests still waiting on a decision, on the Production Approval screen.
+  The rows are the review queue's, so a request reads the same in both places
+  and is decided in one: its review page. What nothing blocks comes first, and
+  a blocked row says what it waits on. Context: requests (queue rows), page,
+  counts, q.
+{% endcomment %}
+<div class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.1s]">
+  <div class="flex flex-wrap items-center justify-between gap-2 px-6 py-4">
+    <p class="text-sm font-semibold" aria-live="polite">
+      {{ page.paginator.count }} request{{ page.paginator.count|pluralize }}{% if q %} found{% endif %}
+      {% if counts.blocked %}<span class="font-normal text-soft-foreground">· {{ counts.blocked }} blocked by an earlier request</span>{% endif %}
+    </p>
+    <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
+       href="{% url 'experiences:queue' %}?scope=ready">Open the review queue</a>
+  </div>
+  {% if requests %}
+    <div class="hidden overflow-x-auto md:block">
+      <table class="ui-grid-table min-w-[860px]">
+        <caption class="sr-only">Exit requests waiting on a production decision</caption>
+        <thead>
+          <tr>
+            <th scope="col">Product</th>
+            <th scope="col">Organisation</th>
+            <th scope="col">Exit request</th>
+            <th scope="col">Status</th>
+            <th scope="col">Submitted</th>
+            <th scope="col">Assignee</th>
+            <th scope="col">Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in requests %}
+            <tr>
+              <td class="min-w-[180px]">
+                <a class="font-semibold text-foreground no-underline hover:text-primary"
+                   href="{{ item.get_absolute_url }}">{{ item.product.name|default:item.title }}</a>
+                <span class="mt-0.5 block font-mono text-xs text-soft-foreground">
+                  {% if item.product %}{{ item.product.workspace.reference }} · {% endif %}{{ item.reference }}
+                </span>
+              </td>
+              <td class="max-w-[180px] text-muted-foreground">{{ item.organisation.display_name }}</td>
+              <td class="min-w-[160px]">
+                {% include 'experiences/partials/reviewer_milestone.html' %}
+                <span class="block">{{ item.title }}</span>
+              </td>
+              <td>
+                {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+                {% include 'experiences/partials/reviewer_waiting.html' %}
+              </td>
+              <td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}</td>
+              <td>{% include 'experiences/partials/reviewer_assignee.html' %}</td>
+              <td class="text-right">
+                <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 whitespace-nowrap"
+                   href="{{ item.get_absolute_url }}">
+                  Open
+                  <span class="sr-only">the review of {{ item.title }} for {{ item.product.name|default:item.title }}</span>
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <ul class="divide-y divide-soft-border border-t border-soft-border md:hidden">
+      {% for item in requests %}
+        {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="border-t border-soft-border px-6 py-12 text-center"
+         role="status">
+      <h2 class="text-base font-semibold">
+        {% if q %}
+          No matching exit requests
+        {% else %}
+          No exit request is waiting on a decision
+        {% endif %}
+      </h2>
+      <p class="mt-2 text-sm text-muted-foreground">
+        {% if q %}
+          Try another product, organisation or request reference.
+        {% else %}
+          Requests appear here when an integrator asks to take a milestone to production. Each one is visible to the reviewers of its own track.
+        {% endif %}
+      </p>
+    </div>
+  {% endif %}
+  <div class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">
+    <span>
+      {% if page.paginator.count %}
+        Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}
+      {% else %}
+        Showing 0 requests
+      {% endif %}
+    </span>
+    <nav class="flex flex-wrap items-center gap-2"
+         aria-label="Pending exit requests pagination">
+      {% if page.has_previous %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+           href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>
+      {% endif %}
+      <span class="px-1">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+           href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>
+      {% endif %}
+    </nav>
+  </div>
+</div>

@@ -228,14 +228,14 @@ class SandboxCredentialDefinition(CredentialDefinition):
 
 
 class ProductionCredentialDefinition(CredentialDefinition):
-    """Staff record each product's production client ID once an exit is approved.
+    """Staff add each product's production client ID once an exit is approved.
 
-    The portal holds the ID alone; the secret is issued outside it.
+    The portal holds the ID and its issue date; the secret is issued outside it.
     """
 
-    name = "Production access"
+    name = "Production credentials"
     unavailable_notice = (
-        "Production access becomes available once a milestone exit is approved."
+        "Production credentials become available once a milestone exit is approved."
     )
     pending_notice = (
         "Your exit is approved. Your production client ID will appear here once "

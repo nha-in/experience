@@ -19,8 +19,8 @@ not import ABDM. Implementations register ordinary Python definitions through
   querysets, available review actions and assignment/decision access.
 - `credentials.py`: encryption, audited reveal, rotation, revocation and callback
   validation. A registered provider supplies eligibility and gateway operations.
-- `production.py`, `production_views.py`: production client IDs that staff record
-  after an approved exit, with their staff list and CSV export.
+- `production.py`, `production_views.py`: production client IDs and issue dates
+  that staff add after an approved exit, with their register and CSV export.
 - `forms.py`, `fields.py`, `uploads.py`: shared form rendering and upload handling.
 - `views.py`, `urls.py`, `admin.py`, `tasks.py`: HTTP, admin and background work.
   HTMX templates live in `templates/experiences`. Existing HTTP routes are kept.
@@ -51,7 +51,7 @@ Implementations contain no models, migrations, URL configuration or views:
 5. Register the dotted program class in settings and select its key as the portal.
    Optionally supply a `SandboxCredentialDefinition` provider as
    `sandbox_credentials`, a `ProductionCredentialDefinition` as
-   `production_credentials` when staff should record each product's production
+   `production_credentials` when staff should add each product's production
    client ID after an approved exit, a `ReferenceEnvironmentDefinition` as
    `reference_environment` when integrators can run the program's flows locally,
    and a demo builder.
@@ -85,7 +85,7 @@ area/category capability alone; assignment only labels work. Superusers have
 full access.
 Team invitation and role constraints live in the
 organisations app. Credentials are encrypted in `ProductCredential`, never stored
-as secrets in outcome JSON. The production client ID staff record is a plain
+as secrets in outcome JSON. The production client ID staff add is a plain
 `Product` field; its secret never reaches the portal. `ApplicationDependency`
 rejects cross-product links, self references and cycles. A form opens once every
 application it depends on, directly or not, is submitted; sent back still counts,
@@ -113,7 +113,7 @@ independent of the source review.
 | Area | Read | Write | Approve |
 | --- | --- | --- | --- |
 | Reviews | Queue, evidence, history, downloads | Raise and resolve queries | Approve or send back |
-| Reviews, General/onboarding | Production access list and CSV export | | Record, change or remove a production client ID |
+| Reviews, General/onboarding | Production Approval screen and CSV export | | Add, change or remove a product's production details |
 | Support | Tickets and attachments | Reply | Resolve |
 | Events | Events | Create/edit drafts | Publish/unpublish |
 

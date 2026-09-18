@@ -7,9 +7,9 @@
       <p class="ui-card-description">The client ID for the production gateway, issued outside this portal.</p>
     </div>
     {% if production.client_id %}
-      {% include 'experiences/partials/status.html' with status='active' label='Recorded' %}
+      {% include 'experiences/partials/status.html' with status='active' label='Issued' %}
     {% elif production.eligible %}
-      {% include 'experiences/partials/status.html' with status='in_review' label='Awaiting' %}
+      {% include 'experiences/partials/status.html' with status='in_review' label='Awaiting client ID' %}
     {% else %}
       {% include 'experiences/partials/status.html' with status='draft' label='Not yet available' %}
     {% endif %}
@@ -25,9 +25,9 @@
           </dd>
         </div>
         <div class="grid min-h-11 items-center gap-1 py-1 sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-4">
-          <dt class="ui-kicker">Recorded</dt>
+          <dt class="ui-kicker">Issued on</dt>
           <dd class="tabular-nums">
-            {{ production.recorded_at|date:'j M Y' }}
+            {{ production.issued_on|date:'j M Y'|default:'—' }}
           </dd>
         </div>
       </dl>

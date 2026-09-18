@@ -1832,10 +1832,10 @@ def _prerequisite_label(program, prerequisite):
     return name, review.get_status_display().lower()
 
 
-def _queue_rows(page, user, matching):
+def waiting_rows(items):
     """What each request waits on, and how many requests wait on it."""
-    page = populate_queue_page(page, user, matching)
-    for item in (item for entry in page for item in entry.reviews):
+    items = list(items)
+    for item in items:
         item.waiting_on = (
             [
                 _prerequisite_label(item.program, prerequisite)
@@ -1849,6 +1849,13 @@ def _queue_rows(page, user, matching):
             if item.status != ReviewItem.Status.APPROVED
             else 0
         )
+    return items
+
+
+def _queue_rows(page, user, matching):
+    """The page's entries, each request marked with what it waits on."""
+    page = populate_queue_page(page, user, matching)
+    waiting_rows(item for entry in page for item in entry.reviews)
     return page
 
 
