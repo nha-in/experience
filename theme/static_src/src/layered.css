@@ -17,7 +17,7 @@
   }
 
   .ui-hero-inner {
-    @apply mx-auto flex w-full max-w-[1120px] flex-wrap items-end justify-between gap-x-8 gap-y-5;
+    @apply mx-auto flex w-full max-w-(--page-max) flex-wrap items-end justify-between gap-x-8 gap-y-5;
   }
 
   .ui-hero-eyebrow {

@@ -207,6 +207,10 @@
   --status-danger-border: #efccca;
   --status-danger-text: #a13737;
   --shadow-surface: 0 2px 4px -3px rgb(29 45 53 / 12%);
+
+  /* The widest the signed-in shell's content column and hero band grow. Below
+     it they fill the space beside the sidebar; past it they centre. */
+  --page-max: 100rem;
 }
 
 @theme inline {
