@@ -2,9 +2,12 @@ from datetime import timedelta
 from pathlib import Path
 from statistics import median
 
+from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -15,6 +18,7 @@ from django.db.models import Q
 from django.db.models.functions import Upper
 from django.http import FileResponse
 from django.http import Http404
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -27,6 +31,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
 from ohc_experience.events.models import Event
+from ohc_experience.experiences.definitions import DocumentReadError
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
@@ -57,11 +62,71 @@ from .models import Notification
 from .models import ProductCredential
 from .models import ReviewItem
 from .models import ReviewQuery
+from .models import SubmissionStatus
 from .models import TicketAttachment
 from .presentation import overview_next_step
 from .presentation import overview_progress
+from .queue_presentation import grouped_requests
+from .queue_presentation import populate_queue_page
+from .queue_presentation import queue_requests
+from .queue_presentation import review_order
 from .registry import get_program
 from .support_presentation import support_inbox
+
+# Reading a document costs an implementation a paid call to somebody else.
+DOCUMENT_READ_WINDOW_SECONDS = 3600
+
+
+def _document_read_allowed(user):
+    key = f"document-read:{user.pk}"
+    if cache.get(key, 0) >= settings.EXPERIENCE_DOCUMENT_READ_HOURLY_LIMIT:
+        return False
+    try:
+        cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout=DOCUMENT_READ_WINDOW_SECONDS)
+    return True
+
+
+def _read_document(request, form_definition):
+    """Answer a form's document hook as JSON; the caller has already authorised.
+
+    Nothing is stored and nothing is trusted. The proposed values travel back
+    through the form's own validation when the draft is saved.
+    """
+    field_key = request.POST.get("field", "")
+    upload = request.FILES.get(field_key)
+    field = form_definition.form_class.base_fields.get(field_key)
+    if not isinstance(field, forms.FileField):
+        return JsonResponse(
+            {"error": "That field does not accept a document."},
+            status=400,
+        )
+    if upload is None:
+        return JsonResponse({"error": "Choose a document to read."}, status=400)
+    try:
+        # The form's own validators decide what this field accepts.
+        field.clean(upload, None)
+    except ValidationError as error:
+        return JsonResponse({"error": error.messages[0]}, status=400)
+    if not _document_read_allowed(request.user):
+        return JsonResponse(
+            {
+                "error": (
+                    "Too many documents read in the last hour. "
+                    "Enter the details yourself."
+                ),
+            },
+            status=429,
+        )
+    try:
+        fields = form_definition.read_document(field_key, upload)
+    except DocumentReadError as error:
+        return JsonResponse(
+            {"error": str(error), "retryable": error.retryable},
+            status=503 if error.retryable else 422,
+        )
+    return JsonResponse({"name": upload.name, "fields": fields})
 
 
 def _organisation(request):
@@ -227,6 +292,10 @@ def _context(request, workspace=None, **kwargs):
             services.prerequisite_names(result["prerequisites"])
             if result["prerequisites"]
             else ""
+        )
+        result["withdrawn_hold"] = services.withdrawn_hold(
+            item,
+            result["prerequisites"],
         )
         if item.pending and not is_reviewer:
             # Latest first, the order they can be withdrawn in.
@@ -498,6 +567,11 @@ def organization_detail(request, slug):
         .order_by("-open_count", "product__name")
     )
     verification = visible_reviews.filter(kind=ReviewItem.Kind.ORGANISATION).first()
+    withdrawn = (
+        verification
+        and organization.verification_status
+        == Organisation.VerificationStatus.WITHDRAWN
+    )
     return render(
         request,
         "experiences/organization_detail.html",
@@ -511,6 +585,8 @@ def organization_detail(request, slug):
                 if verification and verification.selected_submission
                 else {}
             ),
+            withdrawn_verification=verification if withdrawn else None,
+            withdrawn_at=services.withdrawn_at(verification) if withdrawn else None,
             products=products,
             # A draft is the integrator's unsent work, not yet a request.
             review_requests=_page(request, visible_reviews.exclude(status="draft")),
@@ -518,14 +594,233 @@ def organization_detail(request, slug):
     )
 
 
+def _product_review_id(value):
+    if (
+        not value.isascii()
+        or not value.isdecimal()
+        or len(value) > 19  # noqa: PLR2004
+        or not 0 < int(value) < 2**63
+    ):
+        msg = "Reload the product page before reviewing these submissions."
+        raise ValidationError(msg)
+    return int(value)
+
+
+def _posted_product_reviews(request):
+    revisions = {}
+    for value in request.POST.getlist("reviews"):
+        parts = value.split(":")
+        if (
+            len(parts) != 2  # noqa: PLR2004
+            or _product_review_id(parts[0]) in revisions
+        ):
+            msg = "Reload the product page before reviewing these submissions."
+            raise ValidationError(msg)
+        revisions[_product_review_id(parts[0])] = _product_review_id(parts[1])
+    return revisions
+
+
+def _product_review_scope(product):
+    return Q(product=product) | Q(
+        organisation=product.organisation,
+        kind=ReviewItem.Kind.ORGANISATION,
+        product__isnull=True,
+        application__isnull=True,
+    )
+
+
+def _product_review_post(request, workspace):
+    if request.POST.get("intent") == "bulk_decision":
+        decided = services.decide_product(
+            workspace.product,
+            request.user,
+            action=request.POST.get("action"),
+            expected_revisions=_posted_product_reviews(request),
+            note=request.POST.get("note", ""),
+        )
+        verb = "Approved" if request.POST.get("action") == "approve" else "Sent back"
+        noun = "request" if len(decided) == 1 else "requests"
+        messages.success(
+            request,
+            f"{verb} {len(decided)} submitted {noun}.",
+        )
+        anchor = "decisions"
+    elif request.POST.get("intent") == "decision":
+        review_id = _product_review_id(request.POST.get("review_id", ""))
+        item = get_object_or_404(
+            permissions.visible_reviews(request.user).filter(
+                _product_review_scope(workspace.product),
+            ),
+            pk=review_id,
+        )
+        services.decide(
+            item,
+            request.user,
+            action=request.POST.get("action"),
+            note=request.POST.get("note", ""),
+            reason=request.POST.get("reason", ""),
+            field_key=request.POST.get("field_key", "form"),
+            expected_revision=request.POST.get("revision", ""),
+        )
+        messages.success(request, "Review updated.")
+        anchor = f"review-{item.pk}"
+    else:
+        msg = "Choose a review action."
+        raise ValidationError(msg)
+    return redirect(
+        reverse("experiences:product-detail", args=[workspace.reference])
+        + f"#{anchor}",
+    )
+
+
+def _product_review_sections(request, items):
+    sections = []
+    for item in items:
+        snapshot = item.selected_submission
+        if item.status == ReviewItem.Status.DRAFT or not (
+            snapshot and snapshot.status == SubmissionStatus.COMPLETED
+        ):
+            snapshot = None
+        prerequisites = services.pending_prerequisites(item) if item.pending else []
+        unresolved = sum(
+            query.submission_id == item.selected_submission_id
+            and query.status != "resolved"
+            for query in item.queries.all()
+        )
+        actions = permissions.available_review_actions(request.user, item)
+        can_approve = "approve" in actions and not prerequisites and not unresolved
+        can_send_back = "send_back" in actions and not prerequisites
+        can_query = "query" in actions
+        available = [
+            action
+            for action, allowed in (
+                ("approve", can_approve),
+                ("send_back", can_send_back),
+                ("query", can_query),
+            )
+            if allowed
+        ]
+        posted = request.POST.get("review_id") == str(item.pk)
+        action = request.POST.get("action") if posted else None
+        sections.append(
+            {
+                "item": item,
+                "snapshot": snapshot,
+                "prerequisites": prerequisites,
+                "withdrawn_hold": services.withdrawn_hold(item, prerequisites),
+                "withdrawn_at": services.withdrawn_at(item)
+                if item.status == ReviewItem.Status.DRAFT
+                else None,
+                "can_approve": can_approve,
+                "can_send_back": can_send_back,
+                "can_query": can_query,
+                "available_actions": available,
+                "unresolved_query_count": unresolved,
+                "decision_note": request.POST.get("note", "") if posted else "",
+                "send_back_reasons": services.send_back_reasons(item.definition),
+                "other_reason": services.OTHER_REASON,
+                "decision_reason": request.POST.get("reason", "") if posted else "",
+                "decision_action": action
+                if action in available
+                else next(iter(available), ""),
+                "query_field": request.POST.get("field_key", "form")
+                if posted
+                else "form",
+            },
+        )
+    return sections
+
+
+def _review_groups(sections):
+    """Open requests outside the tracks on top, then milestones, approved last."""
+    groups = {"outside_tracks": [], "pending": [], "sent_back": [], "approved": []}
+    for section in sections:
+        item = section["item"]
+        if item.status == ReviewItem.Status.APPROVED:
+            groups["approved"].append(section)
+        elif not getattr(item.application, "milestone", None):
+            groups["outside_tracks"].append(section)
+        elif item.status == ReviewItem.Status.SENT_BACK:
+            groups["sent_back"].append(section)
+        else:
+            groups["pending"].append(section)
+    return groups
+
+
+def _bulk_holds(approve_blockers, reject_blockers):
+    """Group hold reasons by the buttons they hold, so a shared one is said once."""
+    shared = [reason for reason in approve_blockers if reason in reject_blockers]
+    groups = (
+        ("Accept all and Reject all are", shared),
+        ("Accept all is", [r for r in approve_blockers if r not in shared]),
+        ("Reject all is", [r for r in reject_blockers if r not in shared]),
+    )
+    return [
+        {"label": label, "reasons": reasons} for label, reasons in groups if reasons
+    ]
+
+
 @login_required
+@require_http_methods(["GET", "POST"])
 def product_detail(request, reference):
-    """A product as staff see it: its open requests, each one click from a decision."""
+    """Review a product's submitted evidence and milestone progress together."""
     _reviewer_required(request)
     workspace = get_object_or_404(_workspaces(request.user), reference=reference)
     product = workspace.product
     program = workspace.definition
+    if request.method == "POST":
+        try:
+            return _product_review_post(request, workspace)
+        except ValidationError as error:
+            _error(request, error)
     visible_items = permissions.visible_reviews(request.user)
+    product_items = sorted(
+        visible_items.filter(_product_review_scope(product))
+        .exclude(kind=ReviewItem.Kind.PRODUCT)
+        # A draft is the integrator's unsent work. A withdrawn organisation
+        # verification stays in view, read only, since every milestone waits on it.
+        .filter(
+            ~Q(status=ReviewItem.Status.DRAFT)
+            | Q(
+                kind=ReviewItem.Kind.ORGANISATION,
+                organisation__verification_status=(
+                    Organisation.VerificationStatus.WITHDRAWN
+                ),
+            ),
+        )
+        .select_related(
+            "selected_submission__form",
+            "form",
+            "organisation",
+            "product__workspace",
+            "application__milestone",
+            "assignee",
+        )
+        .prefetch_related("queries__raised_by", "queries__replied_by")
+        .order_by("pk"),
+        key=review_order,
+    )
+    review_sections = _product_review_sections(request, product_items)
+    bulk_items = [
+        item
+        for item in product_items
+        if item.pending
+        and item.selected_submission_id
+        and item.selected_submission.status == SubmissionStatus.COMPLETED
+        and item.submitted_at
+        and not item.definition.auto_approve
+        and permissions.can_review(request.user, item, "approve")
+    ]
+    bulk_approve_blockers = (
+        services.product_decision_blockers(bulk_items, request.user, action="approve")
+        if bulk_items
+        else []
+    )
+    bulk_reject_blockers = (
+        services.product_decision_blockers(bulk_items, request.user, action="send_back")
+        if bulk_items
+        else []
+    )
     pending = list(
         visible_items.filter(
             product_scope(workspace),
@@ -545,20 +840,30 @@ def product_detail(request, reference):
         .values_list("pk", flat=True)
     }
     tracks = _tracks(workspace, request.user)
+    progress = overview_progress(tracks)
+    submitted_ids = {item.pk for item in product_items}
     for row in tracks:
+        row["tiles"] = [
+            tile for tile in row["tiles"] if tile["item"].pk in submitted_ids
+        ]
         for tile in row["tiles"]:
-            tile["url"] = tile["item"].get_absolute_url()
+            tile["url"] = f"#review-{tile['item'].pk}"
     general_access = permissions.has_access(request.user, "review", program=program.key)
-    organisation_review = (
-        visible_items.filter(
-            organisation=product.organisation,
-            kind="organisation_verification",
-        )
-        .select_related("selected_submission")
-        .first()
+    organisation_section = next(
+        (
+            section
+            for section in review_sections
+            if section["item"].kind == ReviewItem.Kind.ORGANISATION
+        ),
+        None,
     )
     certification = _certification_context(request, product)
-    activity = product.audit_events.filter(item__in=visible_items)
+    activity = AuditEvent.objects.filter(
+        Q(product=product) | Q(item_id=organisation_section["item"].pk)
+        if organisation_section
+        else Q(product=product),
+        item__in=visible_items,
+    )
     outcomes = product.outcomes.filter(
         source_application__in=visible_items.values("application_id"),
     )
@@ -576,14 +881,27 @@ def product_detail(request, reference):
             reference=workspace.reference,
             organisation=product.organisation,
             organisation_details=(
-                organisation_review.selected_submission.data
-                if organisation_review and organisation_review.selected_submission
+                organisation_section["snapshot"].data
+                if organisation_section and organisation_section["snapshot"]
                 else {}
             ),
             pending=pending,
+            organisation_pending=[item for item in pending if not item.product_id],
+            organisation_review=organisation_section["item"]
+            if organisation_section
+            else None,
             decidable=decidable,
+            review_sections=review_sections,
+            review_groups=_review_groups(review_sections),
+            bulk_items=bulk_items,
+            bulk_approve_blockers=bulk_approve_blockers,
+            bulk_reject_blockers=bulk_reject_blockers,
+            bulk_holds=_bulk_holds(bulk_approve_blockers, bulk_reject_blockers),
+            bulk_note=request.POST.get("note", "")
+            if request.POST.get("intent") == "bulk_decision"
+            else "",
             tracks=[row for row in tracks if row["tiles"]],
-            progress=overview_progress(tracks),
+            progress=progress,
             registration=visible_items.filter(
                 product=product,
                 kind="product_registration",
@@ -878,6 +1196,8 @@ def product_certification(request, reference):
         else definition.forms[0].form_class(product=product)
     )
     if request.method == "POST":
+        if request.POST.get("intent") == "read":
+            return _read_document(request, definition.forms[0])
         try:
             intent = request.POST.get("intent")
             if intent not in {"draft", "submit"}:
@@ -965,6 +1285,121 @@ def _staff_track(request, reference, track_code):
     )
 
 
+def _additional_evidence_reviews(request):
+    revisions = {}
+    try:
+        for value in request.POST.getlist("additional_reviews"):
+            pk, revision = value.split(":")
+            pk = _product_review_id(pk)
+            if pk in revisions:
+                raise ValueError  # noqa: TRY301
+            revisions[pk] = _product_review_id(revision) if revision else ""
+    except (ValueError, ValidationError) as error:
+        msg = "Reload the milestone page before choosing submissions."
+        raise ValidationError(msg) from error
+    return revisions
+
+
+def _milestone_testing_dates(request, *, prefix, errors=None):
+    errors = errors or {}
+    return [
+        {
+            "name": f"{prefix}{key}",
+            "id": f"id_{prefix}{key}",
+            "label": label,
+            "value": request.POST.get(f"{prefix}{key}", ""),
+            "errors": errors.get(key, []),
+            "max": timezone.localdate().isoformat(),
+            "is_start": key == "start_date",
+        }
+        for key, label in (
+            ("start_date", "Testing start date"),
+            ("end_date", "Testing end date"),
+        )
+    ]
+
+
+def _track_evidence_context(request, item, form):
+    if not item or not permissions.can_integrate(request.user, item.organisation):
+        return {}
+    choices = []
+    additional_forms = getattr(form, "additional_forms", {})
+    selected = set(request.POST.getlist("additional_reviews"))
+    for target in sorted(services.submission_targets(item), key=review_order):
+        milestone = target.program.milestones[target.application.milestone.key]
+        token = f"{target.pk}:{target.selected_submission_id or ''}"
+        choices.append(
+            {
+                "item": target,
+                "code": milestone.code,
+                "name": milestone.name,
+                "token": token,
+                "selected": token in selected,
+                "dates": _milestone_testing_dates(
+                    request,
+                    prefix=f"milestone_{target.pk}_",
+                    errors=additional_forms[target.pk].errors
+                    if target.pk in additional_forms
+                    else None,
+                ),
+                "requires": [
+                    str(prerequisite.pk)
+                    for prerequisite in services.unsubmitted_prerequisites(target)
+                    if prerequisite.pk != item.pk
+                ],
+            },
+        )
+    return {
+        "submission_choices": choices,
+        "submission_track": next(
+            (
+                track.code
+                for track in item.program.tracks
+                if item.application.milestone.key in track.keys
+            ),
+            "",
+        ),
+    }
+
+
+def _save_track_evidence(request, item):
+    intent = request.POST.get("intent")
+    additional = {}
+    if intent in {"draft", "submit"}:
+        if intent == "submit":
+            additional = _additional_evidence_reviews(request)
+        kwargs = {
+            "data": request.POST,
+            "files": request.FILES,
+            "expected_revision": request.POST.get("revision", ""),
+        }
+        if additional:
+            result = services.save_review_forms(
+                item,
+                request.user,
+                additional_revisions=additional,
+                **kwargs,
+            )
+        else:
+            result = services.save_review_form(
+                item,
+                request.user,
+                submit=intent == "submit",
+                **kwargs,
+            )
+    else:
+        msg = "Choose a valid form action."
+        raise ValidationError(msg)
+    notice = (
+        f"Evidence submitted for {len(additional) + 1} milestones."
+        if additional
+        else item.definition.submitted_message
+        if intent == "submit"
+        else "Draft saved."
+    )
+    return *result, notice
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def track(request, reference, track_code):
@@ -1005,48 +1440,13 @@ def track(request, reference, track_code):
     if request.method == "POST":
         if item is None:
             raise Http404
+        if request.POST.get("intent") == "read":
+            return _read_document(request, item.definition)
         try:
-            intent = request.POST.get("intent")
-            if intent == "reuse":
-                services.reuse_evidence(item, request.user)
-            elif intent in {"draft", "submit"}:
-                item, form, saved = services.save_review_form(
-                    item,
-                    request.user,
-                    data=request.POST,
-                    files=request.FILES,
-                    submit=intent == "submit",
-                    expected_revision=request.POST.get("revision", ""),
-                )
-                if not saved:
-                    return render(
-                        request,
-                        "experiences/track.html",
-                        _context(
-                            request,
-                            workspace,
-                            page_title=track_code,
-                            nav=track_code,
-                            track=track_data,
-                            tile=tile,
-                            item=item,
-                            form=form,
-                            can_edit=services.can_edit_review(item),
-                            locked_by=locked_by,
-                        ),
-                    )
-            else:
-                msg = "Choose a valid form action."
-                raise ValidationError(msg)  # noqa: TRY301
-            messages.success(
-                request,
-                item.definition.submitted_message
-                if intent == "submit"
-                else "Evidence reused."
-                if intent == "reuse"
-                else "Draft saved.",
-            )
-            return redirect(request.get_full_path())
+            item, form, saved, notice = _save_track_evidence(request, item)
+            if saved:
+                messages.success(request, notice)
+                return redirect(request.get_full_path())
         except ValidationError as error:
             _error(request, error)
     return render(
@@ -1063,6 +1463,7 @@ def track(request, reference, track_code):
             form=form,
             can_edit=services.can_edit_review(item) if item else False,
             locked_by=locked_by,
+            **_track_evidence_context(request, item, form),
         ),
     )
 
@@ -1121,6 +1522,27 @@ def query_action(request, pk):
         messages.success(request, "Query updated.")
     except ValidationError as error:
         _error(request, error)
+    return_reference = request.POST.get("return_to_product")
+    if return_reference and permissions.reviewer(request.user):
+        if return_reference == "1" and item.product_id:
+            return_reference = item.product.workspace.reference
+        workspace = _workspaces(request.user).filter(reference=return_reference).first()
+        if (
+            workspace
+            and permissions.visible_reviews(request.user)
+            .filter(
+                _product_review_scope(workspace.product),
+                pk=item.pk,
+            )
+            .exists()
+        ):
+            return redirect(
+                reverse(
+                    "experiences:product-detail",
+                    args=[workspace.reference],
+                )
+                + f"#review-{item.pk}",
+            )
     return redirect(
         item.get_absolute_url()
         if permissions.reviewer(request.user)
@@ -1320,9 +1742,9 @@ def reference_environment(request, reference):
         for key, names in environment.flows.items()
     ]
     credential = ProductCredential.objects.filter(product=workspace.product).first()
-    client_id = credential.client_id if credential else None
+    client_id = credential.client_id if credential else ""
     shells = [
-        (key, shell, *environment.command_parts(shell, client_id))
+        (key, shell, environment.command_segments(shell, client_id))
         for key, shell in environment.shells.items()
     ]
     return render(
@@ -1336,6 +1758,7 @@ def reference_environment(request, reference):
             reference_environment=environment,
             reference_milestones=milestones,
             reference_shells=shells,
+            reference_client_id=client_id,
             has_credential=credential is not None,
         ),
     )
@@ -1368,52 +1791,29 @@ def _requests(program):
     certification = program.applications.certification
     if certification:
         requests["certification"] = (
-            certification.name,
+            certification.filter_name or certification.name,
             Q(application__application_type=certification.key),
         )
     return requests
 
 
 def _request_choices(program, user):
-    """Requests offered in the Item filter, to reviewers who can see them."""
+    """Requests offered in the Type filter, to reviewers who can see them."""
     if not permissions.has_access(user, "review", program=program.key):
         return []
     return [(value, label) for value, (label, _query) in _requests(program).items()]
 
 
 def _item_filter(program, item):
-    """The queue's Item filter: one request, or one track's milestones."""
+    """The queue's Type filter: one request, every milestone, or one track's."""
     requests = _requests(program)
     if item in requests:
         return requests[item][1]
+    if item == "milestones":
+        return Q(application__milestone__isnull=False)
     if item in program.track_map():
         return _track_filter(item)
     return None
-
-
-def _type_tabs(program, item):
-    """Review-type tabs that can still have results under the Item filter."""
-    requests = _requests(program)
-    if item in requests:
-        return {item: requests[item]}
-    applications = {
-        ReviewItem.Kind.APPLICATION.value: (
-            ReviewItem.Kind.APPLICATION.label,
-            Q(application__milestone__isnull=False),
-        ),
-    }
-    if item in program.track_map():
-        return applications
-    return {**requests, **applications}
-
-
-def _kind_filter(request, kind, type_tabs):
-    """The selected tab, falling back to All when it cannot match the Item filter."""
-    if kind == "mine":
-        return kind, Q(assignee=request.user)
-    if kind in type_tabs:
-        return kind, type_tabs[kind][1]
-    return "", Q()
 
 
 @login_required
@@ -1549,13 +1949,16 @@ def _prerequisite_label(program, prerequisite):
     review = prerequisite.review
     milestone = getattr(review.application, "milestone", None) if review else None
     name = program.milestones[milestone.key].code if milestone else prerequisite.name
+    if prerequisite.withdrawn:
+        return name, "withdrawn"
     if review is None or review.status == ReviewItem.Status.DRAFT:
         return name, "not submitted"
     return name, review.get_status_display().lower()
 
 
-def _queue_rows(items):
+def waiting_rows(items):
     """What each request waits on, and how many requests wait on it."""
+    items = list(items)
     for item in items:
         item.waiting_on = (
             [
@@ -1573,40 +1976,52 @@ def _queue_rows(items):
     return items
 
 
+def _queue_rows(page, user, matching):
+    """The page's entries, each request marked with what it waits on and its chip."""
+    page = populate_queue_page(page, user, matching)
+    for item in waiting_rows(item for entry in page for item in entry.reviews):
+        item.queue_state = "blocked" if item.waiting_on else item.status
+    return page
+
+
 @login_required
 def queue(request):
     _reviewer_required(request)
-    query = (
-        _review_requests(request.user)
-        .exclude(status="draft")
-        .select_related(
-            "product__workspace",
-            "organisation",
-            "application",
-            "assignee",
-            "form",
+    query = queue_requests(request.user)
+    assignee, item, search = (
+        request.GET.get(key, "") for key in ("assignee", "item", "q")
+    )
+    if assignee == "me":
+        query = query.filter(assignee=request.user)
+    elif assignee == "unassigned":
+        query = query.filter(assignee=None)
+    elif assignee.isdigit():
+        query = query.filter(assignee_id=assignee)
+    item_filter = _item_filter(get_program(), item)
+    if item_filter is not None:
+        query = query.filter(item_filter)
+    if search:
+        query = query.filter(
+            Q(product__name__icontains=search)
+            | Q(product__workspace__reference__icontains=search)
+            | Q(organisation_product__name__icontains=search)
+            | Q(organisation_product__workspace__reference__icontains=search)
+            | Q(organisation__name__icontains=search)
+            | Q(application__reference__icontains=search),
         )
-    )
-    product_choices = _workspaces(request.user).filter(
-        product__in=query.values("product_id"),
-    )
-    kind, status, assignee, item, product_reference, search = (
-        request.GET.get(key, "")
-        for key in ("kind", "status", "assignee", "item", "product", "q")
-    )
-    if (
-        product_reference
-        and product_choices.filter(reference=product_reference).exists()
-    ):
-        query = query.filter(product__workspace__reference=product_reference)
-    else:
-        product_reference = ""
     waiting = services.waiting_reviews()
     scopes = {
         "ready": (services.PENDING_STATUSES, ~waiting),
         "waiting": (services.PENDING_STATUSES, waiting),
         "decided": ((ReviewItem.Status.APPROVED, ReviewItem.Status.SENT_BACK), Q()),
     }
+    stage_counts = {
+        stage: grouped_requests(
+            query.filter(stage_filter, status__in=stage_statuses),
+        ).count()
+        for stage, (stage_statuses, stage_filter) in scopes.items()
+    }
+    stage_counts["all"] = grouped_requests(query).count()
     scope = request.GET.get("scope", "")
     if scope != "all":
         scope = scope if scope in scopes else "ready"
@@ -1617,48 +2032,17 @@ def queue(request):
         for value, label in ReviewItem.Status.choices
         if value != "draft" and (scope == "all" or value in scopes[scope][0])
     ]
+    status = request.GET.get("status", "")
     if status in dict(statuses):
         query = query.filter(status=status)
     else:
         status = ""
-    if assignee == "unassigned":
-        query = query.filter(assignee=None)
-    elif assignee.isdigit():
-        query = query.filter(assignee_id=assignee)
-    item_filter = _item_filter(get_program(), item)
-    if item_filter is not None:
-        query = query.filter(item_filter)
-    if search:
-        query = query.filter(
-            Q(product__name__icontains=search)
-            | Q(organisation__name__icontains=search)
-            | Q(application__reference__icontains=search),
-        )
-    type_tabs = _type_tabs(get_program(), item)
-    queue_tabs = [
-        {"value": "", "label": "All", "count": query.count()},
-        {
-            "value": "mine",
-            "label": "Mine",
-            "count": query.filter(assignee=request.user).count(),
-        },
-        *[
-            {"value": value, "label": label, "count": query.filter(tab).count()}
-            for value, (label, tab) in type_tabs.items()
-        ],
-    ]
-    kind, kind_filter = _kind_filter(request, kind, type_tabs)
-    query = query.filter(kind_filter)
     sort = _queue_sort(request)
-    query = query.order_by(*QUEUE_ORDER[sort])
     params = request.GET.copy()
     params.pop("page", None)
     params["scope"] = scope
-    params["kind"] = kind
     if not status:
         params.pop("status", None)
-    if not product_reference:
-        params.pop("product", None)
     return render(
         request,
         "experiences/queue.html",
@@ -1666,8 +2050,12 @@ def queue(request):
             request,
             page_title="Review queue",
             nav="queue",
-            page=_queue_rows(_page(request, query)),
-            queue_tabs=queue_tabs,
+            page=_queue_rows(
+                _page(request, grouped_requests(query, sort)),
+                request.user,
+                query,
+            ),
+            stage_counts=stage_counts,
             queue_scope=scope,
             queue_sort=sort,
             statuses=statuses,
@@ -1677,7 +2065,6 @@ def queue(request):
             ),
             filters=params,
             filter_query=params.urlencode(),
-            product_choices=product_choices,
             request_choices=_request_choices(get_program(), request.user),
             track_choices=permissions.allowed_tracks(request.user),
         ),
@@ -1751,6 +2138,7 @@ def review(request, pk):
                     request.user,
                     action=request.POST.get("action"),
                     note=request.POST.get("note", ""),
+                    reason=request.POST.get("reason", ""),
                     field_key=request.POST.get("field_key", "form"),
                 )
             messages.success(request, "Review updated.")
@@ -1793,6 +2181,9 @@ def review(request, pk):
             ),
             decision_action=selected_action,
             decision_note=request.POST.get("note", ""),
+            send_back_reasons=services.send_back_reasons(item.definition),
+            other_reason=services.OTHER_REASON,
+            decision_reason=request.POST.get("reason", ""),
             query_field=request.POST.get("field_key", request.GET.get("field", "form")),
             awaiting_reply_count=item.queries.filter(
                 submission_id=item.selected_submission_id,
@@ -2096,6 +2487,7 @@ def ticket(request, reference):
     )
     ticket = get_object_or_404(query, reference=reference)
     workspace = ticket.product.workspace
+    track = workspace.definition.track_map().get(ticket.track)
     request.session["experience_product"] = workspace.reference
     resolving = request.POST.get("intent") == "close"
     form = SupportForm(
@@ -2136,6 +2528,11 @@ def ticket(request, reference):
             page_title=ticket.reference,
             nav="support",
             ticket=ticket,
+            ticket_docs_url=(
+                track.docs_url
+                if track and track.docs_url
+                else workspace.definition.docs_url
+            ),
             can_reply=permissions.can_reply_ticket(request.user, ticket),
             can_close=ticket.status != Status.CLOSED
             and permissions.can_close_ticket(request.user, ticket),

@@ -11,14 +11,19 @@ import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import InvitationFactory
+from ohc_experience.users.fields import MobileNumberField
 from ohc_experience.users.forms import UserAdminCreationForm
+from ohc_experience.users.forms import UserChangePasswordForm
 from ohc_experience.users.forms import UserProfileForm
+from ohc_experience.users.forms import UserResetPasswordKeyForm
+from ohc_experience.users.forms import UserSetPasswordForm
 from ohc_experience.users.forms import UserSignupForm
 
 if TYPE_CHECKING:
@@ -30,7 +35,7 @@ if TYPE_CHECKING:
 SIGNUP_DATA = {
     "name": "Meera Krishnan",
     "email": "meera@sunrise.in",
-    "mobile_number": "+91 98765 43210",
+    "mobile_number": "9876543210",
     "organisation": "Sunrise Health Systems",
     "organisation_type": "private_company",
     "website": "https://sunrise.in",
@@ -71,6 +76,17 @@ class TestUserSignupForm:
 
         assert not form.is_valid()
         assert "password2" in form.errors
+
+    def test_a_mistyped_confirmation_is_reported_with_a_rejected_password(self):
+        form = UserSignupForm(
+            data={**SIGNUP_DATA, "password1": "sandbox", "password2": "sandbox-2"},
+        )
+
+        assert not form.is_valid()
+        assert "password1" in form.errors
+        assert form.errors["password2"] == [
+            "You must type the same password each time.",
+        ]
 
     def test_creates_the_organisation_and_an_owner_membership(
         self,
@@ -188,6 +204,43 @@ class TestUserSignupForm:
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "form_class",
+    [UserChangePasswordForm, UserSetPasswordForm, UserResetPasswordKeyForm],
+)
+class TestPasswordConfirmation:
+    def test_a_mistyped_confirmation_is_reported_once(self, form_class, user: User):
+        form = form_class(
+            data={
+                "password1": "sandbox-Kerala-2026",
+                "password2": "sandbox-Kerala-2025",
+            },
+            user=user,
+        )
+
+        assert not form.is_valid()
+        assert form.errors["password2"] == [
+            "You must type the same password each time.",
+        ]
+
+    def test_a_mistyped_confirmation_is_reported_with_a_rejected_password(
+        self,
+        form_class,
+        user: User,
+    ):
+        form = form_class(
+            data={"password1": "sandbox", "password2": "sandbox-2"},
+            user=user,
+        )
+
+        assert not form.is_valid()
+        assert "password1" in form.errors
+        assert form.errors["password2"] == [
+            "You must type the same password each time.",
+        ]
+
+
+@pytest.mark.django_db
 class TestUserProfileForm:
     def test_saves_the_name(self, user: User):
         form = UserProfileForm({"name": "Meera Krishnan"}, instance=user)
@@ -197,16 +250,36 @@ class TestUserProfileForm:
 
 
 class TestSignupContactDetails:
-    """The mockup's signup card asks for a mobile number; it must reach the user."""
+    """The mockup's signup card asks for a mobile number; it is saved once confirmed."""
 
     @pytest.mark.django_db
-    def test_stores_the_mobile_number(self, rf: RequestFactory):
+    def test_keeps_the_mobile_number_unverified_until_a_code_confirms_it(
+        self,
+        rf: RequestFactory,
+    ):
         form = UserSignupForm(data=SIGNUP_DATA)
+        request = signup_request(rf)
 
         assert form.is_valid(), form.errors
-        user = form.save(signup_request(rf))
+        user = form.save(request)
 
-        assert user.phone_number == SIGNUP_DATA["mobile_number"]
+        assert user.phone_number == "+919876543210"
+        assert not user.phone_verified
+
+    @pytest.mark.parametrize(
+        "typed",
+        ["9876543210", "+91 98765 43210", "919876543210", "098765-43210"],
+    )
+    def test_cleans_an_indian_mobile_number(self, typed: str):
+        assert MobileNumberField().clean(typed) == "+919876543210"
+
+    @pytest.mark.parametrize(
+        "typed",
+        ["12345", "5876543210", "+1 415 555 0100", "98765432101"],
+    )
+    def test_rejects_anything_but_an_indian_mobile_number(self, typed: str):
+        with pytest.raises(ValidationError):
+            MobileNumberField().clean(typed)
 
     @pytest.mark.django_db
     def test_requires_a_mobile_number(self):
@@ -216,3 +289,16 @@ class TestSignupContactDetails:
 
         assert not form.is_valid()
         assert form.errors["mobile_number"] == ["Enter your mobile number."]
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize(
+        "mobile_number",
+        ["123456789", "12345678901", "+919876543210", "98765 43210"],
+    )
+    def test_rejects_an_invalid_mobile_number(self, mobile_number: str):
+        form = UserSignupForm(data={**SIGNUP_DATA, "mobile_number": mobile_number})
+
+        assert not form.is_valid()
+        assert form.errors["mobile_number"] == [
+            "Enter a valid 10-digit phone number without the country code.",
+        ]

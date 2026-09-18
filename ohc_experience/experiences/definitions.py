@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from dataclasses import field
 from datetime import date  # noqa: TC003
@@ -11,6 +12,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError
 
 from .models import FormReuseScope
+from .models import ReviewItem
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,27 @@ class Prerequisite:
     name: str
     #: The review that settles it, when one exists.
     review: Any = None
+
+    @property
+    def withdrawn(self):
+        """Submitted once, then taken back by the integrator to change."""
+        return bool(
+            self.review
+            and self.review.status == ReviewItem.Status.DRAFT
+            and self.review.submitted_at,
+        )
+
+
+class DocumentReadError(Exception):
+    """A `read_document` hook could not read the upload; safe to show a user.
+
+    `retryable` is False when the document itself is the problem, so that the
+    browser can say so instead of offering an attempt that must fail again.
+    """
+
+    def __init__(self, message: str, *, retryable: bool = True):
+        self.retryable = retryable
+        super().__init__(message)
 
 
 class ApplicationFormDefinition:
@@ -40,6 +63,9 @@ class ApplicationFormDefinition:
     submit_label = "Submit application"
     submitted_message = "Application submitted."
     approval_notice = ""
+    #: What a reviewer sending this form back chooses from. A form with no list
+    #: takes the reviewer's note alone.
+    send_back_reasons: ClassVar[tuple[str, ...]] = ()
 
     @classmethod
     def initial_data(cls, item):
@@ -81,6 +107,16 @@ class ApplicationFormDefinition:
         """Optional validity date for this exact submission revision."""
 
     @classmethod
+    def read_document(cls, field_key, upload):
+        """Propose field values read out of a document the user just chose.
+
+        Return `{form field name: value}`, empty where nothing could be read, or
+        raise `DocumentReadError`. Nothing returned here is trusted: the fields
+        stay editable and the form validates them again on save.
+        """
+        return {}
+
+    @classmethod
     def on_submit(cls, item, data, actor):
         """Project validated answers into implementation-specific state."""
 
@@ -103,6 +139,7 @@ class ApplicationDefinition:
 
     key: ClassVar[str]
     name: ClassVar[str]
+    filter_name: ClassVar[str] = ""
     reference_prefix: ClassVar[str] = "APP"
     initial_status: ClassVar[str] = "draft"
     forms: ClassVar[tuple[type[ApplicationFormDefinition], ...]]
@@ -176,6 +213,8 @@ class MilestoneDefinition:
     code: str
     name: str
     predecessor: str = ""
+    description: str = ""
+    docs_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -184,6 +223,7 @@ class TrackDefinition:
     name: str
     description: str
     keys: tuple[str, ...]
+    docs_url: str = ""
 
     def prerequisites(self, milestones):
         """Other tracks' milestones this track builds on, directly or not."""
@@ -223,14 +263,14 @@ class SandboxCredentialDefinition(CredentialDefinition):
 
 
 class ProductionCredentialDefinition(CredentialDefinition):
-    """Staff record each product's production client ID once an exit is approved.
+    """Staff add each product's production client ID once an exit is approved.
 
-    The portal holds the ID alone; the secret is issued outside it.
+    The portal holds the ID and its issue date; the secret is issued outside it.
     """
 
-    name = "Production access"
+    name = "Production credentials"
     unavailable_notice = (
-        "Production access becomes available once a milestone exit is approved."
+        "Production credentials become available once a milestone exit is approved."
     )
     pending_notice = (
         "Your exit is approved. Your production client ID will appear here once "
@@ -261,9 +301,11 @@ class ReferenceShell(NamedTuple):
 
     label: str
     prompt: str
-    #: `{client_id}` and `{client_secret}` are filled in for the product, and
-    #: `{options}` marks where the chosen milestones' options go.
+    #: `{client_id}` and `{client_secret}` mark where the credentials go, inside
+    #: single quotes, and `{options}` where the chosen milestones' options go.
     command: str
+    #: How a single quote is written inside a single-quoted value.
+    single_quote: str
 
 
 class ReferenceEnvironmentDefinition:
@@ -287,20 +329,31 @@ class ReferenceEnvironmentDefinition:
     milestone_options: ClassVar[dict[str, str]] = {}
     #: Milestones whose flows are still being built.
     in_progress: ClassVar[tuple[str, ...]] = ()
-    #: Stand-ins for credentials the page cannot show. Plain words, so a shell
+    #: Stand-ins for credentials that are not entered yet. Plain words, so a shell
     #: reads them as text if they are run unchanged.
     client_id_placeholder = "YOUR_CLIENT_ID"
     client_secret_placeholder = "YOUR_CLIENT_SECRET"  # noqa: S105
 
     @classmethod
-    def command_parts(cls, shell, client_id=None):
-        """A shell's command for one product, split where milestone options go."""
-        command = shell.command.replace(
-            "{client_id}",
-            client_id or cls.client_id_placeholder,
-        ).replace("{client_secret}", cls.client_secret_placeholder)
-        before, _, after = command.partition("{options}")
-        return before, after
+    def command_segments(cls, shell, client_id=""):
+        """A shell's command as (slot, text) pairs, in order.
+
+        The slot is empty for plain text. A `client_id` or `client_secret` slot
+        holds the credential, or its placeholder, for the page to fill in. An
+        `options` slot marks where milestone options go and has no text.
+        """
+        values = {
+            "client_id": client_id.replace("'", shell.single_quote)
+            or cls.client_id_placeholder,
+            "client_secret": cls.client_secret_placeholder,
+            "options": "",
+        }
+        parts = re.split(r"\{(client_id|client_secret|options)\}", shell.command)
+        return [
+            (part, values[part]) if index % 2 else ("", part)
+            for index, part in enumerate(parts)
+            if index % 2 or part
+        ]
 
 
 class ProgramDefinition:
@@ -318,6 +371,8 @@ class ProgramDefinition:
     environment_name = "Application workspace"
     footer_note = ""
     docs_url = ""
+    #: Where "Milestone documentation" points. Falls back to docs_url.
+    milestones_docs_url = ""
     logo = ""
     authority_logo = ""
     authority_name = ""

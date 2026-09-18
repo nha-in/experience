@@ -86,7 +86,9 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
     grant(staff, category="HealthLocker")
     client.force_login(staff)
     response = client.get(reverse("experiences:queue"), HTTP_HX_REQUEST="true")
-    assert list(response.context["page"]) == [locker]
+    assert len(response.context["page"]) == 1
+    assert response.context["page"][0].reviews == [locker]
+    assert response.context["page"][0].matching_reviews == [locker]
     assert [track.code for track in response.context["track_choices"]] == [
         "HealthLocker",
     ]

@@ -81,13 +81,24 @@ The main purpose keys for `GLOBAL_EMAIL_TEMPLATE_IDS` are:
 | --- | --- |
 | `notification` | Workflow, review, support, and event notifications. |
 | `organisation_invitation` | Organisation membership invitation. |
-| `account/email/email_confirmation_signup` | Signup verification. |
-| `account/email/email_confirmation` | Existing-account email verification. |
 | `account/email/password_reset_key` | Password reset link. |
 
 Other account notices may require additional allauth template-prefix keys. Obtain approved template IDs for each purpose or an approved fallback; the code does not assume sample IDs are valid. The Global Email integration does not require NIC SMTP credentials. Its gateway sender determines the actual From address. Celery worker and beat are needed for automatic delivery.
 
 Source: `config/settings/base.py`, `config/settings/production.py`, `docs/global_email.md`.
+
+For **email and mobile verification codes**, the web process calls ABDM's notification service directly. Signup confirms the address and the number on one screen, each with its own 6-digit code; the number is saved only once its code is confirmed. The service is reachable only from inside the ABDM VPC:
+
+| Variable | Requirement / default |
+| --- | --- |
+| `NOTIFICATION_APP_BASE_URL` | **Required for delivery.** Notification app service base URL, without a path, e.g. `http://notificationapp-svc.global-services.svc.cluster.local:9102`. Default: `https://notification-app.invalid`. |
+| `NOTIFICATION_DB_BASE_URL` | **Required for delivery.** Notification DB (template) service base URL, without a path, e.g. `http://notificationdb-svc.global-services.svc.cluster.local:9101`. Default: `https://notification-db.invalid`. |
+
+Nothing else about this integration is configurable, because nothing else differs between deployments. Production always uses the real gateway and local and test settings always use `LocalNotificationGateway`, which delivers nothing. The origin (`abha`), sender (`NHASMS`) and read timeout are the notification team's contract and live in `ohc_experience/integrations/notification/adapter.py`. Every notification this portal sends is listed in `ohc_experience/integrations/notification/templates.py`, with its template ID, subject and the values that fill its placeholders. Add a notification there; no new environment variable is needed.
+
+Template text comes from `/internal/v3/notification/template/name/SANDBOX`, or `/internal/v3/notification/template/id/{id}` for a template outside that list, and is cached for an hour. Only the template's `{0}` placeholder is filled, with the code. An SMS is then posted to `/internal/v3/notification/message`, and an email to `/internal/v3/notification/email/send` with the same flat body the Global Email backend sends. The `svc.cluster.local` names resolve only inside the Kubernetes cluster, so an ECS task needs whatever address the notification team provides for callers outside it. A code that cannot be sent is reported to the user, who can request another; the failure is logged without the code.
+
+Source: `config/settings/base.py`, `ohc_experience/integrations/notification/`, `ohc_experience/users/adapters.py`.
 
 For **live credential provisioning**, explicitly select all three real adapters:
 
@@ -105,54 +116,54 @@ INTEGRATION_BRIDGE_REGISTRY=ohc_experience.integrations.hiecm.adapter.HiecmBridg
 | `INTEGRATION_API_GATEWAY` | `ohc_experience.integrations.local.LocalApiGateway` |
 | `INTEGRATION_BRIDGE_REGISTRY` | `ohc_experience.integrations.local.LocalBridgeRegistry` |
 
-For the **Keycloak adapter**, configure:
+For the **Keycloak adapter**, configure the values legacy ran with. The third column names legacy's variable for the same value.
 
-| Variable | Requirement / default |
-| --- | --- |
-| `KEYCLOAK_BASE_URL` | Set the actual service URL. Default: `http://keycloak:8080`. |
-| `KEYCLOAK_REALM` | Set the target realm. Default: `abdm-sandbox`. |
-| `KEYCLOAK_CLIENT_ID` | Provisioning service client ID. Default: `sandbox-provisioner`. |
-| `KEYCLOAK_CLIENT_SECRET` | **Required for the real adapter.** Default: empty. |
-| `KEYCLOAK_SANDBOX_ROLE_NAMES` | Comma-separated existing realm role names. Default: `healthId,hip,hiu,hfr`. Confirm the approved role set for the environment. |
+| Variable | Requirement / default | Legacy variable |
+| --- | --- | --- |
+| `KEYCLOAK_BASE_URL` | **Set the actual service URL.** Default: `http://keycloak:8080`. | `KEY_CLOAK_BASE_URL` |
+| `KEYCLOAK_REALM` | Realm the sandbox clients are created in. Default: `abdm-sandbox`. | `SANDBOX_KEYCLOAK_REALM` |
+| `KEYCLOAK_CLIENT_ID` | Master-realm client the admin signs in through. Default: `admin-cli`. | `SANDBOX_KEY_CLOAK_CLIENT_ID` |
+| `KEYCLOAK_CLIENT_SECRET` | That client's secret. Default: empty. | `SANDBOX_KEY_CLOAK_CLIENT_SECRET` |
+| `KEYCLOAK_USERNAME` | **Required for the real adapter.** Master-realm admin user. Default: empty. | `SANDBOX_KEY_CLOAK_USER_NAME` |
+| `KEYCLOAK_PASSWORD` | **Required for the real adapter.** Default: empty. | `SANDBOX_KEY_CLOAK_PASSWORD` |
+| `KEYCLOAK_API_KEY` | Sent as the `apikey` header on the token request only. Default: empty, which sends no header. | `SANDBOX_WSO2_API_KEY` |
+| `KEYCLOAK_SANDBOX_ROLE_NAMES` | Comma-separated realm role names. Default: the 14 roles legacy granted, `bridge,HIU_PAYER,DIGI_DOCTOR,healthId,health_locker,hip,HIP_PAYER,hiu,hfr,offline_access,phr,OIDC,HidAbhaSearch,hp_id`. | Hard-coded in legacy's YAML |
 
-The Keycloak adapter authenticates with the `client_credentials` grant. It has no username/password authentication mode.
+The Keycloak adapter signs in as the legacy portal did: a `password` grant against the `master` realm, sending the client ID and secret, the username and password, and `scope=openid`. The same admin token authorises HIE-CM bridge registration.
 
 For the **WSO2 adapter**, configure:
 
-| Variable | Requirement / default |
-| --- | --- |
-| `WSO2_BASE_URL` | **Set the actual service URL.** Default is the unusable placeholder `https://wso2.invalid`. |
-| `WSO2_CLIENT_ID` | **Required for real OAuth authentication.** Default: empty. |
-| `WSO2_CLIENT_SECRET` | **Required for real OAuth authentication.** Default: empty. |
-| `WSO2_USERNAME` | **Required for the default password grant.** Default: empty. |
-| `WSO2_PASSWORD` | **Required for the default password grant.** Default: empty. |
-| `WSO2_SANDBOX_API_NAMES` | **Required for provisioning.** Approved comma-separated published API names, not IDs. Default: empty list; the provisioning chain rejects an empty configuration. |
-| `WSO2_DEVPORTAL_PATH` | Default: `/api/am/devportal/v3`. |
-| `WSO2_TOKEN_PATH` | Default: `/oauth2/token`. |
-| `WSO2_GRANT_TYPE` | Default: `password`. |
-| `WSO2_SCOPES` | Default: `apim:subscribe,apim:app_manage,apim:sub_manage`. |
-| `WSO2_THROTTLING_POLICY` | Default: `Unlimited`. |
-| `WSO2_TOKEN_TYPE` | Default: `JWT`. |
-| `WSO2_KEY_MANAGER` | Default: `Resident Key Manager`. Match the actual configured key manager. |
-| `WSO2_KEY_TYPE` | Default: `PRODUCTION`. |
-| `WSO2_READ_TIMEOUT_SECONDS` | Default: `15` seconds. |
+| Variable | Requirement / default | Legacy variable |
+| --- | --- | --- |
+| `WSO2_BASE_URL` | **Set the actual service URL.** Default is the unusable placeholder `https://wso2.invalid`. | `WSO2_BASE_URI` |
+| `WSO2_CLIENT_ID` | **Required for real OAuth authentication.** Default: empty. | `WSO2_BASIC_AUTH_CREDENTIALS`, which holds `id:secret` base64-encoded |
+| `WSO2_CLIENT_SECRET` | **Required for real OAuth authentication.** Default: empty. | `WSO2_BASIC_AUTH_CREDENTIALS` |
+| `WSO2_USERNAME` | **Required for the default password grant.** Default: empty. | `WSO2_USER_NAME` |
+| `WSO2_PASSWORD` | **Required for the default password grant.** Default: empty. | `WSO2_PASSWORD` |
+| `WSO2_SANDBOX_API_IDS` | **Required for provisioning.** Comma-separated API ids, as legacy subscribed. Default: empty list; the provisioning chain rejects an empty configuration. | `WSO2_V3_API_SUBSCRIPTION_LIST` |
+| `WSO2_DEVPORTAL_PATH` | Default: `/api/am/devportal/v2.1`, the version legacy called. | Hard-coded in legacy |
+| `WSO2_TOKEN_PATH` | Default: `/oauth2/token`. | Hard-coded in legacy |
+| `WSO2_GRANT_TYPE` | Default: `password`. | `WSO2_GRANT_TYPE` |
+| `WSO2_SCOPES` | Comma-separated. Default: `apim:subscribe,apim:app_manage,apim:sub_manage`. | `WSO2_SCOPE`, space-separated |
+| `WSO2_THROTTLING_POLICY` | Default: `Unlimited`. | `WSO2_THROTTLING_POLICY` |
+| `WSO2_TOKEN_TYPE` | Default: `JWT`. | `WSO2_TOKEN_TYPE` |
+| `WSO2_KEY_MANAGER` | Default: `Resident Key Manager`. Match the actual configured key manager. | `WSO2_KEY_MANAGER` |
+| `WSO2_KEY_TYPE` | Default: `PRODUCTION`. | `WSO2_KEY_TYPE` |
+| `WSO2_READ_TIMEOUT_SECONDS` | Default: `15` seconds. | none |
 
 The WSO2 token request uses HTTP Basic client credentials and sends the grant type, username, password, and scopes in the form body. Changing `WSO2_GRANT_TYPE` does not remove the username/password fields from that request; an alternate grant needs to be supported by the target server.
 
 For the **HIE-CM adapter and integrator-facing gateway URL**, configure:
 
-| Variable | Requirement / default |
-| --- | --- |
-| `HIECM_BASE_URL` | **Set the actual internal service URL.** Default: `https://hiecm.invalid`. |
-| `HIECM_CLIENT_ID` | **Required for the real adapter.** Default: empty. |
-| `HIECM_CLIENT_SECRET` | **Required for the real adapter.** Default: empty. |
-| `HIECM_BRIDGE_CALLBACK_BASE_URL` | **Set the actual callback base URL.** Default: `https://bridge.invalid`. The product reference is appended automatically. |
-| `HIECM_API_PATH` | Default: `/api/v3`. |
-| `HIECM_SESSION_PATH` | Default: `/sessions`. |
-| `HIECM_CM_ID` | Default: `sbx`. |
-| `ABDM_GATEWAY_URL` | Gateway URL exposed with credentials. Default: `https://dev.abdm.gov.in/gateway`. |
+| Variable | Requirement / default | Legacy variable |
+| --- | --- | --- |
+| `HIECM_BASE_URL` | **Set the actual internal service URL.** Default: `https://hiecm.invalid`. | `HIE_CM_GATEWAY_BASE_URI` |
+| `HIECM_BRIDGE_CALLBACK_BASE_URL` | **Set the actual callback base URL.** Default: `https://bridge.invalid`. The product reference is appended automatically. | none; legacy registered one fixed placeholder URL for every bridge |
+| `HIECM_API_PATH` | Default: `/api/v3`. | Hard-coded in legacy |
+| `HIECM_CM_ID` | Default: `sbx`. | `HIE_CM_CM_ID` |
+| `ABDM_GATEWAY_URL` | Gateway URL exposed with credentials. Default: `https://dev.abdm.gov.in/gateway`. | none |
 
-The session endpoint combines `HIECM_BASE_URL`, `HIECM_API_PATH`, and `HIECM_SESSION_PATH`. The adapter sends the configured client ID and secret, with `X-CM-ID` derived from `HIECM_CM_ID`.
+Bridge calls combine `HIECM_BASE_URL` and `HIECM_API_PATH`, carry the Keycloak admin token as legacy's did, and send `X-CM-ID` from `HIECM_CM_ID`.
 
 Source for provisioning settings and behavior: `config/settings/base.py`, `ohc_experience/integrations/registry.py`, `ohc_experience/integrations/keycloak/adapter.py`, `ohc_experience/integrations/wso2/adapter.py`, `ohc_experience/integrations/wso2/apis.py`, `ohc_experience/integrations/hiecm/adapter.py`, `ohc_experience/integrations/tasks.py`, `ohc_experience/abdm/gateway.py`.
 
@@ -231,7 +242,7 @@ For **deployment configuration placement and remaining setup**:
 6. Traefik's web/Flower hostnames and certificate contact email are hardcoded in `compose/production/traefik/traefik.yml`. Update them for the deployed domain; `DJANGO_ALLOWED_HOSTS` alone does not change routing. The app expects the proxy's `X-Forwarded-Proto` to identify HTTPS.
 7. `CSRF_TRUSTED_ORIGINS` and SMTP connection settings are not mapped from environment variables in production settings. Adding those environment names alone does not configure Django. The default mail path is the Global Email API.
 8. Environment values do not create the required database, Redis service, private bucket, approved email templates, Turnstile registration, Keycloak service client, WSO2 APIs/key manager, or HIE-CM access. Those resources and network routes must exist for their features to operate.
-9. The production publishing workflow authenticates to Amazon ECR with the `production` environment's `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY` secrets. `APP_HOME` is an optional Docker build argument (default `/app`), while `UV_COMPILE_BYTECODE`, `UV_LINK_MODE`, `UV_PYTHON_DOWNLOADS`, and `PATH` are preset image/build settings, not required application runtime inputs.
+9. The production publishing workflow authenticates to Amazon ECR with the `production` environment's `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY` secrets. It also writes the three `INTEGRATION_*` adapters, the Keycloak, WSO2 and HIE-CM values, `NOTIFICATION_APP_BASE_URL`, and the WASA document reader's `WASA_EXTRACTION_MODEL` and three `BEDROCK_*` values into every task definition, taking them from that environment's variables and secrets, and fails before building if any of them is empty. `EXPERIENCE_CREDENTIAL_KEY` stays an ECS secret on the task definitions: ECS rejects a name set both ways, and the key must not change. `APP_HOME` is an optional Docker build argument (default `/app`), while `UV_COMPILE_BYTECODE`, `UV_LINK_MODE`, `UV_PYTHON_DOWNLOADS`, and `PATH` are preset image/build settings, not required application runtime inputs.
 
 Source: `docker-compose.production.yml`, `.dockerignore`, `compose/production/django/Dockerfile`, `compose/production/django/build-static`, `config/settings/build.py`, `compose/production/django/start`, `compose/production/traefik/traefik.yml`, `.github/workflows/deploy-prod.yml`.
 

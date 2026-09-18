@@ -59,6 +59,11 @@ def migrate(target):
     MigrationExecutor(connection).migrate(target)
 
 
+def latest():
+    """Every app's newest migration, which the models are written against."""
+    return MigrationExecutor(connection).loader.graph.leaf_nodes()
+
+
 def retirement(item):
     return AuditEvent.objects.get(item=item, action="Product approval retired")
 
@@ -100,7 +105,10 @@ def test_open_registrations_are_recorded_and_locked_milestones_open(environment)
 
         migrate(AFTER)
     finally:
+        # Through the migration under test, then on to the schema the rest of
+        # this session's tests query through the models.
         migrate(AFTER)
+        migrate(latest())
 
     for item in (withdrawn, in_review, sent_back):
         item.refresh_from_db()

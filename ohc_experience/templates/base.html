@@ -17,7 +17,7 @@
     <meta name="description"
           content="{% block meta_description %}{{ experience_program.description }}{% endblock meta_description %}" />
     <meta name="author" content="Open Healthcare Network" />
-    <meta name="theme-color" content="#065f46" />
+    <meta name="theme-color" content="#264488" />
     <link rel="icon"
           href="{% static 'images/favicons/favicon.ico' %}"
           sizes="any" />
@@ -47,7 +47,7 @@
         styles.css) fades it 0 → 1 for the life of the request and back. That
         makes the whole thing CSS — no script decides when it shows, and with
         JavaScript off no request is ever in flight, so it simply never
-        appears. Colour is the semantic token, so it follows dark mode.
+        appears. Colour uses the shared primary token.
       {% endcomment %}
       <style>
         #nav-progress {
@@ -101,6 +101,8 @@
         <script defer src="{% static 'js/project.js' %}"></script>
         <script defer src="{% static 'js/portal-ux.js' %}"></script>
         <script defer src="{% static 'js/searchable-select.js' %}"></script>
+        <script defer src="{% static 'js/info-popover.js' %}"></script>
+        <script defer src="{% static 'js/row-link.js' %}"></script>
       {% endcompress %}
     {% endblock javascript %}
   </head>

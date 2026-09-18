@@ -6,6 +6,11 @@
       <div class="min-w-0 text-sm">
         <strong class="font-semibold">{{ event.action }}</strong>
         <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'d M Y, H:i' }} IST</p>
+        {% if event.detail.reason %}
+          <p class="mt-1.5">
+            <span class="font-semibold">Reason:</span> {{ event.detail.reason }}
+          </p>
+        {% endif %}
         {% if event.detail.note %}
           <p class="mt-1.5">{{ event.detail.note|linebreaksbr }}</p>
         {% endif %}

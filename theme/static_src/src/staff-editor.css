@@ -160,6 +160,8 @@
 .staff-editor-category-description { display: block; margin-top: 3px; color: var(--soft-foreground); font-size: 11px; font-weight: 400; line-height: 1.45; }
 .staff-editor-matrix td { padding: 4px 0; vertical-align: middle; text-align: center; }
 .staff-editor-matrix td label { display: inline-flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; cursor: pointer; }
+.staff-editor-matrix td label.is-permission-implied { cursor: default; }
+.staff-editor-matrix td label.is-permission-implied .ui-checkbox { opacity: 0.5; }
 .staff-editor-permission-error { display: block; padding: 0 3px 8px; color: var(--destructive); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .staff-editor-savebar {
   position: sticky;

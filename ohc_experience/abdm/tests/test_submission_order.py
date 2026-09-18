@@ -31,7 +31,11 @@ def track_url(environment, code="HIE-CM"):
 
 
 def queue(client, **params):
-    return list(client.get(reverse("experiences:queue"), params).context["page"])
+    return [
+        item
+        for entry in client.get(reverse("experiences:queue"), params).context["page"]
+        for item in entry.matching_reviews
+    ]
 
 
 def queue_text(client, **params):
@@ -90,6 +94,7 @@ def test_a_sent_back_milestone_leaves_the_next_one_open(environment):
         m1,
         environment["reviewer"],
         action="send_back",
+        reason="Incomplete integration",
         note="Add the consent revocation scenarios.",
     )
 

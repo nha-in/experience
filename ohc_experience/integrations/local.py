@@ -12,6 +12,7 @@ and the retry button can be rehearsed without breaking anything real.
 
 from __future__ import annotations
 
+import logging
 import secrets
 import time
 import uuid
@@ -30,8 +31,11 @@ from ohc_experience.integrations.ports import ClientSpec
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.ports import GatewayAppCreated
 from ohc_experience.integrations.ports import GatewayAppSpec
+from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.ports import SecretRotated
 from ohc_experience.integrations.secret_ref import resolve_secret
+
+logger = logging.getLogger(__name__)
 
 _PREFIX = "local_integrations"
 _CONTROL_KEY = f"{_PREFIX}:control"
@@ -220,27 +224,27 @@ class LocalApiGateway:
         apps[external_id] = {
             "name": name,
             "reference": spec.reference,
-            "subscriptions": sorted(spec.api_names),
+            "subscriptions": sorted(spec.api_ids),
             "keys_mapped": False,
         }
         _save(ExternalSystem.WSO2, apps)
         return GatewayAppCreated(external_id=external_id, name=name)
 
-    def subscribe(self, external_id: str, api_names: tuple[str, ...]) -> None:
+    def subscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None:
         _guard(ExternalSystem.WSO2, "subscribe")
         apps = _store(ExternalSystem.WSO2)
         record = self._require(apps, external_id)
-        record["subscriptions"] = sorted(set(record["subscriptions"]) | set(api_names))
+        record["subscriptions"] = sorted(set(record["subscriptions"]) | set(api_ids))
         _save(ExternalSystem.WSO2, apps)
 
-    def unsubscribe(self, external_id: str, api_names: tuple[str, ...]) -> None:
+    def unsubscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None:
         """Idempotent: unsubscribing from what was never subscribed succeeds."""
         _guard(ExternalSystem.WSO2, "unsubscribe")
         apps = _store(ExternalSystem.WSO2)
         record = apps.get(external_id)
         if record is None:
             return
-        record["subscriptions"] = sorted(set(record["subscriptions"]) - set(api_names))
+        record["subscriptions"] = sorted(set(record["subscriptions"]) - set(api_ids))
         _save(ExternalSystem.WSO2, apps)
 
     def map_keys(self, external_id: str, consumer_key: str, secret_ref: str) -> None:
@@ -316,3 +320,34 @@ class LocalBridgeRegistry:
                 DEFAULT_BRIDGE_ACTIVATION_DELAY,
             ),
         )
+
+
+class LocalNotificationGateway:
+    """Keeps each message instead of sending it. Under DEBUG it also logs the
+    values, so a verification code can be read off the runserver console."""
+
+    def send(self, message: NotificationMessage) -> None:
+        _guard(ExternalSystem.NOTIFICATION, "send")
+        template = message.template
+        store = _store(ExternalSystem.NOTIFICATION)
+        store.setdefault("sent", []).append(
+            {
+                "channel": template.channel.value,
+                "receiver": message.receiver,
+                "template_id": template.id,
+                "subject": template.subject,
+                "values": list(message.values),
+                "content_type": template.content_type.value,
+            },
+        )
+        _save(ExternalSystem.NOTIFICATION, store)
+        if settings.DEBUG:
+            logger.info(
+                "%s to %s: %s",
+                template.subject,
+                message.receiver,
+                ", ".join(message.values),
+            )
+
+    def sent(self) -> list[dict[str, Any]]:
+        return _store(ExternalSystem.NOTIFICATION).get("sent", [])

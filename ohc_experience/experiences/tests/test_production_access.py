@@ -1,6 +1,7 @@
 # ruff: noqa: F811, PLR2004
 import csv
 import io
+from datetime import timedelta
 
 import pytest
 from django.core.exceptions import PermissionDenied
@@ -8,11 +9,14 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db import transaction
 from django.urls import reverse
+from django.utils import timezone
 
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
+from ohc_experience.abdm.tests.test_workflow import approve_submitted
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
@@ -53,15 +57,23 @@ def saved_id(environment):
     )
 
 
+def issued_day(environment):
+    """The production issue date as stored."""
+    return Product.objects.values_list("production_issued_on", flat=True).get(
+        pk=product_of(environment).pk,
+    )
+
+
 def sandbox_id(product):
     return ProductCredential.objects.get(product=product).client_id
 
 
-def record(environment, client_id, *, expected="", actor=None):
+def record(environment, client_id, *, expected="", actor=None, issued_on=None):
     production.record(
         product_of(environment),
         actor or environment["reviewer"],
         client_id=client_id,
+        issued_on=issued_on,
         expected=expected,
     )
 
@@ -118,6 +130,7 @@ def test_only_onboarding_approvers_record(environment):
 
 def test_record_change_and_remove_are_audited_and_mailed(environment, settings):
     settings.SITE_BASE_URL = "https://sandbox.example.in/"
+    today = timezone.localdate().isoformat()
     approve(environment)
     product = product_of(environment)
     record(environment, "PROD-1")
@@ -128,15 +141,18 @@ def test_record_change_and_remove_are_audited_and_mailed(environment, settings):
     assert (product.production_client_id, product.production_recorded_at) == ("", None)
     events = AuditEvent.objects.filter(product=product, action__in=production.ACTIONS)
     assert [(event.action, event.detail) for event in events.order_by("pk")] == [
-        (production.RECORDED, {"before": "", "after": "PROD-1"}),
-        (production.CHANGED, {"before": "PROD-1", "after": "PROD-2"}),
+        (production.ADDED, {"before": "", "after": "PROD-1", "issued_on": today}),
+        (
+            production.CHANGED,
+            {"before": "PROD-1", "after": "PROD-2", "issued_on": today},
+        ),
         (production.REMOVED, {"before": "PROD-2"}),
     ]
     # Record and change are mailed to every active member; saving the same ID
     # again and removing it are not.
     mails = production_mail().order_by("pk")
     assert [mail.subject for mail in mails] == [
-        f"{PRODUCTION_MAIL} recorded",
+        f"{PRODUCTION_MAIL} added",
         f"{PRODUCTION_MAIL} updated",
     ]
     assert {mail.recipient for mail in mails} == {environment["applicant"].email}
@@ -224,16 +240,28 @@ def test_detail_page_records_and_removes(environment, client):
     response = client.get(url)
     assert response.context["eligible"]
     assert [milestone.key for milestone in response.context["exits"]] == ["m1"]
+    issued = timezone.localdate() - timedelta(days=3)
     response = client.post(
         url,
-        {"intent": "save", "client_id": " PROD-9 ", "expected": ""},
+        {
+            "intent": "save",
+            "client_id": " PROD-9 ",
+            "issued_on": issued.isoformat(),
+            "expected": "",
+        },
         follow=True,
     )
-    assert b"Production client ID saved." in response.content
+    assert b"Production details saved." in response.content
     assert saved_id(environment) == "PROD-9"
+    assert issued_day(environment) == issued
     response = client.post(
         url,
-        {"intent": "save", "client_id": "PROD-10", "expected": ""},
+        {
+            "intent": "save",
+            "client_id": "PROD-10",
+            "issued_on": issued.isoformat(),
+            "expected": "",
+        },
     )
     assert response.status_code == 200
     assert "changed after you opened it" in response.content.decode()
@@ -241,11 +269,11 @@ def test_detail_page_records_and_removes(environment, client):
     response = client.post(url, {"intent": "archive", "expected": "PROD-9"})
     assert b"Choose a valid action." in response.content
     response = client.post(url, {"intent": "remove", "expected": "PROD-9"}, follow=True)
-    assert b"Production client ID removed." in response.content
+    assert b"Production details removed." in response.content
     assert saved_id(environment) == ""
     assert [event.action for event in response.context["history"]] == [
         production.REMOVED,
-        production.RECORDED,
+        production.ADDED,
     ]
 
 
@@ -254,25 +282,32 @@ def test_list_tabs_search_and_csv(environment, client):
     product = product_of(environment)
     client.force_login(staff())
     url = reverse("experiences:production-list")
-    response = client.get(url)
-    assert response.context["counts"] == {"awaiting": 1, "recorded": 0, "all": 1}
+    response = client.get(url, {"tab": "approved"})
+    # The register holds every approved product, as NHA's own list did.
+    assert response.context["stage"] == "approved"
+    assert response.context["counts"]["all"] == 1
+    assert response.context["counts"]["awaiting"] == 1
     assert [row.pk for row in response.context["rows"]] == [product.pk]
     assert response.context["rows"][0].approved_codes == ["M1"]
     assert b'hx-boost="false"' in response.content
     record(environment, "PROD-1")
-    response = client.get(url, {"tab": "recorded"})
-    assert response.context["counts"] == {"awaiting": 0, "recorded": 1, "all": 1}
+    response = client.get(url, {"tab": "approved"})
+    assert response.context["counts"]["added"] == 1
+    assert response.context["counts"]["awaiting"] == 0
+    assert [row.pk for row in response.context["rows"]] == [product.pk]
+    # The links this screen published before the pending stage still land right.
+    assert client.get(url, {"tab": "awaiting"}).context["stage"] == "approved"
     for query in [
         "prod-1",
         sandbox_id(product),
         product.organisation.name[:8],
         environment["workspace"].reference,
     ]:
-        response = client.get(url, {"tab": "all", "q": query})
+        response = client.get(url, {"tab": "approved", "q": query})
         assert [row.pk for row in response.context["rows"]] == [product.pk]
-    assert not client.get(url, {"tab": "all", "q": "nothing"}).context["rows"]
+    assert not client.get(url, {"tab": "approved", "q": "nothing"}).context["rows"]
     Product.objects.filter(pk=product.pk).update(name="=HYPERLINK(1)")
-    response = client.get(reverse("experiences:production-export"), {"tab": "all"})
+    response = client.get(reverse("experiences:production-export"), {"tab": "approved"})
     assert response["Content-Type"] == "text/csv; charset=utf-8"
     assert response["Content-Disposition"].startswith("attachment;")
     content = response.content.decode()
@@ -283,12 +318,15 @@ def test_list_tabs_search_and_csv(environment, client):
     assert values["Product"] == "'=HYPERLINK(1)"
     assert values["Sandbox client ID"] == sandbox_id(product)
     assert values["Production client ID"] == "PROD-1"
-    assert values["Recorded on"]
+    assert values["Production issue date"] == timezone.localdate().isoformat()
+    assert values["Added on"]
     assert values["Approved milestones"] == "M1"
     assert values["Owner email"] == environment["applicant"].email
-    assert values["Recorded by"] == environment["reviewer"].email
+    assert values["Added by"] == environment["reviewer"].email
+    # The export is the register, whichever stage the screen is showing.
     response = client.get(reverse("experiences:production-export"))
-    assert len(list(csv.reader(io.StringIO(response.content.decode())))) == 1
+    assert len(list(csv.reader(io.StringIO(response.content.decode())))) == 2
+    assert "production-approved-" in response["Content-Disposition"]
 
 
 def test_integrator_and_reviewer_pages(environment, client):
@@ -299,9 +337,13 @@ def test_integrator_and_reviewer_pages(environment, client):
     assert copy.unavailable_notice in client.get(credentials_url).content.decode()
     approve(environment)
     assert copy.pending_notice in client.get(credentials_url).content.decode()
-    record(environment, "PROD-1")
+    issued = timezone.localdate() - timedelta(days=2)
+    record(environment, "PROD-1", issued_on=issued)
     content = client.get(credentials_url).content.decode()
     assert "PROD-1" in content
+    # The integrator is told when the gateway team issued it, not when NHA typed it.
+    assert "Issued on" in content
+    assert f"{issued:%-d %b %Y}" in content
     assert copy.usage_notice in content
     content = client.get(
         reverse("experiences:overview", args=[reference]),
@@ -339,3 +381,110 @@ def test_programs_that_do_not_record_production_ids(environment, client, monkeyp
         reverse("experiences:credentials", args=[environment["workspace"].reference]),
     ).content.decode()
     assert 'id="production-card"' not in content
+
+
+def test_the_issue_date_is_entered_and_corrected(environment):
+    """The day the gateway team issued the credentials, which NHA enters."""
+    approve(environment)
+    product = product_of(environment)
+    issued = timezone.localdate() - timedelta(days=5)
+    record(environment, "PROD-1", issued_on=issued)
+    assert issued_day(environment) == issued
+    with pytest.raises(ValidationError, match="cannot be in the future"):
+        record(
+            environment,
+            "PROD-2",
+            expected="PROD-1",
+            issued_on=timezone.localdate() + timedelta(days=1),
+        )
+    # A correction to the date alone is audited, and spares the integrator a mail.
+    corrected = issued + timedelta(days=1)
+    record(environment, "PROD-1", expected="PROD-1", issued_on=corrected)
+    assert issued_day(environment) == corrected
+    assert production_mail().count() == 1
+    dated = AuditEvent.objects.filter(product=product, action=production.DATED)
+    assert [event.detail for event in dated] == [
+        {"before": issued.isoformat(), "after": corrected.isoformat()},
+    ]
+    # Saving the same ID and the same date again writes nothing at all.
+    record(environment, "PROD-1", expected="PROD-1", issued_on=corrected)
+    assert dated.count() == 1
+    # An ID added without a date is taken as issued today.
+    production.remove(product, environment["reviewer"], expected="PROD-1")
+    assert issued_day(environment) is None
+    record(environment, "PROD-2")
+    assert issued_day(environment) == timezone.localdate()
+
+
+def test_the_screens_use_nhas_words(environment, client):
+    """NHA reads its own vocabulary here: their register and their action."""
+    approve(environment)
+    client.force_login(staff(approver=True))
+    content = client.get(
+        reverse("experiences:production-list"),
+        {"tab": "approved"},
+    ).content.decode()
+    assert "Production Approval" in content
+    assert "Production details" in content
+    assert "production details for" in content
+    assert "Awaiting client ID" in content
+    for gone in ["Production access", "Awaiting ID", "Recorded"]:
+        assert gone not in content
+    content = client.get(
+        reverse(
+            "experiences:production-detail",
+            args=[environment["workspace"].reference],
+        ),
+    ).content.decode()
+    assert "Update production details" in content
+    assert "Production issue date" in content
+
+
+def pending_of(user):
+    rows, counts = production.pending(get_program(), user)
+    return [item.application.milestone.key for item in rows], counts
+
+
+def test_pending_stage_holds_the_exit_requests_still_to_be_decided(environment):
+    """The queue's own requests and readiness rule, cut to production exits."""
+    reviewer = environment["reviewer"]
+    assert pending_of(reviewer) == ([], {"pending": 0, "blocked": 0})
+    submit(environment, "m1")
+    # M3 builds on M1, so it cannot be decided while M1 is undecided, and sits
+    # under the request that can be.
+    submit(environment, "m3")
+    keys, counts = pending_of(reviewer)
+    assert keys == ["m1", "m3"]
+    assert counts == {"pending": 2, "blocked": 1}
+    # UHI participation is recorded, never decided, so it is no exit request.
+    submit(environment, "m2")
+    submit(environment, "uhi1")
+    keys, counts = pending_of(reviewer)
+    assert keys[0] == "m1"
+    assert sorted(keys) == ["m1", "m2", "m3"]
+    assert counts == {"pending": 3, "blocked": 2}
+    # Approving M1 leaves the pending stage for the register, and frees the two
+    # requests that were waiting on it.
+    approve_submitted(environment, "m1")
+    keys, counts = pending_of(reviewer)
+    assert sorted(keys) == ["m2", "m3"]
+    assert counts == {"pending": 2, "blocked": 0}
+
+
+def test_pending_requests_stay_within_the_reviewers_categories(environment, client):
+    """Exit requests belong to a track; the register does not."""
+    approve(environment)
+    submit(environment, "m2")
+    reader = staff()
+    assert pending_of(reader) == ([], {"pending": 0, "blocked": 0})
+    client.force_login(reader)
+    response = client.get(reverse("experiences:production-list"))
+    assert response.context["counts"]["pending"] == 0
+    assert response.context["counts"]["all"] == 1
+    client.force_login(environment["reviewer"])
+    response = client.get(reverse("experiences:production-list"))
+    assert response.context["stage"] == "pending"
+    assert [item.pk for item in response.context["requests"]] == [
+        milestone(environment, "m2").pk,
+    ]
+    assert b"M2" in response.content

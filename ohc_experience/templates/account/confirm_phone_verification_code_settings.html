@@ -1,0 +1,29 @@
+{% extends "account/base_manage_email.html" %}
+
+{% comment %}
+  The same code entry as signup, in the app shell: this one is reached from
+  Settings → Your profile, where the signed-out shell would read as a landing
+  page. Context: verify_form, change_form, can_resend, can_change, cancel_url,
+  phone.
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}
+  {% translate "Confirm your mobile number" %}
+{% endblock title %}
+{% block settings_content %}
+  <div class="ui-card">
+    <div class="ui-card-header">
+      <h2 class="ui-card-title">{% translate "Confirm your mobile number" %}</h2>
+      <p class="ui-card-description">
+        {% blocktranslate trimmed %}
+          We texted a code to {{ phone }}. It expires shortly, so use it soon.
+        {% endblocktranslate %}
+      </p>
+    </div>
+    <div class="ui-card-content flex flex-col gap-4">
+      {% translate "Wrong number?" as change_title %}
+      {% include "account/partials/confirm_code.html" %}
+    </div>
+  </div>
+{% endblock settings_content %}

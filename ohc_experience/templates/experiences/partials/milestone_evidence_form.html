@@ -1,0 +1,50 @@
+<form id="evidence-form"
+      method="post"
+      enctype="multipart/form-data"
+      hx-encoding="multipart/form-data"
+      novalidate
+      data-review-form
+      data-current-milestone-code="{{ tile.definition.code }}"
+      {% if item.definition.auto_approve %}data-auto-approve="true"{% endif %}
+      {% if item.definition.auto_approve and item.status == 'approved' %}data-approved-updates="true"{% endif %}>
+  {% csrf_token %}
+  <input type="hidden"
+         name="revision"
+         value="{{ item.selected_submission_id|default:'' }}" />
+  {% include 'experiences/partials/form.html' with show_milestone_choices=True %}
+  <div id="evidence-actions"
+       class="mt-8 flex scroll-mt-6 flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium">{% if item.definition.auto_approve and item.status == 'approved' %}Update recorded participation{% elif item.definition.auto_approve %}Save your progress or record participation{% else %}Save your progress or request review{% endif %}</p>
+      <p class="mt-1 max-w-[520px] text-xs leading-relaxed text-soft-foreground">{% if item.definition.auto_approve and item.status == 'approved' %}Submit your changes to update the recorded answers. Your participation stays recorded.{% elif item.definition.auto_approve %}Submitting records your participation. You can return to update your answers.{% else %}{% if submission_choices %}Submitting sends the selected milestones for review and locks their forms. Saving a draft updates {{ tile.definition.code }} only.{% else %}Drafts stay editable. Submitting sends this milestone for review and locks the form.{% endif %}{% endif %}</p>
+      <p class="mt-1.5 text-xs text-soft-foreground"
+         data-unsaved-status
+         aria-live="polite">{% if item.definition.auto_approve and item.status == 'approved' %}Changes are saved when you submit your update.{% else %}Changes are saved when you save a draft.{% endif %}</p>
+      <p class="mt-1.5 text-xs font-medium text-amber-800"
+         id="evidence-submit-reason"
+         data-submit-reason
+         aria-live="polite">{% if submission_blocked %}Required approvals are pending.{% endif %}</p>
+      <button type="button"
+              class="mt-1 min-h-11 text-sm font-semibold text-primary underline underline-offset-4"
+              data-submit-missing
+              hidden>Go to first incomplete field</button>
+    </div>
+    <div class="flex flex-col gap-2 sm:flex-row">
+      {% if not item.definition.auto_approve or item.status != 'approved' %}
+        <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+                type="submit"
+                name="intent"
+                value="draft"
+                formnovalidate>Save draft</button>
+      {% endif %}
+      {% if not submission_blocked %}
+        <button class="ui-btn ui-btn--default ui-btn--size-sm"
+                type="submit"
+                name="intent"
+                value="submit"
+                aria-describedby="evidence-submit-reason"
+                data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% elif item.definition.auto_approve %}{{ item.definition.submit_label }}{% else %}<span data-submit-label>Submit {{ tile.definition.code }}</span>{% endif %}</button>
+      {% endif %}
+    </div>
+  </div>
+</form>

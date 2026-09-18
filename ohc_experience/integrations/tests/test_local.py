@@ -11,6 +11,8 @@ from ohc_experience.integrations import local
 from ohc_experience.integrations.local import LocalApiGateway
 from ohc_experience.integrations.local import LocalBridgeRegistry
 from ohc_experience.integrations.local import LocalIdpAdmin
+from ohc_experience.integrations.local import LocalNotificationGateway
+from ohc_experience.integrations.notification.templates import MOBILE_VERIFICATION_CODE
 from ohc_experience.integrations.ports import AdapterError
 from ohc_experience.integrations.ports import ApiGateway
 from ohc_experience.integrations.ports import BridgeRegistry
@@ -19,17 +21,29 @@ from ohc_experience.integrations.ports import ClientSpec
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.ports import GatewayAppSpec
 from ohc_experience.integrations.ports import IdpAdmin
+from ohc_experience.integrations.ports import NotificationGateway
+from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.secret_ref import store_secret
 
 SPEC = ClientSpec(reference="SBX-2026-00001", display_name="Acme", role_names=("hip",))
-APP_SPEC = GatewayAppSpec(reference="SBX-2026-00001", name="Acme", api_names=("abha",))
+APP_SPEC = GatewayAppSpec(reference="SBX-2026-00001", name="Acme", api_ids=("abha",))
 #: WSO2 derives the name from the reference, and so does the local adapter.
 APP_NAME = "sbx-SBX-2026-00001"
-BRIDGE_SPEC = BridgeSpec(bridge_id="SBX_ABC", name="Acme", url="https://acme.test")
+BRIDGE_SPEC = BridgeSpec(
+    bridge_id="SBX_ABC",
+    name="Acme",
+    url="https://acme.test",
+    entity="Private",
+)
 # A pointer into a secret store, never a secret value. Deliberately never parked,
 # so it stands in for one that has expired.
 SECRET_REF = "vault://x"  # noqa: S105
 LATENCY = 0.05
+OTP_MESSAGE = NotificationMessage(
+    template=MOBILE_VERIFICATION_CODE,
+    receiver="9999999999",
+    values=("123456",),
+)
 
 
 @pytest.fixture(autouse=True)
@@ -248,6 +262,35 @@ def test_injected_failures_are_adapter_errors_with_a_retryable_flag():
 
     assert excinfo.value.system is ExternalSystem.HIECM
     assert excinfo.value.retryable is False
+
+
+# Notifications
+
+
+def test_a_notification_is_kept_instead_of_sent():
+    gateway: NotificationGateway = LocalNotificationGateway()
+
+    gateway.send(OTP_MESSAGE)
+
+    assert LocalNotificationGateway().sent() == [
+        {
+            "channel": "sms",
+            "receiver": "9999999999",
+            "template_id": MOBILE_VERIFICATION_CODE.id,
+            "subject": "Mobile verification",
+            "values": ["123456"],
+            "content_type": "otp",
+        },
+    ]
+
+
+def test_a_failing_notification_is_not_kept():
+    local.fail_next(ExternalSystem.NOTIFICATION, "send", retryable=False)
+
+    with pytest.raises(AdapterError):
+        LocalNotificationGateway().send(OTP_MESSAGE)
+
+    assert LocalNotificationGateway().sent() == []
 
 
 def test_latency_injection_delays_the_call():

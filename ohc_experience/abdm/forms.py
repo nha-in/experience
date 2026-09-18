@@ -21,6 +21,7 @@ from .wasa import WASA_VALIDITY_YEARS
 from .wasa import approved_wasa_submission
 from .wasa import certificate_context
 from .wasa import current_wasa
+from .widgets import WasaCertificateInput
 
 
 class OrganisationForm(ReviewForm):
@@ -218,6 +219,52 @@ def required_warning(labels):
 class ProductRegistrationForm(ReviewForm):
     full_width_fields = ("applied_milestones", "solution_type")
     conditional_fields = {"solution_type_other": ("solution_type", "other")}
+    solution_type_details = {
+        "hmis": (
+            "A hospital system that manages clinical and administrative records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/hip-hiu",
+        ),
+        "clinical_hmis": (
+            "A clinic information system that manages patient care and health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/hip-hiu",
+        ),
+        "lmis": (
+            "A laboratory system for lab operations and test results.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#lmis",
+        ),
+        "pharmacy": (
+            "A system that manages pharmacy dispensing and medication records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/participants/pharmacy",
+        ),
+        "phr": (
+            "An application that helps people access and control their health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr",
+        ),
+        "health_locker": (
+            "A service that stores and retrieves personal health records.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
+        ),
+        "healthtech": (
+            "A digital health product integrating with ABDM services.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+        ),
+        "insurance": (
+            "A payer or insurer that exchanges health insurance claims.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/participants/insurer",
+        ),
+        "telemedicine": (
+            "A service that delivers healthcare remotely through digital channels.",
+            "https://abdm-docs.dev.eka.care/docs/uhi/v1/getting-started/onboarding",
+        ),
+        "govt_program": (
+            "A government programme that integrates with ABDM services.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+        ),
+        "other": (
+            "A solution type not listed above. Describe it in the field that appears.",
+            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+        ),
+    }
 
     sections = (
         (
@@ -372,12 +419,14 @@ class UhiParticipationForm(ReviewForm):
 
 
 class WasaReviewForm(ReviewForm):
+    # The certificate leads: the audit fields below are read from it.
     sections = (
         (
             "WASA audit",
-            ("wasa_agency", "wasa_date", "wasa_valid_until", "wasa_certificate"),
+            ("wasa_certificate", "wasa_agency", "wasa_date", "wasa_valid_until"),
         ),
     )
+    full_width_fields = ("wasa_certificate",)
     section_notes = {
         "WASA audit": (
             "Upload your certificate and enter the expiry date stated on it."
@@ -412,7 +461,7 @@ class WasaReviewForm(ReviewForm):
         label="WASA certificate",
         required=False,
         validators=[validate_pdf],
-        widget=forms.FileInput(attrs={"accept": ".pdf"}),
+        widget=WasaCertificateInput,
     )
     required_uploads = ("wasa_certificate",)
 
@@ -459,7 +508,7 @@ class WasaReviewForm(ReviewForm):
 
 
 class ExitEvidenceForm(WasaReviewForm):
-    full_width_fields = ("use_product_wasa",)
+    full_width_fields = ("use_product_wasa", "wasa_certificate")
     section_notes = {
         "WASA audit": (
             "The certificate must cover the application and version being submitted."
@@ -472,10 +521,10 @@ class ExitEvidenceForm(WasaReviewForm):
             (
                 "use_product_wasa",
                 "wasa_source_submission",
+                "wasa_certificate",
                 "wasa_agency",
                 "wasa_date",
                 "wasa_valid_until",
-                "wasa_certificate",
             ),
         ),
         (
@@ -548,6 +597,10 @@ class ExitEvidenceForm(WasaReviewForm):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        today = timezone.localdate().isoformat()
+        self.fields["start_date"].widget.attrs["max"] = today
+        self.fields["end_date"].widget.attrs["max"] = today
+        self.fields["tentative_demo_date"].widget.attrs["min"] = today
         saved_reuse = bool(self.initial.get("use_product_wasa"))
         source = wasa_source_submission
         if self.is_bound:
@@ -642,6 +695,22 @@ class ExitEvidenceForm(WasaReviewForm):
             cleaned.get(key)
             for key in ("start_date", "end_date", "tentative_demo_date")
         )
+        today = timezone.localdate()
+        if start and start > today:
+            self.add_error(
+                "start_date",
+                "The sandbox testing start date cannot be in the future.",
+            )
+        if end and end > today:
+            self.add_error(
+                "end_date",
+                "The sandbox testing end date cannot be in the future.",
+            )
+        if demo and demo < today:
+            self.add_error(
+                "tentative_demo_date",
+                "The tentative demo date cannot be in the past.",
+            )
         if start and end and end < start:
             self.add_error("end_date", "Testing must end on or after its start date.")
         if end and demo and demo < end:

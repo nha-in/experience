@@ -48,7 +48,7 @@
       </li>
       <li>
         <span class="marketing-auth-step-number" aria-hidden="true">02</span>
-        <div><strong>{% translate "Organisation/Business" %}</strong><span>{% translate "Submit your organisation or business details for verification." %}</span></div>
+        <div><strong>{% translate "Organisation / Business" %}</strong><span>{% translate "Submit your organisation or business details for verification." %}</span></div>
       </li>
       <li>
         <span class="marketing-auth-step-number" aria-hidden="true">03</span>
@@ -114,18 +114,18 @@
     {% if form.organisation %}
       <fieldset class="marketing-auth-fieldset">
         <legend>{% translate "Your organisation/business" %}</legend>
-        {% ui_field form.organisation_type %}
+        {% ui_field form.organisation_type inline_errors=False %}
         <div class="marketing-auth-field-grid">
-          {% ui_field form.organisation %}
-          {% ui_field form.website help_text="We check your email address against this domain." %}
+          {% ui_field form.organisation inline_errors=False %}
+          {% ui_field form.website inline_errors=False %}
         </div>
       </fieldset>
     {% endif %}
     <fieldset class="marketing-auth-fieldset">
       <legend>{% translate "About you" %}</legend>
-      {% ui_field form.name label="Full name" %}
+      {% ui_field form.name inline_errors=False %}
       <div>
-        {% ui_field form.email label="Email" %}
+        {% ui_field form.email inline_errors=False %}
         {% if form.organisation %}
           <p class="ui-alert ui-alert--info mt-2" data-email-domain-callout hidden>
             {% translate "This email address is not on your organisation's own domain. You can continue, but the reviewer may ask about it." %}
@@ -133,14 +133,14 @@
         {% endif %}
       </div>
       {% if form.mobile_number %}
-        {% ui_field form.mobile_number %}
+        {% ui_field form.mobile_number help_text="Enter your 10-digit phone number without the country code." inline_errors=False %}
       {% endif %}
     </fieldset>
     <fieldset class="marketing-auth-fieldset">
       <legend>{% translate "Secure your account" %}</legend>
-      {% ui_field form.password1 label="Password" help_text="Use at least 12 characters. Avoid common words and personal details." %}
+      {% ui_field form.password1 help_text="Use at least 12 characters, including a letter, a number and a special character. Avoid common words and personal details." inline_errors=False %}
       {% if form.password2 %}
-        {% ui_field form.password2 label="Confirm password" %}
+        {% ui_field form.password2 inline_errors=False %}
       {% endif %}
       {% if form.captcha %}
         <div>
@@ -155,11 +155,8 @@
             <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"
                     async
                     defer></script>
-            <div id="{{ form.captcha.auto_id }}_errors">
-              {% for error in form.captcha.errors %}<p class="ui-error" role="alert">{{ error }}</p>{% endfor %}
-            </div>
           {% else %}
-            {% ui_field form.captcha %}
+            {% ui_field form.captcha inline_errors=False %}
           {% endif %}
         </div>
       {% endif %}
@@ -168,7 +165,7 @@
     <div class="marketing-auth-submit">
       <button class="ui-btn ui-btn--default ui-btn--size-lg ui-btn--block"
               type="submit">{% if invitation %}{% translate "Create account and join team" %}{% else %}{% translate "Create account" %}{% endif %}<span aria-hidden="true">→</span></button>
-      <p>{% translate "We'll email you a verification link to confirm your address." %}</p>
+      <p>{% translate "We'll email you a code to confirm your address, and text one to your mobile number." %}</p>
     </div>
   </form>
 {% endblock entrance_body %}

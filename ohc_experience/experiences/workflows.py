@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from functools import partial
 from uuid import uuid4
 
 from django import forms
@@ -12,6 +13,7 @@ from django.db.models import Max
 from django.db.models import OuterRef
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.text import capfirst
 
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
@@ -49,6 +51,9 @@ from .services import issue_outcome
 logger = logging.getLogger(__name__)
 
 MAX_REVIEW_TEXT = 10000
+#: Chosen when no listed reason fits. The reviewer then has to write the reason.
+OTHER_REASON = "Other"
+REQUEST_WITHDRAWN = "Request withdrawn"
 PENDING_STATUSES = (
     ReviewItem.Status.NEW,
     ReviewItem.Status.IN_REVIEW,
@@ -56,18 +61,29 @@ PENDING_STATUSES = (
 )
 
 
-def _notice(item, event, *, note=""):
+def _notice(item, event, *, note="", reason="", after_commit=False):
+    if after_commit:
+        transaction.on_commit(partial(_notice, item, event, note=note, reason=reason))
+        return
     try:
-        notify_review(item, event, note=note)
+        notify_review(item, event, note=note, reason=reason)
     except Exception:
         # Email must never break a workflow transition.
         logger.exception("Failed to email the %s notice for %s", event, item.reference)
 
 
-def _announce(item, action, note):
+def _announce(item, action, note, reason="", *, after_commit=False):
     """Only an approval leaves the review thread; the rest keep its subject."""
+    if after_commit:
+        transaction.on_commit(partial(_announce, item, action, note, reason))
+        return
     if action != "approve":
-        _notice(item, "query_raised" if action == "query" else "sent_back", note=note)
+        _notice(
+            item,
+            "query_raised" if action == "query" else "sent_back",
+            note=note,
+            reason=reason,
+        )
         return
     try:
         notify_decision(item, note)
@@ -165,6 +181,23 @@ def organisation_review(organisation, user):
 
 def build_form(item, *, data=None, files=None, draft=False):
     submission = item.selected_submission
+    inherited = bool(
+        submission
+        and item.definition.allow_reuse
+        and getattr(item.application, "milestone", None)
+        and _fresh_evidence_target(item),
+    )
+    if inherited:
+        source_milestone = getattr(submission.origin_application, "milestone", None)
+        if (
+            not source_milestone
+            or source_milestone.key not in _evidence_track_keys(item)
+            or submission.origin_application.product_id != item.product_id
+        ):
+            # Application creation can pin a product-wide form's last revision.
+            # That pin is still the concurrency token, not permission to copy
+            # another category's answers or functional-testing documents.
+            submission = None
     existing = defaultdict(list)
     if submission:
         for attachment in submission.attachments.filter(is_current=True):
@@ -172,6 +205,10 @@ def build_form(item, *, data=None, files=None, draft=False):
     initial = dict(submission.data) if submission else {}
     if not submission:
         initial.update(item.definition.initial_data(item))
+    if inherited and data is None:
+        # Shared documents do not imply shared testing dates for a new milestone.
+        initial.pop("start_date", None)
+        initial.pop("end_date", None)
     form_class = item.definition.form_class
     for key, field in form_class.base_fields.items():
         if isinstance(field, forms.FileField):
@@ -188,21 +225,25 @@ def build_form(item, *, data=None, files=None, draft=False):
     return form
 
 
-def _complete_submission(item, actor):
+def _complete_submission(item, actor, *, defer_notifications=False):
     resubmitting = item.submitted_at is not None
     updating = item.status == ReviewItem.Status.APPROVED
     item.resubmission_count += int(resubmitting)
     item.submitted_at = timezone.now()
     if item.definition.auto_approve and not pending_prerequisites(item):
-        _auto_approve(item, actor)
+        _auto_approve(item, actor, defer_notifications=defer_notifications)
         action = "Record updated" if updating else "Recorded"
     else:
-        _request_review(item, resubmitting=resubmitting)
+        _request_review(
+            item,
+            resubmitting=resubmitting,
+            defer_notifications=defer_notifications,
+        )
         action = "Resubmitted for review" if resubmitting else "Requested review"
     audit(actor=actor, action=action, item=item)
 
 
-def _request_review(item, *, resubmitting):
+def _request_review(item, *, resubmitting, defer_notifications=False):
     item.status = (
         ReviewItem.Status.IN_REVIEW
         if resubmitting or item.assignee_id
@@ -211,8 +252,9 @@ def _request_review(item, *, resubmitting):
     item.decided_at = None
     item.decided_by = None
     item.decision_note = ""
+    item.decision_reason = ""
     _set_application_status(item, "under_review")
-    _notice(item, "received")
+    _notice(item, "received", after_commit=defer_notifications)
 
 
 def _snapshot(item, form, actor, *, completed):
@@ -422,6 +464,44 @@ def prerequisite_names(prerequisites):
     return f"{readable_list(item.name for item in prerequisites)} {verb}"
 
 
+def withdrawn_hold(item, prerequisites):
+    """Why `item` waits on the integrator, or "" when nothing was withdrawn.
+
+    A withdrawn prerequisite is not waiting on a reviewer, so the hold must not
+    ask one to approve it.
+    """
+    withdrawn = [
+        prerequisite for prerequisite in prerequisites if prerequisite.withdrawn
+    ]
+    if not withdrawn:
+        return ""
+    outcome = (
+        "This request is recorded automatically"
+        if item.definition.auto_approve
+        else "Approve or send back this request"
+    )
+    names = capfirst(readable_list(prerequisite.name for prerequisite in withdrawn))
+    if len(withdrawn) == 1:
+        return (
+            f"{names} was withdrawn by the integrator. "
+            f"{outcome} once it is resubmitted and approved."
+        )
+    return (
+        f"{names} were withdrawn by the integrator. "
+        f"{outcome} once they are resubmitted and approved."
+    )
+
+
+def withdrawn_at(item):
+    """When the integrator last took this request back, if they did."""
+    return (
+        item.history.filter(action=REQUEST_WITHDRAWN)
+        .order_by("-created_at")
+        .values_list("created_at", flat=True)
+        .first()
+    )
+
+
 def can_edit_review(item):
     return item.editable or (
         item.status == ReviewItem.Status.APPROVED
@@ -576,18 +656,218 @@ def save_review_form(  # noqa: PLR0913
     form = build_form(item, data=data, files=files, draft=not submit)
     if not form.is_valid():
         return item, form, False
+    _save_valid_review_form(item, actor, form, submit=submit)
+    return item, form, True
+
+
+def _save_valid_review_form(item, actor, form, *, submit, defer_notifications=False):
     if submit:
         item.definition.on_submit(item, form.cleaned_data, actor)
     _snapshot(item, form, actor, completed=submit)
     if submit:
-        _complete_submission(item, actor)
+        _complete_submission(item, actor, defer_notifications=defer_notifications)
     else:
         if item.status != ReviewItem.Status.SENT_BACK:
             item.status = ReviewItem.Status.DRAFT
         _set_application_status(item, "draft")
     item.save()
     if item.status == ReviewItem.Status.APPROVED:
-        _record_released(item.organisation)
+        _record_released(item.organisation, defer_notifications=defer_notifications)
+
+
+def _fresh_evidence_target(item):
+    """A new request may inherit a source pin, but must not contain its own work."""
+    return (
+        item.status == ReviewItem.Status.DRAFT
+        and not item.submitted_at
+        and (
+            not item.selected_submission_id
+            or item.selected_submission.origin_application_id != item.application_id
+        )
+    )
+
+
+def _evidence_track_keys(item):
+    """Only a track's own milestones can share evidence; prerequisites do not."""
+    milestone = getattr(item.application, "milestone", None)
+    if not milestone:
+        return set()
+    return {
+        key
+        for track in item.program.tracks
+        if milestone.key in track.keys
+        for key in track.keys
+    }
+
+
+def submission_targets(item):
+    """Compatible fresh siblings whose prerequisites can join this submission."""
+    if not item.definition.allow_reuse or not item.product_id or not item.editable:
+        return []
+    candidates = [
+        candidate
+        for candidate in ReviewItem.objects.filter(
+            product_id=item.product_id,
+            form_id=item.form_id,
+            status=ReviewItem.Status.DRAFT,
+            submitted_at__isnull=True,
+            application__milestone__enabled=True,
+            application__milestone__key__in=_evidence_track_keys(item),
+        )
+        .exclude(pk=item.pk)
+        .select_related("selected_submission", "form", "application__milestone")
+        .order_by("pk")
+        if _fresh_evidence_target(candidate)
+        and candidate.definition.schema_version == item.definition.schema_version
+        and candidate.definition.allow_reuse
+    ]
+    while True:
+        selected = {item.pk, *(candidate.pk for candidate in candidates)}
+        possible = [
+            candidate
+            for candidate in candidates
+            if all(
+                prerequisite.pk in selected
+                for prerequisite in unsubmitted_prerequisites(candidate)
+            )
+        ]
+        if len(possible) == len(candidates):
+            return possible
+        candidates = possible
+
+
+def _evidence_form(item, source, *, data, files=None, draft=False):
+    """Validate another request using the displayed evidence, without changing pins."""
+    original = item.selected_submission
+    item.selected_submission = source
+    try:
+        return build_form(item, data=data, files=files, draft=draft)
+    finally:
+        item.selected_submission = original
+
+
+def _require_evidence_revision(item, expected_revision):
+    if str(item.selected_submission_id or "") != str(expected_revision or ""):
+        msg = "A teammate updated this form. Reload the page before submitting."
+        raise ValidationError(msg)
+
+
+def _submission_batch(item, additional_revisions):
+    try:
+        revisions = {int(pk): revision for pk, revision in additional_revisions.items()}
+    except (AttributeError, TypeError, ValueError) as error:
+        msg = "Choose valid additional milestones. Reload the page before submitting."
+        raise ValidationError(msg) from error
+    eligible = {candidate.pk for candidate in submission_targets(item)}
+    if len(revisions) != len(additional_revisions) or not set(revisions) <= eligible:
+        msg = "An additional milestone changed or has saved work. Reload the page."
+        raise ValidationError(msg)
+    additional = list(
+        ReviewItem.objects.select_for_update(of=("self",))
+        .filter(pk__in=revisions)
+        .select_related(
+            "selected_submission",
+            "form",
+            "organisation",
+            "product",
+            "application",
+        )
+        .order_by("pk"),
+    )
+    for candidate in additional:
+        _require_evidence_revision(candidate, revisions[candidate.pk])
+    selected = {item.pk, *revisions}
+    for candidate in [item, *additional]:
+        if any(
+            prerequisite.pk not in selected
+            for prerequisite in unsubmitted_prerequisites(candidate)
+        ):
+            raise ValidationError(milestone_unavailable(candidate))
+        milestone = getattr(candidate.application, "milestone", None)
+        if milestone and not milestone.enabled:
+            raise ValidationError(milestone_unavailable(candidate))
+        reason = candidate.definition.submission_block_reason(candidate)
+        if reason:
+            raise ValidationError(reason)
+    return [item, *additional]
+
+
+def _use_uploaded_evidence(form, source):
+    """Upload once; every selected milestone gets independent attachment rows."""
+    existing = defaultdict(list)
+    for attachment in source.attachments.filter(is_current=True):
+        existing[attachment.field_key].append(attachment)
+    form.existing_files = dict(existing)
+    for key, field in form.fields.items():
+        if isinstance(field, forms.FileField):
+            form.cleaned_data[key] = None
+            form.removed_file_ids[key] = set()
+
+
+@transaction.atomic
+def save_review_forms(  # noqa: PLR0913
+    item,
+    actor,
+    *,
+    data,
+    files=None,
+    expected_revision=None,
+    additional_revisions=None,
+):
+    """Submit the displayed evidence for explicitly selected fresh milestones."""
+    item = _lock_review(item.pk)
+    require_integrator(actor, item.organisation)
+    _require_editable_submission(item, submit=True)
+    _require_evidence_revision(item, expected_revision)
+    items = _submission_batch(item, additional_revisions or {})
+    evidence = item.selected_submission
+    form = build_form(item, data=data, files=files)
+    valid = form.is_valid()
+    form.additional_forms = {}
+    validated = {item.pk: form}
+    for candidate in items[1:]:
+        candidate_data = data.copy()
+        for field in ("start_date", "end_date"):
+            candidate_data[field] = data.get(f"milestone_{candidate.pk}_{field}", "")
+        candidate_form = _evidence_form(
+            candidate,
+            evidence,
+            data=candidate_data,
+            files=files,
+        )
+        form.additional_forms[candidate.pk] = candidate_form
+        if not candidate_form.is_valid():
+            valid = False
+            for errors in candidate_form.errors.values():
+                for error in errors:
+                    form.add_error(None, f"{candidate.title}: {error}")
+        validated[candidate.pk] = candidate_form
+    if not valid:
+        return item, form, False
+    source = None
+    while items:
+        ready = next(
+            (
+                candidate
+                for candidate in items
+                if not unsubmitted_prerequisites(candidate)
+            ),
+            None,
+        )
+        if ready is None:
+            raise ValidationError(milestone_unavailable(items[0]))
+        ready_form = validated[ready.pk]
+        if source:
+            _use_uploaded_evidence(ready_form, source)
+        _save_valid_review_form(
+            ready,
+            actor,
+            ready_form,
+            submit=True,
+            defer_notifications=True,
+        )
+        source = source or ready.selected_submission
+        items.remove(ready)
     return item, form, True
 
 
@@ -686,7 +966,7 @@ def withdraw(item, actor):
     item.save(update_fields=["status"])
     _set_application_status(item, "draft")
     item.definition.on_withdraw(item, actor)
-    audit(actor=actor, action="Request withdrawn", item=item)
+    audit(actor=actor, action=REQUEST_WITHDRAWN, item=item)
     _notice(item, "withdrawn")
 
 
@@ -771,7 +1051,7 @@ def _validate_approval(item):
         raise ValidationError(msg)
 
 
-def _auto_approve(item, actor):
+def _auto_approve(item, actor, *, defer_notifications=False):
     """Submitting is the decision. Nobody is asked, but the record still lands
     in the queue so a reviewer can read it."""
     _validate_approval(item)
@@ -779,12 +1059,13 @@ def _auto_approve(item, actor):
     item.decided_at = timezone.now()
     item.decided_by = None
     item.decision_note = ""
+    item.decision_reason = ""
     _set_application_status(item, "approved")
     _approve_subject(item, actor)
-    _notice(item, "recorded")
+    _notice(item, "recorded", after_commit=defer_notifications)
 
 
-def _record_released(organisation):
+def _record_released(organisation, *, defer_notifications=False):
     """Record the waiting requests that no longer wait on anything.
 
     A request nobody decides can still have prerequisites, as UHI waits on M1 and
@@ -806,13 +1087,13 @@ def _record_released(organisation):
         ).select_related("selected_submission", "form", "product", "application")
         for item in waiting:
             if item.definition.auto_approve and not pending_prerequisites(item):
-                _auto_approve(item, None)
+                _auto_approve(item, None, defer_notifications=defer_notifications)
                 item.save()
                 audit(actor=None, action="Recorded", item=item)
                 recorded = True
 
 
-def _require_decidable(item, action):
+def _require_decidable(item, action, *, settling_reviews=()):
     if not item.pending:
         msg = "This item is not awaiting a decision."
         raise ValidationError(msg)
@@ -824,21 +1105,97 @@ def _require_decidable(item, action):
         raise ValidationError(msg)
     # A query can be raised at any time; the decision waits for what came first.
     prerequisites = pending_prerequisites(item) if action != "query" else []
+    prerequisites = [
+        prerequisite
+        for prerequisite in prerequisites
+        if not prerequisite.review or prerequisite.review.pk not in settling_reviews
+    ]
     if prerequisites:
-        msg = (
+        msg = withdrawn_hold(item, prerequisites) or (
             "Approve or send back this request once "
             f"{prerequisite_names(prerequisites)} approved."
         )
         raise ValidationError(msg)
 
 
+def send_back_reasons(definition):
+    """What this form offers, with Other last, or nothing when it lists none."""
+    reasons = definition.send_back_reasons
+    return (*reasons, OTHER_REASON) if reasons else ()
+
+
+def _decision_reason(item, action, reason):
+    """The reason a send-back is given, when the form offers a list to choose from.
+
+    None means the decision offered no choice, as a bulk rejection of requests
+    with different lists does; the note then carries the reason.
+    """
+    offered = send_back_reasons(item.definition)
+    if action != "send_back" or not offered or reason is None:
+        return ""
+    reason = reason.strip()
+    if not reason:
+        msg = "Choose a reason for sending this back."
+        raise ValidationError(msg)
+    if reason not in offered:
+        msg = "Choose a reason from the list."
+        raise ValidationError(msg)
+    return reason
+
+
 @transaction.atomic
-def decide(item, actor, *, action, note="", field_key="form"):
+def decide(  # noqa: PLR0913
+    item,
+    actor,
+    *,
+    action,
+    note="",
+    reason="",
+    field_key="form",
+    expected_revision=None,
+):
     item = _lock_review(item.pk)
+    if expected_revision is not None and str(item.selected_submission_id or "") != str(
+        expected_revision,
+    ):
+        msg = "A submission changed. Reload the product page before deciding."
+        raise ValidationError(msg)
+    return _decide(
+        item,
+        actor,
+        action=action,
+        note=note,
+        reason=reason,
+        field_key=field_key,
+    )
+
+
+def _decide(  # noqa: PLR0913
+    item,
+    actor,
+    *,
+    action,
+    note="",
+    reason=None,
+    field_key="form",
+    defer_notifications=False,
+    rejecting_reviews=(),
+):
+    """Apply a decision to a review protected by its organisation's lock."""
     require_decider(actor, item, "write" if action == "query" else "approve")
-    _require_decidable(item, action)
+    _require_decidable(
+        item,
+        action,
+        settling_reviews=rejecting_reviews if action == "send_back" else (),
+    )
     note = note.strip()
-    if action in {"send_back", "query"} and not note:
+    reason = _decision_reason(item, action, reason)
+    # A listed reason speaks for itself. A query, Other, and a form with no list
+    # to choose from need the reviewer's own words.
+    if not note and reason == OTHER_REASON:
+        msg = "Write the reason when you choose Other."
+        raise ValidationError(msg)
+    if not note and (action == "query" or (action == "send_back" and not reason)):
         msg = "Enter a reason or question before continuing."
         raise ValidationError(msg)
     if len(note) > MAX_REVIEW_TEXT:
@@ -880,6 +1237,7 @@ def decide(item, actor, *, action, note="", field_key="form"):
             actor,
             note,
         )
+        item.decision_reason = reason
         _set_application_status(item, "approved" if action == "approve" else "draft")
         if action == "approve":
             _approve_subject(item, actor)
@@ -889,13 +1247,152 @@ def decide(item, actor, *, action, note="", field_key="form"):
             actor=actor,
             action="Approved" if action == "approve" else "Sent back",
             item=item,
-            detail={"note": note, "submission_id": item.selected_submission_id},
+            detail={
+                "note": note,
+                "submission_id": item.selected_submission_id,
+                **({"reason": reason} if reason else {}),
+            },
         )
     item.save()
     if action == "approve":
-        _record_released(item.organisation)
-    _announce(item, action, note)
+        _record_released(item.organisation, defer_notifications=defer_notifications)
+    _announce(item, action, note, reason, after_commit=defer_notifications)
     return item
+
+
+def _bulk_review_selection(product, actor, expected_revisions):
+    """Lock and check precisely the submitted evidence shown on the page."""
+    try:
+        revisions = {
+            int(pk): str(revision) for pk, revision in expected_revisions.items()
+        }
+    except (AttributeError, TypeError, ValueError) as error:
+        msg = "Reload the product page before reviewing these submissions."
+        raise ValidationError(msg) from error
+    if not revisions or len(revisions) != len(expected_revisions):
+        msg = "Choose at least one submitted request to review."
+        raise ValidationError(msg)
+    items = list(
+        ReviewItem.objects.select_for_update(of=("self",))
+        .filter(
+            Q(product=product)
+            | Q(
+                organisation_id=product.organisation_id,
+                kind=ReviewItem.Kind.ORGANISATION,
+                product__isnull=True,
+                application__isnull=True,
+            ),
+            pk__in=revisions,
+        )
+        .select_related(
+            "selected_submission",
+            "form",
+            "organisation",
+            "product",
+            "application",
+        )
+        .order_by("pk"),
+    )
+    if len(items) != len(revisions):
+        msg = (
+            "Every request must belong to this product or its organisation "
+            "verification. Reload the product page."
+        )
+        raise ValidationError(msg)
+    for item in items:
+        require_decider(actor, item)
+        if (
+            not item.pending
+            or not item.selected_submission_id
+            or not item.submitted_at
+            or str(item.selected_submission_id) != revisions[item.pk]
+        ):
+            msg = "A submission changed. Reload the product page before deciding."
+            raise ValidationError(msg)
+        if item.definition.auto_approve:
+            msg = "Automatically recorded requests do not need a review decision."
+            raise ValidationError(msg)
+    return items
+
+
+def product_decision_blockers(items, actor, *, action):
+    """Explain bulk-action availability; the write path checks again under lock."""
+    items = list(items)
+    if not items:
+        return ["There are no submitted requests to review."]
+    selected = {item.pk for item in items}
+    blockers = []
+    for item in items:
+        if not item.selected_submission_id or not item.submitted_at:
+            blockers.append(f"{item.title}: Submit this request before reviewing it.")
+            continue
+        try:
+            require_decider(actor, item)
+            _require_decidable(item, action, settling_reviews=selected)
+            if action == "approve":
+                _validate_approval(item)
+        except (PermissionDenied, ValidationError) as error:
+            reason = (
+                "; ".join(error.messages)
+                if isinstance(error, ValidationError)
+                else str(error)
+            )
+            blockers.append(f"{item.title}: {reason}")
+    return blockers
+
+
+@transaction.atomic
+def decide_product(product, actor, *, action, expected_revisions, note=""):
+    """Decide selected product and organisation submissions or change nothing.
+
+    Approval walks the dependency order, from organisation verification through
+    the product's milestones. Organisation verification is shared by all its
+    products. Rejection can return a complete submitted chain for changes, but
+    never bypasses a prerequisite outside the selected batch.
+    """
+    if action not in {"approve", "send_back"}:
+        msg = "Choose accept all or reject all."
+        raise ValidationError(msg)
+    organisation = Organisation.objects.select_for_update().get(
+        pk=product.organisation_id,
+    )
+    items = _bulk_review_selection(product, actor, expected_revisions)
+    # Prerequisite checks must see an organisation decision made earlier in the
+    # same batch, rather than separate select_related copies of its old state.
+    for item in items:
+        item.organisation = organisation
+    rejecting_reviews = {item.pk for item in items} if action == "send_back" else set()
+    if action == "send_back":
+        # Validate the complete set before any rejection changes prerequisites.
+        for item in items:
+            _require_decidable(item, action, settling_reviews=rejecting_reviews)
+        # Return downstream submissions before the evidence they depend on.
+        items.sort(key=lambda item: len(pending_prerequisites(item)), reverse=True)
+    decided = []
+    while items:
+        ready = (
+            items[0]
+            if action == "send_back"
+            else next((item for item in items if not pending_prerequisites(item)), None)
+        )
+        if ready is None:
+            # Use the normal, actionable prerequisite error. Any earlier
+            # decisions and their queued notifications roll back with it.
+            _require_decidable(items[0], action)
+        decided.append(
+            _decide(
+                ready,
+                actor,
+                action=action,
+                note=note,
+                defer_notifications=True,
+                rejecting_reviews=rejecting_reviews,
+            ),
+        )
+        items.remove(ready)
+        if ready.kind == ReviewItem.Kind.ORGANISATION:
+            organisation.refresh_from_db()
+    return decided
 
 
 @transaction.atomic

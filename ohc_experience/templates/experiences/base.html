@@ -3,7 +3,7 @@
 {% block title %}{{ page_title }} | {{ experience_program.name }}{% endblock %}
 {% block hero %}
   {% if onboarding %}
-    <ol class="mx-auto flex max-w-[1120px] flex-wrap items-center gap-3 px-4 py-3 text-xs text-soft-foreground"
+    <ol class="mx-auto flex max-w-(--page-max) flex-wrap items-center gap-3 px-4 py-3 text-xs text-soft-foreground"
         aria-label="Registration progress">
       <li>✓ Account</li>
       <li aria-hidden="true">/</li>
@@ -16,7 +16,9 @@
 {% endblock hero %}
 {% block content %}
   {% block portal_content %}{% endblock %}
-  <footer class="mt-10 flex flex-wrap justify-between gap-2 border-t border-border pt-4 text-xs text-soft-foreground">
+  <footer class="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-xs text-soft-foreground">
     <span>{{ experience_program.name }}</span>
+    {% block portal_footer %}
+    {% endblock portal_footer %}
   </footer>
 {% endblock %}

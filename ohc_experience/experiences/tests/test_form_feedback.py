@@ -25,6 +25,20 @@ def test_invalid_field_describes_both_help_and_validation_errors():
     assert "Enter a valid email address." in html
 
 
+def test_errors_left_to_the_summary_are_not_repeated_under_the_field():
+    form = ContactForm({"contact-email": "invalid"}, prefix="contact")
+    html = Template(
+        "{% load careui %}{% ui_field form.email inline_errors=False %}",
+    ).render(Context({"form": form}))
+    assert 'aria-invalid="true"' in html
+    assert (
+        'aria-describedby="email-policy id_contact-email_helptext '
+        'id_contact-email_error_summary"' in html
+    )
+    assert "id_contact-email_errors" not in html
+    assert "Enter a valid email address." not in html
+
+
 def test_error_summary_links_to_prefixed_field_and_includes_general_error():
     form = ContactForm({"contact-email": "invalid"}, prefix="contact")
     form.add_error(None, "Review your contact details.")
@@ -32,6 +46,7 @@ def test_error_summary_links_to_prefixed_field_and_includes_general_error():
     assert "data-error-summary" in html
     assert 'tabindex="-1"' in html
     assert 'href="#id_contact-email"' in html
+    assert 'id="id_contact-email_error_summary"' in html
     assert 'data-error-field="contact-email"' in html
     assert "Review your contact details." in html
 

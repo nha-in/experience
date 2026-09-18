@@ -8,7 +8,10 @@
   {% for section in form|sections %}
     <fieldset class="border-b border-soft-border pb-6 last:border-0 last:pb-0" {% if section.show_when %}data-show-when-field="{{ section.show_when.field }}" data-show-when-value="{{ section.show_when.value }}"{% if not section.show_when.active %} hidden{% endif %}{% endif %}>
       {% if section.title %}
-        <legend class="ui-field-legend mb-3.5">{{ section.title }}</legend>
+        <legend class="ui-field-legend mb-1.5">{{ section.title }}</legend>
+      {% endif %}
+      {% if section.note %}
+        <p class="mb-3.5 text-xs leading-relaxed text-soft-foreground">{{ section.note }}</p>
       {% endif %}
       <div class="grid gap-3.5 sm:grid-cols-2">
         {% for field in section.fields %}
@@ -22,7 +25,7 @@
                 {% elif field.name == 'use_product_wasa' %}
                   {% include 'experiences/partials/product_wasa_choice.html' %}
                 {% elif field.name == 'solution_type' %}
-                  {% ui_field field choices_in_columns=True %}
+                  {% include 'experiences/partials/product_solution_type_picker.html' %}
                 {% else %}
                   {% ui_field field %}
                 {% endif %}
@@ -38,10 +41,10 @@
           </p>
         {% endfor %}
       {% endif %}
-      {% if section.note %}
-        <p class="mt-3 text-xs leading-relaxed text-soft-foreground">{{ section.note }}</p>
-      {% endif %}
     </fieldset>
+    {% if show_milestone_choices and section.title == 'Sandbox testing' and submission_choices %}
+      {% include 'experiences/partials/milestone_submission_choices.html' %}
+    {% endif %}
   {% endfor %}
 </div>
 {% if approved_selections %}

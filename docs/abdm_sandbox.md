@@ -91,8 +91,8 @@ application data:
 docker compose -f docker-compose.local.yml exec django python manage.py seed_experience_demo --permissions-only
 ```
 
-`SBX-2026-00001` demonstrates an approved shared M1 with a recorded (fake)
-production client ID, an M2 query, an M3 review, a PHR1 review, a sent-back
+`SBX-2026-00001` demonstrates an approved shared M1 with a (fake) production
+client ID and issue date, an M2 query, an M3 review, a PHR1 review, a sent-back
 HealthLocker request and a UHI application waiting on M2. The second
 product is registered, with no milestone requests yet. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
@@ -188,10 +188,12 @@ retired; reviewer work uses the engine's assessment screens.
 - Product-level `ProductOutcome` records contain credential references and
   milestone decisions, including production handoff notes. Secrets never appear
   in outcome JSON, notification emails or reviewer pages.
-- `Product.production_client_id` holds the production client ID staff record once
-  an exit is approved, unique across products whatever its case. The NHA gateway
-  team issues production credentials and sends the secret to the integrator
-  directly; the portal never holds it.
+- `Product.production_client_id` holds the production client ID staff add once
+  an exit is approved, unique across products whatever its case, and
+  `production_issued_on` the day the gateway team issued it, as staff entered it.
+  `production_recorded_at` stays the portal's own save time, which the audit
+  trail reports. The NHA gateway team issues production credentials and sends the
+  secret to the integrator directly; the portal never holds it.
 - `ReviewQuery` is pinned to the reviewed submission. All open queries must be
   answered, and answered queries resolved, before approval. Forms under review
   are read-only until withdrawn or sent back.
@@ -204,11 +206,13 @@ The fixed catalog lives in `abdm/catalog.py`. M4 is HFR Registration, PHR
 shares M1 with HIE-CM, and NHCX intentionally has no published milestones per v3.
 There is no configured decision SLA. Production credential issuance is external:
 once a milestone exit is approved, staff with General/onboarding review approve
-access record the production client ID the gateway team issued, at
-`/assess/production/`. Recording or changing it is audited and emails the
-organisation's members a link to the product (not the ID itself); removal is
-audited only. Approval notes are emailed to integrators and retained as product
-outcomes.
+access add the production client ID the gateway team issued, and the day it
+issued it, at `/assess/production/`. The screens carry NHA's own vocabulary from
+the legacy portal: a **Production Approval** screen whose Approved tab is their
+register, and **Update production details** on each product. Adding or changing the ID is audited and emails the
+organisation's members a link to the product (not the ID itself); correcting the
+issue date alone, and removal, are audited only. Approval notes are emailed to
+integrators and retained as product outcomes.
 
 ## Routes and Frontend
 
@@ -224,10 +228,16 @@ outcomes.
 - `/products/<sandbox-id>/credentials/`: audited reveal, rotation and callbacks.
 - `/portal/queries/`: highlighted pending queries.
 - `/assess/dashboard/`, `/assess/queue/`, `/assess/review/<id>/`: NHA review.
-- `/assess/production/`, `/assess/production/<sandbox-id>/`: products with an
-  approved exit, their production client IDs, and a CSV export at
+- `/assess/production/`, `/assess/production/<sandbox-id>/`: production approval
+  in two stages, switched as the review queue switches its own. *Pending*
+  holds the exit requests still to be decided: the queue's rows,
+  scoped to the reviewer's categories as the queue is, ordered by the queue's
+  readiness rule so what nothing blocks comes first and a blocked row says what
+  it waits on. Each row opens its review, which is still where a decision is
+  taken. *Approved* is the register of every product with an approved exit,
+  their production client IDs and issue dates, with a CSV export at
   `/assess/production/export/`. General/onboarding review read to view, approve
-  to record, change or remove.
+  to add, change or remove.
 - `/portal/events/`, `/portal/support/`: registrations and support threads.
 
 The CareUI shell uses HTMX navigation with a shared `#main-content` target and
@@ -248,8 +258,9 @@ and user API routes are no longer exposed.
 ## Visual design
 
 The portal adapts Amjith Titus’s Layered styling from `bodhi-test` commit
-`4bd4f07`: emerald hero bands, floating summary cards, connected milestone
-stations, evidence readiness, review history, and support/event count tabs.
+`4bd4f07`, using the shared blue theme for hero bands, floating summary cards,
+connected milestone stations, evidence readiness, review history, and
+support/event count tabs.
 The shared components live in `theme/static_src/src/layered.css`; hero bands
 remain inside the HTMX main-content target and queue filters refresh their
 hero counts out of band.

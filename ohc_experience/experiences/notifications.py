@@ -88,7 +88,13 @@ def _send(item: ReviewItem, subject: str, body: str, cc: list[str], key: str) ->
     email.send(fail_silently=False)
 
 
-def notify_review(item: ReviewItem, event: str, *, note: str = "") -> None:
+def notify_review(
+    item: ReviewItem,
+    event: str,
+    *,
+    note: str = "",
+    reason: str = "",
+) -> None:
     """One running thread per review: stable subject, the body reports the change.
 
     Support is the recipient; the applicant and the assigned decision maker are
@@ -100,6 +106,7 @@ def notify_review(item: ReviewItem, event: str, *, note: str = "") -> None:
         "kind": KIND_LABELS[item.kind],
         "applicant": _applicant(item),
         "registered": _is_registration(item, event),
+        "reason": reason,
         "note": note.strip(),
         "url": _portal_url(item),
     }

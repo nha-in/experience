@@ -1,0 +1,36 @@
+<fieldset class="rounded-xl border border-soft-border bg-soft-background/60 px-4 pb-4"
+          aria-describedby="milestone-submission-help">
+  <legend class="px-1 text-sm font-semibold">Also submit for other milestones</legend>
+  <p class="mt-1 text-xs leading-relaxed text-soft-foreground"
+     id="milestone-submission-help">Choose other {{ submission_track }} milestones and enter their testing dates. The evidence below is shared.</p>
+  <div class="mt-2 divide-y divide-soft-border">
+    {% for choice in submission_choices %}
+      <div class="py-2">
+        <label class="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+               for="submit-milestone-{{ choice.item.pk }}">
+          <input class="ui-checkbox shrink-0"
+                 type="checkbox"
+                 name="additional_reviews"
+                 value="{{ choice.token }}"
+                 id="submit-milestone-{{ choice.item.pk }}"
+                 data-milestone-code="{{ choice.code }}"
+                 data-review-id="{{ choice.item.pk }}"
+                 data-requires="{{ choice.requires|join:' ' }}"
+                 aria-controls="milestone-dates-{{ choice.item.pk }}"
+                 {% if choice.selected %}checked{% endif %} />
+          <span class="min-w-0 break-words"><strong class="font-semibold">{{ choice.code }}</strong> · {{ choice.name }}</span>
+        </label>
+        <div class="pb-2 pt-1"
+             id="milestone-dates-{{ choice.item.pk }}"
+             data-milestone-dates="{{ choice.item.pk }}"
+             data-testing-dates
+             {% if not choice.selected %}hidden{% endif %}>
+          {% include 'experiences/partials/milestone_testing_dates.html' with dates=choice.dates active=choice.selected %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <p class="mt-2 text-xs font-medium text-primary"
+     data-milestone-selection-summary
+     aria-live="polite">Only {{ tile.definition.code }} will be submitted.</p>
+</fieldset>

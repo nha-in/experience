@@ -33,5 +33,5 @@ class ABDMProductionCredentials(ProductionCredentialDefinition):
     )
     pending_notice = (
         "Your exit is approved. The NHA gateway team issues production credentials; "
-        "your production client ID will appear here once it is recorded."
+        "your production client ID will appear here once it is issued."
     )

@@ -1,0 +1,12 @@
+<ul class="flex flex-wrap gap-1" aria-label="Request statuses">
+  {% for item in entry.matching_reviews %}
+    <li class="ui-queue-chip ui-queue-chip--{{ item.queue_state }} font-mono" title="{% if item.queue_milestone %}{{ item.queue_milestone.code }} {{ item.queue_milestone.name }}{% elif item.product %}{{ item.title }}{% else %}Organisation verification{% endif %} · {{ item.queue_label }}{% for name, status in item.waiting_on %}{% if forloop.first %} · waiting on {% else %}, {% endif %}{{ name }}{% endfor %}">
+      {% include 'experiences/partials/queue_state_icon.html' with state=item.queue_state %}
+      {% if item.queue_milestone %}{{ item.queue_milestone.code }}{% elif item.product %}{{ item.application.reference }}{% else %}Org{% endif %}
+      <span class="sr-only">{{ item.queue_label }}. {% include 'experiences/partials/reviewer_waiting.html' %}</span>
+    </li>
+  {% endfor %}
+</ul>
+<p class="mt-1.5 text-xs text-soft-foreground">
+  {{ entry.approved|length }} of {{ entry.reviews|length }} approved{% if entry.blocked %} · {% for item in entry.blocked %}{% if item.queue_milestone %}{{ item.queue_milestone.code }}{% elif item.product %}{{ item.application.reference }}{% else %}Org{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %} waiting on {{ entry.blocked_on|join:', ' }}{% endif %}
+</p>

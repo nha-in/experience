@@ -126,6 +126,11 @@ class StaffForm(forms.Form):
                     }
                     rows.append(row)
                     self.permission_rows.append(row)
+                # The first row is the "all categories" wildcard. Each row keeps a
+                # reference to it, because a wildcard tick grants the same action
+                # to every category in the group.
+                for row in rows:
+                    row["wildcard"] = rows[0]
                 self.permission_groups.append(
                     {"program": program, "area": area, "label": label, "rows": rows},
                 )
@@ -165,8 +170,16 @@ class StaffForm(forms.Form):
                 self.add_error("password1", error)
         for row in self.permission_rows:
             read, write, approve = row["cells"]
-            if (data.get(write.name) or data.get(approve.name)) and not data.get(
-                read.name,
+            # The editor locks a category read box while the wildcard read box is
+            # ticked, and a locked box sends no value. The wildcard tick supplies
+            # the read access instead.
+            implied = row["wildcard"] is not row and data.get(
+                row["wildcard"]["cells"][0].name,
+            )
+            if (
+                (data.get(write.name) or data.get(approve.name))
+                and not data.get(read.name)
+                and not implied
             ):
                 self.add_error(
                     read.name,
@@ -175,20 +188,18 @@ class StaffForm(forms.Form):
         return data
 
     def grant_values(self):
+        # A grant only has an effect when it can read, so every saved row reads.
+        # A row that grants nothing is dropped, which keeps the wildcard rows and
+        # the category rows free of duplicates.
         return [
             {
                 "program": row["key"][0],
                 "area": row["key"][1],
                 "category": row["key"][2],
-                **{
-                    f"can_{action}": self.cleaned_data[cell.name]
-                    for action, cell in zip(
-                        ("read", "write", "approve"),
-                        row["cells"],
-                        strict=True,
-                    )
-                },
+                "can_read": True,
+                "can_write": self.cleaned_data[row["cells"][1].name],
+                "can_approve": self.cleaned_data[row["cells"][2].name],
             }
             for row in self.permission_rows
-            if self.cleaned_data[row["cells"][0].name]
+            if any(self.cleaned_data[cell.name] for cell in row["cells"])
         ]

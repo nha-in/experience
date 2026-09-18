@@ -10,9 +10,12 @@ belong to `experiences`.
   product mappings, structured approval outcomes and portal labels.
 - `gateway.py`: ABDM credential eligibility and provider/demo integration.
 - `wasa.py`: approved product WASA selection, expiry checks and review outcomes.
-- `reference.py`: the reference environment's run commands, which build CARE with the
-  care-abdm plug from the latest code with Docker Compose, the option each milestone
-  adds, attribution, and the care-abdm flows by milestone.
+- `reference.py`: the reference environment's run commands for macOS, Linux and
+  PowerShell, which build CARE with the care-abdm plug from the latest code with
+  Docker Compose and open it in the browser once it is ready, the option each
+  milestone adds, attribution, and the care-abdm flows by milestone.
+- `send_back_reasons.py`: the reasons reviewers choose from, compressed from the
+  legacy remark mapping.
 - `demo.py`: the ABDM data builder invoked by `seed_experience_demo`.
 - `tests/`: domain-specific regression coverage.
 
@@ -23,6 +26,17 @@ are retained so existing submissions and outcomes remain accessible.
 
 See [the engine contracts](../experiences/README.md) and
 [the portal setup guide](../../docs/abdm_sandbox.md).
+
+## Send-back reasons
+
+`send_back_reasons.py` holds a short list for organisation verification and one
+for sandbox exit, compressed from every remark the old sandbox portal's
+reviewers wrote. A reviewer picks one, or `Other` and writes the reason. Forms
+the legacy data does not cover, such as WASA review, list none and take the note
+alone.
+
+Each legacy remark maps to one of these reasons, or to `Other` when none says
+what it says, so migrated records keep the reviewer's original words in the note.
 
 ## Organisation location validation
 

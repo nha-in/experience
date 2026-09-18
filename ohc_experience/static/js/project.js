@@ -244,8 +244,78 @@
     });
   }
 
+  function updateSandboxDateConstraints(form) {
+    const start = form.querySelector('[name="start_date"]');
+    const end = form.querySelector('[name="end_date"]');
+    const demo = form.querySelector('[name="tentative_demo_date"]');
+    if (start && end) end.min = start.value || '';
+    form.querySelectorAll('[data-testing-dates]').forEach(fields => {
+      const ownStart = fields.querySelector('[data-testing-start]');
+      const ownEnd = fields.querySelector('[data-testing-end]');
+      if (ownStart && ownEnd) ownEnd.min = ownStart.value || '';
+    });
+    // The server caps testing at today; a demo cannot be earlier than today
+    // even when testing ended in the past or its end date is cleared.
+    if (end && demo) demo.min = end.value > end.max ? end.value : end.max;
+  }
+
+  function updateMilestoneSelection(form, changed) {
+    const current = form.dataset.currentMilestoneCode;
+    if (!current || form.dataset.autoApprove === 'true') return;
+    const choices = [...form.querySelectorAll('[name="additional_reviews"]')];
+    const byId = new Map(choices.map(choice => [choice.dataset.reviewId, choice]));
+    const requires = choice => (choice.dataset.requires || '').split(/\s+/).filter(Boolean);
+    if (changed?.dataset?.reviewId && !changed.checked) {
+      const removed = new Set([changed.dataset.reviewId]);
+      let updated;
+      do {
+        updated = false;
+        for (const choice of choices) {
+          if (choice.checked && requires(choice).some(id => removed.has(id))) {
+            choice.checked = false;
+            removed.add(choice.dataset.reviewId);
+            updated = true;
+          }
+        }
+      } while (updated);
+    }
+    const visited = new Set();
+    function includeRequirements(choice) {
+      if (visited.has(choice.dataset.reviewId)) return;
+      visited.add(choice.dataset.reviewId);
+      for (const id of requires(choice)) {
+        const required = byId.get(id);
+        if (required && !required.disabled) {
+          required.checked = true;
+          includeRequirements(required);
+        }
+      }
+    }
+    choices.filter(choice => choice.checked).forEach(includeRequirements);
+    form.querySelectorAll('[data-milestone-dates]').forEach(fields => {
+      const choice = byId.get(fields.dataset.milestoneDates);
+      const selected = Boolean(choice?.checked && !choice.disabled);
+      fields.hidden = !selected;
+      fields.querySelectorAll('[data-testing-start], [data-testing-end]').forEach(input => {
+        input.disabled = !selected;
+        input.required = selected;
+      });
+    });
+    const codes = [current, ...choices.filter(choice => choice.checked).map(choice => choice.dataset.milestoneCode)];
+    const label = form.querySelector('[data-submit-label]');
+    if (label) label.textContent = codes.length > 2
+      ? `Submit ${codes.length} milestones`
+      : `Submit ${codes.join(' + ')}`;
+    const summary = form.querySelector('[data-milestone-selection-summary]');
+    if (summary) summary.textContent = codes.length > 1
+      ? `${codes.join(', ')} will be submitted together.`
+      : `Only ${current} will be submitted.`;
+  }
+
   function updateSubmission(form) {
+    updateMilestoneSelection(form);
     updateWasaFields(form);
+    updateSandboxDateConstraints(form);
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');
     if (!button) return;
@@ -280,25 +350,38 @@
   function updateDecision(form) {
     const action = form.querySelector('[name="action"]:checked')?.value || 'approve';
     const note = form.querySelector('[name="note"]');
-    const labels = { approve: ['Decision note', 'Record approval'], send_back: ['Reason for sending back', 'Send back to integrator'], query: ['Question', 'Send query'] };
+    const labels = { approve: ['Decision note', 'Record approval'], send_back: ['Note for the integrator', 'Send back to integrator'], query: ['Question', 'Send query'] };
     const label = form.querySelector('[data-decision-label]');
     if (label) label.textContent = labels[action][0];
+    // Forms that list reasons ask for one; the rest take the note alone.
+    const reason = form.querySelector('[data-reason-select]');
+    const chosen = reason?.options[reason.selectedIndex];
+    const hint = form.querySelector('[data-reason-hint]');
+    if (hint) hint.textContent = reason && !reason.value
+      ? 'Choose a reason before sending back.'
+      : 'The integrator sees this reason above your note.';
     const button = form.querySelector('[data-decision-submit]');
     if (button) {
       button.textContent = labels[action][1];
       // Prerequisites hold every decision but a query; open queries hold approval.
       button.disabled = (action !== 'query' && form.dataset.decisionBlocked === 'true')
-        || (action === 'approve' && form.dataset.approvalBlocked === 'true');
+        || (action === 'approve' && form.dataset.approvalBlocked === 'true')
+        || (action === 'send_back' && Boolean(reason) && !reason.value);
     }
-    if (note) note.required = action !== 'approve';
+    // A listed reason speaks for itself; a query, Other, and a form with no list
+    // to choose from need the reviewer's own words.
+    if (note) note.required = action === 'query'
+      || (action === 'send_back' && (!reason || 'noteRequired' in (chosen?.dataset || {})));
     form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
     form.querySelectorAll('[data-approval-controls]').forEach(el => { el.hidden = action !== 'approve'; });
+    form.querySelectorAll('[data-send-back-controls]').forEach(el => { el.hidden = action !== 'send_back'; });
   }
 
   function initialize(scope = document) {
     // Drafts and rejected submissions can arrive with the audit date saved and
     // the expiry still blank; fill it before counting what needs attention.
     scope.querySelectorAll?.('[data-autofill-target]').forEach(autofillFromDate);
+    scope.querySelectorAll?.('[data-review-form]').forEach(updateSandboxDateConstraints);
     scope.querySelectorAll?.('[data-review-form]').forEach(updateSubmission);
     scope.querySelectorAll?.('[data-decision-form]').forEach(updateDecision);
     scope.querySelectorAll?.('[data-revealed-secret]').forEach(secret => {
@@ -336,6 +419,7 @@
     const edited = event.target.closest('[data-autofilled]');
     if (edited && edited !== source) edited.dataset.autofilled = 'false';
     const form = event.target.closest('[data-review-form]');
+    if (form) updateMilestoneSelection(form, event.target);
     // Conditional fields are synchronized by another change listener below.
     if (form) queueMicrotask(() => updateSubmission(form));
   });
@@ -430,4 +514,82 @@ document.addEventListener("keydown", (event) => {
   document.body?.addEventListener?.("htmx:afterSwap", (event) =>
     syncConditionalFields(event.target),
   );
+})();
+
+// The reference environment's credential fields fill in its run commands as they are
+// typed, escaping single quotes the way each shell needs. The form never submits.
+(() => {
+  document.addEventListener("input", (event) => {
+    const input = event.target.closest?.("[data-reference-credential]");
+    const form = input?.closest("[data-reference-run]");
+    if (!form) return;
+    const value = input.value.trim();
+    form
+      .querySelectorAll(`[data-credential-slot="${input.dataset.referenceCredential}"]`)
+      .forEach((slot) => {
+        const { singleQuote } = slot.closest("[data-single-quote]").dataset;
+        slot.textContent = value ? value.replaceAll("'", singleQuote) : input.placeholder;
+      });
+  });
+  document.addEventListener(
+    "submit",
+    (event) => {
+      if (!event.target.matches?.("[data-reference-run]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
+})();
+
+// Product reviews stay compact until a reviewer opens a request or follows its link.
+(() => {
+  function revealReview(hash) {
+    if (!hash || hash === '#') return;
+    let id;
+    try { id = decodeURIComponent(hash.slice(1)); } catch { return; }
+    const target = document.getElementById(id);
+    const panel = target?.closest('details[data-product-review-panel]');
+    if (!panel) return;
+    const approved = panel.closest('details[data-approved-reviews]');
+    if (approved) approved.open = true;
+    panel.open = true;
+    target.scrollIntoView({ block: 'start' });
+  }
+
+  function prepareBulkDecision(form, action, event) {
+    const note = form.querySelector('[name="note"]');
+    if (!note) return;
+    note.required = action === 'send_back';
+    note.setCustomValidity('');
+    if (!note.required) return;
+    const panel = form.querySelector('[data-product-bulk-note]');
+    if (panel) panel.open = true;
+    if (note.value.trim()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    note.setCustomValidity('Enter a reason for sending back these requests.');
+    note.focus();
+    note.reportValidity();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => revealReview(window.location.hash));
+  document.addEventListener('htmx:afterSettle', () => revealReview(window.location.hash));
+  window.addEventListener('hashchange', () => revealReview(window.location.hash));
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('a[href^="#"]');
+    if (link) revealReview(link.getAttribute('href'));
+    const button = event.target.closest?.('[data-product-bulk-form] button[name="action"]');
+    if (button) prepareBulkDecision(button.form, button.value, event);
+  }, true);
+  document.addEventListener('submit', event => {
+    if (event.target.matches?.('[data-product-bulk-form]')) {
+      prepareBulkDecision(event.target, event.submitter?.value, event);
+    }
+  }, true);
+  document.addEventListener('input', event => {
+    if (event.target.matches?.('[data-product-bulk-form] [name="note"]')) {
+      event.target.setCustomValidity('');
+    }
+  });
 })();

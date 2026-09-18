@@ -58,7 +58,7 @@
       {% endif %}
     </div>
     {% if next_step %}
-      <section class="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 {% if next_step.tone == 'warning' %}ui-alert--warning{% elif next_step.tone == 'info' %}ui-alert--info{% else %}border-primary-200 bg-primary-50 text-primary-900{% endif %}"
+      <section class="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 {% if next_step.tone == 'warning' %}ui-alert--warning{% elif next_step.tone == 'info' %}ui-alert--info{% else %}border-primary/20 bg-accent text-accent-foreground{% endif %}"
                aria-labelledby="next-step-heading">
         <div class="flex items-start gap-3"><span class="mt-1 shrink-0" aria-hidden="true">{% include 'components/nav_icon.html' with icon='queries' %}</span><div><p class="text-[11px] font-semibold uppercase tracking-widest opacity-80">Your next step</p><h2 class="mt-0.5 text-base font-semibold" id="next-step-heading">{{ next_step.title }}</h2>
           <p class="mt-1 text-sm leading-relaxed">{{ next_step.detail }}</p>
@@ -75,7 +75,7 @@
             <div class="flex flex-wrap items-center justify-between gap-2">
               <h2 class="ui-card-title">Compliance tracks</h2>
               <a class="text-xs font-semibold text-primary no-underline hover:underline"
-                 href="{{ experience_program.docs_url }}"
+                 href="{{ experience_program.milestones_docs_url|default:experience_program.docs_url }}"
                  target="_blank"
                  rel="noopener">Milestone documentation ↗&#xFE0E;</a>
             </div>
@@ -223,12 +223,13 @@
             </div>
             <ul class="flex flex-col gap-3">
               {% for event in events %}
-                <li class="flex items-start gap-3">
+                <li class="group flex items-start gap-3">
                   <span class="ui-dateblock ui-dateblock--sm">
                     <strong class="ui-dateblock-day">{{ event.starts_at|date:'d' }}</strong>{{ event.starts_at|date:'M' }}</span>
                   <div class="min-w-0">
-                    <a class="text-sm font-semibold text-foreground hover:underline"
-                       href="{% url 'experiences:events' %}">{{ event.title }}</a>
+                    <a class="text-sm font-semibold text-foreground group-hover:underline"
+                       href="{% url 'experiences:events' %}"
+                       data-row-link>{{ event.title }}</a>
                     <p class="mt-1 text-xs text-soft-foreground">{{ event.starts_at|date:'H:i' }} IST · {{ event.get_kind_display }}</p>
                     {% if event.pk in registered_events %}<span class="ui-badge ui-badge--success ui-badge--size-xs mt-1">Registered</span>{% endif %}
                   </div>

@@ -23,7 +23,7 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
     )
     readiness = evidence_readiness(form)
     assert readiness["total"] == 3  # noqa: PLR2004
-    assert readiness["completed"] == 0  # noqa: PLR2004
+    assert readiness["completed"] == 0
     assert readiness["missing"] == 3  # noqa: PLR2004
     assert [row["label"] for row in readiness["rows"]] == [
         "Sandbox testing",
@@ -31,10 +31,10 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
         "Functional testing",
     ]
     assert readiness["rows"][1]["field_ids"] == [
+        "id_wasa_certificate",
         "id_wasa_agency",
         "id_wasa_date",
         "id_wasa_valid_until",
-        "id_wasa_certificate",
     ]
     assert readiness["rows"][2]["field_ids"] == [
         "id_functional_certificate",

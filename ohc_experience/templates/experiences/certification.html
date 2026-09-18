@@ -114,7 +114,7 @@
                 <h3 class="mb-2 text-sm font-semibold" id="wasa-submissions-title">WASA submissions</h3>
                 <ul class="divide-y divide-soft-border">
                   {% for review in certification_reviews %}
-                    <li class="flex flex-col gap-2 py-3">
+                    <li class="group flex flex-col gap-2 py-3">
                       <div class="min-w-0">
                         <p class="font-mono text-xs font-semibold">{{ review.reference }}</p>
                         <p class="mt-1 text-xs text-soft-foreground">{% if review.submitted_at %}Submitted {{ review.submitted_at|date:'j M Y' }}{% else %}Draft started {{ review.created_at|date:'j M Y' }}{% endif %}</p>
@@ -122,8 +122,9 @@
                       <div class="flex flex-wrap items-center gap-3">
                         {% include 'experiences/partials/status.html' with status=review.status label=review.get_status_display %}
                         {% if review.selected_submission %}
-                          <a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                             href="{% url 'experiences:submission' review.pk review.selected_submission_id %}">View submission</a>
+                          <a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary group-hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                             href="{% url 'experiences:submission' review.pk review.selected_submission_id %}"
+                             data-row-link>View submission</a>
                         {% endif %}
                       </div>
                     </li>
@@ -137,15 +138,16 @@
                 <h3 class="mb-2 text-sm font-semibold" id="wasa-approvals-title">Approved certificates</h3>
                 <ul class="divide-y divide-soft-border">
                   {% for approval in certification.history %}
-                    <li class="flex flex-col gap-2 py-3">
+                    <li class="group flex flex-col gap-2 py-3">
                       <div class="min-w-0">
                         <p class="break-words text-sm font-semibold">{{ approval.data.wasa_agency }}</p>
                         <p class="mt-1 text-xs text-soft-foreground">Approved {{ approval.issued_at|date:'j M Y' }} · {% if approval.valid_until %}Expiry {{ approval.valid_until|date:'j M Y' }}{% else %}Expiry needs verification{% endif %}</p>
                         <p class="mt-1 text-xs text-soft-foreground">{{ approval.source_application.title }}</p>
                       </div>
                       {% if approval.source_application.review_item and approval.data.submission_id %}
-                        <a class="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                           href="{% url 'experiences:submission' approval.source_application.review_item.pk approval.data.submission_id %}">View evidence</a>
+                        <a class="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold text-primary group-hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                           href="{% url 'experiences:submission' approval.source_application.review_item.pk approval.data.submission_id %}"
+                           data-row-link>View evidence</a>
                       {% endif %}
                     </li>
                   {% endfor %}

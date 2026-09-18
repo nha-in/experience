@@ -403,7 +403,8 @@ def test_inherited_milestone_evidence_defaults_to_current_certificate(environmen
         form.initial["wasa_valid_until"]
         == (renewal.selected_submission.data["wasa_valid_until"])
     )
-    assert form.initial["start_date"] == first.selected_submission.data["start_date"]
+    assert not form.initial.get("start_date")
+    assert not form.initial.get("end_date")
 
 
 def test_revoked_current_certificate_does_not_default_to_older_approval(environment):

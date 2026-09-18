@@ -73,7 +73,7 @@ def organisation_data(name="Medibase Technologies Private Limited"):
         "state": "Karnataka",
         "district": "Bengaluru Urban",
         "verification_document_type": "CIN",
-        "verification_document_number": "DEMO-CIN-2026",
+        "verification_document_number": "L12345KA2020PLC123456",
     }
 
 
@@ -296,6 +296,7 @@ class DemoBuilder:
             workspace.product,
             reviewer,
             client_id=f"DEMO_PROD_{workspace.reference.replace('-', '_')}",
+            issued_on=timezone.localdate() - timedelta(days=9),
             expected="",
         )
         self.exit(workspace, "m2", applicant, admin, reviewer, "query")
@@ -449,6 +450,7 @@ class DemoBuilder:
                 item,
                 reviewer,
                 action="send_back",
+                reason="Incomplete documentation",
                 note="Include the data-retention and document-retrieval scenarios, then resubmit the functional report.",
             )
 

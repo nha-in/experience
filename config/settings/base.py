@@ -165,6 +165,43 @@ LGD_API_KEY = env("LGD_API_KEY", default="")
 LGD_API_TIMEOUT = env.float("LGD_API_TIMEOUT", default=5.0)
 LGD_CACHE_TTL = env.int("LGD_CACHE_TTL", default=3600)
 
+# Reads an uploaded WASA certificate to propose the audit fields. Blanking the
+# model switches the hook off and the fields are typed in as before.
+
+
+def _tuning(name, cast, default):
+    """A deployment variable left blank means "leave this at the default"."""
+    value = env.str(name, default="").strip()
+    try:
+        return cast(value)
+    except ValueError:
+        return default
+
+
+WASA_EXTRACTION_MODEL = env(
+    "WASA_EXTRACTION_MODEL",
+    default="bedrock/openai.gpt-5.6-luna",
+)
+WASA_EXTRACTION_TIMEOUT = _tuning("WASA_EXTRACTION_TIMEOUT", float, 45.0)
+WASA_EXTRACTION_MAX_TOKENS = _tuning("WASA_EXTRACTION_MAX_TOKENS", int, 512)
+WASA_EXTRACTION_CACHE_TTL = _tuning("WASA_EXTRACTION_CACHE_TTL", int, 3600)
+# Pages are rendered to images at this resolution. Higher reads small print more
+# reliably and costs more per page.
+WASA_EXTRACTION_DPI = _tuning("WASA_EXTRACTION_DPI", int, 150)
+
+# Bedrock's own principal, deliberately apart from the AWS_* settings that carry
+# the media bucket's credentials: reading a document must not borrow the rights
+# to the uploads. Leave these blank to use the host's instance role instead.
+BEDROCK_REGION_NAME = env("BEDROCK_REGION_NAME", default="")
+BEDROCK_ACCESS_KEY_ID = env("BEDROCK_ACCESS_KEY_ID", default="")
+BEDROCK_SECRET_ACCESS_KEY = env("BEDROCK_SECRET_ACCESS_KEY", default="")
+# Each account may have this many documents read an hour; a hook pays per call.
+EXPERIENCE_DOCUMENT_READ_HOURLY_LIMIT = _tuning(
+    "EXPERIENCE_DOCUMENT_READ_HOURLY_LIMIT",
+    int,
+    20,
+)
+
 # MIGRATIONS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#migration-modules
@@ -208,7 +245,9 @@ AUTH_PASSWORD_VALIDATORS = [
         "OPTIONS": {"min_length": 12},
     },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {
+        "NAME": "ohc_experience.users.password_validation.LetterNumberAndSpecialCharacterValidator",
+    },
 ]
 
 # MIDDLEWARE
@@ -323,7 +362,12 @@ GLOBAL_EMAIL_TEMPLATE_IDS = env.json("GLOBAL_EMAIL_TEMPLATE_IDS", default={})
 SUPPORT_INBOX_EMAIL = env("SUPPORT_INBOX_EMAIL", default="support@ohc.network")
 SUPPORT_EMAIL_DOMAIN = env("SUPPORT_EMAIL_DOMAIN", default="sandbox.aws.ohc.network")
 # Absolute base for links in emails (no request is available there).
-SITE_BASE_URL = env("SITE_BASE_URL", default="http://localhost:8010")
+# The portless proxy gives each git worktree a different origin and puts it in
+# PORTLESS_URL. Use it, so a link points to the worktree that sent the mail.
+SITE_BASE_URL = env(
+    "SITE_BASE_URL",
+    default=env("PORTLESS_URL", default="http://localhost:8010"),
+)
 
 # ADMIN
 # ------------------------------------------------------------------------------
@@ -440,10 +484,37 @@ ACCOUNT_SIGNUP_REDIRECT_URL = "users:redirect"
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# Verification codes, not links, sent by email and SMS through the notification gateway.
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT = {
+    "numeric": True,
+    "length": 6,
+    "dashed": False,
+}
+ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = 3
+ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_CHANGE = True
+ACCOUNT_PHONE_VERIFICATION_CODE_FORMAT = ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT
+ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = 3
+ACCOUNT_PHONE_VERIFICATION_SUPPORTS_CHANGE = True
+# How long before a new code can be asked for, as on the legacy portal.
+VERIFICATION_RESEND_AFTER_SECONDS = 90
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "ohc_experience.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html
-ACCOUNT_FORMS = {"signup": "ohc_experience.users.forms.UserSignupForm"}
+ACCOUNT_FORMS = {
+    "login": "ohc_experience.users.forms.UserLoginForm",
+    "signup": "ohc_experience.users.forms.UserSignupForm",
+    "reset_password": "ohc_experience.users.forms.UserResetPasswordForm",
+    "reset_password_from_key": "ohc_experience.users.forms.UserResetPasswordKeyForm",
+    "change_password": "ohc_experience.users.forms.UserChangePasswordForm",
+    "set_password": "ohc_experience.users.forms.UserSetPasswordForm",
+    "change_email": "ohc_experience.users.forms.UserChangeEmailForm",
+    "confirm_email_verification_code": (
+        "ohc_experience.users.forms.UserConfirmEmailVerificationCodeForm"
+    ),
+    "verify_phone": "ohc_experience.users.forms.UserVerifyPhoneForm",
+    "change_phone": "ohc_experience.users.forms.UserChangePhoneForm",
+}
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_ADAPTER = "ohc_experience.users.adapters.SocialAccountAdapter"
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
@@ -474,21 +545,53 @@ INTEGRATION_PORTS = {
         "INTEGRATION_BRIDGE_REGISTRY",
         default="ohc_experience.integrations.local.LocalBridgeRegistry",
     ),
+    "NOTIFICATION": "ohc_experience.integrations.local.LocalNotificationGateway",
 }
+
+# NOTIFICATION GATEWAY
+# ------------------------------------------------------------------------------
+# Reachable only from inside the ABDM VPC.
+NOTIFICATION_APP_BASE_URL = env.str(
+    "NOTIFICATION_APP_BASE_URL",
+    default="https://notification-app.invalid",
+)
+NOTIFICATION_DB_BASE_URL = env.str(
+    "NOTIFICATION_DB_BASE_URL",
+    default="https://notification-db.invalid",
+)
 
 # KEYCLOAK
 # ------------------------------------------------------------------------------
+# Legacy's admin sign-in: a master-realm client and user, with a password grant.
 KEYCLOAK_BASE_URL = env.str("KEYCLOAK_BASE_URL", default="http://keycloak:8080")
 KEYCLOAK_REALM = env.str("KEYCLOAK_REALM", default="abdm-sandbox")
-KEYCLOAK_CLIENT_ID = env.str("KEYCLOAK_CLIENT_ID", default="sandbox-provisioner")
+KEYCLOAK_CLIENT_ID = env.str("KEYCLOAK_CLIENT_ID", default="admin-cli")
 KEYCLOAK_CLIENT_SECRET = env.str("KEYCLOAK_CLIENT_SECRET", default="")
-# Role NAMES per program, never realm UUIDs. This subset is provisional: NHA has
-# not confirmed the per-milestone set, and sandbox clients hold every realm role.
+KEYCLOAK_USERNAME = env.str("KEYCLOAK_USERNAME", default="")
+KEYCLOAK_PASSWORD = env.str("KEYCLOAK_PASSWORD", default="")
+KEYCLOAK_API_KEY = env.str("KEYCLOAK_API_KEY", default="")
+# Role NAMES per program, never realm UUIDs. The default is the set legacy gave
+# every sandbox client.
 KEYCLOAK_ROLE_NAMES = {
     "abdm": tuple(
         env.list(
             "KEYCLOAK_SANDBOX_ROLE_NAMES",
-            default=["healthId", "hip", "hiu", "hfr"],
+            default=[
+                "bridge",
+                "HIU_PAYER",
+                "DIGI_DOCTOR",
+                "healthId",
+                "health_locker",
+                "hip",
+                "HIP_PAYER",
+                "hiu",
+                "hfr",
+                "offline_access",
+                "phr",
+                "OIDC",
+                "HidAbhaSearch",
+                "hp_id",
+            ],
         ),
     ),
 }
@@ -496,7 +599,7 @@ KEYCLOAK_ROLE_NAMES = {
 # WSO2
 # ------------------------------------------------------------------------------
 WSO2_BASE_URL = env.str("WSO2_BASE_URL", default="https://wso2.invalid")
-WSO2_DEVPORTAL_PATH = env.str("WSO2_DEVPORTAL_PATH", default="/api/am/devportal/v3")
+WSO2_DEVPORTAL_PATH = env.str("WSO2_DEVPORTAL_PATH", default="/api/am/devportal/v2.1")
 WSO2_TOKEN_PATH = env.str("WSO2_TOKEN_PATH", default="/oauth2/token")
 WSO2_CLIENT_ID = env.str("WSO2_CLIENT_ID", default="")
 WSO2_CLIENT_SECRET = env.str("WSO2_CLIENT_SECRET", default="")
@@ -514,10 +617,10 @@ WSO2_TOKEN_TYPE = env.str("WSO2_TOKEN_TYPE", default="JWT")
 WSO2_KEY_MANAGER = env.str("WSO2_KEY_MANAGER", default="Resident Key Manager")
 WSO2_KEY_TYPE = env.str("WSO2_KEY_TYPE", default="PRODUCTION")
 WSO2_READ_TIMEOUT_SECONDS = env.float("WSO2_READ_TIMEOUT_SECONDS", default=15.0)
-# API NAMES, never ids. No default: NHA has not published the sandbox API names,
-# and a wrong or empty guess would fail silently at provisioning time.
-WSO2_API_NAMES = {
-    "abdm": tuple(env.list("WSO2_SANDBOX_API_NAMES", default=[])),
+# API ids, as legacy subscribed. No default: a wrong or empty guess would fail
+# silently at provisioning time.
+WSO2_API_IDS = {
+    "abdm": tuple(env.list("WSO2_SANDBOX_API_IDS", default=[])),
 }
 
 # How long a secret parked for `map_keys` stays readable.
@@ -528,9 +631,6 @@ SECRET_REF_TTL_SECONDS = env.int("SECRET_REF_TTL_SECONDS", default=900)
 # Internal base URL only — the external rewrite is owned by infrastructure.
 HIECM_BASE_URL = env.str("HIECM_BASE_URL", default="https://hiecm.invalid")
 HIECM_API_PATH = env.str("HIECM_API_PATH", default="/api/v3")
-HIECM_SESSION_PATH = env.str("HIECM_SESSION_PATH", default="/sessions")
-HIECM_CLIENT_ID = env.str("HIECM_CLIENT_ID", default="")
-HIECM_CLIENT_SECRET = env.str("HIECM_CLIENT_SECRET", default="")
 HIECM_CM_ID = env.str("HIECM_CM_ID", default="sbx")
 # Where HIE-CM delivers an integrator's gateway callbacks. `.invalid` by default,
 # so an unconfigured deployment cannot quietly publish somebody else's host.
@@ -567,6 +667,7 @@ LOCAL_KEYCLOAK_REALM_ROLES = env.list(
         "hiu",
         "healthId",
         "health_locker",
+        "offline_access",
         "phr",
         "hfr",
         "hp_id",

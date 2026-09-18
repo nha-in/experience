@@ -25,10 +25,21 @@ from .forms import WasaReviewForm
 from .gateway import ABDMProductionCredentials
 from .gateway import ABDMSandboxCredentials
 from .reference import ABDMReferenceEnvironment
+from .send_back_reasons import EXIT_SEND_BACK_REASONS
+from .send_back_reasons import ORGANISATION_SEND_BACK_REASONS
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
 from .wasa import wasa_context
+from .wasa_extraction import WASA_CERTIFICATE_FIELD
+from .wasa_extraction import extract_certificate
+
+
+def read_wasa_certificate(field_key, upload):
+    """Offer the audit fields printed on the certificate the user just chose."""
+    if field_key != WASA_CERTIFICATE_FIELD:
+        return {}
+    return extract_certificate(upload)
 
 
 def organisation_prerequisite(item):
@@ -58,6 +69,7 @@ class OrganisationVerification(ApplicationFormDefinition):
     reuse_scope = FormReuseScope.ORGANISATION
     form_class = OrganisationForm
     allow_approved_updates = True
+    send_back_reasons = ORGANISATION_SEND_BACK_REASONS
 
     @classmethod
     def initial_data(cls, item):
@@ -91,6 +103,11 @@ class OrganisationVerification(ApplicationFormDefinition):
     def on_send_back(cls, item, actor):
         item.organisation.set_verification("sent_back")
 
+    @classmethod
+    def on_withdraw(cls, item, actor):
+        # Pending would tell reviewers the next move is theirs. It is the integrator's.
+        item.organisation.set_verification("withdrawn")
+
 
 class ExitEvidence(ApplicationFormDefinition):
     key = "sandbox_exit_evidence"
@@ -100,9 +117,10 @@ class ExitEvidence(ApplicationFormDefinition):
     request_label = "exit request"
     submit_label = "Request for exit"
     submitted_message = "Exit requested."
+    send_back_reasons = EXIT_SEND_BACK_REASONS
     approval_notice = (
         "The NHA gateway team issues production credentials. Your production "
-        "client ID appears on the Credentials page once it is recorded."
+        "client ID appears on the Credentials page once it is issued."
     )
 
     @classmethod
@@ -119,6 +137,10 @@ class ExitEvidence(ApplicationFormDefinition):
     @classmethod
     def snapshot_valid_until(cls, form):
         return form.cleaned_data.get("wasa_valid_until")
+
+    @classmethod
+    def read_document(cls, field_key, upload):
+        return read_wasa_certificate(field_key, upload)
 
     @classmethod
     def approval_block_reason(cls, item):
@@ -148,7 +170,7 @@ class ExitEvidence(ApplicationFormDefinition):
                     "decision_note": item.decision_note,
                     "production_handoff": (
                         "Issued by the NHA gateway team. The production client ID "
-                        "appears on the Credentials page once it is recorded."
+                        "appears on the Credentials page once it is issued."
                     ),
                 },
             ),
@@ -176,6 +198,10 @@ class WasaReview(ApplicationFormDefinition):
     @classmethod
     def snapshot_valid_until(cls, form):
         return form.cleaned_data.get("wasa_valid_until")
+
+    @classmethod
+    def read_document(cls, field_key, upload):
+        return read_wasa_certificate(field_key, upload)
 
     @classmethod
     def approval_block_reason(cls, item):
@@ -261,6 +287,7 @@ class SandboxProduct(ApplicationDefinition):
 class WasaCertification(ApplicationDefinition):
     key = "abdm_wasa_review"
     name = "WASA certification review"
+    filter_name = "WASA certification"
     reference_prefix = "WASA"
     forms = (WasaReview,)
 
@@ -278,6 +305,7 @@ class ABDM(ProgramDefinition):
     environment_name = "Sandbox environment"
     footer_note = "Synthetic data only"
     docs_url = "https://abdm-docs.dev.eka.care/docs/hiecm/v3"
+    milestones_docs_url = "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones"
     logo = "images/abdm-logo.png"
     authority_logo = "images/nha-logo.png"
     authority_name = "National Health Authority"

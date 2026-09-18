@@ -10,6 +10,17 @@ The ABDM Developer Sandbox portal is documented in
 
 License: MIT
 
+## Contributing
+
+After you clone the repo, run these commands once:
+
+    uv sync
+    uv run pre-commit install
+
+The first command installs the Python dependencies. The second command sets up
+a git hook. The hook runs the linter and formatter checks on each commit. Fix
+any reported issue before you commit again.
+
 ## Settings
 
 Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getting-started/settings.html).
@@ -18,7 +29,7 @@ Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getti
 
 ### Setting Up Your Users
 
-- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
+- To create a **normal user account**, just go to Sign Up and fill out the form. Once you submit it, you'll see a "Confirm your details" page asking for a code for your email address and another for your mobile number. The local notification gateway logs both codes to your console instead of sending them; enter them there.
 
 - To create a **superuser account**, use this command:
 
