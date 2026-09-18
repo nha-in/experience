@@ -216,6 +216,7 @@ jobs:
             BEDROCK_REGION_NAME=${{ vars.BEDROCK_REGION_NAME }}
             BEDROCK_ACCESS_KEY_ID=${{ secrets.BEDROCK_ACCESS_KEY_ID }}
             BEDROCK_SECRET_ACCESS_KEY=${{ secrets.BEDROCK_SECRET_ACCESS_KEY }}
+            SANDBOX_SIGNUP_CAPTCHA=${{ vars.SANDBOX_SIGNUP_CAPTCHA }}
 
       - name: Deploy task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
