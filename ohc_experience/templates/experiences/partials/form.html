@@ -8,7 +8,10 @@
   {% for section in form|sections %}
     <fieldset class="border-b border-soft-border pb-6 last:border-0 last:pb-0" {% if section.show_when %}data-show-when-field="{{ section.show_when.field }}" data-show-when-value="{{ section.show_when.value }}"{% if not section.show_when.active %} hidden{% endif %}{% endif %}>
       {% if section.title %}
-        <legend class="ui-field-legend mb-3.5">{{ section.title }}</legend>
+        <legend class="ui-field-legend mb-1.5">{{ section.title }}</legend>
+      {% endif %}
+      {% if section.note %}
+        <p class="mb-3.5 text-xs leading-relaxed text-soft-foreground">{{ section.note }}</p>
       {% endif %}
       <div class="grid gap-3.5 sm:grid-cols-2">
         {% for field in section.fields %}
@@ -37,9 +40,6 @@
             {{ label }} <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{{ badge }}</span>
           </p>
         {% endfor %}
-      {% endif %}
-      {% if section.note %}
-        <p class="mt-3 text-xs leading-relaxed text-soft-foreground">{{ section.note }}</p>
       {% endif %}
     </fieldset>
     {% if show_milestone_choices and section.title == 'Sandbox testing' and submission_choices %}

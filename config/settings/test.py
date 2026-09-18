@@ -49,8 +49,11 @@ INTEGRATION_PORTS = {
     "BRIDGE_REGISTRY": "ohc_experience.integrations.local.LocalBridgeRegistry",
     "NOTIFICATION": "ohc_experience.integrations.local.LocalNotificationGateway",
 }
+
 # The local adapters stand in for all three systems; these are the ids they know.
 WSO2_API_IDS = {"abdm": ("api-healthid", "api-gateway")}
+# Pinned off for the same reason: a test must never reach a model provider.
+WASA_EXTRACTION_MODEL = ""
 
 # The limits live in the cache, which outlasts a test, so one test's verification
 # code would rate-limit the next test's signup with the same address.

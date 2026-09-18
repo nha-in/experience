@@ -31,10 +31,10 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
         "Functional testing",
     ]
     assert readiness["rows"][1]["field_ids"] == [
+        "id_wasa_certificate",
         "id_wasa_agency",
         "id_wasa_date",
         "id_wasa_valid_until",
-        "id_wasa_certificate",
     ]
     assert readiness["rows"][2]["field_ids"] == [
         "id_functional_certificate",

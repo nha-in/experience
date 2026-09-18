@@ -165,6 +165,43 @@ LGD_API_KEY = env("LGD_API_KEY", default="")
 LGD_API_TIMEOUT = env.float("LGD_API_TIMEOUT", default=5.0)
 LGD_CACHE_TTL = env.int("LGD_CACHE_TTL", default=3600)
 
+# Reads an uploaded WASA certificate to propose the audit fields. Blanking the
+# model switches the hook off and the fields are typed in as before.
+
+
+def _tuning(name, cast, default):
+    """A deployment variable left blank means "leave this at the default"."""
+    value = env.str(name, default="").strip()
+    try:
+        return cast(value)
+    except ValueError:
+        return default
+
+
+WASA_EXTRACTION_MODEL = env(
+    "WASA_EXTRACTION_MODEL",
+    default="bedrock/openai.gpt-5.6-luna",
+)
+WASA_EXTRACTION_TIMEOUT = _tuning("WASA_EXTRACTION_TIMEOUT", float, 45.0)
+WASA_EXTRACTION_MAX_TOKENS = _tuning("WASA_EXTRACTION_MAX_TOKENS", int, 512)
+WASA_EXTRACTION_CACHE_TTL = _tuning("WASA_EXTRACTION_CACHE_TTL", int, 3600)
+# Pages are rendered to images at this resolution. Higher reads small print more
+# reliably and costs more per page.
+WASA_EXTRACTION_DPI = _tuning("WASA_EXTRACTION_DPI", int, 150)
+
+# Bedrock's own principal, deliberately apart from the AWS_* settings that carry
+# the media bucket's credentials: reading a document must not borrow the rights
+# to the uploads. Leave these blank to use the host's instance role instead.
+BEDROCK_REGION_NAME = env("BEDROCK_REGION_NAME", default="")
+BEDROCK_ACCESS_KEY_ID = env("BEDROCK_ACCESS_KEY_ID", default="")
+BEDROCK_SECRET_ACCESS_KEY = env("BEDROCK_SECRET_ACCESS_KEY", default="")
+# Each account may have this many documents read an hour; a hook pays per call.
+EXPERIENCE_DOCUMENT_READ_HOURLY_LIMIT = _tuning(
+    "EXPERIENCE_DOCUMENT_READ_HOURLY_LIMIT",
+    int,
+    20,
+)
+
 # MIGRATIONS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#migration-modules

@@ -2,9 +2,12 @@ from datetime import timedelta
 from pathlib import Path
 from statistics import median
 
+from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -15,6 +18,7 @@ from django.db.models import Q
 from django.db.models.functions import Upper
 from django.http import FileResponse
 from django.http import Http404
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -27,6 +31,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
 from ohc_experience.events.models import Event
+from ohc_experience.experiences.definitions import DocumentReadError
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
@@ -67,6 +72,61 @@ from .queue_presentation import queue_requests
 from .queue_presentation import review_order
 from .registry import get_program
 from .support_presentation import support_inbox
+
+# Reading a document costs an implementation a paid call to somebody else.
+DOCUMENT_READ_WINDOW_SECONDS = 3600
+
+
+def _document_read_allowed(user):
+    key = f"document-read:{user.pk}"
+    if cache.get(key, 0) >= settings.EXPERIENCE_DOCUMENT_READ_HOURLY_LIMIT:
+        return False
+    try:
+        cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout=DOCUMENT_READ_WINDOW_SECONDS)
+    return True
+
+
+def _read_document(request, form_definition):
+    """Answer a form's document hook as JSON; the caller has already authorised.
+
+    Nothing is stored and nothing is trusted. The proposed values travel back
+    through the form's own validation when the draft is saved.
+    """
+    field_key = request.POST.get("field", "")
+    upload = request.FILES.get(field_key)
+    field = form_definition.form_class.base_fields.get(field_key)
+    if not isinstance(field, forms.FileField):
+        return JsonResponse(
+            {"error": "That field does not accept a document."},
+            status=400,
+        )
+    if upload is None:
+        return JsonResponse({"error": "Choose a document to read."}, status=400)
+    try:
+        # The form's own validators decide what this field accepts.
+        field.clean(upload, None)
+    except ValidationError as error:
+        return JsonResponse({"error": error.messages[0]}, status=400)
+    if not _document_read_allowed(request.user):
+        return JsonResponse(
+            {
+                "error": (
+                    "Too many documents read in the last hour. "
+                    "Enter the details yourself."
+                ),
+            },
+            status=429,
+        )
+    try:
+        fields = form_definition.read_document(field_key, upload)
+    except DocumentReadError as error:
+        return JsonResponse(
+            {"error": str(error), "retryable": error.retryable},
+            status=503 if error.retryable else 422,
+        )
+    return JsonResponse({"name": upload.name, "fields": fields})
 
 
 def _organisation(request):
@@ -1107,6 +1167,8 @@ def product_certification(request, reference):
         else definition.forms[0].form_class(product=product)
     )
     if request.method == "POST":
+        if request.POST.get("intent") == "read":
+            return _read_document(request, definition.forms[0])
         try:
             intent = request.POST.get("intent")
             if intent not in {"draft", "submit"}:
@@ -1349,6 +1411,8 @@ def track(request, reference, track_code):
     if request.method == "POST":
         if item is None:
             raise Http404
+        if request.POST.get("intent") == "read":
+            return _read_document(request, item.definition)
         try:
             item, form, saved, notice = _save_track_evidence(request, item)
             if saved:
