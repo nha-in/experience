@@ -1,13 +1,13 @@
 {% load experience_ui %}
 
 {% if item.queries.exists %}
-  <section class="ui-card ui-card--layered ui-card--sm scroll-mt-20"
-           id="queries"
+  <section class="{% if return_to_product %}scroll-mt-20 rounded-xl border border-soft-border bg-card p-4{% else %}ui-card ui-card--layered ui-card--sm scroll-mt-20{% endif %}"
+           id="queries{% if return_to_product %}-{{ item.pk }}{% endif %}"
            tabindex="-1"
-           aria-labelledby="review-queries-title">
-    <div class="ui-card-content">
+           aria-labelledby="review-queries-title{% if return_to_product %}-{{ item.pk }}{% endif %}">
+    <div{% if not return_to_product %} class="ui-card-content"{% endif %}>
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 class="ui-card-title" id="review-queries-title">Queries</h2>
+        {% if return_to_product %}<h3 class="ui-card-title" id="review-queries-title-{{ item.pk }}">Queries</h3>{% else %}<h2 class="ui-card-title" id="review-queries-title">Queries</h2>{% endif %}
         <span class="text-xs text-soft-foreground">{{ item.queries.count }} total</span>
       </div>
       <div class="flex flex-col gap-3">
@@ -18,12 +18,12 @@
               <strong class="text-sm font-semibold">{% if query.field_key == 'form' %}Whole form{% else %}{{ query.field_key|readable }}{% endif %}</strong>
               {% include 'experiences/partials/status.html' with status=query.status label=query.get_status_display %}
             </div>
-            <p class="text-sm leading-relaxed" id="query-question-{{ query.pk }}">{{ query.question|linebreaksbr }}</p>
+            <p class="text-sm leading-relaxed break-words" id="query-question-{{ query.pk }}">{{ query.question|linebreaksbr }}</p>
             <p class="mt-1.5 text-xs text-soft-foreground">{{ query.raised_by.display_name }} · {{ query.raised_at|date:'d M Y, H:i' }} IST{% if query.submission_id != item.selected_submission_id %} · Earlier submission{% endif %}
             </p>
             {% if query.reply %}
               <blockquote class="mt-3 rounded-lg bg-soft-background p-4">
-                <p class="text-sm leading-relaxed">{{ query.reply|linebreaksbr }}</p>
+                <p class="text-sm leading-relaxed break-words">{{ query.reply|linebreaksbr }}</p>
                 <p class="mt-1 text-xs text-soft-foreground">{{ query.replied_by.display_name }} · {{ query.replied_at|date:'d M Y, H:i' }} IST</p>
               </blockquote>
             {% endif %}
@@ -45,6 +45,11 @@
                       action="{% url 'experiences:query-action' query.pk %}">
                   {% csrf_token %}
                   <input type="hidden" name="intent" value="resolve" />
+                  {% if return_to_product %}
+                    <input type="hidden"
+                           name="return_to_product"
+                           value="{{ product_review_reference|default:'1' }}" />
+                  {% endif %}
                   <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
                           type="submit"
                           aria-describedby="query-question-{{ query.pk }}">Mark resolved</button>

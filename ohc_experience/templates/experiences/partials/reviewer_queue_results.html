@@ -1,7 +1,8 @@
 <div id="queue-results"
      class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.1s]">
-  <div class="flex flex-wrap items-center justify-between gap-2 px-6 py-4">
-    <p class="text-sm font-semibold" aria-live="polite">{{ page.paginator.count }} request{{ page.paginator.count|pluralize }}{% if filter_query %} found{% endif %}</p><div class="flex items-center gap-2">
+  <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+    <p class="text-sm font-semibold" aria-live="polite">{{ page.paginator.count }} review entr{{ page.paginator.count|pluralize:'y,ies' }}{% if filter_query %} found{% endif %}</p>
+    <div class="flex items-center gap-2">
       <label class="text-xs text-soft-foreground" for="queue-sort">Sort</label>
       <div class="ui-select-wrapper">
         <select class="ui-select ui-select--xs"
@@ -19,60 +20,31 @@
       <table class="ui-grid-table min-w-[860px]">
         <thead>
           <tr>
-            <th scope="col">Subject</th>
-            <th scope="col">Organisation</th>
-            <th scope="col">Item</th>
-            <th scope="col">Status</th>
+            <th scope="col">Product / organisation</th>
+            <th scope="col">Requests</th>
             <th scope="col">Submitted</th>
             <th scope="col">Age</th>
             <th scope="col">Assignee</th>
           </tr>
         </thead>
         <tbody>
-          {% for item in page %}
-            <tr class="group">
-              <td class="relative min-w-[180px]">
-                <span class="relative font-semibold text-foreground group-hover:text-primary">
-                  {{ item.product.name|default:item.title }}
-                </span>
-                <span class="mt-0.5 block font-mono text-xs text-soft-foreground">
-                  {% if item.product %}{{ item.product.workspace.reference }} · {% endif %}{{ item.reference }}
-                </span>
-                <a class="absolute inset-0" href="{{ item.get_absolute_url }}"></a>
+          {% for entry in page %}
+            <tr class="group" data-queue-entry="{{ entry.reference }}">
+              <td class="relative min-w-[220px] align-top">
+                <a class="font-semibold text-foreground group-hover:text-primary hover:underline"
+                   href="{{ entry.url }}">{{ entry.title }}</a>
+                <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ entry.reference }}</span>
+                {% if entry.product %}<span class="mt-1 block text-xs text-muted-foreground">{{ entry.organisation.display_name }}</span>{% endif %}
+                <a class="mt-1.5 inline-flex text-xs font-semibold text-primary hover:underline"
+                   href="{{ entry.url }}">{% if entry.product %}Review product{% else %}Open review{% endif %} <span class="ml-1" aria-hidden="true">→</span></a>
               </td>
-              <td class="relative max-w-[200px] text-muted-foreground">{{ item.organisation.display_name }}<a class="absolute inset-0"
-   href="{{ item.get_absolute_url }}"
-   aria-hidden="true"
-   tabindex="-1"></a></td>
-              <td class="relative min-w-[160px]">{% if item.application.milestone %}{% include 'experiences/partials/reviewer_milestone.html' %}<span class="block">{{ item.title }}</span>{% else %}{% include 'experiences/partials/reviewer_type.html' %}{% endif %}<a class="absolute inset-0"
-   href="{{ item.get_absolute_url }}"
-   aria-hidden="true"
-   tabindex="-1"></a></td>
-              <td class="relative">
-                {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
-                {% include 'experiences/partials/reviewer_waiting.html' %}
-                <a class="absolute inset-0"
-                   href="{{ item.get_absolute_url }}"
-                   aria-hidden="true"
-                   tabindex="-1"></a>
-              </td>
-              <td class="relative whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'j M Y' }}<a class="absolute inset-0"
-   href="{{ item.get_absolute_url }}"
-   aria-hidden="true"
-   tabindex="-1"></a></td>
-              <td class="relative">
-                {% include 'experiences/partials/reviewer_age.html' %}
-                <a class="absolute inset-0"
-                   href="{{ item.get_absolute_url }}"
-                   aria-hidden="true"
-                   tabindex="-1"></a>
-              </td>
-              <td class="relative">
-                {% include 'experiences/partials/reviewer_assignee.html' %}
-                <a class="absolute inset-0"
-                   href="{{ item.get_absolute_url }}"
-                   aria-hidden="true"
-                   tabindex="-1"></a>
+              <td class="min-w-[340px] align-top">{% include 'experiences/partials/reviewer_queue_milestones.html' %}</td>
+              <td class="whitespace-nowrap align-top tabular-nums">{{ entry.submitted_at|date:'j M Y' }}</td>
+              <td class="align-top">{% include 'experiences/partials/reviewer_age.html' with item=entry %}</td>
+              <td class="align-top">
+                <div class="flex flex-col gap-1">
+                  {% for assignee in entry.assignees %}<span class="text-xs {% if not assignee %}text-soft-foreground{% endif %}">{{ assignee.display_name|default:'Unassigned' }}</span>{% endfor %}
+                </div>
               </td>
             </tr>
           {% endfor %}
@@ -80,8 +52,21 @@
       </table>
     </div>
     <ul class="divide-y divide-soft-border border-t border-soft-border md:hidden">
-      {% for item in page %}
-        {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
+      {% for entry in page %}
+        <li data-queue-entry="{{ entry.reference }}">
+          <a class="group block px-5 py-4 transition-colors hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+             href="{{ entry.url }}">
+            <p class="font-mono text-xs text-soft-foreground">{{ entry.reference }}</p>
+            <p class="mt-1 text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ entry.title }}</p>
+            {% if entry.product %}<p class="mt-0.5 text-xs text-muted-foreground">{{ entry.organisation.display_name }}</p>{% endif %}
+            <div class="mt-3">{% include 'experiences/partials/reviewer_queue_milestones.html' %}</div>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground">
+              <span>{{ entry.age }} day{{ entry.age|pluralize }} old</span>
+              <span class="font-semibold text-primary">{% if entry.product %}Review product{% else %}Open review{% endif %} <span aria-hidden="true">→</span></span>
+              <span class="sr-only">Submitted {{ entry.submitted_at|date:'j M Y' }}. Assigned to {% for assignee in entry.assignees %}{{ assignee.display_name|default:'Unassigned' }}{% if not forloop.last %}, {% endif %}{% endfor %}.</span>
+            </div>
+          </a>
+        </li>
       {% endfor %}
     </ul>
   {% else %}
@@ -98,7 +83,8 @@
         <h2 class="text-base font-semibold">No requests in this view</h2>
         <p class="mt-2 text-sm text-muted-foreground">There are no requests in the selected review stage.</p>
         <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"
-           href="{% url 'experiences:queue' %}">View all requests</a>
+           href="?scope=all"
+           hx-get="?scope=all">View all requests</a>
       {% endif %}
     </div>
   {% endif %}

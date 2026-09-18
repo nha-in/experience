@@ -79,8 +79,17 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
         HTTP_HX_REQUEST="true",
     )
     assert response.status_code == HTTPStatus.OK
-    assert list(response.context["page"]) == [review_item]
-    assert review_item.get_absolute_url().encode() in response.content
+    assert [entry.product for entry in response.context["page"]] == [
+        review_item.product,
+    ]
+    assert response.context["page"][0].matching_reviews == [review_item]
+    assert (
+        reverse(
+            "experiences:product-detail",
+            args=[review_item.product.workspace.reference],
+        ).encode()
+        in response.content
+    )
     assert b'aria-label="Queue pagination"' not in response.content
     response = client.get(reverse("experiences:queue"), {"q": "No such equipment"})
     assert response.context["page"].paginator.count == 0
@@ -126,7 +135,9 @@ def test_queue_searches_by_product_reference_and_preserves_it_in_navigation(
     assert {item.product_id for item in response.context["page"]} == {
         review_item.product_id,
     }
-    assert other_item not in response.context["page"]
+    assert other_item.product_id not in {
+        entry.product_id for entry in response.context["page"]
+    }
     assert f'value="{reference}"'.encode() in response.content
     assert (
         f"?scope=decided&amp;status=&amp;item=&amp;assignee=&amp;q={reference}".encode()
@@ -338,7 +349,10 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
         HTTP_HX_REQUEST="true",
     )
     assert response.status_code == HTTPStatus.OK
-    assert list(response.context["page"]) == [review_item]
+    assert [entry.product for entry in response.context["page"]] == [
+        review_item.product,
+    ]
+    assert response.context["page"][0].matching_reviews == [review_item]
     assert "status" not in response.context["filters"]
     assert "status=" not in response.context["filter_query"]
     assert set(dict(response.context["statuses"])) == expected_statuses

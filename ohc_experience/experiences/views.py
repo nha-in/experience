@@ -57,9 +57,14 @@ from .models import Notification
 from .models import ProductCredential
 from .models import ReviewItem
 from .models import ReviewQuery
+from .models import SubmissionStatus
 from .models import TicketAttachment
 from .presentation import overview_next_step
 from .presentation import overview_progress
+from .queue_presentation import grouped_requests
+from .queue_presentation import populate_queue_page
+from .queue_presentation import queue_requests
+from .queue_presentation import review_order
 from .registry import get_program
 from .support_presentation import support_inbox
 
@@ -518,14 +523,176 @@ def organization_detail(request, slug):
     )
 
 
+def _product_review_id(value):
+    if (
+        not value.isascii()
+        or not value.isdecimal()
+        or len(value) > 19  # noqa: PLR2004
+        or not 0 < int(value) < 2**63
+    ):
+        msg = "Reload the product page before reviewing these submissions."
+        raise ValidationError(msg)
+    return int(value)
+
+
+def _posted_product_reviews(request):
+    revisions = {}
+    for value in request.POST.getlist("reviews"):
+        parts = value.split(":")
+        if (
+            len(parts) != 2  # noqa: PLR2004
+            or _product_review_id(parts[0]) in revisions
+        ):
+            msg = "Reload the product page before reviewing these submissions."
+            raise ValidationError(msg)
+        revisions[_product_review_id(parts[0])] = _product_review_id(parts[1])
+    return revisions
+
+
+def _product_review_scope(product):
+    return Q(product=product) | Q(
+        organisation=product.organisation,
+        kind=ReviewItem.Kind.ORGANISATION,
+        product__isnull=True,
+        application__isnull=True,
+    )
+
+
+def _product_review_post(request, workspace):
+    if request.POST.get("intent") == "bulk_decision":
+        decided = services.decide_product(
+            workspace.product,
+            request.user,
+            action=request.POST.get("action"),
+            expected_revisions=_posted_product_reviews(request),
+            note=request.POST.get("note", ""),
+        )
+        verb = "Approved" if request.POST.get("action") == "approve" else "Sent back"
+        noun = "request" if len(decided) == 1 else "requests"
+        messages.success(
+            request,
+            f"{verb} {len(decided)} submitted {noun}.",
+        )
+        anchor = "decisions"
+    elif request.POST.get("intent") == "decision":
+        review_id = _product_review_id(request.POST.get("review_id", ""))
+        item = get_object_or_404(
+            permissions.visible_reviews(request.user).filter(
+                _product_review_scope(workspace.product),
+            ),
+            pk=review_id,
+        )
+        services.decide(
+            item,
+            request.user,
+            action=request.POST.get("action"),
+            note=request.POST.get("note", ""),
+            field_key=request.POST.get("field_key", "form"),
+            expected_revision=request.POST.get("revision", ""),
+        )
+        messages.success(request, "Review updated.")
+        anchor = f"review-{item.pk}"
+    else:
+        msg = "Choose a review action."
+        raise ValidationError(msg)
+    return redirect(
+        reverse("experiences:product-detail", args=[workspace.reference])
+        + f"#{anchor}",
+    )
+
+
+def _product_review_sections(request, items):
+    sections = []
+    for item in items:
+        snapshot = item.selected_submission
+        if item.status == ReviewItem.Status.DRAFT or not (
+            snapshot and snapshot.status == SubmissionStatus.COMPLETED
+        ):
+            snapshot = None
+        prerequisites = services.pending_prerequisites(item) if item.pending else []
+        unresolved = sum(
+            query.submission_id == item.selected_submission_id
+            and query.status != "resolved"
+            for query in item.queries.all()
+        )
+        actions = permissions.available_review_actions(request.user, item)
+        can_approve = "approve" in actions and not prerequisites and not unresolved
+        can_send_back = "send_back" in actions and not prerequisites
+        can_query = "query" in actions
+        available = [
+            action
+            for action, allowed in (
+                ("approve", can_approve),
+                ("send_back", can_send_back),
+                ("query", can_query),
+            )
+            if allowed
+        ]
+        posted = request.POST.get("review_id") == str(item.pk)
+        action = request.POST.get("action") if posted else None
+        sections.append(
+            {
+                "item": item,
+                "snapshot": snapshot,
+                "prerequisites": prerequisites,
+                "can_approve": can_approve,
+                "can_send_back": can_send_back,
+                "can_query": can_query,
+                "available_actions": available,
+                "unresolved_query_count": unresolved,
+                "decision_note": request.POST.get("note", "") if posted else "",
+                "decision_action": action
+                if action in available
+                else next(iter(available), ""),
+                "query_field": request.POST.get("field_key", "form")
+                if posted
+                else "form",
+            },
+        )
+    return sections
+
+
 @login_required
+@require_http_methods(["GET", "POST"])
 def product_detail(request, reference):
-    """A product as staff see it: its open requests, each one click from a decision."""
+    """Review a product's submitted evidence and milestone progress together."""
     _reviewer_required(request)
     workspace = get_object_or_404(_workspaces(request.user), reference=reference)
     product = workspace.product
     program = workspace.definition
+    if request.method == "POST":
+        try:
+            return _product_review_post(request, workspace)
+        except ValidationError as error:
+            _error(request, error)
     visible_items = permissions.visible_reviews(request.user)
+    product_items = sorted(
+        visible_items.filter(_product_review_scope(product))
+        .exclude(kind=ReviewItem.Kind.PRODUCT)
+        .exclude(status=ReviewItem.Status.DRAFT)
+        .select_related(
+            "selected_submission__form",
+            "form",
+            "organisation",
+            "product__workspace",
+            "application__milestone",
+            "assignee",
+        )
+        .prefetch_related("queries__raised_by", "queries__replied_by")
+        .order_by("pk"),
+        key=review_order,
+    )
+    review_sections = _product_review_sections(request, product_items)
+    bulk_items = [
+        item
+        for item in product_items
+        if item.pending
+        and item.selected_submission_id
+        and item.selected_submission.status == SubmissionStatus.COMPLETED
+        and item.submitted_at
+        and not item.definition.auto_approve
+        and permissions.can_review(request.user, item, "approve")
+    ]
     pending = list(
         visible_items.filter(
             product_scope(workspace),
@@ -545,20 +712,30 @@ def product_detail(request, reference):
         .values_list("pk", flat=True)
     }
     tracks = _tracks(workspace, request.user)
+    progress = overview_progress(tracks)
+    submitted_ids = {item.pk for item in product_items}
     for row in tracks:
+        row["tiles"] = [
+            tile for tile in row["tiles"] if tile["item"].pk in submitted_ids
+        ]
         for tile in row["tiles"]:
-            tile["url"] = tile["item"].get_absolute_url()
+            tile["url"] = f"#review-{tile['item'].pk}"
     general_access = permissions.has_access(request.user, "review", program=program.key)
-    organisation_review = (
-        visible_items.filter(
-            organisation=product.organisation,
-            kind="organisation_verification",
-        )
-        .select_related("selected_submission")
-        .first()
+    organisation_section = next(
+        (
+            section
+            for section in review_sections
+            if section["item"].kind == ReviewItem.Kind.ORGANISATION
+        ),
+        None,
     )
     certification = _certification_context(request, product)
-    activity = product.audit_events.filter(item__in=visible_items)
+    activity = AuditEvent.objects.filter(
+        Q(product=product) | Q(item_id=organisation_section["item"].pk)
+        if organisation_section
+        else Q(product=product),
+        item__in=visible_items,
+    )
     outcomes = product.outcomes.filter(
         source_application__in=visible_items.values("application_id"),
     )
@@ -576,14 +753,37 @@ def product_detail(request, reference):
             reference=workspace.reference,
             organisation=product.organisation,
             organisation_details=(
-                organisation_review.selected_submission.data
-                if organisation_review and organisation_review.selected_submission
+                organisation_section["snapshot"].data
+                if organisation_section and organisation_section["snapshot"]
                 else {}
             ),
             pending=pending,
+            organisation_pending=[item for item in pending if not item.product_id],
+            organisation_review=organisation_section["item"]
+            if organisation_section
+            else None,
             decidable=decidable,
+            review_sections=review_sections,
+            bulk_items=bulk_items,
+            bulk_approve_blockers=services.product_decision_blockers(
+                bulk_items,
+                request.user,
+                action="approve",
+            )
+            if bulk_items
+            else [],
+            bulk_reject_blockers=services.product_decision_blockers(
+                bulk_items,
+                request.user,
+                action="send_back",
+            )
+            if bulk_items
+            else [],
+            bulk_note=request.POST.get("note", "")
+            if request.POST.get("intent") == "bulk_decision"
+            else "",
             tracks=[row for row in tracks if row["tiles"]],
-            progress=overview_progress(tracks),
+            progress=progress,
             registration=visible_items.filter(
                 product=product,
                 kind="product_registration",
@@ -1121,6 +1321,27 @@ def query_action(request, pk):
         messages.success(request, "Query updated.")
     except ValidationError as error:
         _error(request, error)
+    return_reference = request.POST.get("return_to_product")
+    if return_reference and permissions.reviewer(request.user):
+        if return_reference == "1" and item.product_id:
+            return_reference = item.product.workspace.reference
+        workspace = _workspaces(request.user).filter(reference=return_reference).first()
+        if (
+            workspace
+            and permissions.visible_reviews(request.user)
+            .filter(
+                _product_review_scope(workspace.product),
+                pk=item.pk,
+            )
+            .exists()
+        ):
+            return redirect(
+                reverse(
+                    "experiences:product-detail",
+                    args=[workspace.reference],
+                )
+                + f"#review-{item.pk}",
+            )
     return redirect(
         item.get_absolute_url()
         if permissions.reviewer(request.user)
@@ -1532,9 +1753,10 @@ def _prerequisite_label(program, prerequisite):
     return name, review.get_status_display().lower()
 
 
-def _queue_rows(items):
+def _queue_rows(page, user, matching):
     """What each request waits on, and how many requests wait on it."""
-    for item in items:
+    page = populate_queue_page(page, user, matching)
+    for item in (item for entry in page for item in entry.reviews):
         item.waiting_on = (
             [
                 _prerequisite_label(item.program, prerequisite)
@@ -1548,23 +1770,13 @@ def _queue_rows(items):
             if item.status != ReviewItem.Status.APPROVED
             else 0
         )
-    return items
+    return page
 
 
 @login_required
 def queue(request):
     _reviewer_required(request)
-    query = (
-        _review_requests(request.user)
-        .exclude(status="draft")
-        .select_related(
-            "product__workspace",
-            "organisation",
-            "application",
-            "assignee",
-            "form",
-        )
-    )
+    query = queue_requests(request.user)
     assignee, item, search = (
         request.GET.get(key, "") for key in ("assignee", "item", "q")
     )
@@ -1581,6 +1793,8 @@ def queue(request):
         query = query.filter(
             Q(product__name__icontains=search)
             | Q(product__workspace__reference__icontains=search)
+            | Q(organisation_product__name__icontains=search)
+            | Q(organisation_product__workspace__reference__icontains=search)
             | Q(organisation__name__icontains=search)
             | Q(application__reference__icontains=search),
         )
@@ -1591,10 +1805,12 @@ def queue(request):
         "decided": ((ReviewItem.Status.APPROVED, ReviewItem.Status.SENT_BACK), Q()),
     }
     stage_counts = {
-        stage: query.filter(stage_filter, status__in=stage_statuses).count()
+        stage: grouped_requests(
+            query.filter(stage_filter, status__in=stage_statuses),
+        ).count()
         for stage, (stage_statuses, stage_filter) in scopes.items()
     }
-    stage_counts["all"] = query.count()
+    stage_counts["all"] = grouped_requests(query).count()
     scope = request.GET.get("scope", "")
     if scope != "all":
         scope = scope if scope in scopes else "ready"
@@ -1611,7 +1827,6 @@ def queue(request):
     else:
         status = ""
     sort = _queue_sort(request)
-    query = query.order_by(*QUEUE_ORDER[sort])
     params = request.GET.copy()
     params.pop("page", None)
     params["scope"] = scope
@@ -1624,7 +1839,11 @@ def queue(request):
             request,
             page_title="Review queue",
             nav="queue",
-            page=_queue_rows(_page(request, query)),
+            page=_queue_rows(
+                _page(request, grouped_requests(query, sort)),
+                request.user,
+                query,
+            ),
             stage_counts=stage_counts,
             queue_scope=scope,
             queue_sort=sort,

@@ -470,3 +470,53 @@ document.addEventListener("keydown", (event) => {
     true,
   );
 })();
+
+// Product reviews stay compact until a reviewer opens a request or follows its link.
+(() => {
+  function revealReview(hash) {
+    if (!hash || hash === '#') return;
+    let id;
+    try { id = decodeURIComponent(hash.slice(1)); } catch { return; }
+    const target = document.getElementById(id);
+    const panel = target?.closest('details[data-product-review-panel]');
+    if (!panel) return;
+    panel.open = true;
+    target.scrollIntoView({ block: 'start' });
+  }
+
+  function prepareBulkDecision(form, action, event) {
+    const note = form.querySelector('[name="note"]');
+    if (!note) return;
+    note.required = action === 'send_back';
+    note.setCustomValidity('');
+    if (!note.required) return;
+    const panel = form.querySelector('[data-product-bulk-note]');
+    if (panel) panel.open = true;
+    if (note.value.trim()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    note.setCustomValidity('Enter a reason for sending back these requests.');
+    note.focus();
+    note.reportValidity();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => revealReview(window.location.hash));
+  document.addEventListener('htmx:afterSettle', () => revealReview(window.location.hash));
+  window.addEventListener('hashchange', () => revealReview(window.location.hash));
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('a[href^="#"]');
+    if (link) revealReview(link.getAttribute('href'));
+    const button = event.target.closest?.('[data-product-bulk-form] button[name="action"]');
+    if (button) prepareBulkDecision(button.form, button.value, event);
+  }, true);
+  document.addEventListener('submit', event => {
+    if (event.target.matches?.('[data-product-bulk-form]')) {
+      prepareBulkDecision(event.target, event.submitter?.value, event);
+    }
+  }, true);
+  document.addEventListener('input', event => {
+    if (event.target.matches?.('[data-product-bulk-form] [name="note"]')) {
+      event.target.setCustomValidity('');
+    }
+  });
+})();

@@ -31,7 +31,11 @@ def track_url(environment, code="HIE-CM"):
 
 
 def queue(client, **params):
-    return list(client.get(reverse("experiences:queue"), params).context["page"])
+    return [
+        item
+        for entry in client.get(reverse("experiences:queue"), params).context["page"]
+        for item in entry.matching_reviews
+    ]
 
 
 def queue_text(client, **params):

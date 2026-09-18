@@ -6,7 +6,7 @@
       <div class="ui-rise min-w-0">
         <p class="ui-hero-eyebrow">{{ experience_program.review_heading }}</p>
         <h1 class="ui-hero-title">Review queue</h1>
-        <p class="ui-hero-lede">{% if queue_scope == 'waiting' %}A request that these build on is not yet approved. Read them and raise a query.{% elif queue_scope == 'decided' %}You approved or sent back these requests. The integrator sees every decision.{% elif queue_scope == 'all' %}All requests at every stage. Drafts stay with the integrator.{% else %}Nothing blocks these requests. Approve or send back each one now.{% endif %}</p>
+        <p class="ui-hero-lede">{% if queue_scope == 'waiting' %}Products with requests waiting on a prerequisite. Open a product to see all its milestones.{% elif queue_scope == 'decided' %}Products with approved or sent-back requests. Open a product to review its full progress.{% elif queue_scope == 'all' %}Review organisation verification and milestones together on one product page.{% else %}Open a product to review its organisation verification and milestones together.{% endif %}</p>
       </div>
     </div>
   </div>

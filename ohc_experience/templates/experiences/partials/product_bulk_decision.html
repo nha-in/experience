@@ -1,0 +1,96 @@
+<div class="scroll-mt-20 px-5 py-4" id="decisions">
+  {% if bulk_items %}
+    <form method="post"
+          class="flex flex-col gap-3"
+          data-unsaved-form
+          data-product-bulk-form>
+      {% csrf_token %}
+      <input type="hidden" name="intent" value="bulk_decision" />
+      {% for item in bulk_items %}
+        <input type="hidden"
+               name="reviews"
+               value="{{ item.pk }}:{{ item.selected_submission_id }}" />
+      {% endfor %}
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold" id="decisions-title">Product review</h2>
+          <p class="mt-1 text-xs text-soft-foreground">{{ bulk_items|length }} submitted request{{ bulk_items|length|pluralize }} awaiting your decision</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11"
+                  type="submit"
+                  name="action"
+                  value="approve"
+                  {% if bulk_approve_blockers %}disabled aria-describedby="bulk-approve-hold"{% endif %}>Accept all</button>
+          <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+                  type="submit"
+                  name="action"
+                  value="send_back"
+                  {% if bulk_reject_blockers %}disabled aria-describedby="bulk-reject-hold"{% endif %}>Reject all</button>
+        </div>
+      </div>
+      <ul class="flex flex-wrap gap-x-3 gap-y-1 text-xs"
+          aria-label="Requests included in the bulk decision">
+        <li class="text-soft-foreground">Includes</li>
+        {% for item in bulk_items %}
+          <li><a class="inline-flex min-h-7 items-center font-semibold text-primary no-underline hover:underline"
+   href="#review-{{ item.pk }}">{% if item.kind == 'organisation_verification' %}Organisation verification{% else %}{{ item.title }}{% endif %}</a></li>
+        {% endfor %}
+      </ul>
+      {% for item in bulk_items %}
+        {% if item.kind == 'organisation_verification' %}
+          <p class="text-xs leading-relaxed text-soft-foreground">Organisation verification applies to all products of {{ organisation.display_name }}.</p>
+        {% endif %}
+      {% endfor %}
+      <details class="group/note rounded-lg border border-soft-border bg-soft-background"
+               data-product-bulk-note
+               {% if bulk_note or request.POST.intent == 'bulk_decision' %}open{% endif %}>
+        <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-semibold text-primary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+          <span>Shared decision note <span class="font-normal text-soft-foreground">· required to reject</span></span>
+          <svg viewBox="0 0 24 24"
+               class="size-3.5 transition-transform group-open/note:rotate-180 motion-reduce:transition-none"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="1.8"
+               stroke-linecap="round"
+               stroke-linejoin="round"
+               aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
+        <div class="px-3 pb-3">
+          <label class="sr-only" for="bulk-decision-note">Shared decision note</label>
+          <textarea class="ui-textarea min-h-20"
+                    id="bulk-decision-note"
+                    name="note"
+                    rows="2"
+                    maxlength="10000"
+                    aria-describedby="bulk-decision-help">{{ bulk_note }}</textarea>
+          <p class="ui-hint" id="bulk-decision-help">Saved to every included request and shared with the integrator. Optional for approval.</p>
+        </div>
+      </details>
+      <p class="text-xs leading-relaxed text-soft-foreground">Reject all sends the included requests back for corrections.</p>
+      {% if bulk_approve_blockers %}
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950"
+             id="bulk-approve-hold">
+          <p class="font-semibold">Accept all is on hold</p>
+          <ul class="mt-1 list-disc space-y-1 pl-4">
+            {% for blocker in bulk_approve_blockers %}<li>{{ blocker }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+      {% if bulk_reject_blockers %}
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950"
+             id="bulk-reject-hold">
+          <p class="font-semibold">Reject all is on hold</p>
+          <ul class="mt-1 list-disc space-y-1 pl-4">
+            {% for blocker in bulk_reject_blockers %}<li>{{ blocker }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    </form>
+  {% else %}
+    <h2 class="text-base font-bold" id="decisions-title">Product review</h2>
+    <p class="mt-1 text-xs leading-relaxed text-soft-foreground">{% if review_sections %}Organisation verification and milestone evidence, together. Open a row to review its details.{% else %}Submitted organisation and milestone requests appear here.{% endif %}</p>
+  {% endif %}
+</div>

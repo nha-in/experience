@@ -28,7 +28,10 @@ def test_stage_counts_keep_search_and_assignee_filters(client, review_item):
         },
     )
     assert response.status_code == HTTPStatus.OK
-    assert list(response.context["page"]) == [review_item]
+    assert [entry.product for entry in response.context["page"]] == [
+        review_item.product,
+    ]
+    assert response.context["page"][0].matching_reviews == [review_item]
     assert response.context["stage_counts"] == {
         "ready": 1,
         "waiting": 0,
@@ -63,12 +66,18 @@ def test_queue_scope_tracks_a_real_decision(client, review_item):
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     url = reverse("experiences:queue")
-    assert review_item not in client.get(url, {"scope": "decided"}).context["page"]
+    assert not client.get(url, {"scope": "decided"}).context["page"]
     workflows.decide(review_item, reviewer, action="approve", note="Verified")
-    assert review_item in client.get(url, {"scope": "decided"}).context["page"]
-    assert review_item not in client.get(url, {"scope": "ready"}).context["page"]
-    assert review_item not in client.get(url).context["page"]
-    assert review_item in client.get(url, {"scope": "all"}).context["page"]
+    assert (
+        client.get(url, {"scope": "decided"}).context["page"][0].product
+        == review_item.product
+    )
+    assert not client.get(url, {"scope": "ready"}).context["page"]
+    assert not client.get(url).context["page"]
+    assert (
+        client.get(url, {"scope": "all"}).context["page"][0].product
+        == review_item.product
+    )
 
 
 def test_dashboard_counts_use_current_reviewer_and_canonical_milestone(

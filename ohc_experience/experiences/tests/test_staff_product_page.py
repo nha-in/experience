@@ -57,8 +57,8 @@ def test_admin_reaches_each_open_request_from_the_product(environment, client):
     assert response.context["registration"].kind == "product_registration"
     tiles = [tile for row in response.context["tracks"] for tile in row["tiles"]]
     assert {tile["url"] for tile in tiles} >= {
-        approved.get_absolute_url(),
-        pending.get_absolute_url(),
+        f"#review-{approved.pk}",
+        f"#review-{pending.pk}",
     }
     assert track_url(environment, "HIE-CM").encode() not in response.content
 

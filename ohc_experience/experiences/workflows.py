@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from functools import partial
 from uuid import uuid4
 
 from django import forms
@@ -56,7 +57,10 @@ PENDING_STATUSES = (
 )
 
 
-def _notice(item, event, *, note=""):
+def _notice(item, event, *, note="", after_commit=False):
+    if after_commit:
+        transaction.on_commit(partial(_notice, item, event, note=note))
+        return
     try:
         notify_review(item, event, note=note)
     except Exception:
@@ -64,8 +68,11 @@ def _notice(item, event, *, note=""):
         logger.exception("Failed to email the %s notice for %s", event, item.reference)
 
 
-def _announce(item, action, note):
+def _announce(item, action, note, *, after_commit=False):
     """Only an approval leaves the review thread; the rest keep its subject."""
+    if after_commit:
+        transaction.on_commit(partial(_announce, item, action, note))
+        return
     if action != "approve":
         _notice(item, "query_raised" if action == "query" else "sent_back", note=note)
         return
@@ -771,7 +778,7 @@ def _validate_approval(item):
         raise ValidationError(msg)
 
 
-def _auto_approve(item, actor):
+def _auto_approve(item, actor, *, defer_notifications=False):
     """Submitting is the decision. Nobody is asked, but the record still lands
     in the queue so a reviewer can read it."""
     _validate_approval(item)
@@ -781,10 +788,10 @@ def _auto_approve(item, actor):
     item.decision_note = ""
     _set_application_status(item, "approved")
     _approve_subject(item, actor)
-    _notice(item, "recorded")
+    _notice(item, "recorded", after_commit=defer_notifications)
 
 
-def _record_released(organisation):
+def _record_released(organisation, *, defer_notifications=False):
     """Record the waiting requests that no longer wait on anything.
 
     A request nobody decides can still have prerequisites, as UHI waits on M1 and
@@ -806,13 +813,13 @@ def _record_released(organisation):
         ).select_related("selected_submission", "form", "product", "application")
         for item in waiting:
             if item.definition.auto_approve and not pending_prerequisites(item):
-                _auto_approve(item, None)
+                _auto_approve(item, None, defer_notifications=defer_notifications)
                 item.save()
                 audit(actor=None, action="Recorded", item=item)
                 recorded = True
 
 
-def _require_decidable(item, action):
+def _require_decidable(item, action, *, settling_reviews=()):
     if not item.pending:
         msg = "This item is not awaiting a decision."
         raise ValidationError(msg)
@@ -824,6 +831,11 @@ def _require_decidable(item, action):
         raise ValidationError(msg)
     # A query can be raised at any time; the decision waits for what came first.
     prerequisites = pending_prerequisites(item) if action != "query" else []
+    prerequisites = [
+        prerequisite
+        for prerequisite in prerequisites
+        if not prerequisite.review or prerequisite.review.pk not in settling_reviews
+    ]
     if prerequisites:
         msg = (
             "Approve or send back this request once "
@@ -833,10 +845,41 @@ def _require_decidable(item, action):
 
 
 @transaction.atomic
-def decide(item, actor, *, action, note="", field_key="form"):
+def decide(  # noqa: PLR0913
+    item,
+    actor,
+    *,
+    action,
+    note="",
+    field_key="form",
+    expected_revision=None,
+):
     item = _lock_review(item.pk)
+    if expected_revision is not None and str(item.selected_submission_id or "") != str(
+        expected_revision,
+    ):
+        msg = "A submission changed. Reload the product page before deciding."
+        raise ValidationError(msg)
+    return _decide(item, actor, action=action, note=note, field_key=field_key)
+
+
+def _decide(  # noqa: PLR0913
+    item,
+    actor,
+    *,
+    action,
+    note="",
+    field_key="form",
+    defer_notifications=False,
+    rejecting_reviews=(),
+):
+    """Apply a decision to a review protected by its organisation's lock."""
     require_decider(actor, item, "write" if action == "query" else "approve")
-    _require_decidable(item, action)
+    _require_decidable(
+        item,
+        action,
+        settling_reviews=rejecting_reviews if action == "send_back" else (),
+    )
     note = note.strip()
     if action in {"send_back", "query"} and not note:
         msg = "Enter a reason or question before continuing."
@@ -893,9 +936,144 @@ def decide(item, actor, *, action, note="", field_key="form"):
         )
     item.save()
     if action == "approve":
-        _record_released(item.organisation)
-    _announce(item, action, note)
+        _record_released(item.organisation, defer_notifications=defer_notifications)
+    _announce(item, action, note, after_commit=defer_notifications)
     return item
+
+
+def _bulk_review_selection(product, actor, expected_revisions):
+    """Lock and check precisely the submitted evidence shown on the page."""
+    try:
+        revisions = {
+            int(pk): str(revision) for pk, revision in expected_revisions.items()
+        }
+    except (AttributeError, TypeError, ValueError) as error:
+        msg = "Reload the product page before reviewing these submissions."
+        raise ValidationError(msg) from error
+    if not revisions or len(revisions) != len(expected_revisions):
+        msg = "Choose at least one submitted request to review."
+        raise ValidationError(msg)
+    items = list(
+        ReviewItem.objects.select_for_update(of=("self",))
+        .filter(
+            Q(product=product)
+            | Q(
+                organisation_id=product.organisation_id,
+                kind=ReviewItem.Kind.ORGANISATION,
+                product__isnull=True,
+                application__isnull=True,
+            ),
+            pk__in=revisions,
+        )
+        .select_related(
+            "selected_submission",
+            "form",
+            "organisation",
+            "product",
+            "application",
+        )
+        .order_by("pk"),
+    )
+    if len(items) != len(revisions):
+        msg = (
+            "Every request must belong to this product or its organisation "
+            "verification. Reload the product page."
+        )
+        raise ValidationError(msg)
+    for item in items:
+        require_decider(actor, item)
+        if (
+            not item.pending
+            or not item.selected_submission_id
+            or not item.submitted_at
+            or str(item.selected_submission_id) != revisions[item.pk]
+        ):
+            msg = "A submission changed. Reload the product page before deciding."
+            raise ValidationError(msg)
+        if item.definition.auto_approve:
+            msg = "Automatically recorded requests do not need a review decision."
+            raise ValidationError(msg)
+    return items
+
+
+def product_decision_blockers(items, actor, *, action):
+    """Explain bulk-action availability; the write path checks again under lock."""
+    items = list(items)
+    if not items:
+        return ["There are no submitted requests to review."]
+    selected = {item.pk for item in items}
+    blockers = []
+    for item in items:
+        if not item.selected_submission_id or not item.submitted_at:
+            blockers.append(f"{item.title}: Submit this request before reviewing it.")
+            continue
+        try:
+            require_decider(actor, item)
+            _require_decidable(item, action, settling_reviews=selected)
+            if action == "approve":
+                _validate_approval(item)
+        except (PermissionDenied, ValidationError) as error:
+            reason = (
+                "; ".join(error.messages)
+                if isinstance(error, ValidationError)
+                else str(error)
+            )
+            blockers.append(f"{item.title}: {reason}")
+    return blockers
+
+
+@transaction.atomic
+def decide_product(product, actor, *, action, expected_revisions, note=""):
+    """Decide selected product and organisation submissions or change nothing.
+
+    Approval walks the dependency order, from organisation verification through
+    the product's milestones. Organisation verification is shared by all its
+    products. Rejection can return a complete submitted chain for changes, but
+    never bypasses a prerequisite outside the selected batch.
+    """
+    if action not in {"approve", "send_back"}:
+        msg = "Choose accept all or reject all."
+        raise ValidationError(msg)
+    organisation = Organisation.objects.select_for_update().get(
+        pk=product.organisation_id,
+    )
+    items = _bulk_review_selection(product, actor, expected_revisions)
+    # Prerequisite checks must see an organisation decision made earlier in the
+    # same batch, rather than separate select_related copies of its old state.
+    for item in items:
+        item.organisation = organisation
+    rejecting_reviews = {item.pk for item in items} if action == "send_back" else set()
+    if action == "send_back":
+        # Validate the complete set before any rejection changes prerequisites.
+        for item in items:
+            _require_decidable(item, action, settling_reviews=rejecting_reviews)
+        # Return downstream submissions before the evidence they depend on.
+        items.sort(key=lambda item: len(pending_prerequisites(item)), reverse=True)
+    decided = []
+    while items:
+        ready = (
+            items[0]
+            if action == "send_back"
+            else next((item for item in items if not pending_prerequisites(item)), None)
+        )
+        if ready is None:
+            # Use the normal, actionable prerequisite error. Any earlier
+            # decisions and their queued notifications roll back with it.
+            _require_decidable(items[0], action)
+        decided.append(
+            _decide(
+                ready,
+                actor,
+                action=action,
+                note=note,
+                defer_notifications=True,
+                rejecting_reviews=rejecting_reviews,
+            ),
+        )
+        items.remove(ready)
+        if ready.kind == ReviewItem.Kind.ORGANISATION:
+            organisation.refresh_from_db()
+    return decided
 
 
 @transaction.atomic

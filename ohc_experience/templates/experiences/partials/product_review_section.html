@@ -1,0 +1,204 @@
+<details class="group/review scroll-mt-20"
+         id="review-{{ item.pk }}"
+         data-product-review-panel
+         {% if request.POST.review_id == item.pk|stringformat:'s' %}open{% endif %}>
+  <summary class="flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-3 transition-colors hover:bg-soft-background focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden"
+           aria-labelledby="review-title-{{ item.pk }} review-status-{{ item.pk }}">
+    <span class="flex size-9 shrink-0 items-center justify-center rounded-lg {% if item.status == 'approved' %}bg-green-50 text-green-700{% elif item.pending %}bg-primary/10 text-primary{% else %}bg-muted-background text-soft-foreground{% endif %}"
+          aria-hidden="true">
+      {% if item.status == 'approved' %}
+        <svg viewBox="0 0 24 24"
+             class="size-4"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             stroke-linejoin="round">
+          <path d="m5 12 4 4L19 6" />
+        </svg>
+      {% elif item.kind == 'organisation_verification' %}
+        <svg viewBox="0 0 24 24"
+             class="size-4"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.8"
+             stroke-linecap="round"
+             stroke-linejoin="round">
+          <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h3a1 1 0 0 1 1 1v11M2 21h20M8 7h4M8 11h4M8 15h4M9 21v-3h2v3" />
+        </svg>
+      {% else %}
+        <svg viewBox="0 0 24 24"
+             class="size-4"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.8"
+             stroke-linecap="round"
+             stroke-linejoin="round">
+          <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9ZM14 3v6h6M8 13h8M8 17h5" />
+        </svg>
+      {% endif %}
+    </span>
+    <span class="min-w-0 flex-1">
+      <span class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="text-sm font-semibold break-words"
+              id="review-title-{{ item.pk }}">{% if item.kind == 'organisation_verification' %}Organisation verification{% else %}{{ item.title }}{% endif %}</span>
+        {% if item.application.milestone %}
+          {% include 'experiences/partials/reviewer_milestone.html' %}
+        {% endif %}
+      </span>
+      <span class="mt-1 block text-xs leading-relaxed text-soft-foreground break-words">
+        {% if item.kind == 'organisation_verification' %}Shared across all products of {{ organisation.display_name }}{% elif snapshot %}Submitted {{ item.submitted_at|date:'j M Y' }} · {{ item.assignee.display_name|default:'Unassigned' }}{% elif item.status == 'sent_back' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}
+      </span>
+    </span>
+    <span class="flex shrink-0 items-center gap-2 sm:gap-4">
+      <span id="review-status-{{ item.pk }}">
+        {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+      </span>
+      <span class="hidden text-xs font-semibold text-primary sm:inline">{% if item.pending %}Review{% else %}Details{% endif %}</span>
+      <svg viewBox="0 0 24 24"
+           class="size-4 text-soft-foreground transition-transform group-open/review:rotate-180 motion-reduce:transition-none"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="1.8"
+           stroke-linecap="round"
+           stroke-linejoin="round"
+           aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </span>
+  </summary>
+  <div class="border-t border-soft-border bg-soft-background/60 p-4 sm:p-5">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+      <span class="font-mono text-soft-foreground">{{ item.reference }}</span>
+      <a class="inline-flex min-h-8 items-center font-semibold text-primary no-underline hover:underline"
+         href="{{ item.get_absolute_url }}">Full review &amp; history <span class="ml-1" aria-hidden="true">↗</span></a>
+    </div>
+    {% if item.kind == 'organisation_verification' %}
+      <p class="mb-4 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2.5 text-xs leading-relaxed text-primary">This verification decision applies to the organisation and all its products.</p>
+    {% endif %}
+    {% if snapshot %}
+      <div class="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div class="min-w-0 overflow-hidden rounded-xl border border-soft-border bg-card">
+          {% include 'experiences/partials/reviewer_submitted.html' with can_query=False embedded_review=True %}
+        </div>
+        <div class="min-w-0 rounded-xl border border-soft-border bg-card p-4">
+          {% if item.pending %}
+            <h3 class="text-sm font-bold" id="decision-title-{{ item.pk }}">Decision</h3>
+            {% if prerequisites %}
+              <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950"
+                   id="decision-hold-{{ item.pk }}">
+                <p class="font-semibold">Waiting on prerequisites</p>
+                <p class="mt-1">{% if item.definition.auto_approve %}This request is recorded automatically after its prerequisites are approved.{% else %}Individual decisions are available after the prerequisites are approved.{% if can_query %} You can raise queries meanwhile.{% endif %}{% endif %}</p>
+                {% include 'experiences/partials/reviewer_prerequisites.html' %}
+              </div>
+            {% endif %}
+            {% if unresolved_query_count %}
+              <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950"
+                   id="approval-hold-{{ item.pk }}">
+                <p class="font-semibold">Approval is on hold</p>
+                <p class="mt-1">Resolve {{ unresolved_query_count }} outstanding quer{{ unresolved_query_count|pluralize:'y,ies' }} before approval.</p>
+                <a class="mt-1 inline-flex min-h-9 items-center font-semibold underline underline-offset-2"
+                   href="#queries-{{ item.pk }}">Review queries and replies</a>
+              </div>
+            {% endif %}
+            {% if can_approve or can_send_back or can_query %}
+              <form method="post"
+                    class="mt-3 flex flex-col gap-3"
+                    data-decision-form
+                    data-unsaved-form
+                    {% if unresolved_query_count %}data-approval-blocked="true"{% endif %}
+                    {% if prerequisites %}data-decision-blocked="true"{% endif %}>
+                {% csrf_token %}
+                <input type="hidden" name="intent" value="decision" />
+                <input type="hidden" name="review_id" value="{{ item.pk }}" />
+                <input type="hidden"
+                       name="revision"
+                       value="{{ item.selected_submission_id }}" />
+                <fieldset class="flex gap-1 rounded-xl bg-muted-background p-1 text-center text-sm [&>label]:flex-1">
+                  <legend class="sr-only">Review action for {{ item.title }}</legend>
+                  <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+                    <input class="sr-only"
+                           type="radio"
+                           name="action"
+                           value="approve"
+                           {% if not can_approve %}disabled{% endif %}
+                           {% if prerequisites %}aria-describedby="decision-hold-{{ item.pk }}"{% elif unresolved_query_count %}aria-describedby="approval-hold-{{ item.pk }}"{% endif %}
+                           {% if decision_action == 'approve' and can_approve %}checked{% endif %} />
+                    <span>Approve</span>
+                  </label>
+                  <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+                    <input class="sr-only"
+                           type="radio"
+                           name="action"
+                           value="send_back"
+                           {% if not can_send_back %}disabled{% endif %}
+                           {% if prerequisites %}aria-describedby="decision-hold-{{ item.pk }}"{% endif %}
+                           {% if decision_action == 'send_back' and can_send_back %}checked{% endif %} />
+                    <span>Send back</span>
+                  </label>
+                  <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+                    <input class="sr-only"
+                           type="radio"
+                           name="action"
+                           value="query"
+                           {% if not can_query %}disabled{% endif %}
+                           {% if decision_action == 'query' and can_query %}checked{% endif %} />
+                    <span>Raise query</span>
+                  </label>
+                </fieldset>
+                <div data-query-controls
+                     {% if decision_action != 'query' %}hidden{% endif %}>
+                  <label class="ui-label" for="field-key-{{ item.pk }}">Against</label>
+                  <div class="ui-select-wrapper">
+                    <select class="ui-select" id="field-key-{{ item.pk }}" name="field_key">
+                      <option value="form">Whole form</option>
+                      {% for field in snapshot.field_schema %}
+                        <option value="{{ field.key }}"
+                                {% if query_field == field.key %}selected{% endif %}>{{ field.label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <p class="ui-hint">Choose the part of the submission that needs clarification.</p>
+                </div>
+                <div>
+                  <label class="ui-label"
+                         for="decision-note-{{ item.pk }}"
+                         data-decision-label>{% if decision_action == 'query' %}Question{% elif decision_action == 'send_back' %}Reason for sending back{% else %}Decision note{% endif %}</label>
+                  <textarea class="ui-textarea min-h-20"
+                            id="decision-note-{{ item.pk }}"
+                            name="note"
+                            rows="3"
+                            maxlength="10000"
+                            {% if decision_action != 'approve' %}required{% endif %}
+                            aria-describedby="decision-help-{{ item.pk }}">{{ decision_note }}</textarea>
+                  <p class="ui-hint" id="decision-help-{{ item.pk }}">Saved in this request's history and shared with the integrator. A reason or question is required for send-back and query actions.</p>
+                </div>
+                <div>
+                  <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11 w-full"
+                          type="submit"
+                          data-decision-submit>{% if decision_action == 'query' %}Send query{% elif decision_action == 'send_back' %}Send back to integrator{% else %}Record approval{% endif %}</button>
+                </div>
+              </form>
+            {% elif item.definition.auto_approve %}
+              <p class="mt-3 text-sm leading-relaxed text-soft-foreground">This request is recorded automatically and needs no reviewer decision.</p>
+            {% elif not prerequisites %}
+              <p class="mt-3 text-sm leading-relaxed text-soft-foreground">You have read-only access to this request.</p>
+            {% endif %}
+          {% else %}
+            {% include 'experiences/partials/review_status.html' with reviewer=True %}
+          {% endif %}
+        </div>
+      </div>
+      {% if item.queries.exists %}
+        <div class="mt-4">
+          {% include 'experiences/partials/reviewer_queries.html' with return_to_product=True product_review_reference=reference can_integrate=False %}
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="text-sm leading-relaxed text-soft-foreground">
+        <p class="font-semibold text-foreground">{% if item.status == 'sent_back' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}</p>
+        <p class="mt-1">{% if item.status == 'sent_back' %}The integrator is updating this request after it was sent back. New evidence will appear when they resubmit.{% else %}There is no submitted evidence available for this request.{% endif %}</p>
+      </div>
+    {% endif %}
+  </div>
+</details>

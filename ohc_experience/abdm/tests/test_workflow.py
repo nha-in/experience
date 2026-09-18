@@ -306,7 +306,9 @@ def test_a_recorded_uhi_application_still_reaches_the_queue(environment, client)
         HTTP_HX_REQUEST="true",
     )
 
-    assert item in list(page.context["page"])
+    assert item in [
+        review for entry in page.context["page"] for review in entry.matching_reviews
+    ]
 
 
 def test_nobody_decides_a_uhi_application_twice(environment):
@@ -948,27 +950,32 @@ def test_track_filter_respects_which_track_applied_for_shared_m1(environment, cl
     workspace.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
-    assert item in client.get(url, {"item": "HIE-CM"}).context["page"]
-    assert item not in client.get(url, {"item": "PHR"}).context["page"]
+    assert (
+        item in client.get(url, {"item": "HIE-CM"}).context["page"][0].matching_reviews
+    )
+    assert not client.get(url, {"item": "PHR"}).context["page"]
     workspace.applied_milestones.append("PHR:phr1")
     workspace.save()
-    assert item in client.get(url, {"item": "PHR"}).context["page"]
+    assert item in client.get(url, {"item": "PHR"}).context["page"][0].matching_reviews
 
 
-def test_the_queue_lists_newest_first_unless_asked_for_oldest(environment, client):
+def test_the_queue_sorts_by_matching_submission_dates(environment, client):
     older = submit(environment, "m1")
     newer = submit(environment, "locker1")
     ReviewItem.objects.filter(pk=older.pk).update(
         submitted_at=timezone.now() - timedelta(days=2),
     )
+    older.refresh_from_db()
     client.force_login(environment["reviewer"])
 
     def listed(**params):
-        page = client.get(reverse("experiences:queue"), params).context["page"]
-        return [item for item in page if item in (older, newer)]
+        return client.get(reverse("experiences:queue"), params).context["page"]
 
-    assert listed() == [newer, older]
-    assert listed(sort="oldest") == [older, newer]
+    # Requests for one product stay together in either sort direction.
+    assert len(listed()) == len(listed(sort="oldest")) == 1
+    assert listed()[0].submitted_at == newer.submitted_at
+    assert listed(sort="oldest")[0].submitted_at == older.submitted_at
+    assert set(listed()[0].matching_reviews) == {older, newer}
 
 
 def test_the_item_filter_reaches_requests_outside_any_track(environment, client):
@@ -976,10 +983,14 @@ def test_the_item_filter_reaches_requests_outside_any_track(environment, client)
     client.force_login(environment["reviewer"])
 
     def listed(item):
-        return client.get(
-            reverse("experiences:queue"),
-            {"item": item, "scope": "all"},
-        ).context["page"]
+        return [
+            review
+            for entry in client.get(
+                reverse("experiences:queue"),
+                {"item": item, "scope": "all"},
+            ).context["page"]
+            for review in entry.matching_reviews
+        ]
 
     assert {entry.kind for entry in listed("organisation_verification")} == {
         ReviewItem.Kind.ORGANISATION,
@@ -1000,7 +1011,7 @@ def test_product_registrations_are_records_not_queue_requests(environment, clien
     ).context["review_requests"]
     record = client.get(registration.get_absolute_url())
 
-    assert registration not in queue
+    assert all(registration not in entry.reviews for entry in queue)
     assert registration not in organisation
     assert record.status_code == 200
     assert "data-decision-form" not in record.content.decode()
@@ -1015,10 +1026,14 @@ def test_the_type_filter_gathers_the_milestones_of_every_track(environment, clie
     client.force_login(environment["reviewer"])
 
     def listed(item):
-        return client.get(
-            reverse("experiences:queue"),
-            {"item": item, "scope": "all"},
-        ).context["page"]
+        return [
+            review
+            for entry in client.get(
+                reverse("experiences:queue"),
+                {"item": item, "scope": "all"},
+            ).context["page"]
+            for review in entry.matching_reviews
+        ]
 
     milestones = listed("milestones")
     assert hie_cm in milestones
