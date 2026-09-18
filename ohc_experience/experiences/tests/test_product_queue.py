@@ -65,7 +65,41 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
     assert response.context["stage_counts"]["waiting"] == 1
 
 
-def test_filters_select_products_without_hiding_their_other_milestone_statuses(
+def test_queue_chips_show_only_the_requests_in_the_current_tab(environment, client):
+    submit(environment, "m1")
+    submit(environment, "m2")
+    client.force_login(environment["reviewer"])
+    url = reverse("experiences:queue")
+
+    response = client.get(url, {"scope": "all"})
+    entry = response.context["page"][0]
+    assert [item.queue_state for item in entry.matching_reviews] == [
+        "approved",
+        "new",
+        "blocked",
+    ]
+    compact = " ".join(response.content.decode().split())
+    assert "1 of 3 approved · M2 waiting on M1" in compact
+
+    response = client.get(url)
+    entry = response.context["page"][0]
+    assert [item.queue_state for item in entry.matching_reviews] == ["new"]
+    compact = " ".join(response.content.decode().split())
+    assert "ui-queue-chip--approved font-mono" not in compact
+    assert "ui-queue-chip--blocked font-mono" not in compact
+    assert "1 of 3 approved" in compact
+    assert "M2 waiting on M1" not in compact
+
+    response = client.get(url, {"scope": "waiting"})
+    entry = response.context["page"][0]
+    assert [item.queue_state for item in entry.matching_reviews] == ["blocked"]
+    compact = " ".join(response.content.decode().split())
+    assert "ui-queue-chip--approved font-mono" not in compact
+    assert "ui-queue-chip--new font-mono" not in compact
+    assert "1 of 3 approved · M2 waiting on M1" in compact
+
+
+def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     client,
     review_item,
     owner_membership,
@@ -98,6 +132,10 @@ def test_filters_select_products_without_hiding_their_other_milestone_statuses(
         "all": 1,
     }
     assert b"Waiting on INS" in response.content
+    compact = " ".join(response.content.decode().split())
+    assert 'title="REL Release · Under review · waiting on INS"' in compact
+    assert 'title="INS Inspection' not in compact
+    assert "0 of 2 approved · REL waiting on INS" in compact
 
 
 def test_organisation_verification_merges_into_its_product_entry(

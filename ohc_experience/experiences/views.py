@@ -1853,9 +1853,10 @@ def waiting_rows(items):
 
 
 def _queue_rows(page, user, matching):
-    """The page's entries, each request marked with what it waits on."""
+    """The page's entries, each request marked with what it waits on and its chip."""
     page = populate_queue_page(page, user, matching)
-    waiting_rows(item for entry in page for item in entry.reviews)
+    for item in waiting_rows(item for entry in page for item in entry.reviews):
+        item.queue_state = "blocked" if item.waiting_on else item.status
     return page
 
 

@@ -16,6 +16,26 @@
     </div>
   </div>
   {% if page %}
+    <ul class="flex flex-wrap gap-1.5 px-5 pb-3" aria-hidden="true">
+      <li class="ui-queue-chip ui-queue-chip--approved font-medium">
+        {% include 'experiences/partials/queue_state_icon.html' with state='approved' %}Approved
+      </li>
+      <li class="ui-queue-chip ui-queue-chip--in_review font-medium">
+        {% include 'experiences/partials/queue_state_icon.html' with state='in_review' %}Under review
+      </li>
+      <li class="ui-queue-chip ui-queue-chip--new font-medium">
+        {% include 'experiences/partials/queue_state_icon.html' with state='new' %}New
+      </li>
+      <li class="ui-queue-chip ui-queue-chip--query_raised font-medium">
+        {% include 'experiences/partials/queue_state_icon.html' with state='query_raised' %}Query raised
+      </li>
+      <li class="ui-queue-chip ui-queue-chip--sent_back font-medium">
+        {% include 'experiences/partials/queue_state_icon.html' with state='sent_back' %}Sent back
+      </li>
+      <li class="ui-queue-chip ui-queue-chip--blocked font-medium">
+        {% include 'experiences/partials/queue_state_icon.html' with state='blocked' %}Blocked
+      </li>
+    </ul>
     <div class="hidden overflow-x-auto md:block">
       <table class="ui-grid-table min-w-[860px]">
         <thead>

@@ -113,6 +113,27 @@ class QueueEntry:
         return any(review.pending for review in self.matching_reviews)
 
     @property
+    def approved(self):
+        return [
+            review
+            for review in self.reviews
+            if review.status == ReviewItem.Status.APPROVED
+        ]
+
+    @property
+    def blocked(self):
+        return [review for review in self.matching_reviews if review.waiting_on]
+
+    @property
+    def blocked_on(self):
+        """Every prerequisite the blocked requests wait on, once."""
+        return list(
+            dict.fromkeys(
+                name for review in self.blocked for name, _status in review.waiting_on
+            ),
+        )
+
+    @property
     def assignees(self):
         # Assignment belongs to a request. Never imply a single owner for a
         # product whose matching requests have different reviewers.
@@ -186,13 +207,12 @@ def populate_queue_page(page, user, matching):
             for product in products.values():
                 if product.organisation_id == review.organisation_id:
                     reviews[(product.pk, None)].append(review)
+    for entry_reviews in reviews.values():
+        entry_reviews.sort(key=review_order)
     page.object_list = [
         QueueEntry(
             product=products.get(group["queue_product_id"]),
-            reviews=sorted(
-                reviews[(group["queue_product_id"], group["standalone_id"])],
-                key=review_order,
-            ),
+            reviews=reviews[(group["queue_product_id"], group["standalone_id"])],
             matching_reviews=[
                 review
                 for review in reviews[

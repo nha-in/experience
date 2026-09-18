@@ -345,6 +345,41 @@
     @apply transition-colors hover:bg-secondary/40;
   }
 
+  /* ── Queue chips: one request, tinted by its review state ───────────── */
+
+  .ui-queue-chip {
+    @apply inline-flex h-[22px] shrink-0 items-center gap-[3px] rounded-md border px-[5px] text-[11px] font-semibold whitespace-nowrap;
+  }
+
+  .ui-queue-chip svg {
+    @apply size-3 shrink-0;
+  }
+
+  .ui-queue-chip--approved {
+    border-color: var(--status-success-border);
+    background: var(--status-success-bg);
+    color: var(--status-success-text);
+  }
+
+  .ui-queue-chip--in_review {
+    @apply border-primary-300 bg-primary-100 text-primary-900;
+  }
+
+  .ui-queue-chip--new {
+    @apply border-border bg-card text-muted-foreground;
+  }
+
+  .ui-queue-chip--query_raised,
+  .ui-queue-chip--sent_back {
+    border-color: var(--status-warning-border);
+    background: var(--status-warning-bg);
+    color: var(--status-warning-text);
+  }
+
+  .ui-queue-chip--blocked {
+    @apply border-dashed border-stronger-border bg-card text-soft-foreground;
+  }
+
   /* ── Milestone stepper ──────────────────────────────────────────────── */
 
   .ui-stepper {

@@ -1,0 +1,25 @@
+<svg viewBox="0 0 24 24"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2.25"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true">
+  {% if state == 'approved' %}
+    <path d="M20 6 9 17l-5-5" />
+  {% elif state == 'in_review' %}
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  {% elif state == 'new' %}
+    <circle cx="12" cy="12" r="8" />
+  {% elif state == 'query_raised' %}
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6m0 3h.01" />
+  {% elif state == 'sent_back' %}
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  {% elif state == 'blocked' %}
+    <rect x="5" y="11" width="14" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  {% endif %}
+</svg>
