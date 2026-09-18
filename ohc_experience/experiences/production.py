@@ -15,22 +15,17 @@ from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db import transaction
-from django.db.models import Case
 from django.db.models import Exists
 from django.db.models import F
 from django.db.models import OuterRef
 from django.db.models import Prefetch
 from django.db.models import Q
 from django.db.models import Subquery
-from django.db.models import Value
-from django.db.models import When
 from django.utils import timezone
 
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Role
 
-from . import permissions
-from . import workflows as services
 from .credentials import rate_limit
 from .models import AuditEvent
 from .models import Milestone
@@ -54,9 +49,11 @@ CLIENT_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:@-]*")
 CLIENT_ID_MIN_LENGTH = 3
 CLIENT_ID_MAX_LENGTH = 255
 
-#: The two stages of production approval, which the screen switches between.
+#: The two stages of production approval, which the screen switches between:
+#: an approved exit waiting on its production client ID, then the ID added.
 STAGES = ("pending", "approved")
-TABS = ("all", "added", "awaiting")
+#: The register's older view names, and the stage that now holds their products.
+TABS = {"awaiting": "pending", "added": "approved", "all": "approved"}
 
 STALE = "This changed after you opened it. Reload and try again."
 IN_USE = "This client ID is already in use."
@@ -252,50 +249,13 @@ def _notify(product, *, changed):
     )
 
 
-def pending(program, user, *, q=""):
-    """Exit requests still waiting on NHA, the ones nothing blocks first.
+def listing(program, *, stage="all", q=""):
+    """Products through production approval, with the counts each stage shows.
 
-    The same requests the review queue holds, and the same readiness rule, cut
-    to the ones that decide production access. Deciding still happens on the
-    review page; this screen only gathers them beside the approvals.
+    A product joins the register on its first approved exit and stays pending
+    until an approver adds the client ID the gateway team issued outside the
+    portal. One holding an ID counts as approved even if its exit later went.
     """
-    waiting = services.waiting_reviews()
-    query = (
-        permissions.visible_reviews(user)
-        .filter(
-            application__application_type=program.applications.milestone.key,
-            application__milestone__enabled=True,
-            status__in=services.PENDING_STATUSES,
-        )
-        .select_related(
-            "organisation",
-            "assignee",
-            "product__workspace",
-            "application__milestone",
-        )
-    )
-    if q:
-        query = query.filter(
-            Q(product__name__icontains=q)
-            | Q(product__workspace__reference__icontains=q)
-            | Q(organisation__name__icontains=q)
-            | Q(organisation__legal_name__icontains=q)
-            | Q(application__reference__icontains=q),
-        )
-    counts = {
-        "pending": query.count(),
-        "blocked": query.filter(waiting).count(),
-    }
-    # What can be decided now, before what waits on something else; and within
-    # each, the longest wait first, which is what NHA is most overdue on.
-    rows = query.annotate(
-        blocked=Case(When(waiting, then=Value(1)), default=Value(0)),
-    ).order_by("blocked", "submitted_at", "pk")
-    return rows, counts
-
-
-def listing(program, *, tab="all", q=""):
-    """Products approved for production, with the counts each tab shows."""
     exits = Milestone.objects.filter(_exits(program), product=OuterRef("pk"))
     recorder = AuditEvent.objects.filter(
         product=OuterRef("pk"),
@@ -326,20 +286,21 @@ def listing(program, *, tab="all", q=""):
             | Q(production_client_id__icontains=q)
             | Q(credential__client_id__icontains=q),
         )
-    awaiting = query.filter(production_client_id="")
-    added = query.exclude(production_client_id="")
+    waiting = query.filter(production_client_id="")
+    issued = query.exclude(production_client_id="")
     counts = {
         "all": query.count(),
-        "added": added.count(),
-        "awaiting": awaiting.count(),
+        "pending": waiting.count(),
+        "approved": issued.count(),
     }
-    if tab == "added":
-        query = added.order_by(
+    if stage == "pending":
+        # The longest wait first, which is what NHA is most overdue on.
+        query = waiting.order_by("first_exit_at", "pk")
+    elif stage == "approved":
+        query = issued.order_by(
             F("production_issued_on").desc(nulls_last=True),
             "-pk",
         )
-    elif tab == "awaiting":
-        query = awaiting.order_by("first_exit_at", "pk")
     else:
         query = query.order_by(F("first_exit_at").desc(nulls_last=True), "-pk")
     return query, counts

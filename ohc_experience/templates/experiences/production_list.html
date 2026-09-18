@@ -8,9 +8,9 @@
         <h1 class="ui-hero-title">Production Approval</h1>
         <p class="ui-hero-lede">
           {% if stage == 'pending' %}
-            Exit requests asking to go to production, the ones you can decide now first. Each opens its review.
+            Products whose milestone exit is approved and that are still waiting on a production client ID. The gateway team issues the credentials outside this portal; add the client ID and its issue date here, and the integrator is emailed and sees them on their Credentials page.
           {% else %}
-            Every product with an approved milestone exit. The gateway team issues production credentials outside this portal; add the client ID and its issue date here, and the integrator is emailed and sees them on their Credentials page.
+            Products whose production client ID has been added. Open one to correct the ID or the day it was issued.
           {% endif %}
         </p>
         <p class="ui-hero-caption mt-4" id="production-stage-caption">Production stage</p>
@@ -50,18 +50,12 @@
       <input type="hidden" name="tab" value="{{ stage }}" />
       <div class="ui-card-content flex flex-wrap items-end gap-3">
         <div class="min-w-0 flex-1">
-          <label class="ui-label" for="production-search">
-            {% if stage == 'pending' %}
-              Search requests
-            {% else %}
-              Search products
-            {% endif %}
-          </label>
+          <label class="ui-label" for="production-search">Search products</label>
           <input class="ui-input"
                  id="production-search"
                  name="q"
                  value="{{ q }}"
-                 placeholder="{% if stage == 'pending' %}Product, reference, organisation or request{% else %}Product, reference, organisation or client ID{% endif %}"
+                 placeholder="Product, reference, organisation or client ID"
                  type="search" />
         </div>
         <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Search</button>
@@ -71,111 +65,122 @@
         {% endif %}
       </div>
     </form>
-    {% if stage == 'pending' %}
-      {% include 'experiences/partials/production_pending.html' %}
-    {% else %}
-      <div class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.1s]">
-        <div class="flex flex-wrap items-center justify-between gap-2 px-6 py-4">
-          <p class="text-sm font-semibold" aria-live="polite">
-            {{ page.paginator.count }} product{{ page.paginator.count|pluralize }}{% if q %} found{% endif %}
-            {% if counts.awaiting %}<span class="font-normal text-soft-foreground">· {{ counts.awaiting }} awaiting a client ID</span>{% endif %}
-          </p>
-          <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-             href="{% url 'experiences:production-export' %}?{{ filter_query }}"
-             hx-boost="false"
-             download>Export CSV</a>
-        </div>
-        {% if rows %}
-          <div class="overflow-x-auto">
-            <table class="ui-grid-table min-w-[840px]">
-              <caption class="sr-only">Products approved for production and their production client IDs</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Product</th>
-                  <th scope="col">Organisation</th>
-                  <th scope="col">Approved milestones</th>
+    <div class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.1s]">
+      <div class="flex flex-wrap items-center justify-between gap-2 px-6 py-4">
+        <p class="text-sm font-semibold" aria-live="polite">
+          {{ page.paginator.count }} product{{ page.paginator.count|pluralize }}{% if q %} found{% endif %}
+        </p>
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+           href="{% url 'experiences:production-export' %}?{{ filter_query }}"
+           hx-boost="false"
+           download>Export CSV</a>
+      </div>
+      {% if rows %}
+        <div class="overflow-x-auto">
+          <table class="ui-grid-table {% if stage == 'pending' %}min-w-[640px]{% else %}min-w-[840px]{% endif %}">
+            <caption class="sr-only">
+              {% if stage == 'pending' %}
+                Products approved for production and waiting on a production client ID
+              {% else %}
+                Products with a production client ID
+              {% endif %}
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Product</th>
+                <th scope="col">Organisation</th>
+                <th scope="col">Approved milestones</th>
+                {% if stage == 'approved' %}
                   <th scope="col">Production client ID</th>
                   <th scope="col">Issued on</th>
-                  <th scope="col">Production details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for product in rows %}
-                  <tr class="group">
-                    <td class="min-w-[180px]">
-                      <a class="font-semibold text-foreground no-underline group-hover:text-primary"
-                         href="{% url 'experiences:production-detail' product.workspace.reference %}"
-                         data-row-link>{{ product.name }}</a>
-                      <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.workspace.reference }}</span>
-                    </td>
-                    <td class="max-w-[180px] text-muted-foreground">{{ product.organisation.display_name }}</td>
-                    <td>
-                      <span class="font-mono text-xs">{{ product.approved_codes|join:', '|default:'—' }}</span>
-                      {% if product.first_exit_at %}
-                        <span class="mt-0.5 block text-xs whitespace-nowrap text-soft-foreground tabular-nums">Approved {{ product.first_exit_at|date:'j M Y' }}</span>
-                      {% endif %}
-                    </td>
+                {% endif %}
+                <th scope="col">Production details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for product in rows %}
+                <tr class="group">
+                  <td class="min-w-[180px]">
+                    <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                       href="{% url 'experiences:production-detail' product.workspace.reference %}"
+                       data-row-link>{{ product.name }}</a>
+                    <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.workspace.reference }}</span>
+                  </td>
+                  <td class="max-w-[180px] text-muted-foreground">{{ product.organisation.display_name }}</td>
+                  <td>
+                    <span class="font-mono text-xs">{{ product.approved_codes|join:', '|default:'—' }}</span>
+                    {% if product.first_exit_at %}
+                      <span class="mt-0.5 block text-xs whitespace-nowrap text-soft-foreground tabular-nums">Approved {{ product.first_exit_at|date:'j M Y' }}</span>
+                    {% endif %}
+                  </td>
+                  {% if stage == 'approved' %}
                     <td class="min-w-[200px]">
-                      {% if product.production_client_id %}
-                        <span class="font-mono text-xs break-all">{{ product.production_client_id }}</span>
-                      {% else %}
-                        {% include 'experiences/partials/status.html' with status='in_review' label='Awaiting client ID' %}
-                      {% endif %}
+                      <span class="font-mono text-xs break-all">{{ product.production_client_id }}</span>
                     </td>
                     <td class="whitespace-nowrap tabular-nums">{{ product.production_issued_on|date:'j M Y'|default:'—' }}</td>
-                    <td class="text-right">
-                      <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 whitespace-nowrap"
-                         href="{% url 'experiences:production-detail' product.workspace.reference %}">
-                        {% if can_manage %}Update{% else %}View{% endif %}
-                        <span class="sr-only">production details for {{ product.name }}</span>
-                      </a>
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <div class="border-t border-soft-border px-6 py-12 text-center"
-               role="status">
-            <h2 class="text-base font-semibold">
-              {% if q %}
-                No matching products
-              {% else %}
-                No product is approved for production yet
-              {% endif %}
-            </h2>
-            <p class="mt-2 text-sm text-muted-foreground">
-              {% if q %}
-                Try another product, organisation or client ID.
-              {% else %}
-                Products appear here once a milestone exit is approved.
-              {% endif %}
-            </p>
-          </div>
-        {% endif %}
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">
-          <span>
-            {% if page.paginator.count %}
-              Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}
-            {% else %}
-              Showing 0 products
-            {% endif %}
-          </span>
-          <nav class="flex flex-wrap items-center gap-2"
-               aria-label="Approved products pagination">
-            {% if page.has_previous %}
-              <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-                 href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>
-            {% endif %}
-            <span class="px-1">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
-            {% if page.has_next %}
-              <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-                 href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>
-            {% endif %}
-          </nav>
+                  {% endif %}
+                  <td class="text-right">
+                    <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 whitespace-nowrap"
+                       href="{% url 'experiences:production-detail' product.workspace.reference %}">
+                      {% if not can_manage %}
+                        View
+                      {% elif stage == 'pending' %}
+                        Add
+                      {% else %}
+                        Update
+                      {% endif %}
+                      <span class="sr-only">production details for {{ product.name }}</span>
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
+      {% else %}
+        <div class="border-t border-soft-border px-6 py-12 text-center"
+             role="status">
+          <h2 class="text-base font-semibold">
+            {% if q %}
+              No matching products
+            {% elif stage == 'pending' %}
+              No product is waiting on a client ID
+            {% else %}
+              No production client ID has been added yet
+            {% endif %}
+          </h2>
+          <p class="mt-2 text-sm text-muted-foreground">
+            {% if q %}
+              Try another product, organisation or client ID.
+            {% elif stage == 'pending' %}
+              Products appear here once a milestone exit is approved.
+            {% else %}
+              Products move here once their production client ID is added.
+            {% endif %}
+          </p>
+        </div>
+      {% endif %}
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">
+        <span>
+          {% if page.paginator.count %}
+            Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}
+          {% else %}
+            Showing 0 products
+          {% endif %}
+        </span>
+        <nav class="flex flex-wrap items-center gap-2"
+             aria-label="Products pagination">
+          {% if page.has_previous %}
+            <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+               href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>
+          {% endif %}
+          <span class="px-1">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}
+            <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+               href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>
+          {% endif %}
+        </nav>
       </div>
-    {% endif %}
+    </div>
   </div>
 {% endblock portal_content %}

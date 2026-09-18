@@ -11,7 +11,7 @@
            hx-swap="outerHTML show:window:top">
     <div>
       <a class="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary"
-         href="{% url 'experiences:production-list' %}?tab=approved">Production Approval</a>
+         href="{% url 'experiences:production-list' %}?tab={% if product.production_client_id %}approved{% else %}pending{% endif %}">Production Approval</a>
       <h1 class="ui-page-title">{{ product.name }}</h1>
       <p class="mt-1 text-sm text-muted-foreground">
         <span class="font-mono">{{ reference }}</span> · {{ product.organisation.display_name }}
@@ -112,9 +112,10 @@
                 </div>
               </form>
               {% if product.production_client_id %}
+                {# hx-confirm drives under htmx; the inline confirm stands in without it. Never data-confirm here: it double-prompts and htmx fires regardless of the answer. #}
                 <form method="post"
                       class="flex justify-end border-t border-soft-border pt-4"
-                      data-confirm="Remove these production details? The integrator will no longer see the client ID."
+                      onsubmit="return !window.htmx && confirm('Remove these production details? The integrator will no longer see the client ID.')"
                       hx-confirm="Remove these production details? The integrator will no longer see the client ID.">
                   {% csrf_token %}
                   <input type="hidden"

@@ -18,7 +18,6 @@ from django.views.decorators.http import require_safe
 
 from . import permissions
 from . import production
-from . import views
 from .forms import ProductionAccessForm
 from .models import ProductCredential
 from .models import ProductWorkspace
@@ -45,12 +44,11 @@ def _program(user):
 def _filters(request):
     """The stage of production approval on show.
 
-    A `tab` naming one of the register's old views still opens the register,
-    which is where this screen published those links before it had stages.
+    A `tab` naming one of the register's older views still opens the stage that
+    now holds those products, which is where this screen published its links.
     """
     stage = request.GET.get("tab", "pending")
-    if stage in production.TABS:
-        stage = "approved"
+    stage = production.TABS.get(stage, stage)
     if stage not in production.STAGES:
         stage = "pending"
     return stage, request.GET.get("q", "").strip()[:100]
@@ -62,13 +60,8 @@ def _filters(request):
 def production_list(request):
     program = _program(request.user)
     stage, q = _filters(request)
-    approved, counts = production.listing(program, q=q)
-    waiting, pending_counts = production.pending(program, request.user, q=q)
-    counts |= pending_counts
-    page = Paginator(
-        waiting if stage == "pending" else approved,
-        PAGE_SIZE,
-    ).get_page(request.GET.get("page"))
+    products, counts = production.listing(program, stage=stage, q=q)
+    page = Paginator(products, PAGE_SIZE).get_page(request.GET.get("page"))
     return render(
         request,
         "experiences/production_list.html",
@@ -76,15 +69,14 @@ def production_list(request):
             "nav": "production",
             "page_title": "Production Approval",
             "page": page,
-            "rows": [] if stage == "pending" else production.with_codes(page),
-            "requests": views.waiting_rows(page) if stage == "pending" else [],
+            "rows": production.with_codes(page),
             "stage": stage,
             "q": q,
             "counts": counts,
             "can_manage": production.can_manage(request.user, program),
             "stages": [
                 ("pending", "Pending", counts["pending"]),
-                ("approved", "Approved", counts["all"]),
+                ("approved", "Approved", counts["approved"]),
             ],
             "filter_query": urlencode({"tab": stage, "q": q}),
         },
@@ -95,7 +87,7 @@ def production_list(request):
 @never_cache
 @require_safe
 def production_export(request):
-    """The approved register, which is the only stage that is a record."""
+    """The whole register, both stages, since a pending row is a record too."""
     program = _program(request.user)
     _stage, q = _filters(request)
     query, _counts = production.listing(program, q=q)

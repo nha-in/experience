@@ -13,10 +13,8 @@ from django.utils import timezone
 
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
-from ohc_experience.abdm.tests.test_workflow import approve_submitted
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
-from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
@@ -282,21 +280,25 @@ def test_list_tabs_search_and_csv(environment, client):
     product = product_of(environment)
     client.force_login(staff())
     url = reverse("experiences:production-list")
-    response = client.get(url, {"tab": "approved"})
-    # The register holds every approved product, as NHA's own list did.
-    assert response.context["stage"] == "approved"
-    assert response.context["counts"]["all"] == 1
-    assert response.context["counts"]["awaiting"] == 1
+    # An approved exit waits, pending, on the ID the gateway team issues.
+    response = client.get(url)
+    assert response.context["stage"] == "pending"
+    assert response.context["counts"] == {"all": 1, "pending": 1, "approved": 0}
     assert [row.pk for row in response.context["rows"]] == [product.pk]
     assert response.context["rows"][0].approved_codes == ["M1"]
     assert b'hx-boost="false"' in response.content
+    assert not client.get(url, {"tab": "approved"}).context["rows"]
     record(environment, "PROD-1")
+    # Adding the ID carries the product on to the approved stage.
+    assert not client.get(url).context["rows"]
     response = client.get(url, {"tab": "approved"})
-    assert response.context["counts"]["added"] == 1
-    assert response.context["counts"]["awaiting"] == 0
+    assert response.context["counts"] == {"all": 1, "pending": 0, "approved": 1}
     assert [row.pk for row in response.context["rows"]] == [product.pk]
-    # The links this screen published before the pending stage still land right.
-    assert client.get(url, {"tab": "awaiting"}).context["stage"] == "approved"
+    # The links this screen published under the register's older names still
+    # open the stage that now holds those products.
+    assert client.get(url, {"tab": "awaiting"}).context["stage"] == "pending"
+    assert client.get(url, {"tab": "added"}).context["stage"] == "approved"
+    assert client.get(url, {"tab": "all"}).context["stage"] == "approved"
     for query in [
         "prod-1",
         sandbox_id(product),
@@ -420,14 +422,10 @@ def test_the_screens_use_nhas_words(environment, client):
     """NHA reads its own vocabulary here: their register and their action."""
     approve(environment)
     client.force_login(staff(approver=True))
-    content = client.get(
-        reverse("experiences:production-list"),
-        {"tab": "approved"},
-    ).content.decode()
+    content = client.get(reverse("experiences:production-list")).content.decode()
     assert "Production Approval" in content
     assert "Production details" in content
     assert "production details for" in content
-    assert "Awaiting client ID" in content
     for gone in ["Production access", "Awaiting ID", "Recorded"]:
         assert gone not in content
     content = client.get(
@@ -440,51 +438,16 @@ def test_the_screens_use_nhas_words(environment, client):
     assert "Production issue date" in content
 
 
-def pending_of(user):
-    rows, counts = production.pending(get_program(), user)
-    return [item.application.milestone.key for item in rows], counts
-
-
-def test_pending_stage_holds_the_exit_requests_still_to_be_decided(environment):
-    """The queue's own requests and readiness rule, cut to production exits."""
-    reviewer = environment["reviewer"]
-    assert pending_of(reviewer) == ([], {"pending": 0, "blocked": 0})
-    submit(environment, "m1")
-    # M3 builds on M1, so it cannot be decided while M1 is undecided, and sits
-    # under the request that can be.
-    submit(environment, "m3")
-    keys, counts = pending_of(reviewer)
-    assert keys == ["m1", "m3"]
-    assert counts == {"pending": 2, "blocked": 1}
-    # UHI participation is recorded, never decided, so it is no exit request.
-    submit(environment, "m2")
-    submit(environment, "uhi1")
-    keys, counts = pending_of(reviewer)
-    assert keys[0] == "m1"
-    assert sorted(keys) == ["m1", "m2", "m3"]
-    assert counts == {"pending": 3, "blocked": 2}
-    # Approving M1 leaves the pending stage for the register, and frees the two
-    # requests that were waiting on it.
-    approve_submitted(environment, "m1")
-    keys, counts = pending_of(reviewer)
-    assert sorted(keys) == ["m2", "m3"]
-    assert counts == {"pending": 2, "blocked": 0}
-
-
-def test_pending_requests_stay_within_the_reviewers_categories(environment, client):
-    """Exit requests belong to a track; the register does not."""
+def test_the_register_is_the_programs_not_a_reviewers(environment, client):
+    """No track narrows the register: every reviewer counts the same products."""
     approve(environment)
-    submit(environment, "m2")
-    reader = staff()
-    assert pending_of(reader) == ([], {"pending": 0, "blocked": 0})
-    client.force_login(reader)
-    response = client.get(reverse("experiences:production-list"))
-    assert response.context["counts"]["pending"] == 0
-    assert response.context["counts"]["all"] == 1
+    url = reverse("experiences:production-list")
+    counts = {"all": 1, "pending": 1, "approved": 0}
+    client.force_login(staff())
+    response = client.get(url)
+    assert response.context["counts"] == counts
+    # A reader sees the work waiting without being offered the action.
+    assert not response.context["can_manage"]
+    assert b"M1" in response.content
     client.force_login(environment["reviewer"])
-    response = client.get(reverse("experiences:production-list"))
-    assert response.context["stage"] == "pending"
-    assert [item.pk for item in response.context["requests"]] == [
-        milestone(environment, "m2").pk,
-    ]
-    assert b"M2" in response.content
+    assert client.get(url).context["counts"] == counts
