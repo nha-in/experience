@@ -9,9 +9,6 @@
   */
 @source "../../../**/*.{html,py,js}";
 
-/* Dark mode is class-based, matching careui: put `class="dark"` on <html>. */
-@custom-variant dark (&:is(.dark *));
-
 /* ==========================================================================
    Fonts — Figtree (sans) and Geist Mono (mono), self-hosted from
    @fontsource-variable. Paths are relative to the compiled stylesheet at
@@ -98,8 +95,8 @@
 
 /* ==========================================================================
    careui tokens — adapted from ohcnetwork/careui src/index.css.
-   Semantic tokens resolve against the primary and Tailwind color scales, so
-   light and dark re-resolve automatically. Never hardcode a hex in a template;
+   Semantic tokens resolve against the primary and Tailwind color scales.
+   Never hardcode a hex in a template;
    use the token utilities (bg-card, text-muted-foreground, border-border, …).
    ========================================================================== */
 
@@ -210,90 +207,6 @@
   --status-danger-border: #efccca;
   --status-danger-text: #a13737;
   --shadow-surface: 0 2px 4px -3px rgb(29 45 53 / 12%);
-}
-
-.dark {
-  color-scheme: dark;
-  --background: color-mix(in srgb, var(--primary-950) 65%, var(--color-black));
-  --soft-background: var(--primary-950);
-  --muted-background: color-mix(in srgb, var(--primary-900) 55%, var(--primary-950));
-  --strong-background: var(--primary-900);
-
-  --muted: var(--muted-background);
-
-  --foreground: var(--color-slate-50);
-  --muted-foreground: var(--color-slate-200);
-  --soft-foreground: var(--color-slate-300);
-  --disabled-foreground: var(--color-slate-700);
-  --placeholder-foreground: var(--color-slate-400);
-  --inverse-foreground: var(--color-black);
-
-  --card: var(--primary-950);
-  --card-foreground: var(--color-white);
-
-  --popover: var(--background);
-  --popover-foreground: var(--color-slate-50);
-
-  --primary: var(--primary-400);
-  --primary-foreground: var(--primary-950);
-
-  --secondary: var(--muted-background);
-  --secondary-foreground: var(--primary-200);
-
-  --accent: var(--primary-900);
-  --accent-foreground: var(--primary-100);
-
-  --destructive: var(--color-red-400);
-  --destructive-foreground: var(--color-red-50);
-
-  --caution: var(--color-amber-400);
-  --caution-foreground: var(--color-amber-950);
-
-  --soft-border: --alpha(var(--color-white) / 5%);
-  --border: --alpha(var(--color-white) / 9%);
-  --strong-border: --alpha(var(--color-white) / 15%);
-  --stronger-border: --alpha(var(--color-white) / 22%);
-  --inverse-border: var(--primary-50);
-
-  --input: --alpha(var(--color-white) / 15%);
-  --ring: --alpha(var(--primary-400) / 75%);
-
-  --chart-1: var(--primary-300);
-  --chart-2: var(--primary-400);
-  --chart-3: var(--primary-600);
-  --chart-4: var(--primary-200);
-  --chart-5: var(--primary-500);
-
-  --sidebar: var(--primary-950);
-  --sidebar-foreground: var(--primary-50);
-  --sidebar-primary: var(--primary-400);
-  --sidebar-primary-foreground: var(--primary-950);
-  --sidebar-accent: var(--primary-900);
-  --sidebar-accent-foreground: var(--primary-100);
-  --sidebar-border: --alpha(var(--color-white) / 12%);
-  --sidebar-ring: var(--primary-400);
-
-  --hero-wash: radial-gradient(640px 240px at 100% 0%, --alpha(var(--primary-400) / 12%), transparent 70%),
-  linear-gradient(180deg, var(--soft-background) 0%, var(--background) 100%);
-  --hero-hairline: --alpha(var(--primary-400) / 18%);
-  --hero-surface: var(--soft-background);
-  --layered-shadow: 0 0 0 1px --alpha(var(--color-white) / 9%), 0 1px 2px rgb(0 0 0 / 0.4),
-  0 16px 40px -24px rgb(0 0 0 / 0.6);
-  --layered-shadow-hover: 0 0 0 1px --alpha(var(--color-white) / 14%), 0 2px 4px rgb(0 0 0 / 0.4),
-  0 24px 48px -24px rgb(0 0 0 / 0.7);
-  --status-success-bg: #16392d;
-  --status-success-border: #315b45;
-  --status-success-text: #a8dabc;
-  --status-info-bg: var(--primary-950);
-  --status-info-border: var(--primary-700);
-  --status-info-text: var(--primary-200);
-  --status-warning-bg: #3d301b;
-  --status-warning-border: #675332;
-  --status-warning-text: #edcf96;
-  --status-danger-bg: #421f22;
-  --status-danger-border: #68363b;
-  --status-danger-text: #f0b1b1;
-  --shadow-surface: none;
 }
 
 @theme inline {
