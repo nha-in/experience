@@ -10,6 +10,7 @@ from ohc_experience.experiences.uploads import validate_pdf
 from ohc_experience.organisations.lgd import LGDLookupError
 from ohc_experience.organisations.lgd import lookup_pincode
 from ohc_experience.organisations.widgets import PincodeInput
+from ohc_experience.organisations.widgets import WebsiteInput
 
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
@@ -60,7 +61,7 @@ class OrganisationForm(ReviewForm):
             ("research", "Academic or research institution"),
         ],
     )
-    website = forms.URLField()
+    website = forms.URLField(widget=WebsiteInput)
     logo = forms.URLField(label="Logo URL", required=False)
     registered_address = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}))
     pincode = forms.RegexField(

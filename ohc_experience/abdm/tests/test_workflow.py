@@ -1341,6 +1341,18 @@ def test_logo_is_an_optional_link():
         field.clean("not a link")
 
 
+def test_the_website_takes_a_bare_domain():
+    form = OrganisationForm()
+    widget = form.fields["website"].widget
+
+    # A type="url" box makes the browser refuse "example.org" before the form
+    # is ever sent, so the address is asked for as text and completed here.
+    assert widget.input_type == "text"
+    assert widget.attrs["placeholder"] == "https://example.com"
+    assert form.fields["website"].clean("example.org") == "https://example.org"
+    assert form.fields["website"].clean("http://example.org") == "http://example.org"
+
+
 def test_an_uploaded_logo_stays_with_its_revision(environment):
     item = environment["org"].review_items.get(kind="organisation_verification")
     uploaded = item.selected_submission

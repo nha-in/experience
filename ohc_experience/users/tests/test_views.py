@@ -224,6 +224,17 @@ class TestUserSignupView:
         assert "data-email-domain-callout" in html
         assert "js/email-domain-callout.js" in html
 
+    def test_the_website_box_takes_an_address_typed_without_https(
+        self,
+        client: Client,
+    ):
+        widget = client.get(SIGNUP_URL).context["form"].fields["website"].widget
+
+        # A type="url" box makes the browser refuse "sunrise.in" before the
+        # form is ever sent; the placeholder shows what a full address is.
+        assert widget.input_type == "text"
+        assert widget.attrs["placeholder"] == "https://example.com"
+
     def test_asks_about_the_organisation_before_the_person(self, client: Client):
         html = client.get(SIGNUP_URL).content.decode()
         positions = [

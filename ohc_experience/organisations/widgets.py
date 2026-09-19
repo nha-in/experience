@@ -2,6 +2,27 @@ from django import forms
 from django.urls import reverse_lazy
 
 
+class WebsiteInput(forms.TextInput):
+    """A web address box that also takes a bare domain.
+
+    A `type="url"` box makes the browser refuse anything without a scheme, so
+    someone who types `acme.in` is stopped before the form is ever sent, with
+    only the browser's own "Enter a URL" to go on. A text box lets it through,
+    and `URLField` puts the `https://` back on the way in. The placeholder
+    shows the full shape so the address stays the obvious thing to paste.
+    """
+
+    def __init__(self, attrs=None):
+        default_attrs = {
+            "inputmode": "url",
+            "autocomplete": "url",
+            "autocapitalize": "none",
+            "spellcheck": "false",
+            "placeholder": "https://example.com",
+        }
+        super().__init__({**default_attrs, **(attrs or {})})
+
+
 class PincodeInput(forms.TextInput):
     template_name = "organisations/widgets/pincode.html"
 

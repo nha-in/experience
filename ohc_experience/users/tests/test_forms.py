@@ -104,6 +104,15 @@ class TestUserSignupForm:
         assert membership.role == Role.OWNER
         assert organisation.website == "https://sunrise.in"
 
+    def test_a_website_typed_without_https_is_completed(self, rf: RequestFactory):
+        form = UserSignupForm(data={**SIGNUP_DATA, "website": "sunrise.in"})
+
+        assert form.is_valid(), form.errors
+        form.save(signup_request(rf))
+
+        organisation = Organisation.objects.get(name="Sunrise Health Systems")
+        assert organisation.website == "https://sunrise.in"
+
     def test_rejects_a_blank_organisation(self):
         form = UserSignupForm(data={**SIGNUP_DATA, "organisation": "   "})
 

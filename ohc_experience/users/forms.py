@@ -22,6 +22,7 @@ from ohc_experience.experiences.registry import get_program
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
+from ohc_experience.organisations.widgets import WebsiteInput
 
 from .captcha import SignupVerificationMixin
 from .fields import INDIA
@@ -167,7 +168,7 @@ class UserSignupForm(
     website = forms.URLField(
         label=_("Website"),
         required=False,
-        widget=forms.URLInput(attrs={"autocomplete": "url"}),
+        widget=WebsiteInput,
     )
 
     field_order = [
