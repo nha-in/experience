@@ -1,5 +1,5 @@
 """
-Kept out of the general notification outbox because an approval or send-back is
+Kept out of the general notification outbox because an approval or rejection is
 addressed to the applicant who submitted, not to the whole organisation.
 """
 
@@ -27,7 +27,7 @@ EVENT_LABELS = {
     "recorded": _("Recorded without a decision"),
     "query_raised": _("Query raised"),
     "query_answered": _("Query answered"),
-    "sent_back": _("Sent back for changes"),
+    "rejected": _("Rejected, changes needed"),
 }
 
 KIND_LABELS = {

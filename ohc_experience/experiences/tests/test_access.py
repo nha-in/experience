@@ -157,8 +157,8 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
     page = client.get(item.get_absolute_url())
     assert b'value="query"' in page.content
     assert b'value="approve"' not in page.content
-    assert b'value="send_back"' not in page.content
-    for action in ["approve", "send_back"]:
+    assert b'value="reject"' not in page.content
+    for action in ["approve", "reject"]:
         assert (
             client.post(
                 item.get_absolute_url(),

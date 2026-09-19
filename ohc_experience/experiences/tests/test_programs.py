@@ -137,7 +137,7 @@ def test_a_dependant_opens_once_its_prerequisite_is_submitted_and_waits_on_appro
     assert workflows.pending_dependants(inspection) == [release]
     with pytest.raises(ValidationError, match=r"Withdraw REL - Release first\."):
         workflows.withdraw(inspection, actor)
-    for action in ("approve", "send_back"):
+    for action in ("approve", "reject"):
         with pytest.raises(ValidationError, match="once INS - Inspection is approved"):
             workflows.decide(release, reviewer, action=action, note="Hold.")
     workflows.decide(release, reviewer, action="query", note="Which batch?")

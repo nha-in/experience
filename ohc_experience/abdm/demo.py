@@ -304,7 +304,7 @@ class DemoBuilder:
         self.exit(workspace, "m3", applicant, admin, reviewer, "review")
         self.exit(workspace, "m4", applicant, admin, reviewer, "review")
         self.exit(workspace, "phr1", applicant, admin, reviewer, "review")
-        self.exit(workspace, "locker1", applicant, admin, reviewer, "sent_back")
+        self.exit(workspace, "locker1", applicant, admin, reviewer, "rejected")
         uhi = workspace.product.milestones.get(key="uhi1").application.review_item
         services.save_review_form(uhi, applicant, data=uhi_data(), submit=True)
         self.register_product(
@@ -449,11 +449,11 @@ class DemoBuilder:
                 field_key="functional_report",
                 note="Please identify the test cases covering consent expiry and revocation in the functional report.",
             )
-        elif state == "sent_back":
+        elif state == "rejected":
             services.decide(
                 item,
                 reviewer,
-                action="send_back",
+                action="reject",
                 reason="Incomplete documentation",
                 note="Include the data-retention and document-retrieval scenarios, then resubmit the functional report.",
             )

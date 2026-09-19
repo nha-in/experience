@@ -148,7 +148,7 @@ def test_renewal_reuses_open_request_and_creates_new_cycle_after_approval(enviro
     assert second.selected_submission.origin_application_id == second.application_id
 
 
-def test_pending_and_sent_back_renewals_preserve_approved_certificate(environment):
+def test_pending_and_rejected_renewals_preserve_approved_certificate(environment):
     product = environment["workspace"].product
     first = decide(environment, request_milestone(environment))
     approval = current_wasa(product)
@@ -161,7 +161,7 @@ def test_pending_and_sent_back_renewals_preserve_approved_certificate(environmen
         first.selected_submission_id
     )
 
-    decide(environment, renewal, "send_back", "Upload the signed certificate.")
+    decide(environment, renewal, "reject", "Upload the signed certificate.")
 
     assert current_wasa(product).pk == approval.pk
     assert workflows.certification_review(product, environment["applicant"]).pk == (
@@ -310,12 +310,12 @@ def test_stale_renewal_page_cannot_start_another_cycle_after_approval(
     )
 
 
-def test_sent_back_renewal_resubmission_keeps_reviewed_revision(environment):
+def test_rejected_renewal_resubmission_keeps_reviewed_revision(environment):
     first = request_renewal(environment)
     original = first.selected_submission
     original_data = dict(original.data)
     original_file = original.attachments.get(field_key="wasa_certificate")
-    decide(environment, first, "send_back", "Correct the validity date.")
+    decide(environment, first, "reject", "Correct the validity date.")
 
     revised = request_renewal(
         environment,

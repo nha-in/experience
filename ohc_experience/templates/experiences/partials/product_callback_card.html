@@ -47,7 +47,7 @@
               </div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 {% if credential.consecutive_failures %}
-                  {% include 'experiences/partials/status.html' with status='sent_back' label='Check failed' %}
+                  {% include 'experiences/partials/status.html' with status='rejected' label='Check failed' %}
                 {% else %}
                   {% include 'experiences/partials/status.html' with status='approved' label='Reachable' %}
                 {% endif %}

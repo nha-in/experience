@@ -108,7 +108,7 @@ def rows(model, **filters):
         ("new", True, True),
         ("in_review", True, True),
         ("query_raised", True, True),
-        ("sent_back", True, True),
+        ("rejected", True, True),
         ("approved", True, True),
         ("draft", False, True),
         ("draft", True, False),

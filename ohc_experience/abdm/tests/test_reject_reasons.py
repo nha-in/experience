@@ -1,4 +1,4 @@
-"""A reviewer sends a request back with one reason from the form's list."""
+"""A reviewer rejects a request with one reason from the form's list."""
 
 from http import HTTPStatus
 
@@ -25,17 +25,17 @@ MOST_REASONS = 20
 
 def test_each_list_is_short_distinct_and_ends_with_other():
     for form in (OrganisationVerification, ExitEvidence):
-        reasons = form.send_back_reasons
+        reasons = form.reject_reasons
         assert len(set(reasons)) == len(reasons), form.key
         assert OTHER_REASON not in reasons, form.key
-        assert services.send_back_reasons(form)[-1] == OTHER_REASON
-        assert len(services.send_back_reasons(form)) <= MOST_REASONS, form.key
+        assert services.reject_reasons(form)[-1] == OTHER_REASON
+        assert len(services.reject_reasons(form)) <= MOST_REASONS, form.key
 
     # A form nobody decides offers nothing to choose from.
     for application in ABDM.applications.all():
         for form in application.forms:
             if form.auto_approve:
-                assert not form.send_back_reasons, form.key
+                assert not form.reject_reasons, form.key
 
 
 def test_the_reason_reaches_the_integrator_beside_the_note(environment, client):
@@ -43,13 +43,13 @@ def test_the_reason_reaches_the_integrator_beside_the_note(environment, client):
     client.force_login(environment["reviewer"])
     url = item.get_absolute_url()
     page = client.get(url)
-    for reason in services.send_back_reasons(ExitEvidence):
+    for reason in services.reject_reasons(ExitEvidence):
         assert f'value="{reason}"'.encode() in page.content
 
     response = client.post(
         url,
         {
-            "action": "send_back",
+            "action": "reject",
             "reason": DOCUMENTS,
             "note": "The FT certificate covers M1 only.",
         },
@@ -57,12 +57,14 @@ def test_the_reason_reaches_the_integrator_beside_the_note(environment, client):
 
     assert response.status_code == HTTPStatus.FOUND
     item.refresh_from_db()
-    assert item.status == "sent_back"
+    assert item.status == "rejected"
     assert item.decision_reason == DOCUMENTS
     assert item.decision_note == "The FT certificate covers M1 only."
-    event = item.history.get(action="Sent back")
+    event = item.history.get(action="Rejected")
     assert event.detail["reason"] == DOCUMENTS
-    (notice,) = [sent for sent in mail.outbox if "Sent back for changes" in sent.body]
+    (notice,) = [
+        sent for sent in mail.outbox if "Rejected, changes needed" in sent.body
+    ]
     assert f"Reason: {DOCUMENTS}\n" in notice.body
     assert "The FT certificate covers M1 only." in notice.body
     client.force_login(environment["applicant"])
@@ -79,15 +81,39 @@ def test_a_listed_reason_needs_no_note_but_other_does(environment):
     item = submit(environment)
     reviewer = environment["reviewer"]
     with pytest.raises(ValidationError, match="Choose a reason"):
-        services.decide(item, reviewer, action="send_back", note="Look again.")
+        services.decide(item, reviewer, action="reject", note="Look again.")
     with pytest.raises(ValidationError, match="Choose a reason from the list"):
-        services.decide(item, reviewer, action="send_back", reason="Made up")
+        services.decide(item, reviewer, action="reject", reason="Made up")
     with pytest.raises(ValidationError, match="Write the reason"):
-        services.decide(item, reviewer, action="send_back", reason=OTHER_REASON)
+        services.decide(item, reviewer, action="reject", reason=OTHER_REASON)
 
-    item = services.decide(item, reviewer, action="send_back", reason=DOCUMENTS)
+    item = services.decide(item, reviewer, action="reject", reason=DOCUMENTS)
 
     assert (item.decision_reason, item.decision_note) == (DOCUMENTS, "")
+
+
+def test_ten_characters_are_asked_of_the_notes_that_carry_the_reason(environment):
+    """The floor guards a required note; an aside beside a listed reason is free."""
+    item = submit(environment)
+    reviewer = environment["reviewer"]
+    with pytest.raises(ValidationError, match="at least 10 characters"):
+        services.decide(
+            item,
+            reviewer,
+            action="reject",
+            reason=OTHER_REASON,
+            note="Too short",
+        )
+
+    item = services.decide(
+        item,
+        reviewer,
+        action="reject",
+        reason=DOCUMENTS,
+        note="Redo it.",
+    )
+
+    assert (item.decision_reason, item.decision_note) == (DOCUMENTS, "Redo it.")
 
 
 def test_the_reason_is_cleared_when_the_integrator_resubmits(environment):
@@ -95,7 +121,7 @@ def test_the_reason_is_cleared_when_the_integrator_resubmits(environment):
     services.decide(
         item,
         environment["reviewer"],
-        action="send_back",
+        action="reject",
         reason=OTHER_REASON,
         note="The demo recording is unplayable.",
     )
@@ -112,7 +138,7 @@ def product_page(environment):
     )
 
 
-def test_the_product_page_sends_one_request_back_with_a_reason(environment, client):
+def test_the_product_page_rejects_one_request_with_a_reason(environment, client):
     item = submit(environment)
     client.force_login(environment["reviewer"])
     page = client.get(product_page(environment))
@@ -124,14 +150,14 @@ def test_the_product_page_sends_one_request_back_with_a_reason(environment, clie
             "intent": "decision",
             "review_id": item.pk,
             "revision": item.selected_submission_id,
-            "action": "send_back",
+            "action": "reject",
             "reason": DOCUMENTS,
         },
     )
 
     assert response.status_code == HTTPStatus.FOUND
     item.refresh_from_db()
-    assert (item.status, item.decision_reason) == ("sent_back", DOCUMENTS)
+    assert (item.status, item.decision_reason) == ("rejected", DOCUMENTS)
 
 
 def test_rejecting_a_batch_takes_the_note_alone(environment, client):
@@ -143,7 +169,7 @@ def test_rejecting_a_batch_takes_the_note_alone(environment, client):
         product_page(environment),
         {
             "intent": "bulk_decision",
-            "action": "send_back",
+            "action": "reject",
             "reviews": [f"{item.pk}:{item.selected_submission_id}"],
             "note": "Every certificate needs the agency's seal.",
         },
@@ -151,4 +177,4 @@ def test_rejecting_a_batch_takes_the_note_alone(environment, client):
 
     assert response.status_code == HTTPStatus.FOUND
     item.refresh_from_db()
-    assert (item.status, item.decision_reason) == ("sent_back", "")
+    assert (item.status, item.decision_reason) == ("rejected", "")

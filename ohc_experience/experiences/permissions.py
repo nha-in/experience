@@ -264,7 +264,7 @@ def available_review_actions(user, item):
         return []
     actions = []
     if can_review(user, item, "approve"):
-        actions.extend(["approve", "send_back"])
+        actions.extend(["approve", "reject"])
     if can_review(user, item, "write"):
         actions.append("query")
     return actions

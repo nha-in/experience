@@ -66,7 +66,7 @@ The broad `reviewer@abdm-demo.in` demo account has explicit all-category grants;
 the category-specific accounts above do not. All use the demo password above.
 Applicant access stays organisation-based.
 
-Review write allows queries; approve allows approval/send-back. Neither needs
+Review write allows queries; approve allows approval/rejection. Neither needs
 assignment: the assignee only labels work for the queue filters. Support write
 allows replies; approve allows resolution. Event
 write allows draft creation/editing at `/portal/events/manage/`; approve allows
@@ -92,7 +92,7 @@ docker compose -f docker-compose.local.yml exec django python manage.py seed_exp
 ```
 
 `SBX-2026-00001` demonstrates an approved shared M1 with a (fake) production
-client ID and issue date, an M2 query, an M3 review, a PHR1 review, a sent-back
+client ID and issue date, an M2 query, an M3 review, a PHR1 review, a rejected
 HealthLocker request and a UHI application waiting on M2. The second
 product is registered, with no milestone requests yet. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
@@ -163,11 +163,11 @@ retired; reviewer work uses the engine's assessment screens.
   M1, not M2: NHA's own portal gates M3 on M1 alone,
   and no published document orders M3 after M2. M4 needs no earlier milestone,
   not even M1, so its form is open from the start. A
-  sent-back milestone still counts as submitted; a withdrawn one does not. A
+  rejected milestone still counts as submitted; a withdrawn one does not. A
   request cannot be withdrawn while a later milestone built on it is under
   review; the integrator withdraws that one first. An
   integrator can still submit M2 before M1 is approved, or before the
-  organisation is verified. The review keeps the order: approve and send back
+  organisation is verified. The review keeps the order: approve and reject
   stay disabled, and are refused, while an earlier milestone or organisation
   verification is unapproved. Queries can still be raised. The review queue lists
   those requests under Waiting, apart from Ready ones, with what each waits on;
@@ -196,7 +196,7 @@ retired; reviewer work uses the engine's assessment screens.
   secret to the integrator directly; the portal never holds it.
 - `ReviewQuery` is pinned to the reviewed submission. All open queries must be
   answered, and answered queries resolved, before approval. Forms under review
-  are read-only until withdrawn or sent back.
+  are read-only until withdrawn or rejected.
 - `AuditEvent` is append-only through the application and ORM. Review forms,
   decisions, queries, assignment and credential actions create audit entries.
   This is not protection against a privileged database administrator; use database

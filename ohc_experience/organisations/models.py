@@ -57,7 +57,6 @@ class Organisation(models.Model):
         PENDING = "pending", _("Verification pending")
         VERIFIED = "verified", _("Verified integrator")
         REJECTED = "rejected", _("Verification rejected")
-        SENT_BACK = "sent_back", _("Sent back")
         WITHDRAWN = "withdrawn", _("Verification withdrawn")
 
     name = models.CharField(_("Organisation"), max_length=255)
@@ -130,11 +129,11 @@ class Organisation(models.Model):
 
         The integrator's settings page and the NHA console draw the same badge,
         and a three-way branch written out in each template is a branch that
-        drifts.
+        drifts. A rejection is amber, not red: it asks for corrections and a
+        resubmission rather than closing the door.
         """
         return {
             self.VerificationStatus.VERIFIED: "success",
-            self.VerificationStatus.REJECTED: "destructive",
         }.get(self.verification_status, "warning")
 
     def set_verification(self, status: str) -> bool:

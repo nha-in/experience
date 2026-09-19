@@ -153,7 +153,7 @@
                   <dd>
                     {% if credential.last_checked_at %}
                       {% if credential.consecutive_failures %}
-                        {% include 'experiences/partials/status.html' with status='sent_back' label='Unreachable' %}
+                        {% include 'experiences/partials/status.html' with status='rejected' label='Unreachable' %}
                       {% else %}
                         {% include 'experiences/partials/status.html' with status='approved' label='Reachable' %}
                       {% endif %}

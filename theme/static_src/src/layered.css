@@ -370,7 +370,7 @@
   }
 
   .ui-queue-chip--query_raised,
-  .ui-queue-chip--sent_back {
+  .ui-queue-chip--rejected {
     border-color: var(--status-warning-border);
     background: var(--status-warning-bg);
     color: var(--status-warning-text);

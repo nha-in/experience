@@ -11,10 +11,10 @@
       {% endif %}
     </div>
   </div>
-{% elif item.status == 'sent_back' %}
+{% elif item.status == 'rejected' %}
   <div class="ui-alert ui-alert--warning mb-5" role="status">
     <div class="flex-1">
-      <strong>Sent back for changes</strong>
+      <strong>Rejected, changes needed</strong>
       <p class="mt-1 text-xs">{{ item.decided_at|date:'d M Y, H:i' }} IST by {{ item.decided_by.display_name }}</p>
       {% if item.decision_reason %}
         <p class="mt-2">

@@ -8,8 +8,8 @@ function createDecision({ decisionBlocked = false, approvalBlocked = false } = {
   const listeners = new Map();
   const button = { disabled: false, textContent: '' };
   const label = { textContent: '' };
-  const note = { required: false };
-  const actions = ['approve', 'send_back', 'query'].map(value => ({ value, checked: false }));
+  const note = { required: false, dataset: { noteMinlength: '10' } };
+  const actions = ['approve', 'reject', 'query'].map(value => ({ value, checked: false }));
   const dataset = {};
   if (decisionBlocked) dataset.decisionBlocked = 'true';
   if (approvalBlocked) dataset.approvalBlocked = 'true';
@@ -57,14 +57,14 @@ function createDecision({ decisionBlocked = false, approvalBlocked = false } = {
   };
 }
 
-test('pending prerequisites hold approval and send-back but not a query', () => {
+test('pending prerequisites hold approval and rejection but not a query', () => {
   const page = createDecision({ decisionBlocked: true });
   page.initialize();
   assert.equal(page.button.disabled, true);
 
-  page.choose('send_back');
+  page.choose('reject');
   assert.equal(page.button.disabled, true);
-  assert.equal(page.button.textContent, 'Send back to integrator');
+  assert.equal(page.button.textContent, 'Reject request');
 
   page.choose('query');
   assert.equal(page.button.disabled, false);
@@ -76,7 +76,7 @@ test('unresolved queries hold only approval', () => {
   page.choose('approve');
   assert.equal(page.button.disabled, true);
 
-  page.choose('send_back');
+  page.choose('reject');
   assert.equal(page.button.disabled, false);
 });
 
@@ -93,9 +93,9 @@ function createReasons() {
   const listeners = new Map();
   const button = { disabled: false, textContent: '' };
   const label = { textContent: '' };
-  const note = { required: false };
+  const note = { required: false, dataset: { noteMinlength: '10' } };
   const hint = { textContent: '' };
-  const actions = ['approve', 'send_back', 'query'].map(value => ({ value, checked: false }));
+  const actions = ['approve', 'reject', 'query'].map(value => ({ value, checked: false }));
   const options = ['', 'Website unreachable or not working', 'Wrong website address', 'Other'].map(value => ({
     value,
     dataset: value === 'Other' ? { noteRequired: '' } : {},
@@ -154,9 +154,9 @@ function createReasons() {
   };
 }
 
-test('sending back waits for a reason, which then needs no note', () => {
+test('rejecting waits for a reason, which then needs no note', () => {
   const page = createReasons();
-  page.choose('send_back');
+  page.choose('reject');
   assert.equal(page.button.disabled, true);
   assert.match(page.hint.textContent, /Choose a reason/);
 
@@ -168,7 +168,7 @@ test('sending back waits for a reason, which then needs no note', () => {
 
 test('Other asks the reviewer for their own words', () => {
   const page = createReasons();
-  page.choose('send_back');
+  page.choose('reject');
   page.pick('Other');
   assert.equal(page.button.disabled, false);
   assert.equal(page.note.required, true);
@@ -176,6 +176,6 @@ test('Other asks the reviewer for their own words', () => {
 
 test('a form with no list to choose from takes the note alone', () => {
   const page = createDecision();
-  page.choose('send_back');
+  page.choose('reject');
   assert.equal(page.button.disabled, false);
 });

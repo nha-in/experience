@@ -51,6 +51,10 @@ from .services import issue_outcome
 logger = logging.getLogger(__name__)
 
 MAX_REVIEW_TEXT = 10000
+#: A note only has to be long enough to say something. The floor applies where
+#: the note is required, which is where "ok" gets typed to get past the field.
+MIN_REVIEW_TEXT = 10
+SHORT_NOTE = f"Use at least {MIN_REVIEW_TEXT} characters."
 #: Chosen when no listed reason fits. The reviewer then has to write the reason.
 OTHER_REASON = "Other"
 REQUEST_WITHDRAWN = "Request withdrawn"
@@ -80,7 +84,7 @@ def _announce(item, action, note, reason="", *, after_commit=False):
     if action != "approve":
         _notice(
             item,
-            "query_raised" if action == "query" else "sent_back",
+            "query_raised" if action == "query" else "rejected",
             note=note,
             reason=reason,
         )
@@ -386,7 +390,7 @@ def unsubmitted_prerequisites(item):
     """Reviews this one builds on that were never submitted, or were withdrawn.
 
     A form opens once everything before it is submitted, so a chain is worked
-    through in order. Sent back still counts as submitted: a reviewer's decision
+    through in order. Rejected still counts as submitted: a reviewer's decision
     never closes a form the integrator is working in. Only withdrawing does, and
     `withdraw` refuses while anything is submitted on top.
     """
@@ -481,7 +485,7 @@ def withdrawn_hold(item, prerequisites):
     outcome = (
         "This request is recorded automatically"
         if item.definition.auto_approve
-        else "Approve or send back this request"
+        else "Approve or reject this request"
     )
     names = capfirst(readable_list(prerequisite.name for prerequisite in withdrawn))
     if len(withdrawn) == 1:
@@ -670,7 +674,7 @@ def _save_valid_review_form(item, actor, form, *, submit, defer_notifications=Fa
     if submit:
         _complete_submission(item, actor, defer_notifications=defer_notifications)
     else:
-        if item.status != ReviewItem.Status.SENT_BACK:
+        if item.status != ReviewItem.Status.REJECTED:
             item.status = ReviewItem.Status.DRAFT
         _set_application_status(item, "draft")
     item.save()
@@ -1103,7 +1107,7 @@ def _require_decidable(item, action, *, settling_reviews=()):
     if item.definition.auto_approve:
         msg = "This request is recorded once its prerequisites are approved."
         raise ValidationError(msg)
-    if action not in {"approve", "send_back", "query"}:
+    if action not in {"approve", "reject", "query"}:
         msg = "Choose a valid review action."
         raise ValidationError(msg)
     # A query can be raised at any time; the decision waits for what came first.
@@ -1115,30 +1119,30 @@ def _require_decidable(item, action, *, settling_reviews=()):
     ]
     if prerequisites:
         msg = withdrawn_hold(item, prerequisites) or (
-            "Approve or send back this request once "
+            "Approve or reject this request once "
             f"{prerequisite_names(prerequisites)} approved."
         )
         raise ValidationError(msg)
 
 
-def send_back_reasons(definition):
+def reject_reasons(definition):
     """What this form offers, with Other last, or nothing when it lists none."""
-    reasons = definition.send_back_reasons
+    reasons = definition.reject_reasons
     return (*reasons, OTHER_REASON) if reasons else ()
 
 
 def _decision_reason(item, action, reason):
-    """The reason a send-back is given, when the form offers a list to choose from.
+    """The reason a rejection is given, when the form offers a list to choose from.
 
     None means the decision offered no choice, as a bulk rejection of requests
     with different lists does; the note then carries the reason.
     """
-    offered = send_back_reasons(item.definition)
-    if action != "send_back" or not offered or reason is None:
+    offered = reject_reasons(item.definition)
+    if action != "reject" or not offered or reason is None:
         return ""
     reason = reason.strip()
     if not reason:
-        msg = "Choose a reason for sending this back."
+        msg = "Choose a reason for rejecting this request."
         raise ValidationError(msg)
     if reason not in offered:
         msg = "Choose a reason from the list."
@@ -1189,18 +1193,25 @@ def _decide(  # noqa: PLR0913
     _require_decidable(
         item,
         action,
-        settling_reviews=rejecting_reviews if action == "send_back" else (),
+        settling_reviews=rejecting_reviews if action == "reject" else (),
     )
     note = note.strip()
     reason = _decision_reason(item, action, reason)
     # A listed reason speaks for itself. A query, Other, and a form with no list
     # to choose from need the reviewer's own words.
+    needs_note = (
+        reason == OTHER_REASON
+        or action == "query"
+        or (action == "reject" and not reason)
+    )
     if not note and reason == OTHER_REASON:
         msg = "Write the reason when you choose Other."
         raise ValidationError(msg)
-    if not note and (action == "query" or (action == "send_back" and not reason)):
+    if not note and needs_note:
         msg = "Enter a reason or question before continuing."
         raise ValidationError(msg)
+    if needs_note and len(note) < MIN_REVIEW_TEXT:
+        raise ValidationError(SHORT_NOTE)
     if len(note) > MAX_REVIEW_TEXT:
         msg = "Use no more than 10,000 characters."
         raise ValidationError(msg)
@@ -1233,7 +1244,7 @@ def _decide(  # noqa: PLR0913
         item.status = (
             ReviewItem.Status.APPROVED
             if action == "approve"
-            else ReviewItem.Status.SENT_BACK
+            else ReviewItem.Status.REJECTED
         )
         item.decided_at, item.decided_by, item.decision_note = (
             timezone.now(),
@@ -1245,10 +1256,10 @@ def _decide(  # noqa: PLR0913
         if action == "approve":
             _approve_subject(item, actor)
         else:
-            item.definition.on_send_back(item, actor)
+            item.definition.on_reject(item, actor)
         audit(
             actor=actor,
-            action="Approved" if action == "approve" else "Sent back",
+            action="Approved" if action == "approve" else "Rejected",
             item=item,
             detail={
                 "note": note,
@@ -1352,20 +1363,32 @@ def decide_product(product, actor, *, action, expected_revisions, note=""):
     the product's milestones. Organisation verification is shared by all its
     products. Rejection can return a complete submitted chain for changes, but
     never bypasses a prerequisite outside the selected batch.
+
+    One note is saved to every request in the batch, so both decisions ask for
+    it: a reviewer approving several requests at once owes the integrator the
+    same reasoning a rejection does.
     """
-    if action not in {"approve", "send_back"}:
+    if action not in {"approve", "reject"}:
         msg = "Choose accept all or reject all."
         raise ValidationError(msg)
     organisation = Organisation.objects.select_for_update().get(
         pk=product.organisation_id,
     )
     items = _bulk_review_selection(product, actor, expected_revisions)
+    # After the selection, which is where a reviewer who may not decide these
+    # requests is turned away: what they typed never explains a refusal.
+    note = note.strip()
+    if not note:
+        msg = "Enter the shared decision note before continuing."
+        raise ValidationError(msg)
+    if len(note) < MIN_REVIEW_TEXT:
+        raise ValidationError(SHORT_NOTE)
     # Prerequisite checks must see an organisation decision made earlier in the
     # same batch, rather than separate select_related copies of its old state.
     for item in items:
         item.organisation = organisation
-    rejecting_reviews = {item.pk for item in items} if action == "send_back" else set()
-    if action == "send_back":
+    rejecting_reviews = {item.pk for item in items} if action == "reject" else set()
+    if action == "reject":
         # Validate the complete set before any rejection changes prerequisites.
         for item in items:
             _require_decidable(item, action, settling_reviews=rejecting_reviews)
@@ -1375,7 +1398,7 @@ def decide_product(product, actor, *, action, expected_revisions, note=""):
     while items:
         ready = (
             items[0]
-            if action == "send_back"
+            if action == "reject"
             else next((item for item in items if not pending_prerequisites(item)), None)
         )
         if ready is None:

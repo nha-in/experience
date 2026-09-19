@@ -27,7 +27,7 @@ def product_url(environment):
     )
 
 
-def batch_data(items, action="approve", note=""):
+def batch_data(items, action="approve", note="Reviewed against the evidence."):
     return {
         "intent": "bulk_decision",
         "action": action,
@@ -78,7 +78,7 @@ def test_product_review_combines_submissions_without_exposing_drafts(
 
 @pytest.mark.parametrize(
     ("action", "status"),
-    [("approve", "approved"), ("send_back", "sent_back")],
+    [("approve", "approved"), ("reject", "rejected")],
 )
 def test_bulk_decision_handles_submitted_siblings_and_leaves_m3_pending(
     environment,
@@ -106,20 +106,34 @@ def test_bulk_decision_handles_submitted_siblings_and_leaves_m3_pending(
     assert m3.status == "draft"
 
 
-def test_reject_all_requires_a_shared_reason_without_changing_any_review(
+@pytest.mark.parametrize("action", ["approve", "reject"])
+@pytest.mark.parametrize(
+    ("note", "message"),
+    [
+        ("  ", b"Enter the shared decision note"),
+        ("Too short", b"at least 10 characters"),
+    ],
+)
+def test_a_bulk_decision_requires_the_shared_note_without_changing_any_review(
     environment,
     client,
+    action,
+    note,
+    message,
 ):
     items = [submit(environment), submit(environment, "m2")]
     client.force_login(environment["reviewer"])
 
     response = client.post(
         product_url(environment),
-        batch_data(items, "send_back", "  "),
+        batch_data(items, action, note),
     )
 
     assert response.status_code == HTTPStatus.OK
-    assert b"Enter a reason or question" in response.content
+    assert message in response.content
+    # The browser is asked for the same floor, so the note is caught before it
+    # costs a round trip.
+    assert b'minlength="10"' in response.content
     for item in items:
         item.refresh_from_db()
         assert item.pending
@@ -133,7 +147,7 @@ def test_unsent_corrections_after_rejection_are_not_shown_to_reviewers(
     workflows.decide(
         item,
         environment["reviewer"],
-        action="send_back",
+        action="reject",
         reason="Incorrect document",
         note="Please correct the evidence.",
     )
@@ -143,7 +157,7 @@ def test_unsent_corrections_after_rejection_are_not_shown_to_reviewers(
         data=evidence_data(),
     )
     assert saved, form.errors
-    assert item.status == "sent_back"
+    assert item.status == "rejected"
     client.force_login(environment["reviewer"])
 
     response = client.get(product_url(environment))
@@ -165,7 +179,7 @@ def test_product_review_lists_open_requests_first_and_folds_approved_ones(
     workflows.decide(
         m4,
         environment["reviewer"],
-        action="send_back",
+        action="reject",
         reason="Incorrect document",
         note="Please correct the evidence.",
     )
@@ -176,7 +190,7 @@ def test_product_review_lists_open_requests_first_and_folds_approved_ones(
     groups = response.context["review_groups"]
     assert groups["outside_tracks"] == []
     assert [section["item"] for section in groups["pending"]] == [m2]
-    assert [section["item"] for section in groups["sent_back"]] == [m4]
+    assert [section["item"] for section in groups["rejected"]] == [m4]
     assert [section["item"].kind for section in groups["approved"]] == [
         "organisation_verification",
         "application",
@@ -188,7 +202,7 @@ def test_product_review_lists_open_requests_first_and_folds_approved_ones(
     assert "Organisation verification, M1" in content
     assert (
         content.index(f'id="review-{m2.pk}"')
-        < content.index("Sent back · 1")
+        < content.index("Rejected · 1")
         < content.index("data-approved-reviews")
         < content.index(f'id="review-{m1.pk}"')
     )
@@ -307,7 +321,7 @@ def test_organisation_verification_is_reviewed_in_the_product(environment, clien
 
 @pytest.mark.parametrize(
     ("action", "status"),
-    [("approve", "approved"), ("send_back", "sent_back")],
+    [("approve", "approved"), ("reject", "rejected")],
 )
 def test_product_bulk_decisions_include_organisation_verification(
     environment,
@@ -386,8 +400,8 @@ def test_organisation_queries_return_to_the_product(environment, client):
 
 
 WITHDRAWN_HOLD = (
-    "Organisation verification was withdrawn by the integrator. Approve or send "
-    "back this request once it is resubmitted and approved."
+    "Organisation verification was withdrawn by the integrator. Approve or "
+    "reject this request once it is resubmitted and approved."
 )
 
 

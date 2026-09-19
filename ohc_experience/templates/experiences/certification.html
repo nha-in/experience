@@ -24,7 +24,7 @@
         <div class="ui-card-header">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="ui-card-title">{% if item.pending %}WASA review{% elif certification.current %}Renew certificate{% else %}Submit certificate{% endif %}</h2>
-            {% if item and not item.pending and item.status != 'sent_back' %}
+            {% if item and not item.pending and item.status != 'rejected' %}
               {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
             {% endif %}
           </div>

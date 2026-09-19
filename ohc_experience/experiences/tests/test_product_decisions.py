@@ -33,7 +33,7 @@ def revisions(*items):
     return {str(item.pk): str(item.selected_submission_id) for item in items}
 
 
-def decide_all(environment, items, *, action="approve", note=""):
+def decide_all(environment, items, *, action="approve", note="Reviewed the evidence."):
     return workflows.decide_product(
         environment["workspace"].product,
         environment["admin"],
@@ -86,15 +86,15 @@ def test_rejects_submitted_chain_with_shared_reason(environment, submitted_pair)
     decided = decide_all(
         environment,
         [m1, m2],
-        action="send_back",
+        action="reject",
         note="  Update the evidence for both milestones.  ",
     )
     assert [item.pk for item in decided] == [m2.pk, m1.pk]
     for item in decided:
-        assert item.status == ReviewItem.Status.SENT_BACK
+        assert item.status == ReviewItem.Status.REJECTED
         assert item.application.status == "draft"
         assert item.decision_note == "Update the evidence for both milestones."
-        event = AuditEvent.objects.get(item=item, action="Sent back")
+        event = AuditEvent.objects.get(item=item, action="Rejected")
         assert event.detail["submission_id"] == item.selected_submission_id
     assert milestone(environment, "m3").status == ReviewItem.Status.DRAFT
 
@@ -108,12 +108,12 @@ def test_single_rejection_still_requires_approved_prerequisites(
         workflows.decide(
             m2,
             environment["admin"],
-            action="send_back",
+            action="reject",
             note="Fix the evidence.",
         )
 
 
-@pytest.mark.parametrize("action", ["approve", "send_back"])
+@pytest.mark.parametrize("action", ["approve", "reject"])
 def test_unselected_pending_prerequisite_blocks_batch(
     environment,
     submitted_pair,
@@ -125,7 +125,7 @@ def test_unselected_pending_prerequisite_blocks_batch(
     assert_pending(m1, m2)
 
 
-@pytest.mark.parametrize("action", ["approve", "send_back"])
+@pytest.mark.parametrize("action", ["approve", "reject"])
 def test_organisation_prerequisite_cannot_be_bypassed(
     environment,
     submitted_pair,
@@ -203,7 +203,7 @@ def test_unselected_new_submission_is_not_decided(environment, submitted_pair):
     assert_pending(another)
 
 
-@pytest.mark.parametrize("action", ["approve", "send_back"])
+@pytest.mark.parametrize("action", ["approve", "reject"])
 def test_stale_revision_prevents_all_decisions(environment, submitted_pair, action):
     m1, m2 = submitted_pair
     expected = revisions(m1, m2)
@@ -308,21 +308,21 @@ def test_rejects_product_chain_then_organisation_with_one_reason(
     decided = decide_all(
         environment,
         [organisation_review, m1, m2],
-        action="send_back",
+        action="reject",
         note="Correct the organisation and milestone evidence.",
     )
     assert [item.pk for item in decided] == [m2.pk, m1.pk, organisation_review.pk]
-    assert all(item.status == ReviewItem.Status.SENT_BACK for item in decided)
+    assert all(item.status == ReviewItem.Status.REJECTED for item in decided)
     assert all(
         item.decision_note == "Correct the organisation and milestone evidence."
         for item in decided
     )
     environment["org"].refresh_from_db()
-    assert environment["org"].verification_status == "sent_back"
+    assert environment["org"].verification_status == "rejected"
     assert milestone(environment, "m3").status == ReviewItem.Status.DRAFT
 
 
-@pytest.mark.parametrize("action", ["approve", "send_back"])
+@pytest.mark.parametrize("action", ["approve", "reject"])
 def test_preview_includes_selected_organisation_prerequisite(
     environment,
     submitted_pair,
@@ -384,7 +384,7 @@ def test_organisation_selection_requires_general_approval_permission(
     assert_pending(organisation_review, *submitted_pair)
 
 
-@pytest.mark.parametrize("action", ["approve", "send_back"])
+@pytest.mark.parametrize("action", ["approve", "reject"])
 def test_stale_organisation_snapshot_prevents_the_whole_batch(
     environment,
     submitted_pair,
@@ -404,7 +404,7 @@ def test_stale_organisation_snapshot_prevents_the_whole_batch(
     assert_pending(organisation_review, *submitted_pair)
 
 
-@pytest.mark.parametrize("action", ["approve", "send_back"])
+@pytest.mark.parametrize("action", ["approve", "reject"])
 def test_cannot_select_another_organisations_verification(
     environment,
     submitted_pair,
@@ -430,7 +430,7 @@ def test_cannot_select_another_organisations_verification(
     assert_pending(*submitted_pair, unrelated)
 
 
-@pytest.mark.parametrize("action", ["approve", "send_back"])
+@pytest.mark.parametrize("action", ["approve", "reject"])
 def test_shared_organisation_does_not_allow_other_product_requests(
     environment,
     submitted_pair,
@@ -461,14 +461,17 @@ def test_cannot_include_automatically_recorded_request(environment, submitted_pa
     assert_pending(*submitted_pair, automatic)
 
 
-@pytest.mark.parametrize("note", ["", "   ", "x" * (workflows.MAX_REVIEW_TEXT + 1)])
+@pytest.mark.parametrize(
+    "note",
+    ["", "   ", "Too short", "x" * (workflows.MAX_REVIEW_TEXT + 1)],
+)
 def test_reject_all_requires_valid_shared_reason(environment, submitted_pair, note):
     with pytest.raises(ValidationError):
-        decide_all(environment, submitted_pair, action="send_back", note=note)
+        decide_all(environment, submitted_pair, action="reject", note=note)
     assert_pending(*submitted_pair)
 
 
-@pytest.mark.parametrize("action", ["approve", "send_back"])
+@pytest.mark.parametrize("action", ["approve", "reject"])
 def test_preview_allows_selected_prerequisites_but_identifies_external_blockers(
     environment,
     submitted_pair,

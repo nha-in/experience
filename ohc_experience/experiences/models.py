@@ -723,7 +723,7 @@ class ReviewItem(models.Model):
         IN_REVIEW = "in_review", "Under review"
         QUERY = "query_raised", "Query raised"
         APPROVED = "approved", "Approved"
-        SENT_BACK = "sent_back", "Sent back"
+        REJECTED = "rejected", "Rejected"
 
     kind = models.CharField(max_length=32, choices=Kind)
     organisation = models.ForeignKey(
@@ -781,7 +781,7 @@ class ReviewItem(models.Model):
         related_name="decided_review_items",
     )
     decision_note = models.TextField(blank=True)
-    #: The reason chosen when the request was sent back, from its form's list.
+    #: The reason chosen when the request was rejected, from its form's list.
     decision_reason = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -847,7 +847,7 @@ class ReviewItem(models.Model):
 
     @property
     def editable(self):
-        return self.status in {self.Status.DRAFT, self.Status.SENT_BACK}
+        return self.status in {self.Status.DRAFT, self.Status.REJECTED}
 
     @property
     def pending(self):

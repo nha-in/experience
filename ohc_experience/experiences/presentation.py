@@ -148,7 +148,7 @@ def _review_attention(requests):
                 "warning",
             )
     for item, url in requests:
-        if item and item.status == "sent_back":
+        if item and item.status == "rejected":
             return _step(
                 "An update is needed",
                 (

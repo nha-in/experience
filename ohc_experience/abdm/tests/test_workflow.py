@@ -348,7 +348,7 @@ def test_uhi_submitted_before_m1_and_m2_are_approved_is_recorded_when_they_are(
     assert uhi.status == ReviewItem.Status.NEW
     assert uhi.application.status == "under_review"
     services.assign_review(uhi, environment["admin"], environment["reviewer"])
-    for action in ("approve", "send_back", "query"):
+    for action in ("approve", "reject", "query"):
         with pytest.raises(ValidationError, match="recorded once its prerequisites"):
             services.decide(uhi, environment["reviewer"], action=action, note="Hold.")
 
@@ -394,7 +394,7 @@ def test_milestones_are_submitted_in_order_and_decided_in_order(environment):
     m2 = submit(environment, "m2")
     assert m2.status == ReviewItem.Status.NEW
     services.assign_review(m2, environment["admin"], environment["reviewer"])
-    for action in ("approve", "send_back"):
+    for action in ("approve", "reject"):
         with pytest.raises(
             ValidationError,
             match="once M1 - ABHA and identity is approved",
@@ -427,10 +427,7 @@ def test_an_unverified_organisation_can_submit_but_not_be_approved(environment):
         services.decide(item, environment["reviewer"], action="approve")
 
     assert error.value.messages == [
-        (
-            "Approve or send back this request once organisation verification "
-            "is approved."
-        ),
+        "Approve or reject this request once organisation verification is approved.",
     ]
 
 
@@ -452,7 +449,7 @@ def test_reviewers_with_grants_decide_whoever_is_assigned(environment):
         services.decide(
             item,
             environment["reviewer"],
-            action="send_back",
+            action="reject",
             note="Late change",
         )
 
@@ -912,13 +909,13 @@ def test_audit_events_cannot_be_changed_or_deleted(environment):
             operation()
 
 
-def test_sent_back_draft_retains_reason_and_decision_history(environment, client):
+def test_rejected_draft_retains_reason_and_decision_history(environment, client):
     item = submit(environment)
     services.assign_review(item, environment["admin"], environment["reviewer"])
     services.decide(
         item,
         environment["reviewer"],
-        action="send_back",
+        action="reject",
         reason="Incomplete documentation",
         note="Revise scope.",
     )
@@ -928,7 +925,7 @@ def test_sent_back_draft_retains_reason_and_decision_history(environment, client
         data={"wasa_agency": "M/s A3S Tech & Company"},
     )
     assert saved, form.errors
-    assert item.status == "sent_back"
+    assert item.status == "rejected"
     assert item.decision_note == "Revise scope."
     assert item.decision_reason == "Incomplete documentation"
     item, form, saved = services.save_review_form(
@@ -941,7 +938,7 @@ def test_sent_back_draft_retains_reason_and_decision_history(environment, client
     assert item.status == "in_review"
     client.force_login(environment["reviewer"])
     response = client.get(reverse("experiences:assess-dashboard"))
-    assert sum(week["sent_back"] for week in response.context["weeks"]) == 1
+    assert sum(week["rejected"] for week in response.context["weeks"]) == 1
     assert response.context["median_days"] is not None
 
 
@@ -1056,10 +1053,10 @@ def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
     html = response.content.decode()
 
     assert response.context["decision_action"] == "query"
-    assert "Approve or send back this request once M1 - ABHA and identity" in html
+    assert "Approve or reject this request once M1 - ABHA and identity" in html
     assert 'data-decision-blocked="true"' in html
     assert re.search(r'value="approve"\s+disabled', html)
-    assert re.search(r'value="send_back"\s+disabled', html)
+    assert re.search(r'value="reject"\s+disabled', html)
     assert f'href="{m1.get_absolute_url()}">M1 - ABHA and identity</a>' in html
     assert "waiting on prerequisites" in html
 
@@ -1121,7 +1118,7 @@ def test_removed_organisation_urls_cannot_bypass_review(environment, client):
     client.force_login(environment["reviewer"])
     response = client.post(
         f"/ohc/organisations/{org.slug}/verification/",
-        {"verification_status": "sent_back"},
+        {"verification_status": "rejected"},
     )
     assert response.status_code == 404
     org.refresh_from_db()

@@ -61,13 +61,13 @@
         <div class="divide-y divide-soft-border">
           {% include 'experiences/partials/product_review_rows.html' with sections=review_groups.pending %}
         </div>
-        {% if review_groups.sent_back %}
+        {% if review_groups.rejected %}
           <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-soft-border bg-soft-background/50 px-5 py-2.5">
-            <h3 class="ui-kicker">Sent back · {{ review_groups.sent_back|length }}</h3>
+            <h3 class="ui-kicker">Rejected · {{ review_groups.rejected|length }}</h3>
             <p class="text-xs text-soft-foreground">Waiting on the integrator. Accept all and Reject all don't include these.</p>
           </div>
           <div class="divide-y divide-soft-border border-t border-soft-border">
-            {% include 'experiences/partials/product_review_rows.html' with sections=review_groups.sent_back %}
+            {% include 'experiences/partials/product_review_rows.html' with sections=review_groups.rejected %}
           </div>
         {% endif %}
         {% if review_groups.approved %}
@@ -248,7 +248,7 @@
                 <dd>
                   {% if credential.last_checked_at %}
                     {% if credential.consecutive_failures %}
-                      {% include 'experiences/partials/status.html' with status='sent_back' label='Unreachable' %}
+                      {% include 'experiences/partials/status.html' with status='rejected' label='Unreachable' %}
                     {% else %}
                       {% include 'experiences/partials/status.html' with status='approved' label='Reachable' %}
                     {% endif %}

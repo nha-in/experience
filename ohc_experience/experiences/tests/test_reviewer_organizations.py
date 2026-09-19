@@ -167,7 +167,7 @@ def catalogue(environment):
     and a UHI reviewer who can see only the HMIS."""
     other = OrganisationFactory(
         onboarded=True,
-        verification_status="sent_back",
+        verification_status="rejected",
         entity_type="sole_proprietor",
         state="JAMMU AND KASHMIR",
     )
@@ -213,7 +213,7 @@ def test_organizations_tab_filters_within_scope(catalogue, client):
 
     assert organizations(admin)[0] == {organization, other}
     assert organizations(admin, status="verified")[0] == {organization}
-    assert organizations(admin, status="sent_back")[0] == {other}
+    assert organizations(admin, status="rejected")[0] == {other}
     assert organizations(admin, entity_type="sole_proprietor")[0] == {other}
     assert organizations(admin, state="JAMMU AND KASHMIR")[0] == {other}
     assert (

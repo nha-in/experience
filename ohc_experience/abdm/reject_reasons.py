@@ -1,4 +1,4 @@
-"""Reasons a reviewer chooses from when sending a request back.
+"""Reasons a reviewer chooses from when rejecting a request.
 
 Compressed from every remark the old sandbox portal's reviewers wrote; the
 mapping from each old remark to exactly one of these is kept in
@@ -8,7 +8,7 @@ original words are carried over to the note. The engine offers Other after
 these, with the reviewer's own words.
 """
 
-ORGANISATION_SEND_BACK_REASONS = (
+ORGANISATION_REJECT_REASONS = (
     "Intent unclear",
     "Incomplete application",
     "Incorrect details in the application",
@@ -29,7 +29,7 @@ ORGANISATION_SEND_BACK_REASONS = (
     "Test or junk entry",
 )
 
-EXIT_SEND_BACK_REASONS = (
+EXIT_REJECT_REASONS = (
     "Incorrect document",
     "Incomplete documentation",
     "FT/WASA report missing",

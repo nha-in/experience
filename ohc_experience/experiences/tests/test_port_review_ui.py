@@ -220,6 +220,24 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     assert review_item.assignee == reviewer
 
 
+def test_a_required_note_is_refused_until_it_runs_to_ten_characters(
+    review_item,
+    owner_membership,
+    client,
+):
+    reviewer = ReviewerFactory(is_nha_team=True)
+    client.force_login(reviewer)
+
+    response = client.post(
+        review_item.get_absolute_url(),
+        {"action": "query", "field_key": "score", "note": "Too short"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert b"at least 10 characters" in response.content
+    assert not review_item.queries.exists()
+
+
 def test_query_validation_reply_resolution_and_approval_through_portal(
     review_item,
     owner_membership,
@@ -315,11 +333,11 @@ def test_client_response_alert_is_not_shown_to_reviewer(review_item):
     ("scope", "incompatible_status", "expected_statuses"),
     [
         ("ready", "approved", {"new", "in_review", "query_raised"}),
-        ("decided", "in_review", {"approved", "sent_back"}),
+        ("decided", "in_review", {"approved", "rejected"}),
         (
             "all",
             "draft",
-            {"new", "in_review", "query_raised", "approved", "sent_back"},
+            {"new", "in_review", "query_raised", "approved", "rejected"},
         ),
     ],
 )

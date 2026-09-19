@@ -640,7 +640,7 @@ def _product_review_post(request, workspace):
             expected_revisions=_posted_product_reviews(request),
             note=request.POST.get("note", ""),
         )
-        verb = "Approved" if request.POST.get("action") == "approve" else "Sent back"
+        verb = "Approved" if request.POST.get("action") == "approve" else "Rejected"
         noun = "request" if len(decided) == 1 else "requests"
         messages.success(
             request,
@@ -691,13 +691,13 @@ def _product_review_sections(request, items):
         )
         actions = permissions.available_review_actions(request.user, item)
         can_approve = "approve" in actions and not prerequisites and not unresolved
-        can_send_back = "send_back" in actions and not prerequisites
+        can_reject = "reject" in actions and not prerequisites
         can_query = "query" in actions
         available = [
             action
             for action, allowed in (
                 ("approve", can_approve),
-                ("send_back", can_send_back),
+                ("reject", can_reject),
                 ("query", can_query),
             )
             if allowed
@@ -714,12 +714,12 @@ def _product_review_sections(request, items):
                 if item.status == ReviewItem.Status.DRAFT
                 else None,
                 "can_approve": can_approve,
-                "can_send_back": can_send_back,
+                "can_reject": can_reject,
                 "can_query": can_query,
                 "available_actions": available,
                 "unresolved_query_count": unresolved,
                 "decision_note": request.POST.get("note", "") if posted else "",
-                "send_back_reasons": services.send_back_reasons(item.definition),
+                "reject_reasons": services.reject_reasons(item.definition),
                 "other_reason": services.OTHER_REASON,
                 "decision_reason": request.POST.get("reason", "") if posted else "",
                 "decision_action": action
@@ -735,15 +735,15 @@ def _product_review_sections(request, items):
 
 def _review_groups(sections):
     """Open requests outside the tracks on top, then milestones, approved last."""
-    groups = {"outside_tracks": [], "pending": [], "sent_back": [], "approved": []}
+    groups = {"outside_tracks": [], "pending": [], "rejected": [], "approved": []}
     for section in sections:
         item = section["item"]
         if item.status == ReviewItem.Status.APPROVED:
             groups["approved"].append(section)
         elif not getattr(item.application, "milestone", None):
             groups["outside_tracks"].append(section)
-        elif item.status == ReviewItem.Status.SENT_BACK:
-            groups["sent_back"].append(section)
+        elif item.status == ReviewItem.Status.REJECTED:
+            groups["rejected"].append(section)
         else:
             groups["pending"].append(section)
     return groups
@@ -827,7 +827,7 @@ def product_detail(request, reference):
         else []
     )
     bulk_reject_blockers = (
-        services.product_decision_blockers(bulk_items, request.user, action="send_back")
+        services.product_decision_blockers(bulk_items, request.user, action="reject")
         if bulk_items
         else []
     )
@@ -910,6 +910,7 @@ def product_detail(request, reference):
             bulk_note=request.POST.get("note", "")
             if request.POST.get("intent") == "bulk_decision"
             else "",
+            min_note_length=services.MIN_REVIEW_TEXT,
             tracks=[row for row in tracks if row["tiles"]],
             progress=progress,
             registration=visible_items.filter(
@@ -1885,7 +1886,7 @@ def assess_dashboard(request):
     decisions = list(
         AuditEvent.objects.filter(
             item__in=items,
-            action__in=["Approved", "Sent back"],
+            action__in=["Approved", "Rejected"],
             created_at__gte=timezone.now() - timedelta(weeks=8),
         ),
     )
@@ -1914,13 +1915,13 @@ def assess_dashboard(request):
             {
                 "label": start.strftime("%d %b"),
                 "approved": sum(item.action == "Approved" for item in subset),
-                "sent_back": sum(item.action == "Sent back" for item in subset),
+                "rejected": sum(item.action == "Rejected" for item in subset),
             },
         )
-    maximum = max([week["approved"] + week["sent_back"] for week in weeks] or [1]) or 1
+    maximum = max([week["approved"] + week["rejected"] for week in weeks] or [1]) or 1
     for week in weeks:
         week["approved_height"] = round(week["approved"] / maximum * 110)
-        week["sent_back_height"] = round(week["sent_back"] / maximum * 110)
+        week["rejected_height"] = round(week["rejected"] / maximum * 110)
     context = _context(
         request,
         page_title="Reviewer dashboard",
@@ -2068,7 +2069,7 @@ def queue(request):
     scopes = {
         "ready": (services.PENDING_STATUSES, ~waiting),
         "waiting": (services.PENDING_STATUSES, waiting),
-        "decided": ((ReviewItem.Status.APPROVED, ReviewItem.Status.SENT_BACK), Q()),
+        "decided": ((ReviewItem.Status.APPROVED, ReviewItem.Status.REJECTED), Q()),
     }
     stage_counts = {
         stage: grouped_requests(
@@ -2246,8 +2247,9 @@ def review(request, pk):
             ),
             decision_action=selected_action,
             decision_note=request.POST.get("note", ""),
-            send_back_reasons=services.send_back_reasons(item.definition),
+            reject_reasons=services.reject_reasons(item.definition),
             other_reason=services.OTHER_REASON,
+            min_note_length=services.MIN_REVIEW_TEXT,
             decision_reason=request.POST.get("reason", ""),
             query_field=request.POST.get("field_key", request.GET.get("field", "form")),
             awaiting_reply_count=item.queries.filter(

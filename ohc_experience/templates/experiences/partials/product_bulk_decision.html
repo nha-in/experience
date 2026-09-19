@@ -14,7 +14,7 @@
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-bold" id="decisions-title">Product review</h2>
-          <p class="mt-1 text-xs leading-relaxed text-soft-foreground">{{ bulk_items|length }} submitted request{{ bulk_items|length|pluralize }} awaiting your decision. Reject all sends {{ bulk_items|length|pluralize:'it,them' }} back for corrections.</p>
+          <p class="mt-1 text-xs leading-relaxed text-soft-foreground">{{ bulk_items|length }} submitted request{{ bulk_items|length|pluralize }} awaiting your decision. Reject all returns {{ bulk_items|length|pluralize:'it,them' }} to the integrator for corrections.</p>
         </div>
         <div class="flex gap-2">
           <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11"
@@ -25,7 +25,7 @@
           <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
                   type="submit"
                   name="action"
-                  value="send_back"
+                  value="reject"
                   {% if bulk_reject_blockers %}disabled aria-describedby="bulk-hold" {% endif %}>Reject all</button>
         </div>
       </div>
@@ -36,9 +36,9 @@
       {% endfor %}
       <details class="group/note rounded-lg border border-soft-border bg-soft-background"
                data-product-bulk-note
-               {% if bulk_note or request.POST.intent == 'bulk_decision' %}open{% endif %}>
+               open>
         <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-semibold text-primary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
-          <span>Shared decision note <span class="font-normal text-soft-foreground">· required to reject</span></span>
+          <span>Shared decision note <span class="font-normal text-soft-foreground">· required</span></span>
           <svg viewBox="0 0 24 24"
                class="size-3.5 transition-transform group-open/note:rotate-180 motion-reduce:transition-none"
                fill="none"
@@ -57,8 +57,10 @@
                     name="note"
                     rows="2"
                     maxlength="10000"
+                    minlength="{{ min_note_length }}"
+                    required
                     aria-describedby="bulk-decision-help">{{ bulk_note }}</textarea>
-          <p class="ui-hint" id="bulk-decision-help">Saved to every included request and shared with the integrator. Optional for approval.</p>
+          <p class="ui-hint" id="bulk-decision-help">Saved to every included request and shared with the integrator. At least {{ min_note_length }} characters.</p>
         </div>
       </details>
       {% if bulk_holds %}

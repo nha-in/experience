@@ -61,7 +61,7 @@ Form hooks run inside the engine transaction: `initial_data` supplies defaults;
 program approvals, beyond application dependencies, that must come before a
 decision, and `prerequisites_due` expresses the same condition as a review filter
 for the queue; `on_submit` projects validated answers; `on_approve` returns structured
-outcomes; `on_send_back` updates domain state. An `auto_approve` form is recorded
+outcomes; `on_reject` updates domain state. An `auto_approve` form is recorded
 on submission, or once its prerequisites are approved. `snapshot_valid_until` stores the submitted evidence's expiry, while
 `approval_block_reason` rechecks validity immediately before approval.
 External provider calls cannot roll back with the database, so integrations
@@ -88,19 +88,23 @@ organisations app. Credentials are encrypted in `ProductCredential`, never store
 as secrets in outcome JSON. The production client ID staff add is a plain
 `Product` field; its secret never reaches the portal. `ApplicationDependency`
 rejects cross-product links, self references and cycles. A form opens once every
-application it depends on, directly or not, is submitted; sent back still counts,
+application it depends on, directly or not, is submitted; rejected still counts,
 withdrawn does not. A request cannot be withdrawn while a request depending on it
-is under review. The engine refuses approval or send-back until every
+is under review. The engine refuses approval or rejection until every
 prerequisite reaches its success status. Queries stay open. The review queue
 separates requests still waiting on a prerequisite from ready ones.
 
 A form definition lists the reasons a reviewer chooses from in
-`send_back_reasons`, and a send-back on such a form takes exactly one, stored in
+`reject_reasons`, and a rejection on such a form takes exactly one, stored in
 `ReviewItem.decision_reason` and in the audit event's `reason`; the engine offers
 `Other` after the listed ones. The integrator sees the reason above the reviewer's
 note, in the portal and in the notice email. The note is required for a query,
-for `Other`, and for a send-back on a form that lists no reasons. Resubmitting
-clears the reason along with the note.
+for `Other`, and for a rejection on a form that lists no reasons, and where it is
+required it has to run to `MIN_REVIEW_TEXT` characters, so that "ok" cannot stand
+in for a reason. A note offered beside a listed reason is free to be brief.
+Resubmitting clears the reason along with the note. A batch decision from the
+product page saves one note to every request it covers, so it asks for that note
+whichever way the batch goes.
 
 ### Staff Permissions
 
@@ -120,7 +124,7 @@ independent of the source review.
 
 | Area | Read | Write | Approve |
 | --- | --- | --- | --- |
-| Reviews | Queue, evidence, history, downloads | Raise and resolve queries | Approve or send back |
+| Reviews | Queue, evidence, history, downloads | Raise and resolve queries | Approve or reject |
 | Reviews, General/onboarding | Production Approval screen and CSV export | | Add, change or remove a product's production details |
 | Support | Tickets and attachments | Reply | Resolve |
 | Events | Events | Create/edit drafts | Publish/unpublish |

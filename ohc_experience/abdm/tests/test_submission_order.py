@@ -86,14 +86,14 @@ def test_m4_opens_and_is_approved_before_m1_is_submitted(environment, client):
     assert milestone(environment, "m4").status == ReviewItem.Status.APPROVED
 
 
-def test_a_sent_back_milestone_leaves_the_next_one_open(environment):
+def test_a_rejected_milestone_leaves_the_next_one_open(environment):
     """A reviewer's decision never closes a form the integrator is working in."""
     m1 = submit(environment)
     workflows.assign_review(m1, environment["admin"], environment["reviewer"])
     workflows.decide(
         m1,
         environment["reviewer"],
-        action="send_back",
+        action="reject",
         reason="Incomplete integration",
         note="Add the consent revocation scenarios.",
     )

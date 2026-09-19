@@ -47,7 +47,7 @@
         {% endif %}
       </span>
       <span class="mt-1 block text-xs leading-relaxed text-soft-foreground break-words">
-        {% if item.kind == 'organisation_verification' %}{% if item.status == 'draft' %}Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %}{% else %}Shared across all products of {{ organisation.display_name }}{% endif %}{% elif snapshot %}Submitted {{ item.submitted_at|date:'j M Y' }} · {{ item.assignee.display_name|default:'Unassigned' }}{% elif item.status == 'sent_back' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}
+        {% if item.kind == 'organisation_verification' %}{% if item.status == 'draft' %}Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %}{% else %}Shared across all products of {{ organisation.display_name }}{% endif %}{% elif snapshot %}Submitted {{ item.submitted_at|date:'j M Y' }} · {{ item.assignee.display_name|default:'Unassigned' }}{% elif item.status == 'rejected' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}
       </span>
     </span>
     <span class="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -105,7 +105,7 @@
                    href="#queries-{{ item.pk }}">Review queries and replies</a>
               </div>
             {% endif %}
-            {% if can_approve or can_send_back or can_query %}
+            {% if can_approve or can_reject or can_query %}
               <form method="post"
                     class="mt-3 flex flex-col gap-3"
                     data-decision-form
@@ -134,11 +134,11 @@
                     <input class="sr-only"
                            type="radio"
                            name="action"
-                           value="send_back"
-                           {% if not can_send_back %}disabled{% endif %}
+                           value="reject"
+                           {% if not can_reject %}disabled{% endif %}
                            {% if prerequisites %}aria-describedby="decision-hold-{{ item.pk }}"{% endif %}
-                           {% if decision_action == 'send_back' and can_send_back %}checked{% endif %} />
-                    <span>Send back</span>
+                           {% if decision_action == 'reject' and can_reject %}checked{% endif %} />
+                    <span>Reject</span>
                   </label>
                   <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
                     <input class="sr-only"
@@ -164,9 +164,9 @@
                   </div>
                   <p class="ui-hint">Choose the part of the submission that needs clarification.</p>
                 </div>
-                {% if send_back_reasons %}
-                  <div data-send-back-controls
-                       {% if decision_action != 'send_back' %}hidden{% endif %}>
+                {% if reject_reasons %}
+                  <div data-reject-controls
+                       {% if decision_action != 'reject' %}hidden{% endif %}>
                     <label class="ui-label" for="decision-reason-{{ item.pk }}">Reason</label>
                     <div class="ui-select-wrapper">
                       <select class="ui-select"
@@ -174,7 +174,7 @@
                               name="reason"
                               data-reason-select>
                         <option value="">Choose a reason</option>
-                        {% for reason in send_back_reasons %}
+                        {% for reason in reject_reasons %}
                           <option value="{{ reason }}"
                                   {% if reason == other_reason %}data-note-required{% endif %}
                                   {% if reason == decision_reason %}selected{% endif %}>{{ reason }}</option>
@@ -187,20 +187,21 @@
                 <div>
                   <label class="ui-label"
                          for="decision-note-{{ item.pk }}"
-                         data-decision-label>{% if decision_action == 'query' %}Question{% elif decision_action == 'send_back' %}Note for the integrator{% else %}Decision note{% endif %}</label>
+                         data-decision-label>{% if decision_action == 'query' %}Question{% elif decision_action == 'reject' %}Note for the integrator{% else %}Decision note{% endif %}</label>
                   <textarea class="ui-textarea min-h-20"
                             id="decision-note-{{ item.pk }}"
                             name="note"
                             rows="3"
                             maxlength="10000"
-                            {% if decision_action == 'query' or decision_action == 'send_back' and not send_back_reasons %}required{% endif %}
+                            data-note-minlength="{{ min_note_length }}"
+                            {% if decision_action == 'query' or decision_action == 'reject' and not reject_reasons %}required minlength="{{ min_note_length }}"{% endif %}
                             aria-describedby="decision-help-{{ item.pk }}">{{ decision_note }}</textarea>
-                  <p class="ui-hint" id="decision-help-{{ item.pk }}">Saved in this request's history and shared with the integrator. Required for a query{% if send_back_reasons %}, and for a send-back when the reason is {{ other_reason }}{% else %} and a send-back{% endif %}.</p>
+                  <p class="ui-hint" id="decision-help-{{ item.pk }}">Saved in this request's history and shared with the integrator. Required for a query{% if reject_reasons %}, and for a rejection when the reason is {{ other_reason }}{% else %} and a rejection{% endif %}, with at least {{ min_note_length }} characters.</p>
                 </div>
                 <div>
                   <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11 w-full"
                           type="submit"
-                          data-decision-submit>{% if decision_action == 'query' %}Send query{% elif decision_action == 'send_back' %}Send back to integrator{% else %}Record approval{% endif %}</button>
+                          data-decision-submit>{% if decision_action == 'query' %}Send query{% elif decision_action == 'reject' %}Reject request{% else %}Record approval{% endif %}</button>
                 </div>
               </form>
             {% elif item.definition.auto_approve %}
@@ -220,8 +221,8 @@
       {% endif %}
     {% else %}
       <div class="text-sm leading-relaxed text-soft-foreground">
-        <p class="font-semibold text-foreground">{% if item.status == 'draft' %}Withdrawn by the integrator{% elif item.status == 'sent_back' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}</p>
-        <p class="mt-1">{% if item.status == 'draft' %}The integrator withdrew this verification{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %} to change it. It returns here for review when they resubmit, and milestone decisions wait until it is approved.{% elif item.status == 'sent_back' %}The integrator is updating this request after it was sent back. New evidence will appear when they resubmit.{% else %}There is no submitted evidence available for this request.{% endif %}</p>
+        <p class="font-semibold text-foreground">{% if item.status == 'draft' %}Withdrawn by the integrator{% elif item.status == 'rejected' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}</p>
+        <p class="mt-1">{% if item.status == 'draft' %}The integrator withdrew this verification{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %} to change it. It returns here for review when they resubmit, and milestone decisions wait until it is approved.{% elif item.status == 'rejected' %}The integrator is updating this request after it was rejected. New evidence will appear when they resubmit.{% else %}There is no submitted evidence available for this request.{% endif %}</p>
       </div>
     {% endif %}
   </div>

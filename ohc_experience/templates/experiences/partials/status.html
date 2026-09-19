@@ -1,4 +1,4 @@
-<span class="ui-badge ui-badge--size-xs {% if status == 'approved' or status == 'verified' or status == 'registered' or status == 'active' or status == 'resolved' %}ui-badge--success{% elif status == 'sent_back' or status == 'query_raised' or status == 'open' %}ui-badge--warning{% elif status == 'rejected' or status == 'revoked' %}ui-badge--destructive{% elif status == 'submitted' or status == 'in_review' or status == 'answered' %}ui-badge--info{% else %}ui-badge--neutral{% endif %}">
+<span class="ui-badge ui-badge--size-xs {% if status == 'approved' or status == 'verified' or status == 'registered' or status == 'active' or status == 'resolved' %}ui-badge--success{% elif status == 'rejected' or status == 'query_raised' or status == 'open' %}ui-badge--warning{% elif status == 'revoked' %}ui-badge--destructive{% elif status == 'submitted' or status == 'in_review' or status == 'answered' %}ui-badge--info{% else %}ui-badge--neutral{% endif %}">
   <span aria-hidden="true">
     {% if status == 'approved' or status == 'verified' or status == 'registered' or status == 'resolved' %}✓{% else %}●{% endif %}
   </span> {{ label }}</span>

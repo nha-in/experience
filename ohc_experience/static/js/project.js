@@ -350,7 +350,7 @@
   function updateDecision(form) {
     const action = form.querySelector('[name="action"]:checked')?.value || 'approve';
     const note = form.querySelector('[name="note"]');
-    const labels = { approve: ['Decision note', 'Record approval'], send_back: ['Note for the integrator', 'Send back to integrator'], query: ['Question', 'Send query'] };
+    const labels = { approve: ['Decision note', 'Record approval'], reject: ['Note for the integrator', 'Reject request'], query: ['Question', 'Send query'] };
     const label = form.querySelector('[data-decision-label]');
     if (label) label.textContent = labels[action][0];
     // Forms that list reasons ask for one; the rest take the note alone.
@@ -358,7 +358,7 @@
     const chosen = reason?.options[reason.selectedIndex];
     const hint = form.querySelector('[data-reason-hint]');
     if (hint) hint.textContent = reason && !reason.value
-      ? 'Choose a reason before sending back.'
+      ? 'Choose a reason before rejecting.'
       : 'The integrator sees this reason above your note.';
     const button = form.querySelector('[data-decision-submit]');
     if (button) {
@@ -366,15 +366,20 @@
       // Prerequisites hold every decision but a query; open queries hold approval.
       button.disabled = (action !== 'query' && form.dataset.decisionBlocked === 'true')
         || (action === 'approve' && form.dataset.approvalBlocked === 'true')
-        || (action === 'send_back' && Boolean(reason) && !reason.value);
+        || (action === 'reject' && Boolean(reason) && !reason.value);
     }
     // A listed reason speaks for itself; a query, Other, and a form with no list
     // to choose from need the reviewer's own words.
-    if (note) note.required = action === 'query'
-      || (action === 'send_back' && (!reason || 'noteRequired' in (chosen?.dataset || {})));
+    if (note) {
+      note.required = action === 'query'
+        || (action === 'reject' && (!reason || 'noteRequired' in (chosen?.dataset || {})));
+      // The floor belongs to the notes that carry the reason, not to an aside
+      // someone adds to an approval. Zero is the unconstrained default.
+      note.minLength = note.required ? Number(note.dataset.noteMinlength) : 0;
+    }
     form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
     form.querySelectorAll('[data-approval-controls]').forEach(el => { el.hidden = action !== 'approve'; });
-    form.querySelectorAll('[data-send-back-controls]').forEach(el => { el.hidden = action !== 'send_back'; });
+    form.querySelectorAll('[data-reject-controls]').forEach(el => { el.hidden = action !== 'reject'; });
   }
 
   function initialize(scope = document) {
@@ -577,18 +582,21 @@ document.addEventListener("keydown", (event) => {
     target.scrollIntoView({ block: 'start' });
   }
 
-  function prepareBulkDecision(form, action, event) {
+  function prepareBulkDecision(form, event) {
     const note = form.querySelector('[name="note"]');
     if (!note) return;
-    note.required = action === 'send_back';
+    note.required = true;
     note.setCustomValidity('');
-    if (!note.required) return;
     const panel = form.querySelector('[data-product-bulk-note]');
     if (panel) panel.open = true;
-    if (note.value.trim()) return;
+    // The floor is the one the markup already declares, so it is stated once.
+    const written = note.value.trim();
+    if (written && written.length >= note.minLength) return;
     event.preventDefault();
     event.stopPropagation();
-    note.setCustomValidity('Enter a reason for sending back these requests.');
+    note.setCustomValidity(written
+      ? `Use at least ${note.minLength} characters.`
+      : 'Enter the shared decision note before continuing.');
     note.focus();
     note.reportValidity();
   }
@@ -600,11 +608,11 @@ document.addEventListener("keydown", (event) => {
     const link = event.target.closest?.('a[href^="#"]');
     if (link) revealReview(link.getAttribute('href'));
     const button = event.target.closest?.('[data-product-bulk-form] button[name="action"]');
-    if (button) prepareBulkDecision(button.form, button.value, event);
+    if (button) prepareBulkDecision(button.form, event);
   }, true);
   document.addEventListener('submit', event => {
     if (event.target.matches?.('[data-product-bulk-form]')) {
-      prepareBulkDecision(event.target, event.submitter?.value, event);
+      prepareBulkDecision(event.target, event);
     }
   }, true);
   document.addEventListener('input', event => {

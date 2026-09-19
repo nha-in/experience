@@ -86,12 +86,13 @@ test('a row filed under Approved reviews opens that section as well', () => {
   assert.equal(panel.open, true);
 });
 
-test('reject all opens and requires the shared reason; accept all remains optional', () => {
+test('both bulk decisions open and require the shared note', () => {
   const browser = page();
   const notePanel = { open: false };
   const note = {
     value: '',
     required: false,
+    minLength: 10,
     validityMessage: '',
     focus() {},
     reportValidity() {},
@@ -100,7 +101,7 @@ test('reject all opens and requires the shared reason; accept all remains option
   const form = {
     querySelector: selector => selector === '[name="note"]' ? note : notePanel,
   };
-  const button = { form, value: 'send_back' };
+  const button = { form, value: 'reject' };
   const target = {
     closest: selector => selector === '[data-product-bulk-form] button[name="action"]'
       ? button : null,
@@ -108,12 +109,20 @@ test('reject all opens and requires the shared reason; accept all remains option
   assert.equal(browser.fire('click', target).prevented, true);
   assert.equal(notePanel.open, true);
   assert.equal(note.required, true);
-  assert.match(note.validityMessage, /reason/);
+  assert.match(note.validityMessage, /shared decision note/);
+  notePanel.open = false;
   button.value = 'approve';
+  assert.equal(browser.fire('click', target).prevented, true);
+  assert.equal(notePanel.open, true);
+  assert.equal(note.required, true);
+  assert.match(note.validityMessage, /shared decision note/);
+  note.value = 'Too short';
+  assert.equal(browser.fire('click', target).prevented, true);
+  assert.match(note.validityMessage, /at least 10 characters/);
+  note.value = 'Every milestone matches the submitted evidence.';
   assert.equal(browser.fire('click', target).prevented, false);
-  assert.equal(note.required, false);
   assert.equal(note.validityMessage, '');
-  button.value = 'send_back';
+  button.value = 'reject';
   note.value = 'Correct the submitted documents.';
   assert.equal(browser.fire('click', target).prevented, false);
 });

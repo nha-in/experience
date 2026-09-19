@@ -67,9 +67,9 @@ class ApplicationFormDefinition:
     submit_label = "Submit application"
     submitted_message = "Application submitted."
     approval_notice = ""
-    #: What a reviewer sending this form back chooses from. A form with no list
+    #: What a reviewer rejecting this form chooses from. A form with no list
     #: takes the reviewer's note alone.
-    send_back_reasons: ClassVar[tuple[str, ...]] = ()
+    reject_reasons: ClassVar[tuple[str, ...]] = ()
 
     @classmethod
     def initial_data(cls, item):
@@ -130,8 +130,8 @@ class ApplicationFormDefinition:
         return ()
 
     @classmethod
-    def on_send_back(cls, item, actor):
-        """Update implementation-specific state after a review is sent back."""
+    def on_reject(cls, item, actor):
+        """Update implementation-specific state after a review is rejected."""
 
     @classmethod
     def on_withdraw(cls, item, actor):

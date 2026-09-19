@@ -17,7 +17,7 @@
         <div id="decision-hold"
              class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950">
           <p class="font-semibold">Waiting on prerequisites</p>
-          <p class="mt-1">{% if withdrawn_hold %}{{ withdrawn_hold }}{% else %}Approve or send back this request once {{ waiting_on }} approved.{% endif %}{% if can_query %} You can raise queries meanwhile.{% endif %}</p>
+          <p class="mt-1">{% if withdrawn_hold %}{{ withdrawn_hold }}{% else %}Approve or reject this request once {{ waiting_on }} approved.{% endif %}{% if can_query %} You can raise queries meanwhile.{% endif %}</p>
           {% include 'experiences/partials/reviewer_prerequisites.html' %}
         </div>
       {% endif %}
@@ -56,10 +56,10 @@
               <input class="sr-only"
                      type="radio"
                      name="action"
-                     value="send_back"
+                     value="reject"
                      {% if prerequisites %}disabled aria-describedby="decision-hold"{% endif %}
-                     {% if decision_action == 'send_back' %}checked{% endif %} />
-              <span>Send back</span>
+                     {% if decision_action == 'reject' %}checked{% endif %} />
+              <span>Reject</span>
             </label>
           {% endif %}
           {% if can_query %}
@@ -84,8 +84,8 @@
           </div>
           <p class="ui-hint">Choose the part of the submission that needs clarification.</p>
         </div>
-        {% if send_back_reasons %}
-          <div data-send-back-controls>
+        {% if reject_reasons %}
+          <div data-reject-controls>
             <label class="ui-label" for="decision-reason">Reason</label>
             <div class="ui-select-wrapper">
               <select class="ui-select"
@@ -93,7 +93,7 @@
                       name="reason"
                       data-reason-select>
                 <option value="">Choose a reason</option>
-                {% for reason in send_back_reasons %}
+                {% for reason in reject_reasons %}
                   <option value="{{ reason }}"
                           {% if reason == other_reason %}data-note-required{% endif %}
                           {% if reason == decision_reason %}selected{% endif %}>{{ reason }}</option>
@@ -126,8 +126,9 @@
                     name="note"
                     rows="5"
                     maxlength="10000"
+                    data-note-minlength="{{ min_note_length }}"
                     aria-describedby="decision-help">{{ decision_note }}</textarea>
-          <p class="ui-hint" id="decision-help">Saved in the request history and shared with the integrator. Required for a query{% if send_back_reasons %}, and for a send-back when the reason is {{ other_reason }}{% else %} and a send-back{% endif %}.</p>
+          <p class="ui-hint" id="decision-help">Saved in the request history and shared with the integrator. Required for a query{% if reject_reasons %}, and for a rejection when the reason is {{ other_reason }}{% else %} and a rejection{% endif %}, with at least {{ min_note_length }} characters.</p>
         </div>
         <button class="ui-btn ui-btn--default ui-btn--size-sm ui-btn--block min-h-12"
                 type="submit"

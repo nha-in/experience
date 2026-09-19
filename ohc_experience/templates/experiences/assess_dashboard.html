@@ -88,24 +88,24 @@
                aria-labelledby="decisions-title">
         <div class="ui-card-header">
           <h2 class="ui-card-title" id="decisions-title">Decisions over the last 8 weeks</h2>
-          <p class="ui-card-description flex flex-wrap items-center gap-3.5"><span class="inline-flex items-center gap-1.5 text-xs"><span class="size-2 rounded-[2px] bg-primary" aria-hidden="true"></span>Approved</span><span class="inline-flex items-center gap-1.5 text-xs"><span class="size-2 rounded-[2px] bg-amber-400" aria-hidden="true"></span>Sent back</span></p>
+          <p class="ui-card-description flex flex-wrap items-center gap-3.5"><span class="inline-flex items-center gap-1.5 text-xs"><span class="size-2 rounded-[2px] bg-primary" aria-hidden="true"></span>Approved</span><span class="inline-flex items-center gap-1.5 text-xs"><span class="size-2 rounded-[2px] bg-amber-400" aria-hidden="true"></span>Rejected</span></p>
         </div>
         <div class="ui-card-content">
           <div class="grid h-[110px] grid-cols-8 gap-2.5 px-1"
                role="img"
-               aria-label="Weekly approved and sent-back decisions; exact counts in the table below">
+               aria-label="Weekly approved and rejected decisions; exact counts in the table below">
             {% for week in weeks %}
               <div class="flex h-full flex-col justify-end">
                 <span class="block rounded-t-[3px] bg-amber-400"
-                      style="height: {{ week.sent_back_height }}px"
-                      title="{{ week.sent_back }} sent back"></span><span class="block rounded-b-[3px] bg-primary {% if not week.sent_back %}rounded-t-[3px]{% endif %}"
+                      style="height: {{ week.rejected_height }}px"
+                      title="{{ week.rejected }} rejected"></span><span class="block rounded-b-[3px] bg-primary {% if not week.rejected %}rounded-t-[3px]{% endif %}"
       style="height: {{ week.approved_height }}px"
       title="{{ week.approved }} approved"></span>
               </div>
             {% endfor %}
           </div>
           <div class="grid grid-cols-8 gap-2.5 px-1 pt-1.5 text-center text-[11px] text-soft-foreground">{% for week in weeks %}<span>{{ week.label }}</span>{% endfor %}</div>
-          <table class="sr-only"><caption>Decisions per week</caption><thead><tr><th scope="col">Week</th><th scope="col">Approved</th><th scope="col">Sent back</th></tr></thead><tbody>{% for week in weeks %}<tr><td>{{ week.label }}</td><td>{{ week.approved }}</td><td>{{ week.sent_back }}</td></tr>{% endfor %}</tbody></table>
+          <table class="sr-only"><caption>Decisions per week</caption><thead><tr><th scope="col">Week</th><th scope="col">Approved</th><th scope="col">Rejected</th></tr></thead><tbody>{% for week in weeks %}<tr><td>{{ week.label }}</td><td>{{ week.approved }}</td><td>{{ week.rejected }}</td></tr>{% endfor %}</tbody></table>
         </div>
       </section>
     </div>

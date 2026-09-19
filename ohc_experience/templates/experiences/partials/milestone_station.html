@@ -22,7 +22,7 @@
       <span class="ui-station-code">{{ tile.definition.code }}</span>
       <span class="ui-station-name">{{ tile.definition.name }}</span>
       <span class="ui-station-status">
-        {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'j M' }}{% elif tile.locked_by %}Locked · submit {{ tile.locked_by }} first{% elif tile.status == 'query_raised' %}Query raised · {% if tile.reply_needed %}reply needed{% else %}with {{ experience_program.reviewer_name }}{% endif %}{% elif tile.item.pending %}Under review · with {{ experience_program.reviewer_name }}{% elif tile.status == 'sent_back' %}Sent back · waiting on you{% else %}{{ tile.label }} · waiting on you{% endif %}
+        {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'j M' }}{% elif tile.locked_by %}Locked · submit {{ tile.locked_by }} first{% elif tile.status == 'query_raised' %}Query raised · {% if tile.reply_needed %}reply needed{% else %}with {{ experience_program.reviewer_name }}{% endif %}{% elif tile.item.pending %}Under review · with {{ experience_program.reviewer_name }}{% elif tile.status == 'rejected' %}Rejected · waiting on you{% else %}{{ tile.label }} · waiting on you{% endif %}
       </span>
     </span>
   </a>

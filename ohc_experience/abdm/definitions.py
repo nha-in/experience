@@ -26,8 +26,8 @@ from .forms import WasaReviewForm
 from .gateway import ABDMProductionCredentials
 from .gateway import ABDMSandboxCredentials
 from .reference import ABDMReferenceEnvironment
-from .send_back_reasons import EXIT_SEND_BACK_REASONS
-from .send_back_reasons import ORGANISATION_SEND_BACK_REASONS
+from .reject_reasons import EXIT_REJECT_REASONS
+from .reject_reasons import ORGANISATION_REJECT_REASONS
 from .skills import ABDMAgentSkills
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
@@ -71,7 +71,7 @@ class OrganisationVerification(ApplicationFormDefinition):
     reuse_scope = FormReuseScope.ORGANISATION
     form_class = OrganisationForm
     allow_approved_updates = True
-    send_back_reasons = ORGANISATION_SEND_BACK_REASONS
+    reject_reasons = ORGANISATION_REJECT_REASONS
 
     @classmethod
     def initial_data(cls, item):
@@ -102,8 +102,8 @@ class OrganisationVerification(ApplicationFormDefinition):
         return ()
 
     @classmethod
-    def on_send_back(cls, item, actor):
-        item.organisation.set_verification("sent_back")
+    def on_reject(cls, item, actor):
+        item.organisation.set_verification("rejected")
 
     @classmethod
     def on_withdraw(cls, item, actor):
@@ -119,7 +119,7 @@ class ExitEvidence(ApplicationFormDefinition):
     request_label = "exit request"
     submit_label = "Request for exit"
     submitted_message = "Exit requested."
-    send_back_reasons = EXIT_SEND_BACK_REASONS
+    reject_reasons = EXIT_REJECT_REASONS
     approval_notice = (
         "The NHA gateway team issues production credentials. Your production "
         "client ID appears on the Credentials page once it is issued."
