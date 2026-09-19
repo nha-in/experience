@@ -22,7 +22,7 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float flex flex-col gap-6">
-    <div class="grid gap-4 lg:grid-cols-3" aria-label="Summary">
+    <div class="grid gap-4 lg:grid-cols-2" aria-label="Summary">
       <a class="ui-tile ui-rise [animation-delay:.06s]"
          href="{% url 'experiences:queue' %}?scope=ready">
         <span class="ui-kicker">Ready for review</span><span class="ui-tile-figure">{{ ready_count }}</span>
@@ -46,11 +46,6 @@
         {% if waiting_count %}<span class="ui-tile-note">{{ waiting_count }} more waiting on prerequisites.</span>{% endif %}
       </a>
       <a class="ui-tile ui-rise [animation-delay:.12s]"
-         href="{% url 'experiences:queue' %}?scope=ready&amp;assignee=unassigned">
-        <span class="ui-kicker">Unassigned</span><span class="flex items-baseline gap-2"><span class="ui-tile-figure">{{ unassigned_count }}</span><span class="ui-figure-unit">of {{ ready_count }}</span></span><span class="ui-meter mt-0.5" aria-hidden="true"><span class="ui-meter-fill ui-meter-fill--muted"
-      style="width: {% widthratio unassigned_count ready_count 100 %}%"></span></span><span class="ui-tile-note">Waiting for a reviewer to be assigned.</span>
-      </a>
-      <a class="ui-tile ui-rise [animation-delay:.18s]"
          href="{% url 'experiences:queue' %}?scope=decided&amp;status=approved">
         <span class="ui-kicker">Approved this month</span><span class="flex items-center gap-2.5"><span class="ui-tile-figure">{{ approved_month }}</span><span class="flex size-7 items-center justify-center rounded-full bg-primary-50 text-primary"
       aria-hidden="true"><svg viewBox="0 0 24 24"

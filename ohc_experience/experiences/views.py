@@ -1927,7 +1927,6 @@ def assess_dashboard(request):
         page_title="Reviewer dashboard",
         nav="assess-dashboard",
         my_open=ready.filter(assignee=request.user).count(),
-        unassigned_count=ready.filter(assignee=None).count(),
         approved_by_milestone=[
             {
                 "label": milestone.code,
