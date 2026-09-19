@@ -39,10 +39,11 @@ CATEGORIES = [
     "abdm-m4",
     "abdm-review",
     "abdm-scan-share",
-    "phr-app",
+    "phr-app-p1",
     "nhcx-auth",
     "nhcx-workflow",
     "nhcx-data",
+    "uhi-service",
 ]
 #: A category the support menu does not answer to, as the tracks support used to
 #: be filed by leave behind on the tickets that were filed under them.

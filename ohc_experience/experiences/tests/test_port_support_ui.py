@@ -9,6 +9,7 @@ from django.utils import timezone
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.definitions import SupportCategoryDefinition
 from ohc_experience.experiences.forms import SupportForm
 from ohc_experience.experiences.models import EventRegistration
 from ohc_experience.experiences.models import Notification
@@ -106,20 +107,59 @@ def test_a_category_takes_an_issue_type_from_its_own_sub_menu(portal_workspaces)
     assert form.cleaned_data["issue_type"] == "Data Transfer"
 
 
-def test_a_category_with_no_sub_menu_records_no_issue_type(portal_workspaces):
-    """ "Others" asks nothing further, and drops an issue type posted anyway."""
+def test_a_category_with_no_sub_menu_records_no_issue_type():
+    """A category that asks nothing further drops an issue type posted anyway.
+
+    Every ABDM category has a sub-menu now, so this uses a program that keeps a
+    bare one: the rule belongs to the form, not to one program's menu.
+    """
+
+    class BareMenu:
+        @staticmethod
+        def support_category_map():
+            return {
+                "bare": SupportCategoryDefinition("bare", "Bare"),
+                "full": SupportCategoryDefinition(
+                    "full",
+                    "Full",
+                    issue_types=("Data Transfer",),
+                ),
+            }
+
     form = SupportForm(
-        workspace=portal_workspaces[0],
+        program=BareMenu,
         data={
             "subject": "Help",
             "priority": "medium",
             "body": "Details",
-            "category": "",
+            "category": "bare",
             "issue_type": "Data Transfer",
         },
     )
     assert form.is_valid(), form.errors
     assert form.cleaned_data["issue_type"] == ""
+
+
+def test_others_asks_which_kind_of_general_question_it_is(portal_workspaces):
+    """The catch-all carries a sub-menu of its own, so it is answered like one."""
+
+    def submit(**extra):
+        return SupportForm(
+            workspace=portal_workspaces[0],
+            data={
+                "subject": "Help",
+                "priority": "medium",
+                "body": "Details",
+                "category": "",
+                **extra,
+            },
+        )
+
+    assert not submit().is_valid()
+    assert "issue_type" in submit(issue_type="Data Transfer").errors
+    form = submit(issue_type="Access / General Inquiry / Concerns")
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["issue_type"] == "Access / General Inquiry / Concerns"
 
 
 def test_issue_type_menu_is_flat_and_tags_each_option_with_its_category(

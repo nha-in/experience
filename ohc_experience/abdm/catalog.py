@@ -171,10 +171,35 @@ SUPPORT_CATEGORIES = (
         ("Profile On Share",),
     ),
     SupportCategoryDefinition(
-        "phr-app",
-        "PHR App",
+        "phr-app-p1",
+        "PHR App - P1",
         "PHR",
-        description="Personal health record application issues",
+        ("Registration Flow", "Login Flow"),
+    ),
+    SupportCategoryDefinition(
+        "phr-app-p2",
+        "PHR App - P2",
+        "PHR",
+        (
+            "Health Facility Record Linking",
+            "Health Program Record Linking",
+            "Consent Flow",
+            "Scan and Register",
+        ),
+    ),
+    SupportCategoryDefinition(
+        "phr-app-p3",
+        "PHR App - P3",
+        "PHR",
+        ("HIU Services",),
+    ),
+    # The locker is its own track, so a product that applied for the locker
+    # alone still reaches this category, and a PHR app reaches it too.
+    SupportCategoryDefinition(
+        "phr-app-p4",
+        "PHR App - P4",
+        "HealthLocker",
+        ("Health Locker",),
     ),
     SupportCategoryDefinition(
         "nhcx-auth",
@@ -200,8 +225,33 @@ SUPPORT_CATEGORIES = (
         ),
     ),
     SupportCategoryDefinition(
+        "uhi-integration",
+        "UHI - Integration / APIs",
+        "UHI",
+        (
+            "Sandbox / Production Access",
+            "API Credentials & Authentication",
+            "API Callback issues",
+        ),
+    ),
+    SupportCategoryDefinition(
+        "uhi-service",
+        "UHI - Service",
+        "UHI",
+        (
+            (
+                "Facility & Hospital Discovery "
+                "(PMJAY Hospital, NOTTO Hospital, Blood Bank)"
+            ),
+            "Medicine & Pharmacy Discovery (Jan Aushadhi Kendra, AMRIT Pharmacy)",
+            "Emergency & Ambulance Booking",
+            "Doctor Consultations Booking",
+        ),
+    ),
+    SupportCategoryDefinition(
         "",
         "Others",
+        issue_types=("Access / General Inquiry / Concerns",),
         description="Anything the other categories do not cover",
     ),
 )

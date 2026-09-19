@@ -18,6 +18,12 @@ pytestmark = pytest.mark.django_db
 BEFORE = [("experiences", "0024_withdrawn_organisation_verifications")]
 AFTER = [("experiences", "0025_support_grants_by_category")]
 
+
+def latest():
+    """The tip, so the next test does not start a migration behind it."""
+    return MigrationExecutor(connection).loader.graph.leaf_nodes()
+
+
 ABDM = {
     "abdm-m1",
     "abdm-m2",
@@ -41,7 +47,7 @@ def categories(user, area):
 def at_before():
     MigrationExecutor(connection).migrate(BEFORE)
     yield MigrationExecutor(connection).loader.project_state(BEFORE).apps
-    MigrationExecutor(connection).migrate(AFTER)
+    MigrationExecutor(connection).migrate(latest())
 
 
 def grant(apps, user, area, category, **flags):
