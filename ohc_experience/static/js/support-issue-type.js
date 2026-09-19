@@ -7,7 +7,7 @@
 // change event so that combobox redraws. A category with no sub-menu hides the
 // field: there is nothing to choose, and the server stores no issue type for it.
 //
-// Without JavaScript the sub-menu is a grouped select listing every issue type,
+// Without JavaScript the sub-menu is a flat select listing every issue type,
 // and the server still rejects one that does not belong to the chosen category.
 (() => {
   const selector = '[data-issue-type-field]';
@@ -15,14 +15,10 @@
   function narrow(category, issueType, field) {
     const chosen = category.value;
     let available = 0;
-    for (const group of issueType.querySelectorAll('optgroup')) {
-      let shown = 0;
-      for (const option of group.children) {
-        option.hidden = option.dataset.category !== chosen;
-        if (!option.hidden) shown += 1;
-      }
-      group.hidden = !shown;
-      available += shown;
+    for (const option of issueType.options) {
+      if (option.value === '') continue;
+      option.hidden = option.dataset.category !== chosen;
+      if (!option.hidden) available += 1;
     }
     field.hidden = !available;
     const current = issueType.options[issueType.selectedIndex];

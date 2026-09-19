@@ -147,11 +147,13 @@ RESOLVE_COMMENT_MIN_LENGTH = 10
 
 
 class IssueTypeSelect(forms.Select):
-    """Each option names the category it sits under, so the sub-menu can narrow.
+    """Each option carries the code of the category it belongs to, so the sub-menu
+    can narrow to the chosen category.
 
-    Grouping alone would let a script match on the group's label; naming the
-    category on the option keeps that link explicit, and keeps it working if
-    two programs ever label a category the same way.
+    Tagging the option rather than grouping under a category heading keeps the
+    link explicit, keeps the dropdown free of a redundant category name once it
+    is narrowed, and keeps working if two programs ever label a category the
+    same way.
     """
 
     def __init__(self, *args, **kwargs):
@@ -206,13 +208,17 @@ class SupportForm(forms.Form):
         self.fields["category"].choices = [
             (category.code, category.name) for category in self.categories
         ]
+        # "Others" sits last in the menu but stays the default, so a ticket filed
+        # without a choice still lands in the catch-all rather than the first
+        # milestone.
+        self.fields["category"].initial = ""
         issue_type = self.fields["issue_type"]
         issue_type.choices = [
             ("", "Not specified"),
             *(
-                (category.name, [(entry, entry) for entry in category.issue_types])
+                (entry, entry)
                 for category in self.categories
-                if category.issue_types
+                for entry in category.issue_types
             ),
         ]
         issue_type.widget.categories = {

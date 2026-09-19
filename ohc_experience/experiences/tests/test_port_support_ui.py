@@ -54,15 +54,17 @@ def test_ticket_defaults_and_applied_category_choices(portal_workspaces):
     form = SupportForm(workspace=portal_workspaces[0])
     assert form["priority"].value() == "medium"
     assert [value for value, _label in form.fields["category"].choices] == [
-        "",
         "abdm-m1",
         "abdm-m2",
         "abdm-m3",
         "abdm-m4",
         "abdm-review",
         "abdm-scan-share",
+        "",
     ]
-    assert form.fields["category"].choices[0][1] == "Others"
+    # "Others" sits last but is still what a ticket defaults to.
+    assert form.fields["category"].choices[-1][1] == "Others"
+    assert form["category"].value() == ""
 
 
 @pytest.mark.parametrize("category", ["phr-app", "nhcx-auth", "HIE-CM", "unknown"])
@@ -120,6 +122,18 @@ def test_a_category_with_no_sub_menu_records_no_issue_type(portal_workspaces):
     assert form.cleaned_data["issue_type"] == ""
 
 
+def test_issue_type_menu_is_flat_and_tags_each_option_with_its_category(
+    portal_workspaces,
+):
+    """The sub-menu lists issue types only: no category heading, but each option
+    still carries the category it belongs to so the script can narrow it."""
+    html = str(SupportForm(workspace=portal_workspaces[0])["issue_type"])
+    assert "<optgroup" not in html
+    # Category names all read "ABDM - …"; no issue type does, so none leaked in.
+    assert "ABDM - " not in html
+    assert 'value="Data Transfer" data-category="abdm-m2"' in html
+
+
 @pytest.mark.parametrize("route", ["experiences:support", "experiences:events"])
 def test_programme_pages_keep_current_product(portal_client, portal_workspaces, route):
     response = portal_client.get(reverse(route))
@@ -174,6 +188,28 @@ def test_ticket_create_saves_category_and_scopes_product(
     assert ticket.category_label == "ABDM - Milestone 2"
     assert ticket.product == portal_workspaces[1].product
     assert ticket.messages.get().body == "The callback returns an unexpected status."
+
+
+def test_ticket_list_shows_category_and_sub_category_columns(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_workspaces[1].product,
+        subject="Callback rejects the request",
+        created_by=owner_membership.user,
+        category="abdm-m2",
+        issue_type="Bridge Service",
+    )
+    response = portal_client.get(reverse("experiences:support"))
+    assert response.status_code == HTTPStatus.OK
+    body = response.content.decode()
+    assert ">Category</th>" in body
+    assert ">Sub-category</th>" in body
+    assert "ABDM - Milestone 2" in body
+    assert "Bridge Service" in body
 
 
 def test_ticket_creation_error_keeps_form_and_does_not_write(portal_client):

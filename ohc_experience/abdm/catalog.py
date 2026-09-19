@@ -113,14 +113,10 @@ TRACK_MAP = {track.code: track for track in TRACKS}
 
 #: What a ticket is filed under, and what a support permission is granted for.
 #: Finer than the tracks the same program is reviewed by, because the milestone
-#: a question is about is what decides who can answer it. "Others" keeps the
-#: blank category the portal has always used for work that belongs to no track.
+#: a question is about is what decides who can answer it. "Others" is the blank
+#: category the portal has always used for work that belongs to no track; it
+#: sits last so the milestones lead and the catch-all is the fallback.
 SUPPORT_CATEGORIES = (
-    SupportCategoryDefinition(
-        "",
-        "Others",
-        description="Anything the other categories do not cover",
-    ),
     SupportCategoryDefinition(
         "abdm-m1",
         "ABDM - Milestone 1",
@@ -202,6 +198,11 @@ SUPPORT_CATEGORIES = (
             "Encryption/Decryption Errors",
             "Payload Size Issue",
         ),
+    ),
+    SupportCategoryDefinition(
+        "",
+        "Others",
+        description="Anything the other categories do not cover",
     ),
 )
 SUPPORT_CATEGORY_MAP = {category.code: category for category in SUPPORT_CATEGORIES}
