@@ -9,8 +9,8 @@ import re
 from collections import defaultdict
 from datetime import date
 from datetime import datetime
+from functools import partial
 
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
@@ -23,6 +23,9 @@ from django.db.models import Q
 from django.db.models import Subquery
 from django.utils import timezone
 
+from ohc_experience.integrations.notification.templates import PRODUCTION_APPROVED
+from ohc_experience.integrations.ports import NotificationMessage
+from ohc_experience.integrations.registry import get_notification_gateway
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Role
 
@@ -33,7 +36,7 @@ from .models import Product
 from .models import ProductCredential
 from .permissions import has_access
 from .workflows import audit
-from .workflows import notify_integrators
+from .workflows import integrator_emails
 
 ADDED = "Production client ID added"
 CHANGED = "Production client ID changed"
@@ -198,6 +201,12 @@ def record(product, actor, *, client_id, expected, issued_on=None):
             )
     except IntegrityError:
         raise ValidationError(IN_USE) from None
+    # Read before this change is audited: a correction, or an ID removed and
+    # entered again, is not news to the integrator.
+    announced = AuditEvent.objects.filter(
+        product=product,
+        action__in=AUTHORED,
+    ).exists()
     audit(
         actor=actor,
         action=CHANGED if before else ADDED,
@@ -208,7 +217,8 @@ def record(product, actor, *, client_id, expected, issued_on=None):
             "issued_on": _date(issued_on),
         },
     )
-    _notify(product, changed=bool(before))
+    if not announced:
+        _notify(product)
 
 
 @transaction.atomic
@@ -228,25 +238,21 @@ def remove(product, actor, *, expected):
     audit(actor=actor, action=REMOVED, product=product, detail={"before": before})
 
 
-def _notify(product, *, changed):
-    """Tell the team where to look. The ID stays out of the mail: every member
-    gets it, including support staff who cannot open the Credentials page."""
-    workspace = product.workspace
-    program = workspace.definition
-    verb = "updated" if changed else "added"
-    link = f"{settings.SITE_BASE_URL.rstrip('/')}{workspace.get_absolute_url()}"
-    notice = program.production_credentials.usage_notice
-    issued = product.production_issued_on
-    notify_integrators(
-        product.organisation,
-        f"{program.short_name}: production client ID {verb}",
-        f"The production client ID for {product.name} ({workspace.reference}) "
-        f"has been {verb}. It is on the product's Credentials page"
-        + (f", issued on {issued:%d %b %Y}" if issued else "")
-        + ".\n\n"
-        + (f"{notice}\n\n" if notice else "")
-        + link,
-    )
+def _notify(product):
+    """Only ABDM's approved wording may go out until NHA agrees to our own.
+
+    Ours named the Credentials page and linked to it; it is in this file's
+    history if that answer comes back yes.
+    """
+    gateway = get_notification_gateway()
+    for email in integrator_emails(product.organisation):
+        message = NotificationMessage(
+            template=PRODUCTION_APPROVED,
+            receiver=email,
+            values=(),
+        )
+        # After commit: a gateway failure must not undo the recorded ID.
+        transaction.on_commit(partial(gateway.send, message))
 
 
 def listing(program, *, stage="all", q=""):

@@ -1,0 +1,9 @@
+Dear Sir/Ma'am,
+
+Greetings from Team ABDM!
+
+Congratulations, your organization is now eligible to move to ABDM production for integration and deployment.
+Your client_ID and secret key will be shared separately by NHA shortly.
+
+Regards,
+Team ABDM

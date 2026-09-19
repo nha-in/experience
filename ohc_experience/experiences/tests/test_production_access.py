@@ -19,15 +19,14 @@ from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import AuditEvent
-from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.registry import get_program
+from ohc_experience.integrations.local import LocalNotificationGateway
+from ohc_experience.integrations.notification.templates import PRODUCTION_APPROVED
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
-
-PRODUCTION_MAIL = "ABDM: production client ID"
 
 
 def staff(category="", *, approver=False, **fields):
@@ -76,8 +75,9 @@ def record(environment, client_id, *, expected="", actor=None, issued_on=None):
     )
 
 
-def production_mail():
-    return Notification.objects.filter(subject__startswith=PRODUCTION_MAIL)
+def announced():
+    """What the notification gateway was asked to send."""
+    return LocalNotificationGateway().sent()
 
 
 def second_product(environment):
@@ -126,15 +126,18 @@ def test_only_onboarding_approvers_record(environment):
     assert saved_id(environment) == "PROD-1"
 
 
-def test_record_change_and_remove_are_audited_and_mailed(environment, settings):
-    settings.SITE_BASE_URL = "https://sandbox.example.in/"
+def test_record_change_and_remove_are_audited_and_announced_once(
+    environment,
+    django_capture_on_commit_callbacks,
+):
     today = timezone.localdate().isoformat()
     approve(environment)
     product = product_of(environment)
-    record(environment, "PROD-1")
-    record(environment, "PROD-1", expected="PROD-1")
-    record(environment, "PROD-2", expected="PROD-1")
-    production.remove(product, environment["reviewer"], expected="PROD-2")
+    with django_capture_on_commit_callbacks(execute=True):
+        record(environment, "PROD-1")
+        record(environment, "PROD-1", expected="PROD-1")
+        record(environment, "PROD-2", expected="PROD-1")
+        production.remove(product, environment["reviewer"], expected="PROD-2")
     product.refresh_from_db()
     assert (product.production_client_id, product.production_recorded_at) == ("", None)
     events = AuditEvent.objects.filter(product=product, action__in=production.ACTIONS)
@@ -146,18 +149,18 @@ def test_record_change_and_remove_are_audited_and_mailed(environment, settings):
         ),
         (production.REMOVED, {"before": "PROD-2"}),
     ]
-    # Record and change are mailed to every active member; saving the same ID
-    # again and removing it are not.
-    mails = production_mail().order_by("pk")
-    assert [mail.subject for mail in mails] == [
-        f"{PRODUCTION_MAIL} added",
-        f"{PRODUCTION_MAIL} updated",
+    # NHA's approved wording announces eligibility, so it goes out once: the
+    # correction and the removal are audited only.
+    assert announced() == [
+        {
+            "channel": "email",
+            "receiver": environment["applicant"].email,
+            "template_id": PRODUCTION_APPROVED.id,
+            "subject": PRODUCTION_APPROVED.subject,
+            "values": [],
+            "content_type": "info",
+        },
     ]
-    assert {mail.recipient for mail in mails} == {environment["applicant"].email}
-    for mail in mails:
-        assert "https://sandbox.example.in/products/" in mail.body
-        assert environment["workspace"].reference in mail.body
-        assert "PROD-" not in mail.body
 
 
 def test_rejected_client_ids(environment):
@@ -385,12 +388,16 @@ def test_programs_that_do_not_record_production_ids(environment, client, monkeyp
     assert 'id="production-card"' not in content
 
 
-def test_the_issue_date_is_entered_and_corrected(environment):
+def test_the_issue_date_is_entered_and_corrected(
+    environment,
+    django_capture_on_commit_callbacks,
+):
     """The day the gateway team issued the credentials, which NHA enters."""
     approve(environment)
     product = product_of(environment)
     issued = timezone.localdate() - timedelta(days=5)
-    record(environment, "PROD-1", issued_on=issued)
+    with django_capture_on_commit_callbacks(execute=True):
+        record(environment, "PROD-1", issued_on=issued)
     assert issued_day(environment) == issued
     with pytest.raises(ValidationError, match="cannot be in the future"):
         record(
@@ -403,7 +410,7 @@ def test_the_issue_date_is_entered_and_corrected(environment):
     corrected = issued + timedelta(days=1)
     record(environment, "PROD-1", expected="PROD-1", issued_on=corrected)
     assert issued_day(environment) == corrected
-    assert production_mail().count() == 1
+    assert len(announced()) == 1
     dated = AuditEvent.objects.filter(product=product, action=production.DATED)
     assert [event.detail for event in dated] == [
         {"before": issued.isoformat(), "after": corrected.isoformat()},
@@ -414,8 +421,11 @@ def test_the_issue_date_is_entered_and_corrected(environment):
     # An ID added without a date is taken as issued today.
     production.remove(product, environment["reviewer"], expected="PROD-1")
     assert issued_day(environment) is None
-    record(environment, "PROD-2")
+    with django_capture_on_commit_callbacks(execute=True):
+        record(environment, "PROD-2")
     assert issued_day(environment) == timezone.localdate()
+    # An ID entered again after a mistaken one is no second announcement.
+    assert len(announced()) == 1
 
 
 def test_the_screens_use_nhas_words(environment, client):

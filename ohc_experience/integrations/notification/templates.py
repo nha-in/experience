@@ -36,3 +36,10 @@ PASSWORD_RESET_CODE = NotificationTemplate(
     body="notifications/password_reset_code.txt",
     content_type=NotificationContentType.OTP,
 )
+PRODUCTION_APPROVED = NotificationTemplate(
+    id="74003",
+    channel=NotificationChannel.EMAIL,
+    subject="ABDM Application Approved: Eligible to move to Production Environment",
+    values=(),
+    body="notifications/production_approved.txt",
+)

@@ -121,16 +121,19 @@ def audit(*, actor, action, item=None, product=None, organisation=None, detail=N
     )
 
 
-def notify_integrators(organisation, subject, body):
-    recipients = (
+def integrator_emails(organisation):
+    return (
         organisation.memberships.filter(user__is_active=True)
         .values_list("user__email", flat=True)
         .distinct()
     )
+
+
+def notify_integrators(organisation, subject, body):
     Notification.objects.bulk_create(
         [
             Notification(recipient=email, subject=subject, body=body)
-            for email in recipients
+            for email in integrator_emails(organisation)
         ],
     )
 
