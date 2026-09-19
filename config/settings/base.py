@@ -493,6 +493,12 @@ ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_CHANGE = True
 ACCOUNT_PHONE_VERIFICATION_CODE_FORMAT = ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT
 ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = 3
 ACCOUNT_PHONE_VERIFICATION_SUPPORTS_CHANGE = True
+# A password reset is an emailed OTP too, as on the legacy portal.
+ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED = True
+ACCOUNT_PASSWORD_RESET_BY_CODE_CODE_FORMAT = ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT
+# The approved template promises ten minutes and three tries.
+ACCOUNT_PASSWORD_RESET_BY_CODE_TIMEOUT = 10 * 60
+ACCOUNT_PASSWORD_RESET_BY_CODE_MAX_ATTEMPTS = 3
 # How long before a new code can be asked for, as on the legacy portal.
 VERIFICATION_RESEND_AFTER_SECONDS = 90
 # https://docs.allauth.org/en/latest/account/configuration.html
@@ -508,6 +514,9 @@ ACCOUNT_FORMS = {
     "change_email": "ohc_experience.users.forms.UserChangeEmailForm",
     "confirm_email_verification_code": (
         "ohc_experience.users.forms.UserConfirmEmailVerificationCodeForm"
+    ),
+    "confirm_password_reset_code": (
+        "ohc_experience.users.forms.UserConfirmPasswordResetCodeForm"
     ),
     "verify_phone": "ohc_experience.users.forms.UserVerifyPhoneForm",
     "change_phone": "ohc_experience.users.forms.UserChangePhoneForm",

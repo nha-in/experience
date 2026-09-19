@@ -81,13 +81,13 @@ The main purpose keys for `GLOBAL_EMAIL_TEMPLATE_IDS` are:
 | --- | --- |
 | `notification` | Workflow, review, support, and event notifications. |
 | `organisation_invitation` | Organisation membership invitation. |
-| `account/email/password_reset_key` | Password reset link. |
+| `account/email/unknown_account` | Password reset asked for an address with no account. |
 
 Other account notices may require additional allauth template-prefix keys. Obtain approved template IDs for each purpose or an approved fallback; the code does not assume sample IDs are valid. The Global Email integration does not require NIC SMTP credentials. Its gateway sender determines the actual From address. Celery worker and beat are needed for automatic delivery.
 
 Source: `config/settings/base.py`, `config/settings/production.py`, `docs/global_email.md`.
 
-For **email and mobile verification codes**, the web process calls ABDM's notification service directly. Signup confirms the address and the number on one screen, each with its own 6-digit code; the number is saved only once its code is confirmed. The service is reachable only from inside the ABDM VPC:
+For **email and mobile verification codes and the password reset OTP**, the web process calls ABDM's notification service directly. Signup confirms the address and the number on one screen, each with its own 6-digit code; the number is saved only once its code is confirmed. A password reset emails a 6-digit OTP, good for ten minutes and three tries, instead of a link. The service is reachable only from inside the ABDM VPC:
 
 | Variable | Requirement / default |
 | --- | --- |

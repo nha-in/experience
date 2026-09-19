@@ -27,3 +27,12 @@ MOBILE_VERIFICATION_CODE = NotificationTemplate(
     body="notifications/mobile_verification_code.txt",
     content_type=NotificationContentType.OTP,
 )
+
+PASSWORD_RESET_CODE = NotificationTemplate(
+    id="74005",
+    channel=NotificationChannel.EMAIL,
+    subject="Password reset",
+    values=("code",),
+    body="notifications/password_reset_code.txt",
+    content_type=NotificationContentType.OTP,
+)

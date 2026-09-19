@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from ohc_experience.core.mail import apply_gateway_template
 from ohc_experience.integrations.notification.templates import EMAIL_VERIFICATION_CODE
 from ohc_experience.integrations.notification.templates import MOBILE_VERIFICATION_CODE
+from ohc_experience.integrations.notification.templates import PASSWORD_RESET_CODE
 from ohc_experience.integrations.ports import AdapterError
 from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.registry import get_notification_gateway
@@ -39,6 +40,7 @@ CODE_SENT_MESSAGES = frozenset(
     },
 )
 CODE_UNDELIVERED = "verification_code_undelivered"
+PASSWORD_RESET_CODE_MAIL = "account/email/password_reset_code"  # noqa: S105
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -46,6 +48,19 @@ class AccountAdapter(DefaultAccountAdapter):
         message = super().render_mail(template_prefix, email, context, headers)
         apply_gateway_template(message, template_prefix)
         return message
+
+    def send_mail(self, template_prefix, email, context) -> None:
+        """The reset code is a code: it takes the same route as the others,
+        reaching the person while they wait rather than through the outbox."""
+        if template_prefix == PASSWORD_RESET_CODE_MAIL:
+            self._send_code(
+                context.get("request") or self.request,
+                PASSWORD_RESET_CODE,
+                email,
+                context["code"],
+            )
+            return
+        super().send_mail(template_prefix, email, context)
 
     def is_open_for_signup(self, request: HttpRequest) -> bool:
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)

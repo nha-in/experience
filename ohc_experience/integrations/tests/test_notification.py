@@ -47,6 +47,17 @@ SMS_TEXT = (
     "\n"
     "ABDM, National Health Authority"
 )
+#: What notification-db holds for template 74005, filled in.
+RESET_TEXT = (
+    "Dear Applicant, \n"
+    "\n"
+    "The OTP to reset password for ABDM Sandbox is 380489. This OTP is valid "
+    "for 10 minutes and can be used only once. Do not disclose this to anyone.\n"
+    "\n"
+    "Thank you & Regards,\n"
+    "\n"
+    "ABDM Team."
+)
 
 SMS_OTP = NotificationMessage(
     template=MOBILE_VERIFICATION_CODE,
@@ -116,6 +127,33 @@ def test_an_email_goes_to_the_same_endpoint_as_a_message(gateway, transport):
                 {"key": "templateId", "value": EMAIL_OTP_TEMPLATE_ID},
                 {"key": "subject", "value": "Email verification"},
                 {"key": "content", "value": EMAIL_TEXT},
+            ],
+        },
+    ]
+
+
+def test_the_reset_otp_carries_its_registered_text(gateway, transport):
+    gateway.send(
+        NotificationMessage(
+            template=registry.PASSWORD_RESET_CODE,
+            receiver="applicant@example.in",
+            values=("380489",),
+        ),
+    )
+
+    [request] = transport.requests("POST", MESSAGE_PATH)
+    assert transport.sent() == [
+        {
+            "origin": "abha",
+            "type": ["email"],
+            "contentType": "otp",
+            "sender": "NHASMS",
+            "receiver": [{"key": "emailId", "value": "applicant@example.in"}],
+            "notification": [
+                {"key": "requestId", "value": request.headers[REQUEST_ID_HEADER]},
+                {"key": "templateId", "value": "74005"},
+                {"key": "subject", "value": "Password reset"},
+                {"key": "content", "value": RESET_TEXT},
             ],
         },
     ]

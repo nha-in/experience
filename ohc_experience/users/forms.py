@@ -5,6 +5,7 @@ from allauth.account.forms import ChangeEmailForm
 from allauth.account.forms import ChangePasswordForm
 from allauth.account.forms import ChangePhoneForm
 from allauth.account.forms import ConfirmEmailVerificationCodeForm
+from allauth.account.forms import ConfirmPasswordResetCodeForm
 from allauth.account.forms import LoginForm
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.forms import ResetPasswordKeyForm
@@ -371,6 +372,10 @@ class UserConfirmEmailVerificationCodeForm(
 
 
 class UserVerifyPhoneForm(CodeInputMixin, VerifyPhoneForm):
+    pass
+
+
+class UserConfirmPasswordResetCodeForm(CodeInputMixin, ConfirmPasswordResetCodeForm):
     pass
 
 

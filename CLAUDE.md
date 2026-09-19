@@ -4,6 +4,7 @@
 - Never start another `runserver` on a different port. If port 8000 is busy, check what holds it (`lsof -nP -iTCP:8000 -sTCP:LISTEN`) and reuse or stop it. Stop any server or watcher you start yourself before you finish.
 - The server uses the `ohc_experience_demo` database. After switching branches, run `migrate` against it. If the new branch lacks a migration that was applied, recreate the database (`dropdb`, `createdb`, `migrate`, `seed_experience_demo --reset`) with the environment from `.claude/launch.json`.
 - A worktree in another folder needs its own port and database; never point it at `ohc_experience_demo`.
+- "Spin up worktree" means: serve this worktree's changes for review on its own port, database and Redis index, without touching anything already running. Take the first free port above 8000, clone the demo data (`createdb -T ohc_experience_demo ohc_experience_wt_<branch>`) rather than reseeding, since `seed_experience_demo` needs an `LGD_API_KEY` that local shells do not have, then `migrate` the clone. Review it at `http://localhost:<port>`, not `127.0.0.1`: a cookie ignores the port, so the same host on two ports would sign you out of the other server. Leave the server running.
 
 # Dropdowns
 

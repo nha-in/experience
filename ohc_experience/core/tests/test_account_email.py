@@ -1,5 +1,6 @@
 """Account mail renders real allauth templates into the gateway outbox, except
-verification codes, which go straight to the notification gateway."""
+verification and password reset codes, which go straight to the notification
+gateway."""
 
 from unittest.mock import Mock
 from uuid import uuid4
@@ -10,6 +11,7 @@ from django.urls import reverse
 from ohc_experience.core.mail import QUEUED_GLOBAL_EMAIL_BACKEND
 from ohc_experience.experiences.models import Notification
 from ohc_experience.integrations.local import LocalNotificationGateway
+from ohc_experience.integrations.notification.templates import PASSWORD_RESET_CODE
 
 pytestmark = pytest.mark.django_db
 
@@ -35,7 +37,7 @@ def gateway(settings, monkeypatch):
         "GLOBAL_EMAIL_API_URL": "https://gateway.invalid/email/send",
     }
     settings.GLOBAL_EMAIL_TEMPLATE_IDS = {
-        "account/email/password_reset_key": "74011",
+        "account/email/unknown_account": "74011",
     }
     network = Mock(side_effect=AssertionError("Unexpected network request"))
     monkeypatch.setattr("requests.Session.request", network)
@@ -60,12 +62,31 @@ def test_signup_sends_its_codes_through_the_notification_gateway(
     gateway.assert_not_called()
 
 
-def test_password_reset_renders_reset_link_into_outbox(client, user, gateway):
+def test_password_reset_sends_its_code_through_the_notification_gateway(
+    client,
+    gateway,
+    user,
+):
     response = client.post(reverse("account_reset_password"), {"email": user.email})
     assert response.status_code == 302  # noqa: PLR2004
+    [emailed] = LocalNotificationGateway().sent()
+    assert emailed["channel"] == "email"
+    assert emailed["receiver"] == user.email
+    assert emailed["template_id"] == PASSWORD_RESET_CODE.id
+    assert emailed["content_type"] == "otp"
+    assert not Notification.objects.exists()
+    gateway.assert_not_called()
+
+
+def test_an_unknown_address_still_takes_the_outbox(client, gateway):
+    response = client.post(
+        reverse("account_reset_password"),
+        {"email": "nobody@example.org"},
+    )
+    assert response.status_code == 302  # noqa: PLR2004
     notification = Notification.objects.get()
-    assert notification.recipient == user.email
+    assert notification.recipient == "nobody@example.org"
     assert notification.template_id == "74011"
-    assert "/accounts/password/reset/key/" in notification.body
     assert notification.sent_at is None
+    assert LocalNotificationGateway().sent() == []
     gateway.assert_not_called()
