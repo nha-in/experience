@@ -5,8 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    replaces = [("events", "0002_event_category_event_program")]
-
     dependencies = [
         ("events_and_activities", "0001_initial"),
     ]

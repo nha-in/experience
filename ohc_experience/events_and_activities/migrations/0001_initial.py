@@ -9,11 +9,6 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    # This app used to be labelled "events". Databases migrated before the
-    # rename recorded these migrations under that label, so claim them here to
-    # keep their history consistent.
-    replaces = [('events', '0001_initial')]
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
