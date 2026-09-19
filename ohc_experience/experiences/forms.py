@@ -1,6 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import MinLengthValidator
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .fields import MultipleFileField
@@ -122,6 +123,10 @@ class ProductionAccessForm(forms.Form):
     )
     #: The ID the form was opened with, so a concurrent change is not overwritten.
     expected = forms.CharField(required=False, widget=forms.HiddenInput)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["issued_on"].widget.attrs["max"] = timezone.localdate().isoformat()
 
     def clean_client_id(self):
         return validate_client_id(self.cleaned_data["client_id"])

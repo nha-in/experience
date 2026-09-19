@@ -471,6 +471,9 @@ class WasaReviewForm(ReviewForm):
     def __init__(self, *args, product=None, **kwargs):
         self.product = product
         super().__init__(*args, **kwargs)
+        # The expiry has no cap of its own: it follows the audit date, which
+        # only the browser knows while it is being typed.
+        self.fields["wasa_date"].widget.attrs["max"] = timezone.localdate().isoformat()
         self._agency_choices()
 
     def _agency_choices(self):

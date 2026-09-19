@@ -114,6 +114,15 @@ def test_date_picker_limits_refresh_for_each_form(monkeypatch):
     second = ExitEvidenceForm()
 
     for form, day in ((first, today), (second, tomorrow)):
-        for field in ("start_date", "end_date"):
+        for field in ("start_date", "end_date", "wasa_date"):
             assert form.fields[field].widget.attrs["max"] == day.isoformat()
         assert form.fields["tentative_demo_date"].widget.attrs["min"] == day.isoformat()
+
+
+def test_wasa_expiry_picker_is_left_to_follow_its_audit_date():
+    """An expired certificate is refused on submission but kept on a draft."""
+    form = ExitEvidenceForm()
+
+    attrs = form.fields["wasa_valid_until"].widget.attrs
+    assert "min" not in attrs
+    assert "max" not in attrs

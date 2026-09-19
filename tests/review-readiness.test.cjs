@@ -276,6 +276,26 @@ test('sandbox end date follows the start date while retaining its latest allowed
   }
 });
 
+test('the WASA expiry date can never precede the audit date it follows', () => {
+  const today = '2026-09-18';
+  const page = createPage();
+  const audit = page.date('wasa_date', { value: '2026-09-16', max: today });
+  const expiry = page.date('wasa_valid_until', { value: '2027-09-15' });
+  page.initialize();
+
+  assert.equal(audit.max, today);
+  assert.equal(expiry.min, '2026-09-16');
+
+  // An expired certificate is refused only on submission, so a draft keeps
+  // reaching back to its own audit date rather than to today.
+  for (const value of [today, '2024-01-05', '']) {
+    audit.value = value;
+    page.change(audit);
+    assert.equal(expiry.min, value);
+    assert.equal(expiry.max, '');
+  }
+});
+
 test('milestone selection includes prerequisites and names exactly what will be submitted', () => {
   const page = createPage({ currentMilestoneCode: 'M4' });
   const m1 = page.milestone('M1', '1');

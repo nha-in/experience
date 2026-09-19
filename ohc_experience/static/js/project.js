@@ -244,7 +244,7 @@
     });
   }
 
-  function updateSandboxDateConstraints(form) {
+  function updateDateConstraints(form) {
     const start = form.querySelector('[name="start_date"]');
     const end = form.querySelector('[name="end_date"]');
     const demo = form.querySelector('[name="tentative_demo_date"]');
@@ -257,6 +257,12 @@
     // The server caps testing at today; a demo cannot be earlier than today
     // even when testing ended in the past or its end date is cleared.
     if (end && demo) demo.min = end.value > end.max ? end.value : end.max;
+    // A certificate cannot expire before the audit that issued it. An expired
+    // certificate is refused on submission but kept on a draft, so the floor
+    // here is the audit date rather than today.
+    const audit = form.querySelector('[name="wasa_date"]');
+    const expiry = form.querySelector('[name="wasa_valid_until"]');
+    if (audit && expiry) expiry.min = audit.value || '';
   }
 
   function updateMilestoneSelection(form, changed) {
@@ -315,7 +321,7 @@
   function updateSubmission(form) {
     updateMilestoneSelection(form);
     updateWasaFields(form);
-    updateSandboxDateConstraints(form);
+    updateDateConstraints(form);
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');
     if (!button) return;
@@ -386,7 +392,7 @@
     // Drafts and rejected submissions can arrive with the audit date saved and
     // the expiry still blank; fill it before counting what needs attention.
     scope.querySelectorAll?.('[data-autofill-target]').forEach(autofillFromDate);
-    scope.querySelectorAll?.('[data-review-form]').forEach(updateSandboxDateConstraints);
+    scope.querySelectorAll?.('[data-review-form]').forEach(updateDateConstraints);
     scope.querySelectorAll?.('[data-review-form]').forEach(updateSubmission);
     scope.querySelectorAll?.('[data-decision-form]').forEach(updateDecision);
     scope.querySelectorAll?.('[data-revealed-secret]').forEach(secret => {

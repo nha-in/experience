@@ -17,6 +17,7 @@ from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
+from ohc_experience.experiences.forms import ProductionAccessForm
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import Product
@@ -426,6 +427,19 @@ def test_the_issue_date_is_entered_and_corrected(
     assert issued_day(environment) == timezone.localdate()
     # An ID entered again after a mistaken one is no second announcement.
     assert len(announced()) == 1
+
+
+def test_the_issue_date_picker_refuses_a_future_day(monkeypatch):
+    """The calendar stops where validate_issued_on does, and follows the day."""
+    today = timezone.localdate()
+    monkeypatch.setattr(timezone, "localdate", lambda: today)
+    opened = ProductionAccessForm()
+    tomorrow = today + timedelta(days=1)
+    monkeypatch.setattr(timezone, "localdate", lambda: tomorrow)
+    reopened = ProductionAccessForm()
+
+    for form, day in ((opened, today), (reopened, tomorrow)):
+        assert form.fields["issued_on"].widget.attrs["max"] == day.isoformat()
 
 
 def test_the_screens_use_nhas_words(environment, client):
