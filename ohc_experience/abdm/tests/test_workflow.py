@@ -1306,6 +1306,56 @@ def test_an_integrator_cannot_restart_a_chain(environment, client):
     assert response.status_code == 403
 
 
+def test_the_product_page_offers_the_retry_too(environment, client):
+    """The page an operator reaches a broken product from, not only its request."""
+    fail_next(ExternalSystem.HIECM, "create_bridge", retryable=False)
+    _org, product = _pending_organisation(environment)
+    provision_inline(product)
+    url = reverse("experiences:product-detail", args=[product.workspace.reference])
+    client.force_login(environment["reviewer"])
+
+    html = client.get(url).content.decode()
+    response = client.post(url, {"intent": "retry_provisioning"}, follow=True)
+
+    assert "Retry provisioning</button>" in html
+    assert ">Not set up</span>" in html
+    assert "Provisioning restarted." in response.content.decode()
+    assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
+
+
+def test_the_product_page_starts_a_product_that_was_never_provisioned(
+    environment,
+    client,
+):
+    _org, product = _pending_organisation(environment)
+    ProvisioningRun.objects.filter(product=product).delete()
+    url = reverse("experiences:product-detail", args=[product.workspace.reference])
+    client.force_login(environment["reviewer"])
+
+    html = client.get(url).content.decode()
+    response = client.post(url, {"intent": "retry_provisioning"}, follow=True)
+
+    assert "Start provisioning</button>" in html
+    assert "Provisioning started." in response.content.decode()
+    assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
+
+
+def test_the_product_page_hides_the_retry_a_healthy_ledger_does_not_want(
+    environment,
+    client,
+):
+    """The button is hidden on a healthy product; posting the intent anyway fails."""
+    workspace = environment["workspace"]
+    url = reverse("experiences:product-detail", args=[workspace.reference])
+    client.force_login(environment["reviewer"])
+
+    html = client.get(url).content.decode()
+    response = client.post(url, {"intent": "retry_provisioning"})
+
+    assert "retry_provisioning" not in html
+    assert response.status_code == 403
+
+
 def test_a_rotation_that_cannot_be_stored_says_so(environment):
     credential = ProductCredential.objects.get(product=environment["workspace"].product)
     before = stored_secret(environment["workspace"].product)

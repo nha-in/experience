@@ -771,6 +771,14 @@ def product_detail(request, reference):
     product = workspace.product
     program = workspace.definition
     if request.method == "POST":
+        if request.POST.get("intent") == "retry_provisioning":
+            if not _can_provision(request.user, product, program.key):
+                raise PermissionDenied
+            _provision(request, product)
+            return redirect(
+                reverse("experiences:product-detail", args=[workspace.reference])
+                + "#connection",
+            )
         try:
             return _product_review_post(request, workspace)
         except ValidationError as error:
@@ -915,6 +923,9 @@ def product_detail(request, reference):
             production=production_services.state(product)
             if production_services.can_view(request.user, program)
             else None,
+            provisioning=provisioning_progress(product) if general_access else [],
+            can_retry_provisioning=_can_provision(request.user, product, program.key),
+            provisioning_never_started=awaiting_provisioning(product),
             general_access=general_access,
             open_tickets=permissions.visible_tickets(request.user).filter(
                 product=product,
@@ -2115,7 +2126,7 @@ def queue(request):
     )
 
 
-def _can_retry_provisioning(user, item):
+def _can_provision(user, product, program_key):
     """A failed chain is an operational fault, so the console owns the re-run.
 
     Its usual causes — a gateway outage, a missing API-name list — are ones only
@@ -2125,12 +2136,27 @@ def _can_retry_provisioning(user, item):
     for organisation verification.
     """
     return bool(
-        item.product_id
-        and permissions.has_access(user, "review", program=item.program.key)
-        and (
-            provisioning_can_be_retried(item.product)
-            or awaiting_provisioning(item.product)
-        ),
+        product
+        and permissions.has_access(user, "review", program=program_key)
+        and (provisioning_can_be_retried(product) or awaiting_provisioning(product)),
+    )
+
+
+def _can_retry_provisioning(user, item):
+    return _can_provision(
+        user,
+        item.product if item.product_id else None,
+        item.program.key,
+    )
+
+
+def _provision(request, product):
+    """Start or re-run the chain, and say which of the two it was."""
+    started = awaiting_provisioning(product)
+    start_provisioning(product, started_by=request.user)
+    messages.success(
+        request,
+        "Provisioning started." if started else "Provisioning restarted.",
     )
 
 
@@ -2169,12 +2195,7 @@ def review(request, pk):
             elif request.POST.get("intent") == "retry_provisioning":
                 if not _can_retry_provisioning(request.user, item):
                     raise PermissionDenied
-                started = awaiting_provisioning(item.product)
-                start_provisioning(item.product, started_by=request.user)
-                messages.success(
-                    request,
-                    "Provisioning started." if started else "Provisioning restarted.",
-                )
+                _provision(request, item.product)
                 return redirect(item)
             else:
                 services.decide(

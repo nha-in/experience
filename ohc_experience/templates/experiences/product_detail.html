@@ -233,7 +233,8 @@
         </section>
       {% endif %}
       {% if general_access and experience_program.sandbox_credentials %}
-        <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+        <section class="ui-card ui-card--layered ui-card--sm ui-rise scroll-mt-20"
+                 id="connection"
                  aria-labelledby="connection-title">
           <div class="ui-card-content">
             <h2 class="mb-3 text-base font-bold" id="connection-title">Integration connection</h2>
@@ -263,6 +264,31 @@
               </dl>
             {% else %}
               <p class="text-sm leading-relaxed text-soft-foreground">No credentials issued yet.</p>
+            {% endif %}
+            {% if provisioning %}
+              <dl class="mt-2.5 grid grid-cols-[72px_1fr] gap-x-3 gap-y-2 border-t border-soft-border pt-2.5 text-sm">
+                {% for system in provisioning %}
+                  <dt class="text-soft-foreground">{{ system.label }}</dt>
+                  <dd>
+                    <span class="ui-badge ui-badge--{{ system.variant }} ui-badge--size-xs">{{ system.display }}</span>
+                  </dd>
+                {% endfor %}
+              </dl>
+            {% endif %}
+            {% if can_retry_provisioning %}
+              {% if provisioning_never_started %}
+                <p class="mt-2.5 text-xs text-soft-foreground">Provisioning has not started for this product.</p>
+              {% endif %}
+              <form class="mt-2.5"
+                    method="post"
+                    data-confirm="{% if provisioning_never_started %}Start provisioning for this product?{% else %}Retry provisioning for this product? Systems already set up are left alone.{% endif %}"
+                    hx-confirm="{% if provisioning_never_started %}Start provisioning for this product?{% else %}Retry provisioning for this product? Systems already set up are left alone.{% endif %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="ui-btn ui-btn--outline ui-btn--size-sm"
+                        name="intent"
+                        value="retry_provisioning">{% if provisioning_never_started %}Start provisioning{% else %}Retry provisioning{% endif %}</button>
+              </form>
             {% endif %}
             {% if production.client_id %}
               <dl class="mt-2.5 grid grid-cols-[72px_1fr] gap-x-3 border-t border-soft-border pt-2.5 text-sm">
