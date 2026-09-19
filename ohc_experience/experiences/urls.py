@@ -52,6 +52,11 @@ urlpatterns = [
         name="reference-environment",
     ),
     path(
+        "products/<str:reference>/agent-skills/",
+        views.agent_skills,
+        name="agent-skills",
+    ),
+    path(
         "products/<str:reference>/handoffs/<slug:handoff_key>/",
         views.product_handoff,
         name="product-handoff",

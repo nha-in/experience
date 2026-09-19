@@ -27,6 +27,7 @@ from .gateway import ABDMSandboxCredentials
 from .reference import ABDMReferenceEnvironment
 from .send_back_reasons import EXIT_SEND_BACK_REASONS
 from .send_back_reasons import ORGANISATION_SEND_BACK_REASONS
+from .skills import ABDMAgentSkills
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
@@ -324,6 +325,7 @@ class ABDM(ProgramDefinition):
     production_credentials = ABDMProductionCredentials
     handoffs = {"dhis": DHISHandoff}
     reference_environment = ABDMReferenceEnvironment
+    agent_skills = ABDMAgentSkills
     signup_organisation_choices = tuple(
         OrganisationForm.base_fields["entity_type"].choices,
     )

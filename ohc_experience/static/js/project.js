@@ -542,6 +542,26 @@ document.addEventListener("keydown", (event) => {
   );
 })();
 
+// Choosing a skill scrolls the install panel back into view; the form never submits.
+(() => {
+  document.addEventListener("change", (event) => {
+    const page = event.target.closest?.("[data-agent-skills]");
+    if (!page || event.target.name !== "skill") return;
+    page
+      .querySelector("[data-agent-skills-install]")
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+  document.addEventListener(
+    "submit",
+    (event) => {
+      if (!event.target.matches?.("[data-agent-skills]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
+})();
+
 // Product reviews stay compact until a reviewer opens a request or follows its link.
 (() => {
   function revealReview(hash) {

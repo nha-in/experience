@@ -56,6 +56,10 @@
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'reference' %}ui-nav-link--active{% endif %}"
    {% if nav == 'reference' %}aria-current="page"{% endif %}
    href="{% url 'experiences:reference-environment' workspace.reference %}">{% include "components/nav_icon.html" with icon="reference" %}Reference</a></li>{% endif %}
+        {% if can_integrate and experience_program.agent_skills %}<li><a id="nav-skills"
+   class="ui-nav-link flex items-center gap-2.5 {% if nav == 'skills' %}ui-nav-link--active{% endif %}"
+   {% if nav == 'skills' %}aria-current="page"{% endif %}
+   href="{% url 'experiences:agent-skills' workspace.reference %}">{% include "components/nav_icon.html" with icon="skills" %}Agent Skills</a></li>{% endif %}
         {% if nav_tracks %}<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Tracks</li>{% endif %}
         {% for row in nav_tracks %}
           <li><a id="nav-track-{{ row.definition.code|slugify }}"

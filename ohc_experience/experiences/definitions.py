@@ -4,15 +4,18 @@ from dataclasses import field
 from datetime import date  # noqa: TC003
 from graphlib import CycleError
 from graphlib import TopologicalSorter
+from pathlib import Path  # noqa: TC003
 from typing import Any
 from typing import ClassVar
 from typing import NamedTuple
 
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError
 
 from .models import FormReuseScope
 from .models import ReviewItem
+from .skills_manifest import read as read_skills_manifest
 
 
 @dataclass(frozen=True)
@@ -356,6 +359,132 @@ class ReferenceEnvironmentDefinition:
         ]
 
 
+class AgentTarget(NamedTuple):
+    """A coding agent, and the folder it reads installed Agent Skills from."""
+
+    label: str
+    #: Ends in a slash: the skill's folder name is appended to it.
+    directory: str
+    #: How this agent picks the skill up, said in one line.
+    note: str = ""
+
+
+class AgentSkillsDefinition:
+    """The Agent Skills a program offers, as the documentation site lists them.
+
+    The skills are published elsewhere; only the milestone mapping is ours.
+    """
+
+    licence = ""
+    #: Where the skills are written, as `owner/repo` and the path inside it.
+    repository = ""
+    branch = "main"
+    source_path = ""
+    #: Setting naming the documentation site this deployment installs from.
+    base_url_setting = ""
+    skills_path = ""
+    docs_path = ""
+    #: The file `manage.py fetch_agent_skills` writes the published list into.
+    manifest_path: ClassVar[Path | None] = None
+    #: The page fills `{skill}` and `{sections}` from whichever skill is chosen.
+    install_command = (
+        "mkdir -p {directory}{skill}/references"
+        " && curl -fsSL {skills_url}/{skill}/SKILL.md"
+        " -o {directory}{skill}/SKILL.md"
+        " && for f in {sections}; do"
+        " curl -fsSL {skills_url}/{skill}/references/$f.md"
+        " -o {directory}{skill}/references/$f.md; done"
+    )
+    #: Install targets by key. The first is shown by default.
+    targets: ClassVar[dict[str, AgentTarget]] = {}
+    #: Milestones each published skill carries, by folder name. A skill this
+    #: does not name is offered to everybody.
+    milestones_by_skill: ClassVar[dict[str, tuple[str, ...]]] = {}
+    #: What a skill holds itself to, shown beside the command.
+    limits: ClassVar[tuple[str, ...]] = ()
+
+    @classmethod
+    def base_url(cls):
+        """The documentation site, as this deployment is pointed at it."""
+        if not cls.base_url_setting:
+            return ""
+        return getattr(settings, cls.base_url_setting, "").rstrip("/")
+
+    @classmethod
+    def skills_url(cls):
+        """Where the skills are fetched from, without a trailing slash."""
+        base = cls.base_url()
+        return f"{base}{cls.skills_path}" if base else ""
+
+    @classmethod
+    def docs_url(cls):
+        """The page that explains what Agent Skills are."""
+        base = cls.base_url()
+        return f"{base}{cls.docs_path}" if base else ""
+
+    @classmethod
+    def skills(cls):
+        """Every published skill, with the milestones this program gives it."""
+        if cls.manifest_path is None:
+            return ()
+        return tuple(
+            skill | {"milestones": cls.milestones_by_skill.get(skill["slug"], ())}
+            for skill in read_skills_manifest(cls.manifest_path)
+        )
+
+    @classmethod
+    def source_url(cls, skill=None):
+        """Where the skills can be read without installing them."""
+        if not cls.repository:
+            return ""
+        path = f"{cls.source_path}/{skill['slug']}" if skill else cls.source_path
+        return f"https://github.com/{cls.repository}/tree/{cls.branch}/{path}"
+
+    @classmethod
+    def command_segments(cls, target):
+        """A target's install command as (slot, text) pairs, in order.
+
+        An empty slot is plain text; `skill` and `sections` are filled by the page.
+        """
+        command = cls.install_command.format(
+            repository=cls.repository,
+            source_path=cls.source_path,
+            skills_url=cls.skills_url(),
+            directory=target.directory,
+            skill="{skill}",
+            sections="{sections}",
+        )
+        parts = re.split(r"\{(skill|sections)\}", command)
+        return [
+            (part, "") if index % 2 else ("", part)
+            for index, part in enumerate(parts)
+            if index % 2 or part
+        ]
+
+    @classmethod
+    def validate(cls, milestones):
+        if not cls.targets:
+            msg = "Agent Skills need an agent to install them into."
+            raise ImproperlyConfigured(msg)
+        if not cls.base_url():
+            msg = (
+                "Agent Skills need a documentation site to be installed from. "
+                f"Set {cls.base_url_setting or 'base_url_setting'} for this "
+                "deployment."
+            )
+            raise ImproperlyConfigured(msg)
+        # The file is not read here: it is data, and a refresh that disagreed
+        # with the mapping would stop the portal booting. A test checks that.
+        for slug, keys in cls.milestones_by_skill.items():
+            unknown = set(keys) - set(milestones)
+            if unknown:
+                msg = (
+                    f"Agent Skill {slug!r} names milestones that are not "
+                    f"in the catalog: {readable_list(sorted(unknown))}."
+                )
+                raise ImproperlyConfigured(msg)
+
+
 class ProgramDefinition:
     """Code-defined product workflow, catalog and portal presentation."""
 
@@ -386,6 +515,7 @@ class ProgramDefinition:
     production_credentials: ClassVar[type[ProductionCredentialDefinition] | None] = None
     handoffs: ClassVar[dict[str, type[ProductHandoffDefinition]]] = {}
     reference_environment: ClassVar[type[ReferenceEnvironmentDefinition] | None] = None
+    agent_skills: ClassVar[type[AgentSkillsDefinition] | None] = None
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     @classmethod
@@ -439,19 +569,8 @@ class ProgramDefinition:
         )
 
     @classmethod
-    def validate(cls):
-        if not cls.key or len(cls.track_map()) != len(cls.tracks):
-            msg = "Programs require a key and uniquely named tracks."
-            raise ImproperlyConfigured(msg)
-        if not cls.applications.overrides.keys() <= cls.milestones.keys():
-            msg = "Application overrides must name a milestone in the catalog."
-            raise ImproperlyConfigured(msg)
-        for key, milestone in cls.milestones.items():
-            if key != milestone.key or (
-                milestone.predecessor and milestone.predecessor not in cls.milestones
-            ):
-                msg = "Milestone keys and prerequisites must exist in the catalog."
-                raise ImproperlyConfigured(msg)
+    def _validate_tracks(cls):
+        """Every track milestone exists, and its prerequisite is offered somewhere."""
         if any(key not in cls.milestones for track in cls.tracks for key in track.keys):
             msg = "Track milestones must exist in the catalog."
             raise ImproperlyConfigured(msg)
@@ -465,6 +584,24 @@ class ProgramDefinition:
                         f"its predecessor {predecessor!r}, so it can never unlock."
                     )
                     raise ImproperlyConfigured(msg)
+
+    @classmethod
+    def validate(cls):
+        if not cls.key or len(cls.track_map()) != len(cls.tracks):
+            msg = "Programs require a key and uniquely named tracks."
+            raise ImproperlyConfigured(msg)
+        if not cls.applications.overrides.keys() <= cls.milestones.keys():
+            msg = "Application overrides must name a milestone in the catalog."
+            raise ImproperlyConfigured(msg)
+        for key, milestone in cls.milestones.items():
+            if key != milestone.key or (
+                milestone.predecessor and milestone.predecessor not in cls.milestones
+            ):
+                msg = "Milestone keys and prerequisites must exist in the catalog."
+                raise ImproperlyConfigured(msg)
+        cls._validate_tracks()
+        if cls.agent_skills is not None:
+            cls.agent_skills.validate(cls.milestones)
         try:
             cls.ordered_milestones()
         except CycleError as error:

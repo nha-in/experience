@@ -1,0 +1,188 @@
+{% extends 'experiences/base.html' %}
+
+{% block portal_hero %}
+  <div class="ui-hero">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        <p class="ui-hero-eyebrow">{{ workspace.product.name }}</p>
+        <h1 class="ui-hero-title">Agent Skills</h1>
+        <p class="ui-hero-lede">Each Agent Skill is one folder compiled from the {{ experience_program.short_name }} catalogue: a map file the agent loads, and sections beside it that open only when the work needs them — scaffolding a milestone flow by flow, the calls and their headers, every recorded error code, and the test matrix. Install one into the agent you already code with, so it works from the recorded flows rather than from memory.</p>
+      </div>
+      <div class="ui-rise flex flex-wrap items-end gap-x-10 gap-y-4 [animation-delay:.05s]">
+        <div>
+          <span class="ui-kicker block">Licence</span>
+          <span class="ui-figure ui-figure--md mt-1 block">{{ agent_skills.licence }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock portal_hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
+{% block portal_content %}
+  {# Nothing is submitted; the choices only change the command shown. #}
+  <form class="ui-float flex flex-col gap-8" data-agent-skills>
+    <section class="ui-card ui-card--layered ui-rise border-primary/40 [animation-delay:.06s]"
+             data-agent-skills-install
+             aria-labelledby="agent-skill-install-title">
+      <div class="ui-card-header">
+        <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div class="min-w-0">
+            <h2 class="ui-card-title" id="agent-skill-install-title">
+              Install the {% for skill in installable_skills %}<span data-show-when-field="skill"
+      data-show-when-value="{{ skill.slug }}"
+      {% if skill.slug != selected_skill %}hidden{% endif %}>{{ skill.title }}</span>{% endfor %} Agent Skill
+            </h2>
+            <p class="ui-card-description mt-1">
+              Fetches the skill's folder into your project. {% for key, target, segments in agent_targets %}<span data-show-when-field="agent"
+      data-show-when-value="{{ key }}"
+      {% if not forloop.first %}hidden{% endif %}>{{ target.note }}</span>{% endfor %}
+            </p>
+          </div>
+          <fieldset class="flex gap-1 rounded-xl bg-muted-background p-1 text-center text-sm">
+            <legend class="sr-only">Agent</legend>
+            {% for key, target, segments in agent_targets %}
+              <label class="flex min-h-9 cursor-pointer items-center justify-center rounded-lg px-3 py-1.5 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+                <input class="sr-only"
+                       type="radio"
+                       name="agent"
+                       value="{{ key }}"
+                       {% if forloop.first %}checked{% endif %} />
+                <span>{{ target.label }}</span>
+              </label>
+            {% endfor %}
+          </fieldset>
+        </div>
+      </div>
+      <div class="ui-card-content">
+        {% for key, target, segments in agent_targets %}
+          <div data-show-when-field="agent"
+               data-show-when-value="{{ key }}"
+               {% if not forloop.first %}hidden{% endif %}>
+            <div class="rounded-xl bg-foreground px-4 py-4 font-mono text-[13px] leading-6 text-inverse-foreground sm:px-5">
+              <p class="text-inverse-foreground/60"># installs into {{ target.directory }}</p>
+              {# The command is kept apart from the comment above it, so only the command is copied. #}
+              <p class="mt-1 flex gap-2">
+                <span class="shrink-0 text-primary-400 select-none" aria-hidden="true">$</span>
+                {# Kept on one line: whitespace between the parts would end up inside the folder name. #}
+                {# djlint:off #}
+                <span class="min-w-0 wrap-anywhere" id="agent-skill-command-{{ key }}">{% for slot, text in segments %}{% if not slot %}{{ text }}{% else %}{% for skill in installable_skills %}<span data-show-when-field="skill" data-show-when-value="{{ skill.slug }}" {% if skill.slug != selected_skill %}hidden{% endif %}>{% if slot == 'skill' %}{{ skill.slug }}{% else %}{{ skill.sections|join:" " }}{% endif %}</span>{% endfor %}{% endif %}{% endfor %}</span>
+                {# djlint:on #}
+              </p>
+            </div>
+            <button type="button"
+                    class="ui-btn ui-btn--outline ui-btn--size-sm mt-4 shadow-md"
+                    data-copy-from="agent-skill-command-{{ key }}"
+                    aria-label="Copy the {{ target.label }} command">
+              <svg data-icon-copy
+                   viewBox="0 0 24 24"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="1.75"
+                   stroke-linecap="round"
+                   stroke-linejoin="round"
+                   aria-hidden="true">
+                <rect x="8" y="8" width="14" height="14" rx="2" />
+                <path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2" />
+              </svg>
+              <svg data-icon-done
+                   class="hidden text-green-600"
+                   viewBox="0 0 24 24"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="2"
+                   stroke-linecap="round"
+                   stroke-linejoin="round"
+                   aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <span data-copy-label>Copy command</span>
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="ui-card-footer flex-wrap justify-between gap-x-6 gap-y-2 border-t border-soft-border pt-4 text-xs text-soft-foreground">
+        <p>
+          {% for limit in agent_skills.limits %}{% if not forloop.first %} <span aria-hidden="true">·</span> {% endif %}{{ limit }}{% endfor %}
+        </p>
+        <a class="font-semibold text-primary no-underline hover:underline"
+           href="{{ agent_skills.docs_url }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           hx-boost="false">How Agent Skills work <span aria-hidden="true">↗&#xFE0E;</span></a>
+      </div>
+    </section>
+    {% for group in skill_groups %}
+      <section class="ui-rise [animation-delay:.12s]"
+               aria-labelledby="agent-skills-{{ group.code|slugify }}-title">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 class="text-lg font-bold tracking-[-0.01em]"
+                id="agent-skills-{{ group.code|slugify }}-title">{{ group.title }}</h2>
+            <p class="text-xs text-soft-foreground">{{ group.caption }}</p>
+          </div>
+          {% if group.matched %}
+            <p class="text-xs text-soft-foreground">Matched to the milestones on {{ workspace.reference }}</p>
+          {% else %}
+            <p class="text-xs text-soft-foreground">
+              Locked until {{ group.code }} is added to this product ·
+              <a class="font-semibold text-primary no-underline hover:underline"
+                 href="{% url 'experiences:product-edit' workspace.reference %}">Edit product</a>
+            </p>
+          {% endif %}
+        </div>
+        <ul class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {% for row in group.skills %}
+            <li class="flex">
+              {% if row.locked %}
+                <div class="ui-card ui-card--sm w-full gap-3 border-dashed bg-muted-background/40">
+                  <div class="ui-card-header flex-1">
+                    <p class="ui-kicker">{{ row.kicker }}</p>
+                    <h3 class="ui-card-title text-soft-foreground">{{ row.definition.title }}</h3>
+                    <p class="ui-card-description">{{ row.summary }}</p>
+                  </div>
+                  <div class="ui-card-footer justify-between gap-3">
+                    <span class="text-xs text-soft-foreground">Compiled</span>
+                    <span class="text-xs text-soft-foreground">Needs {{ row.needs }}</span>
+                  </div>
+                </div>
+              {% else %}
+                <label class="ui-card ui-card--sm group w-full cursor-pointer gap-3 transition-shadow has-[:checked]:border-primary has-[:checked]:ring-1 has-[:checked]:ring-primary/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+                  <input class="sr-only"
+                         type="radio"
+                         name="skill"
+                         value="{{ row.definition.slug }}"
+                         aria-label="Install {{ row.definition.title }}"
+                         {% if row.definition.slug == selected_skill %}checked{% endif %} />
+                  <div class="ui-card-header flex-1">
+                    <div class="flex items-start justify-between gap-2">
+                      <p class="ui-kicker">{{ row.kicker }}</p>
+                      {% if row.badge %}<span class="ui-badge ui-badge--{{ row.badge.1 }} ui-badge--size-xs">{{ row.badge.0 }}</span>{% endif %}
+                    </div>
+                    <h3 class="ui-card-title group-hover:text-primary">{{ row.definition.title }}</h3>
+                    <p class="ui-card-description">{{ row.summary }}</p>
+                  </div>
+                  <div class="ui-card-footer justify-end gap-3">
+                    <span class="ui-btn ui-btn--default ui-btn--size-sm group-has-[:checked]:hidden"
+                          aria-hidden="true">Install skill</span>
+                    <span class="ui-btn ui-btn--secondary ui-btn--size-sm hidden group-has-[:checked]:inline-flex"
+                          aria-hidden="true">Chosen above</span>
+                  </div>
+                </label>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
+  </form>
+{% endblock portal_content %}
+{% block portal_footer %}
+  <p>
+    Read the skills at
+    <a class="font-semibold text-primary no-underline hover:underline"
+       href="{{ agent_skills.source_url }}"
+       target="_blank"
+       rel="noopener noreferrer"
+       hx-boost="false">{{ agent_skills.repository }}/{{ agent_skills.source_path }}<span class="sr-only"> (opens in a new tab)</span></a>
+  </p>
+{% endblock portal_footer %}

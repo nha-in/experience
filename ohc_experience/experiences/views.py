@@ -64,6 +64,8 @@ from .models import ReviewItem
 from .models import ReviewQuery
 from .models import SubmissionStatus
 from .models import TicketAttachment
+from .presentation import agent_skill_groups
+from .presentation import default_agent_skill
 from .presentation import overview_next_step
 from .presentation import overview_progress
 from .queue_presentation import grouped_requests
@@ -1762,6 +1764,36 @@ def reference_environment(request, reference):
             has_credential=credential is not None,
         ),
     )
+
+
+@login_required
+def agent_skills(request, reference):
+    workspace = _workspace(request, reference)
+    catalogue = workspace.definition.agent_skills
+    if catalogue is None:
+        raise Http404
+    permissions.require_integrator(request.user, workspace.product.organisation)
+    context = _context(
+        request,
+        workspace,
+        nav="skills",
+        page_title="Agent Skills",
+        agent_skills=catalogue,
+        agent_targets=[
+            (key, target, catalogue.command_segments(target))
+            for key, target in catalogue.targets.items()
+        ],
+    )
+    context["skill_groups"] = agent_skill_groups(workspace, context["tracks"])
+    context["selected_skill"] = default_agent_skill(context["skill_groups"])
+    # The command names one folder, so a locked skill is never offered to it.
+    context["installable_skills"] = [
+        row["definition"]
+        for group in context["skill_groups"]
+        for row in group["skills"]
+        if not row["locked"]
+    ]
+    return render(request, "experiences/agent_skills.html", context)
 
 
 def _reviewer_required(request):

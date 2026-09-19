@@ -60,6 +60,25 @@ Missing Turnstile configuration blocks production signup. Organisation address v
 
 Source: `config/settings/base.py`, `ohc_experience/users/captcha.py`, `ohc_experience/organisations/lgd.py`.
 
+For the **documentation site**, which the portal links to and the Agent Skills are installed from, configure:
+
+| Variable | Requirement / default |
+| --- | --- |
+| `ABDM_DOCS_URL` | **Point at the documentation site this deployment belongs to.** Default: `https://abdm-docs.dev.eka.care`. A trailing slash is ignored. |
+
+The Agent Skills page builds its install command from this, so it must reach a site serving `/skills/<skill>/SKILL.md` and `/skills/<skill>/references/<section>.md` for the skills in `nha-in/docs` at `plugins/abdm-integrators-assistant/skills`. A staging portal left pointing at production would hand out the wrong skills.
+
+Which skills the page offers is not read from the site at runtime. The list ships in `ohc_experience/abdm/skills.json`, which is generated from the published catalogue and committed. When the documentation site publishes a new skill, refresh the file and commit it:
+
+```
+python manage.py fetch_agent_skills          # rewrite the file from ABDM_DOCS_URL
+python manage.py fetch_agent_skills --check  # fail if the file is behind, write nothing
+```
+
+`--url` overrides the site for a single run. A skill the file lists but `milestones_by_skill` in `ohc_experience/abdm/skills.py` does not name is offered to every product, so a newly published skill shows up before anyone maps it.
+
+Source: `config/settings/base.py`, `ohc_experience/abdm/skills.py`, `ohc_experience/experiences/definitions.py`, `ohc_experience/experiences/skills_manifest.py`.
+
 For **email delivery**, production uses the Global Email API through a durable notification outbox. Configure the gateway and template settings on both the web process and Celery worker:
 
 | Variable | Requirement / default |

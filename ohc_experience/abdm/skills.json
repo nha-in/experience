@@ -1,0 +1,100 @@
+{
+  "skills": [
+    {
+      "slug": "abdm-m1",
+      "title": "M1, ABHA identity",
+      "description": "Use when building, debugging or testing ABDM Milestone 1: creating an ABHA number or address, ABHA login, profile management, or the gateway session token. Carries the endpoints, the required headers, the two token rule, the encryption rule, every recorded error code and the M1 test matrix. Also carries the scaffolding loop that builds it flow by flow and the loop from a failed call to a named fix, in references/.",
+      "sections": [
+        "scaffold",
+        "integrate",
+        "debug",
+        "test"
+      ]
+    },
+    {
+      "slug": "abdm-m2",
+      "title": "M2, linking and sharing",
+      "description": "Use when building, debugging or testing ABDM Milestone 2: care contexts, HIP initiated linking, discovery, and pushing encrypted health records to a requester. Carries the endpoints, the prerequisites, every recorded error code and the M2 test matrix. Also carries the scaffolding loop that builds it flow by flow and the loop from a failed call to a named fix, in references/.",
+      "sections": [
+        "scaffold",
+        "integrate",
+        "debug",
+        "test"
+      ]
+    },
+    {
+      "slug": "abdm-m3",
+      "title": "M3, consent and fetching",
+      "description": "Use when building, debugging or testing ABDM Milestone 3: raising a consent request, tracking its status, reading consent artefacts, and fetching encrypted health records as an HIU. Carries the endpoints, the consent rules, every recorded error code and the M3 test matrix. Also carries the scaffolding loop that builds it flow by flow and the loop from a failed call to a named fix, in references/.",
+      "sections": [
+        "scaffold",
+        "integrate",
+        "debug",
+        "test"
+      ]
+    },
+    {
+      "slug": "abdm-m4",
+      "title": "M4, facility and professional registries",
+      "description": "Use when building, debugging or testing ABDM Milestone 4, the NHPR: creating an HPID, registering a healthcare professional on the HPR, onboarding a facility to the HFR, and linking that facility to its HIP or HIU bridges. Carries the operations NHA has published, the registration order, every recorded error code and the identifier formats.",
+      "sections": [
+        "scaffold",
+        "integrate",
+        "debug",
+        "test"
+      ]
+    },
+    {
+      "slug": "abdm-p1",
+      "title": "P1, PHR identity and profile",
+      "description": "Use when building, debugging or testing ABDM P1, the patient side of Milestone 1: registration in a PHR application, the four login routes, profile management, the ABHA card, and the family members a user manages. Carries the endpoints, the required headers, every recorded error code and the account rules.",
+      "sections": [
+        "scaffold",
+        "integrate",
+        "debug",
+        "test"
+      ]
+    },
+    {
+      "slug": "abdm-p2",
+      "title": "P2, PHR linking and records",
+      "description": "Use when building, debugging or testing ABDM P2, the patient side of Milestone 2: discovering records held elsewhere, linking care contexts to an ABHA address, and pulling those records into a PHR application. Carries the endpoints, the timing rules the network enforces, every recorded error code and the discovery rules.",
+      "sections": [
+        "scaffold",
+        "integrate",
+        "debug",
+        "test"
+      ]
+    },
+    {
+      "slug": "abdm-p3",
+      "title": "P3, PHR consent and notifications",
+      "description": "Use when building, debugging or testing ABDM P3, the patient side of Milestone 3: subscriptions, auto approval policies, granting and revoking consent, and fetching the records a grant covers. Carries the endpoints, the notification rules, every recorded error code and the consent rules.",
+      "sections": [
+        "scaffold",
+        "integrate",
+        "debug",
+        "test"
+      ]
+    },
+    {
+      "slug": "abdm-phr-services",
+      "title": "PHR application services",
+      "description": "Use when building services a PHR application offers on top of ABDM: teleconsultation, nearby facility search, ambulance booking, blood bank search, scan and pay, PMJAY facility discovery and NHCX coverage lookups. None of it is required to certify as a PHR application.",
+      "sections": [
+        "integrate",
+        "debug",
+        "test"
+      ]
+    },
+    {
+      "slug": "abdm-fhir",
+      "title": "FHIR, generating and auditing bundles",
+      "description": "Use when producing or checking FHIR for ABDM: building NRCES compliant document bundle generation into a codebase, or auditing the bundles an existing FHIR store already emits. Covers the resource profiles ABDM requires, the Composition rules, and the validator to check against.",
+      "sections": [
+        "generate",
+        "audit"
+      ]
+    }
+  ]
+}
