@@ -552,10 +552,6 @@ NOTIFICATION_APP_BASE_URL = env.str(
     "NOTIFICATION_APP_BASE_URL",
     default="https://notification-app.invalid",
 )
-NOTIFICATION_DB_BASE_URL = env.str(
-    "NOTIFICATION_DB_BASE_URL",
-    default="https://notification-db.invalid",
-)
 
 # KEYCLOAK
 # ------------------------------------------------------------------------------

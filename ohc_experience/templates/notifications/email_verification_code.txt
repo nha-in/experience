@@ -1,0 +1,6 @@
+Dear User, {# the registered text ends this line with a space #}
+To complete the verification of your email address please use the following One-Time Password (OTP) {{ code }}. Please enter this OTP on the verification page to confirm your email address. This OTP is valid for 10 minutes only.
+
+Thank you for your cooperation.
+
+ABDM, NHA

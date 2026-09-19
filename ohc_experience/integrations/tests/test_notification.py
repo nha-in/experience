@@ -6,36 +6,47 @@ import re
 import uuid
 
 import pytest
-from django.core.cache import cache
+from django.template.loader import render_to_string
 
 from ohc_experience.integrations.http import reset_breakers
+from ohc_experience.integrations.notification import templates as registry
 from ohc_experience.integrations.notification.adapter import REQUEST_ID_HEADER
-from ohc_experience.integrations.notification.adapter import TEMPLATES_CACHE_KEY
 from ohc_experience.integrations.notification.adapter import TIMESTAMP_HEADER
 from ohc_experience.integrations.notification.adapter import AbdmNotificationGateway
 from ohc_experience.integrations.notification.templates import EMAIL_VERIFICATION_CODE
 from ohc_experience.integrations.notification.templates import MOBILE_VERIFICATION_CODE
 from ohc_experience.integrations.ports import AdapterError
-from ohc_experience.integrations.ports import NotificationChannel
 from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.ports import NotificationTemplate
-from ohc_experience.integrations.tests.notification_stub import EMAIL_PATH
-from ohc_experience.integrations.tests.notification_stub import REACTIVATION_TEMPLATE_ID
+from ohc_experience.integrations.tests.notification_stub import EMAIL_OTP_TEMPLATE_ID
+from ohc_experience.integrations.tests.notification_stub import MESSAGE_PATH
 from ohc_experience.integrations.tests.notification_stub import SMS_OTP_TEMPLATE_ID
-from ohc_experience.integrations.tests.notification_stub import SMS_PATH
-from ohc_experience.integrations.tests.notification_stub import TEMPLATE_PATH
-from ohc_experience.integrations.tests.notification_stub import TEMPLATES_PATH
 from ohc_experience.integrations.tests.notification_stub import (
     NotificationStubTransport,
 )
-from ohc_experience.integrations.tests.notification_stub import template
 
 APP_URL = "https://notification-app.test"
-DB_URL = "https://notification-db.test"
 UNAVAILABLE = 503
-#: The template list, then the send.
-FIRST_SEND_CALLS = 2
-TWO_SENDS = 2
+
+#: What notification-db holds for template 100001, filled in.
+EMAIL_TEXT = (
+    "Dear User, \n"
+    "To complete the verification of your email address please use the "
+    "following One-Time Password (OTP) 654321. Please enter this OTP on the "
+    "verification page to confirm your email address. This OTP is valid for "
+    "10 minutes only.\n"
+    "\n"
+    "Thank you for your cooperation.\n"
+    "\n"
+    "ABDM, NHA"
+)
+#: What notification-db holds for template 1007172534306341299, filled in.
+SMS_TEXT = (
+    "OTP for sandbox application to verify mobile number is 123456. "
+    "This OTP is valid for 10 minutes and can be used only once.\n"
+    "\n"
+    "ABDM, National Health Authority"
+)
 
 SMS_OTP = NotificationMessage(
     template=MOBILE_VERIFICATION_CODE,
@@ -47,23 +58,14 @@ EMAIL_OTP = NotificationMessage(
     receiver="user@example.com",
     values=("654321",),
 )
-REACTIVATION = NotificationTemplate(
-    id=REACTIVATION_TEMPLATE_ID,
-    channel=NotificationChannel.SMS,
-    subject="Account reactivated",
-    values=("name",),
-)
 
 
 @pytest.fixture(autouse=True)
 def _isolated(settings):
     settings.NOTIFICATION_APP_BASE_URL = APP_URL
-    settings.NOTIFICATION_DB_BASE_URL = f"{DB_URL}/"
     reset_breakers()
-    cache.delete(TEMPLATES_CACHE_KEY)
     yield
     reset_breakers()
-    cache.delete(TEMPLATES_CACHE_KEY)
 
 
 @pytest.fixture
@@ -81,9 +83,9 @@ def gateway(transport):
 def test_an_sms_otp_is_the_documented_message(gateway, transport):
     gateway.send(SMS_OTP)
 
-    [request] = transport.requests("POST", SMS_PATH)
-    assert str(request.url) == f"{APP_URL}{SMS_PATH}"
-    assert transport.texted() == [
+    [request] = transport.requests("POST", MESSAGE_PATH)
+    assert str(request.url) == f"{APP_URL}{MESSAGE_PATH}"
+    assert transport.sent() == [
         {
             "origin": "abha",
             "type": ["sms"],
@@ -92,96 +94,64 @@ def test_an_sms_otp_is_the_documented_message(gateway, transport):
             "receiver": [{"key": "mobile", "value": "9999999999"}],
             "notification": [
                 {"key": "templateId", "value": SMS_OTP_TEMPLATE_ID},
-                {"key": "content", "value": "Your sandbox OTP is 123456."},
+                {"key": "content", "value": SMS_TEXT},
             ],
         },
     ]
 
 
-def test_an_email_is_posted_to_the_email_endpoint(gateway, transport):
+def test_an_email_goes_to_the_same_endpoint_as_a_message(gateway, transport):
     gateway.send(EMAIL_OTP)
 
-    [request] = transport.requests("POST", EMAIL_PATH)
-    [body] = transport.emailed()
-    assert transport.texted() == []
-    assert body == {
-        "requestId": request.headers[REQUEST_ID_HEADER],
-        "timestamp": body["timestamp"],
-        "origin": "abha",
-        "contentType": "otp",
-        "sender": "NHASMS",
-        "receiver": "user@example.com",
-        "templateId": EMAIL_VERIFICATION_CODE.id,
-        "subject": "Email verification",
-        "content": "Use 654321 to verify your email.",
-    }
-    assert body["timestamp"] > 0
+    [request] = transport.requests("POST", MESSAGE_PATH)
+    assert transport.sent() == [
+        {
+            "origin": "abha",
+            "type": ["email"],
+            "contentType": "otp",
+            "sender": "NHASMS",
+            "receiver": [{"key": "emailId", "value": "user@example.com"}],
+            "notification": [
+                {"key": "requestId", "value": request.headers[REQUEST_ID_HEADER]},
+                {"key": "templateId", "value": EMAIL_OTP_TEMPLATE_ID},
+                {"key": "subject", "value": "Email verification"},
+                {"key": "content", "value": EMAIL_TEXT},
+            ],
+        },
+    ]
 
 
 def test_every_call_carries_a_request_id_and_timestamp(gateway, transport):
     gateway.send(SMS_OTP)
 
-    assert len(transport.calls) == FIRST_SEND_CALLS
-    for request in transport.calls:
-        uuid.UUID(request.headers[REQUEST_ID_HEADER])
-        assert re.fullmatch(
-            r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z",
-            request.headers[TIMESTAMP_HEADER],
-        )
-
-
-def test_templates_come_from_notification_db_once(gateway, transport):
-    gateway.send(SMS_OTP)
-    gateway.send(EMAIL_OTP)
-
-    [listing] = transport.requests("GET", TEMPLATES_PATH)
-    assert str(listing.url) == f"{DB_URL}{TEMPLATES_PATH}"
-    assert len(transport.texted() + transport.emailed()) == TWO_SENDS
-
-
-def test_a_template_outside_the_sandbox_list_is_fetched_by_id(gateway, transport):
-    transport.other_templates[REACTIVATION_TEMPLATE_ID] = template(
-        REACTIVATION_TEMPLATE_ID,
-        "Hello {0}, your account is active again.",
-    )
-    reactivation = NotificationMessage(
-        template=REACTIVATION,
-        receiver="9999999999",
-        values=("Meera",),
+    [request] = transport.calls
+    uuid.UUID(request.headers[REQUEST_ID_HEADER])
+    assert re.fullmatch(
+        r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{6}",
+        request.headers[TIMESTAMP_HEADER],
     )
 
-    gateway.send(reactivation)
-    gateway.send(reactivation)
 
-    assert len(transport.requests("GET", TEMPLATE_PATH)) == 1
-    assert transport.texted()[0]["notification"][1]["value"] == (
-        "Hello Meera, your account is active again."
-    )
-    assert transport.texted()[0]["contentType"] == "info"
+def test_every_notification_renders_its_approved_text():
+    listed = [
+        value
+        for value in vars(registry).values()
+        if isinstance(value, NotificationTemplate)
+    ]
 
-
-def test_an_unknown_template_sends_nothing(gateway, transport):
-    unknown = NotificationMessage(
-        template=NotificationTemplate(
-            id="1",
-            channel=NotificationChannel.SMS,
-            subject="Unknown",
-            values=("x",),
-        ),
-        receiver="9999999999",
-        values=("x",),
-    )
-
-    with pytest.raises(AdapterError) as excinfo:
-        gateway.send(unknown)
-
-    assert excinfo.value.code == "HTTP_404"
-    assert transport.texted() == []
+    assert listed
+    for template in listed:
+        content = render_to_string(
+            template.body,
+            {name: f"__{name}__" for name in template.values},
+        ).strip()
+        assert content
+        assert all(f"__{name}__" in content for name in template.values)
 
 
 @pytest.mark.parametrize("values", [(), ("123456", "extra")])
 def test_values_must_fill_the_template_exactly(gateway, transport, values):
-    with pytest.raises(AdapterError) as excinfo:
+    with pytest.raises(ValueError, match="zip"):
         gateway.send(
             NotificationMessage(
                 template=MOBILE_VERIFICATION_CODE,
@@ -190,8 +160,7 @@ def test_values_must_fill_the_template_exactly(gateway, transport, values):
             ),
         )
 
-    assert excinfo.value.code == "TEMPLATE_MISMATCH"
-    assert transport.texted() == []
+    assert transport.sent() == []
 
 
 @pytest.mark.parametrize("status", ["SENT", "success"])
@@ -220,13 +189,4 @@ def test_a_failed_send_is_not_retried(gateway, transport):
         gateway.send(SMS_OTP)
 
     assert excinfo.value.code == f"HTTP_{UNAVAILABLE}"
-    assert len(transport.requests("POST", SMS_PATH)) == 1
-
-
-def test_a_malformed_template_list_is_reported(gateway, transport):
-    transport.sandbox_templates = [{"id": SMS_OTP_TEMPLATE_ID}]
-
-    with pytest.raises(AdapterError) as excinfo:
-        gateway.send(SMS_OTP)
-
-    assert excinfo.value.code == "MALFORMED_RESPONSE"
+    assert len(transport.requests("POST", MESSAGE_PATH)) == 1

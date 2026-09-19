@@ -91,12 +91,18 @@ For **email and mobile verification codes**, the web process calls ABDM's notifi
 
 | Variable | Requirement / default |
 | --- | --- |
-| `NOTIFICATION_APP_BASE_URL` | **Required for delivery.** Notification app service base URL, without a path, e.g. `http://notificationapp-svc.global-services.svc.cluster.local:9102`. Default: `https://notification-app.invalid`. |
-| `NOTIFICATION_DB_BASE_URL` | **Required for delivery.** Notification DB (template) service base URL, without a path, e.g. `http://notificationdb-svc.global-services.svc.cluster.local:9101`. Default: `https://notification-db.invalid`. |
+| `NOTIFICATION_APP_BASE_URL` | **Required for delivery.** Notification app service base URL, without a path, e.g. `http://globalprodinternal.abdm.gov.in`. Default: `https://notification-app.invalid`. |
 
-Nothing else about this integration is configurable, because nothing else differs between deployments. Production always uses the real gateway and local and test settings always use `LocalNotificationGateway`, which delivers nothing. The origin (`abha`), sender (`NHASMS`) and read timeout are the notification team's contract and live in `ohc_experience/integrations/notification/adapter.py`. Every notification this portal sends is listed in `ohc_experience/integrations/notification/templates.py`, with its template ID, subject and the values that fill its placeholders. Add a notification there; no new environment variable is needed.
+Nothing else about this integration is configurable, because nothing else differs between deployments. Production always uses the real gateway and local and test settings always use `LocalNotificationGateway`, which delivers nothing. The origin (`abha`), sender (`NHASMS`) and read timeout are the notification team's contract and live in `ohc_experience/integrations/notification/adapter.py`. Every notification this portal sends is listed in `ohc_experience/integrations/notification/templates.py`, with its template ID, subject, the values that fill it and the body template holding its approved text. Add a notification there; no new environment variable is needed.
 
-Template text comes from `/internal/v3/notification/template/name/SANDBOX`, or `/internal/v3/notification/template/id/{id}` for a template outside that list, and is cached for an hour. Only the template's `{0}` placeholder is filled, with the code. An SMS is then posted to `/internal/v3/notification/message`, and an email to `/internal/v3/notification/email/send` with the same flat body the Global Email backend sends. The `svc.cluster.local` names resolve only inside the Kubernetes cluster, so an ECS task needs whatever address the notification team provides for callers outside it. A code that cannot be sent is reported to the user, who can request another; the failure is logged without the code.
+The approved text is committed, not fetched: read it from notification-db, which only an in-VPC caller can reach, and copy it into the body template with its `{#var#}` placeholders written as `{{ code }}`.
+
+```sh
+curl -sS -H "REQUEST-ID: $(uuidgen)" -H "TIMESTAMP: $(date -u '+%Y-%m-%d %H:%M:%S.0')" \
+  "$NOTIFICATION_APP_BASE_URL/internal/v3/notification/template/id/100001"
+```
+
+The `TIMESTAMP` header binds to a `java.sql.Timestamp`, so that format is the only one accepted; an ISO-8601 value answers `400 Type mismatch.`. Both channels post to `/internal/v3/notification/message`: an email carries `type: ["email"]`, a `receiver` keyed `emailId`, and its request id and subject as `notification` entries. A code that cannot be sent is reported to the user, who can request another; the failure is logged without the code.
 
 Source: `config/settings/base.py`, `ohc_experience/integrations/notification/`, `ohc_experience/users/adapters.py`.
 

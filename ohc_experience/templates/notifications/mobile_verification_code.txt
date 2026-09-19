@@ -1,0 +1,3 @@
+OTP for sandbox application to verify mobile number is {{ code }}. This OTP is valid for 10 minutes and can be used only once.
+
+ABDM, National Health Authority

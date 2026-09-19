@@ -156,13 +156,15 @@ class NotificationContentType(enum.StrEnum):
 class NotificationTemplate:
     """One notification, as the notification team registered it.
 
-    `values` names the template's `{0}`, `{1}`… placeholders, in order.
+    `body` is the template rendering the approved text, and `values` names the
+    context it is rendered with, in the order the caller supplies.
     """
 
     id: str
     channel: NotificationChannel
     subject: str
     values: tuple[str, ...]
+    body: str
     content_type: NotificationContentType = NotificationContentType.INFO
 
 
