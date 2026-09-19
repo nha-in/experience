@@ -1,5 +1,7 @@
 # ruff: noqa: F811, PLR2004
+from html.parser import HTMLParser
 from unittest import mock
+from urllib.parse import unquote
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
@@ -20,6 +22,8 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 PUBLISHED = "https://abdm-docs.dev.eka.care/skills"
+CLAUDE_SCHEME = "claude://code/new?q="
+CURSOR_SCHEME = "cursor://anysphere.cursor-deeplink/prompt?text="
 
 
 def skills_url(workspace):
@@ -31,6 +35,37 @@ def command(response, target):
     parser = CommandText(f"agent-skill-command-{target}", with_hidden=False)
     parser.feed(response.content.decode())
     return " ".join("".join(parser.parts).split())
+
+
+class DeepLinks(HTMLParser):
+    """Every install deeplink on the page, by the skill it opens and its state."""
+
+    def __init__(self):
+        super().__init__()
+        self.links = []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        href = a.get("href", "")
+        if tag == "a" and a.get("data-show-when-field") == "skill" and "://" in href:
+            self.links.append(
+                {
+                    "href": href,
+                    "slug": a.get("data-show-when-value"),
+                    "hidden": "hidden" in a,
+                },
+            )
+
+
+def deeplinks(response, scheme):
+    """The deeplinks for one agent scheme, in the order the page renders them."""
+    parser = DeepLinks()
+    parser.feed(response.content.decode())
+    return [link for link in parser.links if link["href"].startswith(scheme)]
+
+
+def a_skill(slug):
+    return next(skill for skill in ABDMAgentSkills.skills() if skill["slug"] == slug)
 
 
 def cards(response):
@@ -113,6 +148,70 @@ def test_the_command_fetches_only_the_sections_the_chosen_skill_has(
     )
     assert ">generate audit</span>" in html
     assert ">scaffold integrate debug test</span>" in html
+
+
+def test_claude_and_cursor_get_a_one_click_link_for_the_chosen_skill(
+    environment,
+    client,
+):
+    client.force_login(environment["applicant"])
+
+    page = client.get(skills_url(environment["workspace"]))
+
+    installable = [skill["slug"] for skill in page.context["installable_skills"]]
+    claude = deeplinks(page, CLAUDE_SCHEME)
+    cursor = deeplinks(page, CURSOR_SCHEME)
+    # Claude Code and Cursor each open a link, one per skill the command offers.
+    assert [link["slug"] for link in claude] == installable
+    assert [link["slug"] for link in cursor] == installable
+    # Only the chosen skill's link shows, the same as its command does.
+    assert [link["slug"] for link in claude if not link["hidden"]] == ["abdm-m1"]
+    assert page.context["selected_skill"] == "abdm-m1"
+    # The link lands the command the copy button holds in the composer, unrun.
+    m1 = next(link for link in claude if link["slug"] == "abdm-m1")
+    prompt = unquote(m1["href"].split("q=", 1)[1])
+    assert install("claude", "abdm-m1", M1_SECTIONS) in prompt
+    assert "M1, ABHA identity" in prompt
+    html = page.content.decode()
+    assert ">Open in Claude Code</span>" in html
+    assert ">Open in Cursor</span>" in html
+
+
+def test_an_agent_with_no_url_scheme_only_offers_the_command_to_copy(
+    environment,
+    client,
+):
+    client.force_login(environment["applicant"])
+
+    page = client.get(skills_url(environment["workspace"]))
+
+    # Codex and Copilot have no scheme, so a link that could not open is not drawn.
+    html = page.content.decode()
+    assert "Open in Codex" not in html
+    assert "Open in Copilot" not in html
+    # The command is still theirs to copy.
+    assert command(page, "codex") == install("codex", "abdm-m1", M1_SECTIONS)
+    assert command(page, "copilot") == install("copilot", "abdm-m1", M1_SECTIONS)
+
+
+def test_only_agents_with_a_scheme_build_an_install_deeplink():
+    skill = a_skill("abdm-m1")
+    build = ABDMAgentSkills.install_deeplink
+    targets = ABDMAgentSkills.targets
+
+    claude = build(targets["claude"], skill)
+    cursor = build(targets["cursor"], skill)
+
+    assert claude.startswith(CLAUDE_SCHEME)
+    assert cursor.startswith(CURSOR_SCHEME)
+    prompt = unquote(claude.split("q=", 1)[1])
+    # The command rides in unrun, and the guard rides with it, so a link opened
+    # against the wrong repository asks before it writes.
+    assert install("claude", "abdm-m1", M1_SECTIONS) in prompt
+    assert "ask me for the path" in prompt
+    # An agent with no scheme builds nothing rather than a link that dies on open.
+    assert build(targets["codex"], skill) is None
+    assert build(targets["copilot"], skill) is None
 
 
 def test_the_panel_opens_on_the_skill_for_the_milestone_being_worked_on(

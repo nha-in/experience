@@ -26,11 +26,13 @@ class ABDMAgentSkills(AgentSkillsDefinition):
             "Claude Code",
             ".claude/skills/",
             "Claude Code reads it on the next session.",
+            "claude://code/new?q={prompt}",
         ),
         "cursor": AgentTarget(
             "Cursor",
             ".cursor/skills/",
             "Cursor reads it on the next session.",
+            "cursor://anysphere.cursor-deeplink/prompt?text={prompt}",
         ),
         "codex": AgentTarget(
             "Codex",

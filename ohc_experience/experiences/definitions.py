@@ -8,6 +8,7 @@ from pathlib import Path  # noqa: TC003
 from typing import Any
 from typing import ClassVar
 from typing import NamedTuple
+from urllib.parse import quote
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -396,6 +397,10 @@ class AgentTarget(NamedTuple):
     directory: str
     #: How this agent picks the skill up, said in one line.
     note: str = ""
+    #: A URL that opens the agent with a prompt already in its composer, written
+    #: as a format string that takes one `{prompt}`. Empty for an agent with no
+    #: scheme, which is then offered the command to copy but no one-click link.
+    deeplink: str = ""
 
 
 class AgentSkillsDefinition:
@@ -423,6 +428,16 @@ class AgentSkillsDefinition:
         " && for f in {sections}; do"
         " curl -fsSL {skills_url}/{skill}/references/$f.md"
         " -o {directory}{skill}/references/$f.md; done"
+    )
+    #: What a deeplink drops into the agent's composer, above the line it runs.
+    #: `{skill}` is the chosen skill's title, `{command}` its install command.
+    #: The command lands unrun, since a deeplink only fills the composer and the
+    #: reader presses Enter, which is what gives the guard a chance to be read.
+    install_prompt = (
+        "Set this repository up with the {skill} Agent Skill, then build from"
+        " it. Run:\n\n{command}\n\n"
+        "If this is not the repository you mean to set up, ask me for the path"
+        " before you write anything."
     )
     #: Install targets by key. The first is shown by default.
     targets: ClassVar[dict[str, AgentTarget]] = {}
@@ -489,6 +504,30 @@ class AgentSkillsDefinition:
             for index, part in enumerate(parts)
             if index % 2 or part
         ]
+
+    @classmethod
+    def install_line(cls, target, skill):
+        """The install command for one agent and one skill, filled in full."""
+        return cls.install_command.format(
+            repository=cls.repository,
+            source_path=cls.source_path,
+            skills_url=cls.skills_url(),
+            directory=target.directory,
+            skill=skill["slug"],
+            sections=" ".join(skill["sections"]),
+        )
+
+    @classmethod
+    def install_deeplink(cls, target, skill):
+        """A one-click link that opens `target` with the skill's install command
+        waiting in its composer, or None for an agent that has no URL scheme."""
+        if not target.deeplink:
+            return None
+        prompt = cls.install_prompt.format(
+            skill=skill["title"],
+            command=cls.install_line(target, skill),
+        )
+        return target.deeplink.format(prompt=quote(prompt, safe=""))
 
     @classmethod
     def validate(cls, milestones):

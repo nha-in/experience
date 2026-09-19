@@ -33,14 +33,14 @@
       {% if skill.slug != selected_skill %}hidden{% endif %}>{{ skill.title }}</span>{% endfor %} Agent Skill
             </h2>
             <p class="ui-card-description mt-1">
-              Fetches the skill's folder into your project. {% for key, target, segments in agent_targets %}<span data-show-when-field="agent"
+              Fetches the skill's folder into your project. {% for key, target, segments, deeplinks in agent_targets %}<span data-show-when-field="agent"
       data-show-when-value="{{ key }}"
       {% if not forloop.first %}hidden{% endif %}>{{ target.note }}</span>{% endfor %}
             </p>
           </div>
           <fieldset class="flex gap-1 rounded-xl bg-muted-background p-1 text-center text-sm">
             <legend class="sr-only">Agent</legend>
-            {% for key, target, segments in agent_targets %}
+            {% for key, target, segments, deeplinks in agent_targets %}
               <label class="flex min-h-9 cursor-pointer items-center justify-center rounded-lg px-3 py-1.5 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
                 <input class="sr-only"
                        type="radio"
@@ -54,7 +54,7 @@
         </div>
       </div>
       <div class="ui-card-content">
-        {% for key, target, segments in agent_targets %}
+        {% for key, target, segments, deeplinks in agent_targets %}
           <div data-show-when-field="agent"
                data-show-when-value="{{ key }}"
                {% if not forloop.first %}hidden{% endif %}>
@@ -69,34 +69,59 @@
                 {# djlint:on #}
               </p>
             </div>
-            <button type="button"
-                    class="ui-btn ui-btn--outline ui-btn--size-sm mt-4 shadow-md"
-                    data-copy-from="agent-skill-command-{{ key }}"
-                    aria-label="Copy the {{ target.label }} command">
-              <svg data-icon-copy
-                   viewBox="0 0 24 24"
-                   fill="none"
-                   stroke="currentColor"
-                   stroke-width="1.75"
-                   stroke-linecap="round"
-                   stroke-linejoin="round"
-                   aria-hidden="true">
-                <rect x="8" y="8" width="14" height="14" rx="2" />
-                <path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2" />
-              </svg>
-              <svg data-icon-done
-                   class="hidden text-green-600"
-                   viewBox="0 0 24 24"
-                   fill="none"
-                   stroke="currentColor"
-                   stroke-width="2"
-                   stroke-linecap="round"
-                   stroke-linejoin="round"
-                   aria-hidden="true">
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-              <span data-copy-label>Copy command</span>
-            </button>
+            <div class="mt-4 flex flex-wrap items-center gap-3">
+              {# One link per installable skill; only the chosen skill's shows, the way the command does. #}
+              {% for skill, href in deeplinks %}
+                <a href="{{ href }}"
+                   data-show-when-field="skill"
+                   data-show-when-value="{{ skill.slug }}"
+                   {% if skill.slug != selected_skill %}hidden{% endif %}
+                   class="ui-btn ui-btn--default ui-btn--size-sm no-underline shadow-md"
+                   hx-boost="false"
+                   aria-label="Open the {{ skill.title }} skill in {{ target.label }}">
+                  <svg viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="1.75"
+                       stroke-linecap="round"
+                       stroke-linejoin="round"
+                       aria-hidden="true">
+                    <path d="M15 3h6v6" />
+                    <path d="M10 14 21 3" />
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  </svg>
+                  <span>Open in {{ target.label }}</span>
+                </a>
+              {% endfor %}
+              <button type="button"
+                      class="ui-btn ui-btn--outline ui-btn--size-sm shadow-md"
+                      data-copy-from="agent-skill-command-{{ key }}"
+                      aria-label="Copy the {{ target.label }} command">
+                <svg data-icon-copy
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="1.75"
+                     stroke-linecap="round"
+                     stroke-linejoin="round"
+                     aria-hidden="true">
+                  <rect x="8" y="8" width="14" height="14" rx="2" />
+                  <path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2" />
+                </svg>
+                <svg data-icon-done
+                     class="hidden text-green-600"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2"
+                     stroke-linecap="round"
+                     stroke-linejoin="round"
+                     aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                <span data-copy-label>Copy command</span>
+              </button>
+            </div>
           </div>
         {% endfor %}
       </div>

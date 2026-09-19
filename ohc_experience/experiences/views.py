@@ -1779,10 +1779,6 @@ def agent_skills(request, reference):
         nav="skills",
         page_title="Agent Skills",
         agent_skills=catalogue,
-        agent_targets=[
-            (key, target, catalogue.command_segments(target))
-            for key, target in catalogue.targets.items()
-        ],
     )
     context["skill_groups"] = agent_skill_groups(workspace, context["tracks"])
     context["selected_skill"] = default_agent_skill(context["skill_groups"])
@@ -1792,6 +1788,22 @@ def agent_skills(request, reference):
         for group in context["skill_groups"]
         for row in group["skills"]
         if not row["locked"]
+    ]
+    # An agent with a URL scheme also gets a one-click link per installable
+    # skill, and the page shows the one for whichever skill is chosen.
+    context["agent_targets"] = [
+        (
+            key,
+            target,
+            catalogue.command_segments(target),
+            [
+                (skill, catalogue.install_deeplink(target, skill))
+                for skill in context["installable_skills"]
+            ]
+            if target.deeplink
+            else [],
+        )
+        for key, target in catalogue.targets.items()
     ]
     return render(request, "experiences/agent_skills.html", context)
 
