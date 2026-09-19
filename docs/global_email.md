@@ -83,13 +83,31 @@ requirements still need confirmation in that environment.
 Configure template IDs using `GLOBAL_EMAIL_TEMPLATE_IDS`, a JSON object whose
 keys are message purposes and whose values are approved template ID strings:
 
-| Key | Email |
-| --- | --- |
-| `notification` | General workflow, review, support and event notifications |
-| `support_ticket` | Support ticket thread entries sent to the support inbox |
-| `organisation_invitation` | Organisation membership invitation |
-| `account/email/password_reset_key` | Password reset link |
-| Other allauth template prefixes | Corresponding allauth account notices |
+| Key | Email | Approved ID |
+| --- | --- | --- |
+| `notification` | General workflow and event notices, plus product credential, callback and certificate expiry alerts | `1077013850031295817` |
+| `review` | Review thread updates and the approval that closes them | `1077013850031295815` |
+| `support_ticket` | Support ticket thread entries sent to the support inbox | `1077013850031295816` |
+| `organisation_invitation` | Organisation membership invitation | `1077013850031295818` |
+| Other allauth template prefixes | Corresponding allauth account notices, e.g. `account/email/unknown_account` | — |
+
+The IDs above are the templates NHA registered for this portal. Set them
+verbatim, keeping each ID quoted as a string; they are 19 digits and lose
+precision if parsed as JSON numbers:
+
+```json
+{
+  "notification": "1077013850031295817",
+  "review": "1077013850031295815",
+  "support_ticket": "1077013850031295816",
+  "organisation_invitation": "1077013850031295818"
+}
+```
+
+The one-time codes and the two decision mails do not read this mapping: email
+and mobile verification codes, the password-reset code, and the production
+approval notice each carry their own approved template ID straight to the
+gateway (see `ohc_experience/integrations/notification/templates.py`).
 
 `GLOBAL_EMAIL_TEMPLATE_ID` is an optional fallback for unmapped purposes. Leave
 it empty if each purpose requires its own approved template. A missing ID fails

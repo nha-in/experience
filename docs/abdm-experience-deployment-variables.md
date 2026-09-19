@@ -96,11 +96,16 @@ For **email delivery**, production uses the Global Email API through a durable n
 
 The main purpose keys for `GLOBAL_EMAIL_TEMPLATE_IDS` are:
 
-| Purpose key | Message |
-| --- | --- |
-| `notification` | Workflow, review, support, and event notifications. |
-| `organisation_invitation` | Organisation membership invitation. |
-| `account/email/unknown_account` | Password reset asked for an address with no account. |
+| Purpose key | Message | Approved ID |
+| --- | --- | --- |
+| `notification` | General workflow and event notices, plus product credential, callback and certificate expiry alerts. | `1077013850031295817` |
+| `review` | Review thread updates and the approval that closes them. | `1077013850031295815` |
+| `support_ticket` | Support ticket thread entries. | `1077013850031295816` |
+| `organisation_invitation` | Organisation membership invitation. | `1077013850031295818` |
+| `account/email/unknown_account` | Password reset asked for an address with no account. | — |
+
+Verification codes, the password-reset code, and the production approval notice
+each carry their own approved template ID directly and are not set here.
 
 Other account notices may require additional allauth template-prefix keys. Obtain approved template IDs for each purpose or an approved fallback; the code does not assume sample IDs are valid. The Global Email integration does not require NIC SMTP credentials. Its gateway sender determines the actual From address. Celery worker and beat are needed for automatic delivery.
 

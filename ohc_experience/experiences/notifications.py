@@ -17,8 +17,10 @@ from ohc_experience.core.mail import get_delivery_backend
 
 from .models import ReviewItem
 
-TEMPLATE_KEY = "review_decision"
-NOTICE_TEMPLATE_KEY = "review_notice"
+# One approved template covers the whole review thread, the approval included,
+# so both mails resolve the same key: an unmapped key has no fallback, and a
+# second key is only a second chance to leave one out.
+TEMPLATE_KEY = "review"
 
 EVENT_LABELS = {
     "received": _("Submitted for review"),
@@ -119,7 +121,7 @@ def notify_review(
         subject,
         render_to_string("experiences/email/review_notice_body.txt", context),
         _copies(_applicant(item), item.assignee),
-        NOTICE_TEMPLATE_KEY,
+        TEMPLATE_KEY,
     )
 
 
