@@ -1,0 +1,1 @@
+{% load i18n %}{% blocktranslate count days=days with brand=brand name=outcome.name %}{{ brand }}: {{ name }} — {{ days }} day left{% plural %}{{ brand }}: {{ name }} — {{ days }} days left{% endblocktranslate %}

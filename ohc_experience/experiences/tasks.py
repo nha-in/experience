@@ -3,26 +3,35 @@ from time import monotonic
 
 from anymail.exceptions import AnymailConfigurationError
 from celery import shared_task
+from django.conf import settings
 from django.core.mail import EmailMessage
 from django.core.mail import get_connection
 from django.db import transaction
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 
 from ohc_experience.core.mail import GLOBAL_EMAIL_BACKEND
 from ohc_experience.core.mail import apply_gateway_template
 from ohc_experience.core.mail import get_delivery_backend
 from ohc_experience.core.mail.backends import GlobalEmailAPIError
+from ohc_experience.organisations.models import MANAGER_ROLES
 
 from .credentials import check_callback
 from .models import EventRegistration
 from .models import Notification
 from .models import ProductCredential
+from .models import ProductOutcome
+from .models import ProductOutcomeStatus
 from .permissions import visible_events
 from .registry import get_program
 
 NOTIFICATION_MAX_ATTEMPTS = 5
 NOTIFICATION_BATCH_SIZE = 20
 NOTIFICATION_BATCH_SECONDS = 30
+# Three warnings before a dated outcome lapses, matching the windows integrators
+# already know from the legacy portal, so a renewal can be arranged in time.
+OUTCOME_REMINDER_DAYS = (30, 15, 7)
 
 
 class NotificationNotAcceptedError(RuntimeError):
@@ -160,3 +169,85 @@ def remind_event_registrations():
             )
             registration.reminder_sent = True
             registration.save(update_fields=["reminder_sent"])
+
+
+@shared_task
+def remind_expiring_outcomes():
+    """Warn an organisation before a dated product outcome lapses."""
+    today = timezone.localdate()
+    # A null expiry never satisfies the range, so undated outcomes stay out.
+    due = ProductOutcome.objects.filter(
+        status=ProductOutcomeStatus.ACTIVE,
+        valid_until__gte=today,
+        valid_until__lte=today + timedelta(days=max(OUTCOME_REMINDER_DAYS)),
+    ).values_list("pk", flat=True)
+    for outcome_id in list(due):
+        with transaction.atomic():
+            outcome = (
+                ProductOutcome.objects.select_for_update()
+                .select_related("product__organisation")
+                .get(pk=outcome_id)
+            )
+            _remind_outcome(outcome, today)
+
+
+def _superseded(outcome) -> bool:
+    """A renewal issues a fresh outcome, so only the last one to lapse matters."""
+    return ProductOutcome.objects.filter(
+        product_id=outcome.product_id,
+        outcome_type=outcome.outcome_type,
+        status=ProductOutcomeStatus.ACTIVE,
+        valid_until__gt=outcome.valid_until,
+    ).exists()
+
+
+def _outcome_recipients(organisation):
+    """The owner arranges the renewal; the other managers are kept in the loop."""
+    managers = organisation.memberships.filter(
+        role__in=MANAGER_ROLES,
+    ).select_related("user")
+    emails = {member.user.email for member in managers if member.user.email}
+    owner = organisation.owner
+    primary = owner.email if owner and owner.email else next(iter(sorted(emails)), "")
+    return primary, sorted(emails - {primary})
+
+
+def _outcome_url(product) -> str:
+    """The certification page carries the certificate and the renewal action."""
+    base = settings.SITE_BASE_URL.rstrip("/")
+    workspace = getattr(product, "workspace", None)
+    if not workspace:
+        return base
+    path = reverse("experiences:product-certification", args=[workspace.reference])
+    return f"{base}{path}"
+
+
+def _remind_outcome(outcome, today) -> None:
+    days = (outcome.valid_until - today).days
+    sent = outcome.metadata.get("expiry_reminders") or []
+    # Passing several windows at once, after a quiet worker or a late approval,
+    # owes one mail stating the real days left, not one mail per window missed.
+    windows = [day for day in OUTCOME_REMINDER_DAYS if days <= day and day not in sent]
+    if not windows or _superseded(outcome):
+        return
+    recipient, cc = _outcome_recipients(outcome.product.organisation)
+    if not recipient:
+        return
+    context = {
+        "brand": get_program().short_name,
+        "outcome": outcome,
+        "product": outcome.product,
+        "days": days,
+        "url": _outcome_url(outcome.product),
+    }
+    Notification.objects.create(
+        recipient=recipient,
+        cc=cc,
+        subject=render_to_string(
+            "experiences/email/outcome_expiry_subject.txt",
+            context,
+        ).strip(),
+        body=render_to_string("experiences/email/outcome_expiry_body.txt", context),
+    )
+    outcome.metadata["expiry_reminders"] = sorted({*sent, *windows}, reverse=True)
+    outcome.save(update_fields=["metadata", "updated_at"])
