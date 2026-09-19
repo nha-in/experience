@@ -153,6 +153,14 @@ ABDM_GATEWAY_URL = env(
 # The documentation site, which also serves the Agent Skills.
 ABDM_DOCS_URL = env("ABDM_DOCS_URL", default="https://abdm-docs.dev.eka.care")
 
+# The same documentation site's live MCP server, queried a paragraph at a
+# time instead of installed as a skill. Blank is a supported state: the
+# Docs MCP panel then renders locked instead of pointing anywhere.
+ABDM_MCP_URL = env(
+    "ABDM_MCP_URL",
+    default="https://abdm-docs-mcp.dev.eka.care/mcp",
+)
+
 # Legacy DHIS handoff protocol. Keys must be supplied through deployment secrets.
 ABDM_DHIS_URL = env("ABDM_DHIS_URL", default="https://dhis.abdm.gov.in/DHIS/")
 ABDM_DHIS_JWT_SECRET = env("ABDM_DHIS_JWT_SECRET", default="")
