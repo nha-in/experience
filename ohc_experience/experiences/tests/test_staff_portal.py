@@ -168,7 +168,7 @@ def test_edit_account_email_password_and_permissions_atomically(
         if row["key"] == ("abdm", "review", "*")
     )
     assert wildcard["cells"][2].value() is True
-    data = payload(staff, grants=[("support", "NHCX", ["read", "approve"])])
+    data = payload(staff, grants=[("support", "nhcx-data", ["read", "approve"])])
     data.update(
         name="Updated Member",
         email="new-staff@example.test",
@@ -185,8 +185,9 @@ def test_edit_account_email_password_and_permissions_atomically(
         EmailAddress.objects.filter(user=staff).values_list("email", flat=True),
     ) == [data["email"]]
     assert not permissions.has_area(staff, "review")
-    assert permissions.has_access(staff, "support", "NHCX", "approve")
-    assert not permissions.has_access(staff, "support", "UHI")
+    assert permissions.has_access(staff, "support", "nhcx-data", "approve")
+    # Support is granted by category, so its siblings under NHCX stay shut.
+    assert not permissions.has_access(staff, "support", "nhcx-auth")
     audit = json.loads(LogEntry.objects.get(object_id=str(staff.pk)).change_message)
     assert audit[1]["portal"]["permissions_before"][0]["category"] == "*"
 

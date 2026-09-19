@@ -240,6 +240,35 @@ class TrackDefinition:
         return tuple(dict.fromkeys(key for own in self.keys for key in chain(own)))
 
 
+@dataclass(frozen=True)
+class SupportCategoryDefinition:
+    """One entry in a program's support menu, and the unit a support grant names.
+
+    Support is filed and permissioned more finely than it is reviewed: a track
+    such as HIE-CM answers for four milestones at once, while the people who
+    answer M1 identity questions are rarely the ones who answer M4 registry
+    ones. So the support area gets its own vocabulary, and each category names
+    the ``track`` it belongs to, which is what still ties a ticket back to the
+    milestones a product applied for and to that track's documentation.
+
+    ``issue_types`` is the sub-menu shown once a category is chosen. It labels
+    the ticket for triage and carries no permission of its own: granting at that
+    depth would multiply the permission grid without answering a question
+    anyone asks of it.
+    """
+
+    code: str
+    name: str
+    track: str = ""
+    issue_types: tuple[str, ...] = ()
+    description: str = ""
+
+    @property
+    def summary(self) -> str:
+        """What this category covers, for whoever hands out the permission."""
+        return self.description or readable_list(self.issue_types)
+
+
 class CredentialDefinition:
     """Copy for one kind of credential on a product's Credentials page."""
 
@@ -511,6 +540,7 @@ class ProgramDefinition:
     applications: ClassVar[ApplicationSet]
     milestones: ClassVar[dict[str, MilestoneDefinition]] = {}
     tracks: ClassVar[tuple[TrackDefinition, ...]] = ()
+    support_categories: ClassVar[tuple[SupportCategoryDefinition, ...]] = ()
     sandbox_credentials: ClassVar[type[SandboxCredentialDefinition] | None] = None
     production_credentials: ClassVar[type[ProductionCredentialDefinition] | None] = None
     handoffs: ClassVar[dict[str, type[ProductHandoffDefinition]]] = {}
@@ -659,6 +689,32 @@ class ProgramDefinition:
     @classmethod
     def track_map(cls):
         return {track.code: track for track in cls.tracks}
+
+    @classmethod
+    def support_category_map(cls):
+        """Support's own menu, or one category per track when none is declared."""
+        categories = cls.support_categories or tuple(
+            SupportCategoryDefinition(track.code, track.name, track=track.code)
+            for track in cls.tracks
+        )
+        return {category.code: category for category in categories}
+
+    @classmethod
+    def grant_categories(cls, area):
+        """(code, label, description) rows a grant in this area may name.
+
+        Support answers for its own categories; review and events still answer
+        for tracks, with the blank row for work that belongs to no track.
+        """
+        if area == "support" and cls.support_categories:
+            return tuple(
+                (category.code, category.name, category.summary)
+                for category in cls.support_categories
+            )
+        return (
+            ("", "General / onboarding", "Organisation and product registration"),
+            *((track.code, track.code, track.name) for track in cls.tracks),
+        )
 
     @classmethod
     def on_product_created(cls, product, actor):

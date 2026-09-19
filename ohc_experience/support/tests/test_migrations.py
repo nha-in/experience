@@ -8,11 +8,16 @@ from ohc_experience.support.tests.factories import product_for
 pytestmark = pytest.mark.django_db
 
 BEFORE = [("support", "0006_rename_awaiting_vendor_to_awaiting_integrator")]
-AFTER = [("support", "0007_remove_resolved_status")]
+
+
+def latest():
+    """The tip, so the tables match the models these assertions read through."""
+    return MigrationExecutor(connection).loader.graph.leaf_nodes("support")
 
 
 def test_resolved_tickets_close_without_moving_in_the_queue(organisation):
     product = product_for(organisation)
+    after = latest()
     executor = MigrationExecutor(connection)
     executor.migrate(BEFORE)
     try:
@@ -30,8 +35,12 @@ def test_resolved_tickets_close_without_moving_in_the_queue(organisation):
             )
             for number, status in enumerate(("open", "resolved", "closed"), start=1)
         }
+        # Deferred foreign key triggers from those inserts would otherwise block
+        # the schema changes the later migrations make to this table.
+        with connection.cursor() as cursor:
+            cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
 
-        MigrationExecutor(connection).migrate(AFTER)
+        MigrationExecutor(connection).migrate(after)
 
         migrated = Ticket.objects.in_bulk([ticket.pk for ticket in tickets.values()])
         assert {
@@ -40,4 +49,4 @@ def test_resolved_tickets_close_without_moving_in_the_queue(organisation):
         resolved = tickets["resolved"]
         assert migrated[resolved.pk].updated_at == resolved.updated_at
     finally:
-        MigrationExecutor(connection).migrate(AFTER)
+        MigrationExecutor(connection).migrate(after)

@@ -2493,6 +2493,7 @@ def support(request):
                     product=workspace.product,
                     subject=form.cleaned_data["subject"],
                     category=form.cleaned_data["category"],
+                    issue_type=form.cleaned_data["issue_type"],
                     priority=form.cleaned_data["priority"],
                     created_by=request.user,
                 )
@@ -2533,7 +2534,12 @@ def ticket(request, reference):
     )
     ticket = get_object_or_404(query, reference=reference)
     workspace = ticket.product.workspace
-    track = workspace.definition.track_map().get(ticket.category)
+    # Docs follow the track the ticket's support category belongs to. A category
+    # the program has retired falls back to reading as a track code itself.
+    category = workspace.definition.support_category_map().get(ticket.category)
+    track = workspace.definition.track_map().get(
+        category.track if category else ticket.category,
+    )
     request.session["experience_product"] = workspace.reference
     resolving = request.POST.get("intent") == "close"
     form = SupportForm(
@@ -2541,7 +2547,7 @@ def ticket(request, reference):
         files=request.FILES or None,
         resolving=resolving,
     )
-    for key in ("subject", "category", "priority"):
+    for key in ("subject", "category", "issue_type", "priority"):
         del form.fields[key]
     if request.method == "POST":
         allowed = (

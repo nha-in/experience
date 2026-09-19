@@ -35,20 +35,35 @@ class ProgramCategoryForm(forms.ModelForm):
         self.fields["program"] = forms.ChoiceField(
             choices=[(program.key, program.short_name) for program in programs],
         )
-        categories = dict.fromkeys(
-            track.code for program in programs for track in program.tracks
-        )
+        # A grant's vocabulary depends on the area picked on this same form, so
+        # the field offers every area's categories and clean() narrows them.
+        categories = {}
+        for program in programs:
+            for area in self._areas():
+                for code, label, _description in program.grant_categories(area):
+                    if code:
+                        categories.setdefault(code, label)
         choices = [("", "General / onboarding")]
         if self._meta.model is AccessGrant:
             choices.append(("*", "All categories"))
-        choices.extend((code, code) for code in categories)
+        choices.extend(categories.items())
         self.fields["category"] = forms.ChoiceField(choices=choices, required=False)
+
+    def _areas(self):
+        """Areas this form can name a category for. Events only ever mean tracks."""
+        return ["review", "support"] if self._meta.model is AccessGrant else ["events"]
 
     def clean(self):
         data = super().clean()
         programs = {program.key: program for program in registry.programs()}
         program = programs.get(data.get("program"))
-        allowed = {"", *(program.track_map() if program else [])}
+        area = data.get("area") if self._meta.model is AccessGrant else "events"
+        allowed = {
+            code
+            for code, _label, _description in (
+                program.grant_categories(area) if program else ()
+            )
+        } | {""}
         if self._meta.model is AccessGrant:
             allowed.add("*")
         if data.get("category") not in allowed:

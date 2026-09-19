@@ -50,7 +50,8 @@
             {% include "components/form_errors.html" %}
             <div class="flex flex-col gap-4">
               {% ui_field form.subject placeholder="Briefly describe the problem" %}
-              <div class="grid gap-4 sm:grid-cols-2">{% ui_field form.category help_text="Tracks this product has applied for." %}{% ui_field form.priority %}</div>
+              <div class="grid gap-4 sm:grid-cols-2">{% ui_field form.category help_text="What the ticket is about." %}{% ui_field form.priority %}</div>
+              <div data-issue-type-field>{% ui_field form.issue_type help_text="The part of the category your question is about." %}</div>
               <div>
                 <span class="ui-label">Product</span>
                 <div class="rounded-lg border border-border bg-soft-background px-3 py-2 text-sm">

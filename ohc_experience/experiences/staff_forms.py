@@ -83,14 +83,11 @@ class StaffForm(forms.Form):
         self.permission_groups = []
         self.permission_rows = []
         for program in registry.programs():
-            categories = [
-                ("*", "All categories", "Including future categories"),
-                ("", "General / onboarding", "Organisation and product registration"),
-            ]
-            categories.extend(
-                (track.code, track.code, track.name) for track in program.tracks
-            )
             for area, label in AccessGrant.Area.choices:
+                categories = [
+                    ("*", "All categories", "Including future categories"),
+                    *program.grant_categories(area),
+                ]
                 rows = []
                 for category, category_label, description in categories:
                     key = (program.key, area, category)

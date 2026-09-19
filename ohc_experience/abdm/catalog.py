@@ -1,4 +1,5 @@
 from ohc_experience.experiences.definitions import MilestoneDefinition
+from ohc_experience.experiences.definitions import SupportCategoryDefinition
 from ohc_experience.experiences.definitions import TrackDefinition
 
 MILESTONES = {
@@ -109,6 +110,102 @@ TRACKS = (
     ),
 )
 TRACK_MAP = {track.code: track for track in TRACKS}
+
+#: What a ticket is filed under, and what a support permission is granted for.
+#: Finer than the tracks the same program is reviewed by, because the milestone
+#: a question is about is what decides who can answer it. "Others" keeps the
+#: blank category the portal has always used for work that belongs to no track.
+SUPPORT_CATEGORIES = (
+    SupportCategoryDefinition(
+        "",
+        "Others",
+        description="Anything the other categories do not cover",
+    ),
+    SupportCategoryDefinition(
+        "abdm-m1",
+        "ABDM - Milestone 1",
+        "HIE-CM",
+        (
+            "ABHA Creation",
+            "ABHA Verification",
+            "Get ABHA Card",
+            "Get ABHA Profile",
+            "Profile Update",
+        ),
+    ),
+    SupportCategoryDefinition(
+        "abdm-m2",
+        "ABDM - Milestone 2",
+        "HIE-CM",
+        (
+            "Bridge Service",
+            "HIP Initiated Linking",
+            "Discovery Flow",
+            "Data Transfer",
+            "PHR Bundle / Encryption",
+        ),
+    ),
+    SupportCategoryDefinition(
+        "abdm-m3",
+        "ABDM - Milestone 3",
+        "HIE-CM",
+        ("Consent Management (Request)", "Data Request", "FHIR Bundle Decryption"),
+    ),
+    SupportCategoryDefinition(
+        "abdm-m4",
+        "ABDM - Milestone 4",
+        "HIE-CM",
+        (
+            "Creation - HPR",
+            "Creation - HFR",
+            "Search - Professional",
+            "Search - Facility",
+        ),
+    ),
+    SupportCategoryDefinition(
+        "abdm-review",
+        "ABDM - Review (demo)",
+        "HIE-CM",
+        ("Review of ABDM Milestones (M1/M2/M3/M4)",),
+    ),
+    SupportCategoryDefinition(
+        "abdm-scan-share",
+        "ABDM - Scan & Share",
+        "HIE-CM",
+        ("Profile On Share",),
+    ),
+    SupportCategoryDefinition(
+        "phr-app",
+        "PHR App",
+        "PHR",
+        description="Personal health record application issues",
+    ),
+    SupportCategoryDefinition(
+        "nhcx-auth",
+        "NHCX - Authentication & Access",
+        "NHCX",
+        ("Login/Token Issues", "Role & Permission Errors", "Header Problems"),
+    ),
+    SupportCategoryDefinition(
+        "nhcx-workflow",
+        "NHCX - Workflow & Business Logic",
+        "NHCX",
+        ("Request/Response Error", "Status Errors"),
+    ),
+    SupportCategoryDefinition(
+        "nhcx-data",
+        "NHCX - Data & Payload",
+        "NHCX",
+        (
+            "Invalid Payload Format",
+            "Data type mismatch",
+            "Encryption/Decryption Errors",
+            "Payload Size Issue",
+        ),
+    ),
+)
+SUPPORT_CATEGORY_MAP = {category.code: category for category in SUPPORT_CATEGORIES}
+
 #: Milestones each solution type requires, from NHA's intent-for-request matrix.
 #: Registration preselects them and warns when one is left unchecked, but still
 #: saves. Types not listed require none.

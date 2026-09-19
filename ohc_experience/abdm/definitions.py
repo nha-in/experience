@@ -15,6 +15,7 @@ from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Organisation
 
 from .catalog import MILESTONES
+from .catalog import SUPPORT_CATEGORIES
 from .catalog import TRACKS
 from .dhis import DHISHandoff
 from .forms import ExitEvidenceForm
@@ -321,6 +322,7 @@ class ABDM(ProgramDefinition):
     )
     milestones = MILESTONES
     tracks = TRACKS
+    support_categories = SUPPORT_CATEGORIES
     sandbox_credentials = ABDMSandboxCredentials
     production_credentials = ABDMProductionCredentials
     handoffs = {"dhis": DHISHandoff}

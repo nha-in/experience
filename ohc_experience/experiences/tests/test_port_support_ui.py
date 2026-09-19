@@ -49,26 +49,75 @@ def portal_client(client, owner_membership, portal_workspaces):
     return client
 
 
-def test_ticket_defaults_and_applied_track_choices(portal_workspaces):
+def test_ticket_defaults_and_applied_category_choices(portal_workspaces):
+    """A product on HIE-CM is offered that track's categories, and the catch-all."""
     form = SupportForm(workspace=portal_workspaces[0])
     assert form["priority"].value() == "medium"
-    assert [value for value, _label in form.fields["category"].choices] == ["", "HIE-CM"]
-    assert form.fields["category"].choices[0][1] == "Not track-specific"
+    assert [value for value, _label in form.fields["category"].choices] == [
+        "",
+        "abdm-m1",
+        "abdm-m2",
+        "abdm-m3",
+        "abdm-m4",
+        "abdm-review",
+        "abdm-scan-share",
+    ]
+    assert form.fields["category"].choices[0][1] == "Others"
 
 
-@pytest.mark.parametrize("track", ["PHR", "NHCX", "HealthLocker", "unknown"])
-def test_ticket_refuses_unapplied_track(portal_workspaces, track):
+@pytest.mark.parametrize("category", ["phr-app", "nhcx-auth", "HIE-CM", "unknown"])
+def test_ticket_refuses_a_category_this_product_cannot_file_under(
+    portal_workspaces,
+    category,
+):
+    """Another track's categories, a retired track code, and nonsense alike."""
     form = SupportForm(
         workspace=portal_workspaces[0],
         data={
             "subject": "Help",
             "priority": "medium",
             "body": "Details",
-            "category": track,
+            "category": category,
         },
     )
     assert not form.is_valid()
     assert "category" in form.errors
+
+
+def test_a_category_takes_an_issue_type_from_its_own_sub_menu(portal_workspaces):
+    def submit(**extra):
+        return SupportForm(
+            workspace=portal_workspaces[0],
+            data={
+                "subject": "Help",
+                "priority": "medium",
+                "body": "Details",
+                **extra,
+            },
+        )
+
+    assert not submit(category="abdm-m2").is_valid()
+    # An issue type from another category is no better than none at all.
+    assert "issue_type" in submit(category="abdm-m2", issue_type="ABHA Creation").errors
+    form = submit(category="abdm-m2", issue_type="Data Transfer")
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["issue_type"] == "Data Transfer"
+
+
+def test_a_category_with_no_sub_menu_records_no_issue_type(portal_workspaces):
+    """ "Others" asks nothing further, and drops an issue type posted anyway."""
+    form = SupportForm(
+        workspace=portal_workspaces[0],
+        data={
+            "subject": "Help",
+            "priority": "medium",
+            "body": "Details",
+            "category": "",
+            "issue_type": "Data Transfer",
+        },
+    )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["issue_type"] == ""
 
 
 @pytest.mark.parametrize("route", ["experiences:support", "experiences:events"])
@@ -112,14 +161,17 @@ def test_ticket_create_saves_category_and_scopes_product(
         reverse("experiences:support"),
         {
             "subject": "Callback rejects the request",
-            "category": "HealthLocker",
+            "category": "abdm-m2",
+            "issue_type": "Bridge Service",
             "priority": "medium",
             "body": "The callback returns an unexpected status.",
         },
     )
     ticket = Ticket.objects.get()
     assert response.status_code == HTTPStatus.FOUND
-    assert ticket.category == "HealthLocker"
+    assert ticket.category == "abdm-m2"
+    assert ticket.issue_type == "Bridge Service"
+    assert ticket.category_label == "ABDM - Milestone 2"
     assert ticket.product == portal_workspaces[1].product
     assert ticket.messages.get().body == "The callback returns an unexpected status."
 
@@ -194,7 +246,8 @@ def test_ticket_reply_needs_no_category_and_keeps_downloads(
         product=portal_workspaces[0].product,
         subject="Existing ticket",
         created_by=owner_membership.user,
-        category="HealthLocker",
+        category="abdm-m1",
+        issue_type="ABHA Creation",
     )
     upload = SimpleUploadedFile(
         "diagnostic.pdf",
@@ -215,7 +268,8 @@ def test_ticket_reply_needs_no_category_and_keeps_downloads(
     assert portal_client.session["experience_product"] == portal_workspaces[0].reference
     assert set(response.context["form"].fields) == {"body", "attachments"}
     ticket.refresh_from_db()
-    assert ticket.category == "HealthLocker"
+    assert ticket.category == "abdm-m1"
+    assert ticket.issue_type == "ABHA Creation"
 
 
 def test_support_search_keeps_workspace_and_status(
@@ -251,12 +305,12 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     owner_membership,
 ):
     for product_index, subject, category, priority, status in (
-        (1, "Callback investigation", "HealthLocker", "high", "open"),
-        (1, "Callback fixed", "HealthLocker", "high", "closed"),
-        (1, "Unrelated issue", "HealthLocker", "high", "open"),
-        (1, "Callback medium priority", "HealthLocker", "medium", "open"),
-        (1, "Callback sandbox issue", "HIE-CM", "high", "open"),
-        (0, "Callback on another product", "HealthLocker", "high", "open"),
+        (1, "Callback investigation", "abdm-m2", "high", "open"),
+        (1, "Callback fixed", "abdm-m2", "high", "closed"),
+        (1, "Unrelated issue", "abdm-m2", "high", "open"),
+        (1, "Callback medium priority", "abdm-m2", "medium", "open"),
+        (1, "Callback sandbox issue", "abdm-m1", "high", "open"),
+        (0, "Callback on another product", "abdm-m2", "high", "open"),
     ):
         Ticket.objects.create(
             organisation=owner_membership.organisation,
@@ -268,7 +322,7 @@ def test_support_counts_keep_filters_and_workspace_before_status(
         )
     response = portal_client.get(
         reverse("experiences:support"),
-        {"q": "callback", "category": "HealthLocker", "priority": "high", "status": "open"},
+        {"q": "callback", "category": "abdm-m2", "priority": "high", "status": "open"},
     )
     assert response.status_code == HTTPStatus.OK
     assert [ticket.subject for ticket in response.context["tickets"]] == [

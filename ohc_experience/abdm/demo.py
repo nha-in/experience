@@ -340,7 +340,8 @@ class DemoBuilder:
         ticket = Ticket.objects.create(
             organisation=org,
             product=workspace.product,
-            category="HIE-CM",
+            category="abdm-m2",
+            issue_type="Bridge Service",
             subject="Clarification on consent callback acknowledgement",
             priority="medium",
             created_by=applicant,
@@ -374,7 +375,10 @@ class DemoBuilder:
             ("nhcx-reviewer", "NHCX Reviewer", "NHCX", ["review"]),
             ("uhi-reviewer", "UHI Reviewer", "UHI", ["review"]),
             ("hiecm-reviewer", "HIE-CM Reviewer", "HIE-CM", ["review"]),
-            ("nhcx-support", "NHCX Support", "NHCX", ["support"]),
+            # Support is granted by support category, which is finer than the
+            # track the same program is reviewed by.
+            ("nhcx-support", "NHCX Payload Support", "nhcx-data", ["support"]),
+            ("m1-support", "ABDM M1 Support", "abdm-m1", ["support"]),
             ("uhi-events", "UHI Event Manager", "UHI", ["events"]),
         ]
         for username, name, category, areas in accounts:

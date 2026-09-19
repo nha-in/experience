@@ -97,7 +97,14 @@ class AccessGrant(models.Model):
         programs = {program.key: program for program in registry.programs()}
         if self.program not in programs:
             raise ValidationError({"program": "Choose a registered program."})
-        if self.category not in {"", "*", *programs[self.program].track_map()}:
+        # Support is filed and granted by its own categories; review and events
+        # are still granted by track.
+        named = (
+            programs[self.program].support_category_map()
+            if self.area == self.Area.SUPPORT
+            else programs[self.program].track_map()
+        )
+        if self.category not in {"", "*", *named}:
             raise ValidationError({"category": "Choose a category in this program."})
         if (self.can_write or self.can_approve) and not self.can_read:
             msg = "Write and approve permissions require read access."

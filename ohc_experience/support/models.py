@@ -67,7 +67,13 @@ class TicketQuerySet(models.QuerySet["Ticket"]):
         return self.filter(status__in=Status.active())
 
     def with_related(self) -> TicketQuerySet:
-        return self.select_related("organisation", "product", "created_by", "assignee")
+        return self.select_related(
+            "organisation",
+            "product",
+            "product__workspace",
+            "created_by",
+            "assignee",
+        )
 
 
 class Ticket(models.Model):
@@ -92,9 +98,12 @@ class Ticket(models.Model):
         verbose_name=_("Product"),
     )
     subject = models.CharField(_("Subject"), max_length=255)
-    # Holds the program track (the same categories staff permissions are scoped by),
-    # or blank for a ticket that is not track-specific.
+    # Holds the program's support category, which is the same unit staff support
+    # permissions are granted for, or blank for the catch-all ("Others").
     category = models.CharField(_("Category"), max_length=100, blank=True)
+    # The category's sub-menu entry. It labels the ticket for triage; the
+    # category above it is what decides who may read and answer the ticket.
+    issue_type = models.CharField(_("Issue type"), max_length=100, blank=True)
     priority = models.CharField(
         _("Priority"),
         max_length=10,
@@ -181,6 +190,22 @@ class Ticket(models.Model):
     @property
     def priority_variant(self) -> str:
         return PRIORITY_VARIANTS.get(self.priority, "neutral")
+
+    @property
+    def support_category(self):
+        """The definition this ticket was filed under, or None once retired."""
+        workspace = getattr(self.product, "workspace", None)
+        if workspace is None:
+            return None
+        return workspace.definition.support_category_map().get(self.category)
+
+    @property
+    def category_label(self) -> str:
+        """A category the program has since dropped still reads as it was filed."""
+        category = self.support_category
+        if category is not None:
+            return category.name
+        return self.category or str(_("Others"))
 
     @property
     def is_open(self) -> bool:

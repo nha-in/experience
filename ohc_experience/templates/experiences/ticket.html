@@ -10,7 +10,7 @@
       <span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{% if reviewer %}{{ ticket.queue_status_label }}{% else %}{{ ticket.get_status_display }}{% endif %}</span>
     </div>
     <h1 class="mt-2 text-[19px] font-bold tracking-[-0.015em] break-words text-foreground">{{ ticket.subject }}</h1>
-    <p class="mt-1.5 text-[11.5px] break-words text-soft-foreground">Opened by {{ ticket.created_by.display_name|default:ticket.organisation.display_name }} · {{ ticket.created_at|date:"j M Y, H:i" }} IST · {{ ticket.product.name }}{% if ticket.category %} · {{ ticket.category }}{% endif %}</p>
+    <p class="mt-1.5 text-[11.5px] break-words text-soft-foreground">Opened by {{ ticket.created_by.display_name|default:ticket.organisation.display_name }} · {{ ticket.created_at|date:"j M Y, H:i" }} IST · {{ ticket.product.name }}{% if ticket.category %} · {{ ticket.category_label }}{% endif %}</p>
     <a class="mt-1.5 inline-block text-[11px] font-semibold text-primary no-underline hover:underline"
        href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">‹ All tickets</a>
   </div>
@@ -69,8 +69,14 @@
           <dl class="grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 gap-y-3 text-[11.5px]">
             <dt class="text-soft-foreground">Category</dt>
             <dd>
-              {{ ticket.category|default:"Not track-specific" }}
+              {{ ticket.category_label }}
             </dd>
+            {% if ticket.issue_type %}
+              <dt class="text-soft-foreground">Issue type</dt>
+              <dd>
+                {{ ticket.issue_type }}
+              </dd>
+            {% endif %}
             <dt class="text-soft-foreground">Priority</dt>
             <dd>
               {{ ticket.get_priority_display }}

@@ -146,9 +146,28 @@ class CredentialURLsForm(forms.Form):
 RESOLVE_COMMENT_MIN_LENGTH = 10
 
 
+class IssueTypeSelect(forms.Select):
+    """Each option names the category it sits under, so the sub-menu can narrow.
+
+    Grouping alone would let a script match on the group's label; naming the
+    category on the option keeps that link explicit, and keeps it working if
+    two programs ever label a category the same way.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.categories = {}
+
+    def create_option(self, name, value, *args, **kwargs):
+        option = super().create_option(name, value, *args, **kwargs)
+        option["attrs"]["data-category"] = self.categories.get(str(value), "")
+        return option
+
+
 class SupportForm(forms.Form):
     subject = forms.CharField(max_length=255)
     category = forms.ChoiceField(required=False)
+    issue_type = forms.ChoiceField(required=False, widget=IssueTypeSelect)
     priority = forms.ChoiceField(
         choices=[("low", "Low"), ("medium", "Medium"), ("high", "High")],
         initial="medium",
@@ -176,11 +195,45 @@ class SupportForm(forms.Form):
             if workspace
             else None
         )
+        # A category for a track this product never applied for is not offered.
+        # The catch-all belongs to no track, so it is always there to file under.
+        self.categories = [
+            category
+            for category in program.support_category_map().values()
+            if applied is None or not category.track or category.track in applied
+        ]
+        self.category_map = {category.code: category for category in self.categories}
         self.fields["category"].choices = [
-            ("", "Not track-specific"),
+            (category.code, category.name) for category in self.categories
+        ]
+        issue_type = self.fields["issue_type"]
+        issue_type.choices = [
+            ("", "Not specified"),
             *(
-                (track.code, f"{track.code} · {track.name}")
-                for track in program.tracks
-                if applied is None or track.code in applied
+                (category.name, [(entry, entry) for entry in category.issue_types])
+                for category in self.categories
+                if category.issue_types
             ),
         ]
+        issue_type.widget.categories = {
+            entry: category.code
+            for category in self.categories
+            for entry in category.issue_types
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        # The reply form drops the filing fields; only the opening form files.
+        if "category" not in self.fields:
+            return cleaned
+        category = self.category_map.get(cleaned.get("category", ""))
+        if category is None:
+            return cleaned
+        if not category.issue_types:
+            cleaned["issue_type"] = ""
+        elif cleaned.get("issue_type") not in category.issue_types:
+            self.add_error(
+                "issue_type",
+                f"Choose the issue type this {category.name} ticket is about.",
+            )
+        return cleaned
