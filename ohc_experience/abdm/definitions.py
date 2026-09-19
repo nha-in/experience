@@ -29,6 +29,7 @@ from .reference import ABDMReferenceEnvironment
 from .reject_reasons import EXIT_REJECT_REASONS
 from .reject_reasons import ORGANISATION_REJECT_REASONS
 from .skills import ABDMAgentSkills
+from .skills import ABDMDocsMcp
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
@@ -328,6 +329,7 @@ class ABDM(ProgramDefinition):
     handoffs = {"dhis": DHISHandoff}
     reference_environment = ABDMReferenceEnvironment
     agent_skills = ABDMAgentSkills
+    docs_mcp = ABDMDocsMcp
     signup_organisation_choices = tuple(
         OrganisationForm.base_fields["entity_type"].choices,
     )

@@ -1,3 +1,5 @@
+import base64
+import json
 import re
 from dataclasses import dataclass
 from dataclasses import field
@@ -553,6 +555,115 @@ class AgentSkillsDefinition:
                 raise ImproperlyConfigured(msg)
 
 
+class McpTarget(NamedTuple):
+    """A coding agent offered a one-click install link for the MCP server."""
+
+    label: str
+    #: How this agent takes the link, said in one line.
+    note: str = ""
+
+
+def _claude_mcp_deeplink(command):
+    """Opens Claude Code with the add command staged in its composer, unrun."""
+    prompt = (
+        "Add the documentation MCP server, then use it to answer questions "
+        f"about this integration.\n\nRun this:\n{command}\n\n"
+        "User scope, so it is available in every project rather than only "
+        "this directory."
+    )
+    return f"claude://code/new?q={quote(prompt, safe='')}"
+
+
+def _cursor_mcp_deeplink(name, url):
+    """Opens Cursor on a confirmation dialog for one MCP server."""
+    config = base64.b64encode(json.dumps({"url": url}).encode()).decode()
+    return (
+        "cursor://anysphere.cursor-deeplink/mcp/install"
+        f"?name={name}&config={quote(config, safe='')}"
+    )
+
+
+def _vscode_mcp_deeplink(name, url):
+    """Opens VS Code on a confirmation dialog for one MCP server."""
+    config = json.dumps({"name": name, "type": "http", "url": url})
+    return f"vscode:mcp/install?{quote(config, safe='')}"
+
+
+class DocsMcpDefinition:
+    """The Docs MCP server a program's documentation site queries live.
+
+    An Agent Skill is a snapshot, compiled once and installed as files. This
+    is the same catalogue queried a paragraph at a time instead, over MCP.
+    The endpoint moves with the deployment rather than the program, so it is
+    read from a setting, the way `AgentSkillsDefinition.base_url` is.
+
+    What the server can do is not repeated here: it is the documentation
+    site's own to describe, and would go stale the moment a tool is added
+    or renamed there. This class only wires up connecting an agent to
+    whatever endpoint the deployment names.
+    """
+
+    #: Shown in the copyable command and config while no endpoint is set, so
+    #: they still read correctly instead of trailing off into nothing.
+    UNSET_URL_PLACEHOLDER: ClassVar[str] = "<mcp-url, set at deploy>"
+
+    #: The server's name, as agents key it in their own configuration.
+    name = ""
+    #: Setting naming this deployment's MCP endpoint. Unset renders the panel
+    #: locked, rather than a command and a config block aimed at nothing.
+    url_setting = ""
+    #: Agents offered a one-click install link, keyed the way `deeplink`
+    #: below dispatches them: "claude", "cursor" or "vscode".
+    targets: ClassVar[dict[str, McpTarget]] = {}
+
+    @classmethod
+    def url(cls):
+        """The live endpoint, or "" while this deployment carries none."""
+        if not cls.url_setting:
+            return ""
+        return getattr(settings, cls.url_setting, "") or ""
+
+    @classmethod
+    def cli_command(cls):
+        """The Claude Code CLI command that adds this server, user scope."""
+        url = cls.url() or cls.UNSET_URL_PLACEHOLDER
+        return f"claude mcp add --transport http {cls.name} {url} -s user"
+
+    @classmethod
+    def client_config(cls):
+        """The generic `mcpServers` block any MCP client reads as is."""
+        url = cls.url() or cls.UNSET_URL_PLACEHOLDER
+        return json.dumps({"mcpServers": {cls.name: {"url": url}}}, indent=2)
+
+    @classmethod
+    def deeplink(cls, key):
+        """A one-click install link, or None with no live endpoint, or for a
+        key this program does not target."""
+        url = cls.url()
+        if key not in cls.targets or not url:
+            return None
+        if key == "claude":
+            return _claude_mcp_deeplink(cls.cli_command())
+        if key == "cursor":
+            return _cursor_mcp_deeplink(cls.name, url)
+        if key == "vscode":
+            return _vscode_mcp_deeplink(cls.name, url)
+        return None
+
+    @classmethod
+    def validate(cls):
+        if not cls.name or not cls.url_setting:
+            msg = f"{cls.__name__} needs a name and a setting naming its endpoint."
+            raise ImproperlyConfigured(msg)
+        unknown = set(cls.targets) - {"claude", "cursor", "vscode"}
+        if unknown:
+            msg = (
+                f"{cls.__name__} targets {sorted(unknown)}, which "
+                "`deeplink` does not know how to build a link for."
+            )
+            raise ImproperlyConfigured(msg)
+
+
 class ProgramDefinition:
     """Code-defined product workflow, catalog and portal presentation."""
 
@@ -585,6 +696,7 @@ class ProgramDefinition:
     handoffs: ClassVar[dict[str, type[ProductHandoffDefinition]]] = {}
     reference_environment: ClassVar[type[ReferenceEnvironmentDefinition] | None] = None
     agent_skills: ClassVar[type[AgentSkillsDefinition] | None] = None
+    docs_mcp: ClassVar[type[DocsMcpDefinition] | None] = None
     signup_organisation_choices: ClassVar[tuple[tuple[str, str], ...]] = ()
 
     @classmethod
@@ -671,6 +783,8 @@ class ProgramDefinition:
         cls._validate_tracks()
         if cls.agent_skills is not None:
             cls.agent_skills.validate(cls.milestones)
+        if cls.docs_mcp is not None:
+            cls.docs_mcp.validate()
         try:
             cls.ordered_milestones()
         except CycleError as error:

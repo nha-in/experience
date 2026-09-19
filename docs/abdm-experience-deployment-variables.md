@@ -65,6 +65,7 @@ For the **documentation site**, which the portal links to and the Agent Skills a
 | Variable | Requirement / default |
 | --- | --- |
 | `ABDM_DOCS_URL` | **Point at the documentation site this deployment belongs to.** Default: `https://abdm-docs.dev.eka.care`. A trailing slash is ignored. |
+| `ABDM_MCP_URL` | The same site's live Docs MCP server. Default: `https://abdm-docs-mcp.dev.eka.care/mcp`. Blank is supported: the panel then renders locked, offering the same command and config with a placeholder rather than pointing at nothing. |
 
 The Agent Skills page builds its install command from this, so it must reach a site serving `/skills/<skill>/SKILL.md` and `/skills/<skill>/references/<section>.md` for the skills in `nha-in/docs` at `plugins/abdm-integrators-assistant/skills`. A staging portal left pointing at production would hand out the wrong skills.
 
@@ -76,6 +77,8 @@ python manage.py fetch_agent_skills --check  # fail if the file is behind, write
 ```
 
 `--url` overrides the site for a single run. A skill the file lists but `milestones_by_skill` in `ohc_experience/abdm/skills.py` does not name is offered to every product, so a newly published skill shows up before anyone maps it.
+
+The same page's Docs MCP panel builds a Claude Code command, a generic `mcpServers` config block, and one-click links for Claude Code, Cursor and VS Code from `ABDM_MCP_URL` alone; what the server can do is not mirrored here, since that would go stale the moment a tool is added or renamed, so the panel points readers at the documentation site's own page for it instead. A staging portal handing out a production endpoint would answer from the wrong catalogue.
 
 Source: `config/settings/base.py`, `ohc_experience/abdm/skills.py`, `ohc_experience/experiences/definitions.py`, `ohc_experience/experiences/skills_manifest.py`.
 

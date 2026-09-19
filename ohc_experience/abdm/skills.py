@@ -1,15 +1,22 @@
-"""The Agent Skills published for the ABDM flows.
+"""The Agent Skills, and the Docs MCP server, published for the ABDM flows.
 
 The skills themselves are read from `skills.json`, which
 `manage.py fetch_agent_skills` writes from what the documentation site
 publishes. Written here is only what that site cannot know: which of this
 program's milestones each skill carries.
+
+The Docs MCP server has nothing to snapshot: its endpoint is queried live,
+so only where it lives (`ABDM_MCP_URL`) and which agents it offers a link
+for are written here. What it can do is the documentation site's own page
+to describe.
 """
 
 from pathlib import Path
 
 from ohc_experience.experiences.definitions import AgentSkillsDefinition
 from ohc_experience.experiences.definitions import AgentTarget
+from ohc_experience.experiences.definitions import DocsMcpDefinition
+from ohc_experience.experiences.definitions import McpTarget
 
 
 class ABDMAgentSkills(AgentSkillsDefinition):
@@ -64,3 +71,25 @@ class ABDMAgentSkills(AgentSkillsDefinition):
         "calls run against your sandbox credentials, never production",
         "a debug loop stops after five passes and asks",
     )
+
+
+class ABDMDocsMcp(DocsMcpDefinition):
+    """The same documentation site, queried live over MCP instead of installed."""
+
+    name = "abdm-docs"
+    url_setting = "ABDM_MCP_URL"
+    targets = {
+        "claude": McpTarget(
+            "Claude Code",
+            "Opens the app with the add command ready. Nothing runs until "
+            "you press Enter.",
+        ),
+        "cursor": McpTarget(
+            "Cursor",
+            "Opens Cursor on a confirmation dialog. No command to run.",
+        ),
+        "vscode": McpTarget(
+            "VS Code",
+            "Opens VS Code on a confirmation dialog. No command to run.",
+        ),
+    }

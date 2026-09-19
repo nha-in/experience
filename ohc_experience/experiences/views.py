@@ -1785,12 +1785,14 @@ def agent_skills(request, reference):
     if catalogue is None:
         raise Http404
     permissions.require_integrator(request.user, workspace.product.organisation)
+    mcp = workspace.definition.docs_mcp
     context = _context(
         request,
         workspace,
         nav="skills",
         page_title="Agent Skills",
         agent_skills=catalogue,
+        docs_mcp=mcp,
     )
     context["skill_groups"] = agent_skill_groups(workspace, context["tracks"])
     context["selected_skill"] = default_agent_skill(context["skill_groups"])
@@ -1817,6 +1819,13 @@ def agent_skills(request, reference):
         )
         for key, target in catalogue.targets.items()
     ]
+    # A target with no live endpoint still shows, so the panel explains what
+    # it would offer rather than only showing what is already active.
+    context["mcp_targets"] = (
+        [(key, target, mcp.deeplink(key)) for key, target in mcp.targets.items()]
+        if mcp is not None
+        else []
+    )
     return render(request, "experiences/agent_skills.html", context)
 
 
