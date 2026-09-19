@@ -42,7 +42,8 @@ function page() {
 
 test('direct and HTMX product links reveal the requested collapsed evidence', () => {
   const browser = page();
-  const panel = { open: false };
+  // A row outside the Approved section, so it has no wrapper to open.
+  const panel = { open: false, closest: () => null };
   let scrolls = 0;
   browser.targets.set('review-12', {
     closest: () => panel,
@@ -59,7 +60,7 @@ test('direct and HTMX product links reveal the requested collapsed evidence', ()
 
 test('clicking the current fragment reopens the row, including nested queries', () => {
   const browser = page();
-  const panel = { open: false };
+  const panel = { open: false, closest: () => null };
   browser.targets.set('queries-12', {
     closest: () => panel,
     scrollIntoView() {},
@@ -68,6 +69,20 @@ test('clicking the current fragment reopens the row, including nested queries', 
   browser.fire('click', {
     closest: selector => selector === 'a[href^="#"]' ? link : null,
   });
+  assert.equal(panel.open, true);
+});
+
+test('a row filed under Approved reviews opens that section as well', () => {
+  const browser = page();
+  const approved = { open: false };
+  const panel = { open: false, closest: () => approved };
+  browser.targets.set('review-12', {
+    closest: () => panel,
+    scrollIntoView() {},
+  });
+  browser.window.location.hash = '#review-12';
+  browser.fire('DOMContentLoaded');
+  assert.equal(approved.open, true);
   assert.equal(panel.open, true);
 });
 

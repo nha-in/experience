@@ -21,6 +21,7 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.events_and_activities.models import Event
+from ohc_experience.experiences import production
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
@@ -55,20 +56,24 @@ def open_ticket(environment):
     )
 
 
-def test_production_rows_open_the_product_and_the_request(environment, client):
+def test_production_rows_open_the_product(environment, client):
     approve(environment)
-    request = submit(environment, "m2")
     client.force_login(environment["reviewer"])
     url = reverse("experiences:production-list")
     detail = reverse(
         "experiences:production-detail",
         args=[environment["workspace"].reference],
     )
+    # An approved exit puts the product in Pending, waiting on its client ID...
+    assert row_links(client.get(url, {"tab": "pending"})) == [detail]
+    production.record(
+        environment["workspace"].product,
+        environment["reviewer"],
+        client_id="PROD-ROW-LINK",
+        expected="",
+    )
+    # ...and adding the ID moves the same row to Approved.
     assert row_links(client.get(url, {"tab": "approved"})) == [detail]
-    # Narrow screens list the pending requests as cards that are links whole.
-    assert row_links(client.get(url, {"tab": "pending"})) == [
-        request.get_absolute_url(),
-    ]
 
 
 def test_queue_rows_open_the_product_review(environment, client):
