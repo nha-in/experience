@@ -164,6 +164,13 @@ function createPage(initial = {}) {
   function choose(name = "wasa.pdf", size = 1024) {
     input.files = [{ name, size, lastModified: 1 }];
     input.dispatchEvent(new Event("change"));
+    // The upload script re-renders its list and fires this straight after.
+    input.dispatchEvent(new Event("input"));
+  }
+  // What the "Remove file" button does: rewrite the list, fire `input` only.
+  function removeFile() {
+    input.files = [];
+    input.dispatchEvent(new Event("input"));
   }
   async function flush() {
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
@@ -194,6 +201,7 @@ function createPage(initial = {}) {
     field,
     requests,
     choose,
+    removeFile,
     tick,
     respond,
     flush,
@@ -305,11 +313,85 @@ test("a document that can never be read uncovers the section too", async () => {
   assert.ok(!page.fieldset.classList.contains("relative"));
 });
 
+test("a second document never inherits the first one's values", async () => {
+  const page = createPage();
+  page.choose("wrong.pdf");
+  await page.respond(0, read, 200, "wrong.pdf");
+  assert.equal(page.agency.value, AGENCY);
+
+  // The right certificate, whose agency this time cannot be read.
+  page.choose("right.pdf");
+  await page.respond(
+    1,
+    {
+      wasa_agency: "",
+      wasa_date: "2026-02-02",
+      wasa_valid_until: "2027-02-01",
+    },
+    200,
+    "right.pdf",
+  );
+
+  // One certificate's dates beside another's agency would be a bad record.
+  assert.equal(page.agency.value, "");
+  assert.equal(page.auditDate.value, "2026-02-02");
+  assert.equal(page.validUntil.value, "2027-02-01");
+  assert.equal(page.notesUnder(page.agency).length, 0);
+});
+
+test("the fields empty as soon as another document is chosen", async () => {
+  const page = createPage();
+  page.choose("wrong.pdf");
+  await page.respond(0, read, 200, "wrong.pdf");
+
+  page.choose("right.pdf");
+
+  // Before the reply lands, nothing from the first document is still showing.
+  assert.equal(page.agency.value, "");
+  assert.equal(page.auditDate.value, "");
+  assert.equal(page.validUntil.value, "");
+  assert.equal(page.notesUnder(page.auditDate).length, 0);
+});
+
+test("a correction of the integrator's own survives a new document", async () => {
+  const page = createPage();
+  page.choose("wrong.pdf");
+  await page.respond(0, read, 200, "wrong.pdf");
+  page.agency.value = AGENCY;
+  page.agency.dispatchEvent(new Event("change"));
+
+  page.choose("right.pdf");
+
+  assert.equal(page.agency.value, AGENCY);
+  assert.equal(page.auditDate.value, "");
+});
+
+test("the remove file button takes the document's values with it", async () => {
+  const page = createPage();
+  page.choose();
+  await page.respond(0, read);
+  assert.equal(page.agency.value, AGENCY);
+
+  page.removeFile();
+
+  assert.equal(page.agency.value, "");
+  assert.equal(page.auditDate.value, "");
+  assert.equal(page.validUntil.value, "");
+  assert.equal(page.notesUnder(page.agency).length, 0);
+});
+
+test("choosing a file reads it once, not once per event", () => {
+  const page = createPage();
+  page.choose();
+
+  // `change` and `input` both fire; the file is the same, so one request.
+  assert.equal(page.requests.length, 1);
+});
+
 test("clearing the file uncovers the section", () => {
   const page = createPage();
   page.choose();
-  page.input.files = [];
-  page.input.dispatchEvent(new Event("change"));
+  page.removeFile();
 
   assert.equal(page.overlay.hidden, true);
   assert.ok(!page.fieldset.classList.contains("relative"));
@@ -532,8 +614,7 @@ test("a reading that outlasts the timeout reports a failure once", async () => {
 test("clearing the file cancels the reading and the message", async () => {
   const page = createPage();
   page.choose();
-  page.input.files = [];
-  page.input.dispatchEvent(new Event("change"));
+  page.removeFile();
   assert.equal(page.status.hidden, true);
   await page.respond(0, read);
   assert.equal(page.auditDate.value, "");

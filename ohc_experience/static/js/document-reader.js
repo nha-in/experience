@@ -97,6 +97,8 @@
     let disposed = false;
     let filling = false;
     let positioned = false;
+    // The controls this reader filled, so a later document can undo them.
+    const taken = new Set();
 
     // `quiet` keeps the sentence for a screen reader without printing it: the
     // spinner and the notes beside each field already show it on screen.
@@ -133,6 +135,22 @@
       control.addEventListener("change", verified);
     }
 
+    // What this reader filled belongs to the document it read. A second
+    // document must not inherit any of it: one whose agency cannot be read
+    // would otherwise keep the previous agency beside its own dates.
+    function forgetLastReading() {
+      filling = true;
+      taken.forEach((control) => {
+        if (control.dataset.documentRead !== "true") return;
+        control.value = "";
+        control.dataset.documentRead = "false";
+        clearNote(control, doc());
+        control.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      filling = false;
+      taken.clear();
+    }
+
     // A value the integrator typed is theirs; blanks, earlier readings and
     // values a script derived are replaced, so re-reading never undoes a
     // correction.
@@ -159,6 +177,7 @@
       filling = false;
       addNote(control, doc());
       watch(control);
+      taken.add(control);
       return true;
     }
 
@@ -268,6 +287,7 @@
     function schedule() {
       cancel();
       setBusy(false);
+      forgetLastReading();
       const file = input.files?.[0];
       if (!file) {
         message("");
@@ -279,7 +299,19 @@
       read(file, sequence);
     }
 
-    input.addEventListener("change", schedule);
+    // Choosing a file fires `change`, and the upload script then fires `input`;
+    // its remove button fires only `input`. So the file decides whether there
+    // is anything new to do, and removing one counts as a change.
+    let acted = "";
+    function fileChanged() {
+      const chosen = fingerprint(input.files?.[0]) || "";
+      if (chosen === acted) return;
+      acted = chosen;
+      schedule();
+    }
+
+    input.addEventListener("change", fileChanged);
+    input.addEventListener("input", fileChanged);
     controllers.set(input, {
       refresh() {},
       dispose() {
