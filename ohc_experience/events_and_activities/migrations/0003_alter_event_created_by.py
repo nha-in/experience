@@ -5,6 +5,8 @@ import django.db.models.deletion
 
 class Migration(migrations.Migration):
 
+    replaces = [('events', '0003_alter_event_created_by')]
+
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ('events_and_activities', '0002_event_category_event_program'),
