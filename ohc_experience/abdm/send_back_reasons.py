@@ -1,8 +1,11 @@
 """Reasons a reviewer chooses from when sending a request back.
 
 Compressed from every remark the old sandbox portal's reviewers wrote; the
-mapping from each old remark to these is kept in reasons-compressed.xlsx.
-The engine offers Other after these, with the reviewer's own words.
+mapping from each old remark to exactly one of these is kept in
+reasons-compressed.xlsx. The field holds a single reason, so a remark that
+named several concerns maps to its most decisive one and the reviewer's
+original words are carried over to the note. The engine offers Other after
+these, with the reviewer's own words.
 """
 
 ORGANISATION_SEND_BACK_REASONS = (
@@ -29,10 +32,8 @@ ORGANISATION_SEND_BACK_REASONS = (
 EXIT_SEND_BACK_REASONS = (
     "Incorrect document",
     "Incomplete documentation",
-    "FT report missing",
-    "WASA report missing",
-    "FT not done by an empaneled agency",
-    "WASA not done by an empaneled agency",
+    "FT/WASA report missing",
+    "FT/WASA not done by an empaneled agency",
     "Incomplete integration",
     "Exit requested without NHA review or approval",
     "Internal demo not cleared",
