@@ -54,8 +54,6 @@ jobs:
           NOTIFICATION_APP_BASE_URL: ${{ vars.NOTIFICATION_APP_BASE_URL }}
           WASA_EXTRACTION_MODEL: ${{ vars.WASA_EXTRACTION_MODEL }}
           BEDROCK_REGION_NAME: ${{ vars.BEDROCK_REGION_NAME }}
-          BEDROCK_ACCESS_KEY_ID: ${{ secrets.BEDROCK_ACCESS_KEY_ID }}
-          BEDROCK_SECRET_ACCESS_KEY: ${{ secrets.BEDROCK_SECRET_ACCESS_KEY }}
         run: |
           missing=""
           for name in KEYCLOAK_BASE_URL \
@@ -78,9 +76,7 @@ jobs:
             HIECM_CM_ID \
             NOTIFICATION_APP_BASE_URL \
             WASA_EXTRACTION_MODEL \
-            BEDROCK_REGION_NAME \
-            BEDROCK_ACCESS_KEY_ID \
-            BEDROCK_SECRET_ACCESS_KEY; do
+            BEDROCK_REGION_NAME; do
             if [ -z "${!name}" ]; then missing="$missing $name"; fi
           done
           if [ -n "$missing" ]; then
@@ -220,8 +216,7 @@ jobs:
             NOTIFICATION_APP_BASE_URL=${{ vars.NOTIFICATION_APP_BASE_URL }}
             WASA_EXTRACTION_MODEL=${{ vars.WASA_EXTRACTION_MODEL }}
             BEDROCK_REGION_NAME=${{ vars.BEDROCK_REGION_NAME }}
-            BEDROCK_ACCESS_KEY_ID=${{ secrets.BEDROCK_ACCESS_KEY_ID }}
-            BEDROCK_SECRET_ACCESS_KEY=${{ secrets.BEDROCK_SECRET_ACCESS_KEY }}
+            LITELLM_LOCAL_MODEL_COST_MAP=true
             SANDBOX_SIGNUP_CAPTCHA=${{ vars.SANDBOX_SIGNUP_CAPTCHA }}
 
       - name: Deploy task definition
