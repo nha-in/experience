@@ -140,6 +140,50 @@ def test_ticket_creation_error_keeps_form_and_does_not_write(portal_client):
     assert not Ticket.objects.exists()
 
 
+@pytest.mark.parametrize(
+    ("actor", "message"),
+    [
+        ("reviewer", "Only an organisation's integrators can open a ticket."),
+        ("no_product", "Register a product before opening a ticket."),
+    ],
+)
+def test_support_hides_the_new_ticket_form_from_those_who_cannot_use_it(
+    client,
+    owner_membership,
+    portal_workspaces,
+    actor,
+    message,
+):
+    """A reviewer, and an integrator with no product yet, have nothing to raise
+    a ticket against. They must not be offered the form, and posting one must
+    explain itself rather than fail the request."""
+    if actor == "reviewer":
+        client.force_login(ReviewerFactory(is_nha_team=True))
+    else:
+        membership = MembershipFactory.create(role="owner")
+        client.force_login(membership.user)
+
+    creating = client.get(reverse("experiences:support"), {"new": "1"})
+
+    assert creating.status_code == HTTPStatus.OK
+    assert not creating.context["creating"]
+    assert b"New support ticket" not in creating.content
+
+    response = client.post(
+        reverse("experiences:support"),
+        {
+            "subject": "Callback rejects the request",
+            "priority": "medium",
+            "body": "The callback returns an unexpected status.",
+        },
+        follow=True,
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert not Ticket.objects.exists()
+    assert message in [str(item) for item in response.context["messages"]]
+
+
 def test_ticket_reply_needs_no_category_and_keeps_downloads(
     portal_client,
     portal_workspaces,

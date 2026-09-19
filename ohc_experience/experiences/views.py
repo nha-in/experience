@@ -2435,10 +2435,24 @@ def support(request):
         reviewer=permissions.reviewer(request.user),
     )
     inbox["tickets"] = _page(request, inbox["tickets"])
+    can_open_ticket = bool(
+        workspace
+        and not permissions.reviewer(request.user)
+        and permissions.can_integrate(request.user, workspace.product.organisation),
+    )
     if request.method == "POST":
-        if not workspace:
-            msg = "Register a product before opening a ticket."
-            raise ValidationError(msg)
+        if not can_open_ticket:
+            # Reviewers, and integrators without a product, have nothing to
+            # raise a ticket against. Say so instead of failing the request.
+            _error(
+                request,
+                ValidationError(
+                    "Register a product before opening a ticket."
+                    if not permissions.reviewer(request.user)
+                    else "Only an organisation's integrators can open a ticket.",
+                ),
+            )
+            return redirect("experiences:support")
         permissions.require_integrator(request.user, workspace.product.organisation)
         if form.is_valid():
             with transaction.atomic():
@@ -2473,7 +2487,8 @@ def support(request):
             nav="support",
             **inbox,
             form=form,
-            creating=request.GET.get("new") == "1" or request.method == "POST",
+            creating=can_open_ticket
+            and (request.GET.get("new") == "1" or request.method == "POST"),
         ),
     )
 
