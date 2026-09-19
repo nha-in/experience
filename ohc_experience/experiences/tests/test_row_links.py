@@ -119,7 +119,7 @@ def test_dashboard_track_rows_open_the_queue_for_their_track(environment, client
     ]
 
 
-def test_event_rows_open_the_editor_while_the_event_can_be_edited(client):
+def test_event_rows_open_their_participants(client):
     staff = UserFactory(is_nha_team=True)
     AccessGrant.objects.create(
         user=staff,
@@ -130,7 +130,7 @@ def test_event_rows_open_the_editor_while_the_event_can_be_edited(client):
     )
     starts_at = timezone.now() + timedelta(days=7)
     draft = Event.objects.create(title="Draft", category="UHI", starts_at=starts_at)
-    Event.objects.create(
+    published = Event.objects.create(
         title="Launch webinar",
         category="UHI",
         starts_at=starts_at,
@@ -138,9 +138,12 @@ def test_event_rows_open_the_editor_while_the_event_can_be_edited(client):
     )
     client.force_login(staff)
     response = client.get(reverse("experiences:event-manage"))
-    # Only a superadmin edits a published event, so its row opens nothing.
-    assert "Launch webinar" in response.content.decode()
-    assert row_links(response) == [reverse("experiences:event-edit", args=[draft.pk])]
+    # Editing a published event is a superadmin's call, but its registrations
+    # are readable, so every row opens the one page it always has.
+    assert row_links(response) == [
+        reverse("experiences:event-participants", args=[event.pk])
+        for event in (published, draft)
+    ]
 
 
 def test_review_rows_open_approvals_prerequisites_and_tickets(environment, client):

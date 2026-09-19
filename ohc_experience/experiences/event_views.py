@@ -10,12 +10,14 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_safe
 
 from ohc_experience.events_and_activities.models import Event
 
@@ -120,6 +122,48 @@ def event_manage(request):
             "page_title": "Manage events",
             "page": page,
             "status": status,
+        },
+    )
+
+
+@login_required
+@never_cache
+@require_safe
+def event_participants(request, pk):
+    """Who registered for one event, for the team that runs it."""
+    if not permissions.has_area(request.user, "events"):
+        raise PermissionDenied
+    event = get_object_or_404(permissions.visible_events(request.user), pk=pk)
+    query = (
+        event.registrations.select_related("user")
+        .prefetch_related("user__memberships__organisation")
+        .order_by("-created_at", "-pk")
+    )
+    search = request.GET.get("q", "").strip()
+    if search:
+        query = query.filter(
+            Q(user__name__icontains=search)
+            | Q(user__email__icontains=search)
+            | Q(user__memberships__organisation__name__icontains=search)
+            | Q(user__memberships__organisation__legal_name__icontains=search),
+        ).distinct()
+    page = Paginator(query, 25).get_page(request.GET.get("page"))
+    for registration in page:
+        # One organisation per account today, as get_membership_for assumes.
+        registration.membership = next(
+            iter(registration.user.memberships.all()),
+            None,
+        )
+    return render(
+        request,
+        "experiences/event_participants.html",
+        {
+            "nav": "events",
+            "page_title": "Participants",
+            "event": event,
+            "can_edit": can_edit_event(request.user, event),
+            "page": page,
+            "search": search,
         },
     )
 

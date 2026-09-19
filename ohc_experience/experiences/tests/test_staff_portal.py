@@ -27,6 +27,9 @@ from ohc_experience.experiences.staff_forms import StaffForm
 from ohc_experience.experiences.staff_forms import staff_revision
 from ohc_experience.experiences.staff_services import save_staff
 from ohc_experience.experiences.staff_services import set_staff_active
+from ohc_experience.organisations.models import Role
+from ohc_experience.organisations.tests.factories import MembershipFactory
+from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -573,6 +576,88 @@ def test_superadmins_can_delete_published_events(superadmin, client):
         == 302
     )
     assert not Event.objects.exists()
+
+
+def test_event_participants_lists_registrations_and_filters_them(staff, client):
+    AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="events",
+        category="UHI",
+        can_read=True,
+    )
+    event = Event.objects.create(
+        title="Draft workshop",
+        category="UHI",
+        starts_at=timezone.now() + timedelta(days=3),
+    )
+    meera = UserFactory(name="Meera Nair", email="meera@integrator.test")
+    MembershipFactory(
+        user=meera,
+        organisation=OrganisationFactory(name="Wellspring Health"),
+        role=Role.OWNER,
+    )
+    EventRegistration.objects.create(event=event, user=meera)
+    EventRegistration.objects.create(
+        event=event,
+        user=UserFactory(name="Rahul Das", email="rahul@other.test"),
+    )
+    participants = reverse("experiences:event-participants", args=[event.pk])
+    client.force_login(staff)
+    assertContains(client.get(reverse("experiences:event-manage")), participants)
+    page = client.get(participants)
+    assertContains(page, "2 participants")
+    assertContains(page, "Meera Nair")
+    assertContains(page, "Wellspring Health")
+    assertContains(page, "Rahul Das")
+    rows = {row.user.name: row.membership for row in page.context["page"]}
+    # Someone without a membership still shows up, with no organisation.
+    assert rows["Rahul Das"] is None
+    assert rows["Meera Nair"].organisation.name == "Wellspring Health"
+    filtered = client.get(participants, {"q": "wellspring"})
+    assertContains(filtered, "1 participant found")
+    assertNotContains(filtered, "Rahul Das")
+    assertContains(client.get(participants, {"q": "meera@"}), "Meera Nair")
+
+
+def test_event_participants_stay_within_event_permissions(staff, client):
+    grant = AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="events",
+        category="NHCX",
+        can_read=True,
+    )
+    event = Event.objects.create(
+        title="Other category",
+        category="UHI",
+        starts_at=timezone.now() + timedelta(days=3),
+        published_at=timezone.now(),
+    )
+    EventRegistration.objects.create(event=event, user=UserFactory())
+    participants = reverse("experiences:event-participants", args=[event.pk])
+    client.force_login(staff)
+    assert client.get(participants).status_code == 404
+    assert client.post(participants).status_code == 405
+    grant.delete()
+    assert client.get(participants).status_code == 403
+
+
+def test_integrators_cannot_see_event_participants(client):
+    event = Event.objects.create(
+        title="Published webinar",
+        starts_at=timezone.now() + timedelta(days=3),
+        published_at=timezone.now(),
+    )
+    membership = MembershipFactory()
+    EventRegistration.objects.create(event=event, user=membership.user)
+    client.force_login(membership.user)
+    assert (
+        client.get(
+            reverse("experiences:event-participants", args=[event.pk]),
+        ).status_code
+        == 403
+    )
 
 
 def test_archive_releases_pending_assignments_and_preserves_evidence(
