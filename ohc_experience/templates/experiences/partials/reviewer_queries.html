@@ -18,7 +18,8 @@
               <strong class="text-sm font-semibold">{% if query.field_key == 'form' %}Whole form{% else %}{{ query.field_key|readable }}{% endif %}</strong>
               {% include 'experiences/partials/status.html' with status=query.status label=query.get_status_display %}
             </div>
-            <p class="text-sm leading-relaxed break-words" id="query-question-{{ query.pk }}">{{ query.question|linebreaksbr }}</p>
+            <p class="text-sm leading-relaxed break-words"
+               id="query-question-{{ query.pk }}">{{ query.question|linebreaksbr }}</p>
             <p class="mt-1.5 text-xs text-soft-foreground">{{ query.raised_by.display_name }} · {{ query.raised_at|date:'d M Y, H:i' }} IST{% if query.submission_id != item.selected_submission_id %} · Earlier submission{% endif %}
             </p>
             {% if query.reply %}

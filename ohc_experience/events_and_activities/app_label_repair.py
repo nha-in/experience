@@ -1,19 +1,7 @@
-"""Repair databases that still carry this app's old "events" label.
+"""Move databases still on this app's old "events" label onto the current one.
 
-The app shipped as "events" and was renamed to "events_and_activities" after
-databases had already been migrated. Django derives migration records, table
-names and content types from the app label, so a database migrated before the
-rename disagrees with the current code and `migrate` aborts with
-InconsistentMigrationHistory.
-
-This cannot be fixed from inside a migration. Django detects the conflict while
-it loads the migration graph, which happens before any migration runs. So the
-old names are normalised first and `migrate` is left to carry on as usual. The
-`migrate` command in this package is what calls it.
-
-Every step is idempotent and does nothing once a database is on the new label,
-so this is equally safe on a database created before the rename, one created
-after it, and a brand new one.
+A migration cannot do this: Django detects the mismatch while loading the
+migration graph, before any migration runs. Idempotent.
 """
 
 from django.db import transaction
@@ -31,7 +19,6 @@ def _table_exists(cursor, name):
 
 def _rename_table(cursor):
     if _table_exists(cursor, OLD_TABLE) and not _table_exists(cursor, NEW_TABLE):
-        # Foreign keys follow the table, so referencing rows stay intact.
         cursor.execute(f'ALTER TABLE "{OLD_TABLE}" RENAME TO "{NEW_TABLE}"')
 
 
@@ -53,8 +40,7 @@ def _relabel_migrations(cursor):
 def _relabel_content_types(cursor):
     if not _table_exists(cursor, "django_content_type"):
         return
-    # Relabelling in place keeps the primary key, so permissions, the group and
-    # user grants built on them, and admin log entries all survive.
+    # Relabelling in place keeps the primary key, so permission grants survive.
     cursor.execute(
         """
         UPDATE django_content_type AS stale
@@ -72,12 +58,9 @@ def _relabel_content_types(cursor):
 
 
 def repair_events_app_label(connection):
-    """Move any leftover "events" records onto the current app label."""
     if connection.vendor != "postgresql":
         return
     with connection.cursor() as cursor:
-        # A brand new database has nothing to repair; migrate builds it on the
-        # current label.
         if not _table_exists(cursor, "django_migrations"):
             return
     with transaction.atomic(using=connection.alias), connection.cursor() as cursor:

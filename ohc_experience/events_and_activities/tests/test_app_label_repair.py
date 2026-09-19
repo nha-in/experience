@@ -14,7 +14,7 @@ from ohc_experience.events_and_activities.app_label_repair import (
 )
 from ohc_experience.events_and_activities.models import Event
 
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db
 
 
 def table_exists(name: str) -> bool:
