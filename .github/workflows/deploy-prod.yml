@@ -48,6 +48,7 @@ jobs:
           WSO2_KEY_MANAGER: ${{ vars.WSO2_KEY_MANAGER }}
           WSO2_SCOPES: ${{ vars.WSO2_SCOPES }}
           WSO2_SANDBOX_API_IDS: ${{ vars.WSO2_SANDBOX_API_IDS }}
+          WSO2_WRAPPER_BASE_URL: ${{ vars.WSO2_WRAPPER_BASE_URL }}
           HIECM_BASE_URL: ${{ vars.HIECM_BASE_URL }}
           HIECM_CM_ID: ${{ vars.HIECM_CM_ID }}
           NOTIFICATION_APP_BASE_URL: ${{ vars.NOTIFICATION_APP_BASE_URL }}
@@ -72,6 +73,7 @@ jobs:
             WSO2_KEY_MANAGER \
             WSO2_SCOPES \
             WSO2_SANDBOX_API_IDS \
+            WSO2_WRAPPER_BASE_URL \
             HIECM_BASE_URL \
             HIECM_CM_ID \
             NOTIFICATION_APP_BASE_URL \
@@ -190,9 +192,12 @@ jobs:
           task-definition: task-definition.json
           container-name: ${{ env.ECS_PREFIX }}-${{ matrix.service }}
           image: ${{ env.IMAGE_REF }}
+          # API_GATEWAY is the wrapper, not the DevPortal: the DevPortal is
+          # unreachable from this VPC. Swap back to wso2.adapter.Wso2ApiGateway
+          # once it is routed — the wrapper cannot deprovision.
           environment-variables: |
             INTEGRATION_IDP=ohc_experience.integrations.keycloak.adapter.KeycloakIdpAdmin
-            INTEGRATION_API_GATEWAY=ohc_experience.integrations.wso2.adapter.Wso2ApiGateway
+            INTEGRATION_API_GATEWAY=ohc_experience.integrations.wso2.wrapper.Wso2WrapperApiGateway
             INTEGRATION_BRIDGE_REGISTRY=ohc_experience.integrations.hiecm.adapter.HiecmBridgeRegistry
             KEYCLOAK_BASE_URL=${{ vars.KEYCLOAK_BASE_URL }}
             KEYCLOAK_REALM=${{ vars.KEYCLOAK_REALM }}
@@ -209,6 +214,7 @@ jobs:
             WSO2_KEY_MANAGER=${{ vars.WSO2_KEY_MANAGER }}
             WSO2_SCOPES=${{ vars.WSO2_SCOPES }}
             WSO2_SANDBOX_API_IDS=${{ vars.WSO2_SANDBOX_API_IDS }}
+            WSO2_WRAPPER_BASE_URL=${{ vars.WSO2_WRAPPER_BASE_URL }}
             HIECM_BASE_URL=${{ vars.HIECM_BASE_URL }}
             HIECM_CM_ID=${{ vars.HIECM_CM_ID }}
             NOTIFICATION_APP_BASE_URL=${{ vars.NOTIFICATION_APP_BASE_URL }}

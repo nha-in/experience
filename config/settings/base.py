@@ -628,6 +628,15 @@ WSO2_API_IDS = {
     "abdm": tuple(env.list("WSO2_SANDBOX_API_IDS", default=[])),
 }
 
+# NHA's wrapper, which does the whole DevPortal sequence in one call and is what
+# legacy actually provisions through. Used only when INTEGRATION_API_GATEWAY
+# names Wso2WrapperApiGateway; it cannot deprovision.
+WSO2_WRAPPER_BASE_URL = env.str(
+    "WSO2_WRAPPER_BASE_URL",
+    default="https://wso2-wrapper.invalid",
+)
+WSO2_WRAPPER_PATH = env.str("WSO2_WRAPPER_PATH", default="/add-subscriptions")
+
 # How long a secret parked for `map_keys` stays readable.
 SECRET_REF_TTL_SECONDS = env.int("SECRET_REF_TTL_SECONDS", default=900)
 
