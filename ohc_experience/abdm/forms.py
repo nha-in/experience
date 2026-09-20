@@ -7,6 +7,7 @@ from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
 from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.uploads import validate_pdf
+from ohc_experience.organisations import states
 from ohc_experience.organisations.lgd import LGDLookupError
 from ohc_experience.organisations.lgd import lookup_pincode
 from ohc_experience.organisations.models import SOLE_PROPRIETOR
@@ -170,9 +171,8 @@ class OrganisationForm(ReviewForm):
             return
         try:
             self.locations = lookup_pincode(pincode)
-        except LGDLookupError as error:
-            self.location_error = str(error)
-            return
+        except LGDLookupError:
+            return  # No locations: the offline names are offered instead.
         if not self.locations:
             self.location_error = "No state or district was found for this PIN code."
             return
@@ -200,12 +200,28 @@ class OrganisationForm(ReviewForm):
             ]
 
     def _location_choices(self):
+        if self.is_bound and not self.locations:
+            # LGD did not answer, so offer the offline names it would have.
+            self._offline_choices()
+            return
         for name in ("state", "district"):
             values = sorted({location[name] for location in self.locations})
             if not self.is_bound:
                 initial = self.initial.get(name)
                 if initial:
                     values = [initial]
+            self.fields[name].widget.choices = [
+                ("", "Select a state" if name == "state" else "Select a district"),
+                *((value, value) for value in values),
+            ]
+
+    def _offline_choices(self):
+        """Every state, and the districts of whichever state was chosen."""
+        chosen = str(self.data.get(self.add_prefix("state"), "")).strip()
+        for name, values in (
+            ("state", states.state_names()),
+            ("district", states.district_names(chosen)),
+        ):
             self.fields[name].widget.choices = [
                 ("", "Select a state" if name == "state" else "Select a district"),
                 *((value, value) for value in values),
@@ -227,23 +243,26 @@ class OrganisationForm(ReviewForm):
         if self.location_error:
             self.add_error("pincode", self.location_error)
             return cleaned
-        if not cleaned.get("pincode") or not self.locations:
-            return cleaned
         state = cleaned.get("state")
         district = cleaned.get("district")
+        if not state or not district:
+            return cleaned  # Both fields raise their own required error.
         matches = [
             location
             for location in self.locations
             if location["state"] == state and location["district"] == district
         ]
-        if len(matches) == 1:
+        if matches:
             cleaned["state_lgd_code"] = matches[0]["state_code"]
             cleaned["district_lgd_code"] = matches[0]["district_code"]
-        elif state and district:
-            self.add_error(
-                "district",
-                "Select a state and district returned for this PIN code.",
-            )
+            return cleaned
+        # LGD did not answer, or answered something else. The pair stands as
+        # chosen so long as it is a real one; it simply earns no codes.
+        pair = states.canonical(state, district)
+        if pair is None:
+            self.add_error("district", "Select a state and district from the list.")
+            return cleaned
+        cleaned["state"], cleaned["district"] = pair
         return cleaned
 
 

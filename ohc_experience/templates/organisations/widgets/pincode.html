@@ -12,4 +12,5 @@
           class="ui-btn ui-btn--outline mt-2"
           data-pincode-retry
           hidden>{% translate "Retry lookup" %}</button>
+  {{ widget.offline_locations|json_script:widget.offline_locations_id }}
 </div>

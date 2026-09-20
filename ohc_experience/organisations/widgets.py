@@ -1,6 +1,8 @@
 from django import forms
 from django.urls import reverse_lazy
 
+from . import states
+
 
 class WebsiteInput(forms.TextInput):
     """A web address box that also takes a bare domain.
@@ -38,12 +40,19 @@ class PincodeInput(forms.TextInput):
     def get_context(self, name, value, attrs):
         context = super().get_context(name, value, attrs)
         widget = context["widget"]
-        status_id = f"{widget['attrs'].get('id', name)}_lookup_status"
+        base = widget["attrs"].get("id", name)
+        status_id = f"{base}_lookup_status"
         described_by = widget["attrs"].get("aria-describedby", "").split()
         if status_id not in described_by:
             described_by.append(status_id)
         widget["attrs"]["aria-describedby"] = " ".join(described_by)
         widget["lookup_status_id"] = status_id
+        # Carried in the page so a failed lookup can still offer the names,
+        # including when the browser is what cannot reach the server.
+        locations_id = f"{base}_offline_locations"
+        widget["attrs"]["data-offline-locations"] = locations_id
+        widget["offline_locations_id"] = locations_id
+        widget["offline_locations"] = states.as_choices()
         return context
 
     class Media:

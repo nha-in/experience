@@ -13,6 +13,15 @@
   const matchName = (names, value) => names.find(name => normalize(name) === normalize(value)) || '';
   const uniqueNames = values => [...new Map(values.map(value => [normalize(value), value])).values()]
     .sort((left, right) => left.localeCompare(right));
+  const isName = value => typeof value === 'string' && value.trim();
+  const LOOKUP_UNAVAILABLE = 'The LGD lookup is temporarily unavailable. '
+    + 'Retry to verify the state and district or select manually.';
+  // The offline list arrives grouped by state; flatten it to the LGD shape so
+  // the state/district cascade below does not care which one it is showing.
+  const flattenStates = entries => (Array.isArray(entries) ? entries : []).flatMap(entry =>
+    (isName(entry?.state) && Array.isArray(entry.districts)
+      ? entry.districts.filter(isName).map(name => ({ state: entry.state, district: name }))
+      : []));
 
   function inputsWithin(root) {
     return [
@@ -32,6 +41,7 @@
 
     let lastPincode = input.value.trim();
     let locations = [];
+    let fallback = false;
     let timer;
     let request;
     let sequence = 0;
@@ -55,6 +65,7 @@
 
     function clearLocations() {
       locations = [];
+      fallback = false;
       setOptions(state, [], 'Enter a PIN code first');
       setOptions(district, [], 'Enter a PIN code first');
     }
@@ -67,7 +78,10 @@
     }
 
     function describeSelection() {
-      if (!state.value) {
+      if (fallback) {
+        // Retry stays on offer however much of the address is filled in.
+        message(LOOKUP_UNAVAILABLE, true);
+      } else if (!state.value) {
         message('This PIN code covers multiple states. Choose the matching state, then district.');
       } else if (!district.value) {
         message('This PIN code covers multiple districts. Choose the matching district.');
@@ -81,6 +95,22 @@
         .map(location => location.district));
       setOptions(district, names, state.value ? 'Select district' : 'Select a state first', preferred);
       describeSelection();
+    }
+
+    // The lookup could not answer, so fall back to the names the page carries.
+    // The caller states what happened; setting them here would say too little.
+    function offerOfflineNames(preferred) {
+      const node = document.getElementById(input.dataset.offlineLocations);
+      let names = [];
+      try {
+        names = flattenStates(JSON.parse(node.textContent));
+      } catch { return; }
+      if (!names.length) return;
+      locations = names;
+      fallback = true;
+      setOptions(state, uniqueNames(locations.map(location => location.state)), 'Select state', preferred.state);
+      updateDistricts(preferred.district);
+      notifyChanges();
     }
 
     function cancel() {
@@ -125,17 +155,18 @@
         const result = await response.json();
         if (!isCurrent()) return;
         if (String(result.pincode) !== pincode || !Array.isArray(result.locations) || !result.locations.length
-          || result.locations.some(location => typeof location.state !== 'string' || !location.state.trim()
-            || typeof location.district !== 'string' || !location.district.trim())) {
+          || result.locations.some(location => !isName(location.state) || !isName(location.district))) {
           throw new Error('Invalid lookup response');
         }
         locations = result.locations;
+        fallback = false;
         setOptions(state, uniqueNames(locations.map(location => location.state)), 'Select state', preferred.state);
         updateDistricts(preferred.district);
         notifyChanges();
       } catch (error) {
         if (!isCurrent() || (error.name === 'AbortError' && !timedOut)) return;
-        message('The LGD lookup is temporarily unavailable. Retry to verify the state and district.', true);
+        offerOfflineNames(preferred);
+        message(LOOKUP_UNAVAILABLE, true);
       } finally {
         clearTimeout(timeout);
         if (isCurrent()) {

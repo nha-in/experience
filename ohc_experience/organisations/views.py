@@ -55,6 +55,7 @@ class PincodeLookupView(LoginRequiredMixin, View):
         except ValidationError as exc:
             return JsonResponse({"error": exc.messages[0]}, status=400)
         except LGDLookupError as exc:
+            # The page carries the offline names, so the script offers those.
             return JsonResponse({"error": str(exc)}, status=503)
         if not locations:
             return JsonResponse(

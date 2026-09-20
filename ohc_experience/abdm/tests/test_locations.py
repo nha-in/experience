@@ -8,6 +8,7 @@ from django.urls import reverse
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.forms import OrganisationForm
 from ohc_experience.experiences import workflows
+from ohc_experience.organisations import states
 from ohc_experience.organisations.lgd import LGDLookupError
 
 
@@ -68,14 +69,52 @@ def test_invalid_pin_never_calls_provider(pincode):
     lookup.assert_not_called()
 
 
-def test_lookup_failure_blocks_submission_with_retry_error():
+def test_lookup_failure_accepts_a_pair_from_the_offline_list():
+    """A provider outage must not hold up onboarding, but earns no LGD codes."""
     with patch(
         "ohc_experience.abdm.forms.lookup_pincode",
         side_effect=LGDLookupError,
     ):
         form = organisation_form()
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["state"] == "Karnataka"
+    assert form.cleaned_data["district"] == "Bengaluru Urban"
+    assert not form.cleaned_data["state_lgd_code"]
+    assert not form.cleaned_data["district_lgd_code"]
+
+
+def test_lookup_failure_still_rejects_a_pair_outside_the_offline_list():
+    with patch(
+        "ohc_experience.abdm.forms.lookup_pincode",
+        side_effect=LGDLookupError,
+    ):
+        form = organisation_form(state="Kerala", district="BENGALURU URBAN")
     assert not form.is_valid()
-    assert "Please try again" in form.errors["pincode"][0]
+    assert "district" in form.errors
+
+
+def test_a_real_pair_stands_even_where_lgd_answered_differently(lgd_lookup):
+    """The person chose it; we do not overrule them. It just earns no codes."""
+    form = organisation_form(state="Kerala", district="Ernakulam")
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["state"] == "Kerala"
+    assert form.cleaned_data["district"] == "Ernakulam"
+    assert not form.cleaned_data["state_lgd_code"]
+    assert not form.cleaned_data["district_lgd_code"]
+
+
+def test_lookup_failure_offers_every_state_and_the_districts_of_one():
+    with patch(
+        "ohc_experience.abdm.forms.lookup_pincode",
+        side_effect=LGDLookupError,
+    ):
+        form = organisation_form(state="Kerala", district="")
+    choices = {
+        name: [value for value, _ in form.fields[name].widget.choices if value]
+        for name in ("state", "district")
+    }
+    assert len(choices["state"]) == len(states.state_names())
+    assert choices["district"] == list(states.district_names("Kerala"))
 
 
 def test_multiple_districts_require_selection(lgd_lookup):
