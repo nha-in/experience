@@ -41,6 +41,7 @@ CODE_SENT_MESSAGES = frozenset(
 )
 CODE_UNDELIVERED = "verification_code_undelivered"
 PASSWORD_RESET_CODE_MAIL = "account/email/password_reset_code"  # noqa: S105
+UNKNOWN_ACCOUNT_MAIL = "account/email/unknown_account"
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -50,8 +51,9 @@ class AccountAdapter(DefaultAccountAdapter):
         return message
 
     def send_mail(self, template_prefix, email, context) -> None:
-        """The reset code is a code: it takes the same route as the others,
-        reaching the person while they wait rather than through the outbox."""
+        """Two prefixes never reach the outbox: the reset code is a code and
+        takes the same route as the others, reaching the person while they
+        wait; the unknown-address notice is not sent at all."""
         if template_prefix == PASSWORD_RESET_CODE_MAIL:
             self._send_code(
                 context.get("request") or self.request,
@@ -59,6 +61,11 @@ class AccountAdapter(DefaultAccountAdapter):
                 email,
                 context["code"],
             )
+            return
+        if template_prefix == UNKNOWN_ACCOUNT_MAIL:
+            # allauth offers to tell an unrecognised address that it has no
+            # account here. NHA registered no template for it, and the form
+            # already answers every address alike, so nothing is sent.
             return
         super().send_mail(template_prefix, email, context)
 

@@ -8,6 +8,8 @@ from ohc_experience.abdm.tests.test_wasa_lifecycle import request_milestone
 from ohc_experience.abdm.tests.test_wasa_lifecycle import request_renewal
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.wasa import current_wasa
+from ohc_experience.core.mail import QUEUED_GLOBAL_EMAIL_BACKEND
+from ohc_experience.core.mail.templates import APPROVED_TEMPLATE_IDS
 from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.tasks import remind_expiring_outcomes
 
@@ -104,3 +106,14 @@ def test_a_renewal_silences_the_certificate_it_replaces(environment):
     remind_expiring_outcomes()
 
     assert not reminders().exists()
+
+
+def test_the_renewal_warning_carries_its_own_template(environment, settings):
+    """NHA registered this warning separately; it must not ride the event
+    notice every unmapped message falls back to."""
+    settings.EMAIL_BACKEND = QUEUED_GLOBAL_EMAIL_BACKEND
+    approve_certificate(environment, expires_in=14)
+
+    remind_expiring_outcomes()
+
+    assert reminders().get().template_id == APPROVED_TEMPLATE_IDS["certificate_expiry"]

@@ -6,6 +6,7 @@ import pytest
 
 from config.settings import base
 from ohc_experience.core.mail import QUEUED_GLOBAL_EMAIL_BACKEND
+from ohc_experience.core.mail.templates import APPROVED_TEMPLATE_IDS
 
 
 @pytest.fixture
@@ -101,3 +102,23 @@ def test_a_stale_endpoint_cannot_redirect_email(load_base):
     assert api_url == (
         "http://notification-app.internal:9102/internal/v3/notification/email/send"
     )
+
+
+def test_approved_ids_need_no_environment(load_base, monkeypatch):
+    """A body deploys in the image; its template ID has to arrive with it."""
+    monkeypatch.delenv("GLOBAL_EMAIL_TEMPLATE_IDS", raising=False)
+    _, result = load_base("http://notification-app.internal:9102")
+    assert result["GLOBAL_EMAIL_TEMPLATE_IDS"] == APPROVED_TEMPLATE_IDS
+
+
+def test_an_override_changes_one_purpose_and_keeps_the_rest(load_base):
+    """A gateway that registered its own ID for one email must not silently
+    drop the three the deployment did not mention."""
+    _, result = load_base(
+        "http://notification-app.internal:9102",
+        GLOBAL_EMAIL_TEMPLATE_IDS='{"organisation_invitation": "74050"}',
+    )
+    ids = result["GLOBAL_EMAIL_TEMPLATE_IDS"]
+    assert ids["organisation_invitation"] == "74050"
+    assert ids["review"] == APPROVED_TEMPLATE_IDS["review"]
+    assert ids["notification"] == APPROVED_TEMPLATE_IDS["notification"]

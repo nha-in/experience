@@ -86,29 +86,40 @@ running elsewhere. The document specifies no authentication header; none is
 invented by this adapter. Network access and any deployment-side authentication
 requirements still need confirmation in that environment.
 
-Configure template IDs using `GLOBAL_EMAIL_TEMPLATE_IDS`, a JSON object whose
-keys are message purposes and whose values are approved template ID strings:
+Template IDs ship with the bodies they belong to, in
+`ohc_experience/core/mail/templates.py`. Nothing needs configuring for these
+purposes; add an email by adding its purpose there:
 
 | Key | Email | Approved ID |
 | --- | --- | --- |
-| `notification` | General workflow and event notices, plus product credential, callback and certificate expiry alerts | `1077013850031295817` |
+| `notification` | Registered as an event notice: event registration and its 24-hour reminder. Also carries every queued notice without its own purpose | `1077013850031295817` |
+| `certificate_expiry` | The warning sent 30, 15 and 7 days before a dated outcome lapses — in the ABDM programme, WASA certificate renewal | `1077013850031295822` |
 | `review` | Review thread updates and the approval that closes them | `1077013850031295815` |
 | `support_ticket` | Support ticket thread entries sent to the support inbox | `1077013850031295816` |
 | `organisation_invitation` | Organisation membership invitation | `1077013850031295818` |
-| Other allauth template prefixes | Corresponding allauth account notices, e.g. `account/email/unknown_account` | — |
+| Other allauth template prefixes | Corresponding allauth account notices, e.g. `account/email/password_changed` | — |
 
-The IDs above are the templates NHA registered for this portal. Set them
-verbatim, keeping each ID quoted as a string; they are 19 digits and lose
-precision if parsed as JSON numbers:
+The IDs above are the templates NHA registered for this portal against
+"ABDM Template Request v1.0". `GLOBAL_EMAIL_TEMPLATE_IDS` still overrides
+individual purposes, for an environment whose gateway registered different IDs;
+it merges over the committed mapping, so setting one purpose does not drop the
+rest. Keep each ID quoted as a string: they are 19 digits and lose precision if
+parsed as JSON numbers.
 
 ```json
-{
-  "notification": "1077013850031295817",
-  "review": "1077013850031295815",
-  "support_ticket": "1077013850031295816",
-  "organisation_invitation": "1077013850031295818"
-}
+{ "organisation_invitation": "1077013850031295818" }
 ```
+
+`notification` is registered as an event notice, covering event registration and
+its 24-hour reminder. Two notices have no purpose of their own and fall back to
+it, so they still go out under an event template until each has a registered ID:
+"credentials available" once provisioning completes, and the alert raised when a
+product's callback fails three checks in a row.
+
+A password reset for an address with no account sends nothing at all: the form
+answers every address alike, so the reply is what withholds the answer, and no
+template was registered for the notice allauth offers to send
+(`account/email/unknown_account`, dropped in `AccountAdapter.send_mail`).
 
 The one-time codes and the two decision mails do not read this mapping: email
 and mobile verification codes, the password-reset code, and the production

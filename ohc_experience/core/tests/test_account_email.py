@@ -1,6 +1,6 @@
 """Account mail renders real allauth templates into the gateway outbox, except
 verification and password reset codes, which go straight to the notification
-gateway."""
+gateway, and the unknown-address notice, which is not sent at all."""
 
 from unittest.mock import Mock
 from uuid import uuid4
@@ -36,9 +36,7 @@ def gateway(settings, monkeypatch):
     settings.ANYMAIL = {
         "GLOBAL_EMAIL_API_URL": "https://gateway.invalid/email/send",
     }
-    settings.GLOBAL_EMAIL_TEMPLATE_IDS = {
-        "account/email/unknown_account": "74011",
-    }
+    settings.GLOBAL_EMAIL_TEMPLATE_IDS = {}
     network = Mock(side_effect=AssertionError("Unexpected network request"))
     monkeypatch.setattr("requests.Session.request", network)
     return network
@@ -78,15 +76,14 @@ def test_password_reset_sends_its_code_through_the_notification_gateway(
     gateway.assert_not_called()
 
 
-def test_an_unknown_address_still_takes_the_outbox(client, gateway):
+def test_an_unknown_address_is_told_nothing(client, gateway):
+    """The form answers every address alike, so the reply is the tell, not a
+    mail. No template was registered for one, and sending none cannot fail."""
     response = client.post(
         reverse("account_reset_password"),
         {"email": "nobody@example.org"},
     )
     assert response.status_code == 302  # noqa: PLR2004
-    notification = Notification.objects.get()
-    assert notification.recipient == "nobody@example.org"
-    assert notification.template_id == "74011"
-    assert notification.sent_at is None
+    assert not Notification.objects.exists()
     assert LocalNotificationGateway().sent() == []
     gateway.assert_not_called()

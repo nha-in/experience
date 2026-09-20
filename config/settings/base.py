@@ -7,6 +7,8 @@ from pathlib import Path
 
 import environ
 
+from ohc_experience.core.mail.templates import APPROVED_TEMPLATE_IDS
+
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # ohc_experience/
 APPS_DIR = BASE_DIR / "ohc_experience"
@@ -370,7 +372,12 @@ ANYMAIL = {
     "GLOBAL_EMAIL_ORIGIN": env("GLOBAL_EMAIL_ORIGIN", default="abha"),
     "GLOBAL_EMAIL_SENDER": env("GLOBAL_EMAIL_SENDER", default="NHASMS"),
 }
-GLOBAL_EMAIL_TEMPLATE_IDS = env.json("GLOBAL_EMAIL_TEMPLATE_IDS", default={})
+# The approved IDs ship with the bodies they belong to; the environment
+# overrides a single purpose without dropping the rest.
+GLOBAL_EMAIL_TEMPLATE_IDS = {
+    **APPROVED_TEMPLATE_IDS,
+    **env.json("GLOBAL_EMAIL_TEMPLATE_IDS", default={}),
+}
 
 # SUPPORT TICKET EMAIL THREADING
 # ------------------------------------------------------------------------------

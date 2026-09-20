@@ -85,7 +85,7 @@ For **email delivery**, production uses the Global Email API through a durable n
 
 | Variable | Requirement / default |
 | --- | --- |
-| `GLOBAL_EMAIL_TEMPLATE_IDS` | JSON object mapping email purposes to approved template ID strings. Default: `{}`. |
+| `GLOBAL_EMAIL_TEMPLATE_IDS` | Not needed. The approved IDs ship in `ohc_experience/core/mail/templates.py`. A JSON object here overrides individual purposes, merging over the committed mapping. |
 | `GLOBAL_EMAIL_TEMPLATE_ID` | Optional approved fallback for unmapped purposes. Default: empty. Every message needs an explicit, mapped, or fallback template ID. |
 | `GLOBAL_EMAIL_ORIGIN` | Default: `abha`. |
 | `GLOBAL_EMAIL_SENDER` | Default: `NHASMS`. |
@@ -95,15 +95,15 @@ For **email delivery**, production uses the Global Email API through a durable n
 | `DJANGO_SERVER_EMAIL` | Defaults to `DJANGO_DEFAULT_FROM_EMAIL`. |
 | `DJANGO_EMAIL_SUBJECT_PREFIX` | Default: `[OHC Experience] `, including a trailing space. |
 
-The main purpose keys for `GLOBAL_EMAIL_TEMPLATE_IDS` are:
+The purposes and the IDs that ship with them are:
 
 | Purpose key | Message | Approved ID |
 | --- | --- | --- |
-| `notification` | General workflow and event notices, plus product credential, callback and certificate expiry alerts. | `1077013850031295817` |
+| `notification` | Registered as an event notice: event registration and its 24-hour reminder. Also carries every queued notice without its own purpose, including the product credential and callback alerts. | `1077013850031295817` |
 | `review` | Review thread updates and the approval that closes them. | `1077013850031295815` |
 | `support_ticket` | Support ticket thread entries. | `1077013850031295816` |
 | `organisation_invitation` | Organisation membership invitation. | `1077013850031295818` |
-| `account/email/unknown_account` | Password reset asked for an address with no account. | — |
+| `certificate_expiry` | Sent 30, 15 and 7 days before a dated outcome lapses: WASA certificate renewal. | `1077013850031295822` |
 
 Verification codes, the password-reset code, and the production approval notice
 each carry their own approved template ID directly and are not set here.

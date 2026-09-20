@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from ohc_experience.core.mail import GLOBAL_EMAIL_BACKEND
 from ohc_experience.core.mail import apply_gateway_template
+from ohc_experience.core.mail import gateway_template_id
 from ohc_experience.core.mail import get_delivery_backend
 from ohc_experience.core.mail.backends import GlobalEmailAPIError
 from ohc_experience.organisations.models import MANAGER_ROLES
@@ -32,6 +33,9 @@ NOTIFICATION_BATCH_SECONDS = 30
 # Three warnings before a dated outcome lapses, matching the windows integrators
 # already know from the legacy portal, so a renewal can be arranged in time.
 OUTCOME_REMINDER_DAYS = (30, 15, 7)
+# NHA registered this warning as its own template, apart from the event notice
+# every other queued message falls back to.
+EXPIRY_TEMPLATE_KEY = "certificate_expiry"
 
 
 class NotificationNotAcceptedError(RuntimeError):
@@ -248,6 +252,7 @@ def _remind_outcome(outcome, today) -> None:
             context,
         ).strip(),
         body=render_to_string("experiences/email/outcome_expiry_body.txt", context),
+        template_id=gateway_template_id(EXPIRY_TEMPLATE_KEY),
     )
     outcome.metadata["expiry_reminders"] = sorted({*sent, *windows}, reverse=True)
     outcome.save(update_fields=["metadata", "updated_at"])

@@ -21,7 +21,22 @@ def apply_gateway_template(message, key):
     """Resolve an approved ID once, preserving Anymail's default precedence."""
     if get_delivery_backend() != GLOBAL_EMAIL_BACKEND:
         return
-    explicit = getattr(message, "template_id", UNSET)
+    message.template_id = _resolve(key, getattr(message, "template_id", UNSET))
+
+
+def gateway_template_id(key):
+    """The approved ID for a purpose, for a row written straight to the outbox.
+
+    Empty where mail is not going to the gateway at all. The ID is chosen when
+    the row is written, as `QueuedGlobalEmailBackend` chooses its own, so a
+    queued message keeps it through every retry.
+    """
+    if get_delivery_backend() != GLOBAL_EMAIL_BACKEND:
+        return ""
+    return _resolve(key, UNSET)
+
+
+def _resolve(key, explicit):
     templates = getattr(settings, "GLOBAL_EMAIL_TEMPLATE_IDS", {})
     if not isinstance(templates, dict):
         error = "Configure GLOBAL_EMAIL_TEMPLATE_IDS as an object of template IDs."
@@ -56,4 +71,4 @@ def apply_gateway_template(message, key):
     ):
         error = f"Configure a valid Global Email template ID for {key}."
         raise AnymailConfigurationError(error)
-    message.template_id = template_id
+    return template_id

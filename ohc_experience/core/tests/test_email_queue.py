@@ -13,6 +13,7 @@ from ohc_experience.core.mail import QUEUED_GLOBAL_EMAIL_BACKEND
 from ohc_experience.core.mail import apply_gateway_template
 from ohc_experience.core.mail import get_delivery_backend
 from ohc_experience.core.mail.backends import GlobalEmailBackend
+from ohc_experience.core.mail.templates import APPROVED_TEMPLATE_IDS
 from ohc_experience.experiences.models import Notification
 from ohc_experience.experiences.tasks import deliver_notifications
 from ohc_experience.organisations.tests.factories import InvitationFactory
@@ -288,3 +289,22 @@ def test_worker_delivers_queued_mail_without_enqueuing_again(monkeypatch):
     assert calls[0]["ccRecipients"] == ["reviewer@example.org"]
     deliver_notifications()
     assert len(calls) == 1
+
+
+def test_every_purpose_ships_its_approved_id(settings):
+    """The bodies deploy in the image; their IDs have to travel with them.
+
+    An invite whose ID was left behind in the deployment environment is a 500
+    on the team page, not a message that quietly fails to send.
+    """
+    settings.GLOBAL_EMAIL_TEMPLATE_IDS = APPROVED_TEMPLATE_IDS
+    for purpose in (
+        "notification",
+        "review",
+        "support_ticket",
+        "organisation_invitation",
+    ):
+        email = message()
+        apply_gateway_template(email, purpose)
+        assert email.template_id == APPROVED_TEMPLATE_IDS[purpose]
+        assert email.template_id.isdigit()
