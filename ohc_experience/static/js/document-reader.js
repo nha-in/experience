@@ -205,7 +205,7 @@
       field.removeAttribute("aria-busy");
     }
 
-    async function read(file, version) {
+    async function read(file, version, again) {
       const activeRequest = new AbortController();
       request = activeRequest;
       let timedOut = false;
@@ -222,6 +222,7 @@
         const body = new FormData();
         body.append("intent", "read");
         body.append("field", input.dataset.readDocument);
+        if (again) body.append("refresh", "1");
         body.append(input.dataset.readDocument, file);
         const response = await fetch(
           new URL(form.action || window.location.href, window.location.href),
@@ -284,6 +285,11 @@
       }
     }
 
+    // The file the last reading was asked about. Choosing it again is the
+    // integrator saying that reading was no use, so the server is asked to read
+    // the certificate rather than to repeat what it made of those bytes before.
+    let lastRead = "";
+
     function schedule() {
       cancel();
       setBusy(false);
@@ -293,21 +299,29 @@
         message("");
         return;
       }
+      const chosen = fingerprint(file);
+      const again = chosen === lastRead;
+      lastRead = chosen;
       message("Reading the certificate…", { quiet: true });
       setBusy(true);
       field.setAttribute("aria-busy", "true");
-      read(file, sequence);
+      read(file, sequence, again);
     }
 
-    // Choosing a file fires `change`, and the upload script then fires `input`;
-    // its remove button fires only `input`. So the file decides whether there
-    // is anything new to do, and removing one counts as a change.
-    let acted = "";
+    // Choosing a file fires `change`, and the upload script then fires `input`
+    // for the FileList it rebuilds; dropping one and its remove button fire
+    // only `input`. Every one of those announces a single choice and they all
+    // arrive in the same turn, so the turn, not the file, decides that there is
+    // one reading to do: choosing the same file over again has to reach the
+    // server, or an integrator who wants another look has no way to ask.
+    let announced = false;
     function fileChanged() {
-      const chosen = fingerprint(input.files?.[0]) || "";
-      if (chosen === acted) return;
-      acted = chosen;
-      schedule();
+      if (announced) return;
+      announced = true;
+      setTimeout(() => {
+        announced = false;
+        schedule();
+      }, 0);
     }
 
     input.addEventListener("change", fileChanged);

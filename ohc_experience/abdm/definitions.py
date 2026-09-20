@@ -38,11 +38,11 @@ from .wasa_extraction import WASA_CERTIFICATE_FIELD
 from .wasa_extraction import extract_certificate
 
 
-def read_wasa_certificate(field_key, upload):
+def read_wasa_certificate(field_key, upload, *, refresh=False):
     """Offer the audit fields printed on the certificate the user just chose."""
     if field_key != WASA_CERTIFICATE_FIELD:
         return {}
-    return extract_certificate(upload)
+    return extract_certificate(upload, refresh=refresh)
 
 
 def organisation_prerequisite(item):
@@ -142,8 +142,8 @@ class ExitEvidence(ApplicationFormDefinition):
         return form.cleaned_data.get("wasa_valid_until")
 
     @classmethod
-    def read_document(cls, field_key, upload):
-        return read_wasa_certificate(field_key, upload)
+    def read_document(cls, field_key, upload, *, refresh=False):
+        return read_wasa_certificate(field_key, upload, refresh=refresh)
 
     @classmethod
     def approval_block_reason(cls, item):
@@ -203,8 +203,8 @@ class WasaReview(ApplicationFormDefinition):
         return form.cleaned_data.get("wasa_valid_until")
 
     @classmethod
-    def read_document(cls, field_key, upload):
-        return read_wasa_certificate(field_key, upload)
+    def read_document(cls, field_key, upload, *, refresh=False):
+        return read_wasa_certificate(field_key, upload, refresh=refresh)
 
     @classmethod
     def approval_block_reason(cls, item):

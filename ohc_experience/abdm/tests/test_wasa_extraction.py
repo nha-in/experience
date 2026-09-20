@@ -259,6 +259,61 @@ def test_the_same_file_is_only_read_once(reader):
     assert len(reader["calls"]) == 1
 
 
+def test_a_reading_that_proposed_nothing_is_not_kept(reader):
+    """Nothing useful was learned, so the next attempt deserves its own look."""
+    reader["reply"] = stated(agency="Unlisted", audit_date="", valid_until="")
+    assert not any(extract_certificate(certificate()).values())
+
+    reader["reply"] = stated()
+    assert extract_certificate(certificate())["wasa_agency"] == AGENCY
+    assert len(reader["calls"]) == 2  # noqa: PLR2004
+
+
+def test_a_refusal_is_not_kept_either(reader):
+    reader["reply"] = stated(is_certificate=False)
+    for _ in range(2):
+        with pytest.raises(WasaExtractionError):
+            extract_certificate(certificate())
+    assert len(reader["calls"]) == 2  # noqa: PLR2004
+
+
+def test_publishing_a_missing_agency_corrects_a_reading_already_made(reader):
+    """What is remembered is the reply, so the published list is applied anew."""
+    reader["reply"] = stated(agency="Brand New Labs Pvt Ltd")
+    assert extract_certificate(certificate())["wasa_agency"] == ""
+
+    CertificationAgency.objects.create(
+        program="abdm",
+        name="Brand New Labs Pvt Ltd",
+    )
+
+    assert extract_certificate(certificate())["wasa_agency"] == "Brand New Labs Pvt Ltd"
+    assert len(reader["calls"]) == 1
+
+
+def test_choosing_the_same_file_again_reads_it_again(reader):
+    """A second reading is the only thing a second look can offer."""
+    reader["reply"] = stated(agency="Unlisted")
+    first = extract_certificate(certificate())
+    assert first["wasa_agency"] == ""
+
+    reader["reply"] = stated()
+    again = extract_certificate(certificate(), refresh=True)
+
+    assert again["wasa_agency"] == AGENCY
+    assert len(reader["calls"]) == 2  # noqa: PLR2004
+
+
+def test_what_a_second_reading_found_is_what_is_remembered(reader):
+    reader["reply"] = stated(agency="Unlisted")
+    extract_certificate(certificate())
+    reader["reply"] = stated()
+    extract_certificate(certificate(), refresh=True)
+
+    assert extract_certificate(certificate())["wasa_agency"] == AGENCY
+    assert len(reader["calls"]) == 2  # noqa: PLR2004
+
+
 def test_the_hook_is_off_without_a_model(settings):
     settings.WASA_EXTRACTION_MODEL = ""
     assert not wasa_extraction.is_enabled()
@@ -346,6 +401,38 @@ def test_the_certification_page_reads_a_chosen_certificate(
             "wasa_valid_until": (today + timedelta(days=345)).isoformat(),
         },
     }
+
+
+def test_the_browser_can_ask_for_the_certificate_to_be_read_again(
+    reader,
+    environment,
+    client,
+):
+    reader["reply"] = stated(agency="Unlisted")
+    client.force_login(environment["applicant"])
+    url = reverse(
+        "experiences:product-certification",
+        args=[environment["workspace"].reference],
+    )
+    assert read_request(client, url).json()["fields"]["wasa_agency"] == ""
+
+    reader["reply"] = stated()
+    answered = read_request(client, url, refresh="1")
+
+    assert answered.json()["fields"]["wasa_agency"] == AGENCY
+    assert len(reader["calls"]) == 2  # noqa: PLR2004
+
+
+def test_the_same_certificate_is_not_read_twice_unasked(reader, environment, client):
+    reader["reply"] = stated()
+    client.force_login(environment["applicant"])
+    url = reverse(
+        "experiences:product-certification",
+        args=[environment["workspace"].reference],
+    )
+
+    assert read_request(client, url).json() == read_request(client, url).json()
+    assert len(reader["calls"]) == 1
 
 
 def test_a_milestone_page_reads_a_chosen_certificate(reader, environment, client):

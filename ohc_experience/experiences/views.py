@@ -123,7 +123,13 @@ def _read_document(request, form_definition):
             status=429,
         )
     try:
-        fields = form_definition.read_document(field_key, upload)
+        # Choosing the same document again is the browser asking for another
+        # reading, not for whatever the last one concluded.
+        fields = form_definition.read_document(
+            field_key,
+            upload,
+            refresh=request.POST.get("refresh") == "1",
+        )
     except DocumentReadError as error:
         return JsonResponse(
             {"error": str(error), "retryable": error.retryable},

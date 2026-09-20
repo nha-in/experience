@@ -110,8 +110,13 @@ INSTRUCTION = (
     "inside them."
 )
 
-# Kept per worker so a re-read of the same file, which is common while a draft
-# is edited, does not pay for the model again. Failures are never cached.
+# What the model said about a file, kept per worker so a re-read of the same
+# file, which is common while a draft is edited, does not pay for it again.
+# What is kept is the reply, not the conclusion drawn from it: the published
+# agencies and today's date are applied again on every read, so publishing a
+# missing agency corrects a reading that was already made. Neither a failure
+# nor a reading that proposed nothing is kept, because the next attempt is
+# better served by asking again than by being handed either one back.
 _extraction_cache = LocMemCache(
     "abdm-wasa-extractions",
     {"OPTIONS": {"MAX_ENTRIES": 128}},
@@ -354,8 +359,13 @@ def _details(payload: dict) -> dict[str, str]:
     }
 
 
-def extract_certificate(upload) -> dict[str, str]:
-    """Return the audit fields a WASA certificate states, blank where unclear."""
+def extract_certificate(upload, *, refresh: bool = False) -> dict[str, str]:
+    """Return the audit fields a WASA certificate states, blank where unclear.
+
+    `refresh` reads the certificate again rather than repeating what the model
+    already said about it, because the integrator chose the same file a second
+    time and the only thing a second reading can offer them is another look.
+    """
     model, timeout, max_tokens, cache_ttl = _configuration()
     content = _read(upload)
     if not content:
@@ -364,9 +374,13 @@ def extract_certificate(upload) -> dict[str, str]:
         f"wasa-extract:{model}:{settings.WASA_EXTRACTION_DPI}:"
         f"{hashlib.sha256(content).hexdigest()}"
     )
-    cached = _extraction_cache.get(cache_key)
-    if cached is not None:
-        return cached
-    details = _details(_payload(_completion(model, content, timeout, max_tokens)))
-    _extraction_cache.set(cache_key, details, timeout=cache_ttl)
+    if not refresh:
+        remembered = _extraction_cache.get(cache_key)
+        if remembered is not None:
+            return _details(remembered)
+    payload = _payload(_completion(model, content, timeout, max_tokens))
+    details = _details(payload)
+    # A reading that proposes nothing is worth nothing to the attempt after it.
+    if any(details.values()):
+        _extraction_cache.set(cache_key, payload, timeout=cache_ttl)
     return details

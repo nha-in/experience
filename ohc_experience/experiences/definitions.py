@@ -111,12 +111,15 @@ class ApplicationFormDefinition:
         """Optional validity date for this exact submission revision."""
 
     @classmethod
-    def read_document(cls, field_key, upload):
+    def read_document(cls, field_key, upload, *, refresh=False):
         """Propose field values read out of a document the user just chose.
 
         Return `{form field name: value}`, empty where nothing could be read, or
         raise `DocumentReadError`. Nothing returned here is trusted: the fields
         stay editable and the form validates them again on save.
+
+        `refresh` says the user chose the same document a second time, so a
+        hook that remembers what it made of a document reads it again instead.
         """
         return {}
 
