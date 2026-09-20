@@ -1642,8 +1642,6 @@ def pending_queries(request):
 
 def _credential_notice(intent, credential):
     """Registration runs on a worker, so a save cannot report its outcome."""
-    if intent == "check":
-        return "Callback check complete."
     if intent == "callback" and not credential.callback_url:
         return "Callback URL cleared."
     if intent in {"callback", "register"}:
@@ -1713,8 +1711,6 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 credential_services.rotate(credential, request.user)
             elif intent == "revoke":
                 credential_services.revoke(credential, request.user)
-            elif intent == "check":
-                credential_services.check_callback(credential, request.user)
             elif intent == "register":
                 credential_services.retry_bridge(credential, request.user)
             elif intent == "callback":

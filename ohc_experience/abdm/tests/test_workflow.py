@@ -1,6 +1,5 @@
 # ruff: noqa: PLR2004
 import re
-import socket
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -926,35 +925,6 @@ def test_revoke_switches_every_system_off_and_closes_the_panel(
     ) == {ProvisionedResourceState.DISABLED}
     with pytest.raises(ValidationError, match="no longer active"):
         credentials.reveal(credential, environment["applicant"])
-
-
-@pytest.mark.parametrize(
-    "address",
-    ["127.0.0.1", "10.0.0.1", "169.254.169.254", "::1", "192.168.1.1"],
-)
-def test_callback_rejects_private_dns_results(address):
-    with (
-        patch(
-            "ohc_experience.experiences.credentials.socket.getaddrinfo",
-            return_value=[(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 443))],
-        ),
-        pytest.raises(ValidationError, match="Private"),
-    ):
-        credentials.public_callback_target("https://callback.example.org/")
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "http://example.org",
-        "https://user:pass@example.org",
-        "https://example.org:8443",
-        "https://example.org/#fragment",
-    ],
-)
-def test_callback_rejects_unsafe_urls(url):
-    with pytest.raises(ValidationError):
-        credentials.public_callback_target(url)
 
 
 def test_permission_boundaries_and_all_portal_pages_render(environment, client):

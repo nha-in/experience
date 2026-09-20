@@ -986,11 +986,6 @@ class ProductCredential(models.Model):
     callback_url = models.URLField(blank=True)
     issued_at = models.DateTimeField(default=timezone.now)
     rotation_due = models.DateTimeField()
-    last_checked_at = models.DateTimeField(null=True, blank=True)
-    last_status = models.PositiveSmallIntegerField(null=True, blank=True)
-    last_latency_ms = models.PositiveIntegerField(null=True, blank=True)
-    consecutive_failures = models.PositiveIntegerField(default=0)
-    last_error = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return f"{self.client_id} ({self.status})"

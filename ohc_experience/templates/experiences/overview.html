@@ -41,10 +41,9 @@
            href="{% url 'experiences:credentials' workspace.reference %}">
           <span class="ui-kicker">Callback</span>
           <span class="flex min-h-10 items-center gap-2.5 text-[26px] leading-8 font-extrabold tracking-tight">
-            {% if credential.last_checked_at %}<span class="ui-live {% if credential.consecutive_failures %}ui-live--danger{% endif %}"
-      aria-hidden="true"></span>{% if credential.consecutive_failures %}Unreachable{% else %}Reachable{% endif %}{% elif credential %}<span class="text-soft-foreground">Not checked</span>{% else %}<span class="text-soft-foreground">Not issued</span>{% endif %}
+            {% if credential.callback_url %}<span class="ui-live" aria-hidden="true"></span>Configured{% elif credential %}<span class="text-soft-foreground">Not set</span>{% else %}<span class="text-soft-foreground">Not issued</span>{% endif %}
           </span>
-          <span class="ui-tile-note">{% if credential.last_checked_at %}{% if credential.last_status %}<span class="font-mono">HTTP {{ credential.last_status }}{% if credential.last_latency_ms is not None %} · {{ credential.last_latency_ms }} ms{% endif %}</span> · {% endif %}Checked {{ credential.last_checked_at|timesince }} ago{% elif credential %}Save a callback URL and test your connection.{% else %}View your credential availability and next steps.{% endif %}</span>
+          <span class="ui-tile-note">{% if credential.callback_url %}Where the gateway calls your software back.{% elif credential %}Save the URL the gateway should call back.{% else %}View your credential availability and next steps.{% endif %}</span>
         </a>
       {% elif can_integrate %}
         <a class="ui-tile ui-rise"
@@ -148,19 +147,6 @@
                   <dt class="text-soft-foreground">Client ID</dt>
                   <dd class="min-w-0 truncate font-mono">
                     {{ credential.client_id }}
-                  </dd>
-                  <dt class="text-soft-foreground">Callback</dt>
-                  <dd>
-                    {% if credential.last_checked_at %}
-                      {% if credential.consecutive_failures %}
-                        {% include 'experiences/partials/status.html' with status='rejected' label='Unreachable' %}
-                      {% else %}
-                        {% include 'experiences/partials/status.html' with status='approved' label='Reachable' %}
-                      {% endif %}
-                      <span class="mt-1 block text-xs text-soft-foreground">Checked {{ credential.last_checked_at|timesince }} ago</span>
-                    {% else %}
-                      <span class="text-soft-foreground">Not checked</span>
-                    {% endif %}
                   </dd>
                   <dt class="text-soft-foreground">Callback</dt>
                   <dd class="min-w-0 truncate font-mono">

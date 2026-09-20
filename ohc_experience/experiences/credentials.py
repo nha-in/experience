@@ -1,12 +1,6 @@
-import http.client
-import ipaddress
 import logging
-import socket
-import ssl
 import time
 from datetime import timedelta
-from http import HTTPStatus
-from urllib.parse import urlsplit
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -22,11 +16,8 @@ from .models import ProductCredential
 from .permissions import require_integrator
 from .secrets import cipher
 from .workflows import audit
-from .workflows import notify_integrators
 
 logger = logging.getLogger(__name__)
-
-CALLBACK_FAILURE_ALERT_THRESHOLD = 3
 
 
 def rate_limit(actor, operation, limit=5):
@@ -121,13 +112,7 @@ def save_callback_url(credential, actor, url):
     credential = ProductCredential.objects.select_for_update().get(pk=credential.pk)
     previous = credential.callback_url
     credential.callback_url = url
-    if previous != url:
-        credential.last_checked_at = None
-        credential.last_status = None
-        credential.last_latency_ms = None
-        credential.last_error = ""
-        credential.consecutive_failures = 0
-    credential.save()
+    credential.save(update_fields=["callback_url"])
     audit(
         actor=actor,
         action="Callback URL updated",
@@ -146,100 +131,3 @@ def retry_bridge(credential, actor):
         msg = "Save a callback URL first."
         raise ValidationError(msg)
     start_bridge_sync(credential.product)
-
-
-def public_callback_target(url):
-    parts = urlsplit(url)
-    if (
-        parts.scheme != "https"
-        or not parts.hostname
-        or parts.username
-        or parts.password
-        or parts.fragment
-        or parts.port not in {None, 443}
-    ):
-        msg = "Use a public HTTPS endpoint on port 443 without credentials."
-        raise ValidationError(
-            msg,
-        )
-    addresses = socket.getaddrinfo(parts.hostname, 443, type=socket.SOCK_STREAM)
-    if not addresses or any(
-        not ipaddress.ip_address(entry[4][0]).is_global for entry in addresses
-    ):
-        msg = "Private, loopback and reserved callback addresses are not permitted."
-        raise ValidationError(
-            msg,
-        )
-    return parts, addresses[0][4][0]
-
-
-def check_callback(credential, actor=None):
-    if actor:
-        require_integrator(actor, credential.product.organisation)
-        rate_limit(actor, "callback")
-    url = credential.callback_url
-    if not url:
-        msg = "Save a callback URL first."
-        raise ValidationError(msg)
-    started = time.monotonic()
-    status, error = None, ""
-    try:
-        parts, address = public_callback_target(url)
-        # Connect to the validated IP, retaining hostname verification and SNI.
-        # No redirects are followed, so DNS rebinding cannot target internal hosts.
-        context = ssl.create_default_context()
-        with socket.create_connection((address, 443), timeout=5) as raw:  # noqa: SIM117
-            with context.wrap_socket(raw, server_hostname=parts.hostname) as secured:
-                connection = http.client.HTTPSConnection(parts.hostname, timeout=5)
-                connection.sock = secured
-                try:
-                    path = (parts.path or "/") + (
-                        f"?{parts.query}" if parts.query else ""
-                    )
-                    connection.request(
-                        "HEAD",
-                        path,
-                        headers={"User-Agent": "Experience-Callback-Check/1.0"},
-                    )
-                    status = connection.getresponse().status
-                finally:
-                    connection.close()
-    except (OSError, ValueError, http.client.HTTPException, ValidationError) as exc:
-        error = (
-            " ".join(exc.messages)
-            if isinstance(exc, ValidationError)
-            else "Endpoint unreachable or TLS validation failed."
-        )
-    with transaction.atomic():
-        current = ProductCredential.objects.select_for_update().get(pk=credential.pk)
-        if current.callback_url != url:
-            return current
-        current.last_checked_at = timezone.now()
-        current.last_status = status
-        current.last_latency_ms = round((time.monotonic() - started) * 1000)
-        current.last_error = error
-        current.consecutive_failures = (
-            0
-            if status and HTTPStatus.OK <= status < HTTPStatus.MULTIPLE_CHOICES
-            else current.consecutive_failures + 1
-        )
-        current.save()
-        if current.consecutive_failures == CALLBACK_FAILURE_ALERT_THRESHOLD:
-            notify_integrators(
-                current.product.organisation,
-                f"{current.product.workspace.definition.short_name}: "
-                "callback check failed three times",
-                f"The callback for {current.product.name} is not responding. "
-                "Check the integration URLs in the portal.",
-            )
-        audit(
-            actor=actor,
-            action="Callback checked",
-            product=current.product,
-            detail={
-                "status": status,
-                "error": error,
-                "latency_ms": current.last_latency_ms,
-            },
-        )
-        return current

@@ -484,10 +484,6 @@ CELERY_TASK_SOFT_TIME_LIMIT = 60
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#beat-scheduler
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
-    "sandbox-callback-health": {
-        "task": "ohc_experience.experiences.tasks.monitor_callbacks",
-        "schedule": 900.0,
-    },
     "sandbox-notifications": {
         "task": "ohc_experience.experiences.tasks.deliver_notifications",
         "schedule": 60.0,

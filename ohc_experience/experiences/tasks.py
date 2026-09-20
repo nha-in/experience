@@ -18,10 +18,8 @@ from ohc_experience.core.mail import get_delivery_backend
 from ohc_experience.core.mail.backends import GlobalEmailAPIError
 from ohc_experience.organisations.models import MANAGER_ROLES
 
-from .credentials import check_callback
 from .models import EventRegistration
 from .models import Notification
-from .models import ProductCredential
 from .models import ProductOutcome
 from .models import ProductOutcomeStatus
 from .permissions import visible_events
@@ -40,14 +38,6 @@ EXPIRY_TEMPLATE_KEY = "certificate_expiry"
 
 class NotificationNotAcceptedError(RuntimeError):
     """The backend did not accept the single queued message."""
-
-
-@shared_task
-def monitor_callbacks():
-    for credential in ProductCredential.objects.filter(
-        status="active",
-    ).exclude(callback_url=""):
-        check_callback(credential)
 
 
 @shared_task

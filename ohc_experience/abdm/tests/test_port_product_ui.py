@@ -521,13 +521,10 @@ def test_credential_reveal_preserves_full_page_fallback(environment, client, htm
 
 
 @pytest.mark.django_db
-def test_saving_the_callback_url_clears_the_previous_check(environment, client):
+def test_saving_a_new_callback_url_replaces_the_old_one(environment, client):
     credential = ProductCredential.objects.get(product=environment["workspace"].product)
     credential.callback_url = "https://old.example/callback"
-    credential.last_status = 500
-    credential.consecutive_failures = 2
-    credential.last_error = "Endpoint unreachable or TLS validation failed."
-    credential.save()
+    credential.save(update_fields=["callback_url"])
     client.force_login(environment["applicant"])
 
     response = client.post(
@@ -538,10 +535,6 @@ def test_saving_the_callback_url_clears_the_previous_check(environment, client):
     assert response.status_code == 302
     credential.refresh_from_db()
     assert credential.callback_url == "https://new.example/callback"
-    # A reading of the old endpoint says nothing about the new one.
-    assert credential.last_status is None
-    assert credential.consecutive_failures == 0
-    assert credential.last_error == ""
 
 
 @pytest.mark.django_db
@@ -656,4 +649,7 @@ def test_saving_a_callback_url_reports_its_registration_on_reload(
             {"intent": "callback", "callback_url": "https://acme.example/callback"},
         )
 
-    assert "Registered" in client.get(url).content.decode()
+    html = client.get(url).content.decode()
+    assert "Accepted" in html
+    # The gateway cannot be read back, so the card must not claim more.
+    assert "Reachable" not in html

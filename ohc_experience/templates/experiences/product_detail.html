@@ -196,19 +196,6 @@
                   {{ credential.client_id }}
                 </dd>
                 <dt class="text-soft-foreground">Callback</dt>
-                <dd>
-                  {% if credential.last_checked_at %}
-                    {% if credential.consecutive_failures %}
-                      {% include 'experiences/partials/status.html' with status='rejected' label='Unreachable' %}
-                    {% else %}
-                      {% include 'experiences/partials/status.html' with status='approved' label='Reachable' %}
-                    {% endif %}
-                    <span class="mt-1 block text-xs text-soft-foreground">Checked {{ credential.last_checked_at|timesince }} ago</span>
-                  {% else %}
-                    <span class="text-soft-foreground">Not checked</span>
-                  {% endif %}
-                </dd>
-                <dt class="text-soft-foreground">Callback</dt>
                 <dd class="min-w-0 truncate font-mono">
                   {{ credential.callback_url|default:'Not configured' }}
                 </dd>

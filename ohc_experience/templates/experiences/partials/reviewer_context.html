@@ -20,8 +20,8 @@
         <dd class="min-w-0 leading-relaxed">
           {% if not can_read_general %}<span class="text-muted-foreground">Requires general review access.</span>
         {% elif credential %}
-          <span class="ui-badge ui-badge--size-xs {% if not credential.last_checked_at %}ui-badge--neutral{% elif credential.consecutive_failures %}ui-badge--warning{% else %}ui-badge--success{% endif %}">{% if not credential.last_checked_at %}Not checked{% elif credential.consecutive_failures %}Unreachable{% else %}Reachable{% endif %}</span>
-          <span class="text-xs text-muted-foreground">{% if credential.last_status %}HTTP {{ credential.last_status }}{% endif %}{% if credential.last_latency_ms != None %} · {{ credential.last_latency_ms }} ms{% endif %}{% if credential.last_checked_at %} · Checked {{ credential.last_checked_at|date:'j M Y, H:i' }}{% endif %}</span>
+          <span class="ui-badge ui-badge--size-xs {% if credential.callback_url %}ui-badge--success{% else %}ui-badge--neutral{% endif %}">{% if credential.callback_url %}Configured{% else %}Not set{% endif %}</span>
+          {% if credential.callback_url %}<span class="text-xs break-all text-muted-foreground">{{ credential.callback_url }}</span>{% endif %}
           <span class="mt-1 block font-mono text-xs break-all text-soft-foreground">{{ credential.client_id }}</span>
         {% elif item.product %}
           <span class="text-muted-foreground">No credentials issued.</span>
