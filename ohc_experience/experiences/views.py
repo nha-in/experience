@@ -1635,6 +1635,10 @@ def credentials(request, reference):  # noqa: C901, PLR0912
     permissions.require_integrator(request.user, workspace.product.organisation)
     credential = ProductCredential.objects.filter(product=workspace.product).first()
     production = production_services.state(workspace.product)
+    # Integration events carry no review item; the review pages carry the rest.
+    activity = workspace.product.audit_events.filter(
+        item__isnull=True,
+    ).select_related("actor")[:10]
     form = CredentialURLsForm(
         initial={
             "callback_url": credential.callback_url,
@@ -1661,6 +1665,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
                 progress=provisioning_progress(workspace.product),
                 production=production,
+                activity=activity,
                 secret=secret,
                 revealed_secret=secret,
             ),
@@ -1705,6 +1710,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                             page_title=workspace.definition.sandbox_credentials.name,
                             progress=provisioning_progress(workspace.product),
                             production=production,
+                            activity=activity,
                         ),
                     )
             else:
@@ -1742,6 +1748,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
             progress=provisioning_progress(workspace.product),
             production=production,
+            activity=activity,
         ),
     )
 
