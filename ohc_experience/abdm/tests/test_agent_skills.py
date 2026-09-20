@@ -21,7 +21,7 @@ from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
 
-PUBLISHED = "https://abdm-docs.dev.eka.care/skills"
+PUBLISHED = ABDMAgentSkills.skills_url()
 CLAUDE_SCHEME = "claude://code/new?q="
 CURSOR_SCHEME = "cursor://anysphere.cursor-deeplink/prompt?text="
 

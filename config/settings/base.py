@@ -150,8 +150,9 @@ ABDM_GATEWAY_URL = env(
     default=env("SANDBOX_GATEWAY_URL", default="https://dev.abdm.gov.in/gateway"),
 )
 
-# The documentation site, which also serves the Agent Skills.
-ABDM_DOCS_URL = env("ABDM_DOCS_URL", default="https://abdm-docs.dev.eka.care")
+# The documentation site every documentation link points into, which also
+# serves the Agent Skills.
+ABDM_DOCS_URL = env("ABDM_DOCS_URL", default="https://docs.abdm.gov.in")
 
 # Legacy DHIS handoff protocol. Keys must be supplied through deployment secrets.
 ABDM_DHIS_URL = env("ABDM_DHIS_URL", default="https://dhis.abdm.gov.in/DHIS/")

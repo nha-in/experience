@@ -64,7 +64,9 @@ For the **documentation site**, which the portal links to and the Agent Skills a
 
 | Variable | Requirement / default |
 | --- | --- |
-| `ABDM_DOCS_URL` | **Point at the documentation site this deployment belongs to.** Default: `https://abdm-docs.dev.eka.care`. A trailing slash is ignored. |
+| `ABDM_DOCS_URL` | **Point at the documentation site this deployment belongs to.** Default: `https://docs.abdm.gov.in`. A trailing slash is ignored. |
+
+Every documentation link the portal renders is built from this one variable, so a deployment pointed at a staging site links to staging throughout: milestone and track links in the catalog, the solution type help on registration, and the marketing pages.
 
 The Agent Skills page builds its install command from this, so it must reach a site serving `/skills/<skill>/SKILL.md` and `/skills/<skill>/references/<section>.md` for the skills in `nha-in/docs` at `plugins/abdm-integrators-assistant/skills`. A staging portal left pointing at production would hand out the wrong skills.
 

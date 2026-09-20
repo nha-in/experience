@@ -17,6 +17,7 @@ from .catalog import MILESTONES
 from .catalog import REQUIRED_MILESTONES
 from .catalog import TRACKS
 from .catalog import canonical_keys
+from .docs import docs_page
 from .wasa import WASA_FIELDS
 from .wasa import WASA_VALIDITY_YEARS
 from .wasa import approved_wasa_submission
@@ -223,47 +224,47 @@ class ProductRegistrationForm(ReviewForm):
     solution_type_details = {
         "hmis": (
             "A hospital system that manages clinical and administrative records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/hip-hiu",
+            docs_page("/docs/hiecm/v3/concepts/hip-hiu"),
         ),
         "clinical_hmis": (
             "A clinic information system that manages patient care and health records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/hip-hiu",
+            docs_page("/docs/hiecm/v3/concepts/hip-hiu"),
         ),
         "lmis": (
             "A laboratory system for lab operations and test results.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/glossary?#lmis",
+            docs_page("/docs/hiecm/v3/getting-started/glossary?#lmis"),
         ),
         "pharmacy": (
             "A system that manages pharmacy dispensing and medication records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/participants/pharmacy",
+            docs_page("/docs/hiecm/v3/concepts/participants/pharmacy"),
         ),
         "phr": (
             "An application that helps people access and control their health records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr",
+            docs_page("/docs/hiecm/v3/concepts/phr"),
         ),
         "health_locker": (
             "A service that stores and retrieves personal health records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
+            docs_page("/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip"),
         ),
         "healthtech": (
             "A digital health product integrating with ABDM services.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+            docs_page("/docs/hiecm/v3/milestones"),
         ),
         "insurance": (
             "A payer or insurer that exchanges health insurance claims.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/participants/insurer",
+            docs_page("/docs/hiecm/v3/concepts/participants/insurer"),
         ),
         "telemedicine": (
             "A service that delivers healthcare remotely through digital channels.",
-            "https://abdm-docs.dev.eka.care/docs/uhi/v1/getting-started/onboarding",
+            docs_page("/docs/uhi/v1/getting-started/onboarding"),
         ),
         "govt_program": (
             "A government programme that integrates with ABDM services.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+            docs_page("/docs/hiecm/v3/milestones"),
         ),
         "other": (
             "A solution type not listed above. Describe it in the field that appears.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones",
+            docs_page("/docs/hiecm/v3/milestones"),
         ),
     }
 

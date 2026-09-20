@@ -10,7 +10,7 @@ from django.core.management.base import CommandError
 from ohc_experience.abdm.skills import ABDMAgentSkills
 from ohc_experience.experiences.management.commands import fetch_agent_skills
 
-SITE = "https://abdm-docs.dev.eka.care"
+SITE = ABDMAgentSkills.base_url()
 INDEX = {
     "catalogue_version": "2026.08.24",
     "skills": [

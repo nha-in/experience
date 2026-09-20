@@ -18,6 +18,7 @@ from .catalog import MILESTONES
 from .catalog import SUPPORT_CATEGORIES
 from .catalog import TRACKS
 from .dhis import DHISHandoff
+from .docs import docs_page
 from .forms import ExitEvidenceForm
 from .forms import OrganisationForm
 from .forms import ProductRegistrationForm
@@ -306,8 +307,9 @@ class ABDM(ProgramDefinition):
     reviewer_name = "NHA reviewer"
     environment_name = "Sandbox environment"
     footer_note = "Synthetic data only"
-    docs_url = "https://abdm-docs.dev.eka.care/docs/hiecm/v3"
-    milestones_docs_url = "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones"
+    docs_site = docs_page()
+    docs_url = docs_page("/docs/hiecm/v3")
+    milestones_docs_url = docs_page("/docs/hiecm/v3/milestones")
     logo = "images/abdm-logo.png"
     authority_logo = "images/nha-logo.png"
     authority_name = "National Health Authority"

@@ -12,6 +12,8 @@ from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
+from ohc_experience.abdm.catalog import MILESTONES
+from ohc_experience.abdm.catalog import TRACK_MAP
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.definitions import MilestoneDefinition
 from ohc_experience.experiences.models import AuditEvent
@@ -207,14 +209,11 @@ def test_product_registration_links_each_track_to_its_documentation(
     response = client.get(reverse("experiences:product-create"))
 
     assert response.status_code == HTTPStatus.OK
-    assert (
-        b"https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m1"
-        in response.content
-    )
+    assert MILESTONES["m1"].docs_url.encode() in response.content
     assert b"Create and verify ABHA identities" in response.content
     assert b'id="info-milestone-m1"' in response.content
-    assert b"https://abdm-docs.dev.eka.care/docs/uhi/v1" in response.content
-    assert b"https://abdm-docs.dev.eka.care/docs/nhcx/v1" in response.content
+    assert TRACK_MAP["UHI"].docs_url.encode() in response.content
+    assert TRACK_MAP["NHCX"].docs_url.encode() in response.content
 
 
 def test_catalog_rejects_missing_prerequisites(supplier_program):

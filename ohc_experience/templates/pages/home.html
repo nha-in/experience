@@ -50,7 +50,7 @@
           <strong>M1–M4 <span aria-hidden="true">↗&#xFE0E;</span></strong>
           <span>{% translate "Integration milestones" %}</span>
         </a>
-        <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/fhir">
+        <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/concepts/fhir">
           <strong>FHIR R4 <span aria-hidden="true">↗&#xFE0E;</span></strong>
           <span>{% translate "Health data standards" %}</span>
         </a>
@@ -79,7 +79,7 @@
       </div>
       <div class="sbx-gateway-grid">
         <a class="sbx-gateway sbx-gateway--records"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">
+           href="{{ experience_program.docs_site }}/docs/hiecm/v3">
           <div class="sbx-gateway-top">
             <span class="sbx-gateway-symbol" aria-hidden="true">
               <svg viewBox="0 0 32 32"
@@ -108,7 +108,7 @@
           </div>
         </a>
         <a class="sbx-gateway sbx-gateway--services"
-           href="https://abdm-docs.dev.eka.care/docs/uhi/v1">
+           href="{{ experience_program.docs_site }}/docs/uhi/v1">
           <div class="sbx-gateway-top">
             <span class="sbx-gateway-symbol" aria-hidden="true">
               <svg viewBox="0 0 32 32"
@@ -133,7 +133,7 @@
           </div>
         </a>
         <a class="sbx-gateway sbx-gateway--claims"
-           href="https://abdm-docs.dev.eka.care/docs/nhcx/v1">
+           href="{{ experience_program.docs_site }}/docs/nhcx/v1">
           <div class="sbx-gateway-top">
             <span class="sbx-gateway-symbol" aria-hidden="true">
               <svg viewBox="0 0 32 32"
@@ -232,7 +232,11 @@
           </div>
           <div class="sbx-prompt-body">
             <span class="sbx-prompt-label">{% translate "Paste into your coding agent" %}</span>
-            <p id="agent-setup-prompt" tabindex="-1">{% translate "Read https://abdm-docs.dev.eka.care/agent-setup/prompt.md and help me set up my agent for an ABDM integration." %}</p>
+            <p id="agent-setup-prompt" tabindex="-1">
+              {% blocktranslate with docs=experience_program.docs_site trimmed %}
+                Read {{ docs }}/agent-setup/prompt.md and help me set up my agent for an ABDM integration.
+              {% endblocktranslate %}
+            </p>
             <span class="sbx-prompt-cursor" aria-hidden="true"></span>
           </div>
           <div class="sbx-prompt-footer">
@@ -249,27 +253,27 @@
           <div class="sbx-skills">
             <p class="sbx-eyebrow">{% translate "Explore the integration guides" %}</p>
             <div role="group" aria-label="{% translate 'Integration guides' %}">
-              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m1">
+              <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m1">
                 <span>M1</span>{% translate "ABHA identity" %}
                 <span aria-hidden="true">↗&#xFE0E;</span>
               </a>
-              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m2">
+              <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m2">
                 <span>M2</span>{% translate "Link & share" %}
                 <span aria-hidden="true">↗&#xFE0E;</span>
               </a>
-              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m3">
+              <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m3">
                 <span>M3</span>{% translate "Consent" %}
                 <span aria-hidden="true">↗&#xFE0E;</span>
               </a>
-              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m4">
+              <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m4">
                 <span>M4</span>{% translate "Registries" %}
                 <span aria-hidden="true">↗&#xFE0E;</span>
               </a>
-              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/api/phr-services/">
+              <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/p1">
                 <span>PHR</span>{% translate "PHR services" %}
                 <span aria-hidden="true">↗&#xFE0E;</span>
               </a>
-              <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/fhir">
+              <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/concepts/fhir">
                 <span>FHIR</span>{% translate "FHIR bundles" %}
                 <span aria-hidden="true">↗&#xFE0E;</span>
               </a>
@@ -277,7 +281,7 @@
           </div>
           <p class="sbx-agent-note">{% translate "Review generated code against the documentation and test it in the sandbox." %}</p>
           <a class="sbx-text-link"
-             href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/build-with-ai">{% translate "Read the agent setup guide" %}<span aria-hidden="true">↗&#xFE0E;</span>
+             href="{{ experience_program.docs_site }}/docs/hiecm/v3/getting-started/build-with-ai">{% translate "Read the agent setup guide" %}<span aria-hidden="true">↗&#xFE0E;</span>
           </a>
         </div>
       </div>
@@ -301,7 +305,7 @@
       </div>
       <div class="sbx-milestone-grid">
         <a class="sbx-milestone"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m1">
+           href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m1">
           <div class="sbx-milestone-marker">
             <span>M1</span>
             <span aria-hidden="true">↗&#xFE0E;</span>
@@ -314,7 +318,7 @@
           </strong>
         </a>
         <a class="sbx-milestone"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m2">
+           href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m2">
           <div class="sbx-milestone-marker">
             <span>M2</span>
             <span aria-hidden="true">↗&#xFE0E;</span>
@@ -327,7 +331,7 @@
           </strong>
         </a>
         <a class="sbx-milestone"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m3">
+           href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m3">
           <div class="sbx-milestone-marker">
             <span>M3</span>
             <span aria-hidden="true">↗&#xFE0E;</span>
@@ -340,7 +344,7 @@
           </strong>
         </a>
         <a class="sbx-milestone"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m4">
+           href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m4">
           <div class="sbx-milestone-marker">
             <span>M4</span>
             <span aria-hidden="true">↗&#xFE0E;</span>
@@ -370,7 +374,7 @@
           <p>{% translate "Explore the PHR track for patient identity, record discovery, linking and consent management." %}</p>
         </div>
         <a class="sbx-text-link"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/p1">{% translate "Explore PHR" %}
+           href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/p1">{% translate "Explore PHR" %}
           <span aria-hidden="true">→</span>
         </a>
       </div>
@@ -390,7 +394,7 @@
         </h2>
         <p class="sbx-section-description">{% translate "Follow the full lifecycle of an ABDM integration. From registering your organisation to testing your workflows, submitting evidence and moving to production." %}</p>
         <a class="sbx-text-link"
-           href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/going-live">{% translate "Read the go-live guide" %}
+           href="{{ experience_program.docs_site }}/docs/hiecm/v3/getting-started/going-live">{% translate "Read the go-live guide" %}
           <span aria-hidden="true">↗&#xFE0E;</span>
         </a>
         <div class="sbx-journey-aside">
@@ -457,7 +461,7 @@
   <section class="sbx-resources"
            aria-label="{% translate 'Developer resources' %}">
     <div class="marketing-container sbx-resource-grid">
-      <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/getting-started/first-fifteen-minutes">
+      <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/getting-started/first-fifteen-minutes">
         <span class="sbx-resource-number">01</span>
         <div>
           <h2>{% translate "Make your first API call" %}</h2>
@@ -465,7 +469,7 @@
         </div>
         <span aria-hidden="true">↗&#xFE0E;</span>
       </a>
-      <a href="https://abdm-docs.dev.eka.care/docs/hiecm/v3/api">
+      <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/api">
         <span class="sbx-resource-number">02</span>
         <div>
           <h2>{% translate "Find the right endpoint" %}</h2>
@@ -473,7 +477,7 @@
         </div>
         <span aria-hidden="true">↗&#xFE0E;</span>
       </a>
-      <a href="https://abdm-docs.dev.eka.care/docs/support">
+      <a href="{{ experience_program.docs_site }}/docs/support">
         <span class="sbx-resource-number">03</span>
         <div>
           <h2>{% translate "Get a little guidance" %}</h2>
@@ -501,7 +505,7 @@
             <span aria-hidden="true">→</span>
           </a>
           <a class="marketing-button marketing-button--secondary"
-             href="https://abdm-docs.dev.eka.care/docs/hiecm/v3">{% translate "Read the overview" %}
+             href="{{ experience_program.docs_site }}/docs/hiecm/v3">{% translate "Read the overview" %}
             <span aria-hidden="true">↗&#xFE0E;</span>
           </a>
         </div>

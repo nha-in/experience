@@ -2,6 +2,8 @@ from ohc_experience.experiences.definitions import MilestoneDefinition
 from ohc_experience.experiences.definitions import SupportCategoryDefinition
 from ohc_experience.experiences.definitions import TrackDefinition
 
+from .docs import docs_page
+
 MILESTONES = {
     item.key: item
     for item in (
@@ -10,7 +12,7 @@ MILESTONES = {
             "M1",
             "ABHA and identity",
             description="Create and verify ABHA identities for people receiving care.",
-            docs_url="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m1",
+            docs_url=docs_page("/docs/hiecm/v3/milestones/m1"),
         ),
         MilestoneDefinition(
             "m2",
@@ -18,7 +20,7 @@ MILESTONES = {
             "HIP services",
             "m1",
             "Link care contexts and share health records with consent.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m2",
+            docs_page("/docs/hiecm/v3/milestones/m2"),
         ),
         MilestoneDefinition(
             "m3",
@@ -26,7 +28,7 @@ MILESTONES = {
             "HIU services",
             "m1",
             "Request consent and retrieve health records held by other providers.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m3",
+            docs_page("/docs/hiecm/v3/milestones/m3"),
         ),
         MilestoneDefinition(
             "m4",
@@ -34,7 +36,7 @@ MILESTONES = {
             "HFR Registration",
             description="Register your health facility and professionals for "
             "ABDM services.",
-            docs_url="https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/m4",
+            docs_url=docs_page("/docs/hiecm/v3/milestones/m4"),
         ),
         MilestoneDefinition(
             "phr1",
@@ -42,7 +44,7 @@ MILESTONES = {
             "PHR application flows",
             "m1",
             "Help people discover, link and control access to their health records.",
-            "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/p1",
+            docs_page("/docs/hiecm/v3/milestones/p1"),
         ),
         MilestoneDefinition(
             "locker1",
@@ -50,7 +52,9 @@ MILESTONES = {
             "Health locker flows",
             description="Store and retrieve personal health records in a health "
             "locker.",
-            docs_url="https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
+            docs_url=docs_page(
+                "/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
+            ),
         ),
         MilestoneDefinition(
             "uhi1",
@@ -58,7 +62,7 @@ MILESTONES = {
             "UHI participation",
             "m2",
             "Join the network for discovery, booking and delivery of health services.",
-            "https://abdm-docs.dev.eka.care/docs/uhi/v1",
+            docs_page("/docs/uhi/v1"),
         ),
         MilestoneDefinition(
             "nhcx1",
@@ -66,7 +70,7 @@ MILESTONES = {
             "Claims exchange flows",
             "m1",
             "Exchange health insurance claims and pre-authorisation requests.",
-            "https://abdm-docs.dev.eka.care/docs/nhcx/v1",
+            docs_page("/docs/nhcx/v1"),
         ),
     )
 }
@@ -78,35 +82,35 @@ TRACKS = (
         "Health information & consent management",
         "ABHA identity, health information exchange and facility registration.",
         ("m1", "m2", "m3", "m4"),
-        "https://abdm-docs.dev.eka.care/docs/hiecm/v3",
+        docs_page("/docs/hiecm/v3"),
     ),
     TrackDefinition(
         "UHI",
         "Unified Health Interface",
         "Discovery and delivery of digital health services.",
         ("uhi1",),
-        "https://abdm-docs.dev.eka.care/docs/uhi/v1",
+        docs_page("/docs/uhi/v1"),
     ),
     TrackDefinition(
         "NHCX",
         "National Health Claims Exchange",
         "Claims and pre-authorisation exchange between payers and providers.",
         ("nhcx1",),
-        "https://abdm-docs.dev.eka.care/docs/nhcx/v1",
+        docs_page("/docs/nhcx/v1"),
     ),
     TrackDefinition(
         "PHR",
         "Personal Health Records",
         "ABHA identity and personal health record application flows.",
         ("phr1",),
-        "https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones/p1",
+        docs_page("/docs/hiecm/v3/milestones/p1"),
     ),
     TrackDefinition(
         "HealthLocker",
         "Health Locker",
         "Storage and retrieval of personal health records.",
         ("locker1",),
-        "https://abdm-docs.dev.eka.care/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
+        docs_page("/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip"),
     ),
 )
 TRACK_MAP = {track.code: track for track in TRACKS}

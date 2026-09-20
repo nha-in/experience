@@ -567,6 +567,9 @@ class ProgramDefinition:
     reviewer_name = "Reviewer"
     environment_name = "Application workspace"
     footer_note = ""
+    #: The documentation site itself, for links outside the section docs_url
+    #: names. Templates build their own paths from it.
+    docs_site = ""
     docs_url = ""
     #: Where "Milestone documentation" points. Falls back to docs_url.
     milestones_docs_url = ""

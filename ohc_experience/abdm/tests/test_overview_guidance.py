@@ -3,6 +3,7 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
+from ohc_experience.abdm.definitions import ABDM
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
@@ -18,9 +19,7 @@ def test_progress_counts_shared_m1_only_once(client, environment):  # noqa: F811
     client.force_login(environment["applicant"])
     response = client.get(environment["workspace"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
-    assert (
-        b"https://abdm-docs.dev.eka.care/docs/hiecm/v3/milestones" in response.content
-    )
+    assert ABDM.milestones_docs_url.encode() in response.content
     assert response.context["progress"] == {
         "total": 7,
         "approved": 1,
