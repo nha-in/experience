@@ -22,6 +22,7 @@ from django.db.models import Prefetch
 from django.db.models import Q
 from django.db.models import Subquery
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from ohc_experience.integrations.notification.templates import PRODUCTION_APPROVED
 from ohc_experience.integrations.ports import NotificationMessage
@@ -342,9 +343,10 @@ def with_codes(products):
 
 
 def history(product, limit=20):
-    """Production entries from the audit trail, with their days as dates.
+    """Production entries from the audit trail, ready for the activity feed.
 
-    Audit details keep ISO days, which a page cannot format on its own.
+    Audit details keep ISO days and raw client IDs. The feed prints one prepared
+    line per event rather than reading a payload only this module understands.
     """
     events = list(
         AuditEvent.objects.filter(product=product, action__in=ACTIONS).select_related(
@@ -353,11 +355,22 @@ def history(product, limit=20):
     )
     for event in events:
         detail = event.detail or {}
-        dated = event.action == DATED
-        event.issued_on = _from_iso(detail.get("issued_on"))
-        event.dated_before = _from_iso(detail.get("before")) if dated else None
-        event.dated_after = _from_iso(detail.get("after")) if dated else None
+        before, after = detail.get("before"), detail.get("after")
+        event.change, event.change_mono = "", False
+        if event.action == DATED:
+            event.change = (
+                f"{_day(_from_iso(before)) or 'Not entered'} → {_day(_from_iso(after))}"
+            )
+        elif before or after:
+            event.change = " → ".join(part for part in (before, after) if part)
+            event.change_mono = True
+        issued_on = _from_iso(detail.get("issued_on"))
+        event.footnote = f"Issued on {_day(issued_on)}" if issued_on else ""
     return events
+
+
+def _day(value):
+    return date_format(value, "j M Y") if value else ""
 
 
 def _from_iso(value):

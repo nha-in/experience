@@ -105,7 +105,7 @@
             {% if item %}
               <section aria-labelledby="wasa-activity-title">
                 <h3 class="mb-3 text-sm font-semibold" id="wasa-activity-title">Activity</h3>
-                {% include 'experiences/partials/history_events.html' %}
+                {% include 'experiences/partials/activity_feed.html' with events=item.history.all only %}
               </section>
             {% endif %}
             {% if certification_reviews %}

@@ -205,20 +205,13 @@
   background: var(--card);
 }
 /* Ten entries outgrow the rail, so the list scrolls inside its card. */
-.staff-editor-history ol { max-height: 28rem; overflow-y: auto; }
+.staff-editor-history-scroll { max-height: 28rem; min-height: 0; overflow-y: auto; }
 .staff-editor-history-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 12px; }
 .staff-editor-history-heading > p { color: var(--soft-foreground); font-size: 11px; }
-.staff-editor-history li { display: flex; align-items: flex-start; gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-.staff-editor-history li:last-child { border-bottom: 0; }
-.staff-editor-history-dot { width: 7px; height: 7px; flex-shrink: 0; margin-top: 7px; border-radius: 50%; background: var(--stronger-border); }
-.staff-editor-history li > div { min-width: 0; flex: 1; overflow-wrap: anywhere; }
-.staff-editor-history li > div > span { display: block; margin-top: 4px; color: var(--soft-foreground); font-size: 11px; }
-.staff-editor-history time,
-.staff-editor-history-empty { color: var(--soft-foreground); font-size: 11px; line-height: 1.8; }
 .staff-editor-back:focus-visible,
 .staff-editor-text-button:focus-visible,
 .staff-editor-group > summary:focus-visible,
-.staff-editor-history ol:focus-visible,
+.staff-editor-history-scroll:focus-visible,
 .staff-editor-password summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 5px; }
 .staff-editor-group > summary:focus-visible { outline-offset: -3px; }
 

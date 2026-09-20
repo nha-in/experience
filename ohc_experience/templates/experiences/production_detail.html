@@ -144,39 +144,7 @@
           <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary xl:max-h-none"
                tabindex="0"
                aria-labelledby="production-history-title">
-            {% if history %}
-              <ol class="flex flex-col gap-3 text-sm">
-                {% for event in history %}
-                  <li>
-                    <span class="font-medium">{{ event.action }}</span>
-                    <span class="block text-xs text-soft-foreground">
-                      {{ event.created_at|date:'j M Y, H:i' }} ·
-                      {% if event.actor %}
-                        {{ event.actor.display_name }}
-                      {% else %}
-                        System
-                      {% endif %}
-                    </span>
-                    {% if event.dated_after %}
-                      <span class="mt-0.5 block text-xs text-muted-foreground tabular-nums">
-                        {{ event.dated_before|date:'j M Y'|default:'Not entered' }} → {{ event.dated_after|date:'j M Y' }}
-                      </span>
-                    {% elif event.detail.before or event.detail.after %}
-                      <span class="mt-0.5 block font-mono text-xs break-all text-muted-foreground">
-                        {% if event.detail.before %}{{ event.detail.before }}{% endif %}
-                        {% if event.detail.before and event.detail.after %}→{% endif %}
-                        {% if event.detail.after %}{{ event.detail.after }}{% endif %}
-                      </span>
-                    {% endif %}
-                    {% if event.issued_on %}
-                      <span class="block text-xs text-soft-foreground tabular-nums">Issued on {{ event.issued_on|date:'j M Y' }}</span>
-                    {% endif %}
-                  </li>
-                {% endfor %}
-              </ol>
-            {% else %}
-              <p class="text-sm text-muted-foreground">No production changes yet.</p>
-            {% endif %}
+            {% include 'experiences/partials/activity_feed.html' with events=history empty_text='No production changes yet.' only %}
           </div>
         </section>
       </div>

@@ -64,6 +64,24 @@ def staff_list(request):
     )
 
 
+def _account_history(pk, limit=10):
+    """Admin log entries in the shape the activity feed reads."""
+    if not pk:
+        return []
+    entries = LogEntry.objects.filter(
+        content_type=ContentType.objects.get_for_model(get_user_model()),
+        object_id=str(pk),
+    ).select_related("user")[:limit]
+    return [
+        {
+            "action": entry.get_change_message(),
+            "actor": entry.user,
+            "created_at": entry.action_time,
+        }
+        for entry in entries
+    ]
+
+
 @login_required
 @never_cache
 @require_http_methods(["GET", "POST"])
@@ -96,14 +114,7 @@ def staff_edit(request, pk=None):
                 "The account could not be saved. "
                 "Check the email and reload before trying again.",
             )
-    history = (
-        LogEntry.objects.filter(
-            content_type=ContentType.objects.get_for_model(get_user_model()),
-            object_id=str(pk),
-        ).select_related("user")[:10]
-        if pk
-        else []
-    )
+    history = _account_history(pk)
     return render(
         request,
         "experiences/staff_edit.html",

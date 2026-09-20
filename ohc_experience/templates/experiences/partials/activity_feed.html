@@ -1,0 +1,48 @@
+{% comment %}
+The portal's one activity list: audit events on a request, a product, a
+credential or an account. Include it with `only`, since it reads nothing but
+what it is given:
+
+  events        rows to render, newest first
+  empty_text    what to say when there are none
+  anchors       give each row id="history-<pk>", for links from elsewhere
+  show_context  name the request an event belongs to, for feeds that mix them
+
+A row prints whichever of an event's details it carries. `change`,
+`change_mono` and `footnote` are prepared by the caller, for payloads only it
+can read, as `production.history` does with its ISO days.
+{% endcomment %}
+<ol class="ui-feed">
+  {% for event in events %}
+    <li class="ui-feed-row items-start{% if anchors %} scroll-mt-20{% endif %}"
+        {% if anchors %}id="history-{{ event.pk }}"{% endif %}>
+      <span class="ui-feed-avatar mt-0.5 {% if not event.actor %}ui-feed-avatar--system{% endif %}"
+            aria-hidden="true">{% if event.actor %}{{ event.actor.display_name|slice:':1'|upper }}{% else %}↻{% endif %}</span>
+      <div class="ui-feed-body">
+        <p class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-medium">
+          <span>{{ event.action }}</span>
+          {% if show_context and event.item %}<span class="text-xs font-normal text-soft-foreground">{{ event.item.title }}</span>{% endif %}
+        </p>
+        <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'j M Y, H:i' }} IST</time></p>
+        {% if event.detail.reason %}
+          <p class="mt-1 leading-relaxed text-muted-foreground">
+            <span class="font-semibold text-foreground">Reason:</span> {{ event.detail.reason }}
+          </p>
+        {% endif %}
+        {% if event.detail.note %}<p class="mt-1 leading-relaxed text-muted-foreground">{{ event.detail.note|linebreaksbr }}</p>{% endif %}
+        {% if event.detail.question %}<p class="mt-1 leading-relaxed text-muted-foreground">{{ event.detail.question|linebreaksbr }}</p>{% endif %}
+        {% if event.detail.reply %}<p class="mt-1 leading-relaxed text-muted-foreground">{{ event.detail.reply|linebreaksbr }}</p>{% endif %}
+        {% if event.detail.status %}<p class="mt-1 text-xs text-muted-foreground tabular-nums">HTTP {{ event.detail.status }}{% if event.detail.latency_ms %} · {{ event.detail.latency_ms }} ms{% endif %}</p>{% endif %}
+        {% if event.detail.error %}<p class="mt-1 text-xs text-muted-foreground">{{ event.detail.error }}</p>{% endif %}
+        {% if event.change %}<p class="mt-1 text-xs text-muted-foreground {% if event.change_mono %}font-mono break-all{% else %}tabular-nums{% endif %}">{{ event.change }}</p>{% endif %}
+        {% if event.footnote %}<p class="mt-0.5 text-xs text-soft-foreground tabular-nums">{{ event.footnote }}</p>{% endif %}
+        {% if event.detail.submission_id and event.item %}
+          <a class="mt-1 inline-flex min-h-9 items-center text-xs font-semibold text-primary no-underline hover:underline"
+             href="{% url 'experiences:submission' event.item.pk event.detail.submission_id %}">View saved submission <span class="ml-1" aria-hidden="true">↗&#xFE0E;</span></a>
+        {% endif %}
+      </div>
+    </li>
+  {% empty %}
+    <li class="text-sm text-muted-foreground">{{ empty_text|default:'No activity yet.' }}</li>
+  {% endfor %}
+</ol>

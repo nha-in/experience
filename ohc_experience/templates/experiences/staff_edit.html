@@ -182,19 +182,11 @@
               <h2 id="staff-history-title">Recent account activity</h2>
               <p>Latest 10 changes</p>
             </div>
-            <ol tabindex="0" aria-labelledby="staff-history-title">
-              {% for entry in history %}
-                <li>
-                  <span class="staff-editor-history-dot" aria-hidden="true"></span>
-                  <div>
-                    <p>{{ entry.get_change_message }}</p>
-                    <span>{{ entry.user.display_name }} · <time datetime="{{ entry.action_time|date:'c' }}">{{ entry.action_time|date:'j M Y, H:i' }}</time></span>
-                  </div>
-                </li>
-              {% empty %}
-                <li class="staff-editor-history-empty">No recorded changes.</li>
-              {% endfor %}
-            </ol>
+            <div class="staff-editor-history-scroll"
+                 tabindex="0"
+                 aria-labelledby="staff-history-title">
+              {% include 'experiences/partials/activity_feed.html' with events=history empty_text='No recorded changes.' only %}
+            </div>
           </section>
         </aside>
       {% endif %}
