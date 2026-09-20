@@ -130,3 +130,26 @@ def test_sidebar_offers_only_setup_links_before_a_product_exists(
     for link in ("queries", "events", "support"):
         assert f'id="nav-{link}"' not in main_nav
     assert "Programme" not in main_nav
+
+
+def test_onboarding_offers_the_product_step_on_the_organisation_page(
+    client,
+    owner_membership,
+):
+    client.force_login(owner_membership.user)
+
+    html = client.get(reverse("experiences:organisation")).content.decode()
+
+    assert "Continue to product" in html
+
+
+def test_the_product_step_goes_once_the_organisation_has_a_product(environment):  # noqa: F811
+    """Editing an approved organisation is a settings visit, not registration."""
+    client = Client()
+    client.force_login(environment["applicant"])
+
+    response = client.get(reverse("experiences:organisation"))
+
+    assert response.status_code == 200
+    assert response.context["can_edit"], "the form still takes edits after approval"
+    assert "Continue to product" not in response.content.decode()

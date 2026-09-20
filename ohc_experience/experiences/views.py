@@ -974,16 +974,18 @@ def organisation(request):
                 expected_revision=request.POST.get("revision", ""),
             )
             if saved:
+                noun = capfirst(item.organisation.noun)
+                # Only the first submission leads on to registration; later edits
+                # come from the settings nav and belong back on this page.
+                if org.products.exists():
+                    messages.success(request, f"{noun} submitted for verification.")
+                    return redirect("experiences:organisation")
                 messages.success(
                     request,
-                    f"{capfirst(item.organisation.noun)} submitted for verification. "
+                    f"{noun} submitted for verification. "
                     "You can register your product while it is reviewed.",
                 )
-                return redirect(
-                    "experiences:product-create"
-                    if not org.products.exists()
-                    else "experiences:organisation",
-                )
+                return redirect("experiences:product-create")
         except ValidationError as error:
             _error(request, error)
     return render(

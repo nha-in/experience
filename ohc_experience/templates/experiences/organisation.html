@@ -41,7 +41,7 @@
             </p>
             <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
               <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Submit for verification</button>
-              {% if organisation.is_onboarded %}
+              {% if onboarding and organisation.is_onboarded %}
                 <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
                    href="{% url 'experiences:product-create' %}">Continue to product</a>
               {% endif %}
@@ -50,7 +50,7 @@
         </form>
       {% else %}
         {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
-        {% if not organisation.products.exists %}
+        {% if onboarding %}
           <a class="ui-btn ui-btn--default ui-btn--size-sm mt-4 no-underline"
              href="{% url 'experiences:product-create' %}">Continue to product</a>
         {% endif %}
