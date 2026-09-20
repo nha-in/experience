@@ -4,12 +4,12 @@
   <div class="ui-hero">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
-        <p class="ui-hero-eyebrow">Developer workspace</p>
+        <p class="ui-hero-eyebrow">Products</p>
         <h1 class="ui-hero-title">Products</h1>
         <p class="ui-hero-lede">{{ organisation.display_name|default:'All registered organisations' }}</p>
         <div class="mt-6 flex items-baseline gap-2.5">
           <span class="ui-figure ui-figure--xl">{{ products.paginator.count }}</span>
-          <span class="ui-figure-unit">product{{ products.paginator.count|pluralize }} in your workspace</span>
+          <span class="ui-figure-unit">registered product{{ products.paginator.count|pluralize }}</span>
         </div>
       </div>
       {% if can_integrate %}

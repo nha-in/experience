@@ -593,7 +593,7 @@ class ProgramDefinition:
     header_name = "Experiences"
     review_heading = "Assessment"
     reviewer_name = "Reviewer"
-    environment_name = "Application workspace"
+    environment_name = "Application environment"
     footer_note = ""
     #: The documentation site itself, for links outside the section docs_url
     #: names. Templates build their own paths from it.
