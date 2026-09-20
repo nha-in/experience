@@ -9,19 +9,20 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
-from django.views.decorators.http import require_safe
 
 from ohc_experience.events_and_activities.models import Event
 
 from . import permissions
+from .models import EventRegistration
+from .models import Notification
 from .registry import get_program
 
 
@@ -89,57 +90,13 @@ def event_log(actor, event, action, *, flag=CHANGE):
     )
 
 
-@login_required
-@never_cache
-def event_manage(request):
-    if not permissions.has_area(request.user, "events"):
-        raise PermissionDenied
-    query = (
-        permissions.visible_events(request.user)
-        .annotate(registration_count=Count("registrations"))
-        .order_by("-starts_at", "-pk")
-    )
-    status = request.GET.get("status", "all")
-    if status in {"draft", "published"}:
-        query = query.filter(published_at__isnull=status == "draft")
-    else:
-        status = "all"
-    page = Paginator(query, 20).get_page(request.GET.get("page"))
-    for event in page:
-        event.can_edit = can_edit_event(request.user, event)
-        event.can_publish = permissions.has_access(
-            request.user,
-            "events",
-            event.category,
-            "approve",
-            event.program,
-        )
-    return render(
-        request,
-        "experiences/event_manage.html",
-        {
-            "nav": "events",
-            "page_title": "Manage events",
-            "page": page,
-            "status": status,
-        },
-    )
-
-
-@login_required
-@never_cache
-@require_safe
-def event_participants(request, pk):
-    """Who registered for one event, for the team that runs it."""
-    if not permissions.has_area(request.user, "events"):
-        raise PermissionDenied
-    event = get_object_or_404(permissions.visible_events(request.user), pk=pk)
+def participant_page(request, event, search):
+    """Registrations for the team that runs the event, newest first."""
     query = (
         event.registrations.select_related("user")
         .prefetch_related("user__memberships__organisation")
         .order_by("-created_at", "-pk")
     )
-    search = request.GET.get("q", "").strip()
     if search:
         query = query.filter(
             Q(user__name__icontains=search)
@@ -154,15 +111,74 @@ def event_participants(request, pk):
             iter(registration.user.memberships.all()),
             None,
         )
+    return page
+
+
+def update_registration(request, event):
+    """Take the signed-in account's registration, or cancel the one it holds."""
+    if not event.is_published or event.is_past:
+        raise PermissionDenied
+    if request.POST.get("intent") == "cancel":
+        deleted, _details = EventRegistration.objects.filter(
+            event=event,
+            user=request.user,
+        ).delete()
+        if deleted:
+            messages.success(request, f"Registration cancelled for {event.title}.")
+    else:
+        _registration, created = EventRegistration.objects.get_or_create(
+            event=event,
+            user=request.user,
+        )
+        if created:
+            messages.success(request, f"You are registered for {event.title}.")
+            Notification.objects.create(
+                recipient=request.user.email,
+                subject=f"{get_program().short_name}: registered for {event.title}",
+                body=(
+                    f"{event.title}\n"
+                    f"{timezone.localtime(event.starts_at):%d %b %Y, %H:%M %Z}\n"
+                    f"{event.join_url}"
+                ),
+            )
+    return redirect("experiences:event-detail", pk=event.pk)
+
+
+@login_required
+@never_cache
+@require_http_methods(["GET", "POST"])
+def event_detail(request, pk):
+    """One event for both audiences: its details, its actions and its participants.
+
+    Anyone who reaches a published event can register for it; the team that runs
+    the event reaches its drafts too, and reads the participants underneath.
+    """
+    permissions.require_area(request.user, "events")
+    event = get_object_or_404(permissions.visible_events(request.user), pk=pk)
+    if request.method == "POST":
+        return update_registration(request, event)
+    can_manage = permissions.has_area(request.user, "events")
+    search = request.GET.get("q", "").strip()
     return render(
         request,
-        "experiences/event_participants.html",
+        "experiences/event_detail.html",
         {
             "nav": "events",
-            "page_title": "Participants",
+            "page_title": event.title,
             "event": event,
+            "can_manage": can_manage,
             "can_edit": can_edit_event(request.user, event),
-            "page": page,
+            "can_publish": permissions.has_access(
+                request.user,
+                "events",
+                event.category,
+                "approve",
+                event.program,
+            ),
+            "can_register": event.is_published and not event.is_past,
+            "registered": event.registrations.filter(user=request.user).exists(),
+            "registration_count": event.registrations.count(),
+            "page": participant_page(request, event, search) if can_manage else None,
             "search": search,
         },
     )
@@ -207,7 +223,7 @@ def event_edit(request, pk=None):
                 flag=CHANGE if pk else ADDITION,
             )
             messages.success(request, "Event saved.")
-            return redirect("experiences:event-manage")
+            return redirect("experiences:event-detail", pk=event.pk)
     return render(
         request,
         "experiences/event_edit.html",
@@ -250,7 +266,7 @@ def event_publication(request, pk):
         request,
         "Event published." if action == "publish" else "Event unpublished.",
     )
-    return redirect("experiences:event-manage")
+    return redirect("experiences:event-detail", pk=event.pk)
 
 
 @login_required
@@ -268,4 +284,4 @@ def event_delete(request, pk):
         event_log(request.user, event, "Event deleted", flag=DELETION)
         event.delete()
     messages.success(request, "Event deleted.")
-    return redirect("experiences:event-manage")
+    return redirect("experiences:events")

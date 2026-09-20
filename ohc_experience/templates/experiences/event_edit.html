@@ -9,8 +9,13 @@
            hx-select="#main-content"
            hx-select-oob="#app-nav"
            hx-swap="outerHTML show:window:top">
+    {% if form.instance.pk %}
+      {% url 'experiences:event-detail' form.instance.pk as back_url %}
+    {% else %}
+      {% url 'experiences:events' as back_url %}
+    {% endif %}
     <a class="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary"
-       href="{% url 'experiences:event-manage' %}">Manage events</a>
+       href="{{ back_url }}">{% if form.instance.pk %}{{ form.instance.title|truncatechars:40 }}{% else %}All events{% endif %}</a>
     <h1 class="ui-page-title mb-6">{{ page_title }}</h1>
     <form method="post"
           data-unsaved-form
@@ -23,8 +28,10 @@
       {% ui_field form.summary %}{% ui_field form.description %}
       <div class="grid gap-5 sm:grid-cols-2">{% ui_field form.starts_at label='Starts at (IST)' %}{% ui_field form.ends_at label='Ends at (IST)' %}</div>
       {% ui_field form.location %}{% ui_field form.join_url %}
-      <div class="flex flex-wrap justify-end gap-3 border-t border-border pt-5"><a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-   href="{% url 'experiences:event-manage' %}">Cancel</a><button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11" type="submit">Save event</button></div>
+      <div class="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+           href="{{ back_url }}">Cancel</a><button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11" type="submit">Save event</button>
+      </div>
     </form>
   </section>
 {% endblock portal_content %}

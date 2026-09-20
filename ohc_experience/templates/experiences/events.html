@@ -8,14 +8,8 @@
         <h1 class="ui-hero-title">Events and Activities</h1>
         <p class="ui-hero-lede">Events, webinars and workshops run by the integration team. Registrations are recorded on your account; find details for every session below.</p>
       </div>
-      {% if next_event and period != 'past' %}
+      {% if next_event and period == 'upcoming' %}
         {% include "experiences/partials/event_card.html" with event=next_event hero=True %}
-      {% elif period != 'past' %}
-        {% with event=events|first %}
-          {% if event %}
-            {% include "experiences/partials/event_card.html" with hero=True %}
-          {% endif %}
-        {% endwith %}
       {% endif %}
     </div>
   </div>
@@ -40,14 +34,17 @@
       <nav class="flex flex-wrap gap-x-7 gap-y-3" aria-label="Event period">
         <a class="ui-tabstat"
            href="?period=upcoming&amp;kind={{ request.GET.kind|urlencode }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
-           {% if period != 'past' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ upcoming_count|default:0 }}</span><span class="ui-kicker">Upcoming</span></a>
+           {% if period == 'upcoming' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ upcoming_count|default:0 }}</span><span class="ui-kicker">Upcoming</span></a>
         <a class="ui-tabstat"
            href="?period=past&amp;kind={{ request.GET.kind|urlencode }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
            {% if period == 'past' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ past_count|default:0 }}</span><span class="ui-kicker">Past events</span></a>
+        {% if can_manage_events %}
+          <a class="ui-tabstat"
+             href="?period=drafts&amp;kind={{ request.GET.kind|urlencode }}"
+             {% if period == 'drafts' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ draft_count|default:0 }}</span><span class="ui-kicker">Drafts</span></a>
+        {% endif %}
       </nav>
       <div class="mb-2 flex flex-wrap gap-2">
-        {% if can_manage_events %}<a class="ui-btn ui-btn--outline ui-btn--size-sm"
-   href="{% url 'experiences:event-manage' %}">Manage events</a>{% endif %}
         {% if can_create_events %}<a class="ui-btn ui-btn--default ui-btn--size-sm"
    href="{% url 'experiences:event-create' %}">{% include 'components/nav_icon.html' with icon='add' %}New event</a>{% endif %}
       </div>
@@ -61,8 +58,8 @@
       {% include "components/pagination.html" with page=events label="Events pagination" %}
     {% else %}
       <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
-        <h3 class="ui-section-title">No {% if period == 'past' %}past{% else %}upcoming{% endif %} events to show</h3>
-        <p class="text-sm text-muted-foreground">{% if request.GET.kind %}Nothing matches this filter. Choose another event type to see more sessions.{% elif period == 'past' %}No sessions have run yet.{% else %}Nothing is scheduled right now. Events, webinars and workshops appear here as soon as dates are announced.{% endif %}</p>
+        <h3 class="ui-section-title">No {% if period == 'past' %}past{% elif period == 'drafts' %}draft{% else %}upcoming{% endif %} events to show</h3>
+        <p class="text-sm text-muted-foreground">{% if request.GET.kind %}Nothing matches this filter. Choose another event type to see more sessions.{% elif period == 'past' %}No sessions have run yet.{% elif period == 'drafts' %}Every event you can reach is published. A new event starts as a draft and waits here until you publish it.{% else %}Nothing is scheduled right now. Events, webinars and workshops appear here as soon as dates are announced.{% endif %}</p>
         {% if request.GET.kind %}<a class="ui-btn ui-btn--secondary ui-btn--size-sm no-underline"
    href="?period={{ period }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}">Show all event types</a>{% endif %}
       </div>

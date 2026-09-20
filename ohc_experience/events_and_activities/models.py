@@ -35,6 +35,10 @@ class EventQuerySet(models.QuerySet["Event"]):
             .order_by("-starts_at")
         )
 
+    def drafts(self) -> EventQuerySet:
+        """Events still being written, soonest first. Empty for an integrator."""
+        return self.filter(published_at__isnull=True).order_by("starts_at")
+
 
 class Event(models.Model):
     """A partner event — an activity, an upgrade webinar, a hands-on workshop.
@@ -110,7 +114,7 @@ class Event(models.Model):
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
-        return reverse("experiences:events")
+        return reverse("experiences:event-detail", args=[self.pk])
 
     def _build_unique_slug(self) -> str:
         base = slugify(self.title)[:200] or "event"

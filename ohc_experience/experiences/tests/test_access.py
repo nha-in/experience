@@ -444,7 +444,7 @@ def test_event_listing_and_actions_do_not_cross_categories(staff, client, event,
     assert list(page.context["events"]) == [own]
     assert page.context["nav_event_count"] == 1
     assert (
-        client.post(reverse("experiences:events"), {"event": event.pk}).status_code
+        client.post(reverse("experiences:event-detail", args=[event.pk])).status_code
         == 404
     )
     request = rf.post("/")

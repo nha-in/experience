@@ -497,8 +497,8 @@ def test_event_manager_cannot_access_other_categories(staff, client):
         starts_at=timezone.now() + timedelta(days=3),
     )
     client.force_login(staff)
-    response = client.get(reverse("experiences:event-manage"))
-    assert event not in response.context["page"]
+    response = client.get(reverse("experiences:events"), {"period": "drafts"})
+    assert event not in response.context["events"]
     assert (
         client.get(reverse("experiences:event-edit", args=[event.pk])).status_code
         == 404
@@ -537,16 +537,18 @@ def test_event_editors_delete_drafts_but_not_published_events(staff, client):
     delete_draft = reverse("experiences:event-delete", args=[draft.pk])
     delete_published = reverse("experiences:event-delete", args=[published.pk])
     client.force_login(staff)
-    page = client.get(reverse("experiences:event-manage"))
+    # Every action on an event now sits on the event's own page.
+    page = client.get(reverse("experiences:event-detail", args=[published.pk]))
     # The intent must not depend on the button keeping focus through the confirm.
     assertContains(
         page,
         '<input type="hidden" name="intent" value="unpublish">',
         html=True,
     )
+    assertNotContains(page, f'action="{delete_published}"')
+    page = client.get(reverse("experiences:event-detail", args=[draft.pk]))
     assertContains(page, f'action="{delete_draft}"')
     assertContains(page, "Delete this event and its 1 registration? This cannot")
-    assertNotContains(page, f'action="{delete_published}"')
     assert client.get(delete_draft).status_code == 405
     assert client.post(delete_published).status_code == 403
     access.can_write = False
@@ -568,7 +570,7 @@ def test_superadmins_can_delete_published_events(superadmin, client):
     )
     client.force_login(superadmin)
     assertContains(
-        client.get(reverse("experiences:event-manage")),
+        client.get(reverse("experiences:event-detail", args=[event.pk])),
         "Delete this event? Integrators will no longer see it. This cannot be undone.",
     )
     assert (
@@ -578,7 +580,7 @@ def test_superadmins_can_delete_published_events(superadmin, client):
     assert not Event.objects.exists()
 
 
-def test_event_participants_lists_registrations_and_filters_them(staff, client):
+def test_event_detail_lists_registrations_and_filters_them(staff, client):
     AccessGrant.objects.create(
         user=staff,
         program="abdm",
@@ -602,10 +604,11 @@ def test_event_participants_lists_registrations_and_filters_them(staff, client):
         event=event,
         user=UserFactory(name="Rahul Das", email="rahul@other.test"),
     )
-    participants = reverse("experiences:event-participants", args=[event.pk])
+    detail = reverse("experiences:event-detail", args=[event.pk])
     client.force_login(staff)
-    assertContains(client.get(reverse("experiences:event-manage")), participants)
-    page = client.get(participants)
+    drafts = client.get(reverse("experiences:events"), {"period": "drafts"})
+    assertContains(drafts, detail)
+    page = client.get(detail)
     assertContains(page, "2 participants")
     assertContains(page, "Meera Nair")
     assertContains(page, "Wellspring Health")
@@ -614,13 +617,13 @@ def test_event_participants_lists_registrations_and_filters_them(staff, client):
     # Someone without a membership still shows up, with no organisation.
     assert rows["Rahul Das"] is None
     assert rows["Meera Nair"].organisation.name == "Wellspring Health"
-    filtered = client.get(participants, {"q": "wellspring"})
+    filtered = client.get(detail, {"q": "wellspring"})
     assertContains(filtered, "1 participant found")
     assertNotContains(filtered, "Rahul Das")
-    assertContains(client.get(participants, {"q": "meera@"}), "Meera Nair")
+    assertContains(client.get(detail, {"q": "meera@"}), "Meera Nair")
 
 
-def test_event_participants_stay_within_event_permissions(staff, client):
+def test_event_detail_stays_within_event_permissions(staff, client):
     grant = AccessGrant.objects.create(
         user=staff,
         program="abdm",
@@ -635,29 +638,64 @@ def test_event_participants_stay_within_event_permissions(staff, client):
         published_at=timezone.now(),
     )
     EventRegistration.objects.create(event=event, user=UserFactory())
-    participants = reverse("experiences:event-participants", args=[event.pk])
+    detail = reverse("experiences:event-detail", args=[event.pk])
     client.force_login(staff)
-    assert client.get(participants).status_code == 404
-    assert client.post(participants).status_code == 405
+    assert client.get(detail).status_code == 404
+    assert client.post(detail).status_code == 404
     grant.delete()
-    assert client.get(participants).status_code == 403
+    assert client.get(detail).status_code == 403
 
 
-def test_integrators_cannot_see_event_participants(client):
+def test_reviewers_register_like_anyone_else_but_not_for_a_draft(staff, client):
+    AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="events",
+        category="UHI",
+        can_read=True,
+    )
+    starts_at = timezone.now() + timedelta(days=3)
+    published = Event.objects.create(
+        title="UHI clinic",
+        category="UHI",
+        starts_at=starts_at,
+        published_at=timezone.now(),
+    )
+    draft = Event.objects.create(
+        title="UHI clinic rehearsal",
+        category="UHI",
+        starts_at=starts_at,
+    )
+    client.force_login(staff)
+    detail = reverse("experiences:event-detail", args=[published.pk])
+    assertContains(client.get(detail), 'value="register"')
+    assert client.post(detail, {"intent": "register"}).status_code == 302
+    assert list(EventRegistration.objects.values_list("event", flat=True)) == [
+        published.pk,
+    ]
+    # An event nobody can see yet takes no registration, from anyone.
+    draft_detail = reverse("experiences:event-detail", args=[draft.pk])
+    assertNotContains(client.get(draft_detail), 'value="register"')
+    assert client.post(draft_detail, {"intent": "register"}).status_code == 403
+
+
+def test_integrators_read_an_event_without_its_participants(client):
     event = Event.objects.create(
         title="Published webinar",
         starts_at=timezone.now() + timedelta(days=3),
         published_at=timezone.now(),
     )
     membership = MembershipFactory()
-    EventRegistration.objects.create(event=event, user=membership.user)
-    client.force_login(membership.user)
-    assert (
-        client.get(
-            reverse("experiences:event-participants", args=[event.pk]),
-        ).status_code
-        == 403
+    EventRegistration.objects.create(
+        event=event,
+        user=UserFactory(name="Meera Nair"),
     )
+    client.force_login(membership.user)
+    page = client.get(reverse("experiences:event-detail", args=[event.pk]))
+    assertContains(page, "Published webinar")
+    assert page.context["page"] is None
+    assertNotContains(page, "Participants")
+    assertNotContains(page, "Meera Nair")
 
 
 def test_archive_releases_pending_assignments_and_preserves_evidence(

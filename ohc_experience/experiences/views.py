@@ -29,6 +29,7 @@ from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_safe
 
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences.definitions import DocumentReadError
@@ -59,7 +60,6 @@ from .forms import CallbackURLForm
 from .forms import SupportForm
 from .models import AuditEvent
 from .models import EventRegistration
-from .models import Notification
 from .models import ProductCredential
 from .models import ReviewItem
 from .models import ReviewQuery
@@ -2434,7 +2434,7 @@ def submission(request, pk, submission_id):
 
 
 @login_required
-@require_http_methods(["GET", "POST"])
+@require_safe
 def events(request):
     permissions.require_area(request.user, "events")
     workspaces = _workspaces(request.user)
@@ -2449,40 +2449,19 @@ def events(request):
         )
     if workspace:
         request.session["experience_product"] = workspace.reference
-    if request.method == "POST":
-        event = get_object_or_404(
-            permissions.visible_events(request.user).upcoming(),
-            pk=request.POST.get("event"),
-        )
-        if request.POST.get("intent") == "cancel":
-            deleted, _details = EventRegistration.objects.filter(
-                event=event,
-                user=request.user,
-            ).delete()
-            if deleted:
-                messages.success(request, f"Registration cancelled for {event.title}.")
-        else:
-            _registration, created = EventRegistration.objects.get_or_create(
-                event=event,
-                user=request.user,
-            )
-            if created:
-                messages.success(request, f"You are registered for {event.title}.")
-                Notification.objects.create(
-                    recipient=request.user.email,
-                    subject=f"{get_program().short_name}: registered for {event.title}",
-                    body=(
-                        f"{event.title}\n"
-                        f"{timezone.localtime(event.starts_at):%d %b %Y, %H:%M %Z}\n"
-                        f"{event.join_url}"
-                    ),
-                )
-        return redirect(request.get_full_path())
     upcoming = permissions.visible_events(request.user).upcoming()
     past = permissions.visible_events(request.user).past()
+    # Drafts reach only the team that writes them: an integrator sees published
+    # events alone, so visible_events leaves them nothing to draft.
+    drafts = permissions.visible_events(request.user).drafts()
     if request.GET.get("kind") in Event.Kind.values:
         upcoming = upcoming.filter(kind=request.GET["kind"])
         past = past.filter(kind=request.GET["kind"])
+        drafts = drafts.filter(kind=request.GET["kind"])
+    listed = {"upcoming": upcoming, "past": past, "drafts": drafts}
+    period = request.GET.get("period", "upcoming")
+    if period not in listed:
+        period = "upcoming"
     registered = set(
         EventRegistration.objects.filter(user=request.user).values_list(
             "event_id",
@@ -2497,12 +2476,10 @@ def events(request):
             workspace,
             page_title="Events and Activities",
             nav="events",
-            events=_page(
-                request,
-                past if request.GET.get("period") == "past" else upcoming,
-            ),
+            events=_page(request, listed[period]),
             upcoming_count=upcoming.count(),
             past_count=past.count(),
+            draft_count=drafts.count(),
             next_event=upcoming.first(),
             registered_upcoming_count=permissions.visible_events(request.user)
             .upcoming()
@@ -2512,7 +2489,7 @@ def events(request):
             .count(),
             registered=registered,
             kinds=Event.Kind.choices,
-            period=request.GET.get("period", "upcoming"),
+            period=period,
         ),
     )
 

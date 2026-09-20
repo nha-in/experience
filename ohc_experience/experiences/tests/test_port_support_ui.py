@@ -536,7 +536,7 @@ def test_registered_event_explains_missing_joining_details(
         published_at=timezone.now(),
     )
     EventRegistration.objects.create(event=event, user=owner_membership.user)
-    response = portal_client.get(reverse("experiences:events"))
+    response = portal_client.get(event.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     assert b"Joining details have not been added yet." in response.content
     assert b"Cancel registration" in response.content
@@ -583,7 +583,7 @@ def test_events_paginate_in_date_order(portal_client):
     ]
 
 
-def test_event_register_cancel_and_filter_keep_product(
+def test_event_register_and_cancel_on_the_event_page(
     portal_client,
     portal_workspaces,
 ):
@@ -595,16 +595,16 @@ def test_event_register_cancel_and_filter_keep_product(
         join_url="https://example.org/event",
         description="Bring your integration questions.",
     )
-    url = (
+    url = event.get_absolute_url()
+    listing = (
         f"{reverse('experiences:events')}?product={portal_workspaces[1].reference}"
         "&kind=event&period=upcoming"
     )
-    response = portal_client.post(
-        url,
-        {"event": event.pk, "intent": "register"},
-        follow=True,
-    )
+    # The listing no longer registers anyone; it sends them to the event instead.
+    assert url.encode() in portal_client.get(listing).content
+    response = portal_client.post(url, {"intent": "register"}, follow=True)
     assert response.status_code == HTTPStatus.OK
+    # The product the integrator came from stays selected on the event's page.
     assert response.context["workspace"] == portal_workspaces[1]
     assert response.redirect_chain == [(url, HTTPStatus.FOUND)]
     assert [str(message) for message in response.context["messages"]] == [
@@ -614,19 +614,37 @@ def test_event_register_cancel_and_filter_keep_product(
     assert Notification.objects.filter(subject__contains=event.title).count() == 1
     assert b"Cancel registration" in response.content
     assert b"Join event" in response.content
-    response = portal_client.get(url, {"kind": "webinar"})
-    assert event not in response.context["events"]
-    response = portal_client.post(
-        url,
-        {"event": event.pk, "intent": "cancel"},
-        follow=True,
-    )
+    filtered = portal_client.get(listing, {"kind": "webinar"})
+    assert event not in filtered.context["events"]
+    response = portal_client.post(url, {"intent": "cancel"}, follow=True)
     assert response.status_code == HTTPStatus.OK
     assert not EventRegistration.objects.filter(event=event).exists()
     assert response.redirect_chain == [(url, HTTPStatus.FOUND)]
     assert [str(message) for message in response.context["messages"]] == [
         f"Registration cancelled for {event.title}.",
     ]
+    # Registering is the event page's job now; the listing only reads.
+    assert (
+        portal_client.post(reverse("experiences:events")).status_code
+        == HTTPStatus.METHOD_NOT_ALLOWED
+    )
+
+
+def test_an_event_that_has_ended_takes_no_registration(portal_client):
+    event = Event.objects.create(
+        title="Last month's workshop",
+        starts_at=timezone.now() - timedelta(days=30),
+        published_at=timezone.now() - timedelta(days=40),
+    )
+    url = event.get_absolute_url()
+    page = portal_client.get(url)
+    assert b"This event has ended." in page.content
+    assert b'value="register"' not in page.content
+    assert (
+        portal_client.post(url, {"intent": "register"}).status_code
+        == HTTPStatus.FORBIDDEN
+    )
+    assert not EventRegistration.objects.exists()
 
 
 def test_reviewer_can_reply_and_resolve(

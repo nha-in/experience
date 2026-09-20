@@ -105,14 +105,9 @@ urlpatterns = [
     ),
     path("portal/reviews/<int:pk>/open/", views.open_record, name="review-open"),
     path("portal/events/", views.events, name="events"),
-    path("portal/events/manage/", event_views.event_manage, name="event-manage"),
     path("portal/events/new/", event_views.event_edit, name="event-create"),
     path("portal/events/<int:pk>/edit/", event_views.event_edit, name="event-edit"),
-    path(
-        "portal/events/<int:pk>/participants/",
-        event_views.event_participants,
-        name="event-participants",
-    ),
+    path("portal/events/<int:pk>/", event_views.event_detail, name="event-detail"),
     path(
         "portal/events/<int:pk>/publication/",
         event_views.event_publication,

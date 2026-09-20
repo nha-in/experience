@@ -119,7 +119,7 @@ def test_dashboard_track_rows_open_the_queue_for_their_track(environment, client
     ]
 
 
-def test_event_rows_open_their_participants(client):
+def test_event_rows_open_the_event(client):
     staff = UserFactory(is_nha_team=True)
     AccessGrant.objects.create(
         user=staff,
@@ -137,13 +137,12 @@ def test_event_rows_open_their_participants(client):
         published_at=timezone.now(),
     )
     client.force_login(staff)
-    response = client.get(reverse("experiences:event-manage"))
-    # Editing a published event is a superadmin's call, but its registrations
-    # are readable, so every row opens the one page it always has.
-    assert row_links(response) == [
-        reverse("experiences:event-participants", args=[event.pk])
-        for event in (published, draft)
-    ]
+    # Editing a published event is a superadmin's call, but its details and its
+    # registrations are readable, so every row opens the one page it always has.
+    upcoming = client.get(reverse("experiences:events"))
+    assert row_links(upcoming) == [published.get_absolute_url()]
+    drafts = client.get(reverse("experiences:events"), {"period": "drafts"})
+    assert row_links(drafts) == [draft.get_absolute_url()]
 
 
 def test_review_rows_open_approvals_prerequisites_and_tickets(environment, client):
@@ -210,8 +209,8 @@ def test_wasa_history_rows_open_the_submission(environment, client):
     ]
 
 
-def test_upcoming_event_rows_open_the_events_page(environment, client):
-    Event.objects.create(
+def test_upcoming_event_rows_open_the_event(environment, client):
+    event = Event.objects.create(
         title="Launch webinar",
         starts_at=timezone.now() + timedelta(days=3),
         published_at=timezone.now(),
@@ -221,4 +220,4 @@ def test_upcoming_event_rows_open_the_events_page(environment, client):
         reverse("experiences:overview", args=[environment["workspace"].reference]),
     )
     assert "Launch webinar" in response.content.decode()
-    assert row_links(response) == [reverse("experiences:events")]
+    assert row_links(response) == [event.get_absolute_url()]
