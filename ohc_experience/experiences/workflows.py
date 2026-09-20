@@ -466,7 +466,7 @@ def waiting_reviews():
 
 
 def prerequisite_names(prerequisites):
-    """ "M1 - ABHA and identity is" / "M1 and organisation verification are"."""
+    """ "M1 is" / "M1 and organisation verification are"."""
     verb = "is" if len(prerequisites) == 1 else "are"
     return f"{readable_list(item.name for item in prerequisites)} {verb}"
 

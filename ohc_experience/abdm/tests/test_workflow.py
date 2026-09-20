@@ -178,17 +178,19 @@ def test_shared_m1_and_independent_tracks(environment):
     assert get_program().track_milestones(TRACK_MAP["PHR"]) == ("m1", "phr1")
     assert MILESTONES["nhcx1"].predecessor == "m1"
     for key in ("m2", "m3", "phr1"):
-        assert waiting_on(environment, key) == ["M1 - ABHA and identity"]
+        assert waiting_on(environment, key) == ["M1 - ABHA Creation and Verification"]
     assert waiting_on(environment, "uhi1") == [
-        "M1 - ABHA and identity",
-        "M2 - HIP services",
+        "M1 - ABHA Creation and Verification",
+        "M2 - Health Information Provider Services",
     ]
     for key in ("m4", "locker1"):
         assert waiting_on(environment, key) == []
     approve(environment)
     for key in ("m2", "m3", "phr1"):
         assert waiting_on(environment, key) == []
-    assert waiting_on(environment, "uhi1") == ["M2 - HIP services"]
+    assert waiting_on(environment, "uhi1") == [
+        "M2 - Health Information Provider Services",
+    ]
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
 
 
@@ -198,7 +200,7 @@ def test_a_review_waits_on_every_earlier_milestone_and_the_organisation(environm
 
     assert waiting_on(environment, "m3") == [
         "organisation verification",
-        "M1 - ABHA and identity",
+        "M1 - ABHA Creation and Verification",
     ]
     for key in ("m4", "locker1"):
         assert waiting_on(environment, key) == ["organisation verification"]
@@ -387,7 +389,7 @@ def test_milestones_are_submitted_in_order_and_decided_in_order(environment):
     """Submitting M1 opens M2, but M2 is decided only once M1 is approved."""
     with pytest.raises(
         ValidationError,
-        match="once M1 - ABHA and identity is submitted",
+        match="once M1 - ABHA Creation and Verification is submitted",
     ):
         submit(environment, "m2")
     submit(environment)
@@ -397,7 +399,7 @@ def test_milestones_are_submitted_in_order_and_decided_in_order(environment):
     for action in ("approve", "reject"):
         with pytest.raises(
             ValidationError,
-            match="once M1 - ABHA and identity is approved",
+            match="once M1 - ABHA Creation and Verification is approved",
         ):
             services.decide(m2, environment["reviewer"], action=action, note="Not yet.")
     services.decide(
@@ -559,7 +561,9 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
 
     assert "data-request-submit" in m3
     assert "Milestone locked" not in m3
-    assert "It can be approved once M1 - ABHA and identity is approved." in m2
+    assert (
+        "It can be approved once M1 - ABHA Creation and Verification is approved." in m2
+    )
 
 
 def test_registering_a_product_records_it_without_a_review(environment):
@@ -1053,11 +1057,17 @@ def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
     html = response.content.decode()
 
     assert response.context["decision_action"] == "query"
-    assert "Approve or reject this request once M1 - ABHA and identity" in html
+    assert (
+        "Approve or reject this request once M1 - ABHA Creation and Verification"
+        in html
+    )
     assert 'data-decision-blocked="true"' in html
     assert re.search(r'value="approve"\s+disabled', html)
     assert re.search(r'value="reject"\s+disabled', html)
-    assert f'href="{m1.get_absolute_url()}">M1 - ABHA and identity</a>' in html
+    assert (
+        f'href="{m1.get_absolute_url()}">M1 - ABHA Creation and Verification</a>'
+        in html
+    )
     assert "waiting on prerequisites" in html
 
     approve_submitted(environment)
@@ -1077,8 +1087,8 @@ def test_a_waiting_recorded_request_offers_reviewers_no_decision(environment, cl
 
     assert 'id="recording-hold"' in html
     assert (
-        "recorded automatically once M1 - ABHA and identity and M2 - HIP services "
-        "are approved"
+        "recorded automatically once M1 - ABHA Creation and Verification and "
+        "M2 - Health Information Provider Services are approved"
     ) in html
     assert "data-decision-form" not in html
 

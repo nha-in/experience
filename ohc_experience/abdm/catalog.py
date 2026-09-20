@@ -10,14 +10,14 @@ MILESTONES = {
         MilestoneDefinition(
             "m1",
             "M1",
-            "ABHA and identity",
+            "ABHA Creation and Verification",
             description="Create and verify ABHA identities for people receiving care.",
             docs_url=docs_page("/docs/hiecm/v3/milestones/m1"),
         ),
         MilestoneDefinition(
             "m2",
             "M2",
-            "HIP services",
+            "Health Information Provider Services",
             "m1",
             "Link care contexts and share health records with consent.",
             docs_page("/docs/hiecm/v3/milestones/m2"),
@@ -25,7 +25,7 @@ MILESTONES = {
         MilestoneDefinition(
             "m3",
             "M3",
-            "HIU services",
+            "Health Information User Services",
             "m1",
             "Request consent and retrieve health records held by other providers.",
             docs_page("/docs/hiecm/v3/milestones/m3"),
@@ -33,7 +33,7 @@ MILESTONES = {
         MilestoneDefinition(
             "m4",
             "M4",
-            "HFR Registration",
+            "Register Healthcare Professionals and Facilities",
             description="Register your health facility and professionals for "
             "ABDM services.",
             docs_url=docs_page("/docs/hiecm/v3/milestones/m4"),

@@ -48,8 +48,8 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
     for submit_form in (False, True):
         with pytest.raises(
             ValidationError,
-            match=r"^\['M2 - HIP services opens once M1 - ABHA and identity is "
-            r"submitted.'\]$",
+            match=r"^\['M2 - Health Information Provider Services opens once "
+            r"M1 - ABHA Creation and Verification is submitted.'\]$",
         ):
             workflows.save_review_form(
                 m2,
@@ -61,8 +61,8 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
     with pytest.raises(ValidationError, match="cannot be reused"):
         workflows.reuse_evidence(m2, environment["applicant"])
     assert workflows.milestone_unavailable(milestone(environment, "uhi1")) == (
-        "UHI1 - UHI participation opens once M1 - ABHA and identity and "
-        "M2 - HIP services are submitted."
+        "UHI1 - UHI participation opens once M1 - ABHA Creation and Verification and "
+        "M2 - Health Information Provider Services are submitted."
     )
 
     submit(environment)
@@ -113,8 +113,9 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
         workflows.withdraw(milestone(environment), applicant)
     assert error.value.messages == [
         (
-            "Withdraw M3 - HIU services, UHI1 - UHI participation and M2 - HIP "
-            "services first. They build on this request."
+            "Withdraw M3 - Health Information User Services, UHI1 - UHI "
+            "participation and M2 - Health Information Provider Services "
+            "first. They build on this request."
         ),
     ]
 
@@ -144,11 +145,11 @@ def test_the_track_page_locks_a_milestone_and_links_what_opens_it(
     assert "data-milestone-locked" in html
     assert "data-review-form" not in html
     assert (
-        f'href="{track_url(environment)}?milestone=m1">M1 - ABHA and identity</a>'
-        in html
+        f'href="{track_url(environment)}?milestone=m1">'
+        "M1 - ABHA Creation and Verification</a>" in html
     )
     assert "Locked · submit M1 first" in html
-    assert "M3 HIU services</a> · submit M1 first" in html.replace(
+    assert "M3 Health Information User Services</a> · submit M1 first" in html.replace(
         '<span class="font-mono">M3</span>',
         "M3",
     )
@@ -175,12 +176,18 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
     html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
 
     assert milestone_tiles(html) == {
-        "M1": "M1 ABHA and identity Shared with UHI and PHR Open · waiting on you",
-        "M2": (
-            "M2 Viewing HIP services Shared with UHI Locked · submit M1 first Needs M1"
+        "M1": (
+            "M1 ABHA Creation and Verification Shared with UHI and PHR "
+            "Open · waiting on you"
         ),
-        "M3": "M3 HIU services Locked · submit M1 first Needs M1",
-        "M4": "M4 HFR Registration Open · waiting on you",
+        "M2": (
+            "M2 Viewing Health Information Provider Services Shared with UHI "
+            "Locked · submit M1 first Needs M1"
+        ),
+        "M3": "M3 Health Information User Services Locked · submit M1 first Needs M1",
+        "M4": (
+            "M4 Register Healthcare Professionals and Facilities Open · waiting on you"
+        ),
     }
     assert "ui-milestone-tile-needs--locked" in html
 
@@ -209,7 +216,7 @@ def test_withdrawing_names_the_requests_to_withdraw_first(environment, client):
     assert "Withdraw request</button>" not in m1
     assert re.search(
         rf'first withdraw <a [^>]*href="{track_url(environment)}\?milestone=m2">'
-        r"M2 - HIP services</a>\. It builds on this request\.",
+        r"M2 - Health Information Provider Services</a>\. It builds on this request\.",
         m1,
     )
     assert "Withdraw request</button>" in m2
@@ -285,7 +292,10 @@ def test_the_review_page_lists_the_requests_waiting_on_it(environment, client):
 
     assert "2 requests wait on this one" in html
     assert 'aria-label="Waiting on this request"' in html
-    assert f'href="{m2.get_absolute_url()}">M2 - HIP services</a>' in html
+    assert (
+        f'href="{m2.get_absolute_url()}">'
+        "M2 - Health Information Provider Services</a>" in html
+    )
     assert f'href="{uhi.get_absolute_url()}">UHI1 - UHI participation</a>' in html
 
     approve_submitted(environment)
