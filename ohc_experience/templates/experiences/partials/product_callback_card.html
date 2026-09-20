@@ -4,32 +4,27 @@
          class="ui-card ui-card--layered gap-5"
          aria-labelledby="callback-title">
   <div class="ui-card-header">
-    <h2 class="ui-card-title" id="callback-title">Callback and bridge</h2>
-    <p class="ui-card-description">Where the gateway calls your software back, and the endpoint it registers you under.</p>
+    <h2 class="ui-card-title" id="callback-title">Callback URL</h2>
+    <p class="ui-card-description">Where the gateway calls your software back. This is the endpoint it registers your bridge under.</p>
   </div>
   <div class="ui-card-content">
     {% if credential %}
       <div class="grid items-start gap-6 2xl:grid-cols-[minmax(0,1fr)_300px]">
         <form method="post" data-unsaved-form novalidate>
           {% csrf_token %}
-          <input type="hidden" name="intent" value="urls" />
+          <input type="hidden" name="intent" value="callback" />
           {% if form.non_field_errors %}
             <div class="ui-alert ui-alert--destructive mb-5" role="alert">{{ form.non_field_errors }}</div>
           {% endif %}
-          <div class="flex flex-col gap-3.5">
-            <div>
-              {% ui_field form.callback_url extra_class='font-mono text-sm' help_text='The public HTTPS URL where the gateway delivers callbacks.' %}
-              {% if credential.consecutive_failures %}
-                <p class="mt-1.5 text-xs text-red-700">{{ credential.consecutive_failures }} failed check{{ credential.consecutive_failures|pluralize }} in a row.</p>
-              {% endif %}
-            </div>
-            <div>
-              {% ui_field form.bridge_url extra_class='font-mono text-sm' help_text='The HTTPS endpoint for linking and health information exchange.' %}
-            </div>
+          <div>
+            {% ui_field form.callback_url extra_class='font-mono text-sm' help_text='The public HTTPS URL where the gateway delivers callbacks.' %}
+            {% if credential.consecutive_failures %}
+              <p class="mt-1.5 text-xs text-red-700">{{ credential.consecutive_failures }} failed check{{ credential.consecutive_failures|pluralize }} in a row.</p>
+            {% endif %}
           </div>
           <div class="mt-3.5">
             <button class="ui-btn ui-btn--outline ui-btn--size-sm shadow-md"
-                    type="submit">Save URLs</button>
+                    type="submit">Save URL</button>
           </div>
         </form>
         <div class="flex flex-col gap-3.5 rounded-xl bg-hero-surface/80 p-4 ring-1 ring-primary/10">

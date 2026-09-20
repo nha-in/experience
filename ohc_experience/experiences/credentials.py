@@ -115,13 +115,12 @@ def revoke(credential, actor):
 
 
 @transaction.atomic
-def save_urls(credential, actor, cleaned_data):
+def save_callback_url(credential, actor, url):
     require_integrator(actor, credential.product.organisation)
     credential = ProductCredential.objects.select_for_update().get(pk=credential.pk)
-    old = {key: getattr(credential, key) for key in cleaned_data}
-    for key in ("callback_url", "bridge_url"):
-        setattr(credential, key, cleaned_data[key])
-    if old["callback_url"] != credential.callback_url:
+    previous = credential.callback_url
+    credential.callback_url = url
+    if previous != url:
         credential.last_checked_at = None
         credential.last_status = None
         credential.last_latency_ms = None
@@ -130,9 +129,9 @@ def save_urls(credential, actor, cleaned_data):
     credential.save()
     audit(
         actor=actor,
-        action="Integration URLs updated",
+        action="Callback URL updated",
         product=credential.product,
-        detail={"before": old, "after": cleaned_data},
+        detail={"before": previous, "after": url},
     )
 
 

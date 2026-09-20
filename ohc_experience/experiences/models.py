@@ -976,7 +976,6 @@ class ProductCredential(models.Model):
     )
     gateway_url = models.URLField()
     callback_url = models.URLField(blank=True)
-    bridge_url = models.URLField(blank=True)
     issued_at = models.DateTimeField(default=timezone.now)
     rotation_due = models.DateTimeField()
     last_checked_at = models.DateTimeField(null=True, blank=True)

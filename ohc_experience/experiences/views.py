@@ -54,7 +54,7 @@ from .context_processors import navigation_context
 from .context_processors import product_scope
 from .context_processors import selected_workspace
 from .context_processors import workspaces_for
-from .forms import CredentialURLsForm
+from .forms import CallbackURLForm
 from .forms import SupportForm
 from .models import AuditEvent
 from .models import EventRegistration
@@ -1639,13 +1639,8 @@ def credentials(request, reference):  # noqa: C901, PLR0912
     activity = workspace.product.audit_events.filter(
         item__isnull=True,
     ).select_related("actor")[:10]
-    form = CredentialURLsForm(
-        initial={
-            "callback_url": credential.callback_url,
-            "bridge_url": credential.bridge_url,
-        }
-        if credential
-        else None,
+    form = CallbackURLForm(
+        initial={"callback_url": credential.callback_url} if credential else None,
     )
 
     def _secret_response(secret):
@@ -1689,13 +1684,13 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 credential_services.revoke(credential, request.user)
             elif intent == "check":
                 credential_services.check_callback(credential, request.user)
-            elif intent == "urls":
-                form = CredentialURLsForm(request.POST)
+            elif intent == "callback":
+                form = CallbackURLForm(request.POST)
                 if form.is_valid():
-                    credential_services.save_urls(
+                    credential_services.save_callback_url(
                         credential,
                         request.user,
-                        form.cleaned_data,
+                        form.cleaned_data["callback_url"],
                     )
                 else:
                     return render(

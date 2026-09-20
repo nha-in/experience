@@ -135,16 +135,15 @@ class ProductionAccessForm(forms.Form):
         return validate_issued_on(self.cleaned_data["issued_on"])
 
 
-class CredentialURLsForm(forms.Form):
+class CallbackURLForm(forms.Form):
     callback_url = forms.URLField(required=False)
-    bridge_url = forms.URLField(required=False)
 
-    def clean(self):
-        cleaned = super().clean()
-        for key, value in cleaned.items():
-            if value and not value.lower().startswith("https://"):
-                self.add_error(key, "Use an HTTPS URL.")
-        return cleaned
+    def clean_callback_url(self):
+        url = self.cleaned_data["callback_url"]
+        if url and not url.lower().startswith("https://"):
+            msg = "Use an HTTPS URL."
+            raise ValidationError(msg)
+        return url
 
 
 #: Resolving a ticket takes a reply that says how it was resolved.

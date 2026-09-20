@@ -26,6 +26,7 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import stored_secret
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.services import provision_inline
@@ -517,6 +518,48 @@ def test_credential_reveal_preserves_full_page_fallback(environment, client, htm
     assert "no-store" in response["Cache-Control"]
     assert b"data-secret-container" in response.content
     assert (b'id="callback-card"' in response.content) is not htmx
+
+
+@pytest.mark.django_db
+def test_saving_the_callback_url_clears_the_previous_check(environment, client):
+    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    credential.callback_url = "https://old.example/callback"
+    credential.last_status = 500
+    credential.consecutive_failures = 2
+    credential.last_error = "Endpoint unreachable or TLS validation failed."
+    credential.save()
+    client.force_login(environment["applicant"])
+
+    response = client.post(
+        reverse("experiences:credentials", args=[environment["workspace"].reference]),
+        {"intent": "callback", "callback_url": "https://new.example/callback"},
+    )
+
+    assert response.status_code == 302
+    credential.refresh_from_db()
+    assert credential.callback_url == "https://new.example/callback"
+    # A reading of the old endpoint says nothing about the new one.
+    assert credential.last_status is None
+    assert credential.consecutive_failures == 0
+    assert credential.last_error == ""
+
+
+@pytest.mark.django_db
+def test_a_plain_http_callback_url_is_refused(environment, client):
+    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    credential.callback_url = "https://kept.example/callback"
+    credential.save()
+    client.force_login(environment["applicant"])
+
+    response = client.post(
+        reverse("experiences:credentials", args=[environment["workspace"].reference]),
+        {"intent": "callback", "callback_url": "http://plain.example/callback"},
+    )
+
+    assert response.status_code == 200
+    assert "Use an HTTPS URL." in response.content.decode()
+    credential.refresh_from_db()
+    assert credential.callback_url == "https://kept.example/callback"
 
 
 @pytest.mark.django_db
