@@ -17,16 +17,19 @@
   {% translate "Enter your sign-in code" %}
 {% endblock entrance_title %}
 {% block entrance_lede %}
+  {% comment %}
+    The stated expiry must match ACCOUNT_LOGIN_BY_CODE_TIMEOUT (180 seconds).
+  {% endcomment %}
   {% if email %}
     {% blocktranslate trimmed with recipient=email %}
-      We sent a code to {{ recipient }}. It expires shortly, so use it soon.
+      We sent a code to {{ recipient }}. It is valid for three minutes.
     {% endblocktranslate %}
   {% elif phone %}
     {% blocktranslate trimmed with recipient=phone %}
-      We sent a code to {{ recipient }}. It expires shortly, so use it soon.
+      We sent a code to {{ recipient }}. It is valid for three minutes.
     {% endblocktranslate %}
   {% else %}
-    {% translate "We sent you a code. It expires shortly, so use it soon." %}
+    {% translate "We sent you a code. It is valid for three minutes." %}
   {% endif %}
 {% endblock entrance_lede %}
 {% block entrance_body %}

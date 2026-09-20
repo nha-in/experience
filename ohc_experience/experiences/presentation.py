@@ -139,10 +139,7 @@ def _review_attention(requests):
         ):
             return _step(
                 "A reviewer needs your response",
-                (
-                    f"Reply to the question on {item.form.name} to "
-                    "move this request forward."
-                ),
+                f"Reply to the question on {item.form.name}.",
                 "Respond to query",
                 f"{url}#queries",
                 "warning",
@@ -198,30 +195,21 @@ def _milestone_next_step(tiles, product_url):
         if tile["status"] == "draft" and not tile.get("locked_by"):
             return _step(
                 f"Continue with {tile['definition'].code}",
-                (
-                    "Add the required evidence at your pace. Save a "
-                    "draft, then submit when it is ready."
-                ),
+                "Add the required evidence, then submit it for review.",
                 "Continue milestone",
                 tile["url"],
             )
     if tiles and all(tile["status"] == "approved" for tile in tiles):
         return _step(
             "All applied milestones are approved",
-            (
-                "Your approval records are available below. You can "
-                "add more milestones as your product grows."
-            ),
+            "Your approval records are below. Add more milestones at any time.",
             "Manage milestones",
             product_url,
         )
     if not tiles:
         return _step(
             "Choose your first milestones",
-            (
-                "Select the integration tracks that match your "
-                "product to begin the review process."
-            ),
+            "Select the integration tracks that match your product.",
             "Choose milestones",
             product_url,
         )
@@ -235,10 +223,7 @@ def _milestone_next_step(tiles, product_url):
     )
     return _step(
         "Your requests are with the review team",
-        (
-            "Your evidence is saved. Follow your track status below "
-            "for decisions and responses."
-        ),
+        "Your evidence is saved. Track status and replies appear below.",
         "View current request",
         current["url"],
         "info",

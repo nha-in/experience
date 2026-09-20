@@ -14,9 +14,13 @@
   <div class="ui-card">
     <div class="ui-card-header">
       <h2 class="ui-card-title">{% translate "Confirm your email address" %}</h2>
+      {% comment %}
+        The stated expiry must match ACCOUNT_EMAIL_VERIFICATION_BY_CODE_TIMEOUT
+        (900 seconds).
+      {% endcomment %}
       <p class="ui-card-description">
         {% blocktranslate trimmed %}
-          We emailed a code to {{ email }}. It expires shortly, so use it soon.
+          We emailed a code to {{ email }}. It is valid for fifteen minutes.
         {% endblocktranslate %}
       </p>
     </div>

@@ -10,11 +10,11 @@
   {% translate "This account is inactive" %}
 {% endblock entrance_title %}
 {% block entrance_lede %}
-  {% translate "Sign-in is switched off for this account, so we cannot let you through." %}
+  {% translate "Sign-in has been disabled for this account." %}
 {% endblock entrance_lede %}
 {% block entrance_body %}
   <p class="text-sm leading-relaxed text-muted-foreground">
-    {% translate "An owner or admin in your organisation can remove and re-invite you. If the account was deactivated in error, the NHA team can reactivate it — reply to any email you have received from them." %}
+    {% translate "An owner or admin in your organisation can remove and re-invite you. If the account was deactivated in error, reply to any email you have received from the NHA team and ask them to reactivate it." %}
   </p>
   <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
      href="{% url 'home' %}">{% translate "Back to the sandbox" %}</a>

@@ -22,14 +22,14 @@
 {% endblock entrance_eyebrow %}
 {% block entrance_story_title %}
   {% if invitation %}
-    {% translate "One team." %} <span>{% translate "One workspace." %}</span>
+    {% translate "Join your" %} <span>{% translate "organisation's account." %}</span>
   {% else %}
-    {% translate "Your path to" %} <span>{% translate "connected care." %}</span>
+    {{ block.super }}
   {% endif %}
 {% endblock entrance_story_title %}
 {% block entrance_story_lede %}
   {% if invitation %}
-    {% translate "Join your organisation's sandbox workspace to work on products, evidence and reviews together." %}
+    {% translate "Your organisation already has an account. Join it to work on products, evidence and reviews with your team." %}
   {% else %}
     {% translate "Create your account, verify your organisation or business and register a product. Then follow your integration from the sandbox through review." %}
   {% endif %}
@@ -60,7 +60,7 @@
 {% block entrance_panel_eyebrow %}
   <p class="marketing-auth-panel-eyebrow">
     {% if invitation %}
-      {% translate "Your team is waiting" %}
+      {% translate "Invitation" %}
     {% else %}
       {% translate "Step 01 · Account" %}
     {% endif %}
