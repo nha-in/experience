@@ -227,7 +227,7 @@ def test_the_queue_holds_waiting_requests_apart_from_ready_ones(environment, cli
     m1 = submit(environment)
     m2 = submit(environment, "m2")
     uhi = submit(environment, "uhi1")
-    locker = submit(environment, "locker1")
+    locker = submit(environment, "p4")
     client.force_login(environment["reviewer"])
 
     assert set(queue(client)) == {m1, locker}
@@ -252,7 +252,7 @@ def test_the_queue_holds_waiting_requests_apart_from_ready_ones(environment, cli
 
 def test_requests_wait_on_organisation_verification_too(environment, client):
     verification = reverify(environment)
-    locker = submit(environment, "locker1")
+    locker = submit(environment, "p4")
     client.force_login(environment["reviewer"])
 
     assert queue(client) == [verification]
@@ -270,7 +270,7 @@ def test_the_waiting_filter_agrees_with_pending_prerequisites(environment):
             item for item in pending if workflows.pending_prerequisites(item)
         }
 
-    for key in ("m1", "m2", "m3", "m4", "uhi1", "locker1"):
+    for key in ("m1", "m2", "m3", "m4", "uhi1", "p4"):
         submit(environment, key)
     assert agree()
     verification = reverify(environment)

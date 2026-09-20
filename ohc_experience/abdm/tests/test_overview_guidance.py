@@ -21,7 +21,7 @@ def test_progress_counts_shared_m1_only_once(client, environment):  # noqa: F811
     assert response.status_code == HTTPStatus.OK
     assert ABDM.milestones_docs_url.encode() in response.content
     assert response.context["progress"] == {
-        "total": 7,
+        "total": 9,
         "approved": 1,
         "active_tracks": 4,
         "awaiting_review": 0,
@@ -156,7 +156,10 @@ def test_verification_under_review_still_leads_to_milestone_evidence(
 
 def test_review_guidance_skips_approved_milestones(client, environment):  # noqa: F811
     approve(environment)
-    for key in ("m2", "m3", "m4", "phr1", "locker1", "uhi1"):
+    # P3 waits on the two phases before it, so they are decided, not just sent.
+    for key in ("p1", "p2"):
+        approve(environment, key)
+    for key in ("m2", "m3", "m4", "p3", "p4", "uhi1"):
         submit(environment, key)
     client.force_login(environment["applicant"])
     response = client.get(environment["workspace"].get_absolute_url())

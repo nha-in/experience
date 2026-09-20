@@ -20,7 +20,7 @@ def test_selected_product_follows_integrator_into_account_pages(environment):  #
     data = {
         **product_data(),
         "name": "Second product",
-        "applied_milestones": ["HealthLocker:locker1"],
+        "applied_milestones": ["HealthLocker:p4"],
     }
     second, form = workflows.register_product(environment["org"], user, data=data)
     assert second, form.errors

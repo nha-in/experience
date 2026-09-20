@@ -53,10 +53,10 @@ class ABDMAgentSkills(AgentSkillsDefinition):
         "abdm-m2": ("m2",),
         "abdm-m3": ("m3",),
         "abdm-m4": ("m4",),
-        "abdm-p1": ("phr1",),
-        "abdm-p2": ("phr1",),
-        "abdm-p3": ("phr1", "locker1"),
-        "abdm-phr-services": ("phr1",),
+        "abdm-p1": ("p1",),
+        "abdm-p2": ("p2",),
+        "abdm-p3": ("p3", "p4"),
+        "abdm-phr-services": ("p1",),
         "abdm-fhir": ("m2",),
     }
     limits = (

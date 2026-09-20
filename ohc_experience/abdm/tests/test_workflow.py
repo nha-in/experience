@@ -171,18 +171,23 @@ def reverify(environment):
 def test_shared_m1_and_independent_tracks(environment):
     product = environment["workspace"].product
     assert product.milestones.filter(key="m1").count() == 1
-    assert TRACK_MAP["PHR"].keys == ("phr1",)
-    assert TRACK_MAP["HealthLocker"].keys == ("locker1",)
+    assert TRACK_MAP["PHR"].keys == ("p1", "p2", "p3")
+    assert TRACK_MAP["HealthLocker"].keys == ("p4",)
     assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
-    assert get_program().track_milestones(TRACK_MAP["PHR"]) == ("m1", "phr1")
+    assert get_program().track_milestones(TRACK_MAP["PHR"]) == (
+        "m1",
+        "p1",
+        "p2",
+        "p3",
+    )
     assert MILESTONES["nhcx1"].predecessor == "m1"
-    for key in ("m2", "m3", "phr1"):
+    for key in ("m2", "m3", "p1"):
         assert waiting_on(environment, key) == ["M1 - ABHA Creation and Verification"]
     assert waiting_on(environment, "uhi1") == ["M1 - ABHA Creation and Verification"]
-    for key in ("m4", "locker1"):
+    for key in ("m4", "p4"):
         assert waiting_on(environment, key) == []
     approve(environment)
-    for key in ("m2", "m3", "phr1"):
+    for key in ("m2", "m3", "p1"):
         assert waiting_on(environment, key) == []
     assert waiting_on(environment, "uhi1") == []
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
@@ -196,7 +201,7 @@ def test_a_review_waits_on_every_earlier_milestone_and_the_organisation(environm
         "organisation verification",
         "M1 - ABHA Creation and Verification",
     ]
-    for key in ("m4", "locker1"):
+    for key in ("m4", "p4"):
         assert waiting_on(environment, key) == ["organisation verification"]
 
 
@@ -218,8 +223,8 @@ def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
 
     assert set(program.shared_with("m1", "PHR")) == {"HIE-CM", "UHI", "NHCX"}
     assert set(program.shared_with("m1", "HIE-CM")) == {"PHR", "UHI", "NHCX"}
-    assert program.shared_with("locker1", "HealthLocker") == ()
-    assert MILESTONES["locker1"].code == "HL1"
+    assert program.shared_with("p4", "HealthLocker") == ()
+    assert MILESTONES["p4"].code == "P4"
 
 
 def test_a_tracks_description_names_its_shared_milestones(environment, client):
@@ -646,10 +651,10 @@ def test_a_product_edit_applies_at_once_without_a_review(environment):
 
 def test_a_milestone_under_review_is_named_when_an_edit_removes_it(environment):
     workspace = environment["workspace"]
-    submit(environment, "locker1")
+    submit(environment, "p4")
     registration = workspace.product.review_items.get(kind="product_registration")
 
-    with pytest.raises(ValidationError, match="HL1 is under review"):
+    with pytest.raises(ValidationError, match="P4 is under review"):
         services.save_review_form(
             registration,
             environment["applicant"],
@@ -822,7 +827,7 @@ def test_approved_track_selection_cannot_be_removed(environment):
         services.save_review_form(
             registration,
             environment["applicant"],
-            data={**product_data(), "applied_milestones": ["HealthLocker:locker1"]},
+            data={**product_data(), "applied_milestones": ["HealthLocker:p4"]},
             submit=True,
         )
 
@@ -854,13 +859,13 @@ def test_date_and_pdf_validation_and_required_documents():
 
 def test_phr_requires_m1_but_not_m3_and_locker_is_independent():
     assert ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["HIE-CM:m1", "PHR:phr1"]},
+        data={**product_data(), "applied_milestones": ["HIE-CM:m1", "PHR:p1"]},
     ).is_valid()
     assert ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["HealthLocker:locker1"]},
+        data={**product_data(), "applied_milestones": ["HealthLocker:p4"]},
     ).is_valid()
     assert not ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["PHR:phr1"]},
+        data={**product_data(), "applied_milestones": ["PHR:p1"]},
     ).is_valid()
 
 
@@ -1058,14 +1063,14 @@ def test_track_filter_respects_which_track_applied_for_shared_m1(environment, cl
         item in client.get(url, {"item": "HIE-CM"}).context["page"][0].matching_reviews
     )
     assert not client.get(url, {"item": "PHR"}).context["page"]
-    workspace.applied_milestones.append("PHR:phr1")
+    workspace.applied_milestones.append("PHR:p1")
     workspace.save()
     assert item in client.get(url, {"item": "PHR"}).context["page"][0].matching_reviews
 
 
 def test_the_queue_sorts_by_matching_submission_dates(environment, client):
     older = submit(environment, "m1")
-    newer = submit(environment, "locker1")
+    newer = submit(environment, "p4")
     ReviewItem.objects.filter(pk=older.pk).update(
         submitted_at=timezone.now() - timedelta(days=2),
     )
@@ -1123,7 +1128,7 @@ def test_product_registrations_are_records_not_queue_requests(environment, clien
 
 def test_the_type_filter_gathers_the_milestones_of_every_track(environment, client):
     hie_cm = submit(environment)
-    locker = submit(environment, "locker1")
+    locker = submit(environment, "p4")
     organisation = environment["org"].review_items.get(
         kind=ReviewItem.Kind.ORGANISATION,
     )

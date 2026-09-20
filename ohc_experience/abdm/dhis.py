@@ -34,7 +34,7 @@ SOLUTION_MILESTONES = {
     "hmis": ("HMIS", ("m1", "m2", "m3"), "M3"),
     "lmis": ("LMIS", ("m1", "m2"), "M2"),
     "telemedicine": ("Telemedicine", ("m1", "m2", "m3"), "M3"),
-    "health_locker": ("HealthLocker", ("phr1", "locker1"), "Healthlocker"),
+    "health_locker": ("HealthLocker", ("p1", "p2", "p3", "p4"), "Healthlocker"),
     "pharmacy": ("Pharmacy", ("m1", "m2"), "M2"),
 }
 SOLUTION_ALIASES = {"clinical_hmis": "hmis"}
@@ -42,8 +42,10 @@ MILESTONE_LABELS = {
     "m1": "M1",
     "m2": "M2",
     "m3": "M3",
-    "phr1": "PHR",
-    "locker1": "Health Locker",
+    "p1": "PHR",
+    "p2": "PHR",
+    "p3": "PHR",
+    "p4": "Health Locker",
 }
 UNAVAILABLE_MESSAGE = "DHIS is temporarily unavailable. Please try again later."
 
@@ -144,7 +146,8 @@ def _solution_error(solution_type, approved_types):
 
 def _milestone_error(required, approved):
     if missing := [key for key in required if key not in approved]:
-        names = ", ".join(MILESTONE_LABELS[key] for key in missing)
+        # The three PHR phases share one legacy label, so name it once.
+        names = ", ".join(dict.fromkeys(MILESTONE_LABELS[key] for key in missing))
         return f"Complete the required milestone approvals before DHIS: {names}."
     return ""
 

@@ -87,8 +87,10 @@ def product_data(name="Medibase HMIS 4.2"):
             "HIE-CM:m2",
             "HIE-CM:m3",
             "HIE-CM:m4",
-            "PHR:phr1",
-            "HealthLocker:locker1",
+            "PHR:p1",
+            "PHR:p2",
+            "PHR:p3",
+            "HealthLocker:p4",
             "UHI:uhi1",
         ],
     }
@@ -303,8 +305,8 @@ class DemoBuilder:
         # M3 builds on M1, which is approved, so this review is ready to decide.
         self.exit(workspace, "m3", applicant, admin, reviewer, "review")
         self.exit(workspace, "m4", applicant, admin, reviewer, "review")
-        self.exit(workspace, "phr1", applicant, admin, reviewer, "review")
-        self.exit(workspace, "locker1", applicant, admin, reviewer, "rejected")
+        self.exit(workspace, "p1", applicant, admin, reviewer, "review")
+        self.exit(workspace, "p4", applicant, admin, reviewer, "rejected")
         uhi = workspace.product.milestones.get(key="uhi1").application.review_item
         services.save_review_form(uhi, applicant, data=uhi_data(), submit=True)
         self.register_product(
@@ -313,7 +315,7 @@ class DemoBuilder:
             data={
                 **product_data("Medibase Health Locker"),
                 "solution_type": ["health_locker"],
-                "applied_milestones": ["HealthLocker:locker1"],
+                "applied_milestones": ["HealthLocker:p4"],
             },
         )
         # UHI with M1 alone, and M1 still undecided: the one product where a

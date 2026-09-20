@@ -174,7 +174,7 @@ def test_upgrade_audit_pin_grants_only_the_exact_historical_submission(
     client,
 ):
     approve(environment)
-    legacy = submit(environment, "locker1")
+    legacy = submit(environment, "p4")
     item = milestone(environment, "uhi1")
     old = legacy.selected_submission
     unrelated = FormSubmission.objects.create(

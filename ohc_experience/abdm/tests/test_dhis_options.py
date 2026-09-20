@@ -56,7 +56,7 @@ def test_options_show_five_solutions_without_generating_tokens(
 
 def test_all_approved_solutions_can_be_offered_together(environment):
     change_solutions(environment, list(dhis.SOLUTION_MILESTONES))
-    approve_milestones(environment, ("m1", "m2", "m3", "phr1", "locker1"))
+    approve_milestones(environment, ("m1", "m2", "m3", "p1", "p2", "p3", "p4"))
 
     assert all(row["enabled"] for row in options(environment).values())
 
@@ -65,8 +65,8 @@ def test_all_approved_solutions_can_be_offered_together(environment):
     ("solution", "approved", "missing_name"),
     [
         ("hmis", ("m1", "m2"), "M3"),
-        ("health_locker", ("m1", "phr1"), "Health Locker"),
-        ("health_locker", ("m1", "locker1"), "PHR"),
+        ("health_locker", ("m1", "p1", "p2", "p3"), "Health Locker"),
+        ("health_locker", ("m1", "p4"), "PHR"),
     ],
 )
 def test_missing_milestones_have_readable_names(

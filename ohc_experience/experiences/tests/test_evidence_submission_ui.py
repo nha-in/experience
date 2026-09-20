@@ -143,7 +143,7 @@ def test_choices_exclude_saved_work_pending_approved_and_auto_approved_requests(
     pending = submit(environment)
     draft = save_draft(environment, "m3")
     approved = approve(environment, "m4")
-    other_pending = submit(environment, "locker1")
+    other_pending = submit(environment, "p4")
     current = milestone(environment, "m2")
     client.force_login(environment["applicant"])
     response = client.get(track_url(environment, "m2"))
@@ -307,7 +307,7 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
     client,
 ):
     first = submit(environment)
-    other = submit(environment, "locker1")
+    other = submit(environment, "p4")
     assert first.form_id == other.form_id
     client.force_login(environment["applicant"])
     response = client.get(track_url(environment, "m2"))
@@ -316,11 +316,15 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
         "M3",
         "M4",
     }
-    phr = client.get(track_url(environment, "phr1", "PHR"))
-    assert not phr.context["submission_choices"]
+    phr = client.get(track_url(environment, "p1", "PHR"))
+    # The PHR track offers its own later phases, and neither M1 nor the locker.
+    assert {choice["code"] for choice in phr.context["submission_choices"]} == {
+        "P2",
+        "P3",
+    }
 
 
-@pytest.mark.parametrize("key", ["phr1", "locker1"])
+@pytest.mark.parametrize("key", ["p1", "p4"])
 def test_batch_rejects_other_categories_even_when_the_form_record_is_shared(
     environment,
     client,

@@ -140,8 +140,8 @@ def test_solution_types_require_the_intent_matrix_milestones():
         "Clinic HMIS": ["M1", "M2", "M3", "M4"],
         "LMIS": ["M1", "M2", "M3", "M4"],
         "Pharmacy": ["M1", "M2", "M3", "M4"],
-        "PHR": ["PHR1", "HL1"],
-        "Health Locker": ["HL1"],
+        "PHR": ["P1", "P2", "P3", "P4"],
+        "Health Locker": ["P4"],
         "HealthTech": ["M1", "M2", "M3", "M4"],
         "Insurance": ["M1", "M3"],
         "Telemedicine": ["M1", "M2", "M3", "M4"],
@@ -236,8 +236,8 @@ def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
         "HIE-CM": (["m1", "m2", "m3", "m4"], "", ""),
         "UHI": (["uhi1"], "M1", "M2"),
         "NHCX": (["nhcx1"], "M1", ""),
-        "PHR": (["phr1"], "M1", ""),
-        "HealthLocker": (["locker1"], "", ""),
+        "PHR": (["p1", "p2", "p3"], "M1", ""),
+        "HealthLocker": (["p4"], "", ""),
     }
 
 
@@ -260,12 +260,12 @@ def test_stored_inherited_selections_move_to_the_owning_track():
         "HIE-CM:m1",
         "UHI:uhi1",
     ]
-    assert migration.drop_inherited(["PHR:m1", "PHR:phr1"]) == [
+    assert migration.drop_inherited(["PHR:m1", "PHR:p1"]) == [
         "HIE-CM:m1",
-        "PHR:phr1",
+        "PHR:p1",
     ]
-    assert migration.drop_inherited(["HealthLocker:locker1"]) == [
-        "HealthLocker:locker1",
+    assert migration.drop_inherited(["HealthLocker:p4"]) == [
+        "HealthLocker:p4",
     ]
 
 

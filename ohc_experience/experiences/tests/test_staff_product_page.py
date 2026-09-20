@@ -68,7 +68,7 @@ def test_category_reviewers_see_their_tracks_and_act_only_with_a_grant(
     client,
 ):
     approve(environment)
-    locker = submit(environment, "locker1")
+    locker = submit(environment, "p4")
     hidden = submit(environment, "m2")
     reader = staff("HealthLocker")
     client.force_login(reader)

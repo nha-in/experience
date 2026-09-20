@@ -81,7 +81,12 @@ def eligible_hmis(environment):
         ("hmis", ("m1", "m2", "m3"), "HMIS", "M3"),
         ("lmis", ("m1", "m2"), "LMIS", "M2"),
         ("telemedicine", ("m1", "m2", "m3"), "Telemedicine", "M3"),
-        ("health_locker", ("m1", "phr1", "locker1"), "HealthLocker", "Healthlocker"),
+        (
+            "health_locker",
+            ("m1", "p1", "p2", "p3", "p4"),
+            "HealthLocker",
+            "Healthlocker",
+        ),
         ("pharmacy", ("m1", "m2"), "Pharmacy", "M2"),
     ],
 )
@@ -117,8 +122,8 @@ def test_solution_handoff_uses_product_id_and_approved_wasa(  # noqa: PLR0913, P
         ("hmis", ("m1", "m2")),
         ("lmis", ("m1",)),
         ("telemedicine", ("m1", "m2")),
-        ("health_locker", ("m1", "phr1")),
-        ("health_locker", ("m1", "locker1")),
+        ("health_locker", ("m1", "p1", "p2", "p3")),
+        ("health_locker", ("m1", "p4")),
         ("pharmacy", ("m1",)),
     ],
 )

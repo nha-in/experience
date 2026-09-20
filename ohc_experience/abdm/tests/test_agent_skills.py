@@ -282,8 +282,8 @@ def test_skills_for_a_track_the_product_left_out_are_locked(environment, client)
     codes = [group["code"] for group in page.context["skill_groups"]]
     assert codes == ["HIE-CM", "PHR"]
     assert cards(page)["abdm-p1"]["locked"]
-    assert cards(page)["abdm-p1"]["needs"] == "PHR1"
-    assert cards(page)["abdm-p3"]["needs"] == "PHR1 and HL1"
+    assert cards(page)["abdm-p1"]["needs"] == "P1"
+    assert cards(page)["abdm-p3"]["needs"] == "P3 and P4"
     # M4 sits in a track this product did have, but it left the milestone out.
     assert cards(page)["abdm-m4"]["locked"]
     assert cards(page)["abdm-m4"]["needs"] == "M4"

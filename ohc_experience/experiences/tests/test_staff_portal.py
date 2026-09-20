@@ -710,7 +710,7 @@ def test_archive_releases_pending_assignments_and_preserves_evidence(
         can_approve=True,
     )
     approve(environment)
-    item = submit(environment, "locker1")
+    item = submit(environment, "p4")
     submission_id = item.selected_submission_id
     workflows.assign_review(item, environment["admin"], staff)
     ticket = Ticket.objects.create(

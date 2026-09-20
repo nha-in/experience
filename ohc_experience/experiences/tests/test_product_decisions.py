@@ -182,7 +182,7 @@ def test_automatic_release_is_rolled_back_without_a_notice_on_later_failure(
 ):
     m1, m2 = submitted_pair
     automatic = submit(environment, "uhi1")
-    locker = submit(environment, "locker1")
+    locker = submit(environment, "p4")
     workflows.decide(locker, environment["admin"], action="query", note="Clarify this.")
     with (
         patch.object(workflows, "notify_decision") as decision_notice,
@@ -247,7 +247,7 @@ def test_every_selected_category_requires_approval_permission(
         can_read=True,
         can_approve=True,
     )
-    locker = submit(environment, "locker1")
+    locker = submit(environment, "p4")
     with pytest.raises(PermissionDenied):
         workflows.decide_product(
             environment["workspace"].product,

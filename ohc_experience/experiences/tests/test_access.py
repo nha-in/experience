@@ -82,7 +82,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
     hicm = milestone(environment, "m1")
     # HealthLocker, because it is the one track whose milestone is neither shared
     # with another track nor recorded without a decision.
-    locker = submit(environment, "locker1")
+    locker = submit(environment, "p4")
     grant(staff, category="HealthLocker")
     client.force_login(staff)
     response = client.get(reverse("experiences:queue"), HTTP_HX_REQUEST="true")
@@ -150,7 +150,7 @@ def test_nhcx_grant_does_not_allow_uhi_or_hicm(environment, staff, client):
 
 def test_review_write_and_approve_are_independent(environment, staff, client):
     approve(environment)
-    item = submit(environment, "locker1")
+    item = submit(environment, "p4")
     access = grant(staff, category="HealthLocker", write=True)
     workflows.assign_review(item, environment["admin"], staff)
     client.force_login(staff)
@@ -530,7 +530,7 @@ def test_reused_pins_remain_visible_without_exposing_source_history(environment,
     source = submit(environment, "m1")
     original = source.selected_submission
     # An ungated track, so the source can stay withdrawable rather than approved.
-    target = milestone(environment, "locker1")
+    target = milestone(environment, "p4")
     grant(staff, category="HealthLocker")
     assert not permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     workflows.reuse_evidence(target, environment["applicant"])
@@ -538,7 +538,7 @@ def test_reused_pins_remain_visible_without_exposing_source_history(environment,
     assert target.selected_submission_id == original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     # Replacing a reused pin must not break links in this application's history.
-    target = submit(environment, "locker1")
+    target = submit(environment, "p4")
     assert target.selected_submission_id != original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     workflows.withdraw(source, environment["applicant"])

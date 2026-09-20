@@ -81,8 +81,8 @@ def test_targets_include_compatible_locked_siblings_but_not_distinct_forms(envir
     assert milestone(environment, "m2") in targets
     assert milestone(environment, "m3") in targets
     assert milestone(environment, "m4") in targets
-    assert milestone(environment, "phr1") not in targets
-    assert milestone(environment, "locker1") not in targets
+    assert milestone(environment, "p1") not in targets
+    assert milestone(environment, "p4") not in targets
     assert milestone(environment, "uhi1") not in targets
     assert current not in targets
     assert workflows.milestone_unavailable(milestone(environment, "m2"))
@@ -342,7 +342,7 @@ def test_different_form_cannot_join_the_batch(environment):
     assert_fresh(current, target)
 
 
-@pytest.mark.parametrize("key", ["phr1", "locker1"])
+@pytest.mark.parametrize("key", ["p1", "p4"])
 def test_same_form_in_another_track_cannot_join_the_batch(environment, key):
     current = milestone(environment)
     target = milestone(environment, key)
@@ -418,7 +418,7 @@ def test_invalid_additional_dates_prevent_every_submission(environment, invalid)
 def test_cross_track_inherited_pin_does_not_prefill_answers_or_functional_files(
     environment,
 ):
-    source = submit(environment, "locker1").selected_submission
+    source = submit(environment, "p4").selected_submission
     target = milestone(environment, "m4")
     inherit_snapshot(target, source)
     form = workflows.build_form(target)
@@ -474,7 +474,7 @@ def test_same_track_inherited_pin_keeps_files_but_requires_new_dates(environment
 
 
 def test_cross_track_inherited_pin_still_offers_approved_product_wasa(environment):
-    source = approve(environment, "locker1").selected_submission
+    source = approve(environment, "p4").selected_submission
     target = milestone(environment, "m4")
     inherit_snapshot(target, source)
     form = workflows.build_form(target)
