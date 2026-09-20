@@ -29,6 +29,35 @@ from anymail.message import AnymailRecipientStatus
 from anymail.utils import get_anymail_setting
 from django.conf import settings
 
+MESSAGE_PATH = "/internal/v3/notification/message"
+# The gateway answers SENT on the multi-channel endpoint and SUCCESS on the SES
+# one, for the same accepted message.
+ACCEPTED_STATUSES = frozenset({"SUCCESS", "SENT"})
+
+
+def _as_message(data):
+    """The multi-channel endpoint's shape, from the same validated fields.
+
+    `/internal/v3/notification/email/send` is not deployed on the production
+    gateway, which answers 404 for it. This endpoint carries email too: it is
+    the one the verification codes already go out on. It has no CC field, so
+    every copied address becomes another receiver.
+    """
+    addresses = [data["receiver"], *(data["ccRecipients"] or [])]
+    return {
+        "origin": data["origin"],
+        "type": ["email"],
+        "contentType": data["contentType"],
+        "sender": data["sender"],
+        "receiver": [{"key": "emailId", "value": address} for address in addresses],
+        "notification": [
+            {"key": "requestId", "value": data["requestId"]},
+            {"key": "templateId", "value": data["templateId"]},
+            {"key": "subject", "value": data["subject"]},
+            {"key": "content", "value": data["content"]},
+        ],
+    }
+
 
 class GlobalEmailAPIError(AnymailRequestsAPIError):
     """Safe operational failure information for an outbox or monitoring system.
@@ -158,6 +187,11 @@ class GlobalEmailBackend(AnymailRequestsBackend):
         # The API cannot safely drop unsupported fields, even with a global opt-in.
         self.ignore_unsupported_features = False
 
+    @property
+    def uses_message_endpoint(self):
+        """Read the shape off the configured URL, so the two cannot disagree."""
+        return urlsplit(self.api_url).path.rstrip("/").endswith(MESSAGE_PATH)
+
     def build_message_payload(self, message, defaults):
         """Validate and serialize without opening a session or making a request."""
         try:
@@ -196,7 +230,7 @@ class GlobalEmailBackend(AnymailRequestsBackend):
             raise GlobalEmailAPIError("invalid_response") from None
         if not isinstance(result, dict) or not isinstance(result.get("status"), str):
             raise GlobalEmailAPIError("invalid_response")
-        if result["status"] != "SUCCESS":
+        if result["status"] not in ACCEPTED_STATUSES:
             raise GlobalEmailAPIError("gateway_rejected")
         self._validate_response_echoes(result, payload.data)
         message_id = result.get("gatewayTxnid")
@@ -267,7 +301,15 @@ class GlobalEmailPayload(RequestsPayload):
         }
         self.headers = {
             "Content-Type": "application/json",
-            "TIMESTAMP": now.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            # The multi-channel endpoint binds this to a java.sql.Timestamp and
+            # rejects an ISO-8601 value, as the verification codes' adapter has
+            # always known. The SES path's own binding is unverified: it has
+            # never answered anything but 404.
+            "TIMESTAMP": (
+                now.strftime("%Y-%m-%d %H:%M:%S.%f")
+                if self.backend.uses_message_endpoint
+                else now.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+            ),
         }
 
     def validate(self):
@@ -285,6 +327,8 @@ class GlobalEmailPayload(RequestsPayload):
 
     def serialize_data(self):
         self.validate()
+        if self.backend.uses_message_endpoint:
+            return self.serialize_json(_as_message(self.data))
         return self.serialize_json(self.data)
 
     def set_from_email(self, email):

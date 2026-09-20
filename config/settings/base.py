@@ -351,6 +351,16 @@ NOTIFICATION_APP_BASE_URL = env.str(
     default="https://notification-app.invalid",
 )
 GLOBAL_EMAIL_SEND_PATH = "/internal/v3/notification/email/send"
+GLOBAL_EMAIL_MESSAGE_PATH = "/internal/v3/notification/message"
+# The SES path is not deployed on the production gateway, which answers 404 for
+# it, so nothing the outbox sent ever arrived. Until it is, portal email takes
+# the multi-channel endpoint the verification codes already use. Set this false
+# to go back to the SES path.
+GLOBAL_EMAIL_PATH = (
+    GLOBAL_EMAIL_MESSAGE_PATH
+    if env.bool("GLOBAL_EMAIL_USE_MESSAGE_ENDPOINT", default=True)
+    else GLOBAL_EMAIL_SEND_PATH
+)
 
 # EMAIL
 # ------------------------------------------------------------------------------
@@ -366,7 +376,7 @@ EMAIL_TIMEOUT = env.float("DJANGO_EMAIL_TIMEOUT", default=5)
 # An empty template default prevents accidental use of an unapproved template.
 ANYMAIL = {
     "GLOBAL_EMAIL_API_URL": (
-        f"{NOTIFICATION_APP_BASE_URL.rstrip('/')}{GLOBAL_EMAIL_SEND_PATH}"
+        f"{NOTIFICATION_APP_BASE_URL.rstrip('/')}{GLOBAL_EMAIL_PATH}"
     ),
     "GLOBAL_EMAIL_TEMPLATE_ID": env("GLOBAL_EMAIL_TEMPLATE_ID", default=""),
     "GLOBAL_EMAIL_ORIGIN": env("GLOBAL_EMAIL_ORIGIN", default="abha"),

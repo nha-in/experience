@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from unittest.mock import Mock
 from uuid import UUID
@@ -486,3 +487,55 @@ def test_empty_batch_or_no_recipients_does_not_send(message, gateway):
 
 def test_operational_errors_are_anymail_errors():
     assert isinstance(GlobalEmailAPIError("timeout"), AnymailError)
+
+
+MESSAGE_URL = "http://global-notification.internal/internal/v3/notification/message"
+
+
+def test_the_message_endpoint_carries_the_same_fields(settings):
+    """The SES path 404s in production; this one takes email too, without CC."""
+    settings.ANYMAIL = {
+        "GLOBAL_EMAIL_API_URL": MESSAGE_URL,
+        "GLOBAL_EMAIL_TEMPLATE_ID": "approved-template-123",
+    }
+    message = EmailMessage(
+        subject="Invitation",
+        body="Accept the invite.",
+        to=[RECEIVER],
+        cc=["reviewer@example.test"],
+    )
+    backend = GlobalEmailBackend()
+    payload = backend.build_message_payload(message, backend.send_defaults)
+    body = json.loads(payload.serialize_data())
+
+    assert body["type"] == ["email"]
+    assert body["origin"] == "abha"
+    assert body["sender"] == "NHASMS"
+    # No CC field exists here, so a copied address becomes another receiver.
+    assert body["receiver"] == [
+        {"key": "emailId", "value": RECEIVER},
+        {"key": "emailId", "value": "reviewer@example.test"},
+    ]
+    assert "ccRecipients" not in body
+    assert {entry["key"]: entry["value"] for entry in body["notification"]} == {
+        "requestId": payload.data["requestId"],
+        "templateId": "approved-template-123",
+        "subject": "Invitation",
+        "content": "Accept the invite.",
+    }
+    # A java.sql.Timestamp, which is what this service binds; never ISO-8601.
+    assert re.fullmatch(
+        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}",
+        payload.headers["TIMESTAMP"],
+    )
+
+
+def test_the_ses_path_keeps_its_own_shape():
+    message = EmailMessage(subject="Invitation", body="Accept.", to=[RECEIVER])
+    backend = GlobalEmailBackend()
+    payload = backend.build_message_payload(message, backend.send_defaults)
+    body = json.loads(payload.serialize_data())
+
+    assert body["receiver"] == RECEIVER
+    assert body["subject"] == "Invitation"
+    assert payload.headers["TIMESTAMP"].endswith("Z")

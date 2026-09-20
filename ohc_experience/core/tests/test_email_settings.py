@@ -78,14 +78,14 @@ def load_base(monkeypatch):
 def test_gateway_email_follows_the_notification_host(load_base):
     api_url, _ = load_base("http://notification-app.internal:9102")
     assert api_url == (
-        "http://notification-app.internal:9102/internal/v3/notification/email/send"
+        "http://notification-app.internal:9102/internal/v3/notification/message"
     )
 
 
 def test_a_trailing_slash_does_not_double_up(load_base):
     api_url, _ = load_base("http://notification-app.internal:9102/")
     assert api_url == (
-        "http://notification-app.internal:9102/internal/v3/notification/email/send"
+        "http://notification-app.internal:9102/internal/v3/notification/message"
     )
 
 
@@ -100,7 +100,7 @@ def test_a_stale_endpoint_cannot_redirect_email(load_base):
         GLOBAL_EMAIL_API_URL="http://elsewhere.internal/send",
     )
     assert api_url == (
-        "http://notification-app.internal:9102/internal/v3/notification/email/send"
+        "http://notification-app.internal:9102/internal/v3/notification/message"
     )
 
 
@@ -122,3 +122,15 @@ def test_an_override_changes_one_purpose_and_keeps_the_rest(load_base):
     assert ids["organisation_invitation"] == "74050"
     assert ids["review"] == APPROVED_TEMPLATE_IDS["review"]
     assert ids["notification"] == APPROVED_TEMPLATE_IDS["notification"]
+
+
+def test_the_ses_path_is_one_variable_away(load_base):
+    """The SES endpoint 404s on the production gateway, so portal email takes
+    the multi-channel one until NHA deploys it."""
+    api_url, _ = load_base(
+        "http://notification-app.internal:9102",
+        GLOBAL_EMAIL_USE_MESSAGE_ENDPOINT="false",
+    )
+    assert api_url == (
+        "http://notification-app.internal:9102/internal/v3/notification/email/send"
+    )
