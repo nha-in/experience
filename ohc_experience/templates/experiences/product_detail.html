@@ -97,34 +97,6 @@
           <p class="px-5 py-6 text-sm text-muted-foreground">No submitted requests to review.</p>
         {% endif %}
       </section>
-      <section class="ui-card ui-card--layered ui-rise"
-               aria-labelledby="activity-title">
-        <div class="ui-card-header">
-          <h2 class="ui-card-title" id="activity-title">Recent activity</h2>
-        </div>
-        <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
-             tabindex="0"
-             aria-labelledby="activity-title">
-          <ol class="ui-feed">
-            {% for event in activity %}
-              <li class="ui-feed-row items-start">
-                <span class="ui-feed-avatar {% if not event.actor %}ui-feed-avatar--system{% endif %}"
-                      aria-hidden="true">{% if event.actor %}{{ event.actor.display_name|slice:':1' }}{% else %}↻{% endif %}</span>
-                <div class="ui-feed-body">
-                  <p class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-medium">
-                    <span>{{ event.action }}</span>
-                    {% if event.item %}<span class="text-xs font-normal text-soft-foreground">{{ event.item.title }}</span>{% endif %}
-                  </p>
-                  <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'j M, H:i' }} IST</p>
-                  {% if event.detail.note %}<p class="mt-1 text-sm text-muted-foreground">{{ event.detail.note|linebreaksbr }}</p>{% endif %}
-                </div>
-              </li>
-            {% empty %}
-              <li class="text-sm text-soft-foreground">No activity on the requests you can review.</li>
-            {% endfor %}
-          </ol>
-        </div>
-      </section>
       {% if outcomes %}
         <section class="ui-card ui-card--layered ui-card--sm ui-rise"
                  aria-labelledby="outcomes-title">
@@ -330,6 +302,34 @@
           </div>
         </section>
       {% endif %}
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+               aria-labelledby="activity-title">
+        <div class="ui-card-header">
+          <h2 class="ui-card-title" id="activity-title">Recent activity</h2>
+        </div>
+        <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+             tabindex="0"
+             aria-labelledby="activity-title">
+          <ol class="ui-feed">
+            {% for event in activity %}
+              <li class="ui-feed-row items-start">
+                <span class="ui-feed-avatar {% if not event.actor %}ui-feed-avatar--system{% endif %}"
+                      aria-hidden="true">{% if event.actor %}{{ event.actor.display_name|slice:':1' }}{% else %}↻{% endif %}</span>
+                <div class="ui-feed-body">
+                  <p class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-medium">
+                    <span>{{ event.action }}</span>
+                    {% if event.item %}<span class="text-xs font-normal text-soft-foreground">{{ event.item.title }}</span>{% endif %}
+                  </p>
+                  <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · {{ event.created_at|date:'j M, H:i' }} IST</p>
+                  {% if event.detail.note %}<p class="mt-1 text-sm text-muted-foreground">{{ event.detail.note|linebreaksbr }}</p>{% endif %}
+                </div>
+              </li>
+            {% empty %}
+              <li class="text-sm text-soft-foreground">No activity on the requests you can review.</li>
+            {% endfor %}
+          </ol>
+        </div>
+      </section>
     </aside>
   </div>
 {% endblock portal_content %}
