@@ -196,7 +196,7 @@
                             data-note-minlength="{{ min_note_length }}"
                             {% if decision_action == 'query' or decision_action == 'reject' and not reject_reasons %}required minlength="{{ min_note_length }}"{% endif %}
                             aria-describedby="decision-help-{{ item.pk }}">{{ decision_note }}</textarea>
-                  <p class="ui-hint" id="decision-help-{{ item.pk }}">Saved in this request's history and shared with the integrator. Required for a query{% if reject_reasons %}, and for a rejection when the reason is {{ other_reason }}{% else %} and a rejection{% endif %}, with at least {{ min_note_length }} characters.</p>
+                  <p class="ui-hint" id="decision-help-{{ item.pk }}">Shared with the integrator and saved in this request's history. A query or rejection needs at least {{ min_note_length }} characters.</p>
                 </div>
                 <div>
                   <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11 w-full"

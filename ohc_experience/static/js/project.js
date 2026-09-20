@@ -346,9 +346,10 @@
     const approvedUpdate = form.dataset.approvedUpdates === 'true';
     const action = approvedUpdate ? 'submit your update' : autoApprove ? 'record participation' : 'request review';
     button.disabled = missing > 0;
+    // Complete says nothing: the enabled button is the message.
     if (reason) reason.textContent = missing
       ? `${missing} ${missing === 1 ? 'field needs' : 'fields need'} attention before you can ${action}.`
-      : `All required fields are complete. Ready to ${action}.`;
+      : '';
     const jump = form.querySelector('[data-submit-missing]');
     if (jump) jump.hidden = missing === 0;
   }

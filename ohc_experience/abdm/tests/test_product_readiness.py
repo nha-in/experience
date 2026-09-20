@@ -143,7 +143,9 @@ def test_complete_readiness_links_to_actions_without_claiming_approval():
     )
     assert 'href="#evidence-actions"' in html
     assert "Go to form actions" in html
-    assert "Organisation approval is pending." in html
+    # The blocker belongs to the alert above the form; repeating it in the
+    # sidebar put the same sentence on screen twice.
+    assert "Organisation approval is pending." not in html
 
 
 def test_milestone_picker_exposes_focusable_error_summary_target():

@@ -34,7 +34,7 @@
           <span class="ui-meter-fill"
                 style="width: {% widthratio progress.approved progress.total 100 %}%"></span>
         </div>
-        <p class="ui-tile-note">{{ progress.active_tracks }} active track{{ progress.active_tracks|pluralize }} · {{ progress.awaiting_review }} active review{{ progress.awaiting_review|pluralize }}. Shared milestones count once.</p>
+        <p class="ui-tile-note">{{ progress.active_tracks }} active track{{ progress.active_tracks|pluralize }} · {{ progress.awaiting_review }} active review{{ progress.awaiting_review|pluralize }}</p>
       </section>
       {% if experience_program.sandbox_credentials and can_integrate %}
         <a class="[animation-delay:.12s] ui-tile ui-rise"
