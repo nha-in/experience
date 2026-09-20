@@ -144,6 +144,10 @@ def ui_field(  # noqa: PLR0913, PLR0917
         # convention.
         "is_optional": not field.field.required
         and field.name not in getattr(form, "required_uploads", ()),
+        # Whether another answer decides it, and the marker is therefore worth
+        # rendering hidden for a script to reveal.
+        "requirement_varies": field.name
+        in getattr(form, "conditional_requirements", ()),
         "is_file": is_file,
         "is_multiple_file": is_multiple_file,
         "is_password": isinstance(field.field.widget, forms.PasswordInput),

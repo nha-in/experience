@@ -25,6 +25,7 @@ def signup_data():
         "mobile_number": "9876543210",
         "organisation": "Example Health",
         "organisation_type": "private_company",
+        "website": "https://example.org",
         "password1": "portal-test-password-2026",
         "password2": "portal-test-password-2026",
     }

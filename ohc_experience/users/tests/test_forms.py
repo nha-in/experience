@@ -127,6 +127,41 @@ class TestUserSignupForm:
         assert not form.is_valid()
         assert "organisation_type" in form.errors
 
+    def test_requires_a_website_of_a_registered_entity(self):
+        form = UserSignupForm(data={**SIGNUP_DATA, "website": ""})
+
+        assert not form.is_valid()
+        assert form.errors["website"] == ["Enter your organisation's website."]
+
+    def test_an_individual_or_sole_proprietorship_may_have_no_website(
+        self,
+        rf: RequestFactory,
+    ):
+        form = UserSignupForm(
+            data={
+                **SIGNUP_DATA,
+                "organisation_type": "sole_proprietor",
+                "website": "",
+            },
+        )
+
+        assert form.is_valid(), form.errors
+        assert form["website"].field.required is False
+        form.save(signup_request(rf))
+
+        organisation = Organisation.objects.get(name="Sunrise Health Systems")
+        assert organisation.website == ""
+
+    def test_the_website_is_marked_optional_only_for_a_sole_proprietorship(self):
+        registered = UserSignupForm(data={**SIGNUP_DATA, "website": ""})
+        individual = UserSignupForm(
+            data={**SIGNUP_DATA, "organisation_type": "sole_proprietor"},
+        )
+
+        assert UserSignupForm()["website"].field.required is True
+        assert registered["website"].field.required is True
+        assert individual["website"].field.required is False
+
     def test_an_existing_email_is_only_revealed_once_the_captcha_passes(
         self,
         rf: RequestFactory,
@@ -163,7 +198,10 @@ class TestUserSignupForm:
         )
         form = UserSignupForm(invitation=invitation)
 
+        # Every question about the organisation belongs to whoever created it.
         assert "organisation" not in form.fields
+        assert "organisation_type" not in form.fields
+        assert "website" not in form.fields
 
     def test_an_invite_rejects_a_mismatched_email(self, organisation: Organisation):
         invitation = InvitationFactory.create(

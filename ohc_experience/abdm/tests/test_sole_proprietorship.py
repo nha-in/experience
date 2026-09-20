@@ -38,6 +38,7 @@ def sign_up(client, entity_type, name="Rao Health Apps"):
             "mobile_number": "9876543210",
             "organisation": name,
             "organisation_type": entity_type,
+            "website": "https://rao.example",
             "password1": "sandbox-Kerala-2026",
             "password2": "sandbox-Kerala-2026",
         },
@@ -70,9 +71,38 @@ def test_signup_saves_the_type_and_the_organisation_form_starts_from_it(client):
     assert workflows.build_form(item)["entity_type"].value() == "sole_proprietor"
 
 
-def test_submitting_the_organisation_form_saves_a_changed_type(client, lgd_lookup):
+def test_the_organisation_form_shows_the_type_but_will_not_change_it(
+    client,
+    lgd_lookup,
+):
     organisation = sign_up(client, "private_company")
     item = workflows.organisation_review(organisation, organisation.owner)
+
+    assert workflows.build_form(item)["entity_type"].field.disabled
+
+    _, form, saved = workflows.save_review_form(
+        item,
+        organisation.owner,
+        data=sole_proprietorship_data(),
+        files=verification_document(),
+        submit=True,
+    )
+
+    assert saved, form.errors
+    assert form.cleaned_data["entity_type"] == "private_company"
+    organisation.refresh_from_db()
+    assert organisation.entity_type == "private_company"
+
+
+def test_an_organisation_with_no_type_yet_still_chooses_one_here(client, lgd_lookup):
+    # A social sign-in never asked, and neither did an account older than the
+    # field. The first submission settles it, and locks it from then on.
+    organisation = sign_up(client, "private_company")
+    Organisation.objects.update(entity_type="")
+    organisation.refresh_from_db()
+    item = workflows.organisation_review(organisation, organisation.owner)
+
+    assert not workflows.build_form(item)["entity_type"].field.disabled
 
     _, form, saved = workflows.save_review_form(
         item,
@@ -85,6 +115,28 @@ def test_submitting_the_organisation_form_saves_a_changed_type(client, lgd_looku
     assert saved, form.errors
     organisation.refresh_from_db()
     assert organisation.entity_type == "sole_proprietor"
+    assert workflows.build_form(item)["entity_type"].field.disabled
+
+
+def test_only_a_sole_proprietorship_may_leave_the_website_out(client, lgd_lookup):
+    individual = sign_up(client, "sole_proprietor")
+    company = sign_up(Client(), "private_company", name="Sunrise Health Systems")
+
+    def submit(organisation):
+        return workflows.save_review_form(
+            workflows.organisation_review(organisation, organisation.owner),
+            organisation.owner,
+            data=sole_proprietorship_data(name=organisation.name, website=""),
+            files=verification_document(),
+            submit=True,
+        )
+
+    _, individual_form, individual_saved = submit(individual)
+    _, company_form, company_saved = submit(company)
+
+    assert individual_saved, individual_form.errors
+    assert not company_saved
+    assert company_form.errors["website"] == ["This field is required."]
 
 
 @pytest.mark.parametrize(
@@ -109,13 +161,19 @@ def test_the_migration_fills_the_type_from_the_latest_submission_else_signup(
     lgd_lookup,
 ):
     submitted = sign_up(client, "private_company", name="Submitted Health")
-    workflows.save_review_form(
+    item, _, _ = workflows.save_review_form(
         workflows.organisation_review(submitted, submitted.owner),
         submitted.owner,
         data=sole_proprietorship_data(),
         files=verification_document(),
         submit=True,
     )
+    # The type was still the form's to change when these submissions were made,
+    # which is the data the migration exists for.
+    item.refresh_from_db()
+    submission = item.selected_submission
+    submission.data["entity_type"] = "sole_proprietor"
+    submission.save(update_fields=["data"])
     # A pending verification code owns the session, so the second signup
     # needs its own client.
     signed_up = sign_up(Client(), "government", name="Signed Up Health")

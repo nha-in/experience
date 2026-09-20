@@ -37,6 +37,7 @@ SIGNUP_DATA = {
     "mobile_number": "9876543210",
     "organisation": "Sunrise Health Systems",
     "organisation_type": "private_company",
+    "website": "https://sunrise.in",
     "password1": PASSWORD,
     "password2": PASSWORD,
 }

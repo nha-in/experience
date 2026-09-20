@@ -9,6 +9,7 @@ from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.uploads import validate_pdf
 from ohc_experience.organisations.lgd import LGDLookupError
 from ohc_experience.organisations.lgd import lookup_pincode
+from ohc_experience.organisations.models import SOLE_PROPRIETOR
 from ohc_experience.organisations.widgets import PincodeInput
 from ohc_experience.organisations.widgets import WebsiteInput
 
@@ -49,7 +50,7 @@ class OrganisationForm(ReviewForm):
         choices=[
             ("private_company", "Private company"),
             ("government", "Government body"),
-            ("sole_proprietor", "Individual/sole proprietorship"),
+            (SOLE_PROPRIETOR, "Individual/sole proprietorship"),
             ("partnership", "Partnership firm"),
             ("trust", "Trust or society"),
             ("section8", "Section 8 company"),
@@ -107,21 +108,56 @@ class OrganisationForm(ReviewForm):
         widget=forms.FileInput(attrs={"accept": ".pdf"}),
     )
     required_uploads = ("supporting_document",)
+    conditional_requirements = ("website",)
 
     class Media:
-        js = ("js/organisation-form.js", "js/email-domain-callout.js")
+        js = (
+            "js/organisation-form.js",
+            "js/website-requirement.js",
+            "js/email-domain-callout.js",
+        )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, entity_type="", **kwargs):
         super().__init__(*args, **kwargs)
         if not isinstance(self.initial.get("logo", ""), str):
             # Logos were uploaded before they became links. An earlier upload
             # stays with its own revision and never prefills the link.
             del self.initial["logo"]
+        self._lock_entity_type(entity_type)
+        if self._entity_type() == SOLE_PROPRIETOR:
+            # A person trading under a business name may well have no website.
+            # Relax it only — a draft has already let every field go.
+            self.fields["website"].required = False
         self.locations = []
         self.location_error = ""
         if self.is_bound:
             self._load_locations()
         self._location_choices()
+
+    def _lock_entity_type(self, entity_type):
+        """The type of entity is settled at sign-up and read-only from then on.
+
+        It decides what the entity is called, which documents can verify it and
+        whether a website is asked for, so changing it here would quietly
+        re-file an application the reviewer read as something else. A genuine
+        correction is made on the organisation in the admin. An organisation
+        that arrived without a type — a social sign-in, or an account older
+        than the field — still picks one here, the once.
+        """
+        if not entity_type:
+            return
+        self.initial["entity_type"] = entity_type
+        field = self.fields["entity_type"]
+        field.disabled = True
+        field.help_text = "Chosen when the account was created."
+
+    def _entity_type(self):
+        """The type in force now: the locked one, or whatever is being picked."""
+        if self.fields["entity_type"].disabled:
+            return self.initial["entity_type"]
+        if not self.is_bound:
+            return self.initial.get("entity_type", "")
+        return str(self.data.get(self.add_prefix("entity_type"), "")).strip()
 
     def _load_locations(self):
         try:
@@ -178,7 +214,7 @@ class OrganisationForm(ReviewForm):
     def clean(self):
         cleaned = super().clean()
         if (
-            cleaned.get("entity_type") == "sole_proprietor"
+            cleaned.get("entity_type") == SOLE_PROPRIETOR
             and cleaned.get("verification_document_type") == "CIN"
         ):
             self.add_error(

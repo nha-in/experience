@@ -33,6 +33,7 @@ SIGNUP_DATA = {
     "name": "Arun Nair",
     "email": "arun@sunrise.in",
     "mobile_number": "9876543210",
+    "website": "https://sunrise.in",
     "password1": "sandbox-Kerala-2026",
     "password2": "sandbox-Kerala-2026",
 }

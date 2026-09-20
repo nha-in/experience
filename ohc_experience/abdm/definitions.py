@@ -83,6 +83,12 @@ class OrganisationVerification(ApplicationFormDefinition):
         }
 
     @classmethod
+    def form_kwargs(cls, item):
+        # The type was settled at sign-up; the form shows it and will not take
+        # another. An organisation without one still picks it here.
+        return {"entity_type": item.organisation.entity_type}
+
+    @classmethod
     def on_submit(cls, item, data, actor):
         org = item.organisation
         org.name = org.legal_name = data["name"]

@@ -4,6 +4,10 @@
 
   Required fields carry no marker — the design marks none, and on these forms
   nearly everything is required. Optional fields say so instead.
+
+  A field the form lists in `conditional_requirements` keeps the marker in the
+  page either way, hidden while the field is required, so the script that
+  follows the answer it depends on has one to show.
 {% endcomment %}
 {% load careui i18n %}
 
@@ -19,8 +23,10 @@
   {% else %}
     <label class="ui-label" for="{{ field.id_for_label }}">
       {{ label }}
-      {% if is_optional %}
-        <span class="font-normal text-soft-foreground">({% translate "optional" %})</span>
+      {% if is_optional or requirement_varies %}
+        <span class="font-normal text-soft-foreground"
+              data-optional-marker
+              {% if not is_optional %}hidden{% endif %}>({% translate "optional" %})</span>
       {% endif %}
     </label>
     {% if field|is_select %}

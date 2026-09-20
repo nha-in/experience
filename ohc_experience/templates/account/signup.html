@@ -5,6 +5,7 @@
 {% block javascript %}
   {{ block.super }}
   <script defer src="{% static 'js/email-domain-callout.js' %}"></script>
+  <script defer src="{% static 'js/website-requirement.js' %}"></script>
 {% endblock javascript %}
 {% block title %}Create your account | {{ experience_program.name|default:"Developer Sandbox" }}{% endblock title %}
 {% block header_action %}

@@ -14,6 +14,11 @@ from django.utils.translation import gettext_lazy as _
 INVITATION_TTL = timedelta(days=14)
 INVITATION_TOKEN_BYTES = 32
 
+#: The one entity type that is a person trading under a name rather than a
+#: registered company. It has no CIN, its name is a business name, and it is
+#: the only type the portal lets sign up without a website.
+SOLE_PROPRIETOR = "sole_proprietor"
+
 
 class Role(models.TextChoices):
     """Roles a member can hold inside an organisation.
@@ -115,7 +120,7 @@ class Organisation(models.Model):
     @property
     def noun(self) -> str:
         """What copy calls this organisation: a sole proprietorship is a business."""
-        if self.entity_type == "sole_proprietor":
+        if self.entity_type == SOLE_PROPRIETOR:
             return _("business")
         return _("organisation")
 

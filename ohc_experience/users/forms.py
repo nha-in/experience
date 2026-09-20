@@ -20,6 +20,7 @@ from django.forms import EmailField
 from django.utils.translation import gettext_lazy as _
 
 from ohc_experience.experiences.registry import get_program
+from ohc_experience.organisations.models import SOLE_PROPRIETOR
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
@@ -168,9 +169,13 @@ class UserSignupForm(
     organisation_type = forms.ChoiceField(label=_("Type of Entity"))
     website = forms.URLField(
         label=_("Website"),
-        required=False,
+        error_messages={"required": _("Enter your organisation's website.")},
         widget=WebsiteInput,
     )
+
+    #: The website is required of every entity but a sole proprietorship, so
+    #: its "(optional)" follows the type of entity chosen above it.
+    conditional_requirements = ("website",)
 
     field_order = [
         "organisation_type",
@@ -194,9 +199,26 @@ class UserSignupForm(
             # The organisation is already decided by the invite.
             del self.fields["organisation"]
             del self.fields["organisation_type"]
+            del self.fields["website"]
+        elif self._chosen_organisation_type() == SOLE_PROPRIETOR:
+            # A person trading under a business name may well have no website.
+            self.fields["website"].required = False
         self.fields["email"].widget.attrs["autocomplete"] = "email"
         if "password2" in self.fields:
             self.fields["password2"].label = _("Confirm Password")
+
+    def _chosen_organisation_type(self) -> str:
+        """The type picked so far, before any field has been cleaned.
+
+        A website is asked of every kind of entity but an individual or sole
+        proprietorship, which may well trade without one. Reading the choice
+        here rather than in `clean` means the label says "optional" on the
+        form that comes back with an error, not only after the answer changes
+        under `website-requirement.js`.
+        """
+        if not self.is_bound:
+            return ""
+        return str(self.data.get(self.add_prefix("organisation_type"), "")).strip()
 
     def clean_organisation(self) -> str:
         organisation = self.cleaned_data["organisation"].strip()
