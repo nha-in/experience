@@ -50,6 +50,7 @@ class OrganisationForm(ReviewForm):
             ("private_company", "Private company"),
             ("government", "Government body"),
             ("sole_proprietor", "Individual/sole proprietorship"),
+            ("partnership", "Partnership firm"),
             ("trust", "Trust or society"),
             ("section8", "Section 8 company"),
             ("llp", "LLP"),

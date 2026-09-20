@@ -14,6 +14,8 @@ classifiers = [
 ]
 dependencies = [
   "argon2-cffi==25.1.0",
+  # 5.x refuses a password over 72 bytes; Spring, and so legacy, truncated it.
+  "bcrypt==4.3.0",
   "celery==5.6.3",
   "cryptography==50.0.0",
   "django==6.0.8",
