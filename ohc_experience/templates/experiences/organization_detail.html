@@ -20,84 +20,96 @@
 {% endblock portal_hero %}
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
-  <div class="ui-float flex flex-col gap-6">
-    <section class="ui-card ui-card--layered ui-rise"
-             aria-labelledby="organization-details-title">
-      <div class="ui-card-header">
-        <h2 class="ui-card-title" id="organization-details-title">Verification and details</h2>
-      </div>
-      <div class="ui-card-content">
-        <dl class="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-[180px_minmax(0,1fr)]">
-          <dt class="text-soft-foreground">Legal entity</dt>
-          <dd class="break-words">
-            {{ organization.display_name }}
-          </dd>
-          <dt class="text-soft-foreground">Website</dt>
-          <dd class="break-all">
-            {% if organization.website %}
-              <a class="text-primary hover:underline"
-                 href="{{ organization.website }}"
-                 target="_blank"
-                 rel="noopener noreferrer">{{ organization.website }}</a>
-            {% else %}
-              —
-            {% endif %}
-          </dd>
-          <dt class="text-soft-foreground">Address</dt>
-          <dd class="break-words">{{ organization_details.registered_address|default:organization.city|default:'—' }}{% if organization_details.district %}, {{ organization_details.district }}{% endif %}{% if organization_details.state %}, {{ organization_details.state }}{% elif organization.state %}, {{ organization.state }}{% endif %}</dd>
-          <dt class="text-soft-foreground">Verification document</dt>
-          <dd class="break-words">
-            {% if organization_details.verification_document_number %}
-              {{ organization_details.verification_document_type }} · <span class="font-mono">{{ organization_details.verification_document_number }}</span>
-            {% else %}
-              —
-            {% endif %}
-          </dd>
-          <dt class="text-soft-foreground">Verification status</dt>
-          <dd>
-            {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
-            {% if organization.verified_at %}
-              <span class="ml-2 text-xs text-soft-foreground">Verified {{ organization.verified_at|date:'j M Y' }}</span>
-            {% endif %}
-            {% if withdrawn_verification %}
-              <p class="mt-1.5 text-xs leading-relaxed text-soft-foreground">
-                Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %}. It returns for review when they resubmit.
-                <a class="font-semibold text-primary hover:underline"
-                   href="{{ withdrawn_verification.get_absolute_url }}">View history</a>
-              </p>
-            {% endif %}
-          </dd>
-        </dl>
-      </div>
-    </section>
-    <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.08s]"
-             aria-labelledby="organization-products-title">
-      <div class="ui-card-header px-6 pt-5 pb-4">
-        <h2 class="ui-card-title" id="organization-products-title">Products</h2>
-        <p class="ui-card-description">Products represented in review requests you can access.</p>
-      </div>
-      <ul class="divide-y divide-soft-border border-t border-soft-border">
-        {% for workspace in products %}
-          {% include 'experiences/partials/organization_product.html' with padding='px-6 py-4' %}
-        {% empty %}
-          <li class="px-6 py-6 text-sm text-muted-foreground">No products are visible with your review permissions.</li>
-        {% endfor %}
-      </ul>
-    </section>
-    <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.14s]"
-             aria-labelledby="organization-reviews-title">
-      <div class="ui-card-header px-6 pt-5 pb-4">
-        <h2 class="ui-card-title" id="organization-reviews-title">Review requests</h2>
-        <p class="ui-card-description">Organisation and application reviews within your permission scope.</p>
-      </div>
-      <ul class="divide-y divide-soft-border border-t border-soft-border">
-        {% for item in review_requests %}
-          {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
-        {% empty %}
-          <li class="px-6 py-6 text-sm text-muted-foreground">No review requests are visible.</li>
-        {% endfor %}
-      </ul>
-      {% include 'components/pagination.html' with page=review_requests label='Review requests pagination' %}
-    </section>
+  <div class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+    <div class="flex min-w-0 flex-col gap-6">
+      <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.08s]"
+               aria-labelledby="organization-products-title">
+        <div class="ui-card-header px-6 pt-5 pb-4">
+          <h2 class="ui-card-title" id="organization-products-title">Products</h2>
+          <p class="ui-card-description">Products represented in review requests you can access.</p>
+        </div>
+        <ul class="divide-y divide-soft-border border-t border-soft-border">
+          {% for workspace in products %}
+            {% include 'experiences/partials/organization_product.html' with padding='px-6 py-4' %}
+          {% empty %}
+            <li class="px-6 py-6 text-sm text-muted-foreground">No products are visible with your review permissions.</li>
+          {% endfor %}
+        </ul>
+      </section>
+      <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.14s]"
+               aria-labelledby="organization-reviews-title">
+        <div class="ui-card-header px-6 pt-5 pb-4">
+          <h2 class="ui-card-title" id="organization-reviews-title">Review requests</h2>
+          <p class="ui-card-description">Organisation and application reviews within your permission scope.</p>
+        </div>
+        <ul class="divide-y divide-soft-border border-t border-soft-border">
+          {% for item in review_requests %}
+            {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
+          {% empty %}
+            <li class="px-6 py-6 text-sm text-muted-foreground">No review requests are visible.</li>
+          {% endfor %}
+        </ul>
+        {% include 'components/pagination.html' with page=review_requests label='Review requests pagination' %}
+      </section>
+    </div>
+    <aside class="flex min-w-0 flex-col gap-6">
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+               aria-labelledby="organization-details-title">
+        <div class="ui-card-content">
+          <h2 class="mb-3 text-base font-bold" id="organization-details-title">Verification and details</h2>
+          <dl class="flex flex-col gap-3 text-sm">
+            <div>
+              <dt class="text-xs text-soft-foreground">Legal entity</dt>
+              <dd class="mt-0.5 break-words">
+                {{ organization.display_name }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-soft-foreground">Website</dt>
+              <dd class="mt-0.5 break-all">
+                {% if organization.website %}
+                  <a class="text-primary hover:underline"
+                     href="{{ organization.website }}"
+                     target="_blank"
+                     rel="noopener noreferrer">{{ organization.website }}</a>
+                {% else %}
+                  —
+                {% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-soft-foreground">Address</dt>
+              <dd class="mt-0.5 break-words">{{ organization_details.registered_address|default:organization.city|default:'—' }}{% if organization_details.district %}, {{ organization_details.district }}{% endif %}{% if organization_details.state %}, {{ organization_details.state }}{% elif organization.state %}, {{ organization.state }}{% endif %}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-soft-foreground">Verification document</dt>
+              <dd class="mt-0.5 break-words">
+                {% if organization_details.verification_document_number %}
+                  {{ organization_details.verification_document_type }} · <span class="font-mono">{{ organization_details.verification_document_number }}</span>
+                {% else %}
+                  —
+                {% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-soft-foreground">Verification status</dt>
+              <dd class="mt-1">
+                {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
+                {% if organization.verified_at %}
+                  <span class="mt-1 block text-xs text-soft-foreground">Verified {{ organization.verified_at|date:'j M Y' }}</span>
+                {% endif %}
+                {% if withdrawn_verification %}
+                  <p class="mt-1.5 text-xs leading-relaxed text-soft-foreground">
+                    Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %}. It returns for review when they resubmit.
+                    <a class="font-semibold text-primary hover:underline"
+                       href="{{ withdrawn_verification.get_absolute_url }}">View history</a>
+                  </p>
+                {% endif %}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </aside>
   </div>
 {% endblock portal_content %}
