@@ -693,6 +693,9 @@ def _product_review_sections(request, items):
         can_approve = "approve" in actions and not prerequisites and not unresolved
         can_reject = "reject" in actions and not prerequisites
         can_query = "query" in actions
+        can_override = "approve" in actions and bool(
+            services.overridden_prerequisites(item),
+        )
         available = [
             action
             for action, allowed in (
@@ -709,6 +712,9 @@ def _product_review_sections(request, items):
                 "item": item,
                 "snapshot": snapshot,
                 "prerequisites": prerequisites,
+                "waiting_on": services.prerequisite_names(prerequisites)
+                if prerequisites
+                else "",
                 "withdrawn_hold": services.withdrawn_hold(item, prerequisites),
                 "withdrawn_at": services.withdrawn_at(item)
                 if item.status == ReviewItem.Status.DRAFT
@@ -716,6 +722,7 @@ def _product_review_sections(request, items):
                 "can_approve": can_approve,
                 "can_reject": can_reject,
                 "can_query": can_query,
+                "can_override": can_override,
                 "available_actions": available,
                 "unresolved_query_count": unresolved,
                 "decision_note": request.POST.get("note", "") if posted else "",
@@ -2174,10 +2181,15 @@ def review(request, pk):
         if item.status != ReviewItem.Status.APPROVED
         else []
     )
+    can_override = (
+        item.pending
+        and bool(services.overridden_prerequisites(item))
+        and permissions.can_review(request.user, item, "approve")
+    )
     actions = [
         action
         for action in permissions.available_review_actions(request.user, item)
-        if action == "query" or not prerequisites
+        if action == "query" or not prerequisites or can_override
     ]
     selected_action = request.POST.get("action", request.GET.get("action"))
     if selected_action not in actions:
@@ -2221,6 +2233,7 @@ def review(request, pk):
             can_decide=permissions.can_decide(request.user, item),
             can_query=permissions.can_review(request.user, item, "write"),
             can_approve=permissions.can_review(request.user, item, "approve"),
+            can_override=can_override,
             reviewers=[
                 user
                 for user in get_user_model().objects.filter(

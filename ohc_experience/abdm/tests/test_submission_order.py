@@ -61,8 +61,8 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
     with pytest.raises(ValidationError, match="cannot be reused"):
         workflows.reuse_evidence(m2, environment["applicant"])
     assert workflows.milestone_unavailable(milestone(environment, "uhi1")) == (
-        "UHI1 - UHI participation opens once M1 - ABHA Creation and Verification and "
-        "M2 - Health Information Provider Services are submitted."
+        "UHI1 - UHI participation opens once "
+        "M1 - ABHA Creation and Verification is submitted."
     )
 
     submit(environment)
@@ -113,20 +113,21 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
         workflows.withdraw(milestone(environment), applicant)
     assert error.value.messages == [
         (
-            "Withdraw M3 - Health Information User Services, UHI1 - UHI "
-            "participation and M2 - Health Information Provider Services "
-            "first. They build on this request."
+            "Withdraw UHI1 - UHI participation, M3 - Health Information User "
+            "Services and M2 - Health Information Provider Services first. "
+            "They build on this request."
         ),
     ]
 
+    workflows.withdraw(milestone(environment, "m2"), applicant)
     workflows.withdraw(milestone(environment, "m3"), applicant)
     with pytest.raises(
         ValidationError,
         match=r"Withdraw UHI1 - UHI participation first\. It builds on this request\.",
     ):
-        workflows.withdraw(milestone(environment, "m2"), applicant)
+        workflows.withdraw(milestone(environment), applicant)
 
-    for key in ("uhi1", "m2", "m1"):
+    for key in ("uhi1", "m1"):
         workflows.withdraw(milestone(environment, key), applicant)
 
     assert milestone(environment).status == ReviewItem.Status.DRAFT
@@ -195,7 +196,7 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
 
     assert "Needs" not in uhi["M1"]
     assert uhi["M2"].endswith("Needs M1")
-    assert uhi["UHI1"].endswith("Needs M2")
+    assert uhi["UHI1"].endswith("Needs M1")
 
     submit(environment)
     html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
@@ -233,20 +234,20 @@ def test_the_queue_holds_waiting_requests_apart_from_ready_ones(environment, cli
     assert client.get(reverse("experiences:queue")).context["queue_scope"] == "ready"
     assert set(queue(client, scope="waiting")) == {m2, uhi}
     assert "2 waiting on this" in queue_text(client)
-    assert "Waiting on M1 · new, M2 · new" in queue_text(client, scope="waiting")
+    assert "Waiting on M1 · new" in queue_text(client, scope="waiting")
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
     assert (dashboard["ready_count"], dashboard["waiting_count"]) == (2, 2)
 
     approve_submitted(environment)
 
     assert set(queue(client)) == {m2, locker}
-    assert queue(client, scope="waiting") == [uhi]
-
-    approve_submitted(environment, "m2")
-
     assert queue(client, scope="waiting") == []
     uhi.refresh_from_db()
     assert uhi.status == ReviewItem.Status.APPROVED
+
+    approve_submitted(environment, "m2")
+
+    assert set(queue(client)) == {locker}
 
 
 def test_requests_wait_on_organisation_verification_too(environment, client):

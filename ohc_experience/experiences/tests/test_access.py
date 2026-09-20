@@ -195,6 +195,28 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
     )
 
 
+def test_an_override_needs_approve_rights_not_write(environment, staff, client):
+    """Overriding a recorded request is an approval; writing alone never offers it."""
+    submit(environment)
+    uhi = submit(environment, "uhi1")
+    access = grant(staff, category="UHI", write=True)
+    client.force_login(staff)
+    override = {"action": "approve", "note": "Approving ahead of M1 for a pilot."}
+
+    page = client.get(uhi.get_absolute_url())
+    assert b"Approve and override prerequisites" not in page.content
+    assert client.post(uhi.get_absolute_url(), override).status_code == 403
+
+    access.can_write, access.can_approve = False, True
+    access.save()
+
+    page = client.get(uhi.get_absolute_url())
+    assert b"Approve and override prerequisites" in page.content
+    assert client.post(uhi.get_absolute_url(), override).status_code == 302
+    uhi.refresh_from_db()
+    assert uhi.decided_by == staff
+
+
 def test_read_only_assignment_and_revocation(environment, staff, client):
     approve(environment)
     approve(environment, "m2")

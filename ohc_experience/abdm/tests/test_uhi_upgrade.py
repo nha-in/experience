@@ -141,8 +141,9 @@ def test_upgrade_preserves_identity_and_history(  # noqa: PLR0915
     item.application.milestone.enabled = enabled
     item.application.milestone.save(update_fields=["enabled"])
     if not dependency_ready:
+        # UHI1's application depends directly on M1 in the current catalog.
         ApplicationInstance.objects.filter(
-            pk=milestone(environment, "m2").application_id,
+            pk=milestone(environment).application_id,
         ).update(status="draft")
     ReviewQuery.objects.create(
         item=item,

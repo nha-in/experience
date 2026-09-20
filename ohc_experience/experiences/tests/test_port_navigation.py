@@ -8,6 +8,7 @@ from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.context_processors import navigation_context
 from ohc_experience.experiences.models import ProductWorkspace
+from ohc_experience.integrations.services import provision_inline
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -89,6 +90,31 @@ def test_applied_tracks_only_and_approval_counts(environment, rf):  # noqa: F811
         (row["definition"].code, row["count"]) for row in context["nav_tracks"]
     ] == [("HIE-CM", 1)]
     assert context["nav_tracks"][0]["approved"] == 0
+
+
+def test_a_track_counts_only_the_milestones_the_product_applied_for(environment, rf):  # noqa: F811
+    """UHI shows M2 as related context, but a product without it counts 2, not 3."""
+    workspace, form = workflows.register_product(
+        environment["org"],
+        environment["applicant"],
+        data={
+            **product_data("M1 and UHI only"),
+            "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
+        },
+    )
+    assert workspace, form.errors
+    provision_inline(workspace.product)
+    workspace.refresh_from_db()
+    assert not workspace.product.milestones.filter(key="m2").exists()
+
+    request = rf.get("/")
+    request.user = environment["applicant"]
+    counts = {
+        row["definition"].code: (row["approved"], row["count"])
+        for row in navigation_context(request, workspace)["nav_tracks"]
+    }
+
+    assert counts == {"HIE-CM": (0, 1), "UHI": (0, 2)}
 
 
 def test_sidebar_offers_only_setup_links_before_a_product_exists(

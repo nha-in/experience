@@ -219,6 +219,10 @@ class MilestoneDefinition:
     predecessor: str = ""
     description: str = ""
     docs_url: str = ""
+    #: Milestones shown alongside this one for context, without gating it. Unlike
+    #: `predecessor`, none of these is required before this milestone can be
+    #: submitted, decided, or, for an auto-approved one, recorded.
+    related: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -230,13 +234,37 @@ class TrackDefinition:
     docs_url: str = ""
 
     def prerequisites(self, milestones):
-        """Other tracks' milestones this track builds on, directly or not."""
+        """Other tracks' milestones this track cannot be submitted without.
+
+        Walks each milestone's hard `predecessor` chain, stopping at this
+        track's own milestones, since only what belongs to another track needs
+        naming here. `related_milestones` is the same walk plus each
+        milestone's non-blocking `related` milestones, for display.
+        """
 
         def chain(key):
             predecessor = milestones[key].predecessor
             if not predecessor or predecessor in self.keys:
                 return []
             return [*chain(predecessor), predecessor]
+
+        return tuple(dict.fromkeys(key for own in self.keys for key in chain(own)))
+
+    def related_milestones(self, milestones):
+        """Other tracks' milestones this track builds on or is shown alongside.
+
+        Superset of `prerequisites`: also walks each milestone's `related`
+        milestones, which are named here for context but never enforced.
+        """
+
+        def chain(key):
+            milestone = milestones[key]
+            found = []
+            for other in (milestone.predecessor, *milestone.related):
+                if other and other not in self.keys:
+                    found.extend(chain(other))
+                    found.append(other)
+            return found
 
         return tuple(dict.fromkeys(key for own in self.keys for key in chain(own)))
 
@@ -592,16 +620,16 @@ class ProgramDefinition:
 
     @classmethod
     def track_milestones(cls, track):
-        """What a track shows: prerequisites from other tracks, then its own."""
-        return (*track.prerequisites(cls.milestones), *track.keys)
+        """What a track shows: related milestones from other tracks, then its own."""
+        return (*track.related_milestones(cls.milestones), *track.keys)
 
     @classmethod
     def applied_keys(cls, track, selections):
-        """A product's chosen milestones on this track, with their prerequisites."""
+        """A product's chosen milestones on this track, with their related ones."""
         chosen = [key for key in track.keys if f"{track.code}:{key}" in selections]
         if not chosen:
             return []
-        return [*track.prerequisites(cls.milestones), *chosen]
+        return [*track.related_milestones(cls.milestones), *chosen]
 
     @classmethod
     def tracks_with(cls, milestone_key):
@@ -642,7 +670,8 @@ class ProgramDefinition:
 
     @classmethod
     def _validate_tracks(cls):
-        """Every track milestone exists, and its prerequisite is offered somewhere."""
+        """Every track milestone exists, and its prerequisite and any related
+        milestone are each offered somewhere."""
         if any(key not in cls.milestones for track in cls.tracks for key in track.keys):
             msg = "Track milestones must exist in the catalog."
             raise ImproperlyConfigured(msg)
@@ -656,6 +685,13 @@ class ProgramDefinition:
                         f"its predecessor {predecessor!r}, so it can never unlock."
                     )
                     raise ImproperlyConfigured(msg)
+                for related in cls.milestones[key].related:
+                    if related not in offered:
+                        msg = (
+                            f"Track {track.code!r} lists {key!r}, but no track "
+                            f"offers its related milestone {related!r}."
+                        )
+                        raise ImproperlyConfigured(msg)
 
     @classmethod
     def validate(cls):
@@ -666,10 +702,16 @@ class ProgramDefinition:
             msg = "Application overrides must name a milestone in the catalog."
             raise ImproperlyConfigured(msg)
         for key, milestone in cls.milestones.items():
-            if key != milestone.key or (
-                milestone.predecessor and milestone.predecessor not in cls.milestones
+            predecessor = milestone.predecessor
+            if (
+                key != milestone.key
+                or (predecessor and predecessor not in cls.milestones)
+                or any(other not in cls.milestones for other in milestone.related)
             ):
-                msg = "Milestone keys and prerequisites must exist in the catalog."
+                msg = (
+                    "Milestone keys, prerequisites and related milestones must "
+                    "exist in the catalog."
+                )
                 raise ImproperlyConfigured(msg)
         cls._validate_tracks()
         if cls.agent_skills is not None:

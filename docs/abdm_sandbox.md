@@ -93,8 +93,12 @@ docker compose -f docker-compose.local.yml exec django python manage.py seed_exp
 
 `SBX-2026-00001` demonstrates an approved shared M1 with a (fake) production
 client ID and issue date, an M2 query, an M3 review, a PHR1 review, a rejected
-HealthLocker request and a UHI application waiting on M2. The second
-product is registered, with no milestone requests yet. Events, PDF evidence, a support conversation and
+HealthLocker request and a UHI application recorded automatically, since M1 —
+its only prerequisite — is already approved by the time it's submitted. The
+second product is registered, with no milestone requests yet. The third,
+`Medibase Teleconsult`, applies for M1 and UHI alone and leaves its M1
+undecided, so its UHI request is the one a reviewer can override and approve
+early. Events, PDF evidence, a support conversation and
 pending organisation verification are included. IDs use the year at seed time.
 Local mail is visible at http://localhost:3550/.
 
@@ -158,10 +162,14 @@ retired; reviewer work uses the engine's assessment screens.
   product applies at once, keeps its revision history and never enters the
   review queue. Registration starts sandbox provisioning, whether or not the
   organisation is verified yet.
-- A milestone's form opens once every milestone before it is submitted: M2 and
-  M3 once M1 is, UHI1 once M1 and M2 are, since UHI requires both. M3 builds on
+- A milestone's form opens once every milestone before it is submitted: M2,
+  M3 and UHI1 once M1 is. M3 builds on
   M1, not M2: NHA's own portal gates M3 on M1 alone,
-  and no published document orders M3 after M2. M4 needs no earlier milestone,
+  and no published document orders M3 after M2. UHI1 likewise only needs M1:
+  an integrator can submit for UHI participation with M1 alone, or with M1 and
+  M2 together; the product page and the product-edit milestone picker still
+  show M2 as related context for UHI, but it no longer gates the form or the
+  decision. M4 needs no earlier milestone,
   not even M1, so its form is open from the start. A
   rejected milestone still counts as submitted; a withdrawn one does not. A
   request cannot be withdrawn while a later milestone built on it is under
@@ -172,8 +180,15 @@ retired; reviewer work uses the engine's assessment screens.
   verification is unapproved. Queries can still be raised. The review queue lists
   those requests under Waiting, apart from Ready ones, with what each waits on;
   a request's row and review page name what waits on it. UHI participation
-  submitted early waits, and is recorded automatically once its prerequisites
-  are approved.
+  submitted early waits, and is recorded automatically once M1 is approved.
+  A reviewer with approve rights can instead approve it right away from the
+  same screens, overriding that wait; the decision requires a note explaining
+  the override and is audited as "Approved (prerequisites overridden)"
+  rather than a plain approval. Overriding still refuses if the organisation
+  itself is not verified — only the milestone prerequisite can be bypassed.
+  Accept all and reject all skip these requests entirely, so the override is
+  offered one request at a time: on its own review screen, and on its decision
+  block on the product page.
   Admins assign reviewers manually to label and filter work; the assignee must
   hold the matching category's review-write or review-approve grant. Any
   reviewer with that grant can act, assigned or not; superusers can perform

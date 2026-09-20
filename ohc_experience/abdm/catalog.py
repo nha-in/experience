@@ -60,9 +60,10 @@ MILESTONES = {
             "uhi1",
             "UHI1",
             "UHI participation",
-            "m2",
+            "m1",
             "Join the network for discovery, booking and delivery of health services.",
             docs_page("/docs/uhi/v1"),
+            related=("m2",),
         ),
         MilestoneDefinition(
             "nhcx1",

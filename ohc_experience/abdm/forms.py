@@ -324,19 +324,24 @@ class ProductRegistrationForm(ReviewForm):
     def milestone_tracks(self):
         selected = self["applied_milestones"].value() or []
         solutions = self["solution_type"].value() or []
-        return [
-            {
-                "definition": track,
-                "requires": readable_list(
-                    MILESTONES[key].code for key in track.prerequisites(MILESTONES)
-                ),
-                "milestones": [
-                    self._milestone_row(f"{track.code}:{key}", selected, solutions)
-                    for key in track.keys
-                ],
-            }
-            for track in TRACKS
-        ]
+        rows = []
+        for track in TRACKS:
+            hard = track.prerequisites(MILESTONES)
+            related = [
+                key for key in track.related_milestones(MILESTONES) if key not in hard
+            ]
+            rows.append(
+                {
+                    "definition": track,
+                    "requires": readable_list(MILESTONES[key].code for key in hard),
+                    "related": readable_list(MILESTONES[key].code for key in related),
+                    "milestones": [
+                        self._milestone_row(f"{track.code}:{key}", selected, solutions)
+                        for key in track.keys
+                    ],
+                },
+            )
+        return rows
 
     def _milestone_row(self, value, selected, solutions):
         key = value.split(":", 1)[1]

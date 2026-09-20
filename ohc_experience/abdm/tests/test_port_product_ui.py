@@ -226,16 +226,17 @@ def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
         track["definition"].code: (
             [row["definition"].key for row in track["milestones"]],
             track["requires"],
+            track["related"],
         )
         for track in ProductRegistrationForm().milestone_tracks
     }
 
     assert tracks == {
-        "HIE-CM": (["m1", "m2", "m3", "m4"], ""),
-        "UHI": (["uhi1"], "M1 and M2"),
-        "NHCX": (["nhcx1"], "M1"),
-        "PHR": (["phr1"], "M1"),
-        "HealthLocker": (["locker1"], ""),
+        "HIE-CM": (["m1", "m2", "m3", "m4"], "", ""),
+        "UHI": (["uhi1"], "M1", "M2"),
+        "NHCX": (["nhcx1"], "M1", ""),
+        "PHR": (["phr1"], "M1", ""),
+        "HealthLocker": (["locker1"], "", ""),
     }
 
 
@@ -367,13 +368,22 @@ def test_registration_no_longer_asks_about_uhi():
     assert not [name for name in form.fields if name.startswith("uhi_")]
 
 
-def test_uhi_cannot_be_chosen_without_m2():
+def test_uhi_can_be_chosen_with_only_m1():
+    """UHI's hard prerequisite loosened to M1 alone; M2 is shown, not required."""
     form = ProductRegistrationForm(
         data=uhi_payload(applied_milestones=["HIE-CM:m1", "UHI:uhi1"]),
     )
 
+    assert form.is_valid(), form.errors
+
+
+def test_uhi_cannot_be_chosen_without_m1():
+    form = ProductRegistrationForm(
+        data=uhi_payload(applied_milestones=["UHI:uhi1"]),
+    )
+
     assert not form.is_valid()
-    assert form.errors["applied_milestones"] == ["Select M2 before UHI participation."]
+    assert form.errors["applied_milestones"] == ["Select M1 before UHI participation."]
 
 
 def test_uhi_participation_requires_a_role_and_a_service():

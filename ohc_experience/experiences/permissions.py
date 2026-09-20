@@ -120,8 +120,8 @@ def review_scope(program, category):
 
 
 def track_items(program, track):
-    """A track's chosen milestones, and the prerequisites they depend on."""
-    prerequisites = track.prerequisites(program.milestones)
+    """A track's chosen milestones, and the related ones they build on or beside."""
+    prerequisites = track.related_milestones(program.milestones)
     query = Q(pk__in=[])
     for key in track.keys:
         query |= Q(
@@ -260,8 +260,12 @@ def can_decide(user, item):
 
 def available_review_actions(user, item):
     """What the actor's grants allow. Pending prerequisites narrow it further."""
-    if not item.pending or item.definition.auto_approve:
+    if not item.pending:
         return []
+    if item.definition.auto_approve:
+        # Only an override approval is offered: it is otherwise recorded on
+        # its own, and reject/query never apply to it.
+        return ["approve"] if can_review(user, item, "approve") else []
     actions = []
     if can_review(user, item, "approve"):
         actions.extend(["approve", "reject"])

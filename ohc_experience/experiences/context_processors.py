@@ -47,6 +47,12 @@ def navigation_context(request, workspace=None):
     )
     tracks = []
     if workspace:
+        enabled = set(
+            workspace.product.milestones.filter(enabled=True).values_list(
+                "key",
+                flat=True,
+            ),
+        )
         approved = set(
             workspace.product.milestones.filter(
                 enabled=True,
@@ -54,10 +60,16 @@ def navigation_context(request, workspace=None):
             ).values_list("key", flat=True),
         )
         for track in permissions.allowed_tracks(request.user, workspace.definition):
-            keys = workspace.definition.applied_keys(
-                track,
-                workspace.applied_milestones,
-            )
+            # A related milestone the product never applied for has no request of
+            # its own, so counting it would hold the track short of its total.
+            keys = [
+                key
+                for key in workspace.definition.applied_keys(
+                    track,
+                    workspace.applied_milestones,
+                )
+                if key in enabled
+            ]
             if keys:
                 tracks.append(
                     {

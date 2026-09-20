@@ -1,4 +1,4 @@
-<section class="ui-card ui-card--layered ui-card--sm shrink-0 scroll-mt-20 {% if item.pending and can_decide %}border-primary/25{% endif %}"
+<section class="ui-card ui-card--layered ui-card--sm shrink-0 scroll-mt-20 {% if can_override or item.pending and can_decide %}border-primary/25{% endif %}"
          id="decision"
          tabindex="-1"
          aria-labelledby="decision-title">
@@ -8,9 +8,36 @@
       <div id="recording-hold"
            class="mt-4 rounded-xl border border-border bg-soft-background p-4 text-sm leading-relaxed text-soft-foreground">
         <p class="mb-1 font-semibold text-foreground">Recorded without a decision</p>
-        <p>{% if withdrawn_hold %}{{ withdrawn_hold }}{% else %}This request is recorded automatically once {{ waiting_on }} approved.{% endif %} It needs no action from reviewers.</p>
+        <p>{% if withdrawn_hold %}{{ withdrawn_hold }}{% else %}This request is recorded automatically once {{ waiting_on }} approved.{% endif %} {% if can_override %}You can approve it now instead and override that wait.{% else %}It needs no action from reviewers.{% endif %}</p>
         {% include 'experiences/partials/reviewer_prerequisites.html' %}
       </div>
+      {% if can_override %}
+        {% if dependants %}
+          <div class="mt-4">{% include 'experiences/partials/reviewer_dependants.html' %}</div>
+        {% endif %}
+        <form method="post" class="mt-4 flex flex-col gap-4" data-unsaved-form>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="approve" />
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950">
+            <p class="font-semibold">Override and approve</p>
+            <p class="mt-1">{{ waiting_on|capfirst }} not yet approved. Approving now records this request anyway.</p>
+          </div>
+          <div>
+            <label class="ui-label" for="decision-note">Override note</label>
+            <textarea class="ui-textarea min-h-32"
+                      id="decision-note"
+                      name="note"
+                      rows="5"
+                      maxlength="10000"
+                      minlength="{{ min_note_length }}"
+                      required
+                      aria-describedby="decision-help">{{ decision_note }}</textarea>
+            <p class="ui-hint" id="decision-help">Explain why this is being approved early. Saved in the request history and shared with the integrator, with at least {{ min_note_length }} characters.</p>
+          </div>
+          <button class="ui-btn ui-btn--default ui-btn--size-sm ui-btn--block min-h-12"
+                  type="submit">Approve and override prerequisites</button>
+        </form>
+      {% endif %}
     {% elif item.pending and can_decide %}
       <p class="mb-5 mt-1.5 text-sm leading-relaxed text-soft-foreground">Review the evidence, then choose the next step.</p>
       {% if prerequisites %}

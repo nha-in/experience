@@ -29,6 +29,9 @@
             {% if row.requires %}
               <span class="text-xs text-soft-foreground">· {{ row.requires }} required for enablement</span>
             {% endif %}
+            {% if row.related %}
+              <span class="text-xs text-soft-foreground">· {{ row.related }} suggested</span>
+            {% endif %}
             {% if row.milestones %}
               {% include "components/info_popover.html" with extra_class="-ml-1" scope="track" key=row.definition.code label=row.definition.name description=row.definition.description url=row.definition.docs_url|default:experience_program.docs_url only %}
             {% endif %}

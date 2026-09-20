@@ -179,18 +179,13 @@ def test_shared_m1_and_independent_tracks(environment):
     assert MILESTONES["nhcx1"].predecessor == "m1"
     for key in ("m2", "m3", "phr1"):
         assert waiting_on(environment, key) == ["M1 - ABHA Creation and Verification"]
-    assert waiting_on(environment, "uhi1") == [
-        "M1 - ABHA Creation and Verification",
-        "M2 - Health Information Provider Services",
-    ]
+    assert waiting_on(environment, "uhi1") == ["M1 - ABHA Creation and Verification"]
     for key in ("m4", "locker1"):
         assert waiting_on(environment, key) == []
     approve(environment)
     for key in ("m2", "m3", "phr1"):
         assert waiting_on(environment, key) == []
-    assert waiting_on(environment, "uhi1") == [
-        "M2 - Health Information Provider Services",
-    ]
+    assert waiting_on(environment, "uhi1") == []
     assert product.outcomes.filter(outcome_type="milestone_approval").exists()
 
 
@@ -341,7 +336,56 @@ def test_uhi_answers_can_be_corrected_after_recording(environment):
     assert item.history.filter(action="Record updated").exists()
 
 
-def test_uhi_submitted_before_m1_and_m2_are_approved_is_recorded_when_they_are(
+def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client):
+    """UHI only needs M1: a product can apply for it without ever choosing M2."""
+    workspace, form = services.register_product(
+        environment["org"],
+        environment["applicant"],
+        data={
+            **product_data("M1 and UHI only"),
+            "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
+        },
+    )
+    assert workspace, form.errors
+    provision_inline(workspace.product)
+    workspace.refresh_from_db()
+    m1 = workspace.product.milestones.get(key="m1").application.review_item
+    uhi = workspace.product.milestones.get(key="uhi1").application.review_item
+    assert not workspace.product.milestones.filter(key="m2").exists()
+    assert [review.pk for review in services.unsubmitted_prerequisites(uhi)] == [m1.pk]
+
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:track", args=[workspace.reference, "UHI"])
+    locked_html = client.get(url, {"milestone": "uhi1"}).content.decode()
+    assert "Milestone locked" in locked_html
+    assert "opens once" in locked_html
+    assert ">M1 - ABHA Creation and Verification</a> is su" in locked_html
+
+    item, form, saved = services.save_review_form(
+        m1,
+        environment["applicant"],
+        data=evidence_data(),
+        files=files(),
+        submit=True,
+    )
+    assert saved, form.errors
+
+    assert services.unsubmitted_prerequisites(uhi) == []
+    open_html = client.get(url, {"milestone": "uhi1"}).content.decode()
+    assert "Milestone locked" not in open_html
+    assert "data-request-submit" in open_html
+
+    item, form, saved = services.save_review_form(
+        uhi,
+        environment["applicant"],
+        data=uhi_data(),
+        submit=True,
+    )
+    assert saved, form.errors
+    assert item.status == ReviewItem.Status.NEW
+
+
+def test_uhi_submitted_before_m1_is_approved_is_recorded_when_it_is(
     environment,
 ):
     submit(environment)
@@ -350,22 +394,73 @@ def test_uhi_submitted_before_m1_and_m2_are_approved_is_recorded_when_they_are(
     assert uhi.status == ReviewItem.Status.NEW
     assert uhi.application.status == "under_review"
     services.assign_review(uhi, environment["admin"], environment["reviewer"])
-    for action in ("approve", "reject", "query"):
+    for action in ("reject", "query"):
         with pytest.raises(ValidationError, match="recorded once its prerequisites"):
             services.decide(uhi, environment["reviewer"], action=action, note="Hold.")
 
     approve_submitted(environment)
 
     uhi.refresh_from_db()
-    assert uhi.status == ReviewItem.Status.IN_REVIEW
-
-    approve_submitted(environment, "m2")
-
-    uhi.refresh_from_db()
+    assert services.overridden_prerequisites(uhi) == []
     assert uhi.status == ReviewItem.Status.APPROVED
     assert uhi.decided_by is None
     assert ReviewItem.objects.get(pk=uhi.pk).application.status == "approved"
     assert uhi.history.filter(action="Recorded", actor=None).exists()
+
+
+def test_a_reviewer_can_override_uhi_s_unmet_prerequisite(environment):
+    """An admin can approve UHI early instead of waiting for M1 to be approved."""
+    submit(environment)
+    uhi = submit(environment, "uhi1")
+    reviewer = environment["reviewer"]
+    services.assign_review(uhi, environment["admin"], reviewer)
+
+    assert [
+        prerequisite.name for prerequisite in services.pending_prerequisites(uhi)
+    ] == ["M1 - ABHA Creation and Verification"]
+    assert services.override_blockers(uhi) == []
+
+    with pytest.raises(ValidationError, match="Use at least 10 characters"):
+        services.decide(uhi, reviewer, action="approve", note="Short")
+
+    services.decide(
+        uhi,
+        reviewer,
+        action="approve",
+        note="Approving ahead of M1 for a pilot integration.",
+    )
+
+    uhi.refresh_from_db()
+    assert uhi.status == ReviewItem.Status.APPROVED
+    assert uhi.decided_by == reviewer
+    assert uhi.decision_note == "Approving ahead of M1 for a pilot integration."
+    assert uhi.application.status == "approved"
+    event = uhi.history.get(action="Approved (prerequisites overridden)")
+    assert event.actor == reviewer
+    assert event.detail["overridden_prerequisites"] == [
+        "M1 - ABHA Creation and Verification",
+    ]
+
+
+def test_an_override_still_needs_organisation_verification(environment):
+    """Overriding the milestone chain never bypasses organisation verification."""
+    reverify(environment)
+    submit(environment)
+    uhi = submit(environment, "uhi1")
+    services.assign_review(
+        uhi,
+        environment["admin"],
+        environment["reviewer"],
+    )
+
+    assert services.overridden_prerequisites(uhi) == []
+    with pytest.raises(ValidationError, match="organisation verification"):
+        services.decide(
+            uhi,
+            environment["reviewer"],
+            action="approve",
+            note="Trying to override anyway.",
+        )
 
 
 def test_a_waiting_uhi_application_is_recorded_once_verification_is_approved(
@@ -1077,7 +1172,10 @@ def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
     assert not re.search(r'value="approve"\s+disabled', html)
 
 
-def test_a_waiting_recorded_request_offers_reviewers_no_decision(environment, client):
+def test_a_waiting_recorded_request_offers_a_reviewer_an_override(
+    environment,
+    client,
+):
     submit(environment)
     submit(environment, "m2")
     uhi = submit(environment, "uhi1")
@@ -1087,10 +1185,44 @@ def test_a_waiting_recorded_request_offers_reviewers_no_decision(environment, cl
 
     assert 'id="recording-hold"' in html
     assert (
-        "recorded automatically once M1 - ABHA Creation and Verification and "
-        "M2 - Health Information Provider Services are approved"
+        "recorded automatically once M1 - ABHA Creation and Verification is approved. "
+        "You can approve it now instead and override that wait."
     ) in html
     assert "data-decision-form" not in html
+    assert "Approve and override prerequisites" in html
+
+
+def test_the_product_page_offers_the_same_override(environment, client):
+    """The override is on each request's decision block, not only its own page."""
+    submit(environment)
+    uhi = submit(environment, "uhi1")
+    url = reverse(
+        "experiences:product-detail",
+        args=[environment["workspace"].reference],
+    )
+    client.force_login(environment["reviewer"])
+
+    html = client.get(url).content.decode()
+
+    assert "M1 - ABHA Creation and Verification is not yet approved" in html
+    assert "Approve and override prerequisites" in html
+
+    response = client.post(
+        url,
+        {
+            "intent": "decision",
+            "review_id": str(uhi.pk),
+            "revision": str(uhi.selected_submission_id),
+            "action": "approve",
+            "note": "Approving ahead of M1 for a pilot integration.",
+        },
+    )
+
+    assert response.status_code == 302
+    uhi.refresh_from_db()
+    assert uhi.status == ReviewItem.Status.APPROVED
+    assert uhi.decided_by == environment["reviewer"]
+    assert uhi.history.filter(action="Approved (prerequisites overridden)").exists()
 
 
 def test_pending_queries_follow_the_selected_product(environment, client):

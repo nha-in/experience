@@ -316,6 +316,23 @@ class DemoBuilder:
                 "applied_milestones": ["HealthLocker:locker1"],
             },
         )
+        # UHI with M1 alone, and M1 still undecided: the one product where a
+        # reviewer is offered the override instead of waiting for the record.
+        waiting, form = self.register_product(
+            org,
+            applicant,
+            data={
+                **product_data("Medibase Teleconsult"),
+                "description": "Teleconsultation and appointment booking over UHI.",
+                "solution_type": ["govt_program"],
+                "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
+            },
+        )
+        if not waiting:
+            raise CommandError(str(form.errors))
+        self.exit(waiting, "m1", applicant, admin, reviewer, "review")
+        waiting_uhi = waiting.product.milestones.get(key="uhi1").application.review_item
+        services.save_review_form(waiting_uhi, applicant, data=uhi_data(), submit=True)
         pending_user = self.user("new-integrator@abdm-demo.in", "Nisha Patel", password)
         pending_org = Organisation.objects.create(name="HealthBridge Digital")
         Membership.objects.create(

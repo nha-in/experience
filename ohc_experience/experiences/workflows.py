@@ -436,6 +436,27 @@ def pending_prerequisites(item):
     return pending
 
 
+def override_blockers(item):
+    """What still holds an auto-approved item back even when a reviewer overrides it.
+
+    Overriding waives only the one prerequisite this program lets a reviewer
+    skip: the milestones an auto-approved item builds on. Organisation
+    verification, and anything else the form itself requires, is not skipped.
+    """
+    return list(item.definition.pending_prerequisites(item))
+
+
+def overridden_prerequisites(item):
+    """What approving an auto-recorded item early waives, or nothing at all.
+
+    Empty when the approval skips nothing, so a decision that happens to land
+    on a recorded item is a plain approval rather than an override.
+    """
+    if not item.definition.auto_approve or override_blockers(item):
+        return []
+    return pending_prerequisites(item)
+
+
 def waiting_reviews():
     """Open reviews that cannot be decided yet: `pending_prerequisites` as a filter.
 
@@ -1105,8 +1126,23 @@ def _require_decidable(item, action, *, settling_reviews=()):
         msg = "This item is not awaiting a decision."
         raise ValidationError(msg)
     if item.definition.auto_approve:
-        msg = "This request is recorded once its prerequisites are approved."
-        raise ValidationError(msg)
+        if action != "approve":
+            msg = "This request is recorded once its prerequisites are approved."
+            raise ValidationError(msg)
+        # Approving overrides the milestone dependencies alone; anything the
+        # form itself still requires, such as organisation verification,
+        # keeps blocking it.
+        blockers = [
+            blocker
+            for blocker in override_blockers(item)
+            if not blocker.review or blocker.review.pk not in settling_reviews
+        ]
+        if blockers:
+            msg = withdrawn_hold(item, blockers) or (
+                f"Approve this request once {prerequisite_names(blockers)} approved."
+            )
+            raise ValidationError(msg)
+        return
     if action not in {"approve", "reject", "query"}:
         msg = "Choose a valid review action."
         raise ValidationError(msg)
@@ -1195,14 +1231,19 @@ def _decide(  # noqa: PLR0913
         action,
         settling_reviews=rejecting_reviews if action == "reject" else (),
     )
+    overridden = overridden_prerequisites(item) if action == "approve" else []
+    overriding = bool(overridden)
     note = note.strip()
     reason = _decision_reason(item, action, reason)
     # A listed reason speaks for itself. A query, Other, and a form with no list
-    # to choose from need the reviewer's own words.
+    # to choose from need the reviewer's own words. So does approving an
+    # auto-approved item ahead of its prerequisites: the note is the
+    # justification for the override.
     needs_note = (
         reason == OTHER_REASON
         or action == "query"
         or (action == "reject" and not reason)
+        or overriding
     )
     if not note and reason == OTHER_REASON:
         msg = "Write the reason when you choose Other."
@@ -1259,12 +1300,27 @@ def _decide(  # noqa: PLR0913
             item.definition.on_reject(item, actor)
         audit(
             actor=actor,
-            action="Approved" if action == "approve" else "Rejected",
+            action=(
+                "Approved (prerequisites overridden)"
+                if overriding
+                else "Approved"
+                if action == "approve"
+                else "Rejected"
+            ),
             item=item,
             detail={
                 "note": note,
                 "submission_id": item.selected_submission_id,
                 **({"reason": reason} if reason else {}),
+                **(
+                    {
+                        "overridden_prerequisites": [
+                            prerequisite.name for prerequisite in overridden
+                        ],
+                    }
+                    if overriding
+                    else {}
+                ),
             },
         )
     item.save()

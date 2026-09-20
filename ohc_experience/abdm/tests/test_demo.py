@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from ohc_experience.abdm import demo
 from ohc_experience.abdm import forms
+from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import Product
@@ -35,6 +36,24 @@ def test_engine_demo_command_runs_registered_abdm_builder(settings):
     assert recorded.production_client_id.startswith("DEMO_PROD_SBX_")
     with pytest.raises(CommandError, match="already exists"):
         call_command("seed_experience_demo", stdout=StringIO())
+
+
+def test_demo_seeds_a_uhi_request_waiting_on_an_undecided_m1(settings):
+    """The one seeded request a reviewer can approve early instead of awaiting M1."""
+    settings.DEBUG = True
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+    }
+    call_command("seed_experience_demo", stdout=StringIO())
+
+    product = Product.objects.get(name="Medibase Teleconsult")
+    uhi = product.milestones.get(key="uhi1").application.review_item
+
+    assert uhi.pending
+    assert [item.name for item in workflows.overridden_prerequisites(uhi)] == [
+        "M1 - ABHA Creation and Verification",
+    ]
 
 
 def test_engine_demo_command_is_disabled_in_production(settings):
