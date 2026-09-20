@@ -221,7 +221,12 @@ def test_stale_revision_prevents_all_decisions(environment, submitted_pair, acti
 
 def test_previous_decision_cannot_be_replayed(environment, submitted_pair):
     m1, m2 = submitted_pair
-    workflows.decide(m1, environment["admin"], action="approve")
+    workflows.decide(
+        m1,
+        environment["admin"],
+        action="approve",
+        note="Evidence accepted.",
+    )
     with pytest.raises(ValidationError, match="submission changed"):
         decide_all(environment, [m1, m2])
     m1.refresh_from_db()

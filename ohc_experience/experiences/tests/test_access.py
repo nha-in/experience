@@ -191,7 +191,11 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
         == 403
     )
     assert (
-        client.post(item.get_absolute_url(), {"action": "approve"}).status_code == 302
+        client.post(
+            item.get_absolute_url(),
+            {"action": "approve", "note": "Evidence accepted."},
+        ).status_code
+        == 302
     )
 
 

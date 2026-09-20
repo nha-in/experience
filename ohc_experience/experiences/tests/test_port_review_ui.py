@@ -213,7 +213,10 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
 
     # Someone other than the assignee can still record the decision.
     client.force_login(ReviewerFactory(is_nha_team=True))
-    response = client.post(review_item.get_absolute_url(), {"action": "approve"})
+    response = client.post(
+        review_item.get_absolute_url(),
+        {"action": "approve", "note": "Evidence accepted."},
+    )
     assert response.status_code == HTTPStatus.FOUND
     review_item.refresh_from_db()
     assert review_item.status == "approved"
@@ -352,7 +355,10 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     if scope == "decided":
-        response = client.post(review_item.get_absolute_url(), {"action": "approve"})
+        response = client.post(
+            review_item.get_absolute_url(),
+            {"action": "approve", "note": "Evidence accepted."},
+        )
         assert response.status_code == HTTPStatus.FOUND
 
     response = client.get(

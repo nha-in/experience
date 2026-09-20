@@ -78,7 +78,7 @@ def request_renewal(environment, *, certificate=None, name="renewed-wasa.pdf"):
     return item
 
 
-def decide(environment, item, action="approve", note=""):
+def decide(environment, item, action="approve", note="Certificate verified."):
     workflows.assign_review(item, environment["admin"], environment["reviewer"])
     return workflows.decide(
         item,
@@ -685,7 +685,12 @@ def test_renewal_review_permission_is_general_and_keeps_track_boundaries(
     client.force_login(general_reviewer)
     assert client.get(renewal.get_absolute_url()).status_code == 200
     assert client.get(first.get_absolute_url()).status_code == 404
-    workflows.decide(renewal, general_reviewer, action="approve")
+    workflows.decide(
+        renewal,
+        general_reviewer,
+        action="approve",
+        note="Renewal certificate verified.",
+    )
 
 
 def test_another_organisations_user_cannot_open_or_submit_renewal(environment, client):

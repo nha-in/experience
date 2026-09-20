@@ -276,7 +276,12 @@ def test_the_waiting_filter_agrees_with_pending_prerequisites(environment):
     verification = reverify(environment)
     assert agree()
     workflows.assign_review(verification, environment["admin"], environment["reviewer"])
-    workflows.decide(verification, environment["reviewer"], action="approve")
+    workflows.decide(
+        verification,
+        environment["reviewer"],
+        action="approve",
+        note="Organisation identity verified.",
+    )
     approve_submitted(environment)
     assert agree()
     approve_submitted(environment, "m2")

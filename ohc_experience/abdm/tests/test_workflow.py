@@ -408,6 +408,22 @@ def test_uhi_submitted_before_m1_is_approved_is_recorded_when_it_is(
     assert uhi.history.filter(action="Recorded", actor=None).exists()
 
 
+def test_an_approval_carries_the_reviewer_s_note(environment):
+    """An approval says why, in the reviewer's own words, as a rejection does."""
+    item = submit(environment)
+    reviewer = environment["reviewer"]
+    services.assign_review(item, environment["admin"], reviewer)
+
+    with pytest.raises(ValidationError, match="Enter the decision note"):
+        services.decide(item, reviewer, action="approve")
+    with pytest.raises(ValidationError, match="Use at least 10 characters"):
+        services.decide(item, reviewer, action="approve", note="Fine.")
+
+    item = services.decide(item, reviewer, action="approve", note="Evidence checked.")
+
+    assert (item.status, item.decision_note) == ("approved", "Evidence checked.")
+
+
 def test_a_reviewer_can_override_uhi_s_unmet_prerequisite(environment):
     """An admin can approve UHI early instead of waiting for M1 to be approved."""
     submit(environment)
@@ -474,7 +490,12 @@ def test_a_waiting_uhi_application_is_recorded_once_verification_is_approved(
     assert uhi.status == ReviewItem.Status.NEW
     services.assign_review(verification, environment["admin"], environment["reviewer"])
 
-    services.decide(verification, environment["reviewer"], action="approve")
+    services.decide(
+        verification,
+        environment["reviewer"],
+        action="approve",
+        note="Organisation identity verified.",
+    )
 
     uhi.refresh_from_db()
     assert uhi.status == ReviewItem.Status.APPROVED
@@ -509,7 +530,12 @@ def test_milestones_are_submitted_in_order_and_decided_in_order(environment):
     query = m2.queries.get()
     services.reply_query(query, environment["applicant"], "Cases 3 and 4.")
     services.resolve_query(query, environment["reviewer"])
-    services.decide(m2, environment["reviewer"], action="approve")
+    services.decide(
+        m2,
+        environment["reviewer"],
+        action="approve",
+        note="Cases 3 and 4 confirmed.",
+    )
 
     m2.refresh_from_db()
     assert m2.status == ReviewItem.Status.APPROVED
@@ -539,7 +565,12 @@ def test_reviewers_with_grants_decide_whoever_is_assigned(environment):
         services.assign_review(item, environment["admin"], environment["applicant"])
     # Assigned to someone else, the reviewer's grant still lets them decide.
     services.assign_review(item, environment["admin"], environment["admin"])
-    services.decide(item, environment["reviewer"], action="approve")
+    services.decide(
+        item,
+        environment["reviewer"],
+        action="approve",
+        note="Evidence accepted.",
+    )
     item.refresh_from_db()
     assert item.assignee == environment["admin"]
     with pytest.raises(ValidationError):
@@ -575,7 +606,12 @@ def test_queries_pause_until_all_answered_and_resolved(environment):
         services.decide(item, environment["reviewer"], action="approve")
     services.resolve_query(first, environment["reviewer"])
     services.resolve_query(second, environment["reviewer"])
-    services.decide(item, environment["reviewer"], action="approve")
+    services.decide(
+        item,
+        environment["reviewer"],
+        action="approve",
+        note="Both queries resolved.",
+    )
     assert item.history.filter(action="Query answered").count() == 2
     answered = [m for m in mail.outbox if "Query answered" in m.body]
     assert len(answered) == 2
@@ -1350,7 +1386,12 @@ def test_verification_leaves_provisioning_alone(environment):
     )
     services.assign_review(item, environment["admin"], environment["reviewer"])
 
-    services.decide(item, environment["reviewer"], action="approve", note="Verified.")
+    services.decide(
+        item,
+        environment["reviewer"],
+        action="approve",
+        note="Evidence verified.",
+    )
 
     assert {
         product.pk: product.provisioning_runs.count() for product in (first, second)

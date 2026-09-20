@@ -67,7 +67,7 @@ def test_queue_scope_tracks_a_real_decision(client, review_item):
     client.force_login(reviewer)
     url = reverse("experiences:queue")
     assert not client.get(url, {"scope": "decided"}).context["page"]
-    workflows.decide(review_item, reviewer, action="approve", note="Verified")
+    workflows.decide(review_item, reviewer, action="approve", note="Evidence checked.")
     assert (
         client.get(url, {"scope": "decided"}).context["page"][0].product
         == review_item.product
@@ -92,7 +92,7 @@ def test_dashboard_counts_use_current_reviewer_and_canonical_milestone(
     assert response.context["my_open"] == 1
     # A meter whose total is missing from the context renders full width.
     assert b"width: %" not in response.content
-    workflows.decide(review_item, reviewer, action="approve", note="Verified")
+    workflows.decide(review_item, reviewer, action="approve", note="Evidence checked.")
     response = client.get(url)
     assert response.context["my_open"] == 0
     approved = {

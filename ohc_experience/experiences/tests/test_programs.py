@@ -89,7 +89,7 @@ def test_non_abdm_lifecycle_reuse_dependencies_queries_and_outcomes(
     query = inspection.queries.get()
     workflows.reply_query(query, actor, "Confirmed")
     workflows.resolve_query(query, reviewer)
-    workflows.decide(inspection, reviewer, action="approve")
+    workflows.decide(inspection, reviewer, action="approve", note="Result confirmed.")
     assert equipment.product.outcomes.get(outcome_type="quality_certificate").data == {
         "score": 95,
     }
@@ -143,12 +143,12 @@ def test_a_dependant_opens_once_its_prerequisite_is_submitted_and_waits_on_appro
         with pytest.raises(ValidationError, match="once INS - Inspection is approved"):
             workflows.decide(release, reviewer, action=action, note="Hold.")
     workflows.decide(release, reviewer, action="query", note="Which batch?")
-    workflows.decide(inspection, reviewer, action="approve")
+    workflows.decide(inspection, reviewer, action="approve", note="Result recorded.")
     assert not ReviewItem.objects.filter(workflows.waiting_reviews()).exists()
     query = release.queries.get()
     workflows.reply_query(query, actor, "Batch 7")
     workflows.resolve_query(query, reviewer)
-    workflows.decide(release, reviewer, action="approve")
+    workflows.decide(release, reviewer, action="approve", note="Batch 7 confirmed.")
     release.refresh_from_db()
     assert release.status == ReviewItem.Status.APPROVED
 

@@ -309,6 +309,7 @@ def test_organisation_verification_is_reviewed_in_the_product(environment, clien
             "review_id": verification.pk,
             "revision": verification.selected_submission_id,
             "action": "approve",
+            "note": "Organisation identity verified.",
         },
     )
     assert response.url == product_url(environment) + f"#review-{verification.pk}"

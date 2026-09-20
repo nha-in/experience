@@ -1231,25 +1231,27 @@ def _decide(  # noqa: PLR0913
         action,
         settling_reviews=rejecting_reviews if action == "reject" else (),
     )
+    # What holds the decision is said before what is wrong with the note, so a
+    # reviewer is never asked to write one for a decision they cannot record.
+    if action == "approve":
+        _validate_approval(item)
     overridden = overridden_prerequisites(item) if action == "approve" else []
     overriding = bool(overridden)
     note = note.strip()
     reason = _decision_reason(item, action, reason)
-    # A listed reason speaks for itself. A query, Other, and a form with no list
-    # to choose from need the reviewer's own words. So does approving an
-    # auto-approved item ahead of its prerequisites: the note is the
-    # justification for the override.
-    needs_note = (
-        reason == OTHER_REASON
-        or action == "query"
-        or (action == "reject" and not reason)
-        or overriding
-    )
+    # Every decision owes the integrator the reviewer's own words. The one
+    # exception is a rejection a listed reason already explains; Other, and a
+    # form with no list to choose from, leave the note carrying the reason.
+    needs_note = action != "reject" or not reason or reason == OTHER_REASON
     if not note and reason == OTHER_REASON:
         msg = "Write the reason when you choose Other."
         raise ValidationError(msg)
     if not note and needs_note:
-        msg = "Enter a reason or question before continuing."
+        msg = (
+            "Enter the decision note before continuing."
+            if action == "approve"
+            else "Enter a reason or question before continuing."
+        )
         raise ValidationError(msg)
     if needs_note and len(note) < MIN_REVIEW_TEXT:
         raise ValidationError(SHORT_NOTE)
@@ -1280,8 +1282,6 @@ def _decide(  # noqa: PLR0913
             detail={"query_id": query.pk, "field": field_key, "question": note},
         )
     else:
-        if action == "approve":
-            _validate_approval(item)
         item.status = (
             ReviewItem.Status.APPROVED
             if action == "approve"

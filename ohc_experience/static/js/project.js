@@ -375,13 +375,14 @@
         || (action === 'approve' && form.dataset.approvalBlocked === 'true')
         || (action === 'reject' && Boolean(reason) && !reason.value);
     }
-    // A listed reason speaks for itself; a query, Other, and a form with no list
-    // to choose from need the reviewer's own words.
+    // Every decision needs the reviewer's own words, except a rejection a listed
+    // reason already explains. Other, and a form with no list to choose from,
+    // leave the note carrying the reason.
     if (note) {
-      note.required = action === 'query'
-        || (action === 'reject' && (!reason || 'noteRequired' in (chosen?.dataset || {})));
-      // The floor belongs to the notes that carry the reason, not to an aside
-      // someone adds to an approval. Zero is the unconstrained default.
+      note.required = action !== 'reject'
+        || !reason || 'noteRequired' in (chosen?.dataset || {});
+      // The floor guards a required note. Zero is the unconstrained default,
+      // for the aside beside a listed reason.
       note.minLength = note.required ? Number(note.dataset.noteMinlength) : 0;
     }
     form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
