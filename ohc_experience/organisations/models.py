@@ -18,9 +18,9 @@ INVITATION_TOKEN_BYTES = 32
 class Role(models.TextChoices):
     """Roles a member can hold inside an organisation.
 
-    Ordered most to least privileged. The copy mirrors the hub's team settings
+    Ordered most to least privileged. The copy mirrors the team settings
     screen: developers see sandbox credentials and API resources, support sees
-    the inbox, admins manage everything except billing and legal info.
+    the ticket inbox, admins manage the team, products and reviews.
     """
 
     OWNER = "owner", _("Owner")

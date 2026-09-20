@@ -1,16 +1,16 @@
 {% extends 'experiences/base.html' %}
 
 {% block crumb_root %}
-  {% include 'components/crumb.html' with label='Organizations' %}
+  {% include 'components/crumb.html' with label='Organisations' %}
 {% endblock crumb_root %}
 {% block portal_hero %}
   <div class="ui-hero">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
         <a class="ui-hero-back min-h-9"
-           href="{% url 'experiences:organizations' %}"><span aria-hidden="true">‹</span> Organizations</a>
+           href="{% url 'experiences:organizations' %}"><span aria-hidden="true">‹</span> Organisations</a>
         <h1 class="ui-hero-title">{{ organization.display_name }}</h1>
-        <p class="ui-hero-lede">{{ organization_details.description|default:'Organization verification and review activity.' }}</p>
+        <p class="ui-hero-lede">{{ organization_details.description|default:'Organisation verification and review activity.' }}</p>
       </div>
       <div class="ui-rise [animation-delay:.05s]">
         {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
@@ -88,7 +88,7 @@
              aria-labelledby="organization-reviews-title">
       <div class="ui-card-header px-6 pt-5 pb-4">
         <h2 class="ui-card-title" id="organization-reviews-title">Review requests</h2>
-        <p class="ui-card-description">Organization and application reviews within your permission scope.</p>
+        <p class="ui-card-description">Organisation and application reviews within your permission scope.</p>
       </div>
       <ul class="divide-y divide-soft-border border-t border-soft-border">
         {% for item in review_requests %}

@@ -3,7 +3,7 @@
 {% load experience_ui %}
 
 {% block crumb_root %}
-  {% include 'components/crumb.html' with label='Organizations' %}
+  {% include 'components/crumb.html' with label='Organisations' %}
 {% endblock crumb_root %}
 {% block portal_hero %}
   <div class="ui-hero pt-4 pb-16">
@@ -64,7 +64,7 @@
         {% if review_groups.rejected %}
           <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-soft-border bg-soft-background/50 px-5 py-2.5">
             <h3 class="ui-kicker">Rejected · {{ review_groups.rejected|length }}</h3>
-            <p class="text-xs text-soft-foreground">Waiting on the integrator. Accept all and Reject all don't include these.</p>
+            <p class="text-xs text-soft-foreground">Waiting on the integrator. These are not included in Accept all or Reject all.</p>
           </div>
           <div class="divide-y divide-soft-border border-t border-soft-border">
             {% include 'experiences/partials/product_review_rows.html' with sections=review_groups.rejected %}

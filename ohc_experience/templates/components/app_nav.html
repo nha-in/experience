@@ -28,7 +28,7 @@
           <li><a id="nav-organizations"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'organizations' %}ui-nav-link--active{% endif %}"
    {% if nav == 'organizations' %}aria-current="page"{% endif %}
-   href="{% url 'experiences:organizations' %}">{% include "components/nav_icon.html" with icon="organisation" %}Organizations</a></li>
+   href="{% url 'experiences:organizations' %}">{% include "components/nav_icon.html" with icon="organisation" %}Organisations</a></li>
           {% if can_read_general and experience_program.production_credentials %}
             <li><a id="nav-production"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'production' %}ui-nav-link--active{% endif %}"

@@ -1,7 +1,7 @@
 {% extends 'experiences/base.html' %}
 
 {% block crumb_root %}
-  {% include 'components/crumb.html' with label='Organizations' %}
+  {% include 'components/crumb.html' with label='Organisations' %}
 {% endblock crumb_root %}
 {% block portal_hero %}
   <div class="ui-hero">
@@ -38,10 +38,10 @@
                type="search" />
       </div>
       <div class="min-w-0">
-        <label class="ui-label" for="product-organization">Organization</label>
+        <label class="ui-label" for="product-organization">Organisation</label>
         <div class="ui-select-wrapper">
           <select class="ui-select" id="product-organization" name="organization">
-            <option value="">All organizations</option>
+            <option value="">All organisations</option>
             {% for choice in organization_choices %}
               <option value="{{ choice.slug }}"
                       {% if choice.slug == selected_organization %}selected{% endif %}>{{ choice.display_name }}</option>
@@ -94,7 +94,7 @@
         <div class="px-5 py-12 text-center">
           {% if search or selected_organization or selected_solution_type %}
             <h2 class="text-base font-semibold">No products match these filters</h2>
-            <p class="mt-2 text-sm text-soft-foreground">Try another name or reference, or widen the organization or solution type.</p>
+            <p class="mt-2 text-sm text-soft-foreground">Try another name or reference, or widen the organisation or solution type.</p>
           {% else %}
             <h2 class="text-base font-semibold">No products available</h2>
             <p class="mt-2 text-sm text-soft-foreground">Products will appear when a review request matches your permissions.</p>

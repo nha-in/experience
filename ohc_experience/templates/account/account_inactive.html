@@ -14,8 +14,8 @@
 {% endblock entrance_lede %}
 {% block entrance_body %}
   <p class="text-sm leading-relaxed text-muted-foreground">
-    {% translate "An owner or admin in your organisation can remove and re-invite you, or the Care team can reactivate the account if it was deactivated by mistake. Reply to any mail you have had from the Care team and we will pick it up." %}
+    {% translate "An owner or admin in your organisation can remove and re-invite you. If the account was deactivated in error, the NHA team can reactivate it — reply to any email you have received from them." %}
   </p>
   <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
-     href="{% url 'home' %}">{% translate "Back to the hub" %}</a>
+     href="{% url 'home' %}">{% translate "Back to the sandbox" %}</a>
 {% endblock entrance_body %}

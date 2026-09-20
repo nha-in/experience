@@ -14,8 +14,8 @@
 {% endblock entrance_lede %}
 {% block entrance_body %}
   <p class="text-sm leading-relaxed text-muted-foreground">
-    {% translate "If someone from your organisation is already on the hub, ask them to invite you — invited accounts still work while signups are closed. Otherwise please try again later." %}
+    {% translate "If someone from your organisation already has an account, ask them to invite you — invited accounts still work while signups are closed. Otherwise please try again later." %}
   </p>
   <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
-     href="{% url 'home' %}">{% translate "Back to the hub" %}</a>
+     href="{% url 'home' %}">{% translate "Back to the sandbox" %}</a>
 {% endblock entrance_body %}

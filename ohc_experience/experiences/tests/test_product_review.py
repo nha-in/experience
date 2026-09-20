@@ -197,7 +197,7 @@ def test_product_review_lists_open_requests_first_and_folds_approved_ones(
     ]
     assert groups["approved"][1]["item"] == m1
     content = " ".join(response.content.decode().split())
-    assert "Accept all and Reject all don't include these." in content
+    assert "These are not included in Accept all or Reject all." in content
     assert "Approved · 2</h3>" in content
     assert "Organisation verification, M1" in content
     assert (

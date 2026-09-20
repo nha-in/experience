@@ -5,7 +5,7 @@
   "products").
 {% endcomment %}
 <nav class="ui-switch mt-4 flex w-full sm:inline-flex sm:w-auto"
-     aria-label="Organizations and products"
+     aria-label="Organisations and products"
      hx-boost="true"
      hx-target="#main-content"
      hx-select="#main-content"
@@ -16,7 +16,7 @@
      href="{% url 'experiences:organizations' %}"
      {% if tab == 'organizations' %}aria-current="page"{% endif %}>
     {% include 'components/nav_icon.html' with icon='organisation' %}
-    Organizations
+    Organisations
   </a>
   <a class="ui-switch-option min-h-11 flex-1 justify-center gap-2 sm:min-h-9 sm:flex-none [&>svg]:size-4"
      href="{% url 'experiences:products' %}"

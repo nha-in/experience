@@ -11,7 +11,7 @@
     <input type="hidden" name="{{ field.html_name }}" value="{{ value }}" />
   {% endfor %}
   <p id="milestone-picker-hint"
-     class="mb-4 text-xs leading-relaxed text-soft-foreground">Grouped by track. Each selected milestone gets its own exit request; milestones open in order on each track. An approved milestone cannot be removed, and one under review only once its request is withdrawn.</p>
+     class="mb-4 text-xs leading-relaxed text-soft-foreground">Grouped by track. Each milestone you select becomes its own exit request, and milestones open in order within a track. Approved milestones cannot be removed. To remove one that is under review, withdraw its request first.</p>
   {% for error in field.errors %}
     <p class="ui-error mb-2"
        id="{{ field.auto_id }}-error-{{ forloop.counter }}"

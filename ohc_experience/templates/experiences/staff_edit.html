@@ -94,7 +94,7 @@
           </div>
           <div class="staff-editor-permission-note">
             {% include 'components/nav_icon.html' with icon='credentials' %}
-            <p>Read is required for write or approve. Review actions also require assignment.</p>
+            <p>Write and approve each require read access. Reviewers must also be assigned to a request before they can act on it.</p>
           </div>
           <div class="staff-editor-groups">
             {% for group in form.permission_groups %}

@@ -386,7 +386,7 @@ def products(request):
 
 def _require_reviewer_area(user):
     if not permissions.reviewer(user):
-        msg = "Only authorized reviewers can access organizations."
+        msg = "Only authorised reviewers can access organisations."
         raise PermissionDenied(msg)
     permissions.require_area(user, "review")
 
@@ -490,7 +490,7 @@ def organizations(request):
         "experiences/organizations.html",
         _context(
             request,
-            page_title="Organizations",
+            page_title="Organisations",
             nav="organizations",
             organizations=_page(request, rows),
             search=search,

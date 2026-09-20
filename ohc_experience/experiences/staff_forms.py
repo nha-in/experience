@@ -180,7 +180,7 @@ class StaffForm(forms.Form):
             ):
                 self.add_error(
                     read.name,
-                    "Read is required for write or approve access.",
+                    "Write and approve each require read access.",
                 )
         return data
 

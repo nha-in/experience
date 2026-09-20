@@ -5,8 +5,8 @@
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
         <p class="ui-hero-eyebrow">{{ experience_program.review_heading }}</p>
-        <h1 class="ui-hero-title">Organizations</h1>
-        <p class="ui-hero-lede">Organizations represented in the review requests you can access.</p>
+        <h1 class="ui-hero-title">Organisations</h1>
+        <p class="ui-hero-lede">Organisations represented in the review requests you can access.</p>
         {% include 'experiences/partials/organization_tabs.html' with tab='organizations' %}
       </div>
     </div>
@@ -26,12 +26,12 @@
           hx-trigger="change, submit"
           hx-push-url="true">
       <div class="min-w-0">
-        <label class="ui-label" for="organization-search">Search organizations</label>
+        <label class="ui-label" for="organization-search">Search organisations</label>
         <input class="ui-input"
                id="organization-search"
                name="q"
                value="{{ search }}"
-               placeholder="Organization or legal name"
+               placeholder="Organisation or legal name"
                type="search" />
       </div>
       <div class="min-w-0">
@@ -97,15 +97,15 @@
       {% empty %}
         <div class="px-5 py-12 text-center">
           {% if filtered %}
-            <h2 class="text-base font-semibold">No organizations match these filters</h2>
+            <h2 class="text-base font-semibold">No organisations match these filters</h2>
             <p class="mt-2 text-sm text-soft-foreground">Try another name, or widen the verification, type or state filters.</p>
           {% else %}
-            <h2 class="text-base font-semibold">No organizations available</h2>
-            <p class="mt-2 text-sm text-soft-foreground">Organizations will appear when a review request matches your permissions.</p>
+            <h2 class="text-base font-semibold">No organisations available</h2>
+            <p class="mt-2 text-sm text-soft-foreground">Organisations will appear when a review request matches your permissions.</p>
           {% endif %}
         </div>
       {% endfor %}
     </div>
-    {% include 'components/pagination.html' with page=organizations label='Organizations pagination' %}
+    {% include 'components/pagination.html' with page=organizations label='Organisations pagination' %}
   </div>
 {% endblock portal_content %}
