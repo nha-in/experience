@@ -21,6 +21,7 @@ MILESTONES = {
             "m1",
             "Link care contexts and share health records with consent.",
             docs_page("/docs/hiecm/v3/milestones/m2"),
+            needs_callback=True,
         ),
         MilestoneDefinition(
             "m3",
@@ -29,6 +30,7 @@ MILESTONES = {
             "m1",
             "Request consent and retrieve health records held by other providers.",
             docs_page("/docs/hiecm/v3/milestones/m3"),
+            needs_callback=True,
         ),
         MilestoneDefinition(
             "m4",
@@ -45,6 +47,7 @@ MILESTONES = {
             "m1",
             "Help people discover, link and control access to their health records.",
             docs_page("/docs/hiecm/v3/milestones/p1"),
+            needs_callback=True,
         ),
         MilestoneDefinition(
             "locker1",
@@ -55,6 +58,7 @@ MILESTONES = {
             docs_url=docs_page(
                 "/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
             ),
+            needs_callback=True,
         ),
         MilestoneDefinition(
             "uhi1",
@@ -64,6 +68,7 @@ MILESTONES = {
             "Join the network for discovery, booking and delivery of health services.",
             docs_page("/docs/uhi/v1"),
             related=("m2",),
+            needs_callback=True,
         ),
         MilestoneDefinition(
             "nhcx1",
@@ -72,6 +77,7 @@ MILESTONES = {
             "m1",
             "Exchange health insurance claims and pre-authorisation requests.",
             docs_page("/docs/nhcx/v1"),
+            needs_callback=True,
         ),
     )
 }

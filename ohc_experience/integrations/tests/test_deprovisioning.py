@@ -45,9 +45,10 @@ def test_teardown_disables_all_three(provision, teardown):
     assert record["enabled"] is False
 
 
-def test_the_bridge_and_the_subscription_go_too(provision, teardown):
+def test_the_bridge_and_the_subscription_go_too(provision, register_bridge, teardown):
     """Disabling the client alone leaves gateway access and the bridge live."""
     product = provision()
+    register_bridge()
     wso2 = ProvisionedResource.objects.get(
         product=product,
         system=ProvisionedSystem.WSO2,
@@ -137,10 +138,15 @@ def test_re_running_the_teardown_is_harmless(provision, teardown):
 
 
 @override_settings(PROVISIONING_MAX_ATTEMPTS=1)
-def test_one_failed_step_does_not_strand_the_others(provision, teardown):
+def test_one_failed_step_does_not_strand_the_others(
+    provision,
+    register_bridge,
+    teardown,
+):
     """The opposite rule to provisioning: a resource left on is a live credential,
     so a step that gives up must still let the next one run."""
     product = provision()
+    register_bridge()
     always_fail(ExternalSystem.KEYCLOAK, code="REALM_DOWN", retryable=True)
 
     teardown()

@@ -664,12 +664,6 @@ SECRET_REF_TTL_SECONDS = env.int("SECRET_REF_TTL_SECONDS", default=900)
 HIECM_BASE_URL = env.str("HIECM_BASE_URL", default="https://hiecm.invalid")
 HIECM_API_PATH = env.str("HIECM_API_PATH", default="/api/v3")
 HIECM_CM_ID = env.str("HIECM_CM_ID", default="sbx")
-# Where HIE-CM delivers an integrator's gateway callbacks. `.invalid` by default,
-# so an unconfigured deployment cannot quietly publish somebody else's host.
-HIECM_BRIDGE_CALLBACK_BASE_URL = env.str(
-    "HIECM_BRIDGE_CALLBACK_BASE_URL",
-    default="https://bridge.invalid",
-)
 
 # PROVISIONING CHAIN
 # ------------------------------------------------------------------------------

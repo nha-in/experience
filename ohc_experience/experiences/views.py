@@ -37,6 +37,7 @@ from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.integrations.selectors import awaiting_provisioning
+from ohc_experience.integrations.selectors import bridge_state
 from ohc_experience.integrations.selectors import provisioning_can_be_retried
 from ohc_experience.integrations.selectors import provisioning_progress
 from ohc_experience.integrations.services import start_provisioning
@@ -1421,6 +1422,14 @@ def _save_track_evidence(request, item):
     return *result, notice
 
 
+def _callback_missing(workspace, tile):
+    """This milestone's flows call back and no URL is saved."""
+    if tile is None or not tile["definition"].needs_callback:
+        return False
+    credential = ProductCredential.objects.filter(product=workspace.product).first()
+    return credential is not None and not credential.callback_url
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def track(request, reference, track_code):
@@ -1480,6 +1489,7 @@ def track(request, reference, track_code):
             nav=track_code,
             track=track_data,
             tile=tile,
+            callback_missing=_callback_missing(workspace, tile),
             item=item,
             form=form,
             can_edit=services.can_edit_review(item) if item else False,
@@ -1624,6 +1634,20 @@ def pending_queries(request):
     )
 
 
+def _credential_notice(intent, credential):
+    """Registration runs on a worker, so a save cannot report its outcome."""
+    if intent == "check":
+        return "Callback check complete."
+    if intent == "callback" and not credential.callback_url:
+        return "Callback URL cleared."
+    if intent in {"callback", "register"}:
+        return (
+            "Saved. Registering it with the gateway — reload in a few minutes to see "
+            "whether it went through."
+        )
+    return "Credentials updated."
+
+
 @login_required
 @never_cache
 @require_http_methods(["GET", "POST"])
@@ -1659,6 +1683,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 page_title=workspace.definition.sandbox_credentials.name,
                 demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
                 progress=provisioning_progress(workspace.product),
+                bridge=bridge_state(workspace.product),
                 production=production,
                 activity=activity,
                 secret=secret,
@@ -1684,6 +1709,8 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 credential_services.revoke(credential, request.user)
             elif intent == "check":
                 credential_services.check_callback(credential, request.user)
+            elif intent == "register":
+                credential_services.retry_bridge(credential, request.user)
             elif intent == "callback":
                 form = CallbackURLForm(request.POST)
                 if form.is_valid():
@@ -1704,6 +1731,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                             nav="credentials",
                             page_title=workspace.definition.sandbox_credentials.name,
                             progress=provisioning_progress(workspace.product),
+                            bridge=bridge_state(workspace.product),
                             production=production,
                             activity=activity,
                         ),
@@ -1711,12 +1739,9 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             else:
                 msg = "Choose a valid credential action."
                 raise ValidationError(msg)  # noqa: TRY301
-            messages.success(
-                request,
-                "Credentials updated."
-                if intent != "check"
-                else "Callback check complete.",
-            )
+            # `save_callback_url` wrote through its own locked copy.
+            credential.refresh_from_db()
+            messages.success(request, _credential_notice(intent, credential))
             return redirect("experiences:credentials", reference=reference)
         except ValidationError as error:
             if request.POST.get("intent") == "reveal" and request.htmx:
@@ -1742,6 +1767,7 @@ def credentials(request, reference):  # noqa: C901, PLR0912
             page_title=workspace.definition.sandbox_credentials.name,
             demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
             progress=provisioning_progress(workspace.product),
+            bridge=bridge_state(workspace.product),
             production=production,
             activity=activity,
         ),

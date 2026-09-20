@@ -223,6 +223,9 @@ class MilestoneDefinition:
     #: `predecessor`, none of these is required before this milestone can be
     #: submitted, decided, or, for an auto-approved one, recorded.
     related: tuple[str, ...] = ()
+    #: Whether the gateway calls back for this milestone's flows. Only these
+    #: need a callback URL, and therefore a bridge.
+    needs_callback: bool = False
 
 
 @dataclass(frozen=True)

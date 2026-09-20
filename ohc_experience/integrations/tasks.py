@@ -1,9 +1,12 @@
-"""The provisioning chain — Keycloak, then WSO2, then HIE-CM.
+"""The provisioning chain — Keycloak, then WSO2 — and the HIE-CM bridge sync.
 
 Order is forced by the data: WSO2 maps the Keycloak client's credentials as its
-consumer key, and the bridge is named after that same client. Each step is
-ledger-guarded, so a chain that dies half-way and is re-run finishes the missing
-systems instead of creating a second set.
+consumer key. Each step is ledger-guarded, so a chain that dies half-way and is
+re-run finishes the missing systems instead of creating a second set.
+
+The bridge is not in the chain: it routes to the integrator's own endpoint, so
+it follows whatever they save. `create_bridge` is a PUT, so create and update
+are one call.
 
 The correlation id travels as a message header, bound before every task body by
 `config.celery_app`. A `ContextVar` does not survive `on_commit` -> broker ->
@@ -283,30 +286,87 @@ def provision_wso2(task: Task, product_id: int) -> int:
 
 
 @shared_task(bind=True, max_retries=None)
-def provision_hiecm(task: Task, product_id: int) -> int:
-    def run(product: Product) -> None:
-        client = _ledger_row(product, ProvisionedSystem.KEYCLOAK)
-        if client is None:
-            message = "the bridge is named after a Keycloak client that is missing"
-            raise ImproperlyConfigured(message)
+def sync_bridge(task: Task, product_id: int) -> int:
+    """Register the integrator's callback URL with HIE-CM, or update it.
 
-        bridge_id = client.public_ref
+    Unlike a chain step it does not skip an ACTIVE row: the URL changed.
+    """
+    product = Product.objects.get(pk=product_id)
+    credential = getattr(product, "credential", None)
+    if credential is None or not credential.callback_url:
+        return product_id
+
+    client = _ledger_row(product, ProvisionedSystem.KEYCLOAK)
+    if client is None:
+        logger.error(
+            "no bridge for %s: the Keycloak client it is named after is missing",
+            _reference(product),
+        )
+        _record_bridge_failure(product, "", "the Keycloak client is missing")
+        return product_id
+
+    try:
         get_bridge_registry().create_bridge(
             BridgeSpec(
-                bridge_id=bridge_id,
+                bridge_id=client.public_ref,
                 name=_external_name(product),
-                url=_callback_url(product),
+                url=credential.callback_url,
                 entity=_bridge_entity(product),
             ),
         )
-        _record(
-            product,
-            ProvisionedSystem.HIECM,
-            external_ref=bridge_id,
-            public_ref=bridge_id,
+    except AdapterError as error:
+        attempts = task.request.retries + 1
+        if error.retryable and attempts < settings.PROVISIONING_MAX_ATTEMPTS:
+            raise task.retry(countdown=_backoff(task.request.retries)) from error
+        logger.exception(
+            "registering the bridge for %s failed after %s attempts",
+            _reference(product),
+            attempts,
         )
+        _record_bridge_failure(product, client.public_ref, error.message)
+        return product_id
 
-    return _step(task, product_id, ProvisionedSystem.HIECM, run)
+    _record(
+        product,
+        ProvisionedSystem.HIECM,
+        external_ref=client.public_ref,
+        public_ref=client.public_ref,
+    )
+    audit(
+        actor=None,
+        action="Bridge registered",
+        product=product,
+        detail={"url": credential.callback_url},
+    )
+    return product_id
+
+
+def _record_bridge_failure(product: Product, bridge_id: str, detail: str) -> None:
+    """A FAILED row, because absence here also means "no URL saved yet"."""
+    ProvisionedResource.objects.update_or_create(
+        product=product,
+        system=ProvisionedSystem.HIECM,
+        defaults={
+            "external_ref": bridge_id,
+            "public_ref": bridge_id,
+            "state": ProvisionedResourceState.FAILED,
+        },
+    )
+    audit(
+        actor=None,
+        action="Bridge registration failed",
+        product=product,
+        detail={"detail": detail[: settings.PROVISIONING_DETAIL_MAX_CHARS]},
+    )
+
+
+def enqueue_bridge_sync(product: Product) -> None:
+    """Send the sync after the caller's transaction commits.
+
+    The task re-reads the URL, so two saves cannot register out of order.
+    """
+    product_id = product.pk
+    transaction.on_commit(lambda: sync_bridge.delay(product_id))
 
 
 def _abandon(task: Task, product: Product, detail: str) -> None:
@@ -343,7 +403,7 @@ def complete_provisioning(task: Task, product_id: int) -> int:
             state=ProvisionedResourceState.ACTIVE,
         ).values_list("system", flat=True),
     )
-    missing = set(ProvisionedSystem.values) - done
+    missing = set(REQUIRED_SYSTEMS) - done
     if missing:
         # A step that already failed recorded a better reason than anything
         # derivable here. An open attempt means the ledger is short with
@@ -413,16 +473,6 @@ def _external_name(product: Product) -> str:
     return name or _NON_ALPHANUMERIC.sub(" ", _reference(product)).strip()
 
 
-def _callback_url(product: Product) -> str:
-    """Where HIE-CM delivers this integrator's gateway callbacks.
-
-    Ours rather than the integrator's own endpoint, which is not known until
-    they save it — every bridge pointing at one shared bin is what this avoids.
-    """
-    base = settings.HIECM_BRIDGE_CALLBACK_BASE_URL.rstrip("/")
-    return f"{base}/{_reference(product)}"
-
-
 def _bridge_entity(product: Product) -> str:
     """The bridge's `entity`, valued as legacy sent it."""
     entity_type = product.organisation.entity_type
@@ -434,7 +484,11 @@ def _bridge_entity(product: Product) -> str:
 
 
 #: The chain, in the order the data forces.
-CHAIN = (provision_keycloak, provision_wso2, provision_hiecm, complete_provisioning)
+CHAIN = (provision_keycloak, provision_wso2, complete_provisioning)
+
+#: What `PROVISIONED` is a claim about. Not the bridge: it waits on a callback
+#: URL only the integrator can give.
+REQUIRED_SYSTEMS = frozenset({ProvisionedSystem.KEYCLOAK, ProvisionedSystem.WSO2})
 
 
 def enqueue_chain(

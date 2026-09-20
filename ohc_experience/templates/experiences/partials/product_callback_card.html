@@ -55,6 +55,32 @@
               <p class="mt-1.5 text-sm text-muted-foreground">Not checked yet. Save a callback URL and test it.</p>
             {% endif %}
           </div>
+          <div class="border-t border-primary/10 pt-3.5">
+            <span class="ui-kicker block">Gateway registration</span>
+            <div class="mt-1.5">
+              {% if credential.status != 'active' %}
+                <p class="text-sm text-muted-foreground">These credentials are revoked, and the gateway no longer routes to this URL.</p>
+              {% elif bridge == 'registered' %}
+                {% include 'experiences/partials/status.html' with status='registered' label='Registered' %}
+              {% elif bridge == 'failed' %}
+                {% include 'experiences/partials/status.html' with status='rejected' label='Not registered' %}
+                <p class="mt-2 text-xs leading-relaxed text-red-700">The gateway did not accept this URL. Try again, or contact support if it keeps failing.</p>
+              {% elif credential.callback_url %}
+                {% include 'experiences/partials/status.html' with status='in_review' label='Registering' %}
+                <p class="mt-2 text-xs leading-relaxed text-soft-foreground">Reload this page in a moment to see whether it went through.</p>
+              {% else %}
+                <p class="text-sm text-muted-foreground">Save a callback URL and the gateway is told where to reach you.</p>
+              {% endif %}
+            </div>
+            {% if bridge == 'failed' and credential.status == 'active' %}
+              <form method="post" class="mt-3">
+                {% csrf_token %}
+                <button class="ui-btn ui-btn--outline ui-btn--size-sm ui-btn--block bg-card shadow-md"
+                        name="intent"
+                        value="register">Try registering again</button>
+              </form>
+            {% endif %}
+          </div>
           <form id="callback-test-form" method="post">
             {% csrf_token %}
             <button class="ui-btn ui-btn--outline ui-btn--size-sm ui-btn--block bg-card shadow-md"

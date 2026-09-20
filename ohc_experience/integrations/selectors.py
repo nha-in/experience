@@ -30,6 +30,10 @@ SYSTEM_LABELS: dict[str, StrOrPromise] = {
     ProvisionedSystem.HIECM: _("Bridge"),
 }
 
+#: The bridge is left out: it would read "Not set up" forever for the
+#: integrators who never need one.
+CHAIN_SYSTEMS = (ProvisionedSystem.KEYCLOAK, ProvisionedSystem.WSO2)
+
 _VARIANTS = {
     ProvisionedResourceState.ACTIVE: "success",
     ProvisionedResourceState.FAILED: "destructive",
@@ -58,7 +62,11 @@ def provisioning_progress(product: Product) -> list[SystemProgress]:
     whether there is anything to show.
     """
     rows = {
-        row.system: row for row in ProvisionedResource.objects.filter(product=product)
+        row.system: row
+        for row in ProvisionedResource.objects.filter(
+            product=product,
+            system__in=CHAIN_SYSTEMS,
+        )
     }
     if not rows:
         return []
@@ -75,7 +83,7 @@ def provisioning_progress(product: Product) -> list[SystemProgress]:
             if system in rows
             else "neutral",
         )
-        for system in ProvisionedSystem.values
+        for system in CHAIN_SYSTEMS
     ]
 
 
@@ -104,3 +112,22 @@ def teardown_is_incomplete(product: Product) -> bool:
         product=product,
         state__in=TEARDOWN_PENDING_STATES,
     ).exists()
+
+
+def bridge_state(product: Product) -> str:
+    """What to tell the integrator about their callback's registration.
+
+    "none" covers both "no URL saved" and "saved, worker not there yet"; the
+    page tells those apart, because it knows whether a URL is saved.
+    """
+    row = ProvisionedResource.objects.filter(
+        product=product,
+        system=ProvisionedSystem.HIECM,
+    ).first()
+    if row is None:
+        return "none"
+    if row.state == ProvisionedResourceState.ACTIVE:
+        return "registered"
+    if row.state == ProvisionedResourceState.FAILED:
+        return "failed"
+    return "none"

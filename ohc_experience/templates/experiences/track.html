@@ -78,6 +78,16 @@
             {% else %}
               {% include 'experiences/partials/review_status.html' %}
             {% endif %}
+            {% if callback_missing %}
+              <div class="ui-alert ui-alert--warning mb-5" role="status">
+                <div class="flex-1">
+                  <strong>No callback URL saved</strong>
+                  <p class="mt-1 text-xs">
+                    {{ tile.definition.code }} flows have the gateway call your software back, and it has nowhere to reach you. <a class="font-semibold no-underline hover:underline" href="{% url 'experiences:credentials' workspace.reference %}">Add a callback URL</a>.
+                  </p>
+                </div>
+              </div>
+            {% endif %}
             {% if locked_by %}
               <div class="mx-auto max-w-[480px] px-4 py-10 text-center"
                    data-milestone-locked>

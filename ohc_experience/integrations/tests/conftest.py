@@ -1,4 +1,4 @@
-"""A registered product, and the two chains a caller can put it through.
+"""A registered product, and the chains a caller can put it through.
 
 `provision` and `teardown` are callables rather than fixtures because what they
 cause is the subject: a test arms a local adapter to fail, *then* runs one.
@@ -13,9 +13,11 @@ from __future__ import annotations
 import pytest
 
 from ohc_experience.abdm.demo import product_data
+from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.workflows import register_product
 from ohc_experience.integrations.services import provision_inline
 from ohc_experience.integrations.tasks import TEARDOWN
+from ohc_experience.integrations.tasks import sync_bridge
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import MembershipFactory
@@ -64,3 +66,20 @@ def teardown(product):
         return product
 
     return _teardown
+
+
+CALLBACK_URL = "https://integrator.example/abdm/callback"
+
+
+@pytest.fixture
+def register_bridge(product):
+    """A bridge exists only because a callback URL was saved."""
+
+    def _register(url=CALLBACK_URL):
+        credential = ProductCredential.objects.get(product=product)
+        credential.callback_url = url
+        credential.save(update_fields=["callback_url"])
+        sync_bridge(product.pk)
+        return credential
+
+    return _register

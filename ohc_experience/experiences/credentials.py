@@ -15,6 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from ohc_experience.integrations.credentials import rotate_client
+from ohc_experience.integrations.services import start_bridge_sync
 from ohc_experience.integrations.services import start_deprovisioning
 
 from .models import ProductCredential
@@ -133,6 +134,18 @@ def save_callback_url(credential, actor, url):
         product=credential.product,
         detail={"before": previous, "after": url},
     )
+    # On every save, not only a change: re-saving is how a failure is retried.
+    if url:
+        start_bridge_sync(credential.product)
+
+
+def retry_bridge(credential, actor):
+    require_integrator(actor, credential.product.organisation)
+    rate_limit(actor, "register", limit=2)
+    if not credential.callback_url:
+        msg = "Save a callback URL first."
+        raise ValidationError(msg)
+    start_bridge_sync(credential.product)
 
 
 def public_callback_target(url):

@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ohc_experience.integrations.tasks import CHAIN
+from ohc_experience.integrations.tasks import enqueue_bridge_sync
 from ohc_experience.integrations.tasks import enqueue_chain
 from ohc_experience.integrations.tasks import enqueue_teardown
 
@@ -30,6 +31,11 @@ def start_provisioning(
     started_by: AbstractBaseUser | None = None,
 ) -> None:
     enqueue_chain(product, started_by=started_by)
+
+
+def start_bridge_sync(product: Product) -> None:
+    """Register the saved callback URL with HIE-CM, or update what is there."""
+    enqueue_bridge_sync(product)
 
 
 def start_deprovisioning(product: Product) -> None:

@@ -189,7 +189,6 @@ For the **HIE-CM adapter and integrator-facing gateway URL**, configure:
 | Variable | Requirement / default | Legacy variable |
 | --- | --- | --- |
 | `HIECM_BASE_URL` | **Set the actual internal service URL.** Default: `https://hiecm.invalid`. | `HIE_CM_GATEWAY_BASE_URI` |
-| `HIECM_BRIDGE_CALLBACK_BASE_URL` | **Set the actual callback base URL.** Default: `https://bridge.invalid`. The product reference is appended automatically. | none; legacy registered one fixed placeholder URL for every bridge |
 | `HIECM_API_PATH` | Default: `/api/v3`. | Hard-coded in legacy |
 | `HIECM_CM_ID` | Default: `sbx`. | `HIE_CM_CM_ID` |
 | `ABDM_GATEWAY_URL` | Gateway URL exposed with credentials. Default: `https://dev.abdm.gov.in/gateway`. | none |

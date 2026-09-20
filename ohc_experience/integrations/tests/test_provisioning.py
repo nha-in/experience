@@ -20,13 +20,12 @@ from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.secret_ref import discard_secret
 from ohc_experience.integrations.tasks import _external_name
 from ohc_experience.integrations.tasks import complete_provisioning
-from ohc_experience.integrations.tasks import provision_hiecm
 from ohc_experience.integrations.tasks import provision_keycloak
 from ohc_experience.integrations.tasks import provision_wso2
 
 pytestmark = pytest.mark.django_db
 
-ALL_SYSTEMS = set(ProvisionedSystem.values)
+CHAINED_SYSTEMS = {ProvisionedSystem.KEYCLOAK, ProvisionedSystem.WSO2}
 BACKOFF_SEQUENCE = [120, 240, 480, 900]
 
 
@@ -55,10 +54,11 @@ def _stored_secret(product) -> str:
 # ── The seam: registration reaches the chain ─────────────────────────────────
 
 
-def test_registration_provisions_all_three_systems(provision):
+def test_registration_provisions_the_chained_systems(provision):
+    """Not the bridge: it waits on a callback URL."""
     product = provision()
 
-    assert _systems(product) == ALL_SYSTEMS
+    assert _systems(product) == CHAINED_SYSTEMS
 
 
 def test_registration_opens_an_attempt_record_and_closes_it_ready(provision):
@@ -118,13 +118,12 @@ def test_the_keycloak_row_carries_both_references(provision):
     assert row.external_ref != row.public_ref
 
 
-def test_the_bridge_is_named_after_the_client(provision):
+def test_provisioning_registers_no_bridge(provision):
     product = provision()
 
-    rows = {row.system: row for row in product.provisioned_resources.all()}
-    assert rows[ProvisionedSystem.HIECM].external_ref == (
-        rows[ProvisionedSystem.KEYCLOAK].public_ref
-    )
+    assert not product.provisioned_resources.filter(
+        system=ProvisionedSystem.HIECM,
+    ).exists()
 
 
 def test_re_running_the_chain_creates_nothing_new(provision):
@@ -210,10 +209,9 @@ def test_completion_refuses_an_incomplete_ledger(product):
 
 
 def test_a_failure_to_publish_closes_the_attempt(product):
-    """Three live systems and no credential is still a failure, not a run in flight."""
+    """Both live systems and no credential is still a failure, not a run in flight."""
     provision_keycloak.delay(product.pk)
     provision_wso2.delay(product.pk)
-    provision_hiecm.delay(product.pk)
     client = ProvisionedResource.objects.get(
         product=product,
         system=ProvisionedSystem.KEYCLOAK,
@@ -241,15 +239,15 @@ def test_a_failed_chain_records_the_failure_once(provision):
 
 def test_a_re_run_finishes_only_the_missing_system(provision):
     """A retry is the same call: every ACTIVE system is skipped."""
-    fail_next(ExternalSystem.HIECM, "create_bridge", retryable=False)
+    fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
     product = provision()
-    assert _systems(product) == {ProvisionedSystem.KEYCLOAK, ProvisionedSystem.WSO2}
+    assert _systems(product) == {ProvisionedSystem.KEYCLOAK}
     before = _refs(product)
 
     ProvisioningRun.objects.create(product=product)
     provision()
 
-    assert _systems(product) == ALL_SYSTEMS
+    assert _systems(product) == CHAINED_SYSTEMS
     assert before.items() <= _refs(product).items()
 
 
@@ -275,7 +273,6 @@ def test_a_parked_secret_that_aged_out_is_re_minted_at_publication(product):
     )
     discard_secret(client.secret_ref)
     provision_wso2.delay(product.pk)
-    provision_hiecm.delay(product.pk)
 
     complete_provisioning.delay(product.pk)
 

@@ -1488,7 +1488,7 @@ def test_an_integrator_cannot_restart_a_chain(environment, client):
 
 def test_the_product_page_offers_the_retry_too(environment, client):
     """The page an operator reaches a broken product from, not only its request."""
-    fail_next(ExternalSystem.HIECM, "create_bridge", retryable=False)
+    fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
     _org, product = _pending_organisation(environment)
     provision_inline(product)
     url = reverse("experiences:product-detail", args=[product.workspace.reference])

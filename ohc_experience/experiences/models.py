@@ -673,6 +673,14 @@ class ProductWorkspace(models.Model):
         labels = self.definition.solution_types
         return ", ".join(labels.get(key, key) for key in self.solution_type)
 
+    @property
+    def needs_callback(self):
+        """Whether any milestone this product is doing has the gateway call back."""
+        return any(
+            milestone.definition.needs_callback
+            for milestone in self.product.milestones.filter(enabled=True)
+        )
+
 
 class Milestone(models.Model):
     product = models.ForeignKey(

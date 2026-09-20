@@ -564,8 +564,8 @@ def test_a_plain_http_callback_url_is_refused(environment, client):
 
 @pytest.mark.django_db
 def test_a_pending_panel_shows_what_each_system_is_doing(environment, client):
-    """ "No credentials yet" and "the bridge never happened" must not look alike."""
-    fail_next(ExternalSystem.HIECM, "create_bridge", retryable=False)
+    """ "No credentials yet" and "the gateway never happened" must not look alike."""
+    fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
     workspace, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
@@ -581,4 +581,79 @@ def test_a_pending_panel_shows_what_each_system_is_doing(environment, client):
 
     assert "Provisioning in progress" in html
     assert "Identity" in html
-    assert "Bridge" in html
+    assert "Gateway" in html
+
+
+def _track_url(workspace, milestone):
+    return (
+        reverse("experiences:track", args=[workspace.reference, "HIE-CM"])
+        + f"?milestone={milestone}"
+    )
+
+
+@pytest.mark.django_db
+def test_an_m1_only_product_is_never_asked_for_a_callback_url(environment, client):
+    """The gateway never calls an M1-only integrator back."""
+    workspace, form = workflows.register_product(
+        environment["org"],
+        environment["applicant"],
+        data=product_data("Identity only") | {"applied_milestones": ["HIE-CM:m1"]},
+    )
+    assert workspace, form.errors
+    provision_inline(workspace.product)
+    client.force_login(environment["applicant"])
+
+    html = client.get(
+        reverse("experiences:credentials", args=[workspace.reference]),
+    ).content.decode()
+
+    assert workspace.needs_callback is False
+    assert "Callback URL" not in html
+
+
+@pytest.mark.django_db
+def test_a_product_doing_m2_is_asked_for_one(environment, client):
+    client.force_login(environment["applicant"])
+
+    html = client.get(
+        reverse("experiences:credentials", args=[environment["workspace"].reference]),
+    ).content.decode()
+
+    assert environment["workspace"].needs_callback is True
+    assert "Callback URL" in html
+
+
+@pytest.mark.django_db
+def test_the_m2_page_says_when_no_callback_url_is_saved(environment, client):
+    client.force_login(environment["applicant"])
+
+    html = client.get(_track_url(environment["workspace"], "m2")).content.decode()
+
+    assert "No callback URL saved" in html
+
+
+@pytest.mark.django_db
+def test_the_m1_page_does_not(environment, client):
+    client.force_login(environment["applicant"])
+
+    html = client.get(_track_url(environment["workspace"], "m1")).content.decode()
+
+    assert "No callback URL saved" not in html
+
+
+@pytest.mark.django_db
+def test_saving_a_callback_url_reports_its_registration_on_reload(
+    environment,
+    client,
+    django_capture_on_commit_callbacks,
+):
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:credentials", args=[environment["workspace"].reference])
+
+    with django_capture_on_commit_callbacks(execute=True):
+        client.post(
+            url,
+            {"intent": "callback", "callback_url": "https://acme.example/callback"},
+        )
+
+    assert "Registered" in client.get(url).content.decode()
