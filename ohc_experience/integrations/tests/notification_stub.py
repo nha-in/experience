@@ -33,8 +33,7 @@ class NotificationStubTransport(httpx.BaseTransport):
 
     def sent(self) -> list[dict]:
         return [
-            json.loads(call.content)
-            for call in self.requests("POST", MESSAGE_PATH)
+            json.loads(call.content) for call in self.requests("POST", MESSAGE_PATH)
         ]
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
