@@ -33,7 +33,7 @@
              href="{% url 'account_signup' %}">{% translate "Register for the Sandbox" %}
             <span aria-hidden="true">→</span>
           </a>
-          <a class="marketing-button" href="#how">{% translate "See how integration works" %}
+          <a class="marketing-button" href="#how">{% translate "See the integration journey" %}
             <span aria-hidden="true">↗&#xFE0E;</span>
           </a>
         </div>
@@ -68,12 +68,14 @@
     <div class="marketing-container">
       <div class="sbx-section-heading">
         <div>
-          <p class="sbx-eyebrow">{% translate "01 / Gateways" %}</p>
+          <p class="sbx-eyebrow">{% translate "01 / The ecosystem" %}</p>
           <h2 id="gateways-title">
-            {% translate "Three national gateways, one digital health ecosystem." %}
+            {% translate "Three national gateways." %}
+            <br />
+            {% translate "One digital health ecosystem." %}
           </h2>
         </div>
-        <p class="sbx-section-description">{% translate "Health records, care delivery and claims. Each gateway covers a different part of the ecosystem; use the ones your product needs." %}</p>
+        <p class="sbx-section-description">{% translate "Health records, care delivery and claims. Find the building blocks for your product in India’s digital health ecosystem." %}</p>
       </div>
       <div class="sbx-gateway-grid">
         <a class="sbx-gateway sbx-gateway--records"
@@ -165,8 +167,8 @@
     <div class="marketing-container">
       <div class="sbx-section-heading">
         <div>
-          <p class="sbx-eyebrow">{% translate "02 / AI artefacts" %}</p>
-          <h2 id="ai-title">{% translate "AI artefacts for building an ABDM integration" %}</h2>
+          <p class="sbx-eyebrow">{% translate "02 / Agentic AI artefacts" %}</p>
+          <h2 id="ai-title">{% translate "AI assistants that do the groundwork of integration" %}</h2>
         </div>
         <p class="sbx-section-description">{% translate "Describe what you want to build. Use AI artefacts to guide implementation, generate code, work through error scenarios and prepare your integration for review." %}</p>
       </div>
@@ -203,14 +205,14 @@
           <span aria-hidden="true">05</span>
           <div>
             <h3>{% translate "Debug & Error Explainer" %}</h3>
-            <p>{% translate "Understand gateway responses and error codes, identify the cause and find the fix." %}</p>
+            <p>{% translate "Understand gateway responses and error codes, pinpoint issues and find the right fix, without decoding cryptic failures alone." %}</p>
           </div>
         </div>
         <div>
           <span aria-hidden="true">06</span>
           <div>
             <h3>{% translate "Milestone Guide" %}</h3>
-            <p>{% translate "Work through each milestone, see the evidence it requires and prepare your certification submission." %}</p>
+            <p>{% translate "Follow milestone-based integration journeys, understand the evidence each milestone needs and prepare your certification submission." %}</p>
           </div>
         </div>
       </div>
@@ -238,14 +240,14 @@
             <span class="sbx-prompt-cursor" aria-hidden="true"></span>
           </div>
           <div class="sbx-prompt-footer">
-            <span aria-hidden="true">↳</span>{% translate "Runs in the coding agent and editor you already use." %}</div>
+            <span aria-hidden="true">↳</span>{% translate "Your agent. Your editor. The right context." %}</div>
         </div>
         <div class="sbx-agent-support">
           <div class="sbx-agent-heading">
             <span class="sbx-agent-spark" aria-hidden="true">✦</span>
             <div>
-              <h3>{% translate "Set up your coding agent" %}</h3>
-              <p>{% translate "Give it the ABDM documentation before you start building." %}</p>
+              <h3>{% translate "A little context. A better build." %}</h3>
+              <p>{% translate "Your first step to an AI-assisted integration." %}</p>
             </div>
           </div>
           <div class="sbx-skills">
@@ -292,9 +294,11 @@
     <div class="marketing-container">
       <div class="sbx-section-heading">
         <div>
-          <p class="sbx-eyebrow">{% translate "03 / Milestones" %}</p>
+          <p class="sbx-eyebrow">{% translate "03 / Progression" %}</p>
           <h2 id="milestones-title">
-            {% translate "Four milestones from identity to registry integration." %}
+            {% translate "Four milestones." %}
+            <br />
+            {% translate "A clear path to integration." %}
           </h2>
         </div>
         <p class="sbx-section-description">{% translate "From ABHA creation and record linking to consent-based exchange and registry integration. Implement the milestones applicable to your solution." %}</p>
@@ -308,7 +312,7 @@
           </div>
           <span class="sbx-milestone-role">{% translate "Identity" %}</span>
           <h3>{% translate "Create and verify ABHA" %}</h3>
-          <p>{% translate "Create an ABHA Number and verify an existing one during patient registration." %}</p>
+          <p>{% translate "Enable ABHA Number creation and verification of an existing ABHA Number for seamless patient registration." %}</p>
           <strong>{% translate "Explore M1" %}
             <span aria-hidden="true">→</span>
           </strong>
@@ -382,11 +386,13 @@
            tabindex="-1">
     <div class="marketing-container sbx-journey-grid">
       <div class="sbx-journey-intro">
-        <p class="sbx-eyebrow">{% translate "04 / Lifecycle" %}</p>
+        <p class="sbx-eyebrow">{% translate "04 / The journey" %}</p>
         <h2 id="how-title">
-          {% translate "From sandbox registration to production access." %}
+          {% translate "From sandbox registration" %}
+          <br />
+          {% translate "to exit: end to end." %}
         </h2>
-        <p class="sbx-section-description">{% translate "The full lifecycle of an ABDM integration: registering your organisation, testing your workflows, submitting evidence and moving to production." %}</p>
+        <p class="sbx-section-description">{% translate "Follow the full lifecycle of an ABDM integration. From registering your organisation to testing your workflows, submitting evidence and moving to production." %}</p>
         <a class="sbx-text-link"
            href="{{ experience_program.docs_site }}/docs/hiecm/v3/getting-started/going-live">{% translate "Read the go-live guide" %}
           <span aria-hidden="true">↗&#xFE0E;</span>
@@ -394,7 +400,9 @@
         <div class="sbx-journey-aside">
           <span aria-hidden="true">↗&#xFE0E;</span>
           <p>
-            {% translate "Each stage has to be completed before the next one opens." %}
+            {% translate "Start small. Test thoroughly." %}
+            <br />
+            <strong>{% translate "Build for the ecosystem." %}</strong>
           </p>
         </div>
       </div>
@@ -404,7 +412,7 @@
           <div>
             <span class="sbx-step-phase">{% translate "Onboard" %}</span>
             <h3>{% translate "Register & create your sandbox account" %}</h3>
-            <p>{% translate "Sign up as an eligible entity (HIP, HIU, service provider, payer or health-tech) and submit your organisation details for verification." %}</p>
+            <p>{% translate "Sign up as an eligible entity—HIP, HIU, service provider, payer or health-tech—and verify your organisation details to begin your integration journey." %}</p>
           </div>
         </li>
         <li>
@@ -472,7 +480,7 @@
       <a href="{{ experience_program.docs_site }}/docs/support">
         <span class="sbx-resource-number">03</span>
         <div>
-          <h2>{% translate "Get help" %}</h2>
+          <h2>{% translate "Get a little guidance" %}</h2>
           <p>{% translate "Find integration support" %}</p>
         </div>
         <span aria-hidden="true">↗&#xFE0E;</span>
@@ -485,9 +493,11 @@
         <div>
           <p class="sbx-eyebrow">{% translate "Start your integration" %}</p>
           <h2 id="start-title">
-            {% translate "Start your ABDM integration" %}
+            {% translate "Ready to start" %}
+            <br />
+            {% translate "integrating?" %}
           </h2>
-          <p>{% translate "Register for the sandbox and use the artefacts that take you from M1 to go-live." %}</p>
+          <p>{% translate "Register for the Agentic AI Sandbox and explore the artefacts that guide you from M1 to go-live." %}</p>
         </div>
         <div class="sbx-final-actions">
           <a class="marketing-button marketing-button--primary"
