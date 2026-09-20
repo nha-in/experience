@@ -1,8 +1,8 @@
 """ABDM's notification service.
 
 The approved text lives in each template's body template, and is sent through
-notification-app: SMS as a message, email through the email endpoint the Global
-Email backend also posts to.
+notification-app's message endpoint, SMS and email alike. Gateway email posts to
+the email endpoint on the same host, through the Global Email backend.
 """
 
 from __future__ import annotations

@@ -57,3 +57,47 @@ def test_shell_development_retains_console_mail(monkeypatch):
     monkeypatch.setattr(base, "MIDDLEWARE", list(base.MIDDLEWARE))
     result = runpy.run_module("config.settings.local")
     assert result["EMAIL_BACKEND"] == "django.core.mail.backends.console.EmailBackend"
+
+
+@pytest.fixture
+def load_base(monkeypatch):
+    """Re-evaluate base settings, where the send URL derives from the host."""
+    monkeypatch.setenv("DJANGO_READ_DOT_ENV_FILE", "false")
+
+    def load(host, **environment):
+        monkeypatch.setenv("NOTIFICATION_APP_BASE_URL", host)
+        for name, value in environment.items():
+            monkeypatch.setenv(name, value)
+        result = runpy.run_module("config.settings.base")
+        return result["ANYMAIL"]["GLOBAL_EMAIL_API_URL"], result
+
+    return load
+
+
+def test_gateway_email_follows_the_notification_host(load_base):
+    api_url, _ = load_base("http://notification-app.internal:9102")
+    assert api_url == (
+        "http://notification-app.internal:9102/internal/v3/notification/email/send"
+    )
+
+
+def test_a_trailing_slash_does_not_double_up(load_base):
+    api_url, _ = load_base("http://notification-app.internal:9102/")
+    assert api_url == (
+        "http://notification-app.internal:9102/internal/v3/notification/email/send"
+    )
+
+
+def test_verification_codes_and_email_share_one_host(load_base):
+    api_url, result = load_base("http://notification-app.internal:9102")
+    assert api_url.startswith(result["NOTIFICATION_APP_BASE_URL"])
+
+
+def test_a_stale_endpoint_cannot_redirect_email(load_base):
+    api_url, _ = load_base(
+        "http://notification-app.internal:9102",
+        GLOBAL_EMAIL_API_URL="http://elsewhere.internal/send",
+    )
+    assert api_url == (
+        "http://notification-app.internal:9102/internal/v3/notification/email/send"
+    )

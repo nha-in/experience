@@ -338,6 +338,18 @@ CSRF_COOKIE_HTTPONLY = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#x-frame-options
 X_FRAME_OPTIONS = "DENY"
 
+# NOTIFICATION GATEWAY
+# ------------------------------------------------------------------------------
+# Reachable only from inside the ABDM VPC. One notification-app serves both
+# purposes, as legacy's single NotificationFClient does: verification codes post
+# to /notification/message and gateway email to /notification/email/send. The
+# email URL is derived here so the two can never be pointed at different hosts.
+NOTIFICATION_APP_BASE_URL = env.str(
+    "NOTIFICATION_APP_BASE_URL",
+    default="https://notification-app.invalid",
+)
+GLOBAL_EMAIL_SEND_PATH = "/internal/v3/notification/email/send"
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
@@ -348,10 +360,12 @@ EMAIL_BACKEND = env(
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = env.float("DJANGO_EMAIL_TIMEOUT", default=5)
 
-# Internal Global Email API. The URL includes the full /email/send path.
-# Empty defaults prevent accidental use of an unapproved gateway/template.
+# Internal Global Email API, on the shared notification-app host.
+# An empty template default prevents accidental use of an unapproved template.
 ANYMAIL = {
-    "GLOBAL_EMAIL_API_URL": env("GLOBAL_EMAIL_API_URL", default=""),
+    "GLOBAL_EMAIL_API_URL": (
+        f"{NOTIFICATION_APP_BASE_URL.rstrip('/')}{GLOBAL_EMAIL_SEND_PATH}"
+    ),
     "GLOBAL_EMAIL_TEMPLATE_ID": env("GLOBAL_EMAIL_TEMPLATE_ID", default=""),
     "GLOBAL_EMAIL_ORIGIN": env("GLOBAL_EMAIL_ORIGIN", default="abha"),
     "GLOBAL_EMAIL_SENDER": env("GLOBAL_EMAIL_SENDER", default="NHASMS"),
@@ -561,14 +575,6 @@ INTEGRATION_PORTS = {
     ),
     "NOTIFICATION": "ohc_experience.integrations.local.LocalNotificationGateway",
 }
-
-# NOTIFICATION GATEWAY
-# ------------------------------------------------------------------------------
-# Reachable only from inside the ABDM VPC.
-NOTIFICATION_APP_BASE_URL = env.str(
-    "NOTIFICATION_APP_BASE_URL",
-    default="https://notification-app.invalid",
-)
 
 # KEYCLOAK
 # ------------------------------------------------------------------------------

@@ -27,9 +27,10 @@ The caller does not need NIC SMTP credentials.
 
 ## Delivery contract
 
-The configured URL is the **complete send endpoint**, including
-`/internal/v3/notification/email/send`. The backend performs one JSON `POST` per
-message, for one primary recipient and optional CC recipients.
+The send endpoint is `/internal/v3/notification/email/send` on the notification
+service, derived from `NOTIFICATION_APP_BASE_URL` so it cannot drift from the
+host the verification codes already use. The backend performs one JSON `POST`
+per message, for one primary recipient and optional CC recipients.
 
 | Field | Source |
 | --- | --- |
@@ -68,13 +69,18 @@ Production defaults to `QueuedGlobalEmailBackend`. Configure the gateway for
 **both the web process and the Celery worker** before deployment:
 
 ```dotenv
-GLOBAL_EMAIL_API_URL=http://notificationapp-svc.global-services.svc.cluster.local:9102/internal/v3/notification/email/send
+NOTIFICATION_APP_BASE_URL=http://notificationapp-svc.global-services.svc.cluster.local:9102
 GLOBAL_EMAIL_ORIGIN=abha
 GLOBAL_EMAIL_SENDER=NHASMS
 DJANGO_EMAIL_TIMEOUT=5
 ```
 
-The URL above is the document's EKS service address. It requires the appropriate
+One host serves both purposes, as legacy's single `NotificationFClient` does:
+verification codes post to `/internal/v3/notification/message` and gateway email
+to `/internal/v3/notification/email/send`. Setting the base URL configures both,
+and there is no separate endpoint setting to leave unset or point elsewhere.
+
+The host above is the document's EKS service address. It requires the appropriate
 cluster DNS/network access. Use the deployment team's approved address when
 running elsewhere. The document specifies no authentication header; none is
 invented by this adapter. Network access and any deployment-side authentication

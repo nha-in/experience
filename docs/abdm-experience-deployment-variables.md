@@ -81,11 +81,10 @@ python manage.py fetch_agent_skills --check  # fail if the file is behind, write
 
 Source: `config/settings/base.py`, `ohc_experience/abdm/skills.py`, `ohc_experience/experiences/definitions.py`, `ohc_experience/experiences/skills_manifest.py`.
 
-For **email delivery**, production uses the Global Email API through a durable notification outbox. Configure the gateway and template settings on both the web process and Celery worker:
+For **email delivery**, production uses the Global Email API through a durable notification outbox. The send endpoint is `NOTIFICATION_APP_BASE_URL` + `/internal/v3/notification/email/send`, so the one host below carries both the verification codes and gateway email. Configure the gateway and template settings on both the web process and Celery worker:
 
 | Variable | Requirement / default |
 | --- | --- |
-| `GLOBAL_EMAIL_API_URL` | **Required for delivery.** Complete reachable send endpoint, including `/internal/v3/notification/email/send`. Default: empty. |
 | `GLOBAL_EMAIL_TEMPLATE_IDS` | JSON object mapping email purposes to approved template ID strings. Default: `{}`. |
 | `GLOBAL_EMAIL_TEMPLATE_ID` | Optional approved fallback for unmapped purposes. Default: empty. Every message needs an explicit, mapped, or fallback template ID. |
 | `GLOBAL_EMAIL_ORIGIN` | Default: `abha`. |
@@ -117,7 +116,7 @@ For **email and mobile verification codes and the password reset OTP**, the web 
 
 | Variable | Requirement / default |
 | --- | --- |
-| `NOTIFICATION_APP_BASE_URL` | **Required for delivery.** Notification app service base URL, without a path, e.g. `http://globalprodinternal.abdm.gov.in`. Default: `https://notification-app.invalid`. |
+| `NOTIFICATION_APP_BASE_URL` | **Required for delivery.** Notification app service base URL, without a path, e.g. `http://globalprodinternal.abdm.gov.in`. Serves both the verification codes and gateway email. Default: `https://notification-app.invalid`. |
 
 Nothing else about this integration is configurable, because nothing else differs between deployments. Production always uses the real gateway and local and test settings always use `LocalNotificationGateway`, which delivers nothing. The origin (`abha`), sender (`NHASMS`) and read timeout are the notification team's contract and live in `ohc_experience/integrations/notification/adapter.py`. Every notification this portal sends is listed in `ohc_experience/integrations/notification/templates.py`, with its template ID, subject, the values that fill it and the body template holding its approved text. Add a notification there; no new environment variable is needed.
 
