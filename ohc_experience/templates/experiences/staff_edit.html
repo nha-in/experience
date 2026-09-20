@@ -35,15 +35,15 @@
       {% if staff_member %}<span class="ui-badge {% if staff_member.is_active %}ui-badge--success{% else %}ui-badge--neutral{% endif %}">{% if staff_member.is_active %}Active account{% else %}Archived account{% endif %}</span>{% endif %}
     </header>
     {% if staff_member and not staff_member.is_active %}<div class="ui-alert ui-alert--warning staff-editor-notice">This account is archived. Sign-in and portal access are disabled.</div>{% endif %}
-    <form method="post"
-          id="staff-form"
-          data-unsaved-form
-          novalidate
-          class="staff-editor-form">
-      {% csrf_token %}
-      {{ form.revision }}
-      {% include 'components/form_errors.html' %}
-      <div class="staff-editor-layout">
+    <div class="staff-editor-layout{% if not staff_member %} staff-editor-layout--wide{% endif %}">
+      <form method="post"
+            id="staff-form"
+            data-unsaved-form
+            novalidate
+            class="staff-editor-form">
+        {% csrf_token %}
+        {{ form.revision }}
+        {% include 'components/form_errors.html' %}
         <div class="staff-editor-account">
           <section class="staff-editor-panel" aria-labelledby="staff-details-title">
             <div class="staff-editor-panel-heading">
@@ -150,53 +150,54 @@
             {% endfor %}
           </div>
         </section>
-      </div>
-      <div class="staff-editor-savebar">
-        <p data-unsaved-status aria-live="polite">No unsaved changes.</p>
-        <div class="staff-editor-save-actions">
-          <a class="ui-btn ui-btn--outline ui-btn--size-sm"
-             href="{% url 'experiences:staff-list' %}">Cancel</a>
-          <button type="submit" class="ui-btn ui-btn--default ui-btn--size-sm">{% if staff_member %}Save changes{% else %}Create staff member{% endif %}</button>
+        <div class="staff-editor-savebar">
+          <p data-unsaved-status aria-live="polite">No unsaved changes.</p>
+          <div class="staff-editor-save-actions">
+            <a class="ui-btn ui-btn--outline ui-btn--size-sm"
+               href="{% url 'experiences:staff-list' %}">Cancel</a>
+            <button type="submit" class="ui-btn ui-btn--default ui-btn--size-sm">{% if staff_member %}Save changes{% else %}Create staff member{% endif %}</button>
+          </div>
         </div>
-      </div>
-    </form>
-    {% if staff_member %}
-      <section class="staff-editor-status" aria-labelledby="staff-status-title">
-        <div>
-          <h2 id="staff-status-title">Account status</h2>
-          <p>{% if staff_member.is_active %}{{ pending_reviews }} pending review{{ pending_reviews|pluralize }}. Archiving ends active sessions and releases pending assignments.{% else %}Previous permissions are retained. Restoring enables sign-in again.{% endif %}</p>
-        </div>
-        <form method="post"
-              action="{% url 'experiences:staff-archive' staff_member.pk %}"
-              data-confirm="{% if staff_member.is_active %}Archive this account and end its active sessions? Pending reviews will be unassigned.{% else %}Restore this account with its saved portal permissions?{% endif %}">
-          {% csrf_token %}
-          <input type="hidden" name="revision" value="{{ account_revision }}" />
-          <button class="ui-btn ui-btn--outline ui-btn--size-sm {% if staff_member.is_active %}staff-editor-archive-button{% endif %}"
-                  type="submit"
-                  name="intent"
-                  value="{% if staff_member.is_active %}archive{% else %}restore{% endif %}">{% if staff_member.is_active %}Archive staff member{% else %}Restore staff member{% endif %}</button>
-        </form>
-      </section>
-      <section class="staff-editor-history" aria-labelledby="staff-history-title">
-        <div class="staff-editor-history-heading">
-          <h2 id="staff-history-title">Recent account activity</h2>
-          <p>Latest 10 changes</p>
-        </div>
-        <ol>
-          {% for entry in history %}
-            <li>
-              <span class="staff-editor-history-dot" aria-hidden="true"></span>
-              <div>
-                <p>{{ entry.get_change_message }}</p>
-                <span>{{ entry.user.display_name }}</span>
-              </div>
-              <time datetime="{{ entry.action_time|date:'c' }}">{{ entry.action_time|date:'j M Y, H:i' }}</time>
-            </li>
-          {% empty %}
-            <li class="staff-editor-history-empty">No recorded changes.</li>
-          {% endfor %}
-        </ol>
-      </section>
-    {% endif %}
+      </form>
+      {% if staff_member %}
+        <aside class="staff-editor-rail" aria-label="Account status and activity">
+          <section class="staff-editor-status" aria-labelledby="staff-status-title">
+            <div>
+              <h2 id="staff-status-title">Account status</h2>
+              <p>{% if staff_member.is_active %}{{ pending_reviews }} pending review{{ pending_reviews|pluralize }}. Archiving ends active sessions and releases pending assignments.{% else %}Previous permissions are retained. Restoring enables sign-in again.{% endif %}</p>
+            </div>
+            <form method="post"
+                  action="{% url 'experiences:staff-archive' staff_member.pk %}"
+                  data-confirm="{% if staff_member.is_active %}Archive this account and end its active sessions? Pending reviews will be unassigned.{% else %}Restore this account with its saved portal permissions?{% endif %}">
+              {% csrf_token %}
+              <input type="hidden" name="revision" value="{{ account_revision }}" />
+              <button class="ui-btn ui-btn--outline ui-btn--size-sm {% if staff_member.is_active %}staff-editor-archive-button{% endif %}"
+                      type="submit"
+                      name="intent"
+                      value="{% if staff_member.is_active %}archive{% else %}restore{% endif %}">{% if staff_member.is_active %}Archive staff member{% else %}Restore staff member{% endif %}</button>
+            </form>
+          </section>
+          <section class="staff-editor-history" aria-labelledby="staff-history-title">
+            <div class="staff-editor-history-heading">
+              <h2 id="staff-history-title">Recent account activity</h2>
+              <p>Latest 10 changes</p>
+            </div>
+            <ol tabindex="0" aria-labelledby="staff-history-title">
+              {% for entry in history %}
+                <li>
+                  <span class="staff-editor-history-dot" aria-hidden="true"></span>
+                  <div>
+                    <p>{{ entry.get_change_message }}</p>
+                    <span>{{ entry.user.display_name }} · <time datetime="{{ entry.action_time|date:'c' }}">{{ entry.action_time|date:'j M Y, H:i' }}</time></span>
+                  </div>
+                </li>
+              {% empty %}
+                <li class="staff-editor-history-empty">No recorded changes.</li>
+              {% endfor %}
+            </ol>
+          </section>
+        </aside>
+      {% endif %}
+    </div>
   </div>
 {% endblock portal_content %}
