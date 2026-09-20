@@ -214,8 +214,10 @@ class GlobalEmailBackend(AnymailRequestsBackend):
             raise GlobalEmailAPIError("timeout") from None
         except requests.RequestException:
             raise GlobalEmailAPIError("network_error") from None
-        # The documented contract is exactly HTTP 200 with a SUCCESS JSON object.
-        if response.status_code != HTTPStatus.OK:
+        # The document specifies 200, but the multi-channel endpoint answers 202
+        # for the same accepted message. Any 2xx means the gateway took it; a
+        # redirect does not, and is never followed.
+        if not HTTPStatus.OK <= response.status_code < HTTPStatus.MULTIPLE_CHOICES:
             raise GlobalEmailAPIError(
                 "http_error",
                 status_code=response.status_code,
@@ -224,15 +226,24 @@ class GlobalEmailBackend(AnymailRequestsBackend):
         return response
 
     def parse_recipient_status(self, response, payload, message):
-        try:
-            result = response.json()
-        except ValueError:
-            raise GlobalEmailAPIError("invalid_response") from None
-        if not isinstance(result, dict) or not isinstance(result.get("status"), str):
-            raise GlobalEmailAPIError("invalid_response")
-        if result["status"] not in ACCEPTED_STATUSES:
-            raise GlobalEmailAPIError("gateway_rejected")
-        self._validate_response_echoes(result, payload.data)
+        if not response.content.strip():
+            # An accepted request the gateway had nothing to say about. There
+            # is no status to check, and legacy read the SES path the same way:
+            # it returns void, and any 2xx was the whole answer.
+            result = {}
+        else:
+            try:
+                result = response.json()
+            except ValueError:
+                raise GlobalEmailAPIError("invalid_response") from None
+            if not isinstance(result, dict) or not isinstance(
+                result.get("status"),
+                str,
+            ):
+                raise GlobalEmailAPIError("invalid_response")
+            if result["status"] not in ACCEPTED_STATUSES:
+                raise GlobalEmailAPIError("gateway_rejected")
+            self._validate_response_echoes(result, payload.data)
         message_id = result.get("gatewayTxnid")
         if message_id is None or message_id == "":
             message_id = payload.data["requestId"]

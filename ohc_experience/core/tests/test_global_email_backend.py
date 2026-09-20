@@ -243,7 +243,7 @@ def test_per_message_template_works_without_global_default(message, gateway, set
 
 @pytest.mark.parametrize(
     "status",
-    [201, 204, 302, 400, 401, 403, 429, 500, 502, 503, 504],
+    [302, 303, 307, 308, 400, 401, 403, 404, 429, 500, 502, 503, 504],
 )
 def test_http_failures_never_follow_redirects_or_expose_responses(
     message,
@@ -296,7 +296,9 @@ def test_validates_gateway_result(message, gateway, body, code):
     transport.assert_called_once()
 
 
-@pytest.mark.parametrize("body", [b"", b"not json 123456", b"null", b'"SUCCESS"'])
+# An empty body is no longer here: a 2xx with nothing in it is an accepted
+# request, covered by test_an_accepted_request_needs_no_body.
+@pytest.mark.parametrize("body", [b"not json 123456", b"null", b'"SUCCESS"'])
 def test_invalid_response_is_redacted(message, gateway, body):
     state, _ = gateway
     state["raw"] = body
@@ -539,3 +541,38 @@ def test_the_ses_path_keeps_its_own_shape():
     assert body["receiver"] == RECEIVER
     assert body["subject"] == "Invitation"
     assert payload.headers["TIMESTAMP"].endswith("Z")
+
+
+@pytest.mark.parametrize("status", [200, 201, 202, 204])
+def test_any_2xx_is_an_accepted_message(message, gateway, status):
+    """The document specifies 200; the multi-channel endpoint answers 202."""
+    state, _ = gateway
+    state["status"] = status
+
+    GlobalEmailBackend().send_messages([message])
+
+    assert message.anymail_status.recipients[RECEIVER].status == "queued"
+
+
+def test_an_accepted_request_needs_no_body(message, gateway):
+    """Nothing to check means nothing to reject; the request id is the handle."""
+    state, _ = gateway
+    state["status"] = 202
+    state["raw"] = b""
+
+    GlobalEmailBackend().send_messages([message])
+
+    status = message.anymail_status.recipients[RECEIVER]
+    assert status.status == "queued"
+    assert UUID(status.message_id)
+
+
+def test_a_body_that_says_something_is_still_checked(message, gateway):
+    state, _ = gateway
+    state["status"] = 202
+    state["body"] = {"status": "FAILED"}
+
+    with pytest.raises(GlobalEmailAPIError) as raised:
+        GlobalEmailBackend().send_messages([message])
+
+    assert raised.value.reason_code == "gateway_rejected"
