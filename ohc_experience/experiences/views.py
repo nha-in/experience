@@ -803,17 +803,7 @@ def product_detail(request, reference):
     product_items = sorted(
         visible_items.filter(_product_review_scope(product))
         .exclude(kind=ReviewItem.Kind.PRODUCT)
-        # A draft is the integrator's unsent work. A withdrawn organisation
-        # verification stays in view, read only, since every milestone waits on it.
-        .filter(
-            ~Q(status=ReviewItem.Status.DRAFT)
-            | Q(
-                kind=ReviewItem.Kind.ORGANISATION,
-                organisation__verification_status=(
-                    Organisation.VerificationStatus.WITHDRAWN
-                ),
-            ),
-        )
+        .filter(permissions.shown_to_reviewers())
         .select_related(
             "selected_submission__form",
             "form",

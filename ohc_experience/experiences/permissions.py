@@ -159,13 +159,35 @@ def visible_products(user, action="read"):
     )
 
 
+def shown_to_reviewers():
+    """The reviews a reviewer reads as requests.
+
+    A draft is the integrator's unsent work, not yet a request. A withdrawn
+    organisation verification is a draft again, but stays in view, read only,
+    since every milestone waits on it.
+    """
+    return ~Q(status=ReviewItem.Status.DRAFT) | Q(
+        kind=ReviewItem.Kind.ORGANISATION,
+        organisation__verification_status=Organisation.VerificationStatus.WITHDRAWN,
+    )
+
+
 def visible_organisations(user, action="read"):
-    """Organisations represented by the reviewer's permission-scoped requests."""
+    """Organisations represented by the reviewer's requests or products.
+
+    Opening the organisation form starts a verification draft, which puts no
+    organisation in front of reviewers until it is sent.
+    """
     query = Organisation.objects.all()
     if not reviewer(user):
         return query.none()
     return query.filter(
-        pk__in=visible_reviews(user, action).values("organisation_id"),
+        Q(
+            pk__in=visible_reviews(user, action)
+            .filter(shown_to_reviewers())
+            .values("organisation_id"),
+        )
+        | Q(pk__in=visible_products(user, action).values("organisation_id")),
     )
 
 

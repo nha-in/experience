@@ -7,6 +7,7 @@ from django.urls import reverse
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
+from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
@@ -304,6 +305,47 @@ def test_products_tab_filters_by_solution_type_within_scope(catalogue, client):
     assert products == {hmis}
     assert context["selected_solution_type"] == ""
     assert context["solution_type_choices"] == [("clinical_hmis", "Clinic HMIS")]
+
+
+def test_an_unsent_verification_does_not_list_its_organization(environment, client):
+    """Opening the organisation form starts a draft, the integrator's unsent work.
+
+    A withdrawn verification is a draft again too, but it was sent, and stays.
+    """
+
+    def open_organisation_form(organization):
+        owner = UserFactory()
+        Membership.objects.create(organisation=organization, user=owner, role="owner")
+        return services.organisation_review(organization, owner), owner
+
+    unsent = OrganisationFactory(name="Unsent Trust", entity_type="trust")
+    withdrawn = OrganisationFactory(name="Withdrawn Labs")
+    open_organisation_form(unsent)
+    verification, owner = open_organisation_form(withdrawn)
+    verification, form, saved = services.save_review_form(
+        verification,
+        owner,
+        data=organisation_data("Withdrawn Labs"),
+        files={"supporting_document": pdf()},
+        submit=True,
+    )
+    assert saved, form.errors
+    services.withdraw(verification, owner)
+    withdrawn.refresh_from_db()
+    assert withdrawn.verification_status == "withdrawn"
+
+    rows, context = listed(client, environment["admin"], "organizations")
+    assert withdrawn in rows
+    assert unsent not in rows
+    assert "trust" not in dict(context["entity_type_choices"])
+    for organization, status in (
+        (unsent, HTTPStatus.NOT_FOUND),
+        (withdrawn, HTTPStatus.OK),
+    ):
+        response = client.get(
+            reverse("experiences:organization-detail", args=[organization.slug]),
+        )
+        assert response.status_code == status
 
 
 def test_pages_never_repeat_or_skip_rows_that_share_a_name(environment, client):
