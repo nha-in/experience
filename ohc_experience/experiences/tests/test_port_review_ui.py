@@ -1,3 +1,4 @@
+from html.parser import HTMLParser
 from http import HTTPStatus
 
 import pytest
@@ -401,3 +402,95 @@ def test_empty_personal_queue_keeps_its_scope_when_clearing_filters(
     assert b"No requests in this view" in response.content
     assert b"View all requests" in response.content
     assert b"Clear filters" not in response.content
+
+
+VOID_ELEMENTS = frozenset(
+    {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "source",
+        "track",
+        "wbr",
+    },
+)
+
+
+class LinkSwaps(HTMLParser):
+    """How htmx swaps in the response to each link on a page, by link text.
+
+    A link htmx handles maps to the element its request replaces and the part of
+    the response put in its place, inherited from ancestors as htmx inherits
+    them. A link htmx leaves alone maps to None.
+    """
+
+    def __init__(self, html):
+        super().__init__()
+        self.open_elements = []
+        self.link = None
+        self.swaps = {}
+        self.feed(html)
+
+    def inherited(self, name):
+        return next(
+            (attrs[name] for _, attrs in reversed(self.open_elements) if name in attrs),
+            None,
+        )
+
+    def swap(self, attrs):
+        # Without hx-target, htmx swaps an hx-get link's response into the link
+        # itself, and a boosted link's into the body.
+        if "hx-get" in attrs:
+            target = "this"
+        elif self.inherited("hx-boost") == "true":
+            target = "body"
+        else:
+            return None
+        return self.inherited("hx-target") or target, self.inherited("hx-select")
+
+    def handle_starttag(self, tag, attrs):
+        if tag in VOID_ELEMENTS:
+            return
+        attrs = dict(attrs)
+        self.open_elements.append((tag, attrs))
+        if tag == "a":
+            self.link = ([], self.swap(attrs))
+
+    def handle_data(self, data):
+        if self.link:
+            self.link[0].append(data)
+
+    def handle_endtag(self, tag):
+        if tag not in (name for name, _ in self.open_elements):
+            return
+        while self.open_elements.pop()[0] != tag:
+            pass
+        if tag == "a":
+            words, swap = self.link
+            self.swaps.setdefault(" ".join("".join(words).split()), []).append(swap)
+            self.link = None
+
+
+def test_empty_queue_links_replace_the_queue_instead_of_nesting_the_page(
+    review_item,
+    client,
+):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    queue = ("#review-queue", "#review-queue")
+    response = client.get(
+        reverse("experiences:queue"),
+        {"scope": "ready", "q": "not found"},
+    )
+    assert b"No reviews match these filters." in response.content
+    swaps = LinkSwaps(response.content.decode()).swaps
+    assert swaps["Clear filters"] == [queue, queue]
+    response = client.get(reverse("experiences:queue"), {"scope": "decided"})
+    assert b"No requests in this view" in response.content
+    assert LinkSwaps(response.content.decode()).swaps["View all requests"] == [queue]
