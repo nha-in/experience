@@ -3,15 +3,25 @@
 from django.db.models import Count
 from django.db.models import Q
 
+#: The category filter's value for "Others". Its own code is blank, which the
+#: filter reads as every category.
+OTHERS = "others"
+
 
 def support_inbox(tickets, params, form, *, reviewer=False):
     total = tickets.count()
+    category_choices = [
+        (code or OTHERS, label) for code, label in form.fields["category"].choices
+    ]
     filters = {}
-    for key in ("category", "priority"):
+    for key, choices in (
+        ("category", category_choices),
+        ("priority", form.fields["priority"].choices),
+    ):
         value = params.get(key, "")
-        filters[key] = value if value in dict(form.fields[key].choices) else ""
+        filters[key] = value if value in dict(choices) else ""
         if filters[key]:
-            tickets = tickets.filter(**{key: filters[key]})
+            tickets = tickets.filter(**{key: "" if value == OTHERS else value})
     search = params.get("q", "").strip()
     filters["q"] = search
     if search:
@@ -46,6 +56,7 @@ def support_inbox(tickets, params, form, *, reviewer=False):
         tickets = tickets.filter(status=filters["status"])
     return {
         "ticket_total": total,
+        "category_choices": category_choices,
         "ticket_statuses": statuses,
         "status_tabs": tabs,
         "ticket_filters": filters,

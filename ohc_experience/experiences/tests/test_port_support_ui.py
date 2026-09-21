@@ -425,6 +425,81 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     assert cleared.context["workspace"] == portal_workspaces[1]
 
 
+def test_filters_stay_on_all_tickets(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    """The filter form sends the tab it sits under, All tickets included.
+
+    All tickets is the blank status, and a request with no status at all opens
+    the default tab instead.
+    """
+    Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_workspaces[1].product,
+        subject="Callback fixed",
+        status="closed",
+    )
+    response = portal_client.get(reverse("experiences:support"), {"status": ""})
+    assert b'<input type="hidden" name="status" value="" />' in response.content
+    response = portal_client.get(
+        reverse("experiences:support"),
+        {"status": "", "q": "callback"},
+    )
+    assert [ticket.subject for ticket in response.context["tickets"]] == [
+        "Callback fixed",
+    ]
+
+
+def test_header_counts_every_ticket_until_something_is_filtered(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    for status in ("open", "closed"):
+        Ticket.objects.create(
+            organisation=owner_membership.organisation,
+            product=portal_workspaces[1].product,
+            subject=f"An {status} ticket",
+            status=status,
+        )
+    # The default tab lists the open ticket; the header still counts both.
+    response = portal_client.get(reverse("experiences:support"))
+    assert len(response.context["tickets"]) == 1
+    compact = " ".join(response.content.decode().split())
+    assert (
+        '<span class="ui-kicker block">Tickets</span> '
+        '<span class="ui-figure mt-0.5 block">2</span>'
+    ) in compact
+
+
+def test_others_filters_to_the_catch_all_category(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    for subject, category in (("General question", ""), ("Callback", "abdm-m1")):
+        Ticket.objects.create(
+            organisation=owner_membership.organisation,
+            product=portal_workspaces[1].product,
+            subject=subject,
+            category=category,
+            status="open",
+        )
+    url = reverse("experiences:support")
+    response = portal_client.get(url, {"category": "others"})
+    assert [ticket.subject for ticket in response.context["tickets"]] == [
+        "General question",
+    ]
+    compact = " ".join(response.content.decode().split())
+    assert '<option value="others" selected>Others</option>' in compact
+    # "Others" has a blank code, like "All categories", which still lists both.
+    response = portal_client.get(url, {"category": ""})
+    assert len(response.context["tickets"]) == 2  # noqa: PLR2004
+    assert "selected>Others</option>" not in " ".join(response.content.decode().split())
+
+
 def test_invalid_support_filters_do_not_create_a_false_active_state(portal_client):
     response = portal_client.get(
         reverse("experiences:support"),

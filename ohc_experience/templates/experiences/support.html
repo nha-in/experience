@@ -14,7 +14,7 @@
         <div class="ui-rise flex flex-wrap items-end gap-x-9 gap-y-4 [animation-delay:50ms]">
           <div>
             <span class="ui-kicker block">{% if has_ticket_filters %}Matching{% else %}Tickets{% endif %}</span>
-            <span class="ui-figure mt-0.5 block">{{ tickets.paginator.count }}</span>
+            <span class="ui-figure mt-0.5 block">{% if has_ticket_filters %}{{ tickets.paginator.count }}{% else %}{{ ticket_total }}{% endif %}</span>
           </div>
           {% if not reviewer and workspace and can_integrate %}
             <a class="ui-btn ui-btn--default ui-btn--size-sm mb-1 no-underline"
@@ -101,10 +101,11 @@
             hx-push-url="true"
             hx-indicator="#nav-progress">
         {% if workspace %}<input type="hidden" name="product" value="{{ workspace.reference }}" />{% endif %}
-        {% if ticket_filters.status %}<input type="hidden" name="status" value="{{ ticket_filters.status }}" />{% endif %}
+        {# Sent even when blank: that is All tickets, and no status opens the default tab. #}
+        <input type="hidden" name="status" value="{{ ticket_filters.status }}" />
         <div class="w-[calc(50%_-_0.3125rem)] sm:w-[170px]">
           <label class="ui-label mb-1.5 block text-xs" for="ticket-category">Category</label>
-          <div class="ui-select-wrapper"><select class="ui-select" name="category" id="ticket-category"><option value="">All categories</option>{% for value,label in form.category.field.choices %}<option value="{{ value }}"
+          <div class="ui-select-wrapper"><select class="ui-select" name="category" id="ticket-category"><option value="">All categories</option>{% for value,label in category_choices %}<option value="{{ value }}"
         {% if ticket_filters.category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
         </div>
         <div class="w-[calc(50%_-_0.3125rem)] sm:w-[150px]">
