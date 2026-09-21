@@ -6,7 +6,7 @@
       <div class="ui-rise min-w-0">
         <p class="ui-hero-eyebrow">{{ workspace.product.name }}</p>
         <h1 class="ui-hero-title">Agent Skills</h1>
-        <p class="ui-hero-lede">Install an Agent Skill into the coding assistant you already use, so it works from the documented {{ experience_program.short_name }} flows rather than from memory. Each skill covers one milestone: the API calls and their headers, the recorded error codes, and the test matrix.</p>
+        <p class="ui-hero-lede">Install an Agent Skill into the coding assistant you already use, so it works from the documented {{ experience_program.short_name }} flows rather than from memory. Each milestone has a skill of its own: the API calls and their headers, the recorded error codes, and the loops that build and debug it.</p>
       </div>
       <div class="ui-rise flex flex-wrap items-end gap-x-10 gap-y-4 [animation-delay:.05s]">
         <div>
@@ -138,62 +138,51 @@
     </section>
     {% for group in skill_groups %}
       <section class="ui-rise [animation-delay:.12s]"
-               aria-labelledby="agent-skills-{{ group.code|slugify }}-title">
+               aria-labelledby="agent-skills-{{ group.code|default:"shared"|slugify }}-title">
         <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
           <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 class="text-lg font-bold tracking-[-0.01em]"
-                id="agent-skills-{{ group.code|slugify }}-title">{{ group.title }}</h2>
+                id="agent-skills-{{ group.code|default:"shared"|slugify }}-title">{{ group.title }}</h2>
             <p class="text-xs text-soft-foreground">{{ group.caption }}</p>
           </div>
           {% if group.matched %}
             <p class="text-xs text-soft-foreground">Matched to the milestones on {{ workspace.reference }}</p>
-          {% else %}
-            <p class="text-xs text-soft-foreground">
-              Locked until {{ group.code }} is added to this product ·
-              <a class="font-semibold text-primary no-underline hover:underline"
-                 href="{% url 'experiences:product-edit' workspace.reference %}">Edit product</a>
-            </p>
           {% endif %}
         </div>
         <ul class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {% for row in group.skills %}
             <li class="flex">
-              {% if row.locked %}
-                <div class="ui-card ui-card--sm w-full gap-3 border-dashed bg-muted-background/40">
-                  <div class="ui-card-header flex-1">
-                    <p class="ui-kicker">{{ row.kicker }}</p>
-                    <h3 class="ui-card-title text-soft-foreground">{{ row.definition.title }}</h3>
-                    <p class="ui-card-description">{{ row.summary }}</p>
+              <div class="ui-card ui-card--sm group w-full gap-3 transition-shadow has-[:checked]:border-primary has-[:checked]:ring-1 has-[:checked]:ring-primary/40 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring">
+                <input class="sr-only"
+                       type="radio"
+                       name="skill"
+                       id="agent-skill-{{ row.definition.slug }}"
+                       value="{{ row.definition.slug }}"
+                       aria-label="Install {{ row.definition.title }}"
+                       {% if row.definition.slug == selected_skill %}checked{% endif %} />
+                <div class="ui-card-header flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <h3 class="ui-card-title">{{ row.definition.title }}</h3>
+                    {% if row.recommended %}<span class="ui-badge ui-badge--primary ui-badge--size-xs">Recommended</span>{% endif %}
                   </div>
-                  <div class="ui-card-footer justify-between gap-3">
-                    <span class="text-xs text-soft-foreground">Compiled</span>
-                    <span class="text-xs text-soft-foreground">Needs {{ row.needs }}</span>
-                  </div>
+                  <p class="ui-card-description">{{ row.summary }}</p>
                 </div>
-              {% else %}
-                <label class="ui-card ui-card--sm group w-full cursor-pointer gap-3 transition-shadow has-[:checked]:border-primary has-[:checked]:ring-1 has-[:checked]:ring-primary/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
-                  <input class="sr-only"
-                         type="radio"
-                         name="skill"
-                         value="{{ row.definition.slug }}"
-                         aria-label="Install {{ row.definition.title }}"
-                         {% if row.definition.slug == selected_skill %}checked{% endif %} />
-                  <div class="ui-card-header flex-1">
-                    <div class="flex items-start justify-between gap-2">
-                      <p class="ui-kicker">{{ row.kicker }}</p>
-                      {% if row.badge %}<span class="ui-badge ui-badge--{{ row.badge.1 }} ui-badge--size-xs">{{ row.badge.0 }}</span>{% endif %}
-                    </div>
-                    <h3 class="ui-card-title group-hover:text-primary">{{ row.definition.title }}</h3>
-                    <p class="ui-card-description">{{ row.summary }}</p>
-                  </div>
-                  <div class="ui-card-footer justify-end gap-3">
-                    <span class="ui-btn ui-btn--default ui-btn--size-sm group-has-[:checked]:hidden"
-                          aria-hidden="true">Install skill</span>
-                    <span class="ui-btn ui-btn--secondary ui-btn--size-sm hidden group-has-[:checked]:inline-flex"
-                          aria-hidden="true">Chosen above</span>
-                  </div>
-                </label>
-              {% endif %}
+                <div class="ui-card-footer justify-end gap-3">
+                  {% if row.definition.docs_url %}
+                    <a class="me-auto text-xs font-semibold text-primary no-underline hover:underline"
+                       href="{{ row.definition.docs_url }}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       hx-boost="false"
+                       aria-label="Docs for {{ row.definition.title }}">Docs <span aria-hidden="true">↗&#xFE0E;</span></a>
+                  {% endif %}
+                  <label class="ui-btn ui-btn--default ui-btn--size-sm cursor-pointer group-has-[:checked]:hidden"
+                         for="agent-skill-{{ row.definition.slug }}"
+                         aria-hidden="true">Install skill</label>
+                  <span class="ui-btn ui-btn--secondary ui-btn--size-sm hidden group-has-[:checked]:inline-flex"
+                        aria-hidden="true">Chosen above</span>
+                </div>
+              </div>
             </li>
           {% endfor %}
         </ul>

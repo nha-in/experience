@@ -478,6 +478,10 @@ class AgentSkillsDefinition:
     #: Milestones each published skill carries, by folder name. A skill this
     #: does not name is offered to everybody.
     milestones_by_skill: ClassVar[dict[str, tuple[str, ...]]] = {}
+    #: The documentation page each skill's card links to, by folder name.
+    docs_by_skill: ClassVar[dict[str, str]] = {}
+    #: Skills that are no milestone of their own, listed apart from the tracks.
+    shared_skills: ClassVar[tuple[str, ...]] = ()
     #: What a skill holds itself to, shown beside the command.
     limits: ClassVar[tuple[str, ...]] = ()
 
@@ -502,11 +506,16 @@ class AgentSkillsDefinition:
 
     @classmethod
     def skills(cls):
-        """Every published skill, with the milestones this program gives it."""
+        """Every published skill, with the milestones and docs this program gives it."""
         if cls.manifest_path is None:
             return ()
         return tuple(
-            skill | {"milestones": cls.milestones_by_skill.get(skill["slug"], ())}
+            skill
+            | {
+                "milestones": cls.milestones_by_skill.get(skill["slug"], ()),
+                "docs_url": cls.docs_by_skill.get(skill["slug"], ""),
+                "shared": skill["slug"] in cls.shared_skills,
+            }
             for skill in read_skills_manifest(cls.manifest_path)
         )
 

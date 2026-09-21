@@ -1832,13 +1832,14 @@ def agent_skills(request, reference):
         agent_skills=catalogue,
     )
     context["skill_groups"] = agent_skill_groups(workspace, context["tracks"])
-    context["selected_skill"] = default_agent_skill(context["skill_groups"])
-    # The command names one folder, so a locked skill is never offered to it.
+    context["selected_skill"] = default_agent_skill(
+        context["skill_groups"],
+        context["tracks"],
+    )
     context["installable_skills"] = [
         row["definition"]
         for group in context["skill_groups"]
         for row in group["skills"]
-        if not row["locked"]
     ]
     # An agent with a URL scheme also gets a one-click link per installable
     # skill, and the page shows the one for whichever skill is chosen.

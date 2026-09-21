@@ -64,6 +64,33 @@ def deeplinks(response, scheme):
     return [link for link in parser.links if link["href"].startswith(scheme)]
 
 
+class AgentTabs(HTMLParser):
+    """The agent tabs in page order, each with whether it opens checked."""
+
+    def __init__(self):
+        super().__init__()
+        self.tabs = []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "input" and a.get("name") == "agent":
+            self.tabs.append((a.get("value"), "checked" in a))
+
+
+class DocsLinks(HTMLParser):
+    """Each card's Docs link, by the skill title it names."""
+
+    def __init__(self):
+        super().__init__()
+        self.links = {}
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        label = a.get("aria-label") or ""
+        if tag == "a" and label.startswith("Docs for "):
+            self.links[label.removeprefix("Docs for ")] = a["href"]
+
+
 def a_skill(slug):
     return next(skill for skill in ABDMAgentSkills.skills() if skill["slug"] == slug)
 
@@ -82,7 +109,7 @@ def groups(response):
 
 
 def hie_cm_only(environment, name="HIE-CM only"):
-    """A product that applied for one track, so the other tracks stay locked."""
+    """A product that applied for one track only."""
     workspace, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
@@ -105,7 +132,7 @@ def install(target, slug, sections):
     )
 
 
-M1_SECTIONS = ("scaffold", "integrate", "debug", "test")
+M1_SECTIONS = ("scaffold", "integrate", "debug")
 
 
 def test_each_agent_gets_the_command_that_fetches_the_chosen_skill(
@@ -130,6 +157,24 @@ def test_each_agent_gets_the_command_that_fetches_the_chosen_skill(
     assert 'aria-current="page"' in link
 
 
+def test_copilot_is_the_first_agent_and_the_one_the_page_opens_on(
+    environment,
+    client,
+):
+    client.force_login(environment["applicant"])
+
+    page = client.get(skills_url(environment["workspace"]))
+
+    tabs = AgentTabs()
+    tabs.feed(page.content.decode())
+    assert tabs.tabs == [
+        ("copilot", True),
+        ("codex", False),
+        ("cursor", False),
+        ("claude", False),
+    ]
+
+
 def test_the_command_fetches_only_the_sections_the_chosen_skill_has(
     environment,
     client,
@@ -138,7 +183,7 @@ def test_the_command_fetches_only_the_sections_the_chosen_skill_has(
 
     page = client.get(skills_url(environment["workspace"]))
 
-    # FHIR carries two sections rather than the usual four, and the command has
+    # FHIR carries two sections rather than the usual three, and the command has
     # to name its own, or the loop fetches files that are not published.
     html = page.content.decode()
     assert (
@@ -147,7 +192,7 @@ def test_the_command_fetches_only_the_sections_the_chosen_skill_has(
         .startswith("generate audit;")
     )
     assert ">generate audit</span>" in html
-    assert ">scaffold integrate debug test</span>" in html
+    assert ">scaffold integrate debug</span>" in html
 
 
 def test_claude_and_cursor_get_a_one_click_link_for_the_chosen_skill(
@@ -223,78 +268,134 @@ def test_the_panel_opens_on_the_skill_for_the_milestone_being_worked_on(
 
     page = client.get(skills_url(environment["workspace"]))
 
+    # The gateway and FHIR carry M2 as well, but M2's own skill is the one to open on.
     assert page.context["selected_skill"] == "abdm-m2"
-    rows = cards(page)
-    # Nothing tells the portal a skill was installed, so an approved milestone
-    # is not claimed as one being used.
-    assert rows["abdm-m1"]["badge"] is None
-    assert rows["abdm-m2"]["badge"] == ("Recommended", "primary")
-    # Nothing is claimed about a milestone the product has not reached either.
-    assert rows["abdm-m3"]["badge"] is None
     assert command(page, "claude") == install("claude", "abdm-m2", M1_SECTIONS)
 
 
-def test_the_first_milestone_is_recommended_until_it_is_approved(environment, client):
-    client.force_login(environment["applicant"])
-
-    page = client.get(skills_url(environment["workspace"]))
-
-    assert page.context["selected_skill"] == "abdm-m1"
-    assert cards(page)["abdm-m1"]["badge"] == ("Recommended", "primary")
-    # FHIR is carried by M2, so it waits its turn rather than crowding the first.
-    assert cards(page)["abdm-fhir"]["badge"] is None
-    assert cards(page)["abdm-m2"]["badge"] is None
-
-
-def test_a_card_says_what_it_carries_and_what_it_does(environment, client):
-    client.force_login(environment["applicant"])
-
-    page = client.get(skills_url(environment["workspace"]))
-
-    rows = cards(page)
-    # What opening the folder gets you, which is what tells two skills apart
-    # now that each one covers a whole module.
-    assert rows["abdm-m2"]["kicker"] == "Scaffold · Integrate · Debug · Test"
-    assert rows["abdm-fhir"]["kicker"] == "Generate · Audit"
-    assert rows["abdm-phr-services"]["kicker"] == "Integrate · Debug · Test"
-    # The title and the description are the site's own, not a copy kept here.
-    assert rows["abdm-m2"]["definition"]["title"] == "M2, linking and sharing"
-    # A card shows the opening sentence: the rest is written for an agent
-    # deciding whether to load the skill, and does not fit a card.
-    summary = rows["abdm-m2"]["summary"]
-    assert summary.startswith(
-        "Use when building, debugging or testing ABDM Milestone 2",
-    )
-    assert summary.endswith(".")
-    assert len(summary) < len(rows["abdm-m2"]["definition"]["description"])
-
-
-def test_skills_for_a_track_the_product_left_out_are_locked(environment, client):
+def test_skills_for_the_milestones_on_the_product_are_recommended(environment, client):
     workspace = hie_cm_only(environment)
     client.force_login(environment["applicant"])
 
     page = client.get(skills_url(workspace))
 
-    hie_cm, phr = groups(page)["HIE-CM"], groups(page)["PHR"]
-    assert hie_cm["matched"]
-    assert not phr["matched"]
-    # The matched track comes first, so what can be installed now is read first.
+    recommended = {slug for slug, row in cards(page).items() if row["recommended"]}
+    assert recommended == {
+        "abdm-gateway",
+        "abdm-m1",
+        "abdm-m2",
+        "abdm-m3",
+        "abdm-subscription",
+        "abdm-scan-and-pay",
+        "abdm-fhir",
+    }
+    # The track the product applied for is read first, then the shared skills it
+    # was recommended, then the tracks it left out.
     codes = [group["code"] for group in page.context["skill_groups"]]
-    assert codes == ["HIE-CM", "PHR"]
-    assert cards(page)["abdm-p1"]["locked"]
-    assert cards(page)["abdm-p1"]["needs"] == "P1"
-    assert cards(page)["abdm-p3"]["needs"] == "P3 and P4"
-    # M4 sits in a track this product did have, but it left the milestone out.
-    assert cards(page)["abdm-m4"]["locked"]
-    assert cards(page)["abdm-m4"]["needs"] == "M4"
-    assert not cards(page)["abdm-m1"]["locked"]
-    # A locked skill is never offered to the command, which names only one.
+    assert codes == ["HIE-CM", "", "PHR", "HealthLocker"]
+
+
+def test_skills_that_are_no_milestone_of_their_own_are_listed_apart(
+    environment,
+    client,
+):
+    client.force_login(environment["applicant"])
+
+    page = client.get(skills_url(environment["workspace"]))
+
+    def slugs(group):
+        return [row["definition"]["slug"] for row in group["skills"]]
+
+    # HIE-CM is the four modules. The gateway is its front door, not one of them.
+    assert slugs(groups(page)["HIE-CM"]) == ["abdm-m1", "abdm-m2", "abdm-m3", "abdm-m4"]
+    shared = groups(page)[""]
+    assert shared["title"] == "Shared Agent Skills"
+    assert slugs(shared) == [
+        "abdm-gateway",
+        "abdm-subscription",
+        "abdm-scan-and-pay",
+        "abdm-fhir",
+    ]
+    assert 'id="agent-skills-shared-title"' in page.content.decode()
+
+
+def test_a_card_says_what_the_skill_covers(environment, client):
+    client.force_login(environment["applicant"])
+
+    page = client.get(skills_url(environment["workspace"]))
+
+    rows = cards(page)
+    # The title and the description are the site's own, not a copy kept here.
+    assert rows["abdm-m2"]["definition"]["title"] == "M2, linking and sharing"
+    # A card shows only what the opening sentence lists: its "Use when" lead-in
+    # and the rest are written for an agent deciding whether to load the skill.
+    assert rows["abdm-m2"]["summary"] == (
+        "Care contexts, HIP initiated linking, discovery, and pushing encrypted"
+        " health records to a requester."
+    )
+    assert rows["abdm-gateway"]["summary"] == "The gateway session and bridge registry."
+
+
+def test_a_card_links_to_the_docs_the_product_form_gives_its_milestone(
+    environment,
+    client,
+    settings,
+):
+    settings.ABDM_DOCS_URL = "https://docs.example"
+    client.force_login(environment["applicant"])
+
+    page = client.get(skills_url(environment["workspace"]))
+
+    links = DocsLinks()
+    links.feed(page.content.decode())
+    docs = "https://docs.example"
+    milestones = f"{docs}/docs/hiecm/v3/milestones"
+    assert links.links == {
+        "Gateway, sessions and the bridge registry": (
+            f"{docs}/docs/hiecm/v3/concepts/gateway"
+        ),
+        "M1, ABHA identity": f"{milestones}/m1",
+        "M2, linking and sharing": f"{milestones}/m2",
+        "M3, consent and fetching": f"{milestones}/m3",
+        "M4, facility and professional registries": f"{milestones}/m4",
+        "Subscriptions": f"{docs}/reference/hiecm-subscription",
+        "Scan and pay": f"{docs}/reference/hiecm-scan-and-pay",
+        "FHIR, generating and auditing bundles": f"{docs}/docs/hiecm/v3/concepts/fhir",
+        "P1, PHR registration and login": f"{milestones}/p1",
+        "P2, PHR management": f"{milestones}/p2",
+        "P3, PHR subscriptions": f"{milestones}/p3",
+        # P4 has no milestone page; the product form links this section too.
+        "P4, health lockers": (
+            f"{docs}/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip"
+        ),
+    }
+
+
+def test_skills_the_product_did_not_apply_for_can_still_be_installed(
+    environment,
+    client,
+):
+    workspace = hie_cm_only(environment)
+    client.force_login(environment["applicant"])
+
+    page = client.get(skills_url(workspace))
+
     slugs = [skill["slug"] for skill in page.context["installable_skills"]]
-    assert slugs == ["abdm-m1", "abdm-m2", "abdm-m3", "abdm-fhir"]
-    html = page.content.decode()
-    assert "Locked until PHR is added to this product" in html
-    edit_url = reverse("experiences:product-edit", args=[workspace.reference])
-    assert f'href="{edit_url}"' in html
+    assert slugs == [
+        "abdm-m1",
+        "abdm-m2",
+        "abdm-m3",
+        "abdm-m4",
+        "abdm-gateway",
+        "abdm-subscription",
+        "abdm-scan-and-pay",
+        "abdm-fhir",
+        "abdm-p1",
+        "abdm-p2",
+        "abdm-p3",
+        "abdm-p4",
+    ]
+    assert not groups(page)["PHR"]["matched"]
 
 
 def test_a_track_with_no_skill_of_its_own_leaves_no_empty_group(
@@ -306,7 +407,7 @@ def test_a_track_with_no_skill_of_its_own_leaves_no_empty_group(
     page = client.get(skills_url(environment["workspace"]))
 
     # NHCX and UHI carry no skills yet, so neither gets a heading with nothing under it.
-    assert set(groups(page)) == {"HIE-CM", "PHR"}
+    assert set(groups(page)) == {"HIE-CM", "PHR", "HealthLocker", ""}
     assert all(group["skills"] for group in page.context["skill_groups"])
 
 
@@ -352,15 +453,20 @@ def test_the_shipped_file_carries_every_skill_the_mapping_names():
     published = {skill["slug"] for skill in ABDMAgentSkills.skills()}
 
     assert published, "Refresh it with `manage.py fetch_agent_skills`."
-    unknown = set(ABDMAgentSkills.milestones_by_skill) - published
+    mapped = (
+        set(ABDMAgentSkills.milestones_by_skill)
+        | set(ABDMAgentSkills.docs_by_skill)
+        | set(ABDMAgentSkills.shared_skills)
+    )
+    unknown = mapped - published
     assert not unknown, (
-        f"{sorted(unknown)} are given milestones but the site no longer "
+        f"{sorted(unknown)} are mapped but the site no longer "
         "publishes them. Refresh the file and settle the mapping."
     )
 
 
 def test_a_newly_published_skill_is_offered_before_it_is_mapped(environment, client):
-    """Naming a skill in the mapping is what locks it behind a milestone."""
+    """Naming a skill in the mapping is what recommends it for a milestone."""
     published = ABDMAgentSkills.skills()
     assert published
     mapped = dict(ABDMAgentSkills.milestones_by_skill)
@@ -370,9 +476,9 @@ def test_a_newly_published_skill_is_offered_before_it_is_mapped(environment, cli
         client.force_login(environment["applicant"])
         page = client.get(skills_url(environment["workspace"]))
 
-    row = cards(page)[published[0]["slug"]]
-    assert not row["locked"]
-    assert row["needs"] == ""
+    slugs = [skill["slug"] for skill in page.context["installable_skills"]]
+    assert published[0]["slug"] in slugs
+    assert not cards(page)[published[0]["slug"]]["recommended"]
 
 
 def test_support_members_have_no_agent_skills_page(environment, client):
@@ -421,7 +527,7 @@ def test_skills_with_nowhere_to_be_installed_from_are_refused(settings):
 
 def test_a_skill_the_file_no_longer_lists_is_not_offered(environment, client):
     """A withdrawn skill leaves the page, rather than an install that 404s."""
-    kept = ABDMAgentSkills.skills()[1:]
+    kept = [skill for skill in ABDMAgentSkills.skills() if skill["slug"] != "abdm-m1"]
 
     with mock.patch.object(ABDMAgentSkills, "skills", classmethod(lambda cls: kept)):
         client.force_login(environment["applicant"])

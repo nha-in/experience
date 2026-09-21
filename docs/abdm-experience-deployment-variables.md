@@ -77,7 +77,7 @@ python manage.py fetch_agent_skills          # rewrite the file from ABDM_DOCS_U
 python manage.py fetch_agent_skills --check  # fail if the file is behind, write nothing
 ```
 
-`--url` overrides the site for a single run. A skill the file lists but `milestones_by_skill` in `ohc_experience/abdm/skills.py` does not name is offered to every product, so a newly published skill shows up before anyone maps it.
+`--url` overrides the site for a single run. Every skill the file lists is offered to every product. `milestones_by_skill` in `ohc_experience/abdm/skills.py` decides which track a skill is listed under and marks it Recommended for products that applied for one of its milestones; `shared_skills` lists the ones that are no milestone of their own, such as the gateway, which are listed together after the tracks; `docs_by_skill` sets the page each Docs link opens. A newly published skill shows up before anyone maps it, just unrecommended and without a Docs link.
 
 Source: `config/settings/base.py`, `ohc_experience/abdm/skills.py`, `ohc_experience/experiences/definitions.py`, `ohc_experience/experiences/skills_manifest.py`.
 

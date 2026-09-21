@@ -2,8 +2,6 @@
 
 from django.urls import reverse
 
-from .definitions import readable_list
-
 
 def overview_progress(tracks):
     """Count canonical milestones once, including milestones shared by tracks."""
@@ -21,97 +19,84 @@ def overview_progress(tracks):
     }
 
 
-def _agent_skill_badge(skill, *, matched, current):
-    """Whether this skill carries the milestone being worked on now."""
-    if matched and current in skill["milestones"]:
-        return ("Recommended", "primary")
-    return None
-
-
 def _agent_skill_summary(description):
-    """The opening sentence: the rest is written for an agent, not a card."""
-    sentence = description.split(". ")[0].strip()
-    return sentence if sentence.endswith(".") else f"{sentence}."
+    """What the opening sentence lists, past its "Use when ...:" lead-in."""
+    sentence = description.split(". ")[0].strip().removesuffix(".")
+    scope = sentence.split(": ", 1)[-1]
+    return f"{scope[:1].upper()}{scope[1:]}." if scope else ""
 
 
 def agent_skill_groups(workspace, tracks):
-    """Agent Skills by track: the ones this product's milestones carry, then the rest.
+    """Agent Skills by track, then the shared ones that belong to no single track.
 
-    A skill is matched when the product applied for a milestone it carries. The
-    rest stay visible but locked, so a product can see what a track would bring.
+    Any skill can be installed. A skill is recommended when the product applied
+    for a milestone it carries.
     """
     program = workspace.definition
-    statuses = {}
-    for track in tracks:
-        for tile in track["tiles"]:
-            # The order the portal works through them, which is where "next" comes
-            # from. A milestone two tracks share keeps the place it was first given.
-            statuses.setdefault(tile["definition"].key, tile["status"])
-    # The first milestone that is not approved is the one being worked on now, and
-    # its skill is the one to install next.
-    current = next(
-        (key for key, status in statuses.items() if status != "approved"),
-        "",
-    )
+    applied = {tile["definition"].key for track in tracks for tile in track["tiles"]}
     groups = {}
     for skill in program.agent_skills.skills():
         milestones = skill["milestones"]
-        applied = [key for key in milestones if key in statuses]
-        # A skill that carries no milestone belongs to every integration.
-        matched = bool(applied) or not milestones
-        track = next(
-            (
-                track
-                for track in program.tracks
-                for key in milestones
-                if key in track.keys
-            ),
-            None,
-        )
+        recommended = any(key in applied for key in milestones)
+        track = None
+        if not skill["shared"]:
+            track = next(
+                (
+                    track
+                    for track in program.tracks
+                    for key in milestones
+                    if key in track.keys
+                ),
+                None,
+            )
         group = groups.setdefault(
             track.code if track else "",
             {"definition": track, "matched": False, "skills": []},
         )
-        group["matched"] = group["matched"] or matched
+        group["matched"] = group["matched"] or recommended
         group["skills"].append(
             {
                 "definition": skill,
                 "summary": _agent_skill_summary(skill["description"]),
-                "kicker": " · ".join(
-                    section.capitalize() for section in skill["sections"]
-                ),
-                "badge": _agent_skill_badge(
-                    skill,
-                    matched=matched,
-                    current=current,
-                ),
-                "locked": not matched,
-                "needs": readable_list(
-                    program.milestones[key].code
-                    for key in milestones
-                    if key not in statuses
-                ),
+                "recommended": recommended,
             },
         )
     rows = [
         {
             "code": code,
-            "title": f"{code} Agent Skills" if code else "Agent Skills",
-            "caption": group["definition"].description if group["definition"] else "",
+            "title": f"{code} Agent Skills" if code else "Shared Agent Skills",
+            "caption": group["definition"].description
+            if group["definition"]
+            else "Used across tracks rather than belonging to one.",
             "matched": group["matched"],
             "skills": group["skills"],
         }
         for code, group in groups.items()
     ]
-    # What this product can install first, then what adding a track would bring.
-    return sorted(rows, key=lambda row: not row["matched"])
+    # What this product applied for first, and each track before the shared skills.
+    return sorted(rows, key=lambda row: (not row["matched"], not row["code"]))
 
 
-def default_agent_skill(groups):
-    """The skill the install panel opens on: the next one to install."""
-    rows = [row for group in groups for row in group["skills"] if not row["locked"]]
+def default_agent_skill(groups, tracks):
+    """The skill the install panel opens on: the own skill of the first milestone
+    that is not approved yet."""
+    statuses = {}
+    for track in tracks:
+        for tile in track["tiles"]:
+            # A milestone two tracks share keeps the place it was first given.
+            statuses.setdefault(tile["definition"].key, tile["status"])
+    current = next(
+        (key for key, status in statuses.items() if status != "approved"),
+        "",
+    )
+    rows = [row for group in groups for row in group["skills"]]
     chosen = next(
-        (row for row in rows if row["badge"] and row["badge"][0] == "Recommended"),
+        (
+            row
+            for row in rows
+            if not row["definition"]["shared"]
+            and current in row["definition"]["milestones"]
+        ),
         next(iter(rows), None),
     )
     return chosen["definition"]["slug"] if chosen else ""
