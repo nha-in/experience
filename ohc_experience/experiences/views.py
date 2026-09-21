@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from pathlib import Path
 from statistics import median
@@ -60,6 +61,7 @@ from .forms import CallbackURLForm
 from .forms import SupportForm
 from .models import AuditEvent
 from .models import EventRegistration
+from .models import Product
 from .models import ProductCredential
 from .models import ReviewItem
 from .models import ReviewQuery
@@ -2039,6 +2041,32 @@ def _queue_sort(request):
     return sort if sort in QUEUE_ORDER else "newest"
 
 
+REVIEW_REFERENCE = re.compile(r"REV-?(\d{1,9})", re.IGNORECASE)
+
+
+def _queue_search(search):
+    """Requests whose product, organisation or reference matches the search.
+
+    A product matches through the entry it belongs to, `queue_product_id`. A
+    filter on `organisation_product` would join the organisation's products a
+    second time, and so put its verification on every one of its products as
+    soon as any of them matched.
+    """
+    products = Product.objects.filter(
+        Q(name__icontains=search) | Q(workspace__reference__icontains=search),
+    )
+    matches = (
+        Q(queue_product_id__in=products.values("pk"))
+        | Q(organisation__name__icontains=search)
+        | Q(organisation__legal_name__icontains=search)
+        | Q(application__reference__icontains=search)
+    )
+    reference = REVIEW_REFERENCE.fullmatch(search)
+    if reference:
+        matches |= Q(pk=int(reference[1]))
+    return matches
+
+
 def _prerequisite_label(program, prerequisite):
     """("M1", "under review"), or ("organisation verification", "new")."""
     review = prerequisite.review
@@ -2086,6 +2114,7 @@ def queue(request):
     assignee, item, search = (
         request.GET.get(key, "") for key in ("assignee", "item", "q")
     )
+    search = search.strip()
     if assignee == "me":
         query = query.filter(assignee=request.user)
     elif assignee == "unassigned":
@@ -2096,14 +2125,7 @@ def queue(request):
     if item_filter is not None:
         query = query.filter(item_filter)
     if search:
-        query = query.filter(
-            Q(product__name__icontains=search)
-            | Q(product__workspace__reference__icontains=search)
-            | Q(organisation_product__name__icontains=search)
-            | Q(organisation_product__workspace__reference__icontains=search)
-            | Q(organisation__name__icontains=search)
-            | Q(application__reference__icontains=search),
-        )
+        query = query.filter(_queue_search(search))
     waiting = services.waiting_reviews()
     scopes = {
         "ready": (services.PENDING_STATUSES, ~waiting),

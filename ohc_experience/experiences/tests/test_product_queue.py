@@ -14,6 +14,7 @@ from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.tests.test_port_review_ui import (
     review_item,  # noqa: F401
 )
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.users.tests.factories import ReviewerFactory
 from ohc_experience.users.tests.factories import UserFactory
@@ -332,3 +333,58 @@ def test_category_reviewer_never_sees_organisation_verification(
         {"scope": "all", "item": "organisation_verification"},
     )
     assert response.context["page"].paginator.count == 0
+
+
+def test_search_for_one_product_leaves_out_its_organisations_other_products(
+    client,
+    review_item,
+    owner_membership,
+):
+    organisation = submit_organisation(owner_membership)
+    compressor, form = workflows.register_product(
+        owner_membership.organisation,
+        owner_membership.user,
+        data={
+            "equipment_name": "Air compressor",
+            "summary": "A second product of the same organisation",
+            "checks": ["Quality:inspection", "Quality:release"],
+        },
+    )
+    assert compressor, form.errors
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    url = reverse("experiences:queue")
+
+    # The organisation verification sits on both products. Searching for one
+    # must not bring in the other.
+    for search in ("Air compressor", compressor.reference):
+        page = client.get(url, {"q": search}).context["page"]
+        assert [entry.product for entry in page] == [compressor.product]
+        assert page[0].matching_reviews == [organisation]
+    page = client.get(url, {"q": review_item.product.workspace.reference}).context[
+        "page"
+    ]
+    assert [entry.product for entry in page] == [review_item.product]
+    assert page[0].matching_reviews == [organisation, review_item]
+
+
+def test_search_finds_what_the_queue_shows(client, review_item, owner_membership):
+    submit_organisation(owner_membership)
+    Organisation.objects.filter(pk=owner_membership.organisation_id).update(
+        legal_name="Sunrise Medical Devices Private Limited",
+    )
+    standalone = submit_organisation(MembershipFactory(role="owner"))
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    url = reverse("experiences:queue")
+
+    def found(search):
+        page = client.get(url, {"q": search}).context["page"]
+        return [entry.reference for entry in page]
+
+    product = review_item.product.workspace.reference
+    assert found(f"  {product} ") == [product]
+    # The queue names an organisation by its legal name when it has one.
+    assert found("medical devices") == [product]
+    # The reference on a standalone organisation verification, and a request's
+    # own reference as its review page shows it.
+    assert found(standalone.reference) == [standalone.reference]
+    assert found(review_item.reference.lower()) == [product]
