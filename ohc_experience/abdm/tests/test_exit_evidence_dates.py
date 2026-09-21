@@ -4,6 +4,7 @@ import pytest
 from django.utils import timezone
 
 from ohc_experience.abdm.demo import evidence_data
+from ohc_experience.abdm.forms import EXPIRED_CERTIFICATE
 from ohc_experience.abdm.forms import ExitEvidenceForm
 from ohc_experience.abdm.tests.test_workflow import files
 
@@ -119,10 +120,49 @@ def test_date_picker_limits_refresh_for_each_form(monkeypatch):
         assert form.fields["tentative_demo_date"].widget.attrs["min"] == day.isoformat()
 
 
-def test_wasa_expiry_picker_is_left_to_follow_its_audit_date():
-    """An expired certificate is refused on submission but kept on a draft."""
-    form = ExitEvidenceForm()
+def test_wasa_expiry_picker_offers_no_expired_date(monkeypatch):
+    """Floored at the day the page is built, like the audit date's cap."""
+    today = timezone.localdate()
+    for day in (today, today + timedelta(days=1)):
+        monkeypatch.setattr(timezone, "localdate", lambda day=day: day)
+        attrs = ExitEvidenceForm().fields["wasa_valid_until"].widget.attrs
+        assert attrs["min"] == day.isoformat()
+        assert "max" not in attrs
 
-    attrs = form.fields["wasa_valid_until"].widget.attrs
-    assert "min" not in attrs
-    assert "max" not in attrs
+
+def _expired_certificate():
+    today = timezone.localdate()
+    return {
+        "wasa_date": (today - timedelta(days=400)).isoformat(),
+        "wasa_valid_until": (today - timedelta(days=30)).isoformat(),
+    }
+
+
+def test_an_expired_certificate_is_refused_on_submission():
+    form = ExitEvidenceForm(
+        data=evidence_data() | _expired_certificate(),
+        files=files(),
+    )
+
+    assert not form.is_valid()
+    assert form.errors["wasa_valid_until"] == [EXPIRED_CERTIFICATE]
+
+
+def test_a_draft_keeps_an_expired_certificate():
+    """Records migrated with an expired certificate must still save."""
+    form = ExitEvidenceForm(
+        data=evidence_data() | _expired_certificate(),
+        files=files(),
+        draft=True,
+    )
+
+    assert form.is_valid(), form.errors
+
+
+def test_a_certificate_expiring_today_is_still_current():
+    form = ExitEvidenceForm(
+        data=evidence_data() | {"wasa_valid_until": timezone.localdate().isoformat()},
+        files=files(),
+    )
+
+    assert form.is_valid(), form.errors

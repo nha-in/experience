@@ -257,12 +257,52 @@
     // The server caps testing at today; a demo cannot be earlier than today
     // even when testing ended in the past or its end date is cleared.
     if (end && demo) demo.min = end.value > end.max ? end.value : end.max;
-    // A certificate cannot expire before the audit that issued it. An expired
-    // certificate is refused on submission but kept on a draft, so the floor
-    // here is the audit date rather than today.
-    const audit = form.querySelector('[name="wasa_date"]');
+    // The server floors a certificate's expiry at today, which no audit date
+    // can undercut: the audit itself is capped at today. So nothing here moves
+    // it; the only work left is to say why an earlier date is refused.
+    flagExpiredCertificate(form);
+  }
+
+  // An expired certificate is refused on submission. Say so beside the field
+  // as soon as a date lands there, however it came: typed, picked, or read off
+  // the certificate, whose reader announces its values with a change event.
+  function flagExpiredCertificate(form) {
     const expiry = form.querySelector('[name="wasa_valid_until"]');
-    if (audit && expiry) expiry.min = audit.value || '';
+    const message = expiry?.dataset?.expiredMessage;
+    if (!message) return;
+    const field = expiry.closest('.ui-field') || expiry.parentElement;
+    const expired = !expiry.disabled && Boolean(expiry.value) && expiry.value < expiry.min;
+    // A refused submission prints the same sentence; take that copy as ours.
+    const said = [...field.querySelectorAll('.ui-error')].find(error => error.textContent.trim() === message);
+    if (expired === Boolean(said)) return;
+    const id = `${expiry.id}_errors`;
+    if (said) {
+      const box = said.parentElement;
+      said.remove();
+      if (!box.children.length) box.remove();
+    } else {
+      let box = document.getElementById(id);
+      if (!box) {
+        box = document.createElement('div');
+        box.id = id;
+        field.append(box);
+      }
+      const error = document.createElement('span');
+      error.className = 'ui-error';
+      error.textContent = message;
+      box.append(error);
+    }
+    // Another error the server printed keeps the field invalid on its own.
+    const invalid = Boolean(document.getElementById(id));
+    const described = new Set((expiry.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+    if (invalid) {
+      described.add(id);
+      expiry.setAttribute('aria-invalid', 'true');
+    } else {
+      described.delete(id);
+      expiry.removeAttribute('aria-invalid');
+    }
+    expiry.setAttribute('aria-describedby', [...described].join(' '));
   }
 
   function updateMilestoneSelection(form, changed) {

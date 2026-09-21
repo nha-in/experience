@@ -481,6 +481,9 @@ class UhiParticipationForm(ReviewForm):
     )
 
 
+EXPIRED_CERTIFICATE = "This certificate has expired. Submit a renewed WASA certificate."
+
+
 class WasaReviewForm(ReviewForm):
     # The certificate leads: the audit fields below are read from it.
     sections = (
@@ -533,9 +536,16 @@ class WasaReviewForm(ReviewForm):
     def __init__(self, *args, product=None, **kwargs):
         self.product = product
         super().__init__(*args, **kwargs)
-        # The expiry has no cap of its own: it follows the audit date, which
-        # only the browser knows while it is being typed.
-        self.fields["wasa_date"].widget.attrs["max"] = timezone.localdate().isoformat()
+        today = timezone.localdate().isoformat()
+        self.fields["wasa_date"].widget.attrs["max"] = today
+        # The picker never offers an expired date, and project.js says why
+        # beside the field the moment one lands there, typed or read off the
+        # certificate, in the words clean() refuses it with. A draft still
+        # keeps one: it posts without the browser's validation, and records
+        # migrated with an expired certificate still open.
+        expiry = self.fields["wasa_valid_until"].widget.attrs
+        expiry["min"] = today
+        expiry["data-expired-message"] = EXPIRED_CERTIFICATE
         self._agency_choices()
 
     def _agency_choices(self):
@@ -568,10 +578,7 @@ class WasaReviewForm(ReviewForm):
                 "The expiry date must be on or after the audit date.",
             )
         elif expiry and expiry < timezone.localdate() and not self.draft:
-            self.add_error(
-                "wasa_valid_until",
-                "This certificate has expired. Submit a renewed WASA certificate.",
-            )
+            self.add_error("wasa_valid_until", EXPIRED_CERTIFICATE)
         return cleaned
 
 

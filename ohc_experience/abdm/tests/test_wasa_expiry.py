@@ -1,6 +1,10 @@
+import re
+
 import pytest
 from django.template.loader import render_to_string
+from django.utils import timezone
 
+from ohc_experience.abdm.forms import EXPIRED_CERTIFICATE
 from ohc_experience.abdm.forms import ExitEvidenceForm
 from ohc_experience.abdm.forms import WasaReviewForm
 from ohc_experience.abdm.wasa import WASA_VALIDITY_YEARS
@@ -40,3 +44,15 @@ def test_expiry_stays_required_and_editable(form_class):
     assert field.required
     assert not field.disabled
     assert not field.widget.attrs.get("readonly")
+
+
+@pytest.mark.parametrize("form_class", FORMS)
+def test_the_expiry_input_carries_its_floor_and_its_refusal(form_class):
+    """What project.js needs to refuse an expired date the moment it lands."""
+    html = render_to_string(
+        "experiences/partials/form.html",
+        {"form": form_class()},
+    )
+    tag = re.search(r'<input[^>]*name="wasa_valid_until"[^>]*>', html).group(0)
+    assert f'min="{timezone.localdate().isoformat()}"' in tag
+    assert f'data-expired-message="{EXPIRED_CERTIFICATE}"' in tag

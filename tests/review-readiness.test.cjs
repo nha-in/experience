@@ -281,24 +281,138 @@ test('sandbox end date follows the start date while retaining its latest allowed
   }
 });
 
-test('the WASA expiry date can never precede the audit date it follows', () => {
+const EXPIRED = 'This certificate has expired. Submit a renewed WASA certificate.';
+
+// The expiry's field, as far as the flag reaches into it: the error box the
+// server prints after a refused submission, and the spans inside it.
+function expiryField(page, expiry, { printed = false } = {}) {
+  const byId = new Map();
+  const attributes = new Map();
+  const node = tagName => ({
+    tagName, id: '', className: '', textContent: '', children: [], parentElement: null,
+    append(child) {
+      child.parentElement = this;
+      this.children.push(child);
+      if (child.id) byId.set(child.id, child);
+    },
+    remove() {
+      this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1);
+      if (this.id) byId.delete(this.id);
+    },
+  });
+  const field = node('DIV');
+  field.querySelectorAll = selector => {
+    const found = [];
+    const walk = parent => parent.children.forEach(child => {
+      if (selector === '.ui-error' && child.className === 'ui-error') found.push(child);
+      walk(child);
+    });
+    walk(field);
+    return found;
+  };
+  const closest = expiry.closest;
+  Object.assign(expiry, {
+    id: 'id_wasa_valid_until',
+    // What the form renders: the wording clean() refuses an expired date with.
+    dataset: { expiredMessage: EXPIRED },
+    closest: selector => (selector === '.ui-field' ? field : closest(selector)),
+    getAttribute: name => (attributes.has(name) ? attributes.get(name) : null),
+    setAttribute: (name, value) => attributes.set(name, String(value)),
+    removeAttribute: name => attributes.delete(name),
+  });
+  page.document.createElement = tagName => node(tagName.toUpperCase());
+  const getElementById = page.document.getElementById;
+  page.document.getElementById = id => byId.get(id) || getElementById(id);
+  if (printed) {
+    const box = page.document.createElement('div');
+    box.id = 'id_wasa_valid_until_errors';
+    field.append(box);
+    const error = page.document.createElement('span');
+    error.className = 'ui-error';
+    error.textContent = EXPIRED;
+    box.append(error);
+    expiry.setAttribute('aria-invalid', 'true');
+    expiry.setAttribute('aria-describedby', box.id);
+  }
+  return { errors: () => field.querySelectorAll('.ui-error').map(error => error.textContent) };
+}
+
+test('an expired WASA certificate is refused beside its field, however the date arrived', () => {
   const today = '2026-09-18';
   const page = createPage();
   const audit = page.date('wasa_date', { value: '2026-09-16', max: today });
-  const expiry = page.date('wasa_valid_until', { value: '2027-09-15' });
+  // The server floors the expiry at today.
+  const expiry = page.date('wasa_valid_until', { value: '2027-09-15', min: today, required: true });
+  const field = expiryField(page, expiry);
   page.initialize();
 
-  assert.equal(audit.max, today);
-  assert.equal(expiry.min, '2026-09-16');
+  assert.equal(expiry.min, today);
+  assert.deepEqual(field.errors(), []);
+  assert.equal(page.button.disabled, false);
 
-  // An expired certificate is refused only on submission, so a draft keeps
-  // reaching back to its own audit date rather than to today.
-  for (const value of [today, '2024-01-05', '']) {
+  // No audit date lowers the floor: the audit itself is capped at today.
+  for (const value of ['2024-01-05', '']) {
     audit.value = value;
     page.change(audit);
-    assert.equal(expiry.min, value);
-    assert.equal(expiry.max, '');
+    assert.equal(expiry.min, today);
   }
+
+  // Typed, picked, or filled in by the certificate reader, which announces its
+  // values with the same change event.
+  expiry.value = '2025-03-01';
+  page.change(expiry);
+  assert.deepEqual(field.errors(), [EXPIRED]);
+  assert.equal(expiry.getAttribute('aria-invalid'), 'true');
+  assert.equal(expiry.getAttribute('aria-describedby'), 'id_wasa_valid_until_errors');
+  assert.equal(page.button.disabled, true);
+  assert.equal(page.reason.textContent, '1 field needs attention before you can request review.');
+
+  // Said once, however many times the field changes.
+  page.change(expiry);
+  page.input(expiry);
+  assert.deepEqual(field.errors(), [EXPIRED]);
+
+  // A certificate that is still current clears it.
+  expiry.value = '2027-01-01';
+  page.change(expiry);
+  assert.deepEqual(field.errors(), []);
+  assert.equal(expiry.getAttribute('aria-invalid'), null);
+  assert.equal(expiry.getAttribute('aria-describedby'), '');
+  assert.equal(page.button.disabled, false);
+
+  // Expiring today is still current.
+  expiry.value = today;
+  page.change(expiry);
+  assert.deepEqual(field.errors(), []);
+});
+
+test('a refused submission keeps one copy of the expiry error, then lets it go', () => {
+  const today = '2026-09-18';
+  const page = createPage();
+  const expiry = page.date('wasa_valid_until', { value: '2025-03-01', min: today });
+  const field = expiryField(page, expiry, { printed: true });
+  page.initialize();
+
+  assert.deepEqual(field.errors(), [EXPIRED]);
+
+  expiry.value = '2027-01-01';
+  page.change(expiry);
+  assert.deepEqual(field.errors(), []);
+  assert.equal(expiry.getAttribute('aria-invalid'), null);
+});
+
+test('a certificate taken from the product is never flagged', () => {
+  const today = '2026-09-18';
+  const page = createPage();
+  const expiry = page.date('wasa_valid_until', { value: '2025-03-01', min: today });
+  const field = expiryField(page, expiry);
+  page.initialize();
+  assert.deepEqual(field.errors(), [EXPIRED]);
+
+  // Choosing the product's certificate disables the upload's own fields.
+  expiry.disabled = true;
+  page.change(expiry);
+  assert.deepEqual(field.errors(), []);
 });
 
 test('milestone selection includes prerequisites and names exactly what will be submitted', () => {
