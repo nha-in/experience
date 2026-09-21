@@ -94,6 +94,7 @@ For **email delivery**, production uses the Global Email API through a durable n
 | `DJANGO_DEFAULT_FROM_EMAIL` | Default: `OHC Experience <noreply@experience.ohc.network>`. |
 | `DJANGO_SERVER_EMAIL` | Defaults to `DJANGO_DEFAULT_FROM_EMAIL`. |
 | `DJANGO_EMAIL_SUBJECT_PREFIX` | Default: `[OHC Experience] `, including a trailing space. |
+| `SITE_BASE_URL` | **Required.** The portal's public origin, such as `https://<host>`, with no path. Every link in a queued email starts from it: review notices, support tickets and WASA expiry reminders. It is written into each message when the message is queued, so it must be set on the web process and the Celery worker alike. The deploy forwards it from the production environment's variables and refuses to run without it; unset, links point at the local development address. |
 
 The purposes and the IDs that ship with them are:
 
