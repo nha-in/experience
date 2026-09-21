@@ -180,7 +180,8 @@ test('required UHI groups block recording until each group has a choice', () => 
   services.input.checked = true;
   page.change(services.input);
   assert.equal(page.button.disabled, false);
-  assert.equal(page.reason.textContent, 'All required fields are complete. Ready to record participation.');
+  // Complete says nothing: the enabled button is the message.
+  assert.equal(page.reason.textContent, '');
   assert.equal(page.jump.hidden, true);
 });
 
@@ -190,7 +191,7 @@ test('hidden and disabled required groups do not block submission', () => {
   page.group('disabled', { disabled: true });
   page.initialize();
   assert.equal(page.button.disabled, false);
-  assert.match(page.reason.textContent, /Ready to request review/);
+  assert.equal(page.reason.textContent, '');
 
   conditional.group.hidden = false;
   page.change(conditional.input);
@@ -203,9 +204,13 @@ test('hidden and disabled required groups do not block submission', () => {
 
 test('approved participation uses update copy', () => {
   const page = createPage({ autoApprove: true, approvedUpdate: true });
-  page.group('uhi_role', { checked: true });
+  const role = page.group('uhi_role');
   page.initialize();
-  assert.equal(page.reason.textContent, 'All required fields are complete. Ready to submit your update.');
+  assert.equal(page.reason.textContent, '1 field needs attention before you can submit your update.');
+
+  role.input.checked = true;
+  page.change(role.input);
+  assert.equal(page.reason.textContent, '');
 });
 
 test('readiness follows conditional visibility updates from the same change event', () => {
