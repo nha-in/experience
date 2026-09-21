@@ -14,7 +14,9 @@ def workspaces_for(user):
         query = query.filter(product__organisation__memberships__user=user)
     elif not user.is_superuser:
         query = query.filter(product__in=permissions.visible_products(user))
-    return query.order_by("product__name")
+    # The key breaks ties between same-named products, or pages can repeat one
+    # and skip another.
+    return query.order_by("product__name", "pk")
 
 
 def selected_workspace(request):

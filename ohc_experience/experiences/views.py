@@ -493,7 +493,7 @@ def organizations(request):
             filter=Q(review_items__in=_open_requests(request.user)),
             distinct=True,
         ),
-    ).order_by("name")
+    ).order_by("name", "pk")
     return render(
         request,
         "experiences/organizations.html",

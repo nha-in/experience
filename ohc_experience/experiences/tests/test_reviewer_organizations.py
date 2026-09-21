@@ -306,6 +306,24 @@ def test_products_tab_filters_by_solution_type_within_scope(catalogue, client):
     assert context["solution_type_choices"] == [("clinical_hmis", "Clinic HMIS")]
 
 
+def test_pages_never_repeat_or_skip_rows_that_share_a_name(environment, client):
+    for _index in range(23):
+        organization = OrganisationFactory(name="Care Plus", onboarded=True)
+        owner = UserFactory()
+        Membership.objects.create(organisation=organization, user=owner, role="owner")
+        register_locker(organization, owner, "Twin Locker")
+    client.force_login(environment["admin"])
+    for route in ("organizations", "products"):
+        url = reverse(f"experiences:{route}")
+        first = client.get(url).context[route]
+        rows = [
+            row.pk
+            for number in first.paginator.page_range
+            for row in client.get(url, {"page": number}).context[route]
+        ]
+        assert len(rows) == len(set(rows)) == first.paginator.count
+
+
 @pytest.mark.parametrize("route", ["organizations", "organization-detail"])
 def test_integrators_cannot_access_reviewer_organizations(
     environment,
