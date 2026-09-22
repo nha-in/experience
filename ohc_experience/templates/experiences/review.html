@@ -8,6 +8,16 @@
   <div id="review-workspace"
        class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
     <div class="flex min-w-0 flex-col gap-6">
+      {% if item.application.milestone.definition.needs_callback and credential and not credential.callback_url %}
+        <div class="ui-alert ui-alert--warning ui-rise" role="status">
+          <div class="flex-1">
+            <strong>No callback URL saved</strong>
+            <p class="mt-1 text-xs">
+              {{ item.application.milestone.definition.code }} flows have the gateway call the integrator's software back.
+            </p>
+          </div>
+        </div>
+      {% endif %}
       <div class="ui-rise [animation-delay:.1s]">
         {% include 'experiences/partials/reviewer_submitted.html' with snapshot=item.selected_submission %}
       </div>

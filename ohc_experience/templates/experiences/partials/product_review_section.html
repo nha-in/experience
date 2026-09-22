@@ -77,6 +77,16 @@
       <a class="inline-flex min-h-8 items-center font-semibold text-primary no-underline hover:underline"
          href="{{ item.get_absolute_url }}">Full review &amp; history <span class="ml-1" aria-hidden="true">↗</span></a>
     </div>
+    {% if item.application.milestone.definition.needs_callback and credential and not credential.callback_url %}
+      <div class="ui-alert ui-alert--warning mb-4" role="status">
+        <div class="flex-1">
+          <strong>No callback URL saved</strong>
+          <p class="mt-1 text-xs">
+            {{ item.application.milestone.definition.code }} flows have the gateway call the integrator's software back.
+          </p>
+        </div>
+      </div>
+    {% endif %}
     {% if item.kind == 'organisation_verification' %}
       <p class="mb-4 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2.5 text-xs leading-relaxed text-primary">This verification decision applies to the organisation and all its products.</p>
     {% endif %}

@@ -63,6 +63,14 @@
           <p class="ui-hint" id="bulk-decision-help">Saved to every included request and shared with the integrator. At least {{ min_note_length }} characters.</p>
         </div>
       </details>
+      {% if product.workspace.callback_codes and credential and not credential.callback_url %}
+        <div class="ui-alert ui-alert--warning" role="status">
+          <div class="flex-1">
+            <strong>No callback URL saved</strong>
+            <p class="mt-1 text-xs">{{ product.workspace.callback_codes|join:', ' }} flows have the gateway call the integrator's software back.</p>
+          </div>
+        </div>
+      {% endif %}
       {% if bulk_holds %}
         <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950"
              id="bulk-hold">

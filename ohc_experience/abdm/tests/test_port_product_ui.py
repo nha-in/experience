@@ -635,6 +635,56 @@ def test_the_m1_page_does_not(environment, client):
 
 
 @pytest.mark.django_db
+def test_a_reviewer_sees_the_m2_review_lacks_a_callback_url(environment, client):
+    item = milestone(environment, "m2")
+    client.force_login(environment["reviewer"])
+
+    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
+
+    assert "No callback URL saved" in html
+
+
+@pytest.mark.django_db
+def test_a_reviewer_does_not_see_it_on_the_m1_review(environment, client):
+    item = milestone(environment, "m1")
+    client.force_login(environment["reviewer"])
+
+    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
+
+    assert "No callback URL saved" not in html
+
+
+@pytest.mark.django_db
+def test_the_product_page_flags_a_missing_callback_url(environment, client):
+    submit(environment, "m1")
+    submit(environment, "m2")
+    url = reverse("experiences:product-detail", args=[environment["workspace"].reference])
+    client.force_login(environment["reviewer"])
+
+    html = client.get(url).content.decode()
+
+    assert "No callback URL saved" in html
+
+
+@pytest.mark.django_db
+def test_the_product_page_does_not_flag_it_once_a_callback_url_is_saved(
+    environment,
+    client,
+):
+    submit(environment, "m1")
+    submit(environment, "m2")
+    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    credential.callback_url = "https://integrator.example/callback"
+    credential.save(update_fields=["callback_url"])
+    url = reverse("experiences:product-detail", args=[environment["workspace"].reference])
+    client.force_login(environment["reviewer"])
+
+    html = client.get(url).content.decode()
+
+    assert "No callback URL saved" not in html
+
+
+@pytest.mark.django_db
 def test_saving_a_callback_url_reports_its_registration_on_reload(
     environment,
     client,
