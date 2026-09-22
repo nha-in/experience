@@ -1848,19 +1848,23 @@ def agent_skills(request, reference):
         for group in context["skill_groups"]
         for row in group["skills"]
     ]
-    # An agent with a URL scheme also gets a one-click link per installable
-    # skill, and the page shows the one for whichever skill is chosen.
+    # Each app an agent can be opened in gets a one-click link per installable
+    # skill, and the page shows the ones for whichever skill is chosen.
     context["agent_targets"] = [
         (
             key,
             target,
             catalogue.command_segments(target),
             [
-                (skill, catalogue.install_deeplink(target, skill))
-                for skill in context["installable_skills"]
-            ]
-            if target.deeplink
-            else [],
+                (
+                    link,
+                    [
+                        (skill, catalogue.install_deeplink(link, target, skill))
+                        for skill in context["installable_skills"]
+                    ],
+                )
+                for link in target.deeplinks
+            ],
         )
         for key, target in catalogue.targets.items()
     ]

@@ -70,28 +70,30 @@
               </p>
             </div>
             <div class="mt-4 flex flex-wrap items-center gap-3">
-              {# One link per installable skill; only the chosen skill's shows, the way the command does. #}
-              {% for skill, href in deeplinks %}
-                <a href="{{ href }}"
-                   data-show-when-field="skill"
-                   data-show-when-value="{{ skill.slug }}"
-                   {% if skill.slug != selected_skill %}hidden{% endif %}
-                   class="ui-btn ui-btn--default ui-btn--size-sm no-underline shadow-md"
-                   hx-boost="false"
-                   aria-label="Open the {{ skill.title }} skill in {{ target.label }}">
-                  <svg viewBox="0 0 24 24"
-                       fill="none"
-                       stroke="currentColor"
-                       stroke-width="1.75"
-                       stroke-linecap="round"
-                       stroke-linejoin="round"
-                       aria-hidden="true">
-                    <path d="M15 3h6v6" />
-                    <path d="M10 14 21 3" />
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  </svg>
-                  <span>Open in {{ target.label }}</span>
-                </a>
+              {# One link per app and installable skill; only the chosen skill's show, the way the command does. #}
+              {% for link, hrefs in deeplinks %}
+                {% for skill, href in hrefs %}
+                  <a href="{{ href }}"
+                     data-show-when-field="skill"
+                     data-show-when-value="{{ skill.slug }}"
+                     {% if skill.slug != selected_skill %}hidden{% endif %}
+                     class="ui-btn ui-btn--default ui-btn--size-sm no-underline shadow-md"
+                     hx-boost="false"
+                     aria-label="Open the {{ skill.title }} skill in {{ link.app }}">
+                    <svg viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="1.75"
+                         stroke-linecap="round"
+                         stroke-linejoin="round"
+                         aria-hidden="true">
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14 21 3" />
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    </svg>
+                    <span>Open in {{ link.app }}</span>
+                  </a>
+                {% endfor %}
               {% endfor %}
               <button type="button"
                       class="ui-btn ui-btn--outline ui-btn--size-sm shadow-md"

@@ -423,6 +423,18 @@ class ReferenceEnvironmentDefinition:
         ]
 
 
+class DeepLink(NamedTuple):
+    """An app an agent runs in, and the URL that opens it with a prompt."""
+
+    #: Named on the link's button.
+    app: str
+    #: A format string that takes one `{prompt}`.
+    url: str
+    #: VS Code decodes a link's query once before it reads the parameters, so a
+    #: prompt encoded only once would be cut at the command's first `&`.
+    encode_twice: bool = False
+
+
 class AgentTarget(NamedTuple):
     """A coding agent, and the folder it reads installed Agent Skills from."""
 
@@ -431,10 +443,10 @@ class AgentTarget(NamedTuple):
     directory: str
     #: How this agent picks the skill up, said in one line.
     note: str = ""
-    #: A URL that opens the agent with a prompt already in its composer, written
-    #: as a format string that takes one `{prompt}`. Empty for an agent with no
-    #: scheme, which is then offered the command to copy but no one-click link.
-    deeplink: str = ""
+    #: The apps that open with the install prompt, one button each. Empty for an
+    #: agent with no URL scheme, which is then offered the command to copy but no
+    #: one-click link.
+    deeplinks: tuple[DeepLink, ...] = ()
 
 
 class AgentSkillsDefinition:
@@ -463,10 +475,11 @@ class AgentSkillsDefinition:
         " curl -fsSL {skills_url}/{skill}/references/$f.md"
         " -o {directory}{skill}/references/$f.md; done"
     )
-    #: What a deeplink drops into the agent's composer, above the line it runs.
-    #: `{skill}` is the chosen skill's title, `{command}` its install command.
-    #: The command lands unrun, since a deeplink only fills the composer and the
-    #: reader presses Enter, which is what gives the guard a chance to be read.
+    #: What a deeplink hands the agent, above the line it runs. `{skill}` is the
+    #: chosen skill's title, `{command}` its install command. The reader sees it
+    #: before it runs: most apps only fill the composer, and the Copilot app asks
+    #: before it sends. The guard is for a link opened outside the repository, as
+    #: a chat in the Copilot app always is.
     install_prompt = (
         "Set this repository up with the {skill} Agent Skill, then build from"
         " it. Run:\n\n{command}\n\n"
@@ -561,16 +574,17 @@ class AgentSkillsDefinition:
         )
 
     @classmethod
-    def install_deeplink(cls, target, skill):
-        """A one-click link that opens `target` with the skill's install command
-        waiting in its composer, or None for an agent that has no URL scheme."""
-        if not target.deeplink:
-            return None
+    def install_deeplink(cls, link, target, skill):
+        """A one-click link that opens `link`'s app with the prompt that installs
+        the skill into `target`'s folder."""
         prompt = cls.install_prompt.format(
             skill=skill["title"],
             command=cls.install_line(target, skill),
         )
-        return target.deeplink.format(prompt=quote(prompt, safe=""))
+        encoded = quote(prompt, safe="")
+        if link.encode_twice:
+            encoded = quote(encoded, safe="")
+        return link.url.format(prompt=encoded)
 
     @classmethod
     def validate(cls, milestones):

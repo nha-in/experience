@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ohc_experience.experiences.definitions import AgentSkillsDefinition
 from ohc_experience.experiences.definitions import AgentTarget
+from ohc_experience.experiences.definitions import DeepLink
 
 from .catalog import MILESTONES
 from .docs import docs_page
@@ -29,23 +30,40 @@ class ABDMAgentSkills(AgentSkillsDefinition):
             "Copilot",
             ".github/skills/",
             "Copilot reads it once it is committed.",
+            (
+                DeepLink(
+                    "VS Code",
+                    "vscode://GitHub.copilot-chat?mode=agent&prompt={prompt}",
+                    encode_twice=True,
+                ),
+                # The Copilot app's session links must name the repository,
+                # which the portal does not know. A chat needs none, and the
+                # app asks before it sends the prompt.
+                DeepLink("Copilot", "ghapp://chats/new?prompt={prompt}"),
+            ),
         ),
         "codex": AgentTarget(
             "Codex",
             ".codex/skills/",
-            "Codex CLI reads it on the next session.",
+            "Codex reads it on the next session.",
+            (DeepLink("Codex", "codex://new?prompt={prompt}"),),
         ),
         "cursor": AgentTarget(
             "Cursor",
             ".cursor/skills/",
             "Cursor reads it on the next session.",
-            "cursor://anysphere.cursor-deeplink/prompt?text={prompt}",
+            (
+                DeepLink(
+                    "Cursor",
+                    "cursor://anysphere.cursor-deeplink/prompt?text={prompt}",
+                ),
+            ),
         ),
         "claude": AgentTarget(
             "Claude Code",
             ".claude/skills/",
             "Claude Code reads it on the next session.",
-            "claude://code/new?q={prompt}",
+            (DeepLink("Claude Code", "claude://code/new?q={prompt}"),),
         ),
     }
     # Every HIE-CM and PHR call goes through the gateway. Subscriptions are the

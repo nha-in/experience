@@ -1,7 +1,9 @@
 # ruff: noqa: F811, PLR2004
 from html.parser import HTMLParser
 from unittest import mock
+from urllib.parse import parse_qs
 from urllib.parse import unquote
+from urllib.parse import urlsplit
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
@@ -15,6 +17,7 @@ from ohc_experience.abdm.tests.test_reference_environment import main_nav
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.definitions import AgentTarget
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Role
 from ohc_experience.users.tests.factories import UserFactory
@@ -24,6 +27,9 @@ pytestmark = pytest.mark.django_db
 PUBLISHED = ABDMAgentSkills.skills_url()
 CLAUDE_SCHEME = "claude://code/new?q="
 CURSOR_SCHEME = "cursor://anysphere.cursor-deeplink/prompt?text="
+CODEX_SCHEME = "codex://new?prompt="
+VS_CODE_SCHEME = "vscode://GitHub.copilot-chat?mode=agent&prompt="
+COPILOT_SCHEME = "ghapp://chats/new?prompt="
 
 
 def skills_url(workspace):
@@ -93,6 +99,15 @@ class DocsLinks(HTMLParser):
 
 def a_skill(slug):
     return next(skill for skill in ABDMAgentSkills.skills() if skill["slug"] == slug)
+
+
+def links_for(key, skill):
+    """The links one agent's buttons open for one skill, by the app each opens."""
+    target = ABDMAgentSkills.targets[key]
+    return {
+        link.app: ABDMAgentSkills.install_deeplink(link, target, skill)
+        for link in target.deeplinks
+    }
 
 
 def cards(response):
@@ -195,7 +210,7 @@ def test_the_command_fetches_only_the_sections_the_chosen_skill_has(
     assert ">scaffold integrate debug</span>" in html
 
 
-def test_claude_and_cursor_get_a_one_click_link_for_the_chosen_skill(
+def test_every_agent_gets_a_one_click_link_for_the_chosen_skill(
     environment,
     client,
 ):
@@ -204,11 +219,16 @@ def test_claude_and_cursor_get_a_one_click_link_for_the_chosen_skill(
     page = client.get(skills_url(environment["workspace"]))
 
     installable = [skill["slug"] for skill in page.context["installable_skills"]]
+    # Each app opens a link, one per skill the command offers.
+    for scheme in (
+        VS_CODE_SCHEME,
+        COPILOT_SCHEME,
+        CODEX_SCHEME,
+        CURSOR_SCHEME,
+        CLAUDE_SCHEME,
+    ):
+        assert [link["slug"] for link in deeplinks(page, scheme)] == installable
     claude = deeplinks(page, CLAUDE_SCHEME)
-    cursor = deeplinks(page, CURSOR_SCHEME)
-    # Claude Code and Cursor each open a link, one per skill the command offers.
-    assert [link["slug"] for link in claude] == installable
-    assert [link["slug"] for link in cursor] == installable
     # Only the chosen skill's link shows, the same as its command does.
     assert [link["slug"] for link in claude if not link["hidden"]] == ["abdm-m1"]
     assert page.context["selected_skill"] == "abdm-m1"
@@ -218,45 +238,73 @@ def test_claude_and_cursor_get_a_one_click_link_for_the_chosen_skill(
     assert install("claude", "abdm-m1", M1_SECTIONS) in prompt
     assert "M1, ABHA identity" in prompt
     html = page.content.decode()
-    assert ">Open in Claude Code</span>" in html
+    # Copilot runs in VS Code and in its own app, so its tab offers both.
+    assert ">Open in VS Code</span>" in html
+    assert ">Open in Copilot</span>" in html
+    assert ">Open in Codex</span>" in html
     assert ">Open in Cursor</span>" in html
+    assert ">Open in Claude Code</span>" in html
 
 
 def test_an_agent_with_no_url_scheme_only_offers_the_command_to_copy(
     environment,
     client,
+    monkeypatch,
 ):
+    codex = ABDMAgentSkills.targets["codex"]
+    schemeless = AgentTarget(codex.label, codex.directory, codex.note)
+    monkeypatch.setitem(ABDMAgentSkills.targets, "codex", schemeless)
     client.force_login(environment["applicant"])
 
     page = client.get(skills_url(environment["workspace"]))
 
-    # Codex and Copilot have no scheme, so a link that could not open is not drawn.
-    html = page.content.decode()
-    assert "Open in Codex" not in html
-    assert "Open in Copilot" not in html
+    # A link that could not open is not drawn.
+    assert not deeplinks(page, CODEX_SCHEME)
+    assert "Open in Codex" not in page.content.decode()
     # The command is still theirs to copy.
     assert command(page, "codex") == install("codex", "abdm-m1", M1_SECTIONS)
-    assert command(page, "copilot") == install("copilot", "abdm-m1", M1_SECTIONS)
 
 
-def test_only_agents_with_a_scheme_build_an_install_deeplink():
+def test_each_link_carries_the_command_for_its_agents_own_folder():
     skill = a_skill("abdm-m1")
-    build = ABDMAgentSkills.install_deeplink
-    targets = ABDMAgentSkills.targets
 
-    claude = build(targets["claude"], skill)
-    cursor = build(targets["cursor"], skill)
+    claude = links_for("claude", skill)
+    cursor = links_for("cursor", skill)
+    codex = links_for("codex", skill)
+    copilot = links_for("copilot", skill)
 
-    assert claude.startswith(CLAUDE_SCHEME)
-    assert cursor.startswith(CURSOR_SCHEME)
-    prompt = unquote(claude.split("q=", 1)[1])
-    # The command rides in unrun, and the guard rides with it, so a link opened
-    # against the wrong repository asks before it writes.
-    assert install("claude", "abdm-m1", M1_SECTIONS) in prompt
-    assert "ask me for the path" in prompt
-    # An agent with no scheme builds nothing rather than a link that dies on open.
-    assert build(targets["codex"], skill) is None
-    assert build(targets["copilot"], skill) is None
+    assert claude["Claude Code"].startswith(CLAUDE_SCHEME)
+    assert cursor["Cursor"].startswith(CURSOR_SCHEME)
+    assert codex["Codex"].startswith(CODEX_SCHEME)
+    assert list(copilot) == ["VS Code", "Copilot"]
+    assert copilot["VS Code"].startswith(VS_CODE_SCHEME)
+    assert copilot["Copilot"].startswith(COPILOT_SCHEME)
+    # Read the way a URL parser reads a query, each link holds its agent's own
+    # command, and the guard rides with it, so a link opened against the wrong
+    # repository asks before it writes.
+    for key, link, parameter in (
+        ("claude", claude["Claude Code"], "q"),
+        ("cursor", cursor["Cursor"], "text"),
+        ("codex", codex["Codex"], "prompt"),
+        ("copilot", copilot["Copilot"], "prompt"),
+    ):
+        [prompt] = parse_qs(urlsplit(link).query)[parameter]
+        assert install(key, "abdm-m1", M1_SECTIONS) in prompt, key
+        assert "ask me for the path" in prompt, key
+
+
+def test_vs_code_reads_the_whole_prompt_from_its_link():
+    """VS Code decodes a link's query before it reads the parameters, so a prompt
+    encoded once would end at the command's first `&&`."""
+    link = links_for("copilot", a_skill("abdm-m1"))["VS Code"]
+
+    # Read the way VS Code reads it: decode the query, then split the parameters.
+    params = parse_qs(unquote(urlsplit(link).query))
+
+    assert params["mode"] == ["agent"]
+    [prompt] = params["prompt"]
+    assert install("copilot", "abdm-m1", M1_SECTIONS) in prompt
+    assert prompt.endswith("before you write anything.")
 
 
 def test_the_panel_opens_on_the_skill_for_the_milestone_being_worked_on(
