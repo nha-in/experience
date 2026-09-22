@@ -572,7 +572,7 @@ def sent(provider):
     return recorded
 
 
-def test_the_pages_are_sent_as_images_beside_the_instruction(sent):
+def test_the_jpeg_pages_are_sent_as_images_beside_the_instruction(sent):
     assert extract_certificate(certificate())["wasa_agency"] == AGENCY
     blocks = sent["messages"][0]["content"]
     assert sent["model"] == "bedrock/test-model"
@@ -580,7 +580,7 @@ def test_the_pages_are_sent_as_images_beside_the_instruction(sent):
     assert "JSON object" in blocks[0]["text"]
     assert [block["type"] for block in blocks[1:]] == ["image_url"]
     assert blocks[1]["image_url"]["url"] == (
-        "data:image/png;base64," + base64.b64encode(b"page-png").decode()
+        "data:image/jpeg;base64," + base64.b64encode(b"page-png").decode()
     )
 
 
@@ -603,13 +603,13 @@ def test_no_temperature_is_offered_because_providers_disagree(sent):
     assert sent["drop_params"] is True
 
 
-def test_pages_really_render_to_png(settings):
+def test_pages_really_render_to_jpeg(settings):
     settings.WASA_EXTRACTION_DPI = 150
 
     images = wasa_extraction._page_images(blank_pdf(2))  # noqa: SLF001
 
     assert len(images) == 2  # noqa: PLR2004
-    assert all(image.startswith(b"\x89PNG") for image in images)
+    assert all(image.startswith(b"\xff\xd8\xff") for image in images)
 
 
 def test_only_the_first_pages_are_rendered(settings):

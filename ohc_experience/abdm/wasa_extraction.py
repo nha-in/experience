@@ -197,7 +197,7 @@ def _bedrock_credentials(model: str) -> dict[str, str]:
 
 
 def _page_images(content: bytes) -> list[bytes]:
-    """Each page as PNG bytes, at a resolution where printed text stays legible."""
+    """Each page as JPEG bytes, at a resolution where printed text stays legible."""
     import pypdfium2  # noqa: PLC0415
 
     try:
@@ -209,16 +209,40 @@ def _page_images(content: bytes) -> list[bytes]:
         ) from exc
     scale = settings.WASA_EXTRACTION_DPI / PDF_UNITS_PER_INCH
     try:
-        images = []
+        images: list[bytes] = []
         for index in range(min(len(document), MAX_DOCUMENT_PAGES)):
-            page = BytesIO()
-            document[index].render(scale=scale).to_pil().convert("RGB").save(
-                page,
-                format="JPEG",
-                quality=int(settings.WASA_EXTRACTION_JPEG_QUALITY),
-                optimize=True,
-            )
-            images.append(page.getvalue())
+            # PDFium bitmaps and Pillow images can each hold a full rasterized
+            # page. Close them before rendering the next page to keep both
+            # memory pressure and GC pauses low for multi-page uploads.
+            pdf_page = document[index]
+            bitmap = pdf_page.render(scale=scale)
+            image = bitmap.to_pil().convert("RGB")
+            try:
+                page = BytesIO()
+                image.save(
+                    page,
+                    format="JPEG",
+                    quality=int(settings.WASA_EXTRACTION_JPEG_QUALITY),
+                    optimize=True,
+                )
+                rendered = page.getvalue()
+            finally:
+                image.close()
+                bitmap.close()
+                pdf_page.close()
+            # Do not spend CPU rendering later pages when this request cannot
+            # be sent to the provider in the first place.
+            if len(rendered) > MAX_IMAGE_BYTES:
+                raise WasaExtractionError(
+                    _(
+                        "This certificate's pages are too large to read. "
+                        "Enter the audit details yourself.",
+                    ),
+                    retryable=False,
+                )
+            images.append(rendered)
+    except WasaExtractionError:
+        raise
     except Exception as exc:
         raise WasaExtractionError(
             _("This PDF could not be read. Enter the audit details yourself."),
@@ -229,14 +253,6 @@ def _page_images(content: bytes) -> list[bytes]:
     if not images:
         raise WasaExtractionError(
             _("This PDF has no pages. Enter the audit details yourself."),
-            retryable=False,
-        )
-    if any(len(image) > MAX_IMAGE_BYTES for image in images):
-        raise WasaExtractionError(
-            _(
-                "This certificate's pages are too large to read. "
-                "Enter the audit details yourself.",
-            ),
             retryable=False,
         )
     return images
@@ -252,7 +268,7 @@ def _completion(model: str, content: bytes, timeout: float, max_tokens: int) -> 
         {
             "type": "image_url",
             "image_url": {
-                "url": f"data:image/png;base64,{base64.b64encode(image).decode()}",
+                "url": f"data:image/jpeg;base64,{base64.b64encode(image).decode()}",
             },
         }
         for image in _page_images(content)
