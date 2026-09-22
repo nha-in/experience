@@ -679,6 +679,16 @@ class ProductWorkspace(models.Model):
             for milestone in self.product.milestones.filter(enabled=True)
         )
 
+    @property
+    def callback_codes(self):
+        """Codes of the under-review milestones whose flows have the gateway call back."""
+        return sorted(
+            milestone.definition.code
+            for milestone in self.product.milestones.filter(enabled=True)
+            if milestone.definition.needs_callback
+            and milestone.application.review_item.pending
+        )
+
 
 class Milestone(models.Model):
     product = models.ForeignKey(
