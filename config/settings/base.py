@@ -136,10 +136,12 @@ EXPERIENCE_PORTAL = "abdm"
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # A separate Fernet key is required in production; local development derives one.
-EXPERIENCE_CREDENTIAL_KEY = env(
-    "EXPERIENCE_CREDENTIAL_KEY",
-    default=env("SANDBOX_CREDENTIAL_KEY", default=""),
+EXPERIENCE_CREDENTIAL_KEY = (
+    env("EXPERIENCE_CREDENTIAL_KEY_OVERRIDE", default="")
+    or env("EXPERIENCE_CREDENTIAL_KEY", default="")
+    or env("SANDBOX_CREDENTIAL_KEY", default="")
 )
+
 EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = False
 ABDM_CREDENTIAL_PROVIDER = env(
     "ABDM_CREDENTIAL_PROVIDER",
