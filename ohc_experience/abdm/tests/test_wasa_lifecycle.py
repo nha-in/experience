@@ -717,3 +717,56 @@ def test_another_organisations_user_cannot_open_or_submit_renewal(environment, c
         ).status_code
         == 404
     )
+
+
+def preview_url(attachment):
+    return reverse(
+        "experiences:attachment-preview",
+        args=[attachment.pk, attachment.original_name],
+    ).encode()
+
+
+def test_milestone_review_shows_its_own_certificate_not_a_later_renewal(
+    environment,
+    client,
+):
+    first = decide(environment, request_milestone(environment))
+    renewal = decide(
+        environment,
+        request_renewal(environment, certificate=certificate_data(audited_ago=1)),
+    )
+    submitted = first.selected_submission.attachments.get(field_key="wasa_certificate")
+    renewed = renewal.selected_submission.attachments.get(field_key="wasa_certificate")
+    client.force_login(environment["admin"])
+
+    page = client.get(first.get_absolute_url())
+
+    assert page.context["certification"] == {}
+    assert preview_url(submitted) in page.content
+    assert preview_url(renewed) not in page.content
+    page = client.get(renewal.get_absolute_url())
+    assert page.context["certification"]["current"].source_application == (
+        renewal.application
+    )
+
+
+def test_product_page_shows_a_certificate_held_only_as_milestone_evidence(
+    environment,
+    client,
+):
+    url = reverse(
+        "experiences:product-detail",
+        args=[environment["workspace"].reference],
+    )
+    item = request_milestone(environment)
+    client.force_login(environment["admin"])
+    assert b'id="wasa-title"' not in client.get(url).content
+
+    decide(environment, item)
+    # Imported and pre-WASA-review approvals carry no WASA outcome.
+    ProductOutcome.objects.filter(outcome_type="wasa_approval").delete()
+    page = client.get(url)
+
+    assert page.context["certification"]["status"] == "needs_verification"
+    assert b'id="wasa-title"' in page.content
+    assert b"Expiry needs verification" in page.content

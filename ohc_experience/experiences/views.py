@@ -2379,7 +2379,7 @@ def review(request, pk):
                 item.product_id and awaiting_provisioning(item.product),
             ),
             certification=_certification_context(request, item.product)
-            if item.product_id
+            if item.product_id and not getattr(item.application, "milestone", None)
             else {},
             open_tickets=permissions.visible_tickets(request.user).filter(
                 organisation=item.organisation,

@@ -157,7 +157,7 @@
           {% endfor %}
         </div>
       </section>
-      {% if certification.current or certification.review and certification.review.status != 'draft' %}
+      {% if certification.current or certification.source_submission or certification.review and certification.review.status != 'draft' %}
         <section class="ui-card ui-card--layered ui-card--sm ui-rise"
                  aria-labelledby="wasa-title">
           <div class="ui-card-content">
