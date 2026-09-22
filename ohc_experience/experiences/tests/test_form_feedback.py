@@ -11,6 +11,22 @@ class ContactForm(forms.Form):
     )
 
 
+class ScheduleForm(forms.Form):
+    starts_at = forms.DateTimeField(
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
+    )
+    audited_on = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    issued_on = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date", "max": "2026-09-22"}),
+    )
+
+
+def render_field(field):
+    return Template("{% load careui %}{% ui_field field %}").render(
+        Context({"field": field}),
+    )
+
+
 def test_invalid_field_describes_both_help_and_validation_errors():
     form = ContactForm({"contact-email": "invalid"}, prefix="contact")
     html = Template("{% load careui %}{% ui_field form.email %}").render(
@@ -57,3 +73,13 @@ def test_valid_form_does_not_render_error_summary():
         {"form": ContactForm({"email": "integrator@example.com"})},
     )
     assert "data-error-summary" not in html
+
+
+def test_date_fields_take_a_four_digit_year():
+    # With no max, Chrome's yyyy segment takes up to six digits (year 275760).
+    form = ScheduleForm()
+    assert 'max="9999-12-31T23:59"' in render_field(form["starts_at"])
+    assert 'max="9999-12-31"' in render_field(form["audited_on"])
+    issued_on = render_field(form["issued_on"])
+    assert 'max="2026-09-22"' in issued_on
+    assert "9999" not in issued_on

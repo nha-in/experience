@@ -33,6 +33,14 @@ _DEFAULT_CONTROL_CLASS = "ui-input"
 # Widgets that render as a native <select> and therefore need the chevron wrapper.
 _SELECT_WIDGETS = (forms.Select, forms.SelectMultiple)
 
+# A date field's year takes as many digits as the year in its max. With no max,
+# the browser's limit of 275760 lets a yyyy field take six, for a date the
+# server cannot read, so a field without a max of its own stops at 9999.
+_LATEST_BY_INPUT_TYPE = {
+    "date": "9999-12-31",
+    "datetime-local": "9999-12-31T23:59",
+}
+
 
 def _control_class(widget: forms.Widget) -> str:
     for widget_type, css_class in _CONTROL_CLASSES:
@@ -47,7 +55,7 @@ def _style(
     *,
     inline_errors: bool = True,
 ) -> BoundField:
-    """Merge careui classes and validation state into the widget's attrs."""
+    """Merge careui classes, a year cap and validation state into the widget's attrs."""
     widget = field.field.widget
     attrs = widget.attrs
     classes = [
@@ -58,6 +66,9 @@ def _style(
     merged = " ".join(part for part in classes if part).strip()
     if merged:
         attrs["class"] = merged
+    latest = _LATEST_BY_INPUT_TYPE.get(getattr(widget, "input_type", ""))
+    if latest:
+        attrs.setdefault("max", latest)
     if field.errors:
         attrs["aria-invalid"] = "true"
     descriptions = attrs.get("aria-describedby", "").split()
