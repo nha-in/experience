@@ -3,6 +3,7 @@ from __future__ import annotations
 import secrets
 from datetime import timedelta
 from typing import ClassVar
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.db import models
@@ -123,6 +124,34 @@ class Organisation(models.Model):
         if self.entity_type == SOLE_PROPRIETOR:
             return _("business")
         return _("organisation")
+
+    @property
+    def website_domain(self) -> str:
+        """The website's host without "www.": https://www.acme.in/about is acme.in."""
+        address = self.website.strip()
+        host = urlsplit(address if "://" in address else f"//{address}").hostname
+        return (host or "").removeprefix("www.")
+
+    def email_off_website(self, email: str) -> str:
+        """The website's domain when `email` is not on it, else an empty string.
+
+        Reviewers expect an address on the organisation's own domain, and
+        js/email-domain-callout.js warns the integrator by the same rule as they
+        fill in the form. A subdomain still belongs to the organisation:
+        mail.acme.in is on acme.in. A sole proprietorship is the person, so a
+        personal address is expected, and with no website there is nothing to
+        hold the address against.
+        """
+        website = self.website_domain
+        if self.entity_type == SOLE_PROPRIETOR or not website:
+            return ""
+        domain = email.rpartition("@")[2].lower()
+        on_website = (
+            domain == website
+            or domain.endswith(f".{website}")
+            or website.endswith(f".{domain}")
+        )
+        return "" if on_website else website
 
     @property
     def is_verified(self) -> bool:

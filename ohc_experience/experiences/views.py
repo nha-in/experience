@@ -163,7 +163,7 @@ def _workspace(request, reference):
 
 def _item(request, pk):
     query = permissions.visible_reviews(request.user).select_related(
-        "selected_submission",
+        "selected_submission__submitted_by",
         "form",
         "organisation",
         "product__workspace",
@@ -174,6 +174,16 @@ def _item(request, pk):
     if not permissions.reviewer(request.user):
         query = query.filter(organisation__memberships__user=request.user)
     return get_object_or_404(query, pk=pk)
+
+
+def _off_domain_website(item, submitter):
+    """The website's domain when the submitter's address is not on it, else "".
+
+    Only the organisation's own verification is judged by its website.
+    """
+    if submitter and item.kind == ReviewItem.Kind.ORGANISATION:
+        return item.organisation.email_off_website(submitter.email)
+    return ""
 
 
 def _tracks(workspace, user):
@@ -717,10 +727,13 @@ def _product_review_sections(request, items):
         ]
         posted = request.POST.get("review_id") == str(item.pk)
         action = request.POST.get("action") if posted else None
+        submitter = snapshot.submitted_by if snapshot else None
         sections.append(
             {
                 "item": item,
                 "snapshot": snapshot,
+                "submitter": submitter,
+                "off_domain_website": _off_domain_website(item, submitter),
                 "prerequisites": prerequisites,
                 "waiting_on": services.prerequisite_names(prerequisites)
                 if prerequisites
@@ -807,6 +820,7 @@ def product_detail(request, reference):
         .filter(permissions.shown_to_reviewers())
         .select_related(
             "selected_submission__form",
+            "selected_submission__submitted_by",
             "form",
             "organisation",
             "product__workspace",
@@ -2269,6 +2283,9 @@ def review(request, pk):
             return redirect(item)
         except ValidationError as error:
             _error(request, error)
+    submitter = (
+        item.selected_submission.submitted_by if item.selected_submission else None
+    )
     return render(
         request,
         "experiences/review.html",
@@ -2277,6 +2294,8 @@ def review(request, pk):
             page_title=item.reference,
             nav="queue",
             item=item,
+            submitter=submitter,
+            off_domain_website=_off_domain_website(item, submitter),
             can_decide=permissions.can_decide(request.user, item),
             can_query=permissions.can_review(request.user, item, "write"),
             can_approve=permissions.can_review(request.user, item, "approve"),

@@ -1,5 +1,6 @@
 // Integrators are expected to sign in with an email address on their own domain.
 // This only advises: nothing is blocked here or on the server, and the reviewer decides.
+// Organisation.email_off_website flags the reviewer by the same rule; change both together.
 (() => {
   // Where a personal address is normal, so a sole proprietor is never nudged about one.
   const consumerProviders = new Set([

@@ -399,6 +399,44 @@ def test_queries_open_in_full_only_for_whoever_can_act_on_them(
     assert "Mark resolved" not in card[: card.index(settled)]
 
 
+def test_the_review_page_names_who_submitted_and_how_to_reach_them(
+    review_item,
+    owner_membership,
+    client,
+):
+    owner_membership.user.phone_number = "+919876543210"
+    owner_membership.user.save(update_fields=["phone_number"])
+    # Only an organisation's own verification is judged by its website.
+    organisation = review_item.organisation
+    organisation.website = "https://sunrise-health.example"
+    organisation.entity_type = "private_company"
+    organisation.save()
+    client.force_login(ReviewerFactory(is_nha_team=True))
+
+    html = client.get(review_item.get_absolute_url()).content.decode()
+    row = html.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]
+
+    assert "Meera Krishnan" in row
+    assert 'href="mailto:meera@sunrise.in"' in row
+    assert "+919876543210" in row
+    assert "Not on the website's domain" not in row
+
+
+def test_the_product_page_names_who_submitted_each_request(review_item, client):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+
+    html = client.get(
+        reverse(
+            "experiences:product-detail",
+            args=[review_item.product.workspace.reference],
+        ),
+    ).content.decode()
+    row = html.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]
+
+    assert "Meera Krishnan" in row
+    assert 'href="mailto:meera@sunrise.in"' in row
+
+
 def test_client_response_alert_is_not_shown_to_reviewer(review_item):
     review_item.status = "query_raised"
 

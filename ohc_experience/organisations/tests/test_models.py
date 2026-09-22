@@ -9,6 +9,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
 
 from ohc_experience.organisations.models import INVITATION_TTL
+from ohc_experience.organisations.models import SOLE_PROPRIETOR
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
@@ -297,3 +298,37 @@ def test_organisation_display_name_prefers_the_legal_name():
 
     assert organisation.display_name == "Sunrise Health Systems Pvt Ltd"
     assert organisation.initials == "SU"
+
+
+@pytest.mark.parametrize(
+    ("website", "email", "expected"),
+    [
+        ("https://sunrise.in", "meera@sunrise.in", ""),
+        ("https://www.sunrise.in/about", "meera@sunrise.in", ""),
+        ("https://sunrise.in:8443", "Meera@Sunrise.IN", ""),
+        ("sunrise.in", "meera@sunrise.in", ""),
+        # A subdomain on either side still belongs to the organisation.
+        ("https://sunrise.in", "meera@mail.sunrise.in", ""),
+        ("https://portal.sunrise.in", "meera@sunrise.in", ""),
+        ("https://sunrise.in", "meera@gmail.com", "sunrise.in"),
+        ("https://www.sunrise.in", "meera@notsunrise.in", "sunrise.in"),
+        # With no website there is nothing to hold the address against.
+        ("", "meera@gmail.com", ""),
+    ],
+)
+def test_an_email_is_held_against_the_website_domain(website, email, expected):
+    organisation = OrganisationFactory.build(
+        website=website,
+        entity_type="private_company",
+    )
+
+    assert organisation.email_off_website(email) == expected
+
+
+def test_a_sole_proprietorship_may_use_a_personal_address():
+    organisation = OrganisationFactory.build(
+        website="https://rao.example",
+        entity_type=SOLE_PROPRIETOR,
+    )
+
+    assert organisation.email_off_website("anita@gmail.com") == ""
