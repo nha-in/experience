@@ -15,6 +15,7 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 BEFORE = [("experiences", "0026_rename_sent_back_to_rejected")]
+AFTER = [("experiences", "0027_support_grants_for_split_phr_app")]
 PHASES = {"phr-app-p1", "phr-app-p2", "phr-app-p3", "phr-app-p4"}
 
 
@@ -80,7 +81,8 @@ def test_the_catch_all_and_the_wildcard_are_left_alone(at_before):
     for category in ("", "*"):
         grant(at_before, user, "support", category)
 
-    MigrationExecutor(connection).migrate(latest())
+    # Only as far as this split: 0032 gives the catch-all a code of its own.
+    MigrationExecutor(connection).migrate(AFTER)
 
     assert categories(user, "support") == {"", "*"}
 

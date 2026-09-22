@@ -105,8 +105,8 @@
         <input type="hidden" name="status" value="{{ ticket_filters.status }}" />
         <div class="w-[calc(50%_-_0.3125rem)] sm:w-[170px]">
           <label class="ui-label mb-1.5 block text-xs" for="ticket-category">Category</label>
-          <div class="ui-select-wrapper"><select class="ui-select" name="category" id="ticket-category"><option value="">All categories</option>{% for value,label in category_choices %}<option value="{{ value }}"
-        {% if ticket_filters.category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+          <div class="ui-select-wrapper"><select class="ui-select" name="category" id="ticket-category"><option value="">All categories</option>{% for category in form.categories %}<option value="{{ category.code }}"
+        {% if ticket_filters.category == category.code %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select></div>
         </div>
         <div class="w-[calc(50%_-_0.3125rem)] sm:w-[150px]">
           <label class="ui-label mb-1.5 block text-xs" for="ticket-priority">Priority</label>

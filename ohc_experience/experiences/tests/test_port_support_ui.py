@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from http import HTTPStatus
 
@@ -56,17 +57,19 @@ def test_ticket_defaults_and_applied_category_choices(portal_workspaces):
     form = SupportForm(workspace=portal_workspaces[0])
     assert form["priority"].value() == "medium"
     assert [value for value, _label in form.fields["category"].choices] == [
+        "",
         "abdm-m1",
         "abdm-m2",
         "abdm-m3",
         "abdm-m4",
         "abdm-review",
         "abdm-scan-share",
-        "",
+        "others",
     ]
-    # "Others" sits last but is still what a ticket defaults to.
     assert form.fields["category"].choices[-1][1] == "Others"
-    assert form["category"].value() == ""
+    # Nothing is chosen for the integrator, Others included.
+    assert form.fields["category"].choices[0][1] == "Select a category"
+    assert not form["category"].value()
 
 
 @pytest.mark.parametrize("category", ["phr-app", "nhcx-auth", "HIE-CM", "unknown"])
@@ -151,7 +154,7 @@ def test_others_asks_which_kind_of_general_question_it_is(portal_workspaces):
                 "subject": "Help",
                 "priority": "medium",
                 "body": "Details",
-                "category": "",
+                "category": "others",
                 **extra,
             },
         )
@@ -161,6 +164,98 @@ def test_others_asks_which_kind_of_general_question_it_is(portal_workspaces):
     form = submit(issue_type="Access / General Inquiry / Concerns")
     assert form.is_valid(), form.errors
     assert form.cleaned_data["issue_type"] == "Access / General Inquiry / Concerns"
+
+
+def field_label(response, name):
+    """The text of a field's label on the page, whitespace collapsed."""
+    html = " ".join(response.content.decode().split())
+    return html.split(f'for="id_{name}">', 1)[1].split("</label>", 1)[0].strip()
+
+
+def test_a_ticket_is_always_filed_under_a_category(portal_client):
+    """Others has a code of its own, so no ticket is filed under a blank one. The
+    field that picks it is not optional, and starts on no category at all, so a
+    ticket is never left in one by default."""
+    url = reverse("experiences:support")
+    data = {
+        "subject": "Help",
+        "issue_type": "Access / General Inquiry / Concerns",
+        "priority": "medium",
+        "body": "Details",
+    }
+
+    page = portal_client.get(url, {"new": "1"})
+    assert field_label(page, "category") == "Category"
+    html = " ".join(page.content.decode().split())
+    assert '<option value="" selected>Select a category</option>' in html
+    assert " required " in re.search(r'<select name="category"[^>]*>', html).group()
+    response = portal_client.post(url, {**data, "category": ""})
+    assert response.context["form"].errors["category"] == [
+        "Choose the category this ticket is about.",
+    ]
+    assert not Ticket.objects.exists()
+    portal_client.post(url, {**data, "category": "others"})
+    ticket = Ticket.objects.get()
+    assert ticket.category == "others"
+    assert ticket.category_label == "Others"
+
+
+def test_new_ticket_asks_for_an_issue_type_without_calling_it_optional(
+    portal_client,
+):
+    """Every ABDM category has a sub-menu, Others included, so every ticket
+    names an issue type, and a missing one is reported once."""
+    url = reverse("experiences:support")
+
+    page = portal_client.get(url, {"new": "1"})
+    assert field_label(page, "issue_type") == "Issue type"
+    html = " ".join(page.content.decode().split())
+    assert " required " in re.search(r'<select name="issue_type"[^>]*>', html).group()
+    response = portal_client.post(
+        url,
+        {
+            "subject": "Help",
+            "category": "abdm-m2",
+            "priority": "medium",
+            "body": "Details",
+        },
+    )
+    assert response.context["form"].errors["issue_type"] == [
+        "Choose the issue type this ticket is about.",
+    ]
+    assert field_label(response, "issue_type") == "Issue type"
+
+
+def test_issue_type_is_required_wherever_it_shows():
+    """The field shows only for a category with a sub-menu, so only there is it
+    required, and a menu with no sub-menu at all never asks for one."""
+    bare = SupportCategoryDefinition("bare", "Bare")
+    full = SupportCategoryDefinition("full", "Full", issue_types=("Data Transfer",))
+
+    def required(categories, posted=None):
+        class Menu:
+            @staticmethod
+            def support_category_map():
+                return {category.code: category for category in categories}
+
+        data = (
+            None
+            if posted is None
+            else {
+                "subject": "Help",
+                "priority": "medium",
+                "body": "Details",
+                "category": posted,
+            }
+        )
+        return SupportForm(program=Menu, data=data)["issue_type"].field.required
+
+    # Before a category is posted, any sub-menu the script could show counts.
+    assert required([bare, full]) is True
+    assert required([bare]) is False
+    # Once one is, the category posted decides for itself.
+    assert required([bare, full], posted="full") is True
+    assert required([bare, full], posted="bare") is False
 
 
 def test_issue_type_menu_is_flat_and_tags_each_option_with_its_category(
@@ -480,7 +575,7 @@ def test_others_filters_to_the_catch_all_category(
     portal_workspaces,
     owner_membership,
 ):
-    for subject, category in (("General question", ""), ("Callback", "abdm-m1")):
+    for subject, category in (("General question", "others"), ("Callback", "abdm-m1")):
         Ticket.objects.create(
             organisation=owner_membership.organisation,
             product=portal_workspaces[1].product,
@@ -495,7 +590,9 @@ def test_others_filters_to_the_catch_all_category(
     ]
     compact = " ".join(response.content.decode().split())
     assert '<option value="others" selected>Others</option>' in compact
-    # "Others" has a blank code, like "All categories", which still lists both.
+    # The new ticket form's placeholder is not a category to filter by.
+    assert "Select a category" not in compact
+    # All categories is the blank one, and lists both.
     response = portal_client.get(url, {"category": ""})
     assert len(response.context["tickets"]) == 2  # noqa: PLR2004
     assert "selected>Others</option>" not in " ".join(response.content.decode().split())

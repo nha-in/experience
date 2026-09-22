@@ -103,8 +103,8 @@ class Ticket(models.Model):
     )
     subject = models.CharField(_("Subject"), max_length=255)
     # Holds the program's support category, which is the same unit staff support
-    # permissions are granted for, or blank for the catch-all ("Others").
-    category = models.CharField(_("Category"), max_length=100, blank=True)
+    # permissions are granted for. The catch-all has a code of its own ("others").
+    category = models.CharField(_("Category"), max_length=100)
     # The category's sub-menu entry. It labels the ticket for triage; the
     # category above it is what decides who may read and answer the ticket.
     issue_type = models.CharField(_("Issue type"), max_length=100, blank=True)
@@ -209,7 +209,7 @@ class Ticket(models.Model):
         category = self.support_category
         if category is not None:
             return category.name
-        return self.category or str(_("Others"))
+        return self.category
 
     @property
     def is_open(self) -> bool:

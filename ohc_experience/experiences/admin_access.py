@@ -58,12 +58,13 @@ class ProgramCategoryForm(forms.ModelForm):
         programs = {program.key: program for program in registry.programs()}
         program = programs.get(data.get("program"))
         area = data.get("area") if self._meta.model is AccessGrant else "events"
+        # Blank is allowed only where the area lists it, as general/onboarding.
         allowed = {
             code
             for code, _label, _description in (
                 program.grant_categories(area) if program else ()
             )
-        } | {""}
+        }
         if self._meta.model is AccessGrant:
             allowed.add("*")
         if data.get("category") not in allowed:

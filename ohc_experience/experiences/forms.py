@@ -172,8 +172,13 @@ class IssueTypeSelect(forms.Select):
 
 class SupportForm(forms.Form):
     subject = forms.CharField(max_length=255)
-    category = forms.ChoiceField(required=False)
-    issue_type = forms.ChoiceField(required=False, widget=IssueTypeSelect)
+    category = forms.ChoiceField(
+        error_messages={"required": "Choose the category this ticket is about."},
+    )
+    issue_type = forms.ChoiceField(
+        widget=IssueTypeSelect,
+        error_messages={"required": "Choose the issue type this ticket is about."},
+    )
     priority = forms.ChoiceField(
         choices=[("low", "Low"), ("medium", "Medium"), ("high", "High")],
         initial="medium",
@@ -209,16 +214,15 @@ class SupportForm(forms.Form):
             if applied is None or not category.track or category.track in applied
         ]
         self.category_map = {category.code: category for category in self.categories}
+        # Nothing is chosen for the integrator: a ticket left on a default would
+        # land in whichever category that was, not the one it is about.
         self.fields["category"].choices = [
-            (category.code, category.name) for category in self.categories
+            ("", "Select a category"),
+            *((category.code, category.name) for category in self.categories),
         ]
-        # "Others" sits last in the menu but stays the default, so a ticket filed
-        # without a choice still lands in the catch-all rather than the first
-        # milestone.
-        self.fields["category"].initial = ""
         issue_type = self.fields["issue_type"]
         issue_type.choices = [
-            ("", "Not specified"),
+            ("", "Select an issue type"),
             *(
                 (entry, entry)
                 for category in self.categories
@@ -230,18 +234,39 @@ class SupportForm(forms.Form):
             for category in self.categories
             for entry in category.issue_types
         }
+        issue_type.required = self._asks_for_issue_type()
+
+    def _asks_for_issue_type(self) -> bool:
+        """Whether the ticket has to name an issue type, read before any cleaning.
+
+        Only a category with a sub-menu asks for one, and support-issue-type.js
+        shows the field only once such a category is chosen, so wherever the field
+        shows it is required. A posted category decides for itself. Reading it
+        here rather than in `clean` keeps "(optional)" off the label, on the form
+        that comes back with an error too.
+        """
+        if self.is_bound:
+            posted = self.data.get(self.add_prefix("category"))
+            chosen = self.category_map.get(posted)
+            if chosen is not None:
+                return bool(chosen.issue_types)
+        return any(category.issue_types for category in self.categories)
 
     def clean(self):
         cleaned = super().clean()
         # The reply form drops the filing fields; only the opening form files.
         if "category" not in self.fields:
             return cleaned
-        category = self.category_map.get(cleaned.get("category", ""))
+        category = self.category_map.get(cleaned.get("category"))
         if category is None:
             return cleaned
         if not category.issue_types:
             cleaned["issue_type"] = ""
-        elif cleaned.get("issue_type") not in category.issue_types:
+        # A missing one has already been reported as required.
+        elif (
+            not self.has_error("issue_type")
+            and cleaned["issue_type"] not in category.issue_types
+        ):
             self.add_error(
                 "issue_type",
                 f"Choose the issue type this {category.name} ticket is about.",

@@ -1,10 +1,10 @@
 """Support permissions, read through the tickets they are there to scope.
 
 Staff support access is granted per program and per support category: a code
-from the program's support menu, "" for the catch-all, or "*" for the lot. A
-ticket's category is the other half of that pair, so these tests keep real
-grants and real tickets together rather than asserting on the query that joins
-them. Review and events are still granted by track, which is why a track code
+from the program's support menu, the catch-all's "others" among them, or "*"
+for the lot. A ticket's category is the other half of that pair, so these tests
+keep real grants and real tickets together rather than asserting on the query
+that joins them. Review and events are still granted by track, which is why a track code
 here reads as a category support has retired.
 """
 
@@ -44,6 +44,7 @@ CATEGORIES = [
     "nhcx-workflow",
     "nhcx-data",
     "uhi-service",
+    "others",
 ]
 #: A category the support menu does not answer to, as the tracks support used to
 #: be filed by leave behind on the tickets that were filed under them.
@@ -91,17 +92,17 @@ def staff():
 
 @pytest.fixture
 def tickets(owner_membership):
-    """One ticket per category an ABDM ticket can carry, general included."""
+    """One ticket per category an ABDM ticket can carry, Others included."""
     product = product_in("abdm", owner_membership)
     return {
         category: Ticket.objects.create(
             organisation=owner_membership.organisation,
             product=product,
             category=category,
-            subject=f"{category or 'General'} request",
+            subject=f"{category} request",
             created_by=owner_membership.user,
         )
-        for category in ["", *CATEGORIES, RETIRED]
+        for category in [*CATEGORIES, RETIRED]
     }
 
 
@@ -125,7 +126,7 @@ def supplier_ticket(supplier_program, owner_membership):
     )
 
 
-@pytest.mark.parametrize("category", ["", *CATEGORIES])
+@pytest.mark.parametrize("category", CATEGORIES)
 def test_a_grant_sees_its_own_category_and_nothing_else(tickets, staff, category):
     support_grant(staff, category)
 
@@ -135,11 +136,11 @@ def test_a_grant_sees_its_own_category_and_nothing_else(tickets, staff, category
 def test_the_wildcard_sees_every_category_a_ticket_carries(tickets, staff):
     support_grant(staff, "*")
 
-    assert visible(staff) == {"", *CATEGORIES, RETIRED}
+    assert visible(staff) == {*CATEGORIES, RETIRED}
 
 
 def test_a_retired_category_is_reachable_only_through_the_wildcard(tickets, staff):
-    for category in ["", *CATEGORIES]:
+    for category in CATEGORIES:
         support_grant(staff, category)
 
     assert RETIRED not in visible(staff)
@@ -248,7 +249,7 @@ def test_an_integrator_sees_their_own_tickets_whatever_the_category(
 ):
     user = owner_membership.user
 
-    assert visible(user) == {"", *CATEGORIES, RETIRED}
+    assert visible(user) == {*CATEGORIES, RETIRED}
     assert permissions.can_reply_ticket(user, tickets["abdm-m1"])
     assert permissions.can_close_ticket(user, tickets["abdm-m1"])
     # They choose a priority when filing, and leave any change to the NHA team.
@@ -290,12 +291,11 @@ def test_a_superuser_needs_no_grant_in_any_program(tickets, supplier_ticket):
 
 def test_every_category_a_ticket_can_be_filed_under_can_be_granted():
     program = get_program()
-    filed = {
-        value
-        for value, _label in SupportForm(program=program).fields["category"].choices
-    }
+    placeholder, *filed = SupportForm(program=program).fields["category"].choices
 
-    assert filed <= {"", "*", *program.support_category_map()}
+    # The blank choice only asks for one, and a ticket cannot be filed under it.
+    assert placeholder == ("", "Select a category")
+    assert {value for value, _label in filed} <= set(program.support_category_map())
 
 
 def test_the_sub_menu_carries_no_permission_of_its_own(tickets, staff):
@@ -344,3 +344,9 @@ def test_each_area_is_granted_in_its_own_vocabulary(staff):
         grant("review", "abdm-m1").clean()
     with pytest.raises(ValidationError):
         grant("support", RETIRED).clean()
+    # Blank is general and onboarding work to review; support's catch-all has a
+    # code of its own, so a blank support grant would match no ticket.
+    assert grant("review", "").clean() is None
+    assert grant("support", "others").clean() is None
+    with pytest.raises(ValidationError):
+        grant("support", "").clean()

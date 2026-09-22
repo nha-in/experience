@@ -4,8 +4,11 @@
 // and the sub-menu select stays the source of truth for what is posted. Options
 // are hidden rather than removed, which is what searchable-select.js reads when
 // it draws the combobox, and every value this script writes is announced with a
-// change event so that combobox redraws. A category with no sub-menu hides the
-// field: there is nothing to choose, and the server stores no issue type for it.
+// change event so that combobox redraws. The field stays hidden until a
+// category is chosen, and for a category with no sub-menu: there is nothing to
+// choose, and the server stores no issue type for such a category.
+// Shown, the field is required, as the server also requires it; hidden, it is
+// not, so a required select nobody can see never stops the form submitting.
 //
 // Without JavaScript the sub-menu is a flat select listing every issue type,
 // and the server still rejects one that does not belong to the chosen category.
@@ -21,6 +24,7 @@
       if (!option.hidden) available += 1;
     }
     field.hidden = !available;
+    issueType.required = Boolean(available);
     const current = issueType.options[issueType.selectedIndex];
     if ((!available || current?.hidden) && issueType.value !== '') {
       issueType.value = '';
