@@ -31,7 +31,14 @@ function createPage(initial = {}) {
   const form = new Element();
   const document = new Element();
   const window = new Element();
-  input.dataset = { pincodeLookup: '/organisations/pincode-lookup/' };
+  input.dataset = {
+    pincodeLookup: '/organisations/pincode-lookup/',
+    offlineLocations: 'pincode_offline_locations',
+  };
+  // The json_script the widget renders; absent unless a test supplies one.
+  const offline = new Element();
+  offline.textContent = JSON.stringify(initial.offline || []);
+  document.getElementById = id => (initial.offline && id === 'pincode_offline_locations' ? offline : null);
   input.matches = selector => selector === 'input[data-pincode-lookup]';
   input.closest = selector => ({ form, '[data-pincode-field]': field })[selector];
   form.querySelector = selector => ({ '[data-lgd-state]': state, '[data-lgd-district]': district })[selector];
@@ -166,6 +173,29 @@ test('offers retry after a network failure and retries the same PIN', async () =
   page.retry.dispatchEvent(new Event('click'));
   page.tick(0);
   assert.equal(page.requests[1].url.searchParams.get('pincode'), '682030');
+  await page.respond(1, [kerala]);
+  assert.equal(page.retry.hidden, true);
+  assert.equal(page.state.value, 'Kerala');
+});
+
+test('a failed lookup offers the names the page carries, and retry still verifies', async () => {
+  const page = createPage({
+    offline: [
+      { state: 'Kerala', districts: ['Ernakulam', 'Idukki'] },
+      { state: 'Tamil Nadu', districts: ['Coimbatore'] },
+    ],
+  });
+  page.changePincode('682030');
+  page.tick();
+  page.requests[0].reject(new TypeError('Network unavailable'));
+  await page.flush();
+
+  assert.deepEqual(page.state.children.map(option => option.value).filter(Boolean), ['Kerala', 'Tamil Nadu']);
+  assert.equal(page.retry.hidden, false);
+  assert.match(page.status.textContent, /select manually/);
+
+  page.retry.dispatchEvent(new Event('click'));
+  page.tick(0);
   await page.respond(1, [kerala]);
   assert.equal(page.retry.hidden, true);
   assert.equal(page.state.value, 'Kerala');

@@ -40,6 +40,7 @@ from ohc_experience.integrations.models import ProvisionedResource
 from ohc_experience.integrations.models import ProvisionedResourceState
 from ohc_experience.integrations.models import ProvisionedSystem
 from ohc_experience.integrations.models import ProvisioningRun
+from ohc_experience.integrations.ports import UNSUPPORTED
 from ohc_experience.integrations.ports import AdapterError
 from ohc_experience.integrations.ports import BridgeSpec
 from ohc_experience.integrations.ports import ClientSpec
@@ -602,6 +603,12 @@ def _teardown_step(
     try:
         call(product, row)
     except AdapterError as error:
+        if error.code == UNSUPPORTED:
+            # Nothing to retry. Keycloak, disabled first, is what stops access.
+            logger.warning("left %s for product %s on: %s", system, product_id, error)
+            row.state = ProvisionedResourceState.LEFT_SUBSCRIBED
+            row.save(update_fields=["state", "updated_at"])
+            return product_id
         _teardown_failed(
             task,
             row,

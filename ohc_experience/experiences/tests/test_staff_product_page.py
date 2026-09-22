@@ -12,6 +12,7 @@ from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.models import ProvisioningRun
+from ohc_experience.integrations.ports import UNSUPPORTED
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
@@ -318,5 +319,24 @@ def test_a_super_admin_retries_a_teardown_that_stopped_short(
         client.post(product_url(environment), {"intent": "retry_deprovisioning"})
 
     response = client.get(product_url(environment))
+    assert not response.context["can_retry_deprovisioning"]
+    assert response.context["can_reprovision"]
+
+
+def test_a_gateway_left_subscribed_reads_as_disabled_and_allows_reprovisioning(
+    environment,
+    client,
+    django_capture_on_commit_callbacks,
+):
+    approve(environment)
+    fail_next(ExternalSystem.WSO2, "unsubscribe", code=UNSUPPORTED, retryable=False)
+    _revoked(environment, client, django_capture_on_commit_callbacks)
+
+    response = client.get(product_url(environment))
+
+    rows = response.context["provisioning"]
+    gateway = next(row for row in rows if row.system == "WSO2")
+    assert (gateway.state, str(gateway.display)) == ("LEFT_SUBSCRIBED", "Disabled")
+    assert b"Left subscribed" not in response.content
     assert not response.context["can_retry_deprovisioning"]
     assert response.context["can_reprovision"]

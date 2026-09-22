@@ -6,8 +6,10 @@ application, map the keys and subscribe; its own DevPortal sequence — the one
 `Wso2ApiGateway` reimplements — sits commented out directly above that call.
 
 Chosen when the DevPortal is unreachable but the wrapper is. It cannot
-deprovision: legacy has no endpoint for that, so `unsubscribe` fails loudly
-rather than reporting a revoked integrator as torn down.
+deprovision: legacy has no endpoint for that, and none was found on the sandbox
+wrapper (2026-09-23). `unsubscribe` says so, and teardown records the
+application as left subscribed, so the apps to unsubscribe are known once WSO2
+is reachable directly.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from django.conf import settings
 from ohc_experience.integrations.http import HttpPolicy
 from ohc_experience.integrations.http import IntegrationClient
 from ohc_experience.integrations.naming import APP_NAME_TEMPLATE
+from ohc_experience.integrations.ports import UNSUPPORTED
 from ohc_experience.integrations.ports import AdapterError
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.ports import GatewayAppCreated
@@ -75,11 +78,11 @@ class Wso2WrapperApiGateway:
     def unsubscribe(self, external_id: str, api_ids: tuple[str, ...]) -> None:
         raise AdapterError(
             ExternalSystem.WSO2,
-            "UNSUPPORTED",
+            UNSUPPORTED,
             retryable=False,
             message=(
                 f"the wrapper has no endpoint to unsubscribe {external_id}; "
-                "remove the WSO2 application by hand"
+                "it stays subscribed, unusable once the Keycloak client is off"
             ),
         )
 

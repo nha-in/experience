@@ -25,6 +25,10 @@ class ExternalSystem(enum.StrEnum):
     NOTIFICATION = "NOTIFICATION"
 
 
+#: The external system offers no call for the operation, so no retry can help.
+UNSUPPORTED = "UNSUPPORTED"
+
+
 class AdapterError(Exception):
     """The only exception an adapter may raise.
 

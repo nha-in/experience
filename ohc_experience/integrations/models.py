@@ -22,6 +22,9 @@ class ProvisionedResourceState(models.TextChoices):
     FAILED = "FAILED", _("Failed")
     #: Exists in the external system with no live owner here.
     ORPHANED = "ORPHANED", _("Orphaned")
+    #: Revoked, but the system offers no call to remove it; see the WSO2 wrapper.
+    #: Shown as disabled, since nothing can use it with the Keycloak client off.
+    LEFT_SUBSCRIBED = "LEFT_SUBSCRIBED", _("Left subscribed")
 
 
 class ProvisionedResource(models.Model):

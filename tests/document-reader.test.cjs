@@ -166,11 +166,14 @@ function createPage(initial = {}) {
     input.dispatchEvent(new Event("change"));
     // The upload script re-renders its list and fires this straight after.
     input.dispatchEvent(new Event("input"));
+    // The reader acts once the turn that announced the choice is over.
+    tick(0);
   }
   // What the "Remove file" button does: rewrite the list, fire `input` only.
   function removeFile() {
     input.files = [];
     input.dispatchEvent(new Event("input"));
+    tick(0);
   }
   async function flush() {
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
@@ -555,6 +558,19 @@ test("choosing the file again is what asks a second time", async () => {
 
   assert.equal(page.requests.length, 2);
   assert.equal(page.auditDate.value, TODAY);
+});
+
+test("choosing the same file again asks for a fresh reading", async () => {
+  const page = createPage();
+  const fields = (index) => page.requests[index].options.body.entries.map(([name]) => name);
+  page.choose();
+  await page.respond(0, {});
+
+  page.choose();
+  page.choose("other.pdf");
+
+  assert.ok(fields(1).includes("refresh"));
+  assert.ok(!fields(2).includes("refresh"));
 });
 
 test("a rate-limited reading asks for the details instead", async () => {

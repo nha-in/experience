@@ -39,7 +39,16 @@ _VARIANTS = {
     ProvisionedResourceState.FAILED: "destructive",
     ProvisionedResourceState.DISABLED: "neutral",
     ProvisionedResourceState.ORPHANED: "warning",
+    ProvisionedResourceState.LEFT_SUBSCRIBED: "neutral",
 }
+
+
+def _display(row: ProvisionedResource) -> StrOrPromise:
+    """A gateway left subscribed reads as disabled: with the Keycloak client off
+    nothing can use it, and there is nothing an admin can do about it."""
+    if row.state == ProvisionedResourceState.LEFT_SUBSCRIBED:
+        return ProvisionedResourceState.DISABLED.label
+    return row.get_state_display()
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +87,7 @@ def provisioning_progress(product: Product) -> list[SystemProgress]:
             system=system,
             label=SYSTEM_LABELS[system],
             state=rows[system].state if system in rows else "",
-            display=rows[system].get_state_display() if system in rows else pending,
+            display=_display(rows[system]) if system in rows else pending,
             variant=_VARIANTS.get(rows[system].state, "neutral")
             if system in rows
             else "neutral",

@@ -15,6 +15,7 @@ from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.models import ProvisionedResource
 from ohc_experience.integrations.models import ProvisionedResourceState
 from ohc_experience.integrations.models import ProvisionedSystem
+from ohc_experience.integrations.ports import UNSUPPORTED
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.selectors import teardown_is_incomplete
 from ohc_experience.integrations.services import start_provisioning
@@ -119,6 +120,21 @@ def test_revoking_twice_is_a_no_op(
         credential_services.revoke(credential, superadmin)
 
     assert set(_states(product).values()) == {ProvisionedResourceState.DISABLED}
+
+
+def test_a_gateway_that_cannot_unsubscribe_is_left_subscribed(provision, teardown):
+    """The WSO2 wrapper has no removal call. Teardown still completes, and the
+    ledger says what was left behind instead of calling it disabled."""
+    product = provision()
+    fail_next(ExternalSystem.WSO2, "unsubscribe", code=UNSUPPORTED, retryable=False)
+
+    teardown()
+
+    assert _states(product) == {
+        ProvisionedSystem.KEYCLOAK: ProvisionedResourceState.DISABLED,
+        ProvisionedSystem.WSO2: ProvisionedResourceState.LEFT_SUBSCRIBED,
+    }
+    assert not teardown_is_incomplete(product)
 
 
 def test_an_integrator_cannot_revoke_their_own_credentials(provision, owner):
@@ -265,3 +281,22 @@ def test_a_failed_reprovision_retries_onto_the_same_client(
     assert credential.status == "active"
     assert credential.client_id == client_id
     assert len(local._store(ExternalSystem.KEYCLOAK)) == 1  # noqa: SLF001
+
+
+def test_reprovisioning_brings_back_an_application_left_subscribed(
+    provision,
+    superadmin,
+    django_capture_on_commit_callbacks,
+):
+    product = provision()
+    fail_next(ExternalSystem.WSO2, "unsubscribe", code=UNSUPPORTED, retryable=False)
+    _revoke(product, superadmin, django_capture_on_commit_callbacks)
+    assert _states(product)[ProvisionedSystem.WSO2] == (
+        ProvisionedResourceState.LEFT_SUBSCRIBED
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        start_provisioning(product, started_by=superadmin)
+
+    assert ProductCredential.objects.get(product=product).status == "active"
+    assert set(_states(product).values()) == {ProvisionedResourceState.ACTIVE}
