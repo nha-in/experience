@@ -9,6 +9,7 @@ from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -160,3 +161,74 @@ def test_staff_pages_never_offer_the_product_switcher(environment, client):
     assert b'id="product-switcher-card"' in response.content
     response = client.get(reverse("experiences:products"))
     assert product_url(environment).encode() not in response.content
+
+
+def test_only_a_super_admin_is_offered_the_revoke_button(environment, client):
+    approve(environment)
+    reviewer = staff("*", can_write=True)
+
+    client.force_login(reviewer)
+    assert b"revoke_credentials" not in client.get(product_url(environment)).content
+
+    client.force_login(environment["admin"])
+    response = client.get(product_url(environment))
+
+    assert response.context["can_revoke_credentials"]
+    assert b"revoke_credentials" in response.content
+
+
+def test_a_super_admin_revokes_the_credentials_from_the_product(
+    environment,
+    client,
+    django_capture_on_commit_callbacks,
+):
+    approve(environment)
+    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    client.force_login(environment["admin"])
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(
+            product_url(environment),
+            {"intent": "revoke_credentials"},
+        )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == f"{product_url(environment)}#connection"
+    credential.refresh_from_db()
+    assert credential.status == "revoked"
+    # Revoked once, the action is spent: the button goes with it.
+    assert b"revoke_credentials" not in client.get(product_url(environment)).content
+
+
+def test_a_reviewer_cannot_revoke_by_posting_the_intent(environment, client):
+    approve(environment)
+    client.force_login(staff("*", can_write=True, can_approve=True))
+
+    response = client.post(product_url(environment), {"intent": "revoke_credentials"})
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    assert credential.status == "active"
+
+
+def test_a_revoked_integrator_is_sent_to_support_not_offered_new_credentials(
+    environment,
+    client,
+    django_capture_on_commit_callbacks,
+):
+    workspace = environment["workspace"]
+    client.force_login(environment["admin"])
+    with django_capture_on_commit_callbacks(execute=True):
+        client.post(product_url(environment), {"intent": "revoke_credentials"})
+    url = reverse("experiences:credentials", args=[workspace.reference])
+    client.force_login(environment["applicant"])
+
+    content = client.get(url).content.decode()
+
+    assert "Your credentials have been revoked." in content
+    assert f"{reverse('experiences:support')}?product={workspace.reference}" in content
+    assert 'value="rotate"' not in content
+    assert workspace.definition.sandbox_credentials.demo_notice not in content
+    client.post(url, {"intent": "rotate"})
+    credential = ProductCredential.objects.get(product=workspace.product)
+    assert credential.status == "revoked"

@@ -1,6 +1,5 @@
 import logging
 import time
-from datetime import timedelta
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -15,6 +14,7 @@ from ohc_experience.integrations.services import start_deprovisioning
 from .models import ProductCredential
 from .permissions import require_integrator
 from .secrets import cipher
+from .staff_services import require_superadmin
 from .workflows import audit
 
 logger = logging.getLogger(__name__)
@@ -67,13 +67,7 @@ def rotate(credential, actor):
             current = _locked_credential(credential)
             current.encrypted_secret = cipher().encrypt(secret.encode()).decode()
             current.issued_at = timezone.now()
-            definition = current.product.workspace.definition.sandbox_credentials
-            current.rotation_due = timezone.now() + timedelta(
-                days=definition.rotation_days,
-            )
-            current.save(
-                update_fields=["encrypted_secret", "issued_at", "rotation_due"],
-            )
+            current.save(update_fields=["encrypted_secret", "issued_at"])
             audit(
                 actor=actor,
                 action="Integration credentials rotated",
@@ -90,9 +84,13 @@ def rotate(credential, actor):
 
 @transaction.atomic
 def revoke(credential, actor):
-    """Switch the integrator off in all three systems, then mark the row."""
+    """Switch the integrator off in all three systems, then mark the row.
+
+    Operators revoke, not integrators: the causes are ours to judge, and the
+    integrator cannot undo it.
+    """
     credential = _locked_credential(credential)
-    require_integrator(actor, credential.product.organisation)
+    require_superadmin(actor)
     if credential.status != "active":
         return
     start_deprovisioning(credential.product)

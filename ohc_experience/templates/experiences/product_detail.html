@@ -199,6 +199,10 @@
                 <dd class="min-w-0 truncate font-mono">
                   {{ credential.callback_url|default:'Not configured' }}
                 </dd>
+                <dt class="text-soft-foreground">Status</dt>
+                <dd class="min-w-0">
+                  {% include 'experiences/partials/status.html' with status=credential.status label=credential.get_status_display %}
+                </dd>
               </dl>
             {% else %}
               <p class="text-sm leading-relaxed text-soft-foreground">No credentials issued yet.</p>
@@ -226,6 +230,18 @@
                         class="ui-btn ui-btn--outline ui-btn--size-sm"
                         name="intent"
                         value="retry_provisioning">{% if provisioning_never_started %}Start provisioning{% else %}Retry provisioning{% endif %}</button>
+              </form>
+            {% endif %}
+            {% if can_revoke_credentials %}
+              <form class="mt-2.5"
+                    method="post"
+                    data-confirm="Revoke this product's credentials? The integrator is switched off in every connected system, and sandbox access stops until new credentials are issued."
+                    hx-confirm="Revoke this product's credentials? The integrator is switched off in every connected system, and sandbox access stops until new credentials are issued.">
+                {% csrf_token %}
+                <button type="submit"
+                        class="ui-btn ui-btn--destructive ui-btn--size-sm"
+                        name="intent"
+                        value="revoke_credentials">Revoke credentials</button>
               </form>
             {% endif %}
             {% if production.client_id %}

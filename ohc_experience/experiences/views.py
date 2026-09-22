@@ -837,6 +837,16 @@ def product_detail(request, reference):
                 reverse("experiences:product-detail", args=[workspace.reference])
                 + "#connection",
             )
+        if request.POST.get("intent") == "revoke_credentials":
+            credential = ProductCredential.objects.filter(product=product).first()
+            if not _can_revoke_credentials(request.user, credential):
+                raise PermissionDenied
+            credential_services.revoke(credential, request.user)
+            messages.success(request, "Credentials revoked. Deprovisioning started.")
+            return redirect(
+                reverse("experiences:product-detail", args=[workspace.reference])
+                + "#connection",
+            )
         try:
             return _product_review_post(request, workspace)
         except ValidationError as error:
@@ -908,6 +918,11 @@ def product_detail(request, reference):
         for tile in row["tiles"]:
             tile["url"] = f"#review-{tile['item'].pk}"
     general_access = permissions.has_access(request.user, "review", program=program.key)
+    credential = (
+        ProductCredential.objects.filter(product=product).first()
+        if general_access
+        else None
+    )
     organisation_section = next(
         (
             section
@@ -967,9 +982,8 @@ def product_detail(request, reference):
                 kind="product_registration",
             ).first(),
             certification=certification,
-            credential=ProductCredential.objects.filter(product=product).first()
-            if general_access
-            else None,
+            credential=credential,
+            can_revoke_credentials=_can_revoke_credentials(request.user, credential),
             production=production_services.state(product)
             if production_services.can_view(request.user, program)
             else None,
@@ -1684,7 +1698,7 @@ def _credential_notice(intent, credential):
 @login_required
 @never_cache
 @require_http_methods(["GET", "POST"])
-def credentials(request, reference):  # noqa: C901, PLR0912
+def credentials(request, reference):  # noqa: C901
     workspace = _workspace(request, reference)
     if workspace.definition.sandbox_credentials is None:
         raise Http404
@@ -1738,8 +1752,6 @@ def credentials(request, reference):  # noqa: C901, PLR0912
                 )
             if intent == "rotate":
                 credential_services.rotate(credential, request.user)
-            elif intent == "revoke":
-                credential_services.revoke(credential, request.user)
             elif intent == "register":
                 credential_services.retry_bridge(credential, request.user)
             elif intent == "callback":
@@ -2232,6 +2244,12 @@ def _can_provision(user, product, program_key):
         and permissions.has_access(user, "review", program=program_key)
         and (provisioning_can_be_retried(product) or awaiting_provisioning(product)),
     )
+
+
+def _can_revoke_credentials(user, credential):
+    """Revoking switches the integrator off in every external system, and only
+    a super admin may do that."""
+    return bool(credential and credential.status == "active" and user.is_superuser)
 
 
 def _can_retry_provisioning(user, item):

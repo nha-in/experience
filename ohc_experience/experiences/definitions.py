@@ -317,7 +317,6 @@ class SandboxCredentialDefinition(CredentialDefinition):
     """A program supplies policy and copy; the chain provisions, the engine shows."""
 
     outcome_type = "integration_credentials"
-    rotation_days = 90
     demo_notice = "Demo credentials are not valid on an external gateway."
 
     @classmethod

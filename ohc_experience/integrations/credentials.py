@@ -9,7 +9,6 @@ Permission checks belong to the caller. Nothing here asks who is asking.
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.core.exceptions import ValidationError
@@ -75,7 +74,6 @@ def publish_credential(product: Product) -> ProductCredential:
             "gateway_url": definition.gateway_url(),
             "status": "active",
             "issued_at": timezone.now(),
-            "rotation_due": timezone.now() + timedelta(days=definition.rotation_days),
         },
     )
     _forget_secret_ref(client)

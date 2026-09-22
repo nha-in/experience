@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from django.core.exceptions import PermissionDenied
 from django.test import override_settings
 
 from ohc_experience.experiences import credentials as credential_services
@@ -82,19 +83,19 @@ def test_a_partially_provisioned_product_is_cleaned_up_too(provision, teardown):
     }
 
 
-# ── Through the panel ────────────────────────────────────────────────────────
+# ── Through the console ────────────────────────────────────────────────────────
 
 
 def test_revoking_runs_the_teardown_and_closes_the_credential(
     provision,
-    owner,
+    superadmin,
     django_capture_on_commit_callbacks,
 ):
     product = provision()
     credential = ProductCredential.objects.get(product=product)
 
     with django_capture_on_commit_callbacks(execute=True):
-        credential_services.revoke(credential, owner)
+        credential_services.revoke(credential, superadmin)
 
     credential.refresh_from_db()
     assert credential.status == "revoked"
@@ -104,18 +105,30 @@ def test_revoking_runs_the_teardown_and_closes_the_credential(
 
 def test_revoking_twice_is_a_no_op(
     provision,
-    owner,
+    superadmin,
     django_capture_on_commit_callbacks,
 ):
     product = provision()
     credential = ProductCredential.objects.get(product=product)
     with django_capture_on_commit_callbacks(execute=True):
-        credential_services.revoke(credential, owner)
+        credential_services.revoke(credential, superadmin)
 
     with django_capture_on_commit_callbacks(execute=True):
-        credential_services.revoke(credential, owner)
+        credential_services.revoke(credential, superadmin)
 
     assert set(_states(product).values()) == {ProvisionedResourceState.DISABLED}
+
+
+def test_an_integrator_cannot_revoke_their_own_credentials(provision, owner):
+    product = provision()
+    credential = ProductCredential.objects.get(product=product)
+
+    with pytest.raises(PermissionDenied):
+        credential_services.revoke(credential, owner)
+
+    credential.refresh_from_db()
+    assert credential.status == "active"
+    assert ProvisionedResourceState.DISABLED not in set(_states(product).values())
 
 
 def test_an_unprovisioned_product_has_nothing_to_tear_down(product, teardown):

@@ -993,7 +993,6 @@ class ProductCredential(models.Model):
     gateway_url = models.URLField()
     callback_url = models.URLField(blank=True)
     issued_at = models.DateTimeField(default=timezone.now)
-    rotation_due = models.DateTimeField()
 
     def __str__(self):
         return f"{self.client_id} ({self.status})"

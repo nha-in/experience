@@ -31,6 +31,12 @@ def owner(db):
 
 
 @pytest.fixture
+def superadmin(db):
+    """Revoking is a console action, so only a super admin can drive it."""
+    return UserFactory.create(email="ops@nha.in", is_superuser=True, is_staff=True)
+
+
+@pytest.fixture
 def product(owner):
     """Registered on a verified organisation: one step short of a live client."""
     organisation = OrganisationFactory.create(
