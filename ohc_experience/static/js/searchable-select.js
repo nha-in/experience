@@ -115,7 +115,7 @@
     select.tabIndex = -1;
     select.setAttribute('aria-hidden', 'true');
 
-    let sections = [];
+    let items = [];
     let shown = [];
     let active = null;
     let navigated = false; // whether the arrow keys put the highlight where it is
@@ -142,64 +142,40 @@
     }
 
     // Options are read again on every open, so hidden, disabled and replaced
-    // options are always current.
+    // options are always current. An optgroup's options are listed without its
+    // label: the list holds only what can be chosen, never a heading that cannot.
     function readOptions() {
-      sections = [];
-      let count = 0;
-      const item = (option, group) => {
+      items = [];
+      const add = (option, group) => {
+        if (option.hidden) return;
         const element = document.createElement('div');
-        element.id = `${listbox.id}-${count++}`;
+        element.id = `${listbox.id}-${items.length}`;
         element.className = 'ui-combobox__option';
         element.setAttribute('role', 'option');
         element.textContent = option.label;
         const disabled = option.disabled || Boolean(group?.disabled);
         if (disabled) element.setAttribute('aria-disabled', 'true');
-        return { option, element, disabled, key: fold(option.label) };
+        items.push({ option, element, disabled, key: fold(option.label) });
       };
       for (const child of select.children) {
         if (child.hidden) continue;
-        if (child.tagName === 'OPTGROUP') {
-          const element = document.createElement('div');
-          const heading = document.createElement('div');
-          heading.id = `${listbox.id}-group-${sections.length}`;
-          heading.className = 'ui-combobox__group-label';
-          heading.setAttribute('role', 'presentation');
-          heading.textContent = child.label;
-          element.setAttribute('role', 'group');
-          element.setAttribute('aria-labelledby', heading.id);
-          const items = [...child.children].filter(option => !option.hidden).map(option => item(option, child));
-          sections.push({ element, heading, items });
-        } else if (child.tagName === 'OPTION') {
-          if (!sections.length || sections.at(-1).element) sections.push({ items: [] });
-          sections.at(-1).items.push(item(child));
-        }
+        if (child.tagName === 'OPTGROUP') [...child.children].forEach(option => add(option, child));
+        else if (child.tagName === 'OPTION') add(child);
       }
     }
 
     function render() {
       const words = query ? fold(query).split(' ').filter(Boolean) : [];
       const current = chosen();
-      const rows = [];
-      shown = [];
-      for (const section of sections) {
-        const items = words.length
-          ? section.items
-            .map(item => [item, rank(item.key, words)])
-            .filter(([, score]) => score !== -1)
-            .sort((left, right) => left[1] - right[1])
-            .map(([item]) => item)
-          : section.items;
-        if (!items.length) continue;
-        items.forEach(item => setAttribute(item.element, 'data-chosen', item.option === current ? '' : null));
-        shown.push(...items);
-        if (section.element) {
-          section.element.replaceChildren(section.heading, ...items.map(item => item.element));
-          rows.push(section.element);
-        } else {
-          rows.push(...items.map(item => item.element));
-        }
-      }
-      listbox.replaceChildren(...rows);
+      shown = words.length
+        ? items
+          .map(item => [item, rank(item.key, words)])
+          .filter(([, score]) => score !== -1)
+          .sort((left, right) => left[1] - right[1])
+          .map(([item]) => item)
+        : items;
+      shown.forEach(item => setAttribute(item.element, 'data-chosen', item.option === current ? '' : null));
+      listbox.replaceChildren(...shown.map(item => item.element));
       listbox.hidden = !shown.length;
       empty.hidden = Boolean(shown.length);
       if (!shown.includes(active)) activate(null);

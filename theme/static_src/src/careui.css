@@ -335,10 +335,6 @@
     @apply max-h-72 overflow-y-auto overscroll-contain p-1;
   }
 
-  .ui-combobox__group-label {
-    @apply px-2 py-1.5 text-xs font-medium text-muted-foreground;
-  }
-
   .ui-combobox__option {
     @apply relative cursor-default rounded-md py-2.5 pr-8 pl-2 text-base break-words select-none md:py-1.5 md:text-sm;
     @apply aria-selected:bg-accent aria-selected:text-accent-foreground;

@@ -75,14 +75,12 @@
                 {% for value, label in request_choices %}
                   <option value="{{ value }}" {% if filters.item == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
-                <optgroup label="Milestones">
-                  <option value="milestones"
-                          {% if filters.item == 'milestones' %}selected{% endif %}>All milestones</option>
-                  {% for track in track_choices %}
-                    <option value="{{ track.code }}"
-                            {% if filters.item == track.code %}selected{% endif %}>{{ track.code }}</option>
-                  {% endfor %}
-                </optgroup>
+                <option value="milestones"
+                        {% if filters.item == 'milestones' %}selected{% endif %}>All milestones</option>
+                {% for track in track_choices %}
+                  <option value="{{ track.code }}"
+                          {% if filters.item == track.code %}selected{% endif %}>{{ track.code }}</option>
+                {% endfor %}
               </select>
             </div>
           </div>

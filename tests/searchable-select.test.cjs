@@ -244,7 +244,7 @@ function createPage(choices = agencies, { selected = '', others = [] } = {}) {
     status: wrapper.querySelectorAll('div[role="status"]')[0],
     optionElements,
     shown: () => optionElements().map(element => element.textContent),
-    headings: () => listbox.querySelectorAll('div[role="presentation"]').map(element => element.textContent),
+    rows: () => listbox.children.map(element => element.textContent),
     active: () => optionElements().find(element => element.id === input.getAttribute('aria-activedescendant'))?.textContent,
     type(text) {
       input.focus();
@@ -453,15 +453,16 @@ test('it follows what other scripts do to the select', () => {
   assert.equal(page.input.getAttribute('aria-required'), 'true');
 });
 
-test('grouped options stay under their headings and disabled ones are skipped', () => {
+test('grouped options are listed without a heading and disabled ones are skipped', () => {
   const page = createPage([
     ['', 'All items'],
     group('Requests', [['request-address', 'Address change'], ['request-contact', 'Contact change', { disabled: true }]]),
     group('Tracks', [['M1', 'M1'], ['M2', 'M2']]),
+    group('Retired', [['M0', 'M0']], { hidden: true }),
   ]);
 
   page.press('ArrowDown');
-  assert.deepEqual(page.headings(), ['Requests', 'Tracks']);
+  assert.deepEqual(page.rows(), ['All items', 'Address change', 'Contact change', 'M1', 'M2']);
   assert.equal(page.active(), 'All items');
   page.press('ArrowDown');
   page.press('ArrowDown');
@@ -472,8 +473,7 @@ test('grouped options stay under their headings and disabled ones are skipped', 
   assert.equal(page.active(), 'M2');
 
   page.type('change');
-  assert.deepEqual(page.headings(), ['Requests']);
-  assert.deepEqual(page.shown(), ['Address change', 'Contact change']);
+  assert.deepEqual(page.rows(), ['Address change', 'Contact change']);
   assert.equal(page.optionElements()[1].getAttribute('aria-disabled'), 'true');
   assert.equal(page.active(), 'Address change');
 });

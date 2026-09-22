@@ -51,6 +51,15 @@ def test_the_stage_select_carries_the_stage_that_the_tabs_show(client, review_it
     assert 'type="hidden" name="scope"' not in compact
 
 
+def test_the_type_select_lists_milestones_without_a_heading(client, review_item):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    response = client.get(reverse("experiences:queue"), {"item": "milestones"})
+    compact = " ".join(response.content.decode().split())
+
+    assert "<optgroup" not in compact
+    assert '<option value="milestones" selected>All milestones</option>' in compact
+
+
 def test_stage_counts_ignore_a_status_filter(client, review_item):
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(

@@ -10,6 +10,7 @@
 
 - Every dropdown is searchable. `ohc_experience/static/js/searchable-select.js` turns each single-choice `select.ui-select` on any page into a type-to-filter combobox, and the select underneath still holds and posts the value. New dropdowns get this by being careui selects: render the field with `{% ui_field %}`, or give a hand-written `<select>` the `ui-select` class inside a `.ui-select-wrapper`. Never build a custom dropdown or add a select library.
 - Keep a plain dropdown only when asked, with `data-native-select` (in a form, `forms.Select(attrs={"data-native-select": ""})`).
+- A dropdown lists only what can be chosen. Never group its options with `<optgroup>` or grouped Django choices, whose label sits in the list as a heading nobody can pick; `searchable-select.js` drops such a label anyway, but a plain dropdown still shows it. When some options belong together, lead them with one that picks them all, as "All milestones" does in the queue's Type filter.
 - A script that changes a select's value or options should dispatch `change` on the select, as `ohc_experience/static/js/pincode-lookup.js` does, so the search box shows the new choice.
 
 # Rows
