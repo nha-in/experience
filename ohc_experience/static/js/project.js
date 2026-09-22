@@ -530,12 +530,12 @@ document.addEventListener("click", async (event) => {
   } catch { copy.setAttribute("aria-label", "Copy unavailable; select and copy the value"); }
 });
 
-// Assign and Reassign open the panel straight onto the reviewer list. Closing it,
-// with Cancel or Escape, forgets a choice that was never saved. Toggle events do
-// not bubble, so this listens while capturing.
+// Assign, Reassign and a ticket's Change priority open their panel straight onto
+// the list. Closing it, with Cancel or Escape, forgets a choice that was never
+// saved. Toggle events do not bubble, so this listens while capturing.
 document.addEventListener("toggle", (event) => {
   const panel = event.target;
-  if (!panel.matches?.("details[data-assign-panel]")) return;
+  if (!panel.matches?.("details[data-picker-panel]")) return;
   if (!panel.open) {
     panel.querySelector("form")?.reset();
     return;
@@ -545,7 +545,7 @@ document.addEventListener("toggle", (event) => {
   search?.click();
 }, true);
 document.addEventListener("keydown", (event) => {
-  const panel = event.target.closest?.("details[data-assign-panel][open]");
+  const panel = event.target.closest?.("details[data-picker-panel][open]");
   if (event.key !== "Escape" || !panel) return;
   panel.open = false;
   panel.querySelector("summary").focus();

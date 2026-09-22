@@ -36,13 +36,18 @@ def _ticket_url(ticket: Ticket) -> str:
 
 
 def _participants(ticket: Ticket) -> list[str]:
-    """Everyone who has taken part in the thread, requester included.
+    """Everyone who has replied in the thread, requester included.
 
     Copying them keeps the OHC member who answered on the conversation once the
     integrator replies, instead of leaving them to spot it in the shared inbox.
+    Changing the priority alone does not join anyone to the conversation.
     """
+    from .models import TicketMessage  # noqa: PLC0415
+
     addresses = set(
-        ticket.messages.exclude(author=None).values_list("author__email", flat=True),
+        ticket.messages.filter(kind=TicketMessage.Kind.REPLY)
+        .exclude(author=None)
+        .values_list("author__email", flat=True),
     )
     if ticket.created_by:
         addresses.add(ticket.created_by.email)

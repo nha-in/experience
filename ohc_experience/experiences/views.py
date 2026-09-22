@@ -47,6 +47,7 @@ from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
+from ohc_experience.support.models import change_priority
 from ohc_experience.support.models import post_reply
 
 from . import credentials as credential_services
@@ -2596,6 +2597,26 @@ def support(request):
     )
 
 
+def _change_ticket_priority(request, ticket):
+    if not permissions.can_change_ticket_priority(request.user, ticket):
+        raise PermissionDenied
+    try:
+        changed = change_priority(
+            ticket,
+            request.user,
+            request.POST.get("priority", ""),
+        )
+    except ValidationError as error:
+        _error(request, error)
+    else:
+        if changed:
+            messages.success(
+                request,
+                f"Priority changed to {ticket.get_priority_display()}.",
+            )
+    return redirect("experiences:ticket", reference=ticket.reference)
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def ticket(request, reference):
@@ -2611,6 +2632,8 @@ def ticket(request, reference):
         category.track if category else ticket.category,
     )
     request.session["experience_product"] = workspace.reference
+    if request.POST.get("intent") == "priority":
+        return _change_ticket_priority(request, ticket)
     resolving = request.POST.get("intent") == "close"
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
@@ -2658,6 +2681,12 @@ def ticket(request, reference):
             can_reply=permissions.can_reply_ticket(request.user, ticket),
             can_close=ticket.status != Status.CLOSED
             and permissions.can_close_ticket(request.user, ticket),
+            can_change_priority=permissions.can_change_ticket_priority(
+                request.user,
+                ticket,
+            ),
+            # In the order the integrator chose from when filing.
+            priorities=SupportForm.base_fields["priority"].choices,
             resolving=resolving,
             form=form,
         ),

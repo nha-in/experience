@@ -1,7 +1,7 @@
 {% if message.is_event %}
   <li class="flex flex-wrap items-center gap-2.5 rounded-xl border border-dashed border-strong-border bg-soft-background px-3.5 py-2.5 text-[11.5px] text-soft-foreground">
     {% include "components/status_dot.html" with variant="neutral" %}
-    <span class="min-w-0 flex-1 break-words">{{ message.author.display_name|default:"System" }} marked this <strong>{{ message.body }}</strong></span>
+    <span class="min-w-0 flex-1 break-words">{{ message.author.display_name|default:"System" }} {% if message.kind == 'priority' %}{% with change=message.priority_change %}changed the priority from <strong>{{ change.0 }}</strong> to <strong>{{ change.1 }}</strong>{% endwith %}{% else %}marked this <strong>{{ message.body }}</strong>{% endif %}</span>
     <time class="text-[10.5px]" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"d/m/Y, H:i" }} IST</time>
   </li>
 {% else %}

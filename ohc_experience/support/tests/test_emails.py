@@ -11,6 +11,7 @@ from ohc_experience.support import emails
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
+from ohc_experience.support.models import change_priority
 from ohc_experience.support.models import post_reply
 from ohc_experience.support.tests.factories import product_for
 from ohc_experience.users.tests.factories import UserFactory
@@ -140,6 +141,19 @@ def test_an_integrator_reply_copies_the_nha_member_who_answered(
     post_reply(ticket, integrator, "Still missing.", from_nha_team=False)
 
     assert mail.outbox[2].cc == ["anand@ohc.network", "meera@sunrise.in"]
+
+
+def test_a_priority_change_mails_no_one_and_joins_no_one_to_the_thread(
+    ticket,
+    integrator,
+    nha_member,
+):
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
+    change_priority(ticket, nha_member, Priority.LOW)
+    post_reply(ticket, integrator, "Any update?", from_nha_team=False)
+
+    _opening, follow_up = mail.outbox
+    assert follow_up.cc == ["meera@sunrise.in"]
 
 
 def test_resolving_sends_one_mail_with_the_comment(ticket, integrator, nha_member):

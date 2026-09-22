@@ -78,9 +78,31 @@
               </dd>
             {% endif %}
             <dt class="text-soft-foreground">Priority</dt>
-            <dd>
-              {{ ticket.get_priority_display }}
-            </dd>
+            {% if can_change_priority %}
+              {# The saved priority reads as a fact, as an assignee does on a request. Change unfolds the picker, and project.js opens its list. #}
+              <dd class="relative">
+                <span class="block pr-16">{{ ticket.get_priority_display }}</span>
+                <details class="group" data-picker-panel>
+                  <summary class="absolute -top-2 right-0 flex min-h-8 cursor-pointer list-none items-center rounded-md px-1.5 text-[11px] font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                    <span class="group-open:hidden">Change<span class="sr-only"> priority</span></span>
+                    <span class="hidden group-open:inline">Cancel</span>
+                  </summary>
+                  <form class="mt-2 flex flex-col gap-2 transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:transition-none"
+                        method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="intent" value="priority" />
+                    <label class="sr-only" for="ticket-priority">Priority</label>
+                    <div class="ui-select-wrapper"><select class="ui-select" name="priority" id="ticket-priority">{% for value, label in priorities %}<option value="{{ value }}"
+        {% if ticket.priority == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+                    <button class="ui-btn ui-btn--outline ui-btn--size-sm" type="submit">Save priority</button>
+                  </form>
+                </details>
+              </dd>
+            {% else %}
+              <dd>
+                {{ ticket.get_priority_display }}
+              </dd>
+            {% endif %}
             <dt class="text-soft-foreground">Assigned to</dt>
             <dd class="break-words">
               {{ ticket.assignee.display_name|default:"NHA team" }}

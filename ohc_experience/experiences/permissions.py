@@ -315,6 +315,13 @@ def can_close_ticket(user, ticket):
     return can_integrate(user, ticket.organisation)
 
 
+def can_change_ticket_priority(user, ticket):
+    """Reviewers who may reply set the priority; integrators only file one."""
+    return (
+        reviewer(user) and visible_tickets(user, "write").filter(pk=ticket.pk).exists()
+    )
+
+
 def staff_home(user):
     for area, route in (
         ("review", "experiences:assess-dashboard"),

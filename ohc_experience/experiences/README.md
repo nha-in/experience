@@ -126,7 +126,7 @@ independent of the source review.
 | --- | --- | --- | --- |
 | Reviews | Queue, evidence, history, downloads | Raise and resolve queries | Approve or reject |
 | Reviews, General/onboarding | Production Approval screen and CSV export | | Add, change or remove a product's production details |
-| Support | Tickets and attachments | Reply | Resolve |
+| Support | Tickets and attachments | Reply, change priority | Resolve |
 | Events | Events | Create/edit drafts | Publish/unpublish |
 
 Write and approve independently require read; neither implies the other.

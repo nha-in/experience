@@ -11,6 +11,7 @@ from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.definitions import SupportCategoryDefinition
 from ohc_experience.experiences.forms import SupportForm
+from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import EventRegistration
 from ohc_experience.experiences.models import Notification
 from ohc_experience.organisations.tests.factories import MembershipFactory
@@ -744,6 +745,125 @@ def test_reviewer_can_reply_and_resolve(
     assert response.status_code == HTTPStatus.OK
     ticket.refresh_from_db()
     assert ticket.status == "closed"
+
+
+def test_staff_who_reply_can_correct_a_priority(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    """An integrator can file a ticket as High without cause. The NHA team puts
+    it right, and the thread tells both sides who changed it from what."""
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_workspaces[0].product,
+        subject="Where is the sandbox guide?",
+        priority="high",
+        created_by=owner_membership.user,
+    )
+    url = ticket.get_absolute_url()
+    portal_client.force_login(ReviewerFactory(name="Anand S"))
+    page = " ".join(portal_client.get(url).content.decode().split())
+    assert '<input type="hidden" name="intent" value="priority" />' in page
+    assert '<option value="high" selected>High</option>' in page
+
+    response = portal_client.post(
+        url,
+        {"intent": "priority", "priority": "low"},
+        follow=True,
+    )
+
+    assert response.redirect_chain == [(url, HTTPStatus.FOUND)]
+    assert [str(message) for message in response.context["messages"]] == [
+        "Priority changed to Low.",
+    ]
+    ticket.refresh_from_db()
+    assert ticket.priority == "low"
+    assert list(ticket.messages.values_list("kind", "body")) == [
+        ("priority", "High → Low"),
+    ]
+    entry = (
+        "Anand S changed the priority from <strong>High</strong> to "
+        "<strong>Low</strong>"
+    )
+    assert entry in " ".join(response.content.decode().split())
+    # Saving the priority it already has says and records nothing.
+    response = portal_client.post(
+        url,
+        {"intent": "priority", "priority": "low"},
+        follow=True,
+    )
+    assert not list(response.context["messages"])
+    assert ticket.messages.count() == 1
+
+    portal_client.force_login(owner_membership.user)
+    page = " ".join(portal_client.get(url).content.decode().split())
+    assert entry in page
+    assert 'value="priority"' not in page
+
+
+@pytest.mark.parametrize("actor", ["integrator", "read_only_staff"])
+def test_only_staff_who_reply_can_change_a_priority(
+    client,
+    owner_membership,
+    portal_workspaces,
+    actor,
+):
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_workspaces[0].product,
+        subject="Where is the sandbox guide?",
+        priority="high",
+    )
+    user = owner_membership.user
+    if actor == "read_only_staff":
+        user = UserFactory(is_nha_team=True)
+        AccessGrant.objects.create(
+            user=user,
+            program=portal_workspaces[0].experience_type,
+            area="support",
+            category="*",
+            can_read=True,
+        )
+    client.force_login(user)
+    url = ticket.get_absolute_url()
+
+    page = client.get(url)
+    assert page.status_code == HTTPStatus.OK
+    assert b'value="priority"' not in page.content
+    response = client.post(url, {"intent": "priority", "priority": "low"})
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    ticket.refresh_from_db()
+    assert ticket.priority == "high"
+    assert not ticket.messages.exists()
+
+
+def test_a_priority_off_the_list_is_refused(
+    portal_client,
+    portal_workspaces,
+    owner_membership,
+):
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_workspaces[0].product,
+        subject="Where is the sandbox guide?",
+        priority="high",
+    )
+    portal_client.force_login(ReviewerFactory())
+
+    response = portal_client.post(
+        ticket.get_absolute_url(),
+        {"intent": "priority", "priority": "urgent"},
+        follow=True,
+    )
+
+    assert [str(message) for message in response.context["messages"]] == [
+        "Choose High, Medium or Low.",
+    ]
+    ticket.refresh_from_db()
+    assert ticket.priority == "high"
+    assert not ticket.messages.exists()
 
 
 @pytest.mark.parametrize("route", ["experiences:events", "experiences:support"])

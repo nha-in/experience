@@ -116,7 +116,7 @@
                   <span class="staff-editor-chevron" aria-hidden="true"></span>
                 </summary>
                 <div class="staff-editor-group-body">
-                  <p class="staff-editor-actions-description">{% if group.area == 'review' %}<strong>Write</strong> raises and resolves queries. <strong>Approve</strong> approves or rejects.{% elif group.area == 'support' %}<strong>Write</strong> replies to tickets. <strong>Approve</strong> resolves tickets.{% else %}<strong>Write</strong> creates and edits drafts. <strong>Approve</strong> publishes and unpublishes.{% endif %}</p>
+                  <p class="staff-editor-actions-description">{% if group.area == 'review' %}<strong>Write</strong> raises and resolves queries. <strong>Approve</strong> approves or rejects.{% elif group.area == 'support' %}<strong>Write</strong> replies to tickets and changes their priority. <strong>Approve</strong> resolves tickets.{% else %}<strong>Write</strong> creates and edits drafts. <strong>Approve</strong> publishes and unpublishes.{% endif %}</p>
                   <table class="staff-editor-matrix">
                     <caption class="sr-only">{{ group.program.short_name }} {{ group.label }} permissions</caption>
                     <thead>

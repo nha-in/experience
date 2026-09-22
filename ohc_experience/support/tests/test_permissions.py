@@ -171,7 +171,7 @@ def test_review_access_does_not_carry_into_support(tickets, staff):
     ("action", "can_reply", "can_close"),
     [("read", False, False), ("write", True, False), ("approve", False, True)],
 )
-def test_reply_and_close_follow_the_action_on_the_grant(
+def test_reply_priority_and_close_follow_the_action_on_the_grant(
     tickets,
     staff,
     action,
@@ -183,6 +183,8 @@ def test_reply_and_close_follow_the_action_on_the_grant(
 
     assert visible(staff) == {"abdm-m1"}
     assert permissions.can_reply_ticket(staff, ticket) is can_reply
+    # Whoever may reply may also correct the priority.
+    assert permissions.can_change_ticket_priority(staff, ticket) is can_reply
     assert permissions.can_close_ticket(staff, ticket) is can_close
     assert visible(staff, "write") == ({"abdm-m1"} if can_reply else set())
     assert visible(staff, "approve") == ({"abdm-m1"} if can_close else set())
@@ -194,6 +196,7 @@ def test_an_action_stops_at_the_category_it_was_granted_for(tickets, staff):
 
     assert permissions.can_reply_ticket(staff, tickets["abdm-m1"])
     assert not permissions.can_reply_ticket(staff, tickets["nhcx-data"])
+    assert not permissions.can_change_ticket_priority(staff, tickets["nhcx-data"])
     assert not permissions.can_close_ticket(staff, tickets["abdm-m1"])
 
 
@@ -248,6 +251,8 @@ def test_an_integrator_sees_their_own_tickets_whatever_the_category(
     assert visible(user) == {"", *CATEGORIES, RETIRED}
     assert permissions.can_reply_ticket(user, tickets["abdm-m1"])
     assert permissions.can_close_ticket(user, tickets["abdm-m1"])
+    # They choose a priority when filing, and leave any change to the NHA team.
+    assert not permissions.can_change_ticket_priority(user, tickets["abdm-m1"])
     # Categories scope staff, so an integrator has no write-scoped queryset;
     # their own membership is what lets them answer.
     assert not permissions.visible_tickets(user, "write").exists()
@@ -280,6 +285,7 @@ def test_a_superuser_needs_no_grant_in_any_program(tickets, supplier_ticket):
         *tickets.values(),
         supplier_ticket,
     }
+    assert permissions.can_change_ticket_priority(admin, supplier_ticket)
 
 
 def test_every_category_a_ticket_can_be_filed_under_can_be_granted():

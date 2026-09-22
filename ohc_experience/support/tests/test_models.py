@@ -8,12 +8,14 @@ calls it.
 from __future__ import annotations
 
 import pytest
+from django.core.exceptions import ValidationError
 
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import TicketMessage
+from ohc_experience.support.models import change_priority
 from ohc_experience.support.models import post_reply
 from ohc_experience.support.tests.factories import product_for
 from ohc_experience.users.tests.factories import UserFactory
@@ -251,6 +253,70 @@ class TestResolving:
         assert ticket.status == Status.CLOSED
         assert ticket.first_responded_at is None
         assert ticket.messages.get(kind=TicketMessage.Kind.EVENT).from_nha_team is False
+
+
+class TestChangePriority:
+    def test_the_thread_records_the_priority_it_replaced(
+        self,
+        ticket: Ticket,
+        nha_member,
+    ):
+        filed_at = ticket.updated_at
+
+        entry = change_priority(ticket, nha_member, Priority.LOW)
+        ticket.refresh_from_db()
+
+        assert ticket.priority == Priority.LOW
+        assert ticket.updated_at > filed_at
+        assert (entry.kind, entry.body, entry.author, entry.from_nha_team) == (
+            TicketMessage.Kind.PRIORITY,
+            "High → Low",
+            nha_member,
+            True,
+        )
+        assert entry.is_event
+        assert entry.priority_change == ("High", "Low")
+
+    def test_the_entry_names_the_saved_priority_not_a_stale_copy(
+        self,
+        ticket: Ticket,
+        nha_member,
+    ):
+        """Someone else changed the priority after this copy was read."""
+        Ticket.objects.filter(pk=ticket.pk).update(priority=Priority.MEDIUM)
+
+        entry = change_priority(ticket, nha_member, Priority.LOW)
+
+        assert entry.body == "Medium → Low"
+
+    def test_choosing_the_current_priority_records_nothing(
+        self,
+        ticket: Ticket,
+        nha_member,
+    ):
+        assert change_priority(ticket, nha_member, Priority.HIGH) is None
+        assert not ticket.messages.exists()
+
+    def test_an_unknown_priority_is_refused(self, ticket: Ticket, nha_member):
+        with pytest.raises(ValidationError):
+            change_priority(ticket, nha_member, "urgent")
+        ticket.refresh_from_db()
+
+        assert ticket.priority == Priority.HIGH
+        assert not ticket.messages.exists()
+
+    def test_the_status_stays_where_it_was(
+        self,
+        ticket: Ticket,
+        nha_member,
+    ):
+        """Changing the priority answers nobody, so the turn does not pass."""
+        post_reply(ticket, nha_member, "Looking into it.", from_nha_team=True)
+
+        change_priority(ticket, nha_member, Priority.LOW)
+        ticket.refresh_from_db()
+
+        assert ticket.status == Status.AWAITING_INTEGRATOR
 
 
 class TestBadgeVariants:

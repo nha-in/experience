@@ -4,7 +4,9 @@ import logging
 from typing import ClassVar
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db import transaction
 from django.db.models import F
 from django.db.models import Q
 from django.urls import reverse
@@ -18,6 +20,8 @@ logger = logging.getLogger(__name__)
 # Reference numbers start here so the first ticket does not read as TKT-1.
 REFERENCE_SEED = 2000
 REFERENCE_PREFIX = "TKT"
+# Joins the two priorities a priority change records, as in "High → Low".
+PRIORITY_CHANGE_SEPARATOR = " → "
 
 
 class Priority(models.TextChoices):
@@ -226,11 +230,12 @@ class Ticket(models.Model):
 
 
 class TicketMessage(models.Model):
-    """One entry in a ticket thread: a reply, or a recorded status change."""
+    """One entry in a ticket thread: a reply, or a status or priority change."""
 
     class Kind(models.TextChoices):
         REPLY = "reply", _("Reply")
         EVENT = "event", _("Status change")
+        PRIORITY = "priority", _("Priority change")
 
     ticket = models.ForeignKey(
         Ticket,
@@ -263,7 +268,14 @@ class TicketMessage(models.Model):
 
     @property
     def is_event(self) -> bool:
-        return self.kind == self.Kind.EVENT
+        """A change the thread records, rather than something someone wrote."""
+        return self.kind != self.Kind.REPLY
+
+    @property
+    def priority_change(self) -> tuple[str, str]:
+        """The priority a priority entry replaced, and the one it set."""
+        previous, _separator, current = self.body.partition(PRIORITY_CHANGE_SEPARATOR)
+        return previous, current
 
     @property
     def author_label(self) -> str:
@@ -317,6 +329,40 @@ def post_reply(
     ticket.save(update_fields=updates)
     _mirror_to_support(ticket, message)
     return message
+
+
+def change_priority(ticket: Ticket, author, priority: str) -> TicketMessage | None:
+    """Set a ticket's priority, and record in the thread what it replaced.
+
+    The NHA team corrects a priority an integrator raised without cause, or one
+    filed too low. The entry tells the integrator who changed it, and keeps the
+    priority they filed with in view afterwards. Choosing the current priority
+    again changes nothing. The support email thread mirrors replies only, so
+    nothing is sent.
+    """
+    if priority not in Priority.values:
+        msg = _("Choose High, Medium or Low.")
+        raise ValidationError(msg)
+    with transaction.atomic():
+        # Read under a lock, so two changes at once each record what they replaced.
+        previous = (
+            Ticket.objects.select_for_update()
+            .values_list("priority", flat=True)
+            .get(pk=ticket.pk)
+        )
+        ticket.priority = priority
+        if priority == previous:
+            return None
+        ticket.save(update_fields=["priority", "updated_at"])
+        return TicketMessage.objects.create(
+            ticket=ticket,
+            author=author,
+            kind=TicketMessage.Kind.PRIORITY,
+            body=PRIORITY_CHANGE_SEPARATOR.join(
+                str(Priority(value).label) for value in (previous, priority)
+            ),
+            from_nha_team=True,
+        )
 
 
 def _mirror_to_support(ticket: Ticket, message: TicketMessage) -> None:
