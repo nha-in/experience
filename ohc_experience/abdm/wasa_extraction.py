@@ -35,6 +35,9 @@ MAX_CACHE_TTL_SECONDS = 24 * 60 * 60
 MAX_CONTENT_CHARS = 20_000
 MIN_DPI = 72
 MAX_DPI = 400
+# Pillow's own range: past 95 the file grows for no visible gain.
+MIN_JPEG_QUALITY = 1
+MAX_JPEG_QUALITY = 95
 # Past the first few pages a WASA certificate is annexures, and every extra page
 # is another image to pay for.
 MAX_DOCUMENT_PAGES = 4
@@ -151,6 +154,7 @@ def _configuration() -> tuple[str, float, int, int]:
         max_tokens = int(settings.WASA_EXTRACTION_MAX_TOKENS)
         cache_ttl = int(settings.WASA_EXTRACTION_CACHE_TTL)
         dpi = int(settings.WASA_EXTRACTION_DPI)
+        quality = int(settings.WASA_EXTRACTION_JPEG_QUALITY)
     except (TypeError, ValueError) as exc:
         raise WasaExtractionError from exc
     if (
@@ -158,6 +162,7 @@ def _configuration() -> tuple[str, float, int, int]:
         or not 0 < max_tokens <= MAX_TOKENS_LIMIT
         or not 0 <= cache_ttl <= MAX_CACHE_TTL_SECONDS
         or not MIN_DPI <= dpi <= MAX_DPI
+        or not MIN_JPEG_QUALITY <= quality <= MAX_JPEG_QUALITY
     ):
         raise WasaExtractionError
     return model.strip(), timeout, max_tokens, cache_ttl
@@ -209,7 +214,9 @@ def _page_images(content: bytes) -> list[bytes]:
             page = BytesIO()
             document[index].render(scale=scale).to_pil().convert("RGB").save(
                 page,
-                format="PNG",
+                format="JPEG",
+                quality=int(settings.WASA_EXTRACTION_JPEG_QUALITY),
+                optimize=True,
             )
             images.append(page.getvalue())
     except Exception as exc:
@@ -372,6 +379,7 @@ def extract_certificate(upload, *, refresh: bool = False) -> dict[str, str]:
         raise WasaExtractionError
     cache_key = (
         f"wasa-extract:{model}:{settings.WASA_EXTRACTION_DPI}:"
+        f"{settings.WASA_EXTRACTION_JPEG_QUALITY}:"
         f"{hashlib.sha256(content).hexdigest()}"
     )
     if not refresh:

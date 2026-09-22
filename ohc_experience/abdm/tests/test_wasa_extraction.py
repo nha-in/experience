@@ -638,6 +638,23 @@ def test_an_implausible_resolution_switches_the_hook_off(settings, dpi):
     assert not wasa_extraction.is_enabled()
 
 
+def test_the_page_quality_is_configurable(settings):
+    settings.WASA_EXTRACTION_DPI = 150
+    settings.WASA_EXTRACTION_JPEG_QUALITY = 20
+    coarse = wasa_extraction._page_images(blank_pdf())  # noqa: SLF001
+    settings.WASA_EXTRACTION_JPEG_QUALITY = 95
+    fine = wasa_extraction._page_images(blank_pdf())  # noqa: SLF001
+
+    assert len(fine[0]) > len(coarse[0])
+
+
+@pytest.mark.parametrize("quality", [0, 96])
+def test_an_implausible_page_quality_switches_the_hook_off(settings, quality):
+    settings.WASA_EXTRACTION_JPEG_QUALITY = quality
+
+    assert not wasa_extraction.is_enabled()
+
+
 def test_a_page_too_large_to_send_is_refused(settings, monkeypatch):
     settings.WASA_EXTRACTION_DPI = 150
     monkeypatch.setattr(wasa_extraction, "MAX_IMAGE_BYTES", 10)
