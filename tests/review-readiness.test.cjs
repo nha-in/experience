@@ -568,3 +568,35 @@ test('each selected milestone constrains its end date using only its own start d
   assert.equal(demo.min, '2026-09-18');
   assert.equal(page.button.disabled, true, 'M2 still needs its own start date');
 });
+
+test('typing a date never rewrites the earliest date of the field being typed', () => {
+  // Chrome rebuilds a date field whenever its min is assigned, even to the value
+  // it already holds, and the rebuild wipes a date typed halfway.
+  const page = createPage({ currentMilestoneCode: 'M1' });
+  page.date('start_date', { value: '2026-09-01', max: '2026-09-18' });
+  const end = page.date('end_date', { max: '2026-09-18' });
+  const demo = page.date('tentative_demo_date', { min: '2026-09-18' });
+  page.milestone('M2', '2').checked = true;
+  const dates = page.milestoneDates('2', { startValue: '2026-09-10' });
+  page.initialize();
+
+  for (const [field, typed, min] of [
+    [end, '2026-09-05', '2026-09-01'],
+    [demo, '2026-09-20', '2026-09-18'],
+    [dates.end, '2026-09-12', '2026-09-10'],
+  ]) {
+    let value = field.min;
+    let writes = 0;
+    Object.defineProperty(field, 'min', { get: () => value, set: next => { writes += 1; value = next; } });
+    // Day and month first. From the year's first digit the date is complete, and
+    // each digit fires input and change.
+    for (const year of ['0002', '0020', '0202', '2026']) {
+      field.value = `${year}${typed.slice(4)}`;
+      page.input(field);
+      page.change(field);
+    }
+    assert.equal(field.value, typed);
+    assert.equal(field.min, min);
+    assert.equal(writes, 0, `${field.name} had its minimum rewritten while it was typed`);
+  }
+});

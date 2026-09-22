@@ -244,19 +244,26 @@
     });
   }
 
+  // Chrome rebuilds a date field whenever its min is assigned, even to the
+  // value it already holds, and the rebuild wipes a date typed halfway. This
+  // runs on every keystroke, so only a new value is written.
+  function setMin(input, value) {
+    if (input.min !== value) input.min = value;
+  }
+
   function updateDateConstraints(form) {
     const start = form.querySelector('[name="start_date"]');
     const end = form.querySelector('[name="end_date"]');
     const demo = form.querySelector('[name="tentative_demo_date"]');
-    if (start && end) end.min = start.value || '';
+    if (start && end) setMin(end, start.value || '');
     form.querySelectorAll('[data-testing-dates]').forEach(fields => {
       const ownStart = fields.querySelector('[data-testing-start]');
       const ownEnd = fields.querySelector('[data-testing-end]');
-      if (ownStart && ownEnd) ownEnd.min = ownStart.value || '';
+      if (ownStart && ownEnd) setMin(ownEnd, ownStart.value || '');
     });
     // The server caps testing at today; a demo cannot be earlier than today
     // even when testing ended in the past or its end date is cleared.
-    if (end && demo) demo.min = end.value > end.max ? end.value : end.max;
+    if (end && demo) setMin(demo, end.value > end.max ? end.value : end.max);
     // The server floors a certificate's expiry at today, which no audit date
     // can undercut: the audit itself is capped at today. So nothing here moves
     // it; the only work left is to say why an earlier date is refused.
