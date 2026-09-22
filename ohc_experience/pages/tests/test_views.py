@@ -37,6 +37,27 @@ class TestLandingView:
             template.name for template in response.templates if template.name
         ]
 
+    def test_a_local_server_puts_its_port_first_in_the_title(
+        self,
+        client: Client,
+        settings,
+    ):
+        settings.DEBUG = True
+        settings.INTERNAL_IPS = ["127.0.0.1"]
+
+        html = client.get(reverse("home"), SERVER_PORT="8002").content.decode()
+        title = html.split("<title>", 1)[1].split("</title>", 1)[0]
+
+        assert title.split()[:2] == [":8002", "·"]
+
+    def test_a_deployed_server_leaves_the_port_out_of_the_title(
+        self,
+        client: Client,
+    ):
+        html = client.get(reverse("home"), SERVER_PORT="8002").content.decode()
+
+        assert ":8002" not in html.split("</title>", 1)[0]
+
     def test_sends_an_onboarded_member_to_the_dashboard(
         self,
         sign_in: Callable[[User], Client],

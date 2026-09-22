@@ -9,6 +9,8 @@
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
     <title>
+      {# Several local servers run side by side; the port first tells their tabs apart. #}
+      {% if debug %}:{{ request.get_port }} ·{% endif %}
       {% block title %}
         {{ experience_program.name }}
       {% endblock title %}
