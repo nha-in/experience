@@ -339,12 +339,7 @@ def sync_bridge(task: Task, product_id: int) -> int:
 
     try:
         get_bridge_registry().create_bridge(
-            BridgeSpec(
-                bridge_id=client.public_ref,
-                name=_external_name(product),
-                url=credential.callback_url,
-                entity=_bridge_entity(product),
-            ),
+            _bridge_spec(product, client.public_ref, credential.callback_url),
         )
     except AdapterError as error:
         attempts = task.request.retries + 1
@@ -509,6 +504,15 @@ def _external_name(product: Product) -> str:
     return name or _NON_ALPHANUMERIC.sub(" ", _reference(product)).strip()
 
 
+def _bridge_spec(product: Product, bridge_id: str, url: str) -> BridgeSpec:
+    return BridgeSpec(
+        bridge_id=bridge_id,
+        name=_external_name(product),
+        url=url,
+        entity=_bridge_entity(product),
+    )
+
+
 def _bridge_entity(product: Product) -> str:
     """The bridge's `entity`, valued as legacy sent it."""
     entity_type = product.organisation.entity_type
@@ -634,10 +638,19 @@ def deprovision_wso2(task: Task, product_id: int) -> int:
     return _teardown_step(task, product_id, ProvisionedSystem.WSO2, run)
 
 
+#: Sent when deactivating a bridge whose callback URL was cleared, since the
+#: gateway takes the whole bridge. An inactive bridge routes nowhere anyway.
+DEACTIVATED_BRIDGE_URL = "https://bridge.invalid/deactivated"
+
+
 @shared_task(bind=True, max_retries=None)
 def deprovision_hiecm(task: Task, product_id: int) -> int:
-    def run(_product: Product, row: ProvisionedResource) -> None:
-        get_bridge_registry().deactivate_bridge(row.external_ref)
+    def run(product: Product, row: ProvisionedResource) -> None:
+        credential = getattr(product, "credential", None)
+        url = credential.callback_url if credential else ""
+        get_bridge_registry().deactivate_bridge(
+            _bridge_spec(product, row.external_ref, url or DEACTIVATED_BRIDGE_URL),
+        )
 
     return _teardown_step(task, product_id, ProvisionedSystem.HIECM, run)
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -197,9 +198,9 @@ def test_deactivated_bridge_reports_inactive_and_deactivate_is_idempotent():
     registry = LocalBridgeRegistry()
     registry.create_bridge(BRIDGE_SPEC)
 
-    registry.deactivate_bridge(BRIDGE_SPEC.bridge_id)
-    registry.deactivate_bridge(BRIDGE_SPEC.bridge_id)
-    registry.deactivate_bridge("never-existed")
+    registry.deactivate_bridge(BRIDGE_SPEC)
+    registry.deactivate_bridge(BRIDGE_SPEC)
+    registry.deactivate_bridge(replace(BRIDGE_SPEC, bridge_id="never-existed"))
 
     assert registry.get_bridge_status(BRIDGE_SPEC.bridge_id).active is False
 

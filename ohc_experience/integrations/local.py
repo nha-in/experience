@@ -316,12 +316,12 @@ class LocalBridgeRegistry:
         active = not record["deactivated"] and time.time() >= record["active_from"]
         return BridgeStatus(bridge_id=bridge_id, active=active)
 
-    def deactivate_bridge(self, bridge_id: str) -> None:
+    def deactivate_bridge(self, spec: BridgeSpec) -> None:
         """Idempotent: deactivating a missing or dead bridge succeeds."""
         _guard(ExternalSystem.HIECM, "deactivate_bridge")
         bridges = _store(ExternalSystem.HIECM)
-        if bridge_id in bridges:
-            bridges[bridge_id]["deactivated"] = True
+        if spec.bridge_id in bridges:
+            bridges[spec.bridge_id]["deactivated"] = True
             _save(ExternalSystem.HIECM, bridges)
 
     @staticmethod

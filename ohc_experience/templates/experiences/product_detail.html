@@ -244,6 +244,19 @@
                         value="revoke_credentials">Revoke credentials</button>
               </form>
             {% endif %}
+            {% if can_retry_deprovisioning %}
+              <p class="mt-2.5 text-xs text-soft-foreground">Revoked, but not every system has been switched off yet.</p>
+              <form class="mt-2.5"
+                    method="post"
+                    data-confirm="Retry deprovisioning? Systems already switched off are left alone."
+                    hx-confirm="Retry deprovisioning? Systems already switched off are left alone.">
+                {% csrf_token %}
+                <button type="submit"
+                        class="ui-btn ui-btn--outline ui-btn--size-sm"
+                        name="intent"
+                        value="retry_deprovisioning">Retry deprovisioning</button>
+              </form>
+            {% endif %}
             {% if can_reprovision %}
               <form class="mt-2.5"
                     method="post"

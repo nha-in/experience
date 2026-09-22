@@ -44,6 +44,7 @@ from ohc_experience.integrations.selectors import latest_run
 from ohc_experience.integrations.selectors import provisioning_can_be_retried
 from ohc_experience.integrations.selectors import provisioning_progress
 from ohc_experience.integrations.selectors import teardown_is_incomplete
+from ohc_experience.integrations.services import start_deprovisioning
 from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.selectors import get_membership_for
@@ -975,6 +976,11 @@ def product_detail(request, reference):
             credential=credential,
             can_revoke_credentials=_can_revoke_credentials(request.user, credential),
             can_reprovision=_can_reprovision(request.user, product, credential),
+            can_retry_deprovisioning=_can_retry_deprovisioning(
+                request.user,
+                product,
+                credential,
+            ),
             production=production_services.state(product)
             if production_services.can_view(request.user, program)
             else None,
@@ -2241,6 +2247,7 @@ CONNECTION_INTENTS = {
     "retry_provisioning",
     "revoke_credentials",
     "reprovision_credentials",
+    "retry_deprovisioning",
 }
 
 
@@ -2262,12 +2269,28 @@ def _connection_post(request, product, program_key):
             raise PermissionDenied
         start_provisioning(product, started_by=request.user)
         messages.success(request, "Reprovisioning started.")
+    elif intent == "retry_deprovisioning":
+        if not _can_retry_deprovisioning(request.user, product, credential):
+            raise PermissionDenied
+        start_deprovisioning(product)
+        messages.success(request, "Deprovisioning restarted.")
 
 
 def _can_revoke_credentials(user, credential):
     """Revoking switches the integrator off in every external system, and only
     a super admin may do that."""
     return bool(credential and credential.status == "active" and user.is_superuser)
+
+
+def _can_retry_deprovisioning(user, product, credential):
+    """Revoked, but some system is still switched on. The steps skip what is
+    already off, so a re-run finishes only what is left."""
+    return bool(
+        credential
+        and credential.status == "revoked"
+        and user.is_superuser
+        and teardown_is_incomplete(product),
+    )
 
 
 def _can_reprovision(user, product, credential):

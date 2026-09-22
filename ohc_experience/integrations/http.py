@@ -53,6 +53,14 @@ __all__ = [
 IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
 RETRYABLE_STATUS = frozenset({408, 429, 500, 502, 503, 504})
 
+#: Enough of an error body to name the fault: HIE-CM wraps a 405 in a 400, and
+#: only its body says so.
+ERROR_BODY_MAX_CHARS = 300
+
+
+def _error_body(response: httpx.Response) -> str:
+    return " ".join(response.text.split())[:ERROR_BODY_MAX_CHARS]
+
 
 @dataclass(frozen=True, slots=True)
 class HttpPolicy:
@@ -285,7 +293,8 @@ class IntegrationClient:
             self._policy.system,
             f"HTTP_{response.status_code}",
             retryable=response.status_code in RETRYABLE_STATUS,
-            message=f"{call.op} returned {response.status_code}",
+            message=f"{call.op} returned {response.status_code}: "
+            f"{_error_body(response)}",
         )
 
     def _trace_headers(self) -> dict[str, str]:

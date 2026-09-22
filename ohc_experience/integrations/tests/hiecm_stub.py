@@ -19,7 +19,8 @@ BRIDGE_PATH = f"{API}/gateway/bridge"
 BRIDGE_SERVICES = f"{API}/gateway/v3/bridge-services"
 
 OK = 200
-NO_CONTENT = 204
+ACCEPTED = 202
+BAD_REQUEST = 400
 NOT_FOUND = 404
 
 
@@ -73,8 +74,8 @@ class HiecmStubTransport(httpx.BaseTransport):
         if path != BRIDGE_PATH:
             return None
 
-        body = json.loads(request.content)
         if method == "PUT":
+            body = json.loads(request.content)
             # Upsert, exactly as a PUT should.
             self.bridges[body["bridgeId"]] = {
                 "id": body["bridgeId"],
@@ -84,16 +85,19 @@ class HiecmStubTransport(httpx.BaseTransport):
                 "blocklisted": body["blocklisted"],
                 "entity": body["entity"],
             }
-            return httpx.Response(OK, json={})
+            return httpx.Response(ACCEPTED)
 
-        if method == "PATCH":
-            record = self.bridges.get(body["bridgeId"])
-            if record is None:
-                return httpx.Response(NOT_FOUND, json={"error": "no such bridge"})
-            record["active"] = body["active"]
-            return httpx.Response(NO_CONTENT)
-
-        return None
+        # As the sandbox gateway answered on 2026-09-23: a 405 inside a 400.
+        return httpx.Response(
+            BAD_REQUEST,
+            json={
+                "error": {
+                    "code": "ABDM-9999: ",
+                    "message": f'405 METHOD_NOT_ALLOWED "Request method '
+                    f"'{method}' is not supported.\"",
+                },
+            },
+        )
 
     def _status(self, method, path, request):
         if not path.startswith(f"{BRIDGE_SERVICES}/") or method != "GET":

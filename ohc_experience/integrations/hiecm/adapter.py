@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
     from ohc_experience.integrations.ports import BridgeSpec
 
-NOT_FOUND = "HTTP_404"
 
 #: ABDM gateway convention — every HIE-CM call carries all three.
 REQUEST_ID_HEADER = "REQUEST-ID"
@@ -64,20 +63,7 @@ class HiecmBridgeRegistry:
 
     def create_bridge(self, spec: BridgeSpec) -> BridgeCreated:
         """Registration is a PUT, so a re-run overwrites rather than duplicates."""
-        self._client.request(
-            "PUT",
-            f"{self._api}/gateway/bridge",
-            op="create_bridge",
-            headers=self._gateway_headers(),
-            json={
-                "bridgeId": spec.bridge_id,
-                "name": spec.name,
-                "url": spec.url,
-                "active": True,
-                "blocklisted": False,
-                "entity": spec.entity,
-            },
-        )
+        self._put_bridge(spec, active=True, op="create_bridge")
         return BridgeCreated(bridge_id=spec.bridge_id)
 
     def get_bridge_status(self, bridge_id: str) -> BridgeStatus:
@@ -97,19 +83,24 @@ class HiecmBridgeRegistry:
         active = bool(bridge.get("active")) and not bool(bridge.get("blocklisted"))
         return BridgeStatus(bridge_id=bridge_id, active=active)
 
-    def deactivate_bridge(self, bridge_id: str) -> None:
-        """Idempotent: an already-inactive or absent bridge is success."""
-        try:
-            self._client.request(
-                "PATCH",
-                f"{self._api}/gateway/bridge",
-                op="deactivate_bridge",
-                headers=self._gateway_headers(),
-                json={"id": bridge_id, "bridgeId": bridge_id, "active": False},
-            )
-        except AdapterError as error:
-            if error.code != NOT_FOUND:
-                raise
+    def deactivate_bridge(self, spec: BridgeSpec) -> None:
+        self._put_bridge(spec, active=False, op="deactivate_bridge")
+
+    def _put_bridge(self, spec: BridgeSpec, *, active: bool, op: str) -> None:
+        self._client.request(
+            "PUT",
+            f"{self._api}/gateway/bridge",
+            op=op,
+            headers=self._gateway_headers(),
+            json={
+                "bridgeId": spec.bridge_id,
+                "name": spec.name,
+                "url": spec.url,
+                "active": active,
+                "blocklisted": False,
+                "entity": spec.entity,
+            },
+        )
 
     @staticmethod
     def _gateway_headers() -> dict[str, str]:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 
@@ -142,31 +143,59 @@ def test_a_response_without_a_bridge_object_is_reported_not_crashed(
 def test_deactivating_marks_the_bridge_inactive(registry, transport):
     registry.create_bridge(SPEC)
 
-    registry.deactivate_bridge(BRIDGE_ID)
+    registry.deactivate_bridge(SPEC)
 
     assert transport.bridges[BRIDGE_ID]["active"] is False
     assert registry.get_bridge_status(BRIDGE_ID).active is False
 
 
+def test_deactivating_resends_the_whole_bridge_by_put(registry, transport):
+    """The gateway has no PATCH, and a PUT replaces every field it is sent."""
+    registry.deactivate_bridge(SPEC)
+
+    assert transport.paths("PATCH") == []
+    (request,) = [call for call in transport.calls if call.method == "PUT"]
+    assert json.loads(request.content) == {
+        "bridgeId": BRIDGE_ID,
+        "name": SPEC.name,
+        "url": SPEC.url,
+        "active": False,
+        "blocklisted": False,
+        "entity": SPEC.entity,
+    }
+
+
 def test_deactivating_an_unknown_bridge_succeeds(registry):
-    registry.deactivate_bridge("never-existed")  # B8 reruns this
+    registry.deactivate_bridge(  # B8 reruns this
+        BridgeSpec(bridge_id="never-existed", name="x", url=SPEC.url, entity="NA"),
+    )
 
 
 def test_deactivating_twice_succeeds(registry):
     registry.create_bridge(SPEC)
 
-    registry.deactivate_bridge(BRIDGE_ID)
-    registry.deactivate_bridge(BRIDGE_ID)
+    registry.deactivate_bridge(SPEC)
+    registry.deactivate_bridge(SPEC)
 
 
 def test_deactivating_still_reports_a_real_failure(registry, transport):
     registry.create_bridge(SPEC)
-    transport.failures[("PATCH", BRIDGE_PATH)] = SERVER_ERROR
+    transport.failures[("PUT", BRIDGE_PATH)] = SERVER_ERROR
 
     with pytest.raises(AdapterError) as error:
-        registry.deactivate_bridge(BRIDGE_ID)
+        registry.deactivate_bridge(SPEC)
 
     assert error.value.retryable is True
+
+
+def test_an_error_keeps_the_gateways_reason(registry):
+    """HIE-CM reports a 405 inside a 400; only the body tells them apart."""
+    client = registry._client  # noqa: SLF001
+
+    with pytest.raises(AdapterError) as error:
+        client.request("PATCH", f"{API}/gateway/bridge", op="probe", json={})
+
+    assert "405 METHOD_NOT_ALLOWED" in error.value.message
 
 
 # Gateway headers

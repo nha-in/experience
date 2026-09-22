@@ -10,7 +10,9 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.models import ProvisioningRun
+from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -294,3 +296,27 @@ def test_a_super_admin_reprovisions_revoked_credentials(
     client.force_login(environment["applicant"])
     url = reverse("experiences:credentials", args=[workspace.reference])
     assert b'value="rotate"' in client.get(url).content
+
+
+def test_a_super_admin_retries_a_teardown_that_stopped_short(
+    environment,
+    client,
+    django_capture_on_commit_callbacks,
+):
+    approve(environment)
+    fail_next(ExternalSystem.KEYCLOAK, "disable_client", retryable=False)
+    _revoked(environment, client, django_capture_on_commit_callbacks)
+
+    response = client.get(product_url(environment))
+    assert response.context["can_retry_deprovisioning"]
+    assert not response.context["can_reprovision"]
+    client.force_login(staff("*", can_write=True, can_approve=True))
+    assert b"retry_deprovisioning" not in client.get(product_url(environment)).content
+
+    client.force_login(environment["admin"])
+    with django_capture_on_commit_callbacks(execute=True):
+        client.post(product_url(environment), {"intent": "retry_deprovisioning"})
+
+    response = client.get(product_url(environment))
+    assert not response.context["can_retry_deprovisioning"]
+    assert response.context["can_reprovision"]

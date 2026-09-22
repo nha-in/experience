@@ -681,7 +681,7 @@ class ProductWorkspace(models.Model):
 
     @property
     def callback_codes(self):
-        """Codes of the under-review milestones whose flows have the gateway call back."""
+        """Codes of under-review milestones whose flows have the gateway call back."""
         return sorted(
             milestone.definition.code
             for milestone in self.product.milestones.filter(enabled=True)

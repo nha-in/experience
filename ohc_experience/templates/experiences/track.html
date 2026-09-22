@@ -83,7 +83,8 @@
                 <div class="flex-1">
                   <strong>No callback URL saved</strong>
                   <p class="mt-1 text-xs">
-                    {{ tile.definition.code }} flows have the gateway call your software back, and it has nowhere to reach you. <a class="font-semibold no-underline hover:underline" href="{% url 'experiences:credentials' workspace.reference %}">Add a callback URL</a>.
+                    {{ tile.definition.code }} flows have the gateway call your software back, and it has nowhere to reach you. <a class="font-semibold no-underline hover:underline"
+    href="{% url 'experiences:credentials' workspace.reference %}">Add a callback URL</a>.
                   </p>
                 </div>
               </div>
