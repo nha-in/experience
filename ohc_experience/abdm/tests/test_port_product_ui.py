@@ -8,6 +8,7 @@ from html.parser import HTMLParser
 from importlib import import_module
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from ohc_experience.abdm.catalog import MILESTONES
@@ -21,6 +22,7 @@ from ohc_experience.abdm.forms import ProductRegistrationForm
 from ohc_experience.abdm.forms import UhiParticipationForm
 from ohc_experience.abdm.tests import test_workflow as workflow_fixtures
 from ohc_experience.abdm.tests.test_workflow import approve
+from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import stored_secret
@@ -618,6 +620,7 @@ def test_a_product_doing_m2_is_asked_for_one(environment, client):
 
 @pytest.mark.django_db
 def test_the_m2_page_says_when_no_callback_url_is_saved(environment, client):
+    clear_callback_url(environment)
     client.force_login(environment["applicant"])
 
     html = client.get(_track_url(environment["workspace"], "m2")).content.decode()
@@ -627,6 +630,7 @@ def test_the_m2_page_says_when_no_callback_url_is_saved(environment, client):
 
 @pytest.mark.django_db
 def test_the_m1_page_does_not(environment, client):
+    clear_callback_url(environment)
     client.force_login(environment["applicant"])
 
     html = client.get(_track_url(environment["workspace"], "m1")).content.decode()
@@ -635,7 +639,59 @@ def test_the_m1_page_does_not(environment, client):
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(("key", "code"), [("m2", "M2"), ("uhi1", "UHI1")])
+def test_a_milestone_that_calls_back_needs_a_callback_url_to_submit(
+    environment,
+    key,
+    code,
+):
+    submit(environment, "m1")
+    clear_callback_url(environment)
+
+    with pytest.raises(ValidationError, match=f"Add a callback URL to submit {code}."):
+        submit(environment, key)
+
+
+@pytest.mark.django_db
+def test_m1_is_submitted_without_one(environment):
+    clear_callback_url(environment)
+
+    submit(environment, "m1")
+
+
+@pytest.mark.django_db
+def test_the_m2_page_disables_submit_until_a_callback_url_is_saved(
+    environment,
+    client,
+):
+    submit(environment, "m1")
+    clear_callback_url(environment)
+    client.force_login(environment["applicant"])
+    url = _track_url(environment["workspace"], "m2")
+
+    html = client.get(url).content.decode()
+
+    assert "disabled" in submit_button(html)
+    assert 'data-submit-blocked="true"' in html
+    assert "Add a callback URL to submit M2." in html
+
+    ProductCredential.objects.filter(product=environment["workspace"].product).update(
+        callback_url="https://integrator.example/callback",
+    )
+    html = client.get(url).content.decode()
+
+    assert "disabled" not in submit_button(html)
+    assert "data-submit-blocked" not in html
+    assert "Add a callback URL" not in html
+
+
+def submit_button(html):
+    return re.search(r"<button[^>]*data-request-submit[^>]*>", html).group()
+
+
+@pytest.mark.django_db
 def test_a_reviewer_sees_the_m2_review_lacks_a_callback_url(environment, client):
+    clear_callback_url(environment)
     item = milestone(environment, "m2")
     client.force_login(environment["reviewer"])
 
@@ -646,6 +702,7 @@ def test_a_reviewer_sees_the_m2_review_lacks_a_callback_url(environment, client)
 
 @pytest.mark.django_db
 def test_a_reviewer_does_not_see_it_on_the_m1_review(environment, client):
+    clear_callback_url(environment)
     item = milestone(environment, "m1")
     client.force_login(environment["reviewer"])
 
@@ -658,7 +715,11 @@ def test_a_reviewer_does_not_see_it_on_the_m1_review(environment, client):
 def test_the_product_page_flags_a_missing_callback_url(environment, client):
     submit(environment, "m1")
     submit(environment, "m2")
-    url = reverse("experiences:product-detail", args=[environment["workspace"].reference])
+    clear_callback_url(environment)
+    url = reverse(
+        "experiences:product-detail",
+        args=[environment["workspace"].reference],
+    )
     client.force_login(environment["reviewer"])
 
     html = client.get(url).content.decode()
@@ -673,10 +734,10 @@ def test_the_product_page_does_not_flag_it_once_a_callback_url_is_saved(
 ):
     submit(environment, "m1")
     submit(environment, "m2")
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
-    credential.callback_url = "https://integrator.example/callback"
-    credential.save(update_fields=["callback_url"])
-    url = reverse("experiences:product-detail", args=[environment["workspace"].reference])
+    url = reverse(
+        "experiences:product-detail",
+        args=[environment["workspace"].reference],
+    )
     client.force_login(environment["reviewer"])
 
     html = client.get(url).content.decode()

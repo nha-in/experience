@@ -1464,14 +1464,6 @@ def _save_track_evidence(request, item):
     return *result, notice
 
 
-def _callback_missing(workspace, tile):
-    """This milestone's flows call back and no URL is saved."""
-    if tile is None or not tile["definition"].needs_callback:
-        return False
-    credential = ProductCredential.objects.filter(product=workspace.product).first()
-    return credential is not None and not credential.callback_url
-
-
 @login_required
 @require_http_methods(["GET", "POST"])
 def track(request, reference, track_code):
@@ -1531,7 +1523,7 @@ def track(request, reference, track_code):
             nav=track_code,
             track=track_data,
             tile=tile,
-            callback_missing=_callback_missing(workspace, tile),
+            callback_missing=item and services.callback_missing(item),
             item=item,
             form=form,
             can_edit=services.can_edit_review(item) if item else False,

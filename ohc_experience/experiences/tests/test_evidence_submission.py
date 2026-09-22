@@ -11,6 +11,7 @@ from django.utils.datastructures import MultiValueDict
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
+from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
@@ -107,6 +108,13 @@ def test_targets_exclude_disabled_milestones(environment):
     m2.application.milestone.enabled = False
     m2.application.milestone.save(update_fields=["enabled"])
     assert m2 not in workflows.submission_targets(milestone(environment))
+
+
+def test_targets_exclude_milestones_waiting_on_a_callback_url(environment):
+    clear_callback_url(environment)
+    assert workflows.submission_targets(milestone(environment)) == [
+        milestone(environment, "m4"),
+    ]
 
 
 def test_group_submits_chain_with_independent_snapshots_and_one_upload_set(

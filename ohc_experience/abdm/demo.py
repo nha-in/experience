@@ -22,6 +22,7 @@ from ohc_experience.abdm import forms
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
+from ohc_experience.experiences.credentials import save_callback_url
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.models import FormAttachment
@@ -292,6 +293,11 @@ class DemoBuilder:
         workspace, form = self.register_product(org, applicant, data=product_data())
         if not workspace:
             raise CommandError(str(form.errors))
+        save_callback_url(
+            workspace.product.credential,
+            applicant,
+            "https://hmis.medibase.example/abdm/callback",
+        )
         self.exit(workspace, "m1", applicant, admin, reviewer, "approved")
         # A visibly fake ID: the demo never reaches the NHA production gateway.
         production.record(
@@ -332,6 +338,11 @@ class DemoBuilder:
         )
         if not waiting:
             raise CommandError(str(form.errors))
+        save_callback_url(
+            waiting.product.credential,
+            applicant,
+            "https://teleconsult.medibase.example/uhi/callback",
+        )
         self.exit(waiting, "m1", applicant, admin, reviewer, "review")
         waiting_uhi = waiting.product.milestones.get(key="uhi1").application.review_item
         services.save_review_form(waiting_uhi, applicant, data=uhi_data(), submit=True)

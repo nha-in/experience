@@ -10,6 +10,7 @@ from ohc_experience.experiences.definitions import ProgramDefinition
 from ohc_experience.experiences.models import FormReuseScope
 from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import ReviewItem
+from ohc_experience.experiences.workflows import callback_missing
 from ohc_experience.experiences.workflows import project_product
 from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Organisation
@@ -64,6 +65,12 @@ def organisation_prerequisite(item):
 UNVERIFIED_ORGANISATION = ~Q(
     organisation__verification_status=Organisation.VerificationStatus.VERIFIED,
 )
+
+
+def callback_block_reason(item):
+    if not callback_missing(item):
+        return ""
+    return f"Add a callback URL to submit {item.application.milestone.definition.code}."
 
 
 class OrganisationVerification(ApplicationFormDefinition):
@@ -150,6 +157,10 @@ class ExitEvidence(ApplicationFormDefinition):
     @classmethod
     def read_document(cls, field_key, upload, *, refresh=False):
         return read_wasa_certificate(field_key, upload, refresh=refresh)
+
+    @classmethod
+    def submission_block_reason(cls, item):
+        return callback_block_reason(item)
 
     @classmethod
     def approval_block_reason(cls, item):
@@ -262,6 +273,10 @@ class UhiParticipation(ApplicationFormDefinition):
         "UHI participation is recorded rather than assessed. NHA contacts you "
         "directly about onboarding."
     )
+
+    @classmethod
+    def submission_block_reason(cls, item):
+        return callback_block_reason(item)
 
     @classmethod
     def pending_prerequisites(cls, item):

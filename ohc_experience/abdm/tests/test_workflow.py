@@ -101,6 +101,9 @@ def environment(settings, tmp_path, lgd_lookup):
     workspace, form = services.register_product(org, applicant, data=product_data())
     assert workspace, form.errors
     provision_inline(workspace.product)
+    ProductCredential.objects.filter(product=workspace.product).update(
+        callback_url="https://integrator.example/callback",
+    )
     workspace.refresh_from_db()
     return {
         "applicant": applicant,
@@ -115,6 +118,12 @@ def environment(settings, tmp_path, lgd_lookup):
 def milestone(environment, key="m1"):
     return (
         environment["workspace"].product.milestones.get(key=key).application.review_item
+    )
+
+
+def clear_callback_url(environment):
+    ProductCredential.objects.filter(product=environment["workspace"].product).update(
+        callback_url="",
     )
 
 
@@ -353,6 +362,9 @@ def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client
     )
     assert workspace, form.errors
     provision_inline(workspace.product)
+    ProductCredential.objects.filter(product=workspace.product).update(
+        callback_url="https://integrator.example/callback",
+    )
     workspace.refresh_from_db()
     m1 = workspace.product.milestones.get(key="m1").application.review_item
     uhi = workspace.product.milestones.get(key="uhi1").application.review_item

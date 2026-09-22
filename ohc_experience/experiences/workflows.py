@@ -35,6 +35,7 @@ from ohc_experience.organisations.models import Organisation
 from .models import AuditEvent
 from .models import Milestone
 from .models import Notification
+from .models import ProductCredential
 from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
@@ -340,6 +341,14 @@ def milestone_unavailable(item):
         verb = "is" if len(unsubmitted) == 1 else "are"
         return f"{item.application.title} opens once {names} {verb} submitted."
     return ""
+
+
+def callback_missing(item):
+    """This milestone's flows call back and no URL is saved."""
+    if not item.application.milestone.definition.needs_callback:
+        return False
+    credential = ProductCredential.objects.filter(product=item.product).first()
+    return credential is not None and not credential.callback_url
 
 
 def _prerequisite_applications(application):
@@ -749,6 +758,7 @@ def submission_targets(item):
         if _fresh_evidence_target(candidate)
         and candidate.definition.schema_version == item.definition.schema_version
         and candidate.definition.allow_reuse
+        and not candidate.definition.submission_block_reason(candidate)
     ]
     while True:
         selected = {item.pk, *(candidate.pk for candidate in candidates)}

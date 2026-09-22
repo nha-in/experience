@@ -6,7 +6,8 @@
       data-review-form
       data-current-milestone-code="{{ tile.definition.code }}"
       {% if item.definition.auto_approve %}data-auto-approve="true"{% endif %}
-      {% if item.definition.auto_approve and item.status == 'approved' %}data-approved-updates="true"{% endif %}>
+      {% if item.definition.auto_approve and item.status == 'approved' %}data-approved-updates="true"{% endif %}
+      {% if submission_blocked %}data-submit-blocked="true"{% endif %}>
   {% csrf_token %}
   <input type="hidden"
          name="revision"
@@ -22,7 +23,7 @@
       <p class="mt-1.5 text-xs font-medium text-amber-800"
          id="evidence-submit-reason"
          data-submit-reason
-         aria-live="polite"></p>
+         aria-live="polite">{{ submission_blocked }}</p>
       <button type="button"
               class="mt-1 min-h-11 text-sm font-semibold text-primary underline underline-offset-4"
               data-submit-missing
@@ -36,14 +37,13 @@
                 value="draft"
                 formnovalidate>Save draft</button>
       {% endif %}
-      {% if not submission_blocked %}
-        <button class="ui-btn ui-btn--default ui-btn--size-sm"
-                type="submit"
-                name="intent"
-                value="submit"
-                aria-describedby="evidence-submit-reason"
-                data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% elif item.definition.auto_approve %}{{ item.definition.submit_label }}{% else %}<span data-submit-label>Submit {{ tile.definition.code }}</span>{% endif %}</button>
-      {% endif %}
+      <button class="ui-btn ui-btn--default ui-btn--size-sm"
+              type="submit"
+              name="intent"
+              value="submit"
+              aria-describedby="evidence-submit-reason"
+              {% if submission_blocked %}disabled{% endif %}
+              data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% elif item.definition.auto_approve %}{{ item.definition.submit_label }}{% else %}<span data-submit-label>Submit {{ tile.definition.code }}</span>{% endif %}</button>
     </div>
   </div>
 </form>

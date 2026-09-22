@@ -110,9 +110,6 @@
                 {% if item.selected_submission %}<p class="mt-2 text-xs text-soft-foreground">Your saved draft is kept.</p>{% endif %}
               </div>
             {% elif can_edit and can_integrate %}
-              {% if submission_blocked %}
-                <div class="ui-alert ui-alert--info mb-5" role="status">{{ submission_blocked }}</div>
-              {% endif %}
               {% if item.selected_submission %}
                 <div class="mb-7 rounded-xl border border-soft-border bg-soft-background/60 px-4 py-3">
                   <p class="text-xs font-semibold text-foreground">

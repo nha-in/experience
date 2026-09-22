@@ -143,7 +143,7 @@ def test_complete_readiness_links_to_actions_without_claiming_approval():
     )
     assert 'href="#evidence-actions"' in html
     assert "Go to form actions" in html
-    # The blocker belongs to the alert above the form; repeating it in the
+    # The blocker belongs beside the form's actions; repeating it in the
     # sidebar put the same sentence on screen twice.
     assert "Organisation approval is pending." not in html
 
