@@ -1,0 +1,28 @@
+{# The rows of a queries card, below its heading: what the person looking can act on, then the rest still in play folded to a line each, then settled queries behind one toggle. #}
+{% for query in groups.actionable %}
+  {% include 'experiences/partials/query_item.html' with collapsed=False %}
+{% endfor %}
+{% for query in groups.waiting %}
+  {% include 'experiences/partials/query_item.html' with collapsed=True %}
+{% endfor %}
+{% if groups.settled %}
+  <details class="group/settled border-t border-soft-border">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-1.5 {{ pad }} text-[13px] font-semibold text-primary transition-colors hover:bg-soft-background focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+      <span class="group-open/settled:hidden">Show {{ groups.settled|length }} settled</span>
+      <span class="hidden group-open/settled:inline">Hide {{ groups.settled|length }} settled</span>
+      <svg viewBox="0 0 24 24"
+           class="size-4 transition-transform group-open/settled:rotate-180 motion-reduce:transition-none"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="1.8"
+           stroke-linecap="round"
+           stroke-linejoin="round"
+           aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </summary>
+    {% for query in groups.settled %}
+      {% include 'experiences/partials/query_item.html' with collapsed=True %}
+    {% endfor %}
+  </details>
+{% endif %}

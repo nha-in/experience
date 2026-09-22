@@ -316,6 +316,89 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
     assert review_item.reference.encode() in response.content
 
 
+def test_queries_open_in_full_only_for_whoever_can_act_on_them(
+    review_item,
+    client,
+    owner_membership,
+):
+    integrator = owner_membership.user
+    reviewer = ReviewerFactory(is_nha_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+    workflows.decide(
+        review_item,
+        reviewer,
+        action="query",
+        field_key="score",
+        note="Asked of the first submission.",
+    )
+    # Resubmitting instead of replying leaves that query on the earlier submission.
+    workflows.withdraw(review_item, integrator)
+    review_item.refresh_from_db()
+    item, form, saved = workflows.save_review_form(
+        review_item,
+        integrator,
+        data={"report_reference": "Q-PORT-2", "score": 96},
+        submit=True,
+    )
+    assert saved, form.errors
+    item.refresh_from_db()
+    for key, note in [
+        ("report_reference", "Which inspection is this?"),
+        ("score", "Confirm this score."),
+        ("form", "Attach the release note."),
+    ]:
+        workflows.decide(item, reviewer, action="query", field_key=key, note=note)
+        item.refresh_from_db()
+    asked = {
+        query.field_key: query
+        for query in item.queries.filter(submission=item.selected_submission)
+    }
+    workflows.reply_query(asked["score"], integrator, "Confirmed against the report.")
+    workflows.reply_query(asked["form"], integrator, "The release note is attached.")
+    workflows.resolve_query(asked["form"], reviewer)
+
+    def queries_card(user, url):
+        client.force_login(user)
+        page = client.get(url).content.decode()
+        return page[page.index('id="queries"') :]
+
+    folded = '<details class="group/q'
+    settled = '<details class="group/settled'
+
+    # The reviewer can resolve the reply, so it opens in full, although it was
+    # asked after the question still waiting on the integrator, which folds.
+    card = queries_card(reviewer, item.get_absolute_url())
+    assert "1 to review · 1 awaiting reply" in " ".join(card.split())
+    assert (
+        card.index("Mark resolved")
+        < card.index("Confirm this score.")
+        < card.index(folded)
+        < card.index("Which inspection is this?")
+        < card.index(settled)
+    )
+    # Resolved queries and those on an earlier submission settle together.
+    assert "Show 2 settled" in card
+    assert card.index(settled) < card.index("Attach the release note.")
+    assert card.index(settled) < card.index("Asked of the first submission.")
+
+    # The integrator is the one who can reply, so the open question opens in
+    # full with the reply form, and their answered one folds.
+    track = reverse(
+        "experiences:track",
+        args=[item.product.workspace.reference, "Quality"],
+    )
+    card = queries_card(integrator, f"{track}?milestone=inspection")
+    assert "1 awaiting your reply · 1 with reviewer" in " ".join(card.split())
+    assert (
+        card.index("Which inspection is this?")
+        < card.index("Send reply</button>")
+        < card.index(folded)
+        < card.index("With reviewer")
+        < card.index("Confirm this score.")
+    )
+    assert "Mark resolved" not in card[: card.index(settled)]
+
+
 def test_client_response_alert_is_not_shown_to_reviewer(review_item):
     review_item.status = "query_raised"
 

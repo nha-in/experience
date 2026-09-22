@@ -1,54 +1,26 @@
 {% load experience_ui %}
 
 {% if item.queries.exists %}
-  <section class="ui-card ui-card--sm mt-5 scroll-mt-20" id="queries">
-    <div class="ui-card-content">
-      <div class="mb-3 flex items-center justify-between gap-2">
-        <h2 class="text-base font-bold">Queries</h2>
-        <span class="text-xs text-soft-foreground">{{ item.queries.count }} total</span>
-      </div>
-      <div class="flex flex-col gap-3">
-        {% for query in item.queries.all %}
-          <article class="rounded-xl border border-soft-border p-5"
-                   id="query-{{ query.pk }}">
-            <div class="mb-2 flex items-center justify-between gap-2">
-              <strong class="text-sm font-semibold">{{ query.field_key|readable }}</strong>
-              {% include 'experiences/partials/status.html' with status=query.status label=query.get_status_display %}
-            </div>
-            <p class="text-sm leading-relaxed">{{ query.question|linebreaksbr }}</p>
-            <p class="mt-1.5 text-xs text-soft-foreground">{{ query.raised_by.display_name }} · {{ query.raised_at|date:'d/m/Y, H:i' }} IST{% if query.submission_id != item.selected_submission_id %} · Earlier submission{% endif %}
-            </p>
-            {% if query.reply %}
-              <blockquote class="mt-3 rounded-lg bg-soft-background p-4">
-                <p class="text-sm leading-relaxed">{{ query.reply|linebreaksbr }}</p>
-                <p class="mt-1 text-xs text-soft-foreground">{{ query.replied_by.display_name }} · {{ query.replied_at|date:'d/m/Y, H:i' }} IST</p>
-              </blockquote>
+  {% query_groups item can_resolve=can_query can_reply=can_integrate as groups %}
+  {% with pad='px-5' audience='integrator' %}
+    <section class="ui-card ui-card--sm mt-5 scroll-mt-20 gap-0 pb-0"
+             id="queries"
+             aria-labelledby="queries-title">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-5 pb-3.5">
+        <h2 class="text-base font-bold" id="queries-title">Queries</h2>
+        {% if groups.answered or groups.open %}
+          <p class="text-xs text-soft-foreground">
+            {% if groups.open %}
+              {{ groups.open }} awaiting
+              {% if can_integrate %}your{% endif %}
+              reply
             {% endif %}
-            {% if query.submission_id == item.selected_submission_id and item.pending %}
-              {% if query.status == 'open' and can_integrate %}
-                <form class="mt-3"
-                      method="post"
-                      action="{% url 'experiences:query-action' query.pk %}">
-                  {% csrf_token %}
-                  <label class="ui-label" for="reply-{{ query.pk }}">Your reply</label>
-                  <textarea class="ui-textarea mt-1 mb-2 min-h-36" id="reply-{{ query.pk }}" name="body" rows="4" required maxlength="10000">
-</textarea>
-                  <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Send reply</button>
-                </form>
-              {% endif %}
-              {% if query.status == 'answered' and can_query %}
-                <form class="mt-3"
-                      method="post"
-                      action="{% url 'experiences:query-action' query.pk %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="intent" value="resolve" />
-                  <button class="ui-btn ui-btn--outline ui-btn--size-sm" type="submit">Mark resolved</button>
-                </form>
-              {% endif %}
-            {% endif %}
-          </article>
-        {% endfor %}
+            {% if groups.answered and groups.open %}·{% endif %}
+            {% if groups.answered %}{{ groups.answered }} with reviewer{% endif %}
+          </p>
+        {% endif %}
       </div>
-    </div>
-  </section>
+      {% include 'experiences/partials/query_card_body.html' %}
+    </section>
+  {% endwith %}
 {% endif %}

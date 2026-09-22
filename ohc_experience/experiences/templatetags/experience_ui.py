@@ -114,6 +114,52 @@ def snapshot_rows(snapshot, item=None):
     return rows
 
 
+@register.simple_tag
+def query_groups(item, *, can_resolve=False, can_reply=False):
+    """A review's queries, sorted by whether the person looking can act on them.
+
+    An answered query is theirs to act on when they may resolve it, and an
+    open one when they may reply. Those open in full; the other queries still
+    in play fold to a line each. Resolved queries, those asked of an earlier
+    submission and any left on a request no longer under review are settled.
+    `answered` and `open` count the queries still in play. Each query is
+    labelled as its submission's form labels the field.
+    """
+    groups = {"actionable": [], "waiting": [], "settled": [], "answered": 0, "open": 0}
+    labels = {}
+    for query in item.queries.select_related("submission", "raised_by", "replied_by"):
+        if query.submission_id not in labels:
+            labels[query.submission_id] = {
+                field["key"]: field["label"] for field in query.submission.field_schema
+            }
+        query.field_label = (
+            "Whole form"
+            if query.field_key == "form"
+            else labels[query.submission_id].get(
+                query.field_key,
+                readable(query.field_key),
+            )
+        )
+        query.earlier_submission = query.submission_id != item.selected_submission_id
+        query.live = (
+            item.pending and not query.earlier_submission and query.status != "resolved"
+        )
+        # A folded line quotes the reply when there is one still to check.
+        query.excerpt = (
+            query.reply if query.live and query.status == "answered" else query.question
+        )
+        if not query.live:
+            groups["settled"].append(query)
+            continue
+        groups[query.status] += 1
+        can_act = can_resolve if query.status == "answered" else can_reply
+        groups["actionable" if can_act else "waiting"].append(query)
+    # Replies to check come before questions still waiting for one.
+    for name in ("actionable", "waiting"):
+        groups[name].sort(key=lambda query: query.status != "answered")
+    return groups
+
+
 @register.filter
 def page_numbers(page):
     """Five page numbers around the current one, flagging the three kept on phones."""

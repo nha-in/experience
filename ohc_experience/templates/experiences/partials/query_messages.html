@@ -1,0 +1,25 @@
+{# One query's exchange: who asked, then who replied, each marked by their avatar. #}
+<div class="flex flex-col gap-3">
+  <div class="flex items-start gap-2.5">
+    <span class="ui-feed-avatar mt-px bg-muted-background" aria-hidden="true">{{ query.raised_by.display_name|slice:':1'|upper }}</span>
+    <div class="min-w-0">
+      <p class="text-xs leading-[18px] text-soft-foreground">
+        <span class="font-semibold text-muted-foreground">{{ query.raised_by.display_name }}</span> asked · {{ query.raised_at|date:'d/m/Y, H:i' }}
+      </p>
+      <p class="text-sm leading-[22px] text-pretty break-words"
+         id="query-question-{{ query.pk }}">{{ query.question|linebreaksbr }}</p>
+    </div>
+  </div>
+  {% if query.reply %}
+    <div class="flex items-start gap-2.5">
+      <span class="ui-feed-avatar mt-px border border-border bg-card text-muted-foreground"
+            aria-hidden="true">{{ query.replied_by.display_name|slice:':1'|upper }}</span>
+      <div class="min-w-0">
+        <p class="text-xs leading-[18px] text-soft-foreground">
+          <span class="font-semibold text-muted-foreground">{{ query.replied_by.display_name }}</span> replied · {{ query.replied_at|date:'d/m/Y, H:i' }}
+        </p>
+        <p class="text-sm leading-[22px] text-pretty break-words">{{ query.reply|linebreaksbr }}</p>
+      </div>
+    </div>
+  {% endif %}
+</div>

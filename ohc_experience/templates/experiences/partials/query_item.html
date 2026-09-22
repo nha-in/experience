@@ -1,0 +1,86 @@
+{% comment %}
+One query in a queries card. A query the person looking can act on
+(collapsed=False) opens in full with its action: Mark resolved on a reply, or
+the reply form on an open question. Any other query folds to one line that
+opens in place.
+{% endcomment %}
+{% if not collapsed %}
+  <article class="flex flex-col gap-3 border-t border-soft-border {{ pad }} pt-4 pb-[18px]"
+           id="query-{{ query.pk }}">
+    <div class="flex min-h-9 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <p class="text-sm font-semibold">{{ query.field_label }}</p>
+      {% if query.status == 'answered' %}
+        <form method="post" action="{% url 'experiences:query-action' query.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="intent" value="resolve" />
+          {% if return_to_product %}
+            <input type="hidden"
+                   name="return_to_product"
+                   value="{{ product_review_reference|default:'1' }}" />
+          {% endif %}
+          <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+                  type="submit"
+                  aria-describedby="query-question-{{ query.pk }}">Mark resolved</button>
+        </form>
+      {% endif %}
+    </div>
+    {% include 'experiences/partials/query_messages.html' %}
+    {% if query.status == 'open' %}
+      <form class="sm:pl-[34px]"
+            method="post"
+            action="{% url 'experiences:query-action' query.pk %}">
+        {% csrf_token %}
+        <label class="ui-label" for="reply-{{ query.pk }}">Your reply</label>
+        <textarea class="ui-textarea mt-1 mb-2 min-h-36" id="reply-{{ query.pk }}" name="body" rows="4" required maxlength="10000">
+</textarea>
+        <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Send reply</button>
+      </form>
+    {% endif %}
+  </article>
+{% else %}
+  <details class="group/q border-t border-soft-border" id="query-{{ query.pk }}">
+    <summary class="grid min-h-11 cursor-pointer list-none grid-cols-[1rem_minmax(0,1fr)_auto_1rem] items-center gap-3 {{ pad }} py-2 text-sm transition-colors hover:bg-soft-background focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:grid-cols-[1rem_minmax(0,11rem)_minmax(0,1fr)_auto_1rem] [&::-webkit-details-marker]:hidden">
+      {% if query.status == 'resolved' %}
+        <svg viewBox="0 0 24 24"
+             class="size-4 text-[var(--status-success-text)]"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             stroke-linejoin="round"
+             aria-hidden="true">
+          <path d="m5 12 4 4L19 6" />
+        </svg>
+      {% elif not query.live %}
+        <svg viewBox="0 0 24 24"
+             class="size-4 text-soft-foreground"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             aria-hidden="true">
+          <path d="M7 12h10" />
+        </svg>
+      {% elif query.status == 'answered' %}
+        <span class="mx-auto size-2 rounded-full bg-primary-600" aria-hidden="true"></span>
+      {% else %}
+        <span class="mx-auto size-2 rounded-full border-[1.5px] border-[var(--status-warning-text)]"
+              aria-hidden="true"></span>
+      {% endif %}
+      <span class="truncate font-semibold">{{ query.field_label }}</span>
+      <span class="hidden truncate text-[13px] text-soft-foreground group-open/q:invisible sm:block">{{ query.excerpt }}</span>
+      <span class="text-xs whitespace-nowrap {% if not query.live %}text-soft-foreground{% elif query.status == 'answered' %}font-semibold text-primary{% else %}font-semibold text-[var(--status-warning-text)]{% endif %}">{% if query.status == 'resolved' %}Resolved{% if query.resolved_at %} {{ query.resolved_at|date:'d/m/Y' }}{% endif %}{% elif query.earlier_submission %}Earlier submission{% elif not query.live %}{% if query.status == 'answered' %}Not resolved{% else %}No reply{% endif %}{% elif query.status == 'answered' %}{% if audience == 'integrator' %}With reviewer{% else %}Answered{% endif %}{% else %}Awaiting reply{% endif %}</span>
+      <svg viewBox="0 0 24 24"
+           class="size-4 text-soft-foreground transition-transform group-open/q:rotate-180 motion-reduce:transition-none"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="1.8"
+           stroke-linecap="round"
+           stroke-linejoin="round"
+           aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </summary>
+    <div class="{{ pad }} pt-1 pb-4">{% include 'experiences/partials/query_messages.html' %}</div>
+  </details>
+{% endif %}
