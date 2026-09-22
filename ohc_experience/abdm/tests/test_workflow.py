@@ -943,7 +943,7 @@ def test_revoke_switches_every_system_off_and_closes_the_panel(
     credential = ProductCredential.objects.get(product=product)
 
     with django_capture_on_commit_callbacks(execute=True):
-        credentials.revoke(credential, environment["applicant"])
+        credentials.revoke(credential, environment["admin"])
 
     credential.refresh_from_db()
     assert credential.status == "revoked"

@@ -8,6 +8,7 @@ from django.test import override_settings
 
 from ohc_experience.experiences import credentials as credential_services
 from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.experiences.secrets import cipher
 from ohc_experience.integrations import local
 from ohc_experience.integrations.local import always_fail
 from ohc_experience.integrations.local import fail_next
@@ -16,6 +17,7 @@ from ohc_experience.integrations.models import ProvisionedResourceState
 from ohc_experience.integrations.models import ProvisionedSystem
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.selectors import teardown_is_incomplete
+from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.integrations.tasks import deprovision_keycloak
 
 pytestmark = pytest.mark.django_db
@@ -182,3 +184,84 @@ def test_a_failed_step_is_what_a_retry_is_for(provision, teardown):
     teardown()
 
     assert not teardown_is_incomplete(product)
+
+
+# ── Reprovisioning ───────────────────────────────────────────────────────────
+
+
+def _secret(credential) -> str:
+    return cipher().decrypt(credential.encrypted_secret.encode()).decode()
+
+
+def _revoke(product, superadmin, capture) -> ProductCredential:
+    credential = ProductCredential.objects.get(product=product)
+    with capture(execute=True):
+        credential_services.revoke(credential, superadmin)
+    credential.refresh_from_db()
+    return credential
+
+
+def test_reprovisioning_brings_back_the_same_client_with_a_new_secret(
+    provision,
+    register_bridge,
+    superadmin,
+    django_capture_on_commit_callbacks,
+):
+    """The same client, so WSO2's key mapping and the bridge id still fit."""
+    product = provision()
+    register_bridge()
+    before = ProductCredential.objects.get(product=product)
+    first_secret = _secret(before)
+    _revoke(product, superadmin, django_capture_on_commit_callbacks)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        start_provisioning(product, started_by=superadmin)
+
+    credential = ProductCredential.objects.get(product=product)
+    assert credential.status == "active"
+    assert credential.client_id == before.client_id
+    assert _secret(credential) != first_secret
+    assert set(_states(product).values()) == {ProvisionedResourceState.ACTIVE}
+    client = ProvisionedResource.objects.get(
+        product=product,
+        system=ProvisionedSystem.KEYCLOAK,
+    )
+    assert local.LocalIdpAdmin().get_client(client.external_ref)["enabled"] is True
+    wso2 = ProvisionedResource.objects.get(
+        product=product,
+        system=ProvisionedSystem.WSO2,
+    )
+    assert local.LocalApiGateway().get_application(wso2.external_ref)["subscriptions"]
+    bridge = ProvisionedResource.objects.get(
+        product=product,
+        system=ProvisionedSystem.HIECM,
+    )
+    assert bridge.external_ref == before.client_id
+
+
+def test_a_failed_reprovision_retries_onto_the_same_client(
+    provision,
+    superadmin,
+    django_capture_on_commit_callbacks,
+):
+    """A FAILED row must not send the retry off to create a second client."""
+    product = provision()
+    client_id = ProductCredential.objects.get(product=product).client_id
+    _revoke(product, superadmin, django_capture_on_commit_callbacks)
+    fail_next(ExternalSystem.KEYCLOAK, "enable_client", retryable=False)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        start_provisioning(product, started_by=superadmin)
+
+    assert _states(product)[ProvisionedSystem.KEYCLOAK] == (
+        ProvisionedResourceState.FAILED
+    )
+    assert ProductCredential.objects.get(product=product).status == "revoked"
+
+    with django_capture_on_commit_callbacks(execute=True):
+        start_provisioning(product, started_by=superadmin)
+
+    credential = ProductCredential.objects.get(product=product)
+    assert credential.status == "active"
+    assert credential.client_id == client_id
+    assert len(local._store(ExternalSystem.KEYCLOAK)) == 1  # noqa: SLF001

@@ -244,6 +244,18 @@
                         value="revoke_credentials">Revoke credentials</button>
               </form>
             {% endif %}
+            {% if can_reprovision %}
+              <form class="mt-2.5"
+                    method="post"
+                    data-confirm="Reprovision this product's credentials? Its client is switched back on with a new secret, and the integrator is told when it is ready."
+                    hx-confirm="Reprovision this product's credentials? Its client is switched back on with a new secret, and the integrator is told when it is ready.">
+                {% csrf_token %}
+                <button type="submit"
+                        class="ui-btn ui-btn--outline ui-btn--size-sm"
+                        name="intent"
+                        value="reprovision_credentials">Reprovision credentials</button>
+              </form>
+            {% endif %}
             {% if production.client_id %}
               <dl class="mt-2.5 grid grid-cols-[72px_1fr] gap-x-3 border-t border-soft-border pt-2.5 text-sm">
                 <dt class="text-soft-foreground">Production</dt>

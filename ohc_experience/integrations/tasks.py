@@ -213,9 +213,35 @@ def _step(
     return product_id
 
 
+def _reprovisioning(product: Product, system: ProvisionedSystem) -> bool:
+    """Revoked, so this system is brought back rather than created again.
+
+    Read from the credential, not the row: a failed attempt marks the row FAILED,
+    and a retry must still reuse the client WSO2 holds keys for.
+    """
+    credential = getattr(product, "credential", None)
+    return (
+        credential is not None
+        and credential.status == "revoked"
+        and _ledger_row(product, system) is not None
+    )
+
+
+def _switch_on(row: ProvisionedResource) -> None:
+    row.state = ProvisionedResourceState.ACTIVE
+    row.save(update_fields=["state", "updated_at"])
+
+
 @shared_task(bind=True, max_retries=None)
 def provision_keycloak(task: Task, product_id: int) -> int:
     def run(product: Product) -> None:
+        if _reprovisioning(product, ProvisionedSystem.KEYCLOAK):
+            # The same client, so WSO2's key mapping still fits. Publishing
+            # mints its new secret, since no parked one is left.
+            client = _ledger_row(product, ProvisionedSystem.KEYCLOAK)
+            get_idp_admin().enable_client(client.external_ref)
+            _switch_on(client)
+            return
         created = get_idp_admin().create_client(
             ClientSpec(
                 reference=_reference(product),
@@ -262,6 +288,12 @@ def provision_wso2(task: Task, product_id: int) -> int:
 
         api_ids = api_ids_for(_program(product))
         gateway = get_api_gateway()
+        if _reprovisioning(product, ProvisionedSystem.WSO2):
+            # Teardown only unsubscribed; the app and its keys are still there.
+            app = _ledger_row(product, ProvisionedSystem.WSO2)
+            gateway.subscribe(app.external_ref, api_ids)
+            _switch_on(app)
+            return
         created = gateway.create_application(
             GatewayAppSpec(
                 reference=_reference(product),
@@ -448,6 +480,10 @@ def complete_provisioning(task: Task, product_id: int) -> int:
         product=product,
         detail={"systems": sorted(done)},
     )
+    # After a reprovision, the saved callback URL gets its bridge back.
+    bridge = _ledger_row(product, ProvisionedSystem.HIECM)
+    if bridge is not None and bridge.state != ProvisionedResourceState.ACTIVE:
+        enqueue_bridge_sync(product)
     notify_integrators(
         product.organisation,
         f"{product.workspace.definition.short_name}: credentials available",

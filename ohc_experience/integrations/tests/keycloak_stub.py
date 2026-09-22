@@ -100,7 +100,7 @@ class KeycloakStubTransport(httpx.BaseTransport):
                 },
             )
         if method == "PUT" and path.startswith(f"{ADMIN}/clients/"):
-            self.disabled = True
+            self.disabled = not json.loads(request.content)["enabled"]
             return httpx.Response(NO_CONTENT)
         if method == "GET" and path.endswith("/service-account-user"):
             return httpx.Response(200, json={"id": SERVICE_ACCOUNT_USER_ID})

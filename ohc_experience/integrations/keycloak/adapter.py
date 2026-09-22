@@ -119,6 +119,15 @@ class KeycloakIdpAdmin:
             if error.code != NOT_FOUND:
                 raise
 
+    def enable_client(self, external_id: str) -> None:
+        """Undo `disable_client`. A missing client raises: nothing to bring back."""
+        self._client.request(
+            "PUT",
+            f"{self._admin}/clients/{_segment(external_id)}",
+            op="enable_client",
+            json={"enabled": True},
+        )
+
     @property
     def _admin(self) -> str:
         return f"/admin/realms/{_segment(self._realm)}"

@@ -205,6 +205,19 @@ class LocalIdpAdmin:
             clients[external_id]["enabled"] = False
             _save(ExternalSystem.KEYCLOAK, clients)
 
+    def enable_client(self, external_id: str) -> None:
+        _guard(ExternalSystem.KEYCLOAK, "enable_client")
+        clients = _store(ExternalSystem.KEYCLOAK)
+        if external_id not in clients:
+            raise AdapterError(
+                ExternalSystem.KEYCLOAK,
+                "HTTP_404",
+                retryable=False,
+                message=f"no local client {external_id}",
+            )
+        clients[external_id]["enabled"] = True
+        _save(ExternalSystem.KEYCLOAK, clients)
+
     def get_client(self, external_id: str) -> dict[str, Any] | None:
         return _store(ExternalSystem.KEYCLOAK).get(external_id)
 

@@ -82,6 +82,8 @@ class IdpAdmin(Protocol):
 
     def disable_client(self, external_id: str) -> None: ...
 
+    def enable_client(self, external_id: str) -> None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class GatewayAppSpec:

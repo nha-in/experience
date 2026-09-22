@@ -29,6 +29,9 @@ class StubIdpAdmin:
     def disable_client(self, external_id: str) -> None:
         return None
 
+    def enable_client(self, external_id: str) -> None:
+        return None
+
 
 STUB = "ohc_experience.integrations.tests.test_registry.StubIdpAdmin"
 

@@ -84,7 +84,15 @@ def test_external_system_covers_every_provisioned_system():
 @pytest.mark.parametrize(
     ("protocol", "methods"),
     [
-        (IdpAdmin, {"create_client", "rotate_client_secret", "disable_client"}),
+        (
+            IdpAdmin,
+            {
+                "create_client",
+                "rotate_client_secret",
+                "disable_client",
+                "enable_client",
+            },
+        ),
         (ApiGateway, {"create_application", "subscribe", "map_keys", "unsubscribe"}),
         (BridgeRegistry, {"create_bridge", "get_bridge_status", "deactivate_bridge"}),
         (NotificationGateway, {"send"}),

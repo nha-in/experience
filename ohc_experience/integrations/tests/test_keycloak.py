@@ -216,6 +216,25 @@ def test_disabling_still_reports_a_real_failure(adapter, transport):
     assert error.value.retryable is True
 
 
+def test_enabling_sends_enabled_true(adapter, transport):
+    adapter.disable_client(CREATED_CLIENT_UUID)
+
+    adapter.enable_client(CREATED_CLIENT_UUID)
+
+    assert list(transport.bodies("PUT", CREATED_CLIENT_UUID))[-1] == {"enabled": True}
+    assert transport.disabled is False
+
+
+def test_enabling_a_missing_client_fails(adapter, transport):
+    """Unlike disabling: there is nothing to bring back."""
+    transport.failures[("PUT", f"{ADMIN}/clients/{CREATED_CLIENT_UUID}")] = 404
+
+    with pytest.raises(AdapterError) as error:
+        adapter.enable_client(CREATED_CLIENT_UUID)
+
+    assert error.value.retryable is False
+
+
 # Token handling
 
 

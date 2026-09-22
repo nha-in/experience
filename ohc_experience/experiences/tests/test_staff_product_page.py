@@ -10,6 +10,7 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.integrations.models import ProvisioningRun
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -232,3 +233,64 @@ def test_a_revoked_integrator_is_sent_to_support_not_offered_new_credentials(
     client.post(url, {"intent": "rotate"})
     credential = ProductCredential.objects.get(product=workspace.product)
     assert credential.status == "revoked"
+
+
+def _revoked(environment, client, capture):
+    """Revoked by a super admin, after the READY run a registration leaves."""
+    ProvisioningRun.objects.create(
+        product=environment["workspace"].product,
+        status=ProvisioningRun.Status.READY,
+    )
+    client.force_login(environment["admin"])
+    with capture(execute=True):
+        client.post(product_url(environment), {"intent": "revoke_credentials"})
+
+
+def test_only_a_super_admin_is_offered_reprovisioning(
+    environment,
+    client,
+    django_capture_on_commit_callbacks,
+):
+    approve(environment)
+    _revoked(environment, client, django_capture_on_commit_callbacks)
+
+    response = client.get(product_url(environment))
+    assert response.context["can_reprovision"]
+    assert b"reprovision_credentials" in response.content
+
+    client.force_login(staff("*", can_write=True, can_approve=True))
+    content = client.get(product_url(environment)).content
+    assert b"reprovision_credentials" not in content
+    response = client.post(
+        product_url(environment),
+        {"intent": "reprovision_credentials"},
+    )
+    assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_a_super_admin_reprovisions_revoked_credentials(
+    environment,
+    client,
+    django_capture_on_commit_callbacks,
+):
+    approve(environment)
+    workspace = environment["workspace"]
+    client_id = ProductCredential.objects.get(product=workspace.product).client_id
+    _revoked(environment, client, django_capture_on_commit_callbacks)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(
+            product_url(environment),
+            {"intent": "reprovision_credentials"},
+        )
+
+    assert response.url == f"{product_url(environment)}#connection"
+    credential = ProductCredential.objects.get(product=workspace.product)
+    assert credential.status == "active"
+    assert credential.client_id == client_id
+    content = client.get(product_url(environment)).content
+    assert b"reprovision_credentials" not in content
+    assert b"revoke_credentials" in content
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:credentials", args=[workspace.reference])
+    assert b'value="rotate"' in client.get(url).content

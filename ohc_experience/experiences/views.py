@@ -40,8 +40,10 @@ from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.selectors import bridge_state
+from ohc_experience.integrations.selectors import latest_run
 from ohc_experience.integrations.selectors import provisioning_can_be_retried
 from ohc_experience.integrations.selectors import provisioning_progress
+from ohc_experience.integrations.selectors import teardown_is_incomplete
 from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.selectors import get_membership_for
@@ -829,20 +831,8 @@ def product_detail(request, reference):
     product = workspace.product
     program = workspace.definition
     if request.method == "POST":
-        if request.POST.get("intent") == "retry_provisioning":
-            if not _can_provision(request.user, product, program.key):
-                raise PermissionDenied
-            _provision(request, product)
-            return redirect(
-                reverse("experiences:product-detail", args=[workspace.reference])
-                + "#connection",
-            )
-        if request.POST.get("intent") == "revoke_credentials":
-            credential = ProductCredential.objects.filter(product=product).first()
-            if not _can_revoke_credentials(request.user, credential):
-                raise PermissionDenied
-            credential_services.revoke(credential, request.user)
-            messages.success(request, "Credentials revoked. Deprovisioning started.")
+        if request.POST.get("intent") in CONNECTION_INTENTS:
+            _connection_post(request, product, program.key)
             return redirect(
                 reverse("experiences:product-detail", args=[workspace.reference])
                 + "#connection",
@@ -984,6 +974,7 @@ def product_detail(request, reference):
             certification=certification,
             credential=credential,
             can_revoke_credentials=_can_revoke_credentials(request.user, credential),
+            can_reprovision=_can_reprovision(request.user, product, credential),
             production=production_services.state(product)
             if production_services.can_view(request.user, program)
             else None,
@@ -2246,10 +2237,54 @@ def _can_provision(user, product, program_key):
     )
 
 
+CONNECTION_INTENTS = {
+    "retry_provisioning",
+    "revoke_credentials",
+    "reprovision_credentials",
+}
+
+
+def _connection_post(request, product, program_key):
+    """The Integration connection card's actions on the staff product page."""
+    intent = request.POST.get("intent")
+    credential = ProductCredential.objects.filter(product=product).first()
+    if intent == "retry_provisioning":
+        if not _can_provision(request.user, product, program_key):
+            raise PermissionDenied
+        _provision(request, product)
+    elif intent == "revoke_credentials":
+        if not _can_revoke_credentials(request.user, credential):
+            raise PermissionDenied
+        credential_services.revoke(credential, request.user)
+        messages.success(request, "Credentials revoked. Deprovisioning started.")
+    elif intent == "reprovision_credentials":
+        if not _can_reprovision(request.user, product, credential):
+            raise PermissionDenied
+        start_provisioning(product, started_by=request.user)
+        messages.success(request, "Reprovisioning started.")
+
+
 def _can_revoke_credentials(user, credential):
     """Revoking switches the integrator off in every external system, and only
     a super admin may do that."""
     return bool(credential and credential.status == "active" and user.is_superuser)
+
+
+def _can_reprovision(user, product, credential):
+    """Bring revoked credentials back, once teardown has finished.
+
+    A failed or never-started run is left to the provisioning button, which
+    starts the same chain.
+    """
+    run = latest_run(product)
+    return bool(
+        credential
+        and credential.status == "revoked"
+        and user.is_superuser
+        and run is not None
+        and run.status == run.Status.READY
+        and not teardown_is_incomplete(product),
+    )
 
 
 def _can_retry_provisioning(user, item):
