@@ -40,6 +40,7 @@ from .models import ReviewItem
 from .models import ReviewQuery
 from .notifications import notify_decision
 from .notifications import notify_review
+from .permissions import can_assign
 from .permissions import eligible_reviewer
 from .permissions import require_decider
 from .permissions import require_integrator
@@ -1039,8 +1040,8 @@ def reuse_evidence(item, actor):
 
 @transaction.atomic
 def assign_review(item, actor, assignee):
-    if not actor.is_superuser:
-        msg = "Only administrators can assign reviewers."
+    if not can_assign(actor, item):
+        msg = "Assigning a reviewer needs approve access to this request."
         raise PermissionDenied(msg)
     item = _lock_review(item.pk)
     if assignee and not eligible_reviewer(assignee, item):

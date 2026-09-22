@@ -185,7 +185,8 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     assert b"data-decision-form" in response.content
     assert b"field=form#decision" in response.content
     assert b"field=score#decision" not in response.content
-    assert b'name="assignee"' not in response.content
+    # Approving a request includes choosing its reviewer.
+    assert b'name="assignee"' in response.content
 
     read_only = UserFactory(is_nha_team=True)
     AccessGrant.objects.create(
@@ -198,6 +199,7 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     response = client.get(review_item.get_absolute_url())
     assert b"data-decision-form" not in response.content
     assert b"does not include queries or decisions" in response.content
+    assert b'name="assignee"' not in response.content
 
     client.force_login(UserFactory(is_superuser=True))
     response = client.get(review_item.get_absolute_url())

@@ -237,6 +237,9 @@
           {% else %}
             {% include 'experiences/partials/review_status.html' with reviewer=True %}
           {% endif %}
+          {% if can_assign %}
+            {% include 'experiences/partials/reviewer_assign.html' %}
+          {% endif %}
         </div>
       </div>
       {% if item.queries.exists %}

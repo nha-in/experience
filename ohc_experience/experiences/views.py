@@ -651,6 +651,26 @@ def _product_review_scope(product):
     )
 
 
+def _posted_product_review(request, workspace):
+    """The request that a single-request form on the product page was sent for."""
+    return get_object_or_404(
+        permissions.visible_reviews(request.user).filter(
+            _product_review_scope(workspace.product),
+        ),
+        pk=_product_review_id(request.POST.get("review_id", "")),
+    )
+
+
+def _posted_assignee(request):
+    """The reviewer an Assign form chose, or None to leave the request unassigned."""
+    assignee_id = request.POST.get("assignee", "")
+    return (
+        get_object_or_404(get_user_model(), pk=assignee_id)
+        if assignee_id.isdigit()
+        else None
+    )
+
+
 def _product_review_post(request, workspace):
     if request.POST.get("intent") == "bulk_decision":
         decided = services.decide_product(
@@ -668,13 +688,7 @@ def _product_review_post(request, workspace):
         )
         anchor = "decisions"
     elif request.POST.get("intent") == "decision":
-        review_id = _product_review_id(request.POST.get("review_id", ""))
-        item = get_object_or_404(
-            permissions.visible_reviews(request.user).filter(
-                _product_review_scope(workspace.product),
-            ),
-            pk=review_id,
-        )
+        item = _posted_product_review(request, workspace)
         services.decide(
             item,
             request.user,
@@ -684,6 +698,11 @@ def _product_review_post(request, workspace):
             field_key=request.POST.get("field_key", "form"),
             expected_revision=request.POST.get("revision", ""),
         )
+        messages.success(request, "Review updated.")
+        anchor = f"review-{item.pk}"
+    elif request.POST.get("intent") == "assign":
+        item = _posted_product_review(request, workspace)
+        services.assign_review(item, request.user, _posted_assignee(request))
         messages.success(request, "Review updated.")
         anchor = f"review-{item.pk}"
     else:
@@ -696,6 +715,12 @@ def _product_review_post(request, workspace):
 
 
 def _product_review_sections(request, items):
+    assignable = {
+        item.pk for item in items if permissions.can_assign(request.user, item)
+    }
+    reviewers = permissions.eligible_reviewers(
+        [item for item in items if item.pk in assignable],
+    )
     sections = []
     for item in items:
         snapshot = item.selected_submission
@@ -758,6 +783,8 @@ def _product_review_sections(request, items):
                 "query_field": request.POST.get("field_key", "form")
                 if posted
                 else "form",
+                "can_assign": item.pk in assignable,
+                "reviewers": reviewers.get(item.pk, []),
             },
         )
     return sections
@@ -2256,19 +2283,14 @@ def review(request, pk):
         for action in permissions.available_review_actions(request.user, item)
         if action == "query" or not prerequisites or can_override
     ]
+    can_assign = permissions.can_assign(request.user, item)
     selected_action = request.POST.get("action", request.GET.get("action"))
     if selected_action not in actions:
         selected_action = next(iter(actions), "")
     if request.method == "POST":
         try:
             if request.POST.get("intent") == "assign":
-                assignee_id = request.POST.get("assignee", "")
-                assignee = (
-                    get_object_or_404(get_user_model(), pk=assignee_id)
-                    if assignee_id.isdigit()
-                    else None
-                )
-                services.assign_review(item, request.user, assignee)
+                services.assign_review(item, request.user, _posted_assignee(request))
             elif request.POST.get("intent") == "retry_provisioning":
                 if not _can_retry_provisioning(request.user, item):
                     raise PermissionDenied
@@ -2304,15 +2326,9 @@ def review(request, pk):
             can_query=permissions.can_review(request.user, item, "write"),
             can_approve=permissions.can_review(request.user, item, "approve"),
             can_override=can_override,
-            reviewers=[
-                user
-                for user in get_user_model().objects.filter(
-                    Q(is_nha_team=True) | Q(is_superuser=True),
-                    is_active=True,
-                )
-                if permissions.eligible_reviewer(user, item)
-            ]
-            if request.user.is_superuser
+            can_assign=can_assign,
+            reviewers=permissions.eligible_reviewers([item])[item.pk]
+            if can_assign
             else [],
             available_actions=actions,
             prerequisites=prerequisites,

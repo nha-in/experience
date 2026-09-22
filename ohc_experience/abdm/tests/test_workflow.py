@@ -29,6 +29,7 @@ from ohc_experience.experiences import credentials
 from ohc_experience.experiences import uploads
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.definitions import TrackDefinition
+from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.models import ReviewItem
@@ -563,8 +564,21 @@ def test_reviewers_with_grants_decide_whoever_is_assigned(environment):
     for actor in [environment["applicant"], environment["outsider"]]:
         with pytest.raises(PermissionDenied):
             services.decide(item, actor, action="approve")
+    writer = UserFactory(is_nha_team=True)
+    AccessGrant.objects.create(
+        user=writer,
+        program="abdm",
+        area=AccessGrant.Area.REVIEW,
+        category="HIE-CM",
+        can_read=True,
+        can_write=True,
+    )
+    # Raising queries does not include choosing the reviewer; approving does.
     with pytest.raises(PermissionDenied):
-        services.assign_review(item, environment["reviewer"], environment["reviewer"])
+        services.assign_review(item, writer, writer)
+    services.assign_review(item, environment["reviewer"], writer)
+    item.refresh_from_db()
+    assert item.assignee == writer
     with pytest.raises(ValidationError):
         services.assign_review(item, environment["admin"], environment["applicant"])
     # Assigned to someone else, the reviewer's grant still lets them decide.

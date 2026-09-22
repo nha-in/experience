@@ -1,0 +1,49 @@
+{# The saved assignee reads as a fact. The picker stays folded until Assign or Reassign opens it, and project.js then opens the reviewer list. #}
+<div class="relative mt-5 border-t border-soft-border pt-4">
+  <div class="flex min-h-11 items-center gap-3 pr-28 md:min-h-9">
+    {% if item.assignee %}
+      <span class="ui-avatar ui-avatar--primary size-9 text-sm"
+            aria-hidden="true">{{ item.assignee.display_name|first|upper }}</span>
+    {% else %}
+      <span class="ui-avatar ui-avatar--pending size-9" aria-hidden="true">
+        {% include 'components/nav_icon.html' with icon='profile' %}
+      </span>
+    {% endif %}
+    <p class="min-w-0 text-sm leading-5">
+      <span class="block text-xs leading-4 text-soft-foreground">Assigned reviewer</span>
+      {% if item.assignee %}
+        <span class="font-semibold break-words">{{ item.assignee.display_name }}</span>
+        {% if item.assignee == request.user %}<span class="ui-badge ui-badge--neutral ui-badge--size-xs ml-1 align-[1px]">You</span>{% endif %}
+      {% else %}
+        <span class="text-soft-foreground">Unassigned</span>
+      {% endif %}
+    </p>
+  </div>
+  <details class="group" data-picker-panel>
+    <summary class="ui-btn ui-btn--outline ui-btn--size-sm absolute top-4 right-0 cursor-pointer list-none group-open:border-transparent group-open:bg-transparent group-open:text-muted-foreground group-open:shadow-none group-open:hover:bg-muted-background [&::-webkit-details-marker]:hidden">
+      <span class="group-open:hidden">{% if item.assignee %}Reassign{% else %}Assign{% endif %}</span>
+      <span class="hidden group-open:inline">Cancel</span>
+    </summary>
+    <form method="post"
+          class="mt-3 flex items-start gap-2 transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:transition-none">
+      {% csrf_token %}
+      <input type="hidden" name="intent" value="assign" />
+      <input type="hidden" name="review_id" value="{{ item.pk }}" />
+      <div class="min-w-0 flex-1">
+        <label class="sr-only" for="assignee-{{ item.pk }}">{% if item.assignee %}Reassign to{% else %}Assign to{% endif %}</label>
+        <div class="ui-select-wrapper">
+          <select class="ui-select min-h-11"
+                  name="assignee"
+                  id="assignee-{{ item.pk }}">
+            <option value="">Unassigned</option>
+            {% for user in reviewers %}
+              <option value="{{ user.pk }}"
+                      {% if item.assignee_id == user.pk %}selected{% endif %}>{{ user.display_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">{% if item.assignee %}Reassign{% else %}Assign{% endif %}</button>
+    </form>
+  </details>
+</div>

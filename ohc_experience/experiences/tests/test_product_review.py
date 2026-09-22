@@ -36,6 +36,14 @@ def batch_data(items, action="approve", note="Reviewed against the evidence."):
     }
 
 
+def assign_data(item, assignee):
+    return {
+        "intent": "assign",
+        "review_id": item.pk,
+        "assignee": assignee.pk if assignee else "",
+    }
+
+
 def test_product_review_combines_submissions_without_exposing_drafts(
     environment,
     client,
@@ -260,7 +268,85 @@ def test_single_review_rejects_a_stale_submission_and_retains_the_note(
     assert b"Evidence reviewed carefully." in response.content
 
 
-def test_product_actions_cannot_target_another_product(environment, client):
+def test_approvers_assign_a_request_from_its_panel(environment, client):
+    item = submit(environment)
+    client.force_login(environment["reviewer"])
+
+    response = client.get(product_url(environment))
+
+    section = next(
+        row for row in response.context["review_sections"] if row["item"] == item
+    )
+    assert section["can_assign"]
+    assert environment["reviewer"] in section["reviewers"]
+    assert f'id="assignee-{item.pk}"'.encode() in response.content
+
+    response = client.post(
+        product_url(environment),
+        assign_data(item, environment["reviewer"]),
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == product_url(environment) + f"#review-{item.pk}"
+    item.refresh_from_db()
+    assert item.assignee == environment["reviewer"]
+    assert item.status == "in_review"
+
+    client.force_login(environment["admin"])
+    response = client.post(product_url(environment), assign_data(item, None))
+    assert response.status_code == HTTPStatus.FOUND
+    item.refresh_from_db()
+    assert item.assignee is None
+
+
+def test_reviewers_without_approve_access_cannot_assign(environment, client):
+    item = submit(environment)
+    writer = UserFactory(is_nha_team=True)
+    AccessGrant.objects.create(
+        user=writer,
+        program="abdm",
+        area="review",
+        category="HIE-CM",
+        can_read=True,
+        can_write=True,
+    )
+    client.force_login(writer)
+
+    response = client.get(product_url(environment))
+
+    assert not any(row["can_assign"] for row in response.context["review_sections"])
+    assert b'name="assignee"' not in response.content
+    response = client.post(product_url(environment), assign_data(item, writer))
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    item.refresh_from_db()
+    assert item.assignee is None
+
+
+def test_an_ineligible_assignee_is_refused_with_the_request_open(environment, client):
+    item = submit(environment)
+    client.force_login(environment["admin"])
+
+    response = client.post(
+        product_url(environment),
+        assign_data(item, environment["applicant"]),
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert b"Choose an active reviewer" in response.content
+    compact = " ".join(response.content.decode().split())
+    assert f'id="review-{item.pk}" data-product-review-panel open>' in compact
+    item.refresh_from_db()
+    assert item.assignee is None
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"intent": "decision", "revision": "0", "action": "approve"},
+        {"intent": "assign", "assignee": ""},
+    ],
+)
+def test_product_actions_cannot_target_another_product(environment, client, data):
     other, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
@@ -270,15 +356,7 @@ def test_product_actions_cannot_target_another_product(environment, client):
     item = other.product.milestones.get(key="m1").application.review_item
     client.force_login(environment["admin"])
 
-    response = client.post(
-        product_url(environment),
-        {
-            "intent": "decision",
-            "review_id": item.pk,
-            "revision": "0",
-            "action": "approve",
-        },
-    )
+    response = client.post(product_url(environment), {**data, "review_id": item.pk})
 
     assert response.status_code == HTTPStatus.NOT_FOUND
 
