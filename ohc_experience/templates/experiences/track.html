@@ -18,7 +18,7 @@
             {% for choice in track.tiles %}
               {% if choice.status != 'approved' %}Next: <a class="font-semibold text-primary no-underline hover:underline"
     href="{{ choice.url }}">
-                <span class="font-mono">{{ choice.definition.code }}</span> {{ choice.definition.name }}</a> · {% if choice.reply_needed %}reply needed{% elif choice.item.pending %}with the reviewer{% elif choice.locked_by %}submit {{ choice.locked_by }} first{% else %}waiting on you{% endif %}
+                <span class="font-mono">{{ choice.definition.code }}</span> {{ choice.definition.name }}</a> · {% if choice.reply_needed %}reply needed{% elif choice.item.pending %}with the reviewer{% elif choice.locked_by %}{% if choice.resubmit %}resubmit{% else %}submit{% endif %} {{ choice.locked_by }} first{% else %}waiting on you{% endif %}
               <br />
             {% endif %}
           {% endfor %}
@@ -105,7 +105,7 @@
                 <h3 class="text-base font-semibold">Milestone locked</h3>
                 <p class="mt-2 text-sm leading-relaxed text-soft-foreground">
                   {{ item.application.title }} opens once {% for review, url in locked_by %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a class="font-semibold text-primary no-underline hover:underline"
-   href="{{ url }}">{{ review.title }}</a>{% endfor %} {{ locked_by|length|pluralize:'is,are' }} submitted.
+   href="{{ url }}">{{ review.title }}</a>{% endfor %} {{ locked_by|length|pluralize:'is,are' }} {% if tile.resubmit %}resubmitted{% else %}submitted{% endif %}.
                 </p>
                 {% if item.selected_submission %}<p class="mt-2 text-xs text-soft-foreground">Your saved draft is kept.</p>{% endif %}
               </div>

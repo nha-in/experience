@@ -175,7 +175,8 @@ retired; reviewer work uses the engine's assessment screens.
   and NHCX1 flows have the gateway call the integrator back, so none of them
   can be submitted, alone or alongside another milestone, while the product's
   credentials have no callback URL; drafts still save. A
-  rejected milestone still counts as submitted; a withdrawn one does not. A
+  rejected or withdrawn milestone counts once it is resubmitted, so M2 stays
+  locked while M1 is rejected. A
   request cannot be withdrawn while a later milestone built on it is under
   review; the integrator withdraws that one first. An
   integrator can still submit M2 before M1 is approved, or before the

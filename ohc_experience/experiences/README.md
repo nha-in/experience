@@ -88,11 +88,11 @@ organisations app. Credentials are encrypted in `ProductCredential`, never store
 as secrets in outcome JSON. The production client ID staff add is a plain
 `Product` field; its secret never reaches the portal. `ApplicationDependency`
 rejects cross-product links, self references and cycles. A form opens once every
-application it depends on, directly or not, is submitted; rejected still counts,
-withdrawn does not. A request cannot be withdrawn while a request depending on it
-is under review. The engine refuses approval or rejection until every
-prerequisite reaches its success status. Queries stay open. The review queue
-separates requests still waiting on a prerequisite from ready ones.
+application it depends on, directly or not, is submitted; a rejected or withdrawn
+one counts once it is resubmitted. A request cannot be withdrawn while a request
+depending on it is under review. The engine refuses approval or rejection until
+every prerequisite reaches its success status. Queries stay open. The review
+queue separates requests still waiting on a prerequisite from ready ones.
 
 A form definition lists the reasons a reviewer chooses from in
 `reject_reasons`, and a rejection on such a form takes exactly one, stored in

@@ -263,19 +263,20 @@ def _lock_tiles(workspace, tracks):
         milestone.application_id: workspace.definition.milestones[milestone.key].code
         for milestone in workspace.product.milestones.all()
     }
-    locked_by = {}
+    unsubmitted = {}
     for tile in (tile for track in tracks for tile in track["tiles"]):
         key = tile["definition"].key
-        if key not in locked_by:
-            unsubmitted = (
+        if key not in unsubmitted:
+            unsubmitted[key] = (
                 services.unsubmitted_prerequisites(tile["item"])
                 if tile["item"].editable
                 else []
             )
-            locked_by[key] = readable_list(
-                codes.get(review.application_id, review.title) for review in unsubmitted
-            )
-        tile["locked_by"] = locked_by[key]
+        tile["locked_by"] = readable_list(
+            codes.get(review.application_id, review.title)
+            for review in unsubmitted[key]
+        )
+        tile["resubmit"] = services.all_rejected(unsubmitted[key])
         if tile["locked_by"]:
             tile["label"] = "Locked"
 

@@ -339,7 +339,8 @@ def milestone_unavailable(item):
     if unsubmitted:
         names = readable_list(review.title for review in unsubmitted)
         verb = "is" if len(unsubmitted) == 1 else "are"
-        return f"{item.application.title} opens once {names} {verb} submitted."
+        submitted = "resubmitted" if all_rejected(unsubmitted) else "submitted"
+        return f"{item.application.title} opens once {names} {verb} {submitted}."
     return ""
 
 
@@ -397,20 +398,26 @@ def _reviews(applications):
 
 
 def unsubmitted_prerequisites(item):
-    """Reviews this one builds on that were never submitted, or were withdrawn.
+    """Reviews this one builds on that were never submitted, were withdrawn, or
+    were rejected and not resubmitted.
 
     A form opens once everything before it is submitted, so a chain is worked
-    through in order. Rejected still counts as submitted: a reviewer's decision
-    never closes a form the integrator is working in. Only withdrawing does, and
-    `withdraw` refuses while anything is submitted on top.
+    through in order.
     """
     if not item.application_id:
         return []
     return [
         review
         for review in _reviews(_prerequisite_applications(item.application))
-        if review.status == ReviewItem.Status.DRAFT
+        if review.status in {ReviewItem.Status.DRAFT, ReviewItem.Status.REJECTED}
     ]
+
+
+def all_rejected(reviews):
+    """Whether each review was rejected, and so is resubmitted, not submitted."""
+    return bool(reviews) and all(
+        review.status == ReviewItem.Status.REJECTED for review in reviews
+    )
 
 
 def pending_dependants(item):

@@ -86,20 +86,68 @@ def test_m4_opens_and_is_approved_before_m1_is_submitted(environment, client):
     assert milestone(environment, "m4").status == ReviewItem.Status.APPROVED
 
 
-def test_a_rejected_milestone_leaves_the_next_one_open(environment):
-    """A reviewer's decision never closes a form the integrator is working in."""
-    m1 = submit(environment)
-    workflows.assign_review(m1, environment["admin"], environment["reviewer"])
+def reject(environment, key="m1"):
+    item = milestone(environment, key)
+    workflows.assign_review(item, environment["admin"], environment["reviewer"])
     workflows.decide(
-        m1,
+        item,
         environment["reviewer"],
         action="reject",
         reason="Incomplete integration",
         note="Add the consent revocation scenarios.",
     )
 
-    assert workflows.unsubmitted_prerequisites(milestone(environment, "m2")) == []
+
+def test_a_rejected_milestone_locks_the_next_one_until_it_is_resubmitted(
+    environment,
+):
+    submit(environment)
+    reject(environment)
+
+    for submit_form in (False, True):
+        with pytest.raises(
+            ValidationError,
+            match=r"^\['M2 - Health Information Provider Services opens once "
+            r"M1 - ABHA Creation and Verification is resubmitted.'\]$",
+        ):
+            workflows.save_review_form(
+                milestone(environment, "m2"),
+                environment["applicant"],
+                data=evidence_data(),
+                files=files(),
+                submit=submit_form,
+            )
+    assert workflows.milestone_unavailable(milestone(environment, "p2")) == (
+        "P2 - Linking and records opens once M1 - ABHA Creation and Verification "
+        "and P1 - Identity and profile are submitted."
+    )
+
+    submit(environment)
+
     assert submit(environment, "m2").status == ReviewItem.Status.NEW
+
+
+def test_the_track_page_asks_for_a_rejected_milestone_to_be_resubmitted(
+    environment,
+    client,
+):
+    submit(environment)
+    reject(environment)
+    client.force_login(environment["applicant"])
+
+    html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
+
+    assert "data-milestone-locked" in html
+    assert "data-review-form" not in html
+    assert "M1 - ABHA Creation and Verification</a> is resubmitted." in html
+    tiles = milestone_tiles(html)
+    assert "Rejected · waiting on you" in tiles["M1"]
+    assert "Locked · resubmit M1 first" in tiles["M2"]
+    assert "Locked · resubmit M1 first" in tiles["M3"]
+    overview = client.get(
+        reverse("experiences:overview", args=[environment["workspace"].reference]),
+    ).content.decode()
+    assert "Locked · resubmit M1 first" in overview
 
 
 def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
