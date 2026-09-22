@@ -23,7 +23,7 @@ can read, as `production.history` does with its ISO days.
           <span>{{ event.action }}</span>
           {% if show_context and event.item %}<span class="text-xs font-normal text-soft-foreground">{{ event.item.title }}</span>{% endif %}
         </p>
-        <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'j M Y, H:i' }} IST</time></p>
+        <p class="mt-0.5 text-xs text-soft-foreground">{{ event.actor.display_name|default:'System' }} · <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'d/m/Y, H:i' }} IST</time></p>
         {% if event.detail.reason %}
           <p class="mt-1 leading-relaxed text-muted-foreground">
             <span class="font-semibold text-foreground">Reason:</span> {{ event.detail.reason }}

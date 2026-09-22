@@ -117,7 +117,7 @@
                     <li class="group flex flex-col gap-2 py-3">
                       <div class="min-w-0">
                         <p class="font-mono text-xs font-semibold">{{ review.reference }}</p>
-                        <p class="mt-1 text-xs text-soft-foreground">{% if review.submitted_at %}Submitted {{ review.submitted_at|date:'j M Y' }}{% else %}Draft started {{ review.created_at|date:'j M Y' }}{% endif %}</p>
+                        <p class="mt-1 text-xs text-soft-foreground">{% if review.submitted_at %}Submitted {{ review.submitted_at|date:'d/m/Y' }}{% else %}Draft started {{ review.created_at|date:'d/m/Y' }}{% endif %}</p>
                       </div>
                       <div class="flex flex-wrap items-center gap-3">
                         {% include 'experiences/partials/status.html' with status=review.status label=review.get_status_display %}
@@ -141,7 +141,7 @@
                     <li class="group flex flex-col gap-2 py-3">
                       <div class="min-w-0">
                         <p class="break-words text-sm font-semibold">{{ approval.data.wasa_agency }}</p>
-                        <p class="mt-1 text-xs text-soft-foreground">Approved {{ approval.issued_at|date:'j M Y' }} · {% if approval.valid_until %}Expiry {{ approval.valid_until|date:'j M Y' }}{% else %}Expiry needs verification{% endif %}</p>
+                        <p class="mt-1 text-xs text-soft-foreground">Approved {{ approval.issued_at|date:'d/m/Y' }} · {% if approval.valid_until %}Expiry {{ approval.valid_until|date:'d/m/Y' }}{% else %}Expiry needs verification{% endif %}</p>
                         <p class="mt-1 text-xs text-soft-foreground">{{ approval.source_application.title }}</p>
                       </div>
                       {% if approval.source_application.review_item and approval.data.submission_id %}

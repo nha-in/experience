@@ -60,7 +60,7 @@
                    href="{{ entry.url }}">{% if entry.product %}Review product{% else %}Open review{% endif %} <span class="ml-1" aria-hidden="true">→</span></a>
               </td>
               <td class="min-w-[340px] align-top">{% include 'experiences/partials/reviewer_queue_milestones.html' %}</td>
-              <td class="whitespace-nowrap align-top tabular-nums">{{ entry.submitted_at|date:'j M Y' }}</td>
+              <td class="whitespace-nowrap align-top tabular-nums">{{ entry.submitted_at|date:'d/m/Y' }}</td>
               <td class="align-top">{% include 'experiences/partials/reviewer_age.html' with item=entry %}</td>
               <td class="align-top">
                 <div class="flex flex-col gap-1">
@@ -84,7 +84,7 @@
             <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground">
               <span>{{ entry.age }} day{{ entry.age|pluralize }} old</span>
               <span class="font-semibold text-primary">{% if entry.product %}Review product{% else %}Open review{% endif %} <span aria-hidden="true">→</span></span>
-              <span class="sr-only">Submitted {{ entry.submitted_at|date:'j M Y' }}. Assigned to {% for assignee in entry.assignees %}{{ assignee.display_name|default:'Unassigned' }}{% if not forloop.last %}, {% endif %}{% endfor %}.</span>
+              <span class="sr-only">Submitted {{ entry.submitted_at|date:'d/m/Y' }}. Assigned to {% for assignee in entry.assignees %}{{ assignee.display_name|default:'Unassigned' }}{% if not forloop.last %}, {% endif %}{% endfor %}.</span>
             </div>
           </a>
         </li>

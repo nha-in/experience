@@ -16,12 +16,12 @@
               {% include 'experiences/partials/status.html' with status=query.status label=query.get_status_display %}
             </div>
             <p class="text-sm leading-relaxed">{{ query.question|linebreaksbr }}</p>
-            <p class="mt-1.5 text-xs text-soft-foreground">{{ query.raised_by.display_name }} · {{ query.raised_at|date:'d M Y, H:i' }} IST{% if query.submission_id != item.selected_submission_id %} · Earlier submission{% endif %}
+            <p class="mt-1.5 text-xs text-soft-foreground">{{ query.raised_by.display_name }} · {{ query.raised_at|date:'d/m/Y, H:i' }} IST{% if query.submission_id != item.selected_submission_id %} · Earlier submission{% endif %}
             </p>
             {% if query.reply %}
               <blockquote class="mt-3 rounded-lg bg-soft-background p-4">
                 <p class="text-sm leading-relaxed">{{ query.reply|linebreaksbr }}</p>
-                <p class="mt-1 text-xs text-soft-foreground">{{ query.replied_by.display_name }} · {{ query.replied_at|date:'d M Y, H:i' }} IST</p>
+                <p class="mt-1 text-xs text-soft-foreground">{{ query.replied_by.display_name }} · {{ query.replied_at|date:'d/m/Y, H:i' }} IST</p>
               </blockquote>
             {% endif %}
             {% if query.submission_id == item.selected_submission_id and item.pending %}

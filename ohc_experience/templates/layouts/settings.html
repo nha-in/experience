@@ -13,7 +13,7 @@
       {% block settings_subtitle %}
         {{ organisation.display_name }}
         {% if organisation.verified_at %}
-          · {% blocktranslate with date=organisation.verified_at|date:"j M Y" %}Verified {{ date }}{% endblocktranslate %}
+          · {% blocktranslate with date=organisation.verified_at|date:"d/m/Y" %}Verified {{ date }}{% endblocktranslate %}
         {% endif %}
       {% endblock settings_subtitle %}
     </p>

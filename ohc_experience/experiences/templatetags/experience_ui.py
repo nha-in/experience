@@ -1,8 +1,24 @@
+import datetime
 import json
+import re
 
 from django import template
+from django.utils.formats import date_format
 
 register = template.Library()
+
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _answer(value):
+    # Answers are stored as JSON, so a date comes back as its ISO string. Print
+    # it day first, like every other date.
+    if isinstance(value, str) and ISO_DATE.fullmatch(value):
+        try:
+            return date_format(datetime.date.fromisoformat(value), "d/m/Y")
+        except ValueError:
+            pass
+    return value
 
 
 @register.filter
@@ -22,7 +38,7 @@ def outcome_rows(outcome):
             continue
         if isinstance(value, (dict, list)):
             value = json.dumps(value, ensure_ascii=False)
-        rows.append((field.get("label", readable(field["key"])), value))
+        rows.append((field.get("label", readable(field["key"])), _answer(value)))
     return rows
 
 
@@ -84,7 +100,7 @@ def snapshot_rows(snapshot, item=None):
         if isinstance(value, list):
             value = ", ".join(choices.get(str(entry), str(entry)) for entry in value)
         elif value is not None:
-            value = choices.get(str(value), str(value))
+            value = choices.get(str(value), _answer(str(value)))
         rows.append(
             {
                 "key": key,

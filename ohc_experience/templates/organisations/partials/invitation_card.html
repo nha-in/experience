@@ -24,7 +24,7 @@
     <span class="ui-badge ui-badge--warning ui-badge--size-sm">{% translate "Invited" %}</span>
     <span class="text-xs text-soft-foreground">{{ i.get_role_display }}</span>
     <span class="text-xs text-soft-foreground">
-      {% blocktranslate with expires_on=i.expires_at|date:"j M Y" %}Expires {{ expires_on }}{% endblocktranslate %}
+      {% blocktranslate with expires_on=i.expires_at|date:"d/m/Y" %}Expires {{ expires_on }}{% endblocktranslate %}
     </span>
   </div>
   {% if can_manage %}

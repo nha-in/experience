@@ -22,7 +22,7 @@
     </div>
   </td>
   <td class="text-[12.5px] text-soft-foreground">
-    {% blocktranslate with expires_on=i.expires_at|date:"j M Y" %}Expires {{ expires_on }}{% endblocktranslate %}
+    {% blocktranslate with expires_on=i.expires_at|date:"d/m/Y" %}Expires {{ expires_on }}{% endblocktranslate %}
   </td>
   <td class="text-right">
     {% if can_manage %}

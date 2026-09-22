@@ -20,7 +20,7 @@
         </div>
         <h1 class="ui-page-title mt-2 break-words">{{ event.title }}</h1>
         <p class="mt-1.5 break-words text-sm text-soft-foreground">
-          {{ event.starts_at|date:'D, j M Y, H:i' }}{% if event.ends_at %}–{{ event.ends_at|date:'H:i' }}{% endif %} IST · {{ event.location|default:'Online' }}{% if can_manage %} · {{ event.category|default:'General / onboarding' }}{% endif %}
+          {{ event.starts_at|date:'D, d/m/Y, H:i' }}{% if event.ends_at %}–{{ event.ends_at|date:'H:i' }}{% endif %} IST · {{ event.location|default:'Online' }}{% if can_manage %} · {{ event.category|default:'General / onboarding' }}{% endif %}
         </p>
         {% if event.summary %}<p class="mt-2 break-words text-sm">{{ event.summary }}</p>{% endif %}
       </div>
@@ -153,7 +153,7 @@
                     {% endif %}
                   </td>
                   <td class="whitespace-nowrap tabular-nums">{{ registration.user.phone_number|default:'—' }}</td>
-                  <td class="whitespace-nowrap tabular-nums">{{ registration.created_at|date:'j M Y, H:i' }}</td>
+                  <td class="whitespace-nowrap tabular-nums">{{ registration.created_at|date:'d/m/Y, H:i' }}</td>
                 </tr>
               {% endfor %}
             </tbody>

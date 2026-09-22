@@ -25,6 +25,6 @@
     <td class="align-top text-muted-foreground">{{ ticket.get_priority_display }}</td>
     <td class="align-top"><span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{% if reviewer %}{{ ticket.queue_status_label }}{% else %}{{ ticket.get_status_display }}{% endif %}</span></td>
     <td class="text-right align-top whitespace-nowrap text-muted-foreground tabular-nums"><time datetime="{{ ticket.updated_at|date:'c' }}"
-      title="{{ ticket.updated_at|date:'j M Y, H:i' }} IST">{{ ticket.updated_at|timesince }} ago</time></td>
+      title="{{ ticket.updated_at|date:'d/m/Y, H:i' }} IST">{{ ticket.updated_at|timesince }} ago</time></td>
   </tr>
 {% endif %}

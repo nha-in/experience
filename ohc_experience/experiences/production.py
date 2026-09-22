@@ -370,7 +370,7 @@ def history(product, limit=20):
 
 
 def _day(value):
-    return date_format(value, "j M Y") if value else ""
+    return date_format(value, "d/m/Y") if value else ""
 
 
 def _from_iso(value):

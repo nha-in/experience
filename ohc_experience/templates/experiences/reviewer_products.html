@@ -85,7 +85,7 @@
             <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ workspace.open_count }} open<span class="sr-only"> request{{ workspace.open_count|pluralize }}</span></span>
           {% endif %}
           {% if workspace.registered_at %}
-            <span class="text-xs text-soft-foreground">Registered {{ workspace.registered_at|date:'j M Y' }}</span>
+            <span class="text-xs text-soft-foreground">Registered {{ workspace.registered_at|date:'d/m/Y' }}</span>
           {% endif %}
           <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
                 aria-hidden="true">→</span>

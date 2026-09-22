@@ -38,6 +38,6 @@
       <span class="ui-badge ui-badge--neutral ui-badge--size-sm">{{ m.get_role_display }}</span>
     {% endif %}
   </td>
-  <td class="text-[12.5px] text-soft-foreground">{{ m.joined_at|date:"j M Y" }}</td>
+  <td class="text-[12.5px] text-soft-foreground">{{ m.joined_at|date:"d/m/Y" }}</td>
   <td class="text-right">{% include "organisations/partials/member_remove_form.html" %}</td>
 </tr>

@@ -258,7 +258,8 @@ class TicketMessage(models.Model):
         ordering = ["created_at", "id"]
 
     def __str__(self) -> str:
-        return f"{self.ticket.reference} · {self.created_at:%Y-%m-%d %H:%M}"
+        created = timezone.localtime(self.created_at)
+        return f"{self.ticket.reference} · {created:%d/%m/%Y, %H:%M}"
 
     @property
     def is_event(self) -> bool:

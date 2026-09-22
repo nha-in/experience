@@ -30,6 +30,8 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 TIME_ZONE = "Asia/Kolkata"
 # https://docs.djangoproject.com/en/dev/ref/settings/#language-code
 LANGUAGE_CODE = "en-us"
+# https://docs.djangoproject.com/en/dev/ref/settings/#format-module-path
+FORMAT_MODULE_PATH = ["config.formats"]
 # https://docs.djangoproject.com/en/dev/ref/settings/#languages
 # from django.utils.translation import gettext_lazy as _
 # LANGUAGES = [

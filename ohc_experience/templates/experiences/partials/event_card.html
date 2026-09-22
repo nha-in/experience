@@ -34,7 +34,7 @@
         {% if not event.is_published %}<span class="ui-badge ui-badge--neutral ui-badge--size-xs">Draft</span>{% endif %}
       </div>
       <p class="mt-0.5 text-[13px] leading-[18px] {% if period == 'past' %}text-soft-foreground{% else %}text-muted-foreground{% endif %}">
-        {% if period == 'past' %}{{ event.starts_at|date:"D, j M Y" }} · {% else %}{{ event.starts_at|date:"D" }}, {% endif %}{{ event.starts_at|date:"H:i" }}{% if event.ends_at %}–{{ event.ends_at|date:"H:i" }}{% endif %} IST · {{ event.location|default:"Online" }}
+        {% if period == 'past' %}{{ event.starts_at|date:"D, d/m/Y" }} · {% else %}{{ event.starts_at|date:"D" }}, {% endif %}{{ event.starts_at|date:"H:i" }}{% if event.ends_at %}–{{ event.ends_at|date:"H:i" }}{% endif %} IST · {{ event.location|default:"Online" }}
       </p>
       {% if event.summary %}<p class="mt-1.5 text-sm break-words {% if period == 'past' %}text-soft-foreground{% else %}text-muted-foreground{% endif %}">{{ event.summary }}</p>{% endif %}
     </div>

@@ -157,7 +157,7 @@ def remind_event_registrations():
                 ),
                 body=(
                     f"{registration.event.title}\n"
-                    f"{starts_at:%d %b %Y, %H:%M %Z}\n"
+                    f"{starts_at:%d/%m/%Y, %H:%M %Z}\n"
                     f"{registration.event.join_url}"
                 ),
             )

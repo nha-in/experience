@@ -47,7 +47,7 @@
         {% endif %}
       </span>
       <span class="mt-1 block text-xs leading-relaxed text-soft-foreground break-words">
-        {% if item.kind == 'organisation_verification' %}{% if item.status == 'draft' %}Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %}{% else %}Shared across all products of {{ organisation.display_name }}{% endif %}{% elif snapshot %}Submitted {{ item.submitted_at|date:'j M Y' }} · {{ item.assignee.display_name|default:'Unassigned' }}{% elif item.status == 'rejected' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}
+        {% if item.kind == 'organisation_verification' %}{% if item.status == 'draft' %}Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'d/m/Y' }}{% endif %}{% else %}Shared across all products of {{ organisation.display_name }}{% endif %}{% elif snapshot %}Submitted {{ item.submitted_at|date:'d/m/Y' }} · {{ item.assignee.display_name|default:'Unassigned' }}{% elif item.status == 'rejected' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}
       </span>
     </span>
     <span class="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -247,7 +247,7 @@
     {% else %}
       <div class="text-sm leading-relaxed text-soft-foreground">
         <p class="font-semibold text-foreground">{% if item.status == 'draft' %}Withdrawn by the integrator{% elif item.status == 'rejected' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}</p>
-        <p class="mt-1">{% if item.status == 'draft' %}The integrator withdrew this verification{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %} to change it. It returns here for review when they resubmit, and milestone decisions wait until it is approved.{% elif item.status == 'rejected' %}The integrator is updating this request after it was rejected. New evidence will appear when they resubmit.{% else %}There is no submitted evidence available for this request.{% endif %}</p>
+        <p class="mt-1">{% if item.status == 'draft' %}The integrator withdrew this verification{% if withdrawn_at %} on {{ withdrawn_at|date:'d/m/Y' }}{% endif %} to change it. It returns here for review when they resubmit, and milestone decisions wait until it is approved.{% elif item.status == 'rejected' %}The integrator is updating this request after it was rejected. New evidence will appear when they resubmit.{% else %}There is no submitted evidence available for this request.{% endif %}</p>
       </div>
     {% endif %}
   </div>

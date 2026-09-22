@@ -37,7 +37,7 @@
                     {% else %}
                       <span class="font-medium">{{ milestone.definition.name }}</span>
                     {% endif %}
-                    <span class="text-xs text-soft-foreground">Approved {{ milestone.application.decided_at|date:'j M Y' }}</span>
+                    <span class="text-xs text-soft-foreground">Approved {{ milestone.application.decided_at|date:'d/m/Y' }}</span>
                   </li>
                 {% endfor %}
               </ul>
@@ -82,7 +82,7 @@
                 </dd>
                 <dt class="ui-kicker pt-0.5">Production issue date</dt>
                 <dd class="tabular-nums">
-                  {{ product.production_issued_on|date:'j M Y'|default:'Not entered' }}
+                  {{ product.production_issued_on|date:'d/m/Y'|default:'Not entered' }}
                 </dd>
               </dl>
             {% endif %}

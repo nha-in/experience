@@ -137,7 +137,7 @@ def update_registration(request, event):
                 subject=f"{get_program().short_name}: registered for {event.title}",
                 body=(
                     f"{event.title}\n"
-                    f"{timezone.localtime(event.starts_at):%d %b %Y, %H:%M %Z}\n"
+                    f"{timezone.localtime(event.starts_at):%d/%m/%Y, %H:%M %Z}\n"
                     f"{event.join_url}"
                 ),
             )

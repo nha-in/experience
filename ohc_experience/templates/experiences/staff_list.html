@@ -78,7 +78,7 @@
                   <td>{% include 'experiences/partials/staff_identity.html' %}</td>
                   <td>{% include 'experiences/partials/staff_access_summary.html' %}</td>
                   <td>{% include 'experiences/partials/staff_status.html' %}</td>
-                  <td class="staff-last-login">{% if member.last_login %}<time datetime="{{ member.last_login|date:'c' }}">{{ member.last_login|date:'j M Y' }}</time>{% else %}<span>Not yet</span>{% endif %}</td>
+                  <td class="staff-last-login">{% if member.last_login %}<time datetime="{{ member.last_login|date:'c' }}">{{ member.last_login|date:'d/m/Y' }}</time>{% else %}<span>Not yet</span>{% endif %}</td>
                   <td class="staff-row-action">
                     {% if not member.is_superuser %}
                       <a href="{% url 'experiences:staff-edit' member.pk %}"
@@ -112,7 +112,7 @@
               </div>
               <div class="staff-mobile-access">{% include 'experiences/partials/staff_access_summary.html' %}</div>
               <div class="staff-mobile-footer">
-                <span>Last sign-in: {{ member.last_login|date:'j M Y'|default:'Not yet' }}</span>
+                <span>Last sign-in: {{ member.last_login|date:'d/m/Y'|default:'Not yet' }}</span>
                 {% if not member.is_superuser %}<a href="{% url 'experiences:staff-edit' member.pk %}"
    aria-label="Manage {{ member.display_name }}">Manage <span aria-hidden="true">→</span></a>{% endif %}
               </div>

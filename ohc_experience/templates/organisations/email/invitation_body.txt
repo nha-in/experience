@@ -4,7 +4,7 @@
 
 {{ accept_url }}
 
-{% blocktranslate with expires_on=invitation.expires_at|date:"j F Y" %}The link expires on {{ expires_on }}.{% endblocktranslate %}
+{% blocktranslate with expires_on=invitation.expires_at|date:"d/m/Y" %}The link expires on {{ expires_on }}.{% endblocktranslate %}
 
 {% translate "If you were not expecting this invite, you can safely ignore this email." %}
 

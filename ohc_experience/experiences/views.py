@@ -1945,7 +1945,8 @@ def assess_dashboard(request):
         ]
         weeks.append(
             {
-                "label": start.strftime("%d %b"),
+                "label": start.strftime("%d/%m"),
+                "start": start,
                 "approved": sum(item.action == "Approved" for item in subset),
                 "rejected": sum(item.action == "Rejected" for item in subset),
             },

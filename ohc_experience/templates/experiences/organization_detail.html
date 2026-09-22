@@ -96,11 +96,11 @@
               <dd class="mt-1">
                 {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
                 {% if organization.verified_at %}
-                  <span class="mt-1 block text-xs text-soft-foreground">Verified {{ organization.verified_at|date:'j M Y' }}</span>
+                  <span class="mt-1 block text-xs text-soft-foreground">Verified {{ organization.verified_at|date:'d/m/Y' }}</span>
                 {% endif %}
                 {% if withdrawn_verification %}
                   <p class="mt-1.5 text-xs leading-relaxed text-soft-foreground">
-                    Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'j M Y' }}{% endif %}. It returns for review when they resubmit.
+                    Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'d/m/Y' }}{% endif %}. It returns for review when they resubmit.
                     <a class="font-semibold text-primary hover:underline"
                        href="{{ withdrawn_verification.get_absolute_url }}">View history</a>
                   </p>

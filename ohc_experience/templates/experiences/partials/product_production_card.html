@@ -27,7 +27,7 @@
         <div class="grid min-h-11 items-center gap-1 py-1 sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-4">
           <dt class="ui-kicker">Issued on</dt>
           <dd class="tabular-nums">
-            {{ production.issued_on|date:'j M Y'|default:'—' }}
+            {{ production.issued_on|date:'d/m/Y'|default:'—' }}
           </dd>
         </div>
       </dl>

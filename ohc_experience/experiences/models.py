@@ -956,7 +956,7 @@ class AuditEvent(models.Model):
         ordering = ["-created_at", "-pk"]
 
     def __str__(self):
-        return f"{self.action} ({self.created_at})"
+        return f"{self.action} ({timezone.localtime(self.created_at):%d/%m/%Y, %H:%M})"
 
     def save(self, *args, **kwargs):
         if not self._state.adding:

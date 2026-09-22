@@ -4,9 +4,9 @@
   <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
     <p class="text-sm {% if not form.product_wasa.valid %}text-amber-800{% else %}text-muted-foreground{% endif %}">
       {% if form.product_wasa.valid %}
-        Approved certificate <span aria-hidden="true">·</span> Valid until {{ form.product_wasa.valid_until|date:'j M Y' }}
+        Approved certificate <span aria-hidden="true">·</span> Valid until {{ form.product_wasa.valid_until|date:'d/m/Y' }}
       {% elif form.product_wasa.valid_until %}
-        {{ form.product_wasa.status_label }} certificate <span aria-hidden="true">·</span> Expiry {{ form.product_wasa.valid_until|date:'j M Y' }}
+        {{ form.product_wasa.status_label }} certificate <span aria-hidden="true">·</span> Expiry {{ form.product_wasa.valid_until|date:'d/m/Y' }}
       {% else %}
         Select a valid certificate or upload a new one.
       {% endif %}
@@ -33,14 +33,14 @@
                    name="wasa_source_submission"
                    value="{{ form.product_wasa.source_submission.pk|default:form.wasa_source_submission.value }}"
                    checked />
-            <span class="text-sm">Previously selected <span class="block text-xs text-soft-foreground">{{ form.product_wasa.agency|default:'WASA certificate' }}{% if form.product_wasa.valid_until %} · Expiry {{ form.product_wasa.valid_until|date:'j M Y' }}{% endif %}{% if not form.product_wasa.valid %} · {{ form.product_wasa.status_label|default:'Unavailable' }}{% endif %}</span></span>
+            <span class="text-sm">Previously selected <span class="block text-xs text-soft-foreground">{{ form.product_wasa.agency|default:'WASA certificate' }}{% if form.product_wasa.valid_until %} · Expiry {{ form.product_wasa.valid_until|date:'d/m/Y' }}{% endif %}{% if not form.product_wasa.valid %} · {{ form.product_wasa.status_label|default:'Unavailable' }}{% endif %}</span></span>
           </label>
           <label class="flex min-h-11 cursor-pointer items-start gap-3 py-2">
             <input class="mt-0.5 size-4 shrink-0 accent-primary"
                    type="radio"
                    name="wasa_source_submission"
                    value="{{ form.latest_product_wasa.source_submission.pk }}" />
-            <span class="text-sm">Latest approved <span class="block text-xs text-soft-foreground">{{ form.latest_product_wasa.agency }} · Valid until {{ form.latest_product_wasa.valid_until|date:'j M Y' }}</span></span>
+            <span class="text-sm">Latest approved <span class="block text-xs text-soft-foreground">{{ form.latest_product_wasa.agency }} · Valid until {{ form.latest_product_wasa.valid_until|date:'d/m/Y' }}</span></span>
           </label>
         </fieldset>
         {% if form.latest_product_wasa.certificate %}

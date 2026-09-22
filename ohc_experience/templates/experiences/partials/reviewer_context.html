@@ -13,7 +13,7 @@
         <dt class="ui-kicker pt-0.5">Prior approvals</dt>
         <dd><ul class="flex flex-col gap-2.5">{% for approval in prior_approvals %}<li class="group flex flex-wrap items-center gap-x-2 gap-y-1"><span class="ui-badge ui-badge--success ui-badge--size-xs">Approved</span><a class="font-medium text-primary no-underline group-hover:underline"
    href="{{ approval.get_absolute_url }}"
-   data-row-link>{{ approval.title }}</a><span class="text-xs text-soft-foreground">{{ approval.decided_at|date:'j M Y' }}</span></li>{% empty %}<li class="text-muted-foreground">No previous approvals.</li>{% endfor %}</ul></dd>
+   data-row-link>{{ approval.title }}</a><span class="text-xs text-soft-foreground">{{ approval.decided_at|date:'d/m/Y' }}</span></li>{% empty %}<li class="text-muted-foreground">No previous approvals.</li>{% endfor %}</ul></dd>
       </div>
       <div class="grid gap-x-5 gap-y-2 border-t border-soft-border py-3 sm:grid-cols-[196px_minmax(0,1fr)]">
         <dt class="ui-kicker pt-0.5">Callback</dt>
@@ -71,7 +71,7 @@
         <dt class="ui-kicker pt-0.5">Product WASA</dt>
         <dd class="min-w-0 text-sm leading-relaxed">
           <span class="ui-badge ui-badge--{{ certification.tone }} ui-badge--size-xs">{{ certification.status_label }}</span>
-          {% if certification.valid_until %}<span class="ml-1 text-xs text-muted-foreground">Expiry {{ certification.valid_until|date:'j M Y' }}</span>{% endif %}
+          {% if certification.valid_until %}<span class="ml-1 text-xs text-muted-foreground">Expiry {{ certification.valid_until|date:'d/m/Y' }}</span>{% endif %}
           {% if certification.agency %}<span class="mt-1 block text-xs text-soft-foreground">{{ certification.agency }}</span>{% endif %}
           {% if certification.pending_review %}<span class="mt-1 block text-xs text-soft-foreground">{% if certification.current %}Renewal{% else %}WASA submission{% endif %} under review</span>{% endif %}
           {% if certification.certificate %}<a class="mt-1 inline-flex min-h-9 items-center text-xs font-semibold text-primary hover:underline"

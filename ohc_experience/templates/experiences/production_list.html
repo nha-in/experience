@@ -110,14 +110,14 @@
                   <td>
                     <span class="font-mono text-xs">{{ product.approved_codes|join:', '|default:'—' }}</span>
                     {% if product.first_exit_at %}
-                      <span class="mt-0.5 block text-xs whitespace-nowrap text-soft-foreground tabular-nums">Approved {{ product.first_exit_at|date:'j M Y' }}</span>
+                      <span class="mt-0.5 block text-xs whitespace-nowrap text-soft-foreground tabular-nums">Approved {{ product.first_exit_at|date:'d/m/Y' }}</span>
                     {% endif %}
                   </td>
                   {% if stage == 'approved' %}
                     <td class="min-w-[200px]">
                       <span class="font-mono text-xs break-all">{{ product.production_client_id }}</span>
                     </td>
-                    <td class="whitespace-nowrap tabular-nums">{{ product.production_issued_on|date:'j M Y'|default:'—' }}</td>
+                    <td class="whitespace-nowrap tabular-nums">{{ product.production_issued_on|date:'d/m/Y'|default:'—' }}</td>
                   {% endif %}
                   <td class="text-right">
                     <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 whitespace-nowrap"

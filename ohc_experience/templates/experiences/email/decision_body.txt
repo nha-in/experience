@@ -4,7 +4,7 @@
 {% translate "Organisation" %}: {{ item.organisation.display_name }}
 {% if item.product %}{% translate "Product" %}: {{ item.product.name }}{% if item.product.workspace.reference %} ({{ item.product.workspace.reference }}){% endif %}
 {% endif %}{% if applicant %}{% translate "Submitted by" %}: {{ applicant.name|default:applicant.email }}
-{% endif %}{% if item.decided_at %}{% translate "Decided on" %}: {{ item.decided_at|date:"j M Y, H:i" }} IST
+{% endif %}{% if item.decided_at %}{% translate "Decided on" %}: {{ item.decided_at|date:"d/m/Y, H:i" }} IST
 {% endif %}
 {% if note %}{% translate "Reviewer's note:" %}
 

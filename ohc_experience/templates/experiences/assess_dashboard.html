@@ -8,7 +8,7 @@
       <div class="ui-rise min-w-0">
         <p class="ui-hero-eyebrow">{{ experience_program.review_heading }}</p>
         <h1 class="ui-hero-title">Dashboard</h1>
-        <p class="ui-hero-lede">{{ today|date:'l j F Y' }} · Where every review request stands right now.</p>
+        <p class="ui-hero-lede">{{ today|date:'l, d/m/Y' }} · Where every review request stands right now.</p>
       </div>
       <div class="ui-rise flex items-center gap-3.5 pb-0.5 [animation-delay:.05s]">
         <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground ring-4 ring-primary/15"
@@ -99,8 +99,8 @@
               </div>
             {% endfor %}
           </div>
-          <div class="grid grid-cols-8 gap-2.5 px-1 pt-1.5 text-center text-[11px] text-soft-foreground">{% for week in weeks %}<span>{{ week.label }}</span>{% endfor %}</div>
-          <table class="sr-only"><caption>Decisions per week</caption><thead><tr><th scope="col">Week</th><th scope="col">Approved</th><th scope="col">Rejected</th></tr></thead><tbody>{% for week in weeks %}<tr><td>{{ week.label }}</td><td>{{ week.approved }}</td><td>{{ week.rejected }}</td></tr>{% endfor %}</tbody></table>
+          <div class="grid grid-cols-8 gap-2.5 px-1 pt-1.5 text-center text-[10px] tracking-tight text-soft-foreground tabular-nums">{% for week in weeks %}<span>{{ week.label }}</span>{% endfor %}</div>
+          <table class="sr-only"><caption>Decisions per week</caption><thead><tr><th scope="col">Week</th><th scope="col">Approved</th><th scope="col">Rejected</th></tr></thead><tbody>{% for week in weeks %}<tr><td>{{ week.start|date:"d/m/Y" }}</td><td>{{ week.approved }}</td><td>{{ week.rejected }}</td></tr>{% endfor %}</tbody></table>
         </div>
       </section>
     </div>

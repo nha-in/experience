@@ -25,7 +25,7 @@
     </span>
   </div>
   <div class="text-xs text-soft-foreground">
-    {% blocktranslate with joined_on=m.joined_at|date:"j M Y" %}Joined {{ joined_on }}{% endblocktranslate %}
+    {% blocktranslate with joined_on=m.joined_at|date:"d/m/Y" %}Joined {{ joined_on }}{% endblocktranslate %}
   </div>
   {% if m.is_owner %}
     <div>

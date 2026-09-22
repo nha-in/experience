@@ -5,7 +5,7 @@
       <span class="ui-badge ui-badge--{{ certification.tone }} ui-badge--size-xs">{{ certification.status_label }}</span>
     </div>
     {% if certification.valid_until %}
-      <p class="mt-2 text-sm text-soft-foreground">{% if certification.status == 'expired' %}Expired on{% elif certification.status == 'revoked' %}Certificate expiry{% else %}Valid until{% endif %} <span class="tabular-nums">{{ certification.valid_until|date:'j M Y' }}</span></p>
+      <p class="mt-2 text-sm text-soft-foreground">{% if certification.status == 'expired' %}Expired on{% elif certification.status == 'revoked' %}Certificate expiry{% else %}Valid until{% endif %} <span class="tabular-nums">{{ certification.valid_until|date:'d/m/Y' }}</span></p>
     {% elif certification.status == 'needs_verification' %}
       <p class="mt-2 text-sm text-soft-foreground">Submit the certificate's expiry date for review.</p>
     {% elif not certification.review %}

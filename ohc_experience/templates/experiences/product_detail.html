@@ -16,7 +16,7 @@
           <span class="inline-flex items-center gap-0.5"><span class="font-mono text-[13px] text-foreground">{{ reference }}</span>{% include 'components/copy_button.html' with value=reference label='product reference' %}</span>
           {% if product.workspace.solution_type %}<span aria-hidden="true">·</span><span>{{ product.workspace.get_solution_type_display }}</span>{% endif %}
           {% if product.workspace.registered_at %}<span aria-hidden="true">·</span><span>Registered {% if registration %}<a class="font-semibold text-primary hover:underline"
-   href="{{ registration.get_absolute_url }}">{{ product.workspace.registered_at|date:'j M Y' }}</a>{% else %}{{ product.workspace.registered_at|date:'j M Y' }}{% endif %}</span>{% endif %}
+   href="{{ registration.get_absolute_url }}">{{ product.workspace.registered_at|date:'d/m/Y' }}</a>{% else %}{{ product.workspace.registered_at|date:'d/m/Y' }}{% endif %}</span>{% endif %}
           {% if progress.total %}<span aria-hidden="true">·</span><span><strong class="font-semibold tabular-nums text-primary">{{ progress.approved }}/{{ progress.total }}</strong> milestones approved</span>{% endif %}
         </p>
       </div>
@@ -107,7 +107,7 @@
               {% for outcome in outcomes %}
                 <article class="rounded-lg border border-soft-border p-3">
                   <h3 class="text-xs font-semibold text-primary">✓ {{ outcome.name }}</h3>
-                  <p class="mt-1 text-xs text-soft-foreground">{{ outcome.issued_at|date:'d M Y' }}</p>
+                  <p class="mt-1 text-xs text-soft-foreground">{{ outcome.issued_at|date:'d/m/Y' }}</p>
                   <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
                     {% for label,value in outcome|outcome_rows %}
                       <dt class="text-soft-foreground">{{ label }}</dt>
@@ -148,7 +148,7 @@
             <dt class="text-soft-foreground">Status</dt>
             <dd>
               {% include 'experiences/partials/status.html' with status=organisation.verification_status label=organisation.get_verification_status_display %}
-              {% if organisation.verified_at %}<span class="mt-1 block text-xs text-soft-foreground">Verified {{ organisation.verified_at|date:'d M Y' }}</span>{% endif %}
+              {% if organisation.verified_at %}<span class="mt-1 block text-xs text-soft-foreground">Verified {{ organisation.verified_at|date:'d/m/Y' }}</span>{% endif %}
             </dd>
           </dl>
           {% for item in organisation_pending %}
@@ -165,7 +165,7 @@
               <h2 class="text-base font-bold" id="wasa-title">WASA</h2>
               <span class="ui-badge ui-badge--{{ certification.tone }} ui-badge--size-xs">{{ certification.status_label }}</span>
             </div>
-            {% if certification.valid_until %}<p class="text-sm text-soft-foreground">Expiry <span class="tabular-nums">{{ certification.valid_until|date:'j M Y' }}</span></p>{% endif %}
+            {% if certification.valid_until %}<p class="text-sm text-soft-foreground">Expiry <span class="tabular-nums">{{ certification.valid_until|date:'d/m/Y' }}</span></p>{% endif %}
             {% if certification.agency %}<p class="mt-1 break-words text-xs text-soft-foreground">{{ certification.agency }}</p>{% endif %}
             <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
               {% if certification.review and certification.review.status != 'draft' %}

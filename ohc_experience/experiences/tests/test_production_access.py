@@ -349,7 +349,7 @@ def test_integrator_and_reviewer_pages(environment, client):
     assert "PROD-1" in content
     # The integrator is told when the gateway team issued it, not when NHA typed it.
     assert "Issued on" in content
-    assert f"{issued:%-d %b %Y}" in content
+    assert f"{issued:%d/%m/%Y}" in content
     assert copy.usage_notice in content
     content = client.get(
         reverse("experiences:overview", args=[reference]),
