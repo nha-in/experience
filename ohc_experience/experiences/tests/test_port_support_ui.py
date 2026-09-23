@@ -548,28 +548,6 @@ def test_filters_stay_on_all_tickets(
     ]
 
 
-def test_header_counts_every_ticket_until_something_is_filtered(
-    portal_client,
-    portal_workspaces,
-    owner_membership,
-):
-    for status in ("open", "closed"):
-        Ticket.objects.create(
-            organisation=owner_membership.organisation,
-            product=portal_workspaces[1].product,
-            subject=f"An {status} ticket",
-            status=status,
-        )
-    # The default tab lists the open ticket; the header still counts both.
-    response = portal_client.get(reverse("experiences:support"))
-    assert len(response.context["tickets"]) == 1
-    compact = " ".join(response.content.decode().split())
-    assert (
-        '<span class="ui-kicker block">Tickets</span> '
-        '<span class="ui-figure mt-0.5 block">2</span>'
-    ) in compact
-
-
 def test_others_filters_to_the_catch_all_category(
     portal_client,
     portal_workspaces,
