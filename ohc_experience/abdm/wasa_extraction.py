@@ -35,6 +35,9 @@ MAX_CACHE_TTL_SECONDS = 24 * 60 * 60
 MAX_CONTENT_CHARS = 20_000
 MIN_DPI = 72
 MAX_DPI = 400
+# Pillow's own range: past 95 the file grows for no visible gain.
+MIN_JPEG_QUALITY = 1
+MAX_JPEG_QUALITY = 95
 # Past the first few pages a WASA certificate is annexures, and every extra page
 # is another image to pay for.
 MAX_DOCUMENT_PAGES = 4
@@ -151,6 +154,7 @@ def _configuration() -> tuple[str, float, int, int]:
         max_tokens = int(settings.WASA_EXTRACTION_MAX_TOKENS)
         cache_ttl = int(settings.WASA_EXTRACTION_CACHE_TTL)
         dpi = int(settings.WASA_EXTRACTION_DPI)
+        quality = int(settings.WASA_EXTRACTION_JPEG_QUALITY)
     except (TypeError, ValueError) as exc:
         raise WasaExtractionError from exc
     if (
@@ -158,6 +162,7 @@ def _configuration() -> tuple[str, float, int, int]:
         or not 0 < max_tokens <= MAX_TOKENS_LIMIT
         or not 0 <= cache_ttl <= MAX_CACHE_TTL_SECONDS
         or not MIN_DPI <= dpi <= MAX_DPI
+        or not MIN_JPEG_QUALITY <= quality <= MAX_JPEG_QUALITY
     ):
         raise WasaExtractionError
     return model.strip(), timeout, max_tokens, cache_ttl
@@ -192,7 +197,7 @@ def _bedrock_credentials(model: str) -> dict[str, str]:
 
 
 def _page_images(content: bytes) -> list[bytes]:
-    """Each page as PNG bytes, at a resolution where printed text stays legible."""
+    """Each page as JPEG bytes, at a resolution where printed text stays legible."""
     import pypdfium2  # noqa: PLC0415
 
     try:
@@ -204,14 +209,40 @@ def _page_images(content: bytes) -> list[bytes]:
         ) from exc
     scale = settings.WASA_EXTRACTION_DPI / PDF_UNITS_PER_INCH
     try:
-        images = []
+        images: list[bytes] = []
         for index in range(min(len(document), MAX_DOCUMENT_PAGES)):
-            page = BytesIO()
-            document[index].render(scale=scale).to_pil().convert("RGB").save(
-                page,
-                format="PNG",
-            )
-            images.append(page.getvalue())
+            # PDFium bitmaps and Pillow images can each hold a full rasterized
+            # page. Close them before rendering the next page to keep both
+            # memory pressure and GC pauses low for multi-page uploads.
+            pdf_page = document[index]
+            bitmap = pdf_page.render(scale=scale)
+            image = bitmap.to_pil().convert("RGB")
+            try:
+                page = BytesIO()
+                image.save(
+                    page,
+                    format="JPEG",
+                    quality=int(settings.WASA_EXTRACTION_JPEG_QUALITY),
+                    optimize=True,
+                )
+                rendered = page.getvalue()
+            finally:
+                image.close()
+                bitmap.close()
+                pdf_page.close()
+            # Do not spend CPU rendering later pages when this request cannot
+            # be sent to the provider in the first place.
+            if len(rendered) > MAX_IMAGE_BYTES:
+                raise WasaExtractionError(
+                    _(
+                        "This certificate's pages are too large to read. "
+                        "Enter the audit details yourself.",
+                    ),
+                    retryable=False,
+                )
+            images.append(rendered)
+    except WasaExtractionError:
+        raise
     except Exception as exc:
         raise WasaExtractionError(
             _("This PDF could not be read. Enter the audit details yourself."),
@@ -222,14 +253,6 @@ def _page_images(content: bytes) -> list[bytes]:
     if not images:
         raise WasaExtractionError(
             _("This PDF has no pages. Enter the audit details yourself."),
-            retryable=False,
-        )
-    if any(len(image) > MAX_IMAGE_BYTES for image in images):
-        raise WasaExtractionError(
-            _(
-                "This certificate's pages are too large to read. "
-                "Enter the audit details yourself.",
-            ),
             retryable=False,
         )
     return images
@@ -245,7 +268,7 @@ def _completion(model: str, content: bytes, timeout: float, max_tokens: int) -> 
         {
             "type": "image_url",
             "image_url": {
-                "url": f"data:image/png;base64,{base64.b64encode(image).decode()}",
+                "url": f"data:image/jpeg;base64,{base64.b64encode(image).decode()}",
             },
         }
         for image in _page_images(content)
@@ -372,6 +395,7 @@ def extract_certificate(upload, *, refresh: bool = False) -> dict[str, str]:
         raise WasaExtractionError
     cache_key = (
         f"wasa-extract:{model}:{settings.WASA_EXTRACTION_DPI}:"
+        f"{settings.WASA_EXTRACTION_JPEG_QUALITY}:"
         f"{hashlib.sha256(content).hexdigest()}"
     )
     if not refresh:

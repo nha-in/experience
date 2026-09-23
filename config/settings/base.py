@@ -198,6 +198,9 @@ WASA_EXTRACTION_CACHE_TTL = _tuning("WASA_EXTRACTION_CACHE_TTL", int, 3600)
 # Pages are rendered to images at this resolution. Higher reads small print more
 # reliably and costs more per page.
 WASA_EXTRACTION_DPI = _tuning("WASA_EXTRACTION_DPI", int, 150)
+# The JPEG quality those page images are saved at. Higher keeps small print
+# sharper and makes each page a larger upload.
+WASA_EXTRACTION_JPEG_QUALITY = _tuning("WASA_EXTRACTION_JPEG_QUALITY", int, 85)
 
 # Bedrock's own principal, deliberately apart from the AWS_* settings that carry
 # the media bucket's credentials: reading a document must not borrow the rights
