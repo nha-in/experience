@@ -59,7 +59,6 @@
              height="56"
              loading="lazy" />
       </div>
-      <p>{% translate "The ABDM Developer Sandbox is operated by the National Health Authority, Ministry of Health and Family Welfare, Government of India." %}</p>
     </div>
     <div class="marketing-footer-grid">
       <section class="marketing-footer-contact"
@@ -82,7 +81,7 @@
             <div>
               <dt>{% translate "Email" %}</dt>
               <dd>
-                <a href="mailto:abdm@nha.gov.in">abdm@nha.gov.in</a>
+                <a href="mailto:abdm@nha.gov.in">abdm[at]nha[dot]gov[dot]in</a>
               </dd>
             </div>
           </dl>
@@ -169,11 +168,14 @@
           <li><a href="https://abdm.gov.in/abha-PRIVACY-POLICY-english">{% translate "ABDM Health Records (PHR) Mobile App Privacy Policy" %}</a></li>
           <li><span>{% translate "ABDM Health Records (PHR) Mobile App Privacy Policy (Hindi)" %}</span></li>
         </ul>
-        <a class="marketing-footer-policy-source" href="https://abdm.gov.in/">{% translate "Visit the official ABDM website" %} <span aria-hidden="true">↗&#xFE0E;</span></a>
       </section>
       <section class="marketing-footer-app" aria-labelledby="footer-app-title">
         <h2 id="footer-app-title" class="marketing-eyebrow">{% translate "Aarogya Setu App" %}</h2>
-        <p>{% translate "Bharat ka health app" %}</p>
+        <p>
+          {% blocktranslate trimmed %}
+            Download the Aarogya Setu app (<i>Bharat ka health app</i>).
+          {% endblocktranslate %}
+        </p>
         <figure class="marketing-footer-qr">
           <a href="https://abdm.gov.in/arogya-setu/app-intro">
             <img src="{% static 'images/marketing/aarogya-setu-qr.png' %}"
@@ -182,10 +184,7 @@
                  height="116"
                  loading="lazy" />
           </a>
-          <figcaption>
-            <strong>{% translate "Scan to download" %}</strong>
-            <span>{% translate "Use your phone camera to get the app." %}</span>
-          </figcaption>
+          <figcaption>{% translate "Scan with your phone camera to install." %}</figcaption>
         </figure>
         <div class="marketing-footer-store-links">
           <a class="marketing-footer-store-link"

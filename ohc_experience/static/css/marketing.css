@@ -254,12 +254,6 @@
   max-width: 150px;
   object-fit: contain;
 }
-.marketing-footer-intro > p {
-  max-width: 630px;
-  color: #4c607d;
-  font-size: 13px;
-  line-height: 1.7;
-}
 .marketing-footer-grid :is(address, p, li, dd, a, figcaption) {
   color: #4c607d;
   font-size: 13px;
@@ -295,11 +289,6 @@
 .marketing-footer-policy-list span {
   color: #596b85;
 }
-.marketing-footer-policy-source {
-  display: inline-block;
-  margin-top: 18px;
-  font-weight: 500;
-}
 .marketing-footer-qr {
   display: flex;
   align-items: center;
@@ -327,14 +316,6 @@
   min-width: 0;
   font-size: 11px;
   line-height: 1.6;
-}
-.marketing-footer-qr figcaption strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #304b75;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
 }
 .marketing-footer-store-links {
   display: flex;
@@ -381,7 +362,7 @@
 .marketing-footer nav a + a {
   margin-top: 8px;
 }
-.marketing-footer :is(dd a, .marketing-footer-policy-source) {
+.marketing-footer dd a {
   display: inline-block;
   min-height: 24px;
 }
