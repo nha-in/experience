@@ -35,4 +35,3 @@ def test_the_marketing_page_links_to_the_site_the_deployment_names(client, setti
     page = client.get(reverse("home"))
 
     assert f"{STAGING}/docs/hiecm/v3/milestones/m1".encode() in page.content
-    assert f"{STAGING}/agent-setup/prompt.md".encode() in page.content
