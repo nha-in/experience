@@ -10,7 +10,7 @@
       </span>
     {% endif %}
     <p class="min-w-0 text-sm leading-5">
-      <span class="block text-xs leading-4 text-soft-foreground">Assigned reviewer</span>
+      <span class="block text-xs leading-4 text-soft-foreground">Assigned reviewer (optional)</span>
       {% if item.assignee %}
         <span class="font-semibold break-words">{{ item.assignee.display_name }}</span>
         {% if item.assignee == request.user %}<span class="ui-badge ui-badge--neutral ui-badge--size-xs ml-1 align-[1px]">You</span>{% endif %}
