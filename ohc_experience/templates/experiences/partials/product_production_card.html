@@ -4,7 +4,7 @@
   <div class="ui-card-header flex flex-row items-start justify-between gap-4">
     <div class="grid gap-0.5">
       <h2 class="ui-card-title" id="production-title">{{ experience_program.production_credentials.name }}</h2>
-      <p class="ui-card-description">The client ID for the production gateway, issued outside this portal.</p>
+      <p class="ui-card-description">Client ID issued upon approval for production access to the ABDM Gateway</p>
     </div>
     {% if production.client_id %}
       {% include 'experiences/partials/status.html' with status='active' label='Issued' %}

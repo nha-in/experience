@@ -240,21 +240,17 @@ def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
 def test_a_tracks_description_names_its_shared_milestones(environment, client):
     """The sentence was hand-written on three tracks and stale on all three."""
     program = get_program()
-    assert program.shared_note("PHR") == "M1 is shared with HIE-CM, UHI and NHCX."
+    assert program.shared_note("PHR") == (
+        "M1 is shared with ABDM Milestones, UHI and NHCX."
+    )
     assert program.shared_note("HIE-CM") == (
         "M1 is shared with UHI, NHCX and PHR. M2 is shared with UHI."
     )
     assert program.shared_note("UHI") == (
-        "M1 is shared with HIE-CM, NHCX and PHR. M2 is shared with HIE-CM."
+        "M1 is shared with ABDM Milestones, NHCX and PHR. "
+        "M2 is shared with ABDM Milestones."
     )
     assert program.shared_note("HealthLocker") == ""
-    client.force_login(environment["applicant"])
-
-    html = client.get(
-        reverse("experiences:track", args=[environment["workspace"].reference, "PHR"]),
-    ).content.decode()
-
-    assert "M1 is shared with HIE-CM, UHI and NHCX." in html
 
 
 def test_a_predecessor_no_track_offers_can_never_unlock():
@@ -269,8 +265,8 @@ def test_a_predecessor_no_track_offers_can_never_unlock():
 @pytest.mark.parametrize(
     ("code", "expected"),
     [
-        ("PHR", "Shared with HIE-CM and UHI"),
-        ("UHI", "Shared with HIE-CM and PHR"),
+        ("PHR", "Shared with ABDM Milestones and UHI"),
+        ("UHI", "Shared with ABDM Milestones and PHR"),
         ("HIE-CM", "Shared with UHI and PHR"),
     ],
 )

@@ -113,7 +113,9 @@ TRACKS = (
     TrackDefinition(
         "UHI",
         "Unified Health Interface",
-        "Discovery and delivery of digital health services.",
+        "UHI enables the discovery and delivery of digital health services. UHI "
+        "onboarding requires completion of M1 and M2. These milestones may also "
+        "be reused across other ABDM tracks where applicable.",
         ("uhi1",),
         docs_page("/docs/uhi/v1"),
     ),
@@ -127,7 +129,8 @@ TRACKS = (
     TrackDefinition(
         "PHR",
         "Personal Health Records",
-        "ABHA identity and personal health record application flows.",
+        "ABHA identity and personal health record application flows. M1 is "
+        "shared with HIE-CM, UHI and NHCX.",
         ("p1", "p2", "p3"),
         docs_page("/docs/hiecm/v3/milestones/p1"),
     ),

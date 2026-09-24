@@ -214,6 +214,16 @@ def readable_list(names):
     return f"{', '.join(rest)} and {last}" if rest else last
 
 
+#: HIE-CM's tiles show "ABDM Milestones" instead of its track code; anywhere else
+#: that names it alongside other tracks should match, without changing the code
+#: itself, which stays "HIE-CM" for lookups like applied_milestones.
+TRACK_DISPLAY_NAMES = {"HIE-CM": "ABDM Milestones"}
+
+
+def display_track_code(code):
+    return TRACK_DISPLAY_NAMES.get(code, code)
+
+
 @dataclass(frozen=True)
 class MilestoneDefinition:
     key: str
@@ -686,7 +696,8 @@ class ProgramDefinition:
             others = cls.shared_with(key, track_code)
             if others:
                 code = cls.milestones[key].code
-                sentences.append(f"{code} is shared with {readable_list(others)}.")
+                names = readable_list(display_track_code(other) for other in others)
+                sentences.append(f"{code} is shared with {names}.")
         return " ".join(sentences)
 
     @classmethod

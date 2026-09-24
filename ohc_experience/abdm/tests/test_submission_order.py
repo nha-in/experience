@@ -141,7 +141,7 @@ def test_the_track_page_asks_for_a_rejected_milestone_to_be_resubmitted(
     assert "data-review-form" not in html
     assert "M1 - ABHA Creation and Verification</a> is resubmitted." in html
     tiles = milestone_tiles(html)
-    assert "Rejected · waiting on you" in tiles["M1"]
+    assert "Rejected · Pending Implementation" in tiles["M1"]
     assert "Locked · resubmit M1 first" in tiles["M2"]
     assert "Locked · resubmit M1 first" in tiles["M3"]
     overview = client.get(
@@ -227,29 +227,32 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
     assert milestone_tiles(html) == {
         "M1": (
             "M1 ABHA Creation and Verification Shared with UHI and PHR "
-            "Open · waiting on you"
+            "Open · Pending Implementation"
         ),
         "M2": (
             "M2 Viewing Health Information Provider Services Shared with UHI "
-            "Locked · submit M1 first Needs M1"
+            "Locked · submit M1 first Requires completion of M1"
         ),
-        "M3": "M3 Health Information User Services Locked · submit M1 first Needs M1",
+        "M3": (
+            "M3 Health Information User Services Locked · submit M1 first "
+            "Requires completion of M1"
+        ),
         "M4": (
-            "M4 Register Healthcare Professionals and Facilities Open · waiting on you"
+            "M4 Register Healthcare Professionals and Facilities Open · Pending Implementation"
         ),
     }
     assert "ui-milestone-tile-needs--locked" in html
 
     uhi = milestone_tiles(client.get(track_url(environment, "UHI")).content.decode())
 
-    assert "Needs" not in uhi["M1"]
-    assert uhi["M2"].endswith("Needs M1")
-    assert uhi["UHI1"].endswith("Needs M1")
+    assert "Requires completion of" not in uhi["M1"]
+    assert uhi["M2"].endswith("Requires completion of M1")
+    assert uhi["UHI1"].endswith("Requires completion of M1")
 
     submit(environment)
     html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
 
-    assert milestone_tiles(html)["M2"].endswith("Needs M1")
+    assert milestone_tiles(html)["M2"].endswith("Requires completion of M1")
     assert "ui-milestone-tile-needs--locked" not in html
 
 
