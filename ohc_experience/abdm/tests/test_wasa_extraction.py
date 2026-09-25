@@ -22,6 +22,7 @@ from ohc_experience.abdm.forms import WasaReviewForm
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.wasa import WASA_FIELDS
+from ohc_experience.abdm.wasa import validity_limit
 from ohc_experience.abdm.wasa_extraction import WasaExtractionError
 from ohc_experience.abdm.wasa_extraction import extract_certificate
 from ohc_experience.experiences.models import CertificationAgency
@@ -243,6 +244,31 @@ def test_an_expiry_before_the_audit_is_dropped(reader):
     details = extract_certificate(certificate())
     assert details["wasa_valid_until"] == ""
     assert details["wasa_date"] == (today - timedelta(days=20)).isoformat()
+
+
+def test_an_expiry_beyond_the_year_the_audit_buys_is_dropped(reader):
+    """The field it fills is read-only, so clean() must not refuse what lands."""
+    audit = timezone.localdate() - timedelta(days=20)
+    reader["reply"] = stated(
+        audit_date=audit.isoformat(),
+        valid_until=(validity_limit(audit) + timedelta(days=1)).isoformat(),
+    )
+    details = extract_certificate(certificate())
+    assert details["wasa_valid_until"] == ""
+    assert details["wasa_date"] == audit.isoformat()
+
+
+def test_an_expiry_exactly_a_year_after_the_audit_is_kept(reader):
+    audit = timezone.localdate() - timedelta(days=20)
+    reader["reply"] = stated(
+        audit_date=audit.isoformat(),
+        valid_until=validity_limit(audit).isoformat(),
+    )
+
+    assert (
+        extract_certificate(certificate())["wasa_valid_until"]
+        == validity_limit(audit).isoformat()
+    )
 
 
 @pytest.mark.parametrize("reply", ["not json at all", "[]", '{"agency": ', '"text"'])

@@ -247,7 +247,7 @@ integrators and retained as product outcomes.
   redirected to the staff product view.
 - `/products/<sandbox-id>/tracks/<track>/`: milestone forms, queries and history.
   Staff are redirected to the selected milestone's review.
-- `/products/<sandbox-id>/credentials/`: audited reveal, rotation and callbacks.
+- `/products/<sandbox-id>/credentials/`: audited reveal and callbacks.
 - `/portal/queries/`: highlighted pending queries.
 - `/assess/dashboard/`, `/assess/queue/`, `/assess/review/<id>/`: NHA review.
 - `/assess/production/`, `/assess/production/<sandbox-id>/`: production approval
@@ -430,11 +430,14 @@ Client secrets are encrypted at rest with the dedicated key. Reveal is integrato
 only, POST/CSRF protected, audited, rate-limited and returned with no-store headers.
 The browser masks a revealed value after 30 seconds or when the tab is hidden.
 Organisation re-verification revokes prior active credentials; after verification,
-the integrator can request rotation to obtain a fresh pair.
+a super admin reprovisions them. Rotation remains implemented and audited but is
+no longer offered in the portal; nothing reaches it.
 
 Keep S3 public access blocked and enable appropriate encryption and retention.
-The application accepts PDF evidence up to 10 MB per file; organisation logos
-are links rather than uploads. Historical files remain available with their
+The application accepts uploads up to 10 MB per file, and the milestone evidence
+documents up to 5 MB: PDF for the WASA certificate, the functional testing
+certificate and the undertaking, and up to three .xls or .xlsx workbooks for the
+functional testing reports. Organisation logos are links rather than uploads. Historical files remain available with their
 original revision. File type and size validation do not detect malware; uploaded
 documents should be treated as untrusted content.
 

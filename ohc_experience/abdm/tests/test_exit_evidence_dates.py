@@ -1,3 +1,4 @@
+from datetime import date
 from datetime import timedelta
 
 import pytest
@@ -5,8 +6,10 @@ from django.utils import timezone
 
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.forms import EXPIRED_CERTIFICATE
+from ohc_experience.abdm.forms import OVER_VALIDITY
 from ohc_experience.abdm.forms import ExitEvidenceForm
 from ohc_experience.abdm.tests.test_workflow import files
+from ohc_experience.abdm.wasa import validity_limit
 
 pytestmark = pytest.mark.django_db
 
@@ -166,3 +169,62 @@ def test_a_certificate_expiring_today_is_still_current():
     )
 
     assert form.is_valid(), form.errors
+
+
+def _certificate(audit, expiry):
+    return {
+        "wasa_date": audit.isoformat(),
+        "wasa_valid_until": expiry.isoformat(),
+    }
+
+
+def _audited(days_ago=30):
+    return timezone.localdate() - timedelta(days=days_ago)
+
+
+def test_an_expiry_beyond_a_year_from_the_audit_is_refused():
+    audit = _audited()
+    form = ExitEvidenceForm(
+        data=evidence_data()
+        | _certificate(audit, validity_limit(audit) + timedelta(days=1)),
+        files=files(),
+    )
+
+    assert not form.is_valid()
+    assert form.errors["wasa_valid_until"] == [OVER_VALIDITY]
+
+
+def test_an_expiry_exactly_a_year_from_the_audit_is_accepted():
+    audit = _audited()
+    form = ExitEvidenceForm(
+        data=evidence_data() | _certificate(audit, validity_limit(audit)),
+        files=files(),
+    )
+
+    assert form.is_valid(), form.errors
+
+
+def test_a_draft_keeps_a_certificate_that_outruns_the_year():
+    """Records migrated with a longer span must still save."""
+    audit = _audited()
+    form = ExitEvidenceForm(
+        data=evidence_data()
+        | _certificate(audit, audit.replace(year=audit.year + 2)),
+        files=files(),
+        draft=True,
+    )
+
+    assert form.is_valid(), form.errors
+
+
+def test_the_expiry_picker_caps_at_a_year_from_the_saved_audit_date():
+    audit = _audited()
+    form = ExitEvidenceForm(initial={"wasa_date": audit.isoformat()})
+
+    attrs = form.fields["wasa_valid_until"].widget.attrs
+    assert attrs["max"] == validity_limit(audit).isoformat()
+
+
+def test_a_leap_day_audit_caps_at_the_end_of_february():
+    """29 February has no anniversary in a common year."""
+    assert validity_limit(date(2024, 2, 29)) == date(2025, 2, 28)

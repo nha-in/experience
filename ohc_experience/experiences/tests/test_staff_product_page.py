@@ -233,7 +233,7 @@ def test_a_revoked_integrator_is_sent_to_support_not_offered_new_credentials(
 
     assert "Your credentials have been revoked." in content
     assert f"{reverse('experiences:support')}?product={workspace.reference}" in content
-    assert 'value="rotate"' not in content
+    assert 'value="reveal"' not in content
     assert workspace.definition.sandbox_credentials.demo_notice not in content
     client.post(url, {"intent": "rotate"})
     credential = ProductCredential.objects.get(product=workspace.product)
@@ -298,7 +298,7 @@ def test_a_super_admin_reprovisions_revoked_credentials(
     assert b"revoke_credentials" in content
     client.force_login(environment["applicant"])
     url = reverse("experiences:credentials", args=[workspace.reference])
-    assert b'value="rotate"' in client.get(url).content
+    assert b'value="reveal"' in client.get(url).content
 
 
 def test_a_super_admin_retries_a_teardown_that_stopped_short(

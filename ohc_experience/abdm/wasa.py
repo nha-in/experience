@@ -23,8 +23,17 @@ def as_date(value):
         return value
     try:
         return date.fromisoformat(value) if value else None
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
+
+
+def validity_limit(audit_date, years=WASA_VALIDITY_YEARS):
+    """The latest expiry a certificate audited on this date can carry."""
+    try:
+        return audit_date.replace(year=audit_date.year + years)
+    except ValueError:
+        # A 29 February audit has no anniversary in a common year.
+        return audit_date.replace(year=audit_date.year + years, day=28)
 
 
 def approved_wasa_outcomes(product):
@@ -51,7 +60,7 @@ def approved_wasa_submission(product, submission_id, *, require_valid=True):
         return None
     try:
         submission_id = int(submission_id)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
     approval = next(
         (

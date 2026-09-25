@@ -54,6 +54,14 @@ def pdf(name="test.pdf"):
     return SimpleUploadedFile(name, b"%PDF-1.4\n%%EOF", content_type="application/pdf")
 
 
+def xlsx(name="report.xlsx"):
+    return SimpleUploadedFile(
+        name,
+        b"PK\x03\x04workbook",
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
 def stored_secret(product):
     credential = ProductCredential.objects.get(product=product)
     return credentials.cipher().decrypt(credential.encrypted_secret.encode()).decode()
@@ -64,7 +72,7 @@ def files():
         {
             "wasa_certificate": [pdf("wasa.pdf")],
             "functional_certificate": [pdf("certificate.pdf")],
-            "functional_report": [pdf("report.pdf")],
+            "functional_report": [xlsx("report.xlsx")],
             "undertaking_form": [pdf("undertaking-form.pdf")],
         },
     )
@@ -907,7 +915,7 @@ def test_date_and_pdf_validation_and_required_documents():
     )
     form = ExitEvidenceForm(
         data=evidence_data(),
-        files={"functional_report": fake, "functional_certificate": pdf()},
+        files={"functional_certificate": fake, "functional_report": xlsx()},
     )
     assert not form.is_valid()
     assert "Upload a PDF" in str(form.errors)

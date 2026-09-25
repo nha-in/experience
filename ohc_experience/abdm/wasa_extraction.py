@@ -28,6 +28,8 @@ from django.utils.translation import gettext as _
 from ohc_experience.experiences.definitions import DocumentReadError
 from ohc_experience.experiences.models import CertificationAgency
 
+from .wasa import validity_limit
+
 WASA_CERTIFICATE_FIELD = "wasa_certificate"
 MAX_TIMEOUT_SECONDS = 120
 MAX_TOKENS_LIMIT = 4096
@@ -350,7 +352,15 @@ def _details(payload: dict) -> dict[str, str]:
         today.year - MAX_AUDIT_AGE_YEARS <= audit_date.year and audit_date <= today
     ):
         audit_date = None
-    if valid_until and audit_date and valid_until < audit_date:
+    # A date outside the year the audit buys is discarded like one before it:
+    # the field it fills is read-only, so a value clean() would refuse there is
+    # one nobody could correct. Dropping it lets the audit date derive the
+    # expiry instead.
+    if (
+        valid_until
+        and audit_date
+        and not audit_date <= valid_until <= validity_limit(audit_date)
+    ):
         valid_until = None
     return {
         "wasa_agency": _agency(payload),

@@ -376,7 +376,7 @@ def _day(value):
 def _from_iso(value):
     try:
         return date.fromisoformat(value) if value else None
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
 
 

@@ -2,6 +2,8 @@
 from datetime import timedelta
 from io import BytesIO
 from unittest.mock import patch
+from zipfile import ZIP_DEFLATED
+from zipfile import ZipFile
 
 from allauth.account.models import EmailAddress
 from django.conf import settings
@@ -60,6 +62,68 @@ def demo_pdf(name="functional-testing.pdf", title="Functional testing certificat
     output = BytesIO()
     page.save(output, format="PDF", resolution=150)
     return SimpleUploadedFile(name, output.getvalue(), content_type="application/pdf")
+
+
+def demo_workbook(name="functional-report.xlsx", title="Functional testing report"):
+    """A minimal but genuine .xlsx: the parts Excel needs, zipped."""
+    rows = [
+        ("Scenario", "Result"),
+        ("Care context linking", "Pass"),
+        ("Consent expiry and revocation", "Pass"),
+        ("Health record retrieval", "Pass"),
+    ]
+    cells = "".join(
+        f'<row r="{index}">'
+        + "".join(
+            f'<c r="{chr(65 + column)}{index}" t="inlineStr">'
+            f"<is><t>{value}</t></is></c>"
+            for column, value in enumerate(row)
+        )
+        + "</row>"
+        for index, row in enumerate([(title, ""), *rows], start=1)
+    )
+    parts = {
+        "[Content_Types].xml": (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            "</Types>"
+        ),
+        "_rels/.rels": (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            "</Relationships>"
+        ),
+        "xl/workbook.xml": (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+            ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            '<sheets><sheet name="Results" sheetId="1" r:id="rId1"/></sheets></workbook>'
+        ),
+        "xl/_rels/workbook.xml.rels": (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            "</Relationships>"
+        ),
+        "xl/worksheets/sheet1.xml": (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            f"<sheetData>{cells}</sheetData></worksheet>"
+        ),
+    }
+    output = BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        for path, body in parts.items():
+            archive.writestr(path, body)
+    return SimpleUploadedFile(
+        name,
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 def organisation_data(name="Medibase Technologies Private Limited"):
@@ -155,7 +219,7 @@ def evidence_files():
             ],
             "functional_certificate": [demo_pdf()],
             "functional_report": [
-                demo_pdf("functional-report.pdf", "Functional testing report"),
+                demo_workbook("functional-report.xlsx", "Functional testing report"),
             ],
             "undertaking_form": [
                 demo_pdf("undertaking-form.pdf", "Undertaking form"),

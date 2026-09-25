@@ -6,6 +6,8 @@ from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
 from ohc_experience.experiences.models import CertificationAgency
+from ohc_experience.experiences.uploads import validate_evidence_pdf
+from ohc_experience.experiences.uploads import validate_evidence_spreadsheet
 from ohc_experience.experiences.uploads import validate_pdf
 from ohc_experience.organisations import states
 from ohc_experience.organisations.lgd import LGDLookupError
@@ -26,8 +28,10 @@ from .docs import docs_page
 from .wasa import WASA_FIELDS
 from .wasa import WASA_VALIDITY_YEARS
 from .wasa import approved_wasa_submission
+from .wasa import as_date
 from .wasa import certificate_context
 from .wasa import current_wasa
+from .wasa import validity_limit
 from .widgets import WasaCertificateInput
 
 
@@ -513,6 +517,10 @@ class UhiParticipationForm(ReviewForm):
 
 
 EXPIRED_CERTIFICATE = "This certificate has expired. Submit a renewed WASA certificate."
+OVER_VALIDITY = (
+    "A WASA certificate runs for at most a year. The expiry date cannot be "
+    "more than a year after the audit date."
+)
 
 
 class WasaReviewForm(ReviewForm):
@@ -564,7 +572,8 @@ class WasaReviewForm(ReviewForm):
     wasa_certificate = forms.FileField(
         label="WASA certificate",
         required=False,
-        validators=[validate_pdf],
+        help_text="PDF, up to 5 MB.",
+        validators=[validate_evidence_pdf],
         widget=WasaCertificateInput(attrs={"autocomplete": "off"}),
     )
     required_uploads = ("wasa_certificate",)
@@ -582,7 +591,22 @@ class WasaReviewForm(ReviewForm):
         expiry = self.fields["wasa_valid_until"].widget.attrs
         expiry["min"] = today
         expiry["data-expired-message"] = EXPIRED_CERTIFICATE
+        # The ceiling is the other bound project.js measures against: a
+        # certificate runs for a year at most from the audit it records, and a
+        # date read off the certificate can outrun it. project.js moves the
+        # ceiling as the audit date changes; this is the one the field is first
+        # drawn with.
+        expiry["data-over-validity-message"] = OVER_VALIDITY
+        audited = as_date(self._audit_date())
+        if audited:
+            expiry["max"] = validity_limit(audited).isoformat()
         self._agency_choices()
+
+    def _audit_date(self):
+        """The audit date the form is rendering with, posted or saved."""
+        if self.is_bound:
+            return self.data.get(self.add_prefix("wasa_date"))
+        return self.initial.get("wasa_date")
 
     def _agency_choices(self):
         # Earlier submissions accepted free text. Only their own saved value is
@@ -615,6 +639,15 @@ class WasaReviewForm(ReviewForm):
             )
         elif expiry and expiry < timezone.localdate() and not self.draft:
             self.add_error("wasa_valid_until", EXPIRED_CERTIFICATE)
+        elif (
+            audit_date
+            and expiry
+            and expiry > validity_limit(audit_date)
+            and not self.draft
+        ):
+            # Held to submission, like the expiry itself: a migrated record can
+            # carry a longer span and must still save as a draft.
+            self.add_error("wasa_valid_until", OVER_VALIDITY)
         return cleaned
 
 
@@ -672,14 +705,17 @@ class ExitEvidenceForm(WasaReviewForm):
     functional_certificate = forms.FileField(
         label="Functional testing certificate",
         required=False,
-        validators=[validate_pdf],
+        help_text="PDF, up to 5 MB.",
+        validators=[validate_evidence_pdf],
         widget=forms.FileInput(attrs={"accept": ".pdf"}),
     )
-    functional_report = forms.FileField(
-        label="Functional testing report",
+    functional_report = MultipleFileField(
+        label="Functional testing reports",
         required=False,
-        validators=[validate_pdf],
-        widget=forms.FileInput(attrs={"accept": ".pdf"}),
+        help_text="Excel workbook (.xls or .xlsx), up to 3 files, 5 MB each.",
+        max_files=3,
+        accept=".xls,.xlsx",
+        validators=[validate_evidence_spreadsheet],
     )
     supporting_evidence = MultipleFileField(
         label="Additional evidence",
@@ -691,7 +727,9 @@ class ExitEvidenceForm(WasaReviewForm):
     undertaking_form = forms.FileField(
         label="Undertaking form",
         required=False,
-        widget=forms.FileInput(attrs={"accept": ".doc,.docx,.pdf"}),
+        help_text="PDF, up to 5 MB.",
+        validators=[validate_evidence_pdf],
+        widget=forms.FileInput(attrs={"accept": ".pdf"}),
     )
     required_uploads = (
         "wasa_certificate",

@@ -17,6 +17,7 @@ from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import xlsx
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import ApplicationFormUse
 from ohc_experience.experiences.models import AuditEvent
@@ -301,7 +302,7 @@ def test_final_attachment_replacements_and_removals_are_shared(environment):
             **evidence_data(),
             "remove_files__supporting_evidence": [str(removed.pk)],
         },
-        uploads=MultiValueDict({"functional_report": [pdf("replacement.pdf")]}),
+        uploads=MultiValueDict({"functional_report": [xlsx("replacement.xlsx")]}),
     )
     assert saved, form.errors
     for item in (current, target):
@@ -312,7 +313,7 @@ def test_final_attachment_replacements_and_removals_are_shared(environment):
                 flat=True,
             ),
         )
-        assert "replacement.pdf" in names
+        assert "replacement.xlsx" in names
         assert "report.pdf" not in names
         assert "remove-me.pdf" not in names
     assert old.attachments.filter(original_name="remove-me.pdf").exists()

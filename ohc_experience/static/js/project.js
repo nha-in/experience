@@ -205,6 +205,17 @@
     return new Date(Date.UTC(year + years, month - 1, day - 1)).toISOString().slice(0, 10);
   }
 
+  // One year from the audit date: the latest expiry a certificate can carry.
+  // A 29 February anniversary rolls into March; pull it back to the 28th, as
+  // the server does.
+  function anniversary(value, years) {
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return '';
+    const target = new Date(Date.UTC(year + years, month - 1, day));
+    if (target.getUTCMonth() !== month - 1) target.setUTCDate(0);
+    return target.toISOString().slice(0, 10);
+  }
+
   // Whether the derived date may take the field. A field the integrator can
   // edit keeps whatever they put in it, and on the page as it arrives nothing
   // is rewritten: an expiry saved earlier is what a certificate stated, which
@@ -264,6 +275,10 @@
     if (input.min !== value) input.min = value;
   }
 
+  function setMax(input, value) {
+    if (input.max !== value) input.max = value;
+  }
+
   function updateDateConstraints(form) {
     const start = form.querySelector('[name="start_date"]');
     const end = form.querySelector('[name="end_date"]');
@@ -278,30 +293,45 @@
     // even when testing ended in the past or its end date is cleared.
     if (end && demo) setMin(demo, end.value > end.max ? end.value : end.max);
     // The server floors a certificate's expiry at today, which no audit date
-    // can undercut: the audit itself is capped at today. So nothing here moves
-    // it; the only work left is to say why an earlier date is refused.
+    // can undercut: the audit itself is capped at today. The ceiling does move:
+    // a certificate runs for at most a year from the audit it records.
+    form.querySelectorAll('[data-autofill-target]').forEach(source => {
+      const years = Number.parseInt(source.dataset.autofillYears, 10);
+      if (!Number.isFinite(years)) return;
+      form.querySelectorAll(`[name="${source.dataset.autofillTarget}"]`).forEach(target => {
+        setMax(target, source.value ? anniversary(source.value, years) : '');
+      });
+    });
     flagExpiredCertificate(form);
   }
 
-  // An expired certificate is refused on submission. Say so beside the field
-  // as soon as a date lands there, however it came: derived from the audit
-  // date, or read off the certificate, whose reader announces its values with
-  // a change event.
+  // An expiry that has lapsed, or that outruns the year the audit buys, is
+  // refused on submission. Say so beside the field as soon as a date lands
+  // there, however it came: derived from the audit date, or read off the
+  // certificate, whose reader announces its values with a change event. The
+  // field is read-only, so this is the only warning before the server's.
   function flagExpiredCertificate(form) {
     const expiry = form.querySelector('[name="wasa_valid_until"]');
-    const message = expiry?.dataset?.expiredMessage;
-    if (!message) return;
+    const ours = [expiry?.dataset?.expiredMessage, expiry?.dataset?.overValidityMessage].filter(Boolean);
+    if (!ours.length) return;
     const field = expiry.closest('.ui-field') || expiry.parentElement;
-    const expired = !expiry.disabled && Boolean(expiry.value) && expiry.value < expiry.min;
-    // A refused submission prints the same sentence; take that copy as ours.
-    const said = [...field.querySelectorAll('.ui-error')].find(error => error.textContent.trim() === message);
-    if (expired === Boolean(said)) return;
+    const live = expiry.disabled || !expiry.value
+      ? ''
+      : expiry.value < expiry.min
+        ? expiry.dataset.expiredMessage || ''
+        : expiry.max && expiry.value > expiry.max
+          ? expiry.dataset.overValidityMessage || ''
+          : '';
+    // A refused submission prints the same sentences; take that copy as ours.
+    const said = [...field.querySelectorAll('.ui-error')].filter(error => ours.includes(error.textContent.trim()));
+    if (said.length === (live ? 1 : 0) && (!live || said[0].textContent.trim() === live)) return;
     const id = `${expiry.id}_errors`;
-    if (said) {
-      const box = said.parentElement;
-      said.remove();
+    said.forEach(error => {
+      const box = error.parentElement;
+      error.remove();
       if (!box.children.length) box.remove();
-    } else {
+    });
+    if (live) {
       let box = document.getElementById(id);
       if (!box) {
         box = document.createElement('div');
@@ -310,7 +340,7 @@
       }
       const error = document.createElement('span');
       error.className = 'ui-error';
-      error.textContent = message;
+      error.textContent = live;
       box.append(error);
     }
     // Another error the server printed keeps the field invalid on its own.

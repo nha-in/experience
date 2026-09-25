@@ -46,7 +46,7 @@ class SignupVerificationMixin:
                     and result.get("hostname") == request.get_host().split(":", 1)[0]
                 ):
                     return value
-            except OSError, ValueError:
+            except (OSError, ValueError):
                 pass
         msg = "Verification failed. Refresh the page and try again."
         raise forms.ValidationError(msg)
