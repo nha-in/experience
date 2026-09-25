@@ -27,8 +27,8 @@ pytestmark = pytest.mark.django_db
 def portal_workspaces(owner_membership):
     result = []
     for name, milestones in (
-        ("Alpha HMIS", ["HIE-CM:m1"]),
-        ("Zeta Locker", ["HealthLocker:p4", "HIE-CM:m1"]),
+        ("Alpha HMIS", ["ABDM:m1"]),
+        ("Zeta Locker", ["HealthLocker:p4", "ABDM:m1"]),
     ):
         data = product_data(name)
         data["applied_milestones"] = milestones
@@ -53,7 +53,7 @@ def portal_client(client, owner_membership, portal_workspaces):
 
 
 def test_ticket_defaults_and_applied_category_choices(portal_workspaces):
-    """A product on HIE-CM is offered that track's categories, and the catch-all."""
+    """A product on ABDM is offered that track's categories, and the catch-all."""
     form = SupportForm(workspace=portal_workspaces[0])
     assert form["priority"].value() == "medium"
     assert [value for value, _label in form.fields["category"].choices] == [

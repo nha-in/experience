@@ -6,15 +6,9 @@
       <div class="ui-rise min-w-0">
         <p class="ui-hero-eyebrow">Track</p>
         <h1 class="ui-hero-title">
-          {% if track.definition.code == "HIE-CM" %}
-            ABDM Milestones
-          {% else %}
-            {{ track.definition.code }} <span class="font-semibold text-muted-foreground">· {{ track.definition.name }}</span>
-          {% endif %}
+          {{ track.definition.code }} <span class="font-semibold text-muted-foreground">· {{ track.definition.name }}</span>
         </h1>
-        {% if track.definition.code != "HIE-CM" %}
-          <p class="ui-hero-lede">{{ track.definition.description }}</p>
-        {% endif %}
+        <p class="ui-hero-lede">{{ track.definition.description }}</p>
         {% if track.tiles %}
           <div class="mt-6 flex items-baseline gap-2.5">
             <span class="ui-figure ui-figure--xl">{{ track.approved }}</span>

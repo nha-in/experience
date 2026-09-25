@@ -201,15 +201,15 @@ def test_wildcard_read_supplies_read_for_a_category_row(superadmin, staff, clien
     client.force_login(superadmin)
     data = payload(
         staff,
-        grants=[("review", "*", ["read"]), ("review", "HIE-CM", ["approve"])],
+        grants=[("review", "*", ["read"]), ("review", "ABDM", ["approve"])],
     )
     response = client.post(reverse("experiences:staff-edit", args=[staff.pk]), data)
     assert response.status_code == 302
-    assert permissions.has_access(staff, "review", "HIE-CM", "approve")
+    assert permissions.has_access(staff, "review", "ABDM", "approve")
     assert permissions.has_access(staff, "review", "UHI")
     assert not permissions.has_access(staff, "review", "UHI", "approve")
     assert not permissions.has_area(staff, "support")
-    saved = staff.experience_access.get(area="review", category="HIE-CM")
+    saved = staff.experience_access.get(area="review", category="ABDM")
     assert saved.can_read
     assert not saved.can_write
 

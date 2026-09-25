@@ -65,7 +65,7 @@
           <li><a id="nav-track-{{ row.definition.code|slugify }}"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == row.definition.code %}ui-nav-link--active{% endif %}"
    {% if nav == row.definition.code %}aria-current="page"{% endif %}
-   href="{% url 'experiences:track' workspace.reference row.definition.code %}">{% include "components/nav_icon.html" with icon="track" %}<span class="min-w-0 flex-1 truncate">{% if row.definition.code == "HIE-CM" %}ABDM Milestones{% else %}{{ row.definition.code }}{% endif %}</span><span class="font-mono text-[11px] text-soft-foreground">{{ row.approved }}/{{ row.count }}<span class="sr-only"> milestones approved</span></span></a></li>
+   href="{% url 'experiences:track' workspace.reference row.definition.code %}">{% include "components/nav_icon.html" with icon="track" %}<span class="min-w-0 flex-1 truncate">{{ row.definition.code }}</span><span class="font-mono text-[11px] text-soft-foreground">{{ row.approved }}/{{ row.count }}<span class="sr-only"> milestones approved</span></span></a></li>
         {% endfor %}
       {% endif %}
       {% if reviewer or workspace %}

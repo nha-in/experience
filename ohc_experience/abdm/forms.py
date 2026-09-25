@@ -369,7 +369,7 @@ class ProductRegistrationForm(ReviewForm):
             kwargs["initial"] = {
                 "solution_type": ["clinical_hmis"],
                 "applied_milestones": [
-                    f"HIE-CM:{key}" for key in REQUIRED_MILESTONES["clinical_hmis"]
+                    f"ABDM:{key}" for key in REQUIRED_MILESTONES["clinical_hmis"]
                 ],
             }
         super().__init__(*args, **kwargs)

@@ -66,7 +66,7 @@ class ABDMAgentSkills(AgentSkillsDefinition):
             (DeepLink("Claude Code", "claude://code/new?q={prompt}"),),
         ),
     }
-    # Every HIE-CM and PHR call goes through the gateway. Subscriptions are the
+    # Every ABDM and PHR call goes through the gateway. Subscriptions are the
     # HIU side. Scan and pay follows scan and share, which the HIP builds in M2
     # and the PHR app in P2. FHIR belongs to M2, where a bundle is first pushed
     # to a requester.

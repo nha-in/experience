@@ -51,7 +51,7 @@ Demo accounts all use password `experience-demo-2026`:
 | new-integrator@abdm-demo.in | Organisation awaiting verification |
 | nhcx-reviewer@abdm-demo.in | Reviews: NHCX only |
 | uhi-reviewer@abdm-demo.in | Reviews: UHI only |
-| hiecm-reviewer@abdm-demo.in | Reviews: HIE-CM only |
+| abdm-reviewer@abdm-demo.in | Reviews: ABDM only |
 | nhcx-support@abdm-demo.in | Support: NHCX only |
 | uhi-events@abdm-demo.in | Events: UHI only |
 
@@ -138,7 +138,7 @@ uv run python manage.py shell -c 'from ohc_experience.experiences.tasks import d
 
 The UI from `bodhi-test` is implemented against the reusable engine's existing
 models, migrations, services and routes. Product registration defaults to Clinic
-HMIS and HIE-CM M1 to M4 for a new product; editing preserves saved choices.
+HMIS and ABDM M1 to M4 for a new product; editing preserves saved choices.
 Checking a solution type ticks the milestones NHA's intent-for-request matrix
 requires of it (`REQUIRED_MILESTONES`): M1 to M4 for HMIS, Clinic HMIS, LMIS,
 Pharmacy, HealthTech and Telemedicine; P1 to P4 for PHR; P4 for Health
@@ -156,7 +156,7 @@ retired; reviewer work uses the engine's assessment screens.
 
 - `ProductWorkspace` extends the existing `Product` with its reference and program key,
   registration date, solution type and selected track/milestone pairs.
-- Each canonical `Milestone` has an `ApplicationInstance`. HIE-CM M1 and PHR M1
+- Each canonical `Milestone` has an `ApplicationInstance`. ABDM M1 and PHR M1
   share the same milestone and approval. HealthLocker does not require M3.
 - `ReviewItem` wraps organisation verification, product registration or exit.
   Product registration is recorded rather than reviewed: registering or editing a
@@ -225,7 +225,7 @@ retired; reviewer work uses the engine's assessment screens.
   audit/retention controls when deploying in a regulated environment.
 
 The fixed catalog lives in `abdm/catalog.py`. M4 is HFR Registration, PHR
-shares M1 with HIE-CM, and NHCX intentionally has no published milestones per v3.
+shares M1 with ABDM, and NHCX intentionally has no published milestones per v3.
 There is no configured decision SLA. Production credential issuance is external:
 once a milestone exit is approved, staff with General/onboarding review approve
 access add the production client ID the gateway team issued, and the day it

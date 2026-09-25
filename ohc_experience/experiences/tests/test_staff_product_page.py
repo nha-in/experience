@@ -65,7 +65,7 @@ def test_admin_reaches_each_open_request_from_the_product(environment, client):
         f"#review-{approved.pk}",
         f"#review-{pending.pk}",
     }
-    assert track_url(environment, "HIE-CM").encode() not in response.content
+    assert track_url(environment, "ABDM").encode() not in response.content
 
 
 def test_category_reviewers_see_their_tracks_and_act_only_with_a_grant(
@@ -114,10 +114,10 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
     assert client.get(environment["workspace"].get_absolute_url()).url == (
         product_url(environment)
     )
-    response = client.get(track_url(environment, "HIE-CM"), {"milestone": "m1"})
+    response = client.get(track_url(environment, "ABDM"), {"milestone": "m1"})
     assert response.url == m1.get_absolute_url()
-    assert client.get(track_url(environment, "HIE-CM")).url == (
-        f"{product_url(environment)}#track-hie-cm"
+    assert client.get(track_url(environment, "ABDM")).url == (
+        f"{product_url(environment)}#track-abdm"
     )
     assert client.get(track_url(environment, "Unknown")).status_code == (
         HTTPStatus.NOT_FOUND
@@ -129,12 +129,12 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
     client.force_login(staff("HealthLocker"))
     response = client.get(track_url(environment, "HealthLocker"), {"milestone": "m1"})
     assert response.url == f"{product_url(environment)}#track-healthlocker"
-    assert client.get(track_url(environment, "HIE-CM")).status_code == (
+    assert client.get(track_url(environment, "ABDM")).status_code == (
         HTTPStatus.NOT_FOUND
     )
 
     client.force_login(environment["applicant"])
-    assert client.get(track_url(environment, "HIE-CM")).status_code == HTTPStatus.OK
+    assert client.get(track_url(environment, "ABDM")).status_code == HTTPStatus.OK
 
 
 def test_staff_pages_never_offer_the_product_switcher(environment, client):
@@ -144,7 +144,7 @@ def test_staff_pages_never_offer_the_product_switcher(environment, client):
         product=environment["workspace"].product,
         created_by=environment["applicant"],
         subject="Callback help",
-        category="HIE-CM",
+        category="ABDM",
     )
     staff_pages = [
         reverse("experiences:ticket", args=[ticket.reference]),

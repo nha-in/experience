@@ -23,7 +23,7 @@ from ohc_experience.organisations.tests.factories import MembershipFactory
 pytestmark = pytest.mark.django_db
 
 
-def track_url(environment, key="m1", code="HIE-CM"):
+def track_url(environment, key="m1", code="ABDM"):
     return (
         reverse(
             "experiences:track",

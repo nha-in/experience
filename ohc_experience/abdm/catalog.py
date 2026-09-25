@@ -104,8 +104,8 @@ MILESTONES = {
 
 TRACKS = (
     TrackDefinition(
-        "HIE-CM",
-        "Health information & consent management",
+        "ABDM",
+        "Milestones",
         "ABHA identity, health information exchange and facility registration.",
         ("m1", "m2", "m3", "m4"),
         docs_page("/docs/hiecm/v3"),
@@ -144,16 +144,11 @@ TRACKS = (
 )
 TRACK_MAP = {track.code: track for track in TRACKS}
 
-#: What a ticket is filed under, and what a support permission is granted for.
-#: Finer than the tracks the same program is reviewed by, because the milestone
-#: a question is about is what decides who can answer it. "Others" is the
-#: catch-all for work that belongs to no track; it sits last so the milestones
-#: lead and the catch-all is the fallback.
 SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-m1",
         "ABDM - Milestone 1",
-        "HIE-CM",
+        "ABDM",
         (
             "ABHA Creation",
             "ABHA Verification",
@@ -165,7 +160,7 @@ SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-m2",
         "ABDM - Milestone 2",
-        "HIE-CM",
+        "ABDM",
         (
             "Bridge Service",
             "HIP Initiated Linking",
@@ -177,13 +172,13 @@ SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-m3",
         "ABDM - Milestone 3",
-        "HIE-CM",
+        "ABDM",
         ("Consent Management (Request)", "Data Request", "FHIR Bundle Decryption"),
     ),
     SupportCategoryDefinition(
         "abdm-m4",
         "ABDM - Milestone 4",
-        "HIE-CM",
+        "ABDM",
         (
             "Creation - HPR",
             "Creation - HFR",
@@ -194,13 +189,13 @@ SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-review",
         "ABDM - Review (demo)",
-        "HIE-CM",
+        "ABDM",
         ("Review of ABDM Milestones (M1/M2/M3/M4)",),
     ),
     SupportCategoryDefinition(
         "abdm-scan-share",
         "ABDM - Scan & Share",
-        "HIE-CM",
+        "ABDM",
         ("Profile On Share",),
     ),
     SupportCategoryDefinition(

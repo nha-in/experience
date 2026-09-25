@@ -70,7 +70,7 @@ def test_the_reason_reaches_the_integrator_beside_the_note(environment, client):
     client.force_login(environment["applicant"])
     track = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "HIE-CM"],
+        args=[environment["workspace"].reference, "ABDM"],
     )
     page = client.get(track, {"milestone": "m1"}).content.decode()
     assert f"Reason:</span> {DOCUMENTS}" in page

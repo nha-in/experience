@@ -103,7 +103,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
         client.get(
             reverse(
                 "experiences:track",
-                args=[environment["workspace"].reference, "HIE-CM"],
+                args=[environment["workspace"].reference, "ABDM"],
             ),
         ).status_code
         == 404
@@ -242,7 +242,7 @@ def test_read_only_assignment_and_revocation(environment, staff, client):
 @pytest.fixture
 def tickets(environment):
     result = {}
-    for category in ["NHCX", "UHI", "HIE-CM", ""]:
+    for category in ["NHCX", "UHI", "ABDM", ""]:
         ticket = Ticket.objects.create(
             organisation=environment["org"],
             product=environment["workspace"].product,
@@ -269,7 +269,7 @@ def tickets(environment):
     return result
 
 
-@pytest.mark.parametrize("category", ["NHCX", "UHI", "HIE-CM"])
+@pytest.mark.parametrize("category", ["NHCX", "UHI", "ABDM"])
 def test_support_is_separate_and_category_scoped(tickets, category, staff, client):
     grant(staff, area="support", category=category)
     client.force_login(staff)

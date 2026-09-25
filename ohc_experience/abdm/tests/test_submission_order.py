@@ -23,7 +23,7 @@ from ohc_experience.experiences.models import ReviewItem
 pytestmark = pytest.mark.django_db
 
 
-def track_url(environment, code="HIE-CM"):
+def track_url(environment, code="ABDM"):
     return reverse(
         "experiences:track",
         args=[environment["workspace"].reference, code],
@@ -238,7 +238,8 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
             "Requires completion of M1"
         ),
         "M4": (
-            "M4 Register Healthcare Professionals and Facilities Open · Pending Implementation"
+            "M4 Register Healthcare Professionals and Facilities "
+            "Open · Pending Implementation"
         ),
     }
     assert "ui-milestone-tile-needs--locked" in html

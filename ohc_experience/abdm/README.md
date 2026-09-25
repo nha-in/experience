@@ -63,7 +63,7 @@ response contract.
 
 Product registration selects the UHI track and milestones. Role, service and
 optional detail questions belong to the separate UHI application, which builds
-on M2 and opens once M1 and M2 are submitted. UHI shares M1 and M2 with HIE-CM,
+on M2 and opens once M1 and M2 are submitted. UHI shares M1 and M2 with ABDM,
 and M1 with PHR. The UHI application records participation without a reviewer
 decision or exit-evidence uploads: submitted after M1, M2 and organisation
 verification are approved, it is recorded at once; submitted earlier, it waits

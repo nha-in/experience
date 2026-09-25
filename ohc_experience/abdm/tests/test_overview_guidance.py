@@ -33,7 +33,7 @@ def test_next_step_opens_an_available_milestone(client, environment):  # noqa: F
     response = client.get(environment["workspace"].get_absolute_url())
     next_step = response.context["next_step"]
     assert next_step["action"] == "Continue milestone"
-    assert next_step["url"].endswith("/tracks/HIE-CM/?milestone=m1")
+    assert next_step["url"].endswith("/tracks/ABDM/?milestone=m1")
     assert response.context["progress"]["approved"] == 0
 
 
@@ -84,8 +84,7 @@ def test_another_products_query_does_not_replace_this_products_guidance(
     next_step = response.context["next_step"]
     assert next_step["action"] == "Continue milestone"
     assert next_step["url"] == (
-        reverse("experiences:track", args=[second.reference, "HIE-CM"])
-        + "?milestone=m1"
+        reverse("experiences:track", args=[second.reference, "ABDM"]) + "?milestone=m1"
     )
 
 
@@ -151,7 +150,7 @@ def test_verification_under_review_still_leads_to_milestone_evidence(
     assert response.status_code == HTTPStatus.OK
     next_step = response.context["next_step"]
     assert next_step["action"] == "Continue milestone"
-    assert next_step["url"].endswith("/tracks/HIE-CM/?milestone=m1")
+    assert next_step["url"].endswith("/tracks/ABDM/?milestone=m1")
 
 
 def test_review_guidance_skips_approved_milestones(client, environment):  # noqa: F811
@@ -166,4 +165,4 @@ def test_review_guidance_skips_approved_milestones(client, environment):  # noqa
     assert response.status_code == HTTPStatus.OK
     next_step = response.context["next_step"]
     assert next_step["action"] == "View current request"
-    assert next_step["url"].endswith("/tracks/HIE-CM/?milestone=m2")
+    assert next_step["url"].endswith("/tracks/ABDM/?milestone=m2")

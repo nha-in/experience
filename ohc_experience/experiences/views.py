@@ -35,7 +35,6 @@ from django.views.decorators.http import require_safe
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences.definitions import DocumentReadError
 from ohc_experience.experiences.definitions import Prerequisite
-from ohc_experience.experiences.definitions import display_track_code
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormSubmission
@@ -232,11 +231,9 @@ def _tracks(workspace, user):
                     "definition": definition,
                     "status": item.status,
                     "label": label,
-                    "shared_label": (
-                        f"Shared with {readable_list(display_track_code(code) for code in shared)}"
-                        if shared
-                        else ""
-                    ),
+                    "shared_label": f"Shared with {readable_list(shared)}"
+                    if shared
+                    else "",
                     "reply_needed": item.status == "query_raised"
                     and item.queries.filter(
                         submission_id=item.selected_submission_id,
@@ -1534,7 +1531,7 @@ def track(request, reference, track_code):
         _context(
             request,
             workspace,
-            page_title="ABDM Milestones" if track_code == "HIE-CM" else track_code,
+            page_title=track_code,
             nav=track_code,
             track=track_data,
             tile=tile,

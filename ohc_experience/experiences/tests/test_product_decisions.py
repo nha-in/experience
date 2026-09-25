@@ -375,7 +375,7 @@ def test_organisation_selection_requires_general_approval_permission(
         user=reviewer,
         program="abdm",
         area="review",
-        category="HIE-CM",
+        category="ABDM",
         can_read=True,
         can_approve=True,
     )
