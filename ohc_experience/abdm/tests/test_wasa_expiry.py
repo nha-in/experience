@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 import pytest
 from django.template.loader import render_to_string
@@ -39,11 +40,41 @@ def test_only_the_audit_date_drives_the_autofill(form_class):
 
 
 @pytest.mark.parametrize("form_class", FORMS)
-def test_expiry_stays_required_and_editable(form_class):
+def test_the_expiry_is_required_but_never_edited_by_hand(form_class):
     field = form_class().fields["wasa_valid_until"]
     assert field.required
+    assert field.widget.attrs["readonly"]
+    # Read-only, not disabled: a disabled input posts nothing, and the derived
+    # date has to arrive with the rest of the audit for clean() to check it.
     assert not field.disabled
-    assert not field.widget.attrs.get("readonly")
+
+
+@pytest.mark.parametrize("form_class", FORMS)
+def test_the_expiry_input_is_read_only_in_the_page(form_class):
+    html = render_to_string(
+        "experiences/partials/form.html",
+        {"form": form_class()},
+    )
+    tag = re.search(r'<input[^>]*name="wasa_valid_until"[^>]*>', html).group(0)
+    assert "readonly" in tag
+    assert "disabled" not in tag
+
+
+@pytest.mark.parametrize("form_class", FORMS)
+def test_a_posted_expiry_is_still_read_and_validated(form_class):
+    """Read-only holds the page, not the request: clean() judges what arrives."""
+    today = timezone.localdate()
+    form = form_class(
+        data={
+            "wasa_date": today.isoformat(),
+            "wasa_valid_until": (today - timedelta(days=1)).isoformat(),
+        },
+    )
+
+    assert not form.is_valid()
+    assert form.errors["wasa_valid_until"] == [
+        "The expiry date must be on or after the audit date.",
+    ]
 
 
 @pytest.mark.parametrize("form_class", FORMS)

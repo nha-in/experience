@@ -246,6 +246,12 @@
     @apply disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  /* A value the form works out rather than asks for. It still reads as the
+     answer it is, and still posts, but it is plainly not a field to fill in. */
+  .ui-input:read-only:not(:disabled) {
+    @apply cursor-default bg-muted-background/70 text-muted-foreground;
+  }
+
   .ui-input--sm {
     @apply h-10 md:h-9;
   }

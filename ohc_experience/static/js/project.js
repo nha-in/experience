@@ -195,23 +195,36 @@
 
 
 (() => {
-  // Offer a derived date without taking the field away: once the integrator
-  // edits the target themselves, their value is never overwritten.
-  // The period counts the start date, so it ends the day before the
-  // anniversary. Date.UTC normalises what that lands on, including a 29
-  // February audit and a period that rolls back into the previous month.
+  // The end of a period that a date field opens: the period counts its start
+  // date, so it ends the day before the anniversary. Date.UTC normalises what
+  // that lands on, including a 29 February audit and a period that rolls back
+  // into the previous month.
   function periodEnd(value, years) {
     const [year, month, day] = value.split('-').map(Number);
     if (!year || !month || !day) return '';
     return new Date(Date.UTC(year + years, month - 1, day - 1)).toISOString().slice(0, 10);
   }
 
-  function autofillFromDate(source) {
+  // Whether the derived date may take the field. A field the integrator can
+  // edit keeps whatever they put in it, and on the page as it arrives nothing
+  // is rewritten: an expiry saved earlier is what a certificate stated, which
+  // no arithmetic here may quietly extend. Editing the date it follows is
+  // different, because that expiry now describes an audit that no longer
+  // exists, and a read-only field holds nothing of the integrator's to keep:
+  // leaving it would strand a date nobody can reach. What a document reader
+  // filled stays either way, being the expiry the certificate itself prints.
+  function derivable(target, edited) {
+    if (target.dataset.documentRead === 'true') return false;
+    if (target.readOnly && edited) return true;
+    return !target.value || target.dataset.autofilled === 'true';
+  }
+
+  function autofillFromDate(source, edited = false) {
     const form = source.closest('form');
     const years = Number.parseInt(source.dataset.autofillYears, 10);
     if (!form || !Number.isFinite(years)) return;
     form.querySelectorAll(`[name="${source.dataset.autofillTarget}"]`).forEach(target => {
-      if (target.value && target.dataset.autofilled !== 'true') return;
+      if (!derivable(target, edited)) return;
       target.value = source.value ? periodEnd(source.value, years) : '';
       target.dataset.autofilled = target.value ? 'true' : 'false';
     });
@@ -271,8 +284,9 @@
   }
 
   // An expired certificate is refused on submission. Say so beside the field
-  // as soon as a date lands there, however it came: typed, picked, or read off
-  // the certificate, whose reader announces its values with a change event.
+  // as soon as a date lands there, however it came: derived from the audit
+  // date, or read off the certificate, whose reader announces its values with
+  // a change event.
   function flagExpiredCertificate(form) {
     const expiry = form.querySelector('[name="wasa_valid_until"]');
     const message = expiry?.dataset?.expiredMessage;
@@ -441,7 +455,7 @@
   function initialize(scope = document) {
     // Drafts and rejected submissions can arrive with the audit date saved and
     // the expiry still blank; fill it before counting what needs attention.
-    scope.querySelectorAll?.('[data-autofill-target]').forEach(autofillFromDate);
+    scope.querySelectorAll?.('[data-autofill-target]').forEach(source => autofillFromDate(source));
     scope.querySelectorAll?.('[data-review-form]').forEach(updateDateConstraints);
     scope.querySelectorAll?.('[data-review-form]').forEach(updateSubmission);
     scope.querySelectorAll?.('[data-decision-form]').forEach(updateDecision);
@@ -476,7 +490,7 @@
     const decision = event.target.closest('[data-decision-form]');
     if (decision) updateDecision(decision);
     const source = event.target.closest('[data-autofill-target]');
-    if (source) autofillFromDate(source);
+    if (source) autofillFromDate(source, true);
     const edited = event.target.closest('[data-autofilled]');
     if (edited && edited !== source) edited.dataset.autofilled = 'false';
     const form = event.target.closest('[data-review-form]');

@@ -495,7 +495,7 @@ class WasaReviewForm(ReviewForm):
     full_width_fields = ("wasa_certificate",)
     section_notes = {
         "WASA audit": (
-            "Upload your certificate and enter the expiry date stated on it."
+            "Upload your certificate and check the audit details taken from it."
         ),
     }
     wasa_agency = forms.ChoiceField(
@@ -509,21 +509,26 @@ class WasaReviewForm(ReviewForm):
         widget=forms.DateInput(
             attrs={
                 "type": "date",
-                # WASA certificates run for a year, so the expiry is offered as
-                # a starting point the integrator can correct.
+                # WASA certificates run for a year, so the audit date the
+                # integrator gives is what the expiry beside it is read from.
                 "data-autofill-target": "wasa_valid_until",
                 "data-autofill-years": WASA_VALIDITY_YEARS,
                 "autocomplete": "off",
             },
         ),
     )
+    # The expiry is not the integrator's to set: it follows the audit date, or
+    # the date the certificate itself states where its reader finds one. The
+    # field still posts, so clean() validates what arrives either way.
     wasa_valid_until = forms.DateField(
         label="WASA valid until",
         help_text=(
-            "Filled in to cover one year from the audit date. Change it if the "
-            "certificate states a different expiry date."
+            "Filled in to cover one year from the audit date, or the expiry "
+            "printed on the certificate."
         ),
-        widget=forms.DateInput(attrs={"type": "date", "autocomplete": "off"}),
+        widget=forms.DateInput(
+            attrs={"type": "date", "autocomplete": "off", "readonly": True},
+        ),
     )
     wasa_certificate = forms.FileField(
         label="WASA certificate",
@@ -538,11 +543,11 @@ class WasaReviewForm(ReviewForm):
         super().__init__(*args, **kwargs)
         today = timezone.localdate().isoformat()
         self.fields["wasa_date"].widget.attrs["max"] = today
-        # The picker never offers an expired date, and project.js says why
-        # beside the field the moment one lands there, typed or read off the
-        # certificate, in the words clean() refuses it with. A draft still
-        # keeps one: it posts without the browser's validation, and records
-        # migrated with an expired certificate still open.
+        # The floor is what project.js measures an expired date against, so it
+        # can say why beside the field the moment one lands there, derived or
+        # read off the certificate, in the words clean() refuses it with. A
+        # draft still keeps one: it posts without the browser's validation, and
+        # records migrated with an expired certificate still open.
         expiry = self.fields["wasa_valid_until"].widget.attrs
         expiry["min"] = today
         expiry["data-expired-message"] = EXPIRED_CERTIFICATE
