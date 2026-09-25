@@ -7,6 +7,7 @@ from django.urls import reverse
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import phr_workspace
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ProductCredential
@@ -20,18 +21,14 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 
-def product_url(environment):
-    return reverse(
-        "experiences:product-detail",
-        args=[environment["workspace"].reference],
-    )
+def product_url(environment, workspace=None):
+    workspace = workspace or environment["workspace"]
+    return reverse("experiences:product-detail", args=[workspace.reference])
 
 
-def track_url(environment, code):
-    return reverse(
-        "experiences:track",
-        args=[environment["workspace"].reference, code],
-    )
+def track_url(environment, code, workspace=None):
+    workspace = workspace or environment["workspace"]
+    return reverse("experiences:track", args=[workspace.reference, code])
 
 
 def staff(category, **actions):
@@ -73,16 +70,16 @@ def test_category_reviewers_see_their_tracks_and_act_only_with_a_grant(
     client,
 ):
     approve(environment)
-    locker = submit(environment, "p4")
+    locker = submit(environment, "p1")
     hidden = submit(environment, "m2")
-    reader = staff("HealthLocker")
+    reader = staff("PHR")
     client.force_login(reader)
 
-    response = client.get(product_url(environment))
+    response = client.get(product_url(environment, phr_workspace(environment)))
 
     assert response.status_code == HTTPStatus.OK
     assert [row["definition"].code for row in response.context["tracks"]] == [
-        "HealthLocker",
+        "PHR",
     ]
     assert response.context["pending"] == [locker]
     assert response.context["decidable"] == set()
@@ -92,8 +89,8 @@ def test_category_reviewers_see_their_tracks_and_act_only_with_a_grant(
     assert not response.context["certification"]
     assert b"Integration connection" not in response.content
 
-    client.force_login(staff("HealthLocker", can_approve=True))
-    response = client.get(product_url(environment))
+    client.force_login(staff("PHR", can_approve=True))
+    response = client.get(product_url(environment, phr_workspace(environment)))
     assert response.context["decidable"] == {locker.pk}
 
 
@@ -126,9 +123,14 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
     client.force_login(staff("UHI"))
     response = client.get(track_url(environment, "UHI"), {"milestone": "m1"})
     assert response.url == m1.get_absolute_url()
-    client.force_login(staff("HealthLocker"))
-    response = client.get(track_url(environment, "HealthLocker"), {"milestone": "m1"})
-    assert response.url == f"{product_url(environment)}#track-healthlocker"
+    client.force_login(staff("PHR"))
+    response = client.get(
+        track_url(environment, "PHR", phr_workspace(environment)),
+        {"milestone": "m1"},
+    )
+    assert response.url == (
+        f"{product_url(environment, phr_workspace(environment))}#track-phr"
+    )
     assert client.get(track_url(environment, "ABDM")).status_code == (
         HTTPStatus.NOT_FOUND
     )

@@ -28,7 +28,7 @@ def portal_workspaces(owner_membership):
     result = []
     for name, milestones in (
         ("Alpha HMIS", ["ABDM:m1"]),
-        ("Zeta Locker", ["HealthLocker:p4", "ABDM:m1"]),
+        ("Zeta Locker", ["PHR:p1", "PHR:p2", "PHR:p3", "PHR:p4"]),
     ):
         data = product_data(name)
         data["applied_milestones"] = milestones

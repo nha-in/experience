@@ -20,6 +20,10 @@ INVITATION_TOKEN_BYTES = 32
 #: the only type the portal lets sign up without a website.
 SOLE_PROPRIETOR = "sole_proprietor"
 
+#: A government body registers facilities and professionals under its own
+#: authority, so M4 opens for it without M1.
+GOVERNMENT = "government"
+
 
 class Role(models.TextChoices):
     """Roles a member can hold inside an organisation.

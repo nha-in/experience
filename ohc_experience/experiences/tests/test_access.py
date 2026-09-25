@@ -80,17 +80,17 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
 ):
     approve(environment)
     hicm = milestone(environment, "m1")
-    # HealthLocker, because it is the one track whose milestone is neither shared
-    # with another track nor recorded without a decision.
-    locker = submit(environment, "p4")
-    grant(staff, category="HealthLocker")
+    # PHR, because P1 is the one milestone that is neither shared with another
+    # track, gated behind one, nor recorded without a decision.
+    locker = submit(environment, "p1")
+    grant(staff, category="PHR")
     client.force_login(staff)
     response = client.get(reverse("experiences:queue"), HTTP_HX_REQUEST="true")
     assert len(response.context["page"]) == 1
     assert response.context["page"][0].reviews == [locker]
     assert response.context["page"][0].matching_reviews == [locker]
     assert [track.code for track in response.context["track_choices"]] == [
-        "HealthLocker",
+        "PHR",
     ]
     response = client.get(reverse("experiences:assess-dashboard"))
     assert response.context["ready_count"] == 1
@@ -150,8 +150,8 @@ def test_nhcx_grant_does_not_allow_uhi_or_hicm(environment, staff, client):
 
 def test_review_write_and_approve_are_independent(environment, staff, client):
     approve(environment)
-    item = submit(environment, "p4")
-    access = grant(staff, category="HealthLocker", write=True)
+    item = submit(environment, "p1")
+    access = grant(staff, category="PHR", write=True)
     workflows.assign_review(item, environment["admin"], staff)
     client.force_login(staff)
     page = client.get(item.get_absolute_url())
@@ -529,16 +529,16 @@ def test_general_and_all_categories_are_explicit(environment, staff):
 def test_reused_pins_remain_visible_without_exposing_source_history(environment, staff):
     source = submit(environment, "m1")
     original = source.selected_submission
-    # An ungated track, so the source can stay withdrawable rather than approved.
-    target = milestone(environment, "p4")
-    grant(staff, category="HealthLocker")
+    # An ungated milestone, so the source can stay withdrawable, not approved.
+    target = milestone(environment, "p1")
+    grant(staff, category="PHR")
     assert not permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     workflows.reuse_evidence(target, environment["applicant"])
     target.refresh_from_db()
     assert target.selected_submission_id == original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     # Replacing a reused pin must not break links in this application's history.
-    target = submit(environment, "p4")
+    target = submit(environment, "p1")
     assert target.selected_submission_id != original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     workflows.withdraw(source, environment["applicant"])

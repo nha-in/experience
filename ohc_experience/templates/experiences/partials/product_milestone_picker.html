@@ -20,7 +20,8 @@
   <p class="sr-only" role="status" data-milestone-status></p>
   <div class="flex flex-col gap-5">
     {% for row in form.milestone_tracks %}
-      <div>
+      <div data-track="{{ row.definition.code }}"
+           {% if row.excludes %}data-track-excludes="{{ row.excludes }}"{% endif %}>
         <div class="mb-1 flex flex-wrap items-baseline gap-2">
           <h3 class="font-mono text-sm font-semibold {% if not row.milestones %}text-soft-foreground{% endif %}">{{ row.definition.code }}</h3>
           {# Name, note and (i) stay one item, so the button never wraps away from the words. #}
@@ -32,6 +33,9 @@
             {% if row.related %}
               <span class="text-xs text-soft-foreground">· {{ row.related }} suggested</span>
             {% endif %}
+            <span class="text-xs font-medium text-amber-800"
+                  data-track-blocked
+                  {% if not row.blocked %}hidden{% endif %}>{{ row.exclusion }}</span>
             {% if row.milestones %}
               {% include "components/info_popover.html" with extra_class="-ml-1" scope="track" key=row.definition.code label=row.definition.name description=row.definition.description url=row.definition.docs_url|default:experience_program.docs_url only %}
             {% endif %}
@@ -41,7 +45,7 @@
           <div class="flex flex-col">
             {% for milestone in row.milestones %}
               <div class="-mx-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border-t border-soft-border px-2.5 py-2.5 transition-colors has-[input:enabled]:hover:bg-primary-50/60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40">
-                <input class="ui-checkbox peer shrink-0" type="checkbox" id="milestone-{{ milestone.value|slugify }}" data-milestone-key="{{ milestone.definition.key }}" {% if milestone.value in approved_selections or milestone.value in under_review_selections %}checked disabled aria-describedby="milestone-{{ milestone.value|slugify }}-why"{% else %}name="{{ field.html_name }}" value="{{ milestone.value }}" data-milestone-requires="{{ milestone.definition.predecessor }}" {% if milestone.required_for %}data-required-for="{{ milestone.required_for }}" aria-describedby="milestone-{{ milestone.value|slugify }}-required"{% endif %} {% if milestone.selected %}checked{% endif %}{% endif %} />
+                <input class="ui-checkbox peer shrink-0" type="checkbox" id="milestone-{{ milestone.value|slugify }}" data-milestone-key="{{ milestone.definition.key }}" {% if milestone.value in approved_selections or milestone.value in under_review_selections %}checked disabled aria-describedby="milestone-{{ milestone.value|slugify }}-why"{% else %}name="{{ field.html_name }}" value="{{ milestone.value }}" data-milestone-requires="{{ milestone.requires }}"{% if milestone.stands_alone %} data-milestone-stands-alone{% endif %}{% if row.blocked %} disabled{% endif %} {% if milestone.required_for %}data-required-for="{{ milestone.required_for }}" aria-describedby="milestone-{{ milestone.value|slugify }}-required"{% endif %} {% if milestone.selected %}checked{% endif %}{% endif %} />
                 {# The label ends after the name so the (i) can sit beside it: a button inside a label would toggle the checkbox. #}
                 <label class="flex min-w-0 items-center gap-x-3 text-sm select-none peer-enabled:cursor-pointer peer-disabled:text-soft-foreground"
                        for="milestone-{{ milestone.value|slugify }}">

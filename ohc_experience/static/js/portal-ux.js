@@ -85,6 +85,7 @@
     });
     document.querySelectorAll('[data-password-toggle][hidden]').forEach(button => { button.hidden = false; });
     document.querySelectorAll('form:has([data-milestone-key])').forEach(form => {
+      refreshTracks(form);
       refreshMilestones(form);
       refreshRequirements(form);
     });
@@ -233,9 +234,44 @@
       updatePermissionSummary(group);
     }
   });
-  // A milestone opens once its prerequisite is ticked; unticking one clears
-  // everything after it. The form re-checks this on submit regardless.
+  // A milestone opens once one of the milestones it builds on is ticked;
+  // unticking them clears everything after it. One marked stands-alone, like
+  // UHI, is only ever suggested them. The form re-checks this on submit.
   const isTicked = (form, key) => [...form.querySelectorAll(`[data-milestone-key="${CSS.escape(key)}"]`)].some(input => input.checked);
+
+  // Approved and under-review milestones are posted as hidden fields, so the
+  // boxes a reader can still change are the ones carrying their prerequisite.
+  function changeable(group) {
+    return [...group.querySelectorAll('[data-milestone-requires]')];
+  }
+
+  function hasSelection(group) {
+    return [...group.querySelectorAll('[data-milestone-key]')].some(input => input.checked);
+  }
+
+  // ABDM and PHR & Health Locker rule each other out. Ticking one clears the
+  // other, so the track just acted on is the one that wins.
+  function applyExclusivity(input) {
+    const group = input.closest('[data-track-excludes]');
+    if (!group || !input.checked) return;
+    const ruled = group.dataset.trackExcludes;
+    const other = input.form.querySelector(`[data-track="${CSS.escape(ruled)}"]`);
+    if (!other) return;
+    changeable(other).forEach(box => { box.checked = false; });
+  }
+
+  function refreshTracks(form) {
+    const groups = [...form.querySelectorAll('[data-track-excludes]')];
+    const chosen = groups.filter(hasSelection)[0];
+    for (const group of groups) {
+      const blocked = Boolean(chosen) && group !== chosen;
+      for (const input of changeable(group)) {
+        input.dataset.trackBlocked = blocked ? 'true' : '';
+      }
+      const note = group.querySelector('[data-track-blocked]');
+      if (note) note.hidden = !blocked;
+    }
+  }
 
   function refreshMilestones(form) {
     const gated = [...form.querySelectorAll('[data-milestone-requires]')];
@@ -243,8 +279,11 @@
     while (cleared) {
       cleared = false;
       for (const input of gated) {
-        const required = input.dataset.milestoneRequires;
-        const open = !required || isTicked(form, required);
+        const required = (input.dataset.milestoneRequires || '').split(' ').filter(Boolean);
+        const standsAlone = 'milestoneStandsAlone' in input.dataset;
+        const built = required.some(key => isTicked(form, key));
+        const met = standsAlone || required.length === 0 || built;
+        const open = met && !input.dataset.trackBlocked;
         if (!open && input.checked) {
           input.checked = false;
           cleared = true;
@@ -313,7 +352,11 @@
     const form = (type || input)?.form;
     if (!form) return;
     if (type) applySolutionType(type);
-    else preselected.get(form)?.delete(input);
+    else {
+      preselected.get(form)?.delete(input);
+      applyExclusivity(input);
+    }
+    refreshTracks(form);
     refreshMilestones(form);
     refreshRequirements(form, true);
   });

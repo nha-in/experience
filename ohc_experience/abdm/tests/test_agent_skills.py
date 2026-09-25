@@ -340,7 +340,7 @@ def test_skills_for_the_milestones_on_the_product_are_recommended(environment, c
     # The track the product applied for is read first, then the shared skills it
     # was recommended, then the tracks it left out.
     codes = [group["code"] for group in page.context["skill_groups"]]
-    assert codes == ["ABDM", "", "PHR", "HealthLocker"]
+    assert codes == ["ABDM", "", "PHR"]
 
 
 def test_skills_that_are_no_milestone_of_their_own_are_listed_apart(
@@ -455,7 +455,7 @@ def test_a_track_with_no_skill_of_its_own_leaves_no_empty_group(
     page = client.get(skills_url(environment["workspace"]))
 
     # NHCX and UHI carry no skills yet, so neither gets a heading with nothing under it.
-    assert set(groups(page)) == {"ABDM", "PHR", "HealthLocker", ""}
+    assert set(groups(page)) == {"ABDM", "PHR", ""}
     assert all(group["skills"] for group in page.context["skill_groups"])
 
 

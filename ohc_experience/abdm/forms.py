@@ -14,11 +14,14 @@ from ohc_experience.organisations.models import SOLE_PROPRIETOR
 from ohc_experience.organisations.widgets import PincodeInput
 from ohc_experience.organisations.widgets import WebsiteInput
 
+from .catalog import EXCLUSIVE_TRACKS
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
 from .catalog import REQUIRED_MILESTONES
 from .catalog import TRACKS
 from .catalog import canonical_keys
+from .catalog import excluded_track
+from .catalog import milestone_predecessors
 from .docs import docs_page
 from .wasa import WASA_FIELDS
 from .wasa import WASA_VALIDITY_YEARS
@@ -363,15 +366,8 @@ class ProductRegistrationForm(ReviewForm):
         widget=forms.CheckboxSelectMultiple,
     )
 
-    def __init__(self, *args, **kwargs):
-        # Defaults belong to new registrations, never a saved or bound form.
-        if not args and kwargs.get("data") is None and kwargs.get("initial") is None:
-            kwargs["initial"] = {
-                "solution_type": ["clinical_hmis"],
-                "applied_milestones": [
-                    f"ABDM:{key}" for key in REQUIRED_MILESTONES["clinical_hmis"]
-                ],
-            }
+    def __init__(self, *args, organisation=None, **kwargs):
+        self.organisation = organisation
         super().__init__(*args, **kwargs)
         if self.is_bound and "other" not in (self["solution_type"].value() or []):
             self.fields["solution_type_other"].required = False
@@ -380,17 +376,27 @@ class ProductRegistrationForm(ReviewForm):
     def milestone_tracks(self):
         selected = self["applied_milestones"].value() or []
         solutions = self["solution_type"].value() or []
+        blocked = excluded_track({value.split(":", 1)[0] for value in selected})
         rows = []
         for track in TRACKS:
             hard = track.prerequisites(MILESTONES)
             related = [
                 key for key in track.related_milestones(MILESTONES) if key not in hard
             ]
+            # The code, not the name: ABDM's name is "Milestones", which says
+            # nothing in this sentence, and the heading above leads with the code.
+            other = excluded_track({track.code})
+            exclusion = ""
+            if other:
+                exclusion = f"Not available with {other}."
             rows.append(
                 {
                     "definition": track,
-                    "requires": readable_list(MILESTONES[key].code for key in hard),
+                    "requires": self._requirement(track, hard),
                     "related": readable_list(MILESTONES[key].code for key in related),
+                    "excludes": other,
+                    "exclusion": exclusion,
+                    "blocked": track.code == blocked,
                     "milestones": [
                         self._milestone_row(f"{track.code}:{key}", selected, solutions)
                         for key in track.keys
@@ -399,8 +405,22 @@ class ProductRegistrationForm(ReviewForm):
             )
         return rows
 
+    def _requirement(self, track, prerequisites):
+        """"M1 or P1 ": what has to be chosen before this track's own milestones.
+
+        UHI and NHCX open on either identity milestone, so their note reads
+        "or"; a track that builds on a chain would read "and".
+        """
+        codes = [MILESTONES[key].code for key in prerequisites]
+        alternatives = False
+        for key in track.keys:
+            if len(MILESTONES[key].predecessors) > 1:
+                alternatives = True
+        return readable_list(codes, conjunction="or" if alternatives else "and")
+
     def _milestone_row(self, value, selected, solutions):
         key = value.split(":", 1)[1]
+        definition = MILESTONES[key]
         required_for = [
             (solution, label)
             for solution, label in self.fields["solution_type"].choices
@@ -412,9 +432,11 @@ class ProductRegistrationForm(ReviewForm):
             else [label for solution, label in required_for if solution in solutions]
         )
         return {
-            "definition": MILESTONES[key],
+            "definition": definition,
             "value": value,
             "selected": value in selected,
+            "requires": " ".join(milestone_predecessors(key, self.organisation)),
+            "stands_alone": definition.stands_alone,
             "required_for": " ".join(solution for solution, _ in required_for),
             "warning": required_warning(missing_for),
         }
@@ -427,17 +449,26 @@ class ProductRegistrationForm(ReviewForm):
 
     def clean_applied_milestones(self):
         selections = self.cleaned_data["applied_milestones"]
+        chosen = {value.split(":", 1)[0] for value in selections}
+        blocked = excluded_track(chosen)
+        if blocked in chosen:
+            names = readable_list(EXCLUSIVE_TRACKS)
+            msg = f"{names} cannot be applied for together. Choose one of them."
+            raise ValidationError(msg)
         keys = canonical_keys(selections)
         for key in keys:
-            predecessor = MILESTONES[key].predecessor
-            if predecessor and predecessor not in keys:
-                msg = (
-                    f"Select {MILESTONES[predecessor].code} "
-                    f"before {MILESTONES[key].name}."
-                )
-                raise ValidationError(
-                    msg,
-                )
+            milestone = MILESTONES[key]
+            if milestone.stands_alone:
+                continue
+            options = milestone_predecessors(key, self.organisation)
+            if not options:
+                continue
+            if any(option in keys for option in options):
+                continue
+            codes = [MILESTONES[option].code for option in options]
+            needed = readable_list(codes, conjunction="or")
+            msg = f"Select {needed} before {milestone.name}."
+            raise ValidationError(msg)
         return selections
 
 

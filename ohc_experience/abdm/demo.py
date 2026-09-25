@@ -88,10 +88,6 @@ def product_data(name="Medibase HMIS 4.2"):
             "ABDM:m2",
             "ABDM:m3",
             "ABDM:m4",
-            "PHR:p1",
-            "PHR:p2",
-            "PHR:p3",
-            "HealthLocker:p4",
             "UHI:uhi1",
         ],
     }
@@ -311,19 +307,9 @@ class DemoBuilder:
         # M3 builds on M1, which is approved, so this review is ready to decide.
         self.exit(workspace, "m3", applicant, admin, reviewer, "review")
         self.exit(workspace, "m4", applicant, admin, reviewer, "review")
-        self.exit(workspace, "p1", applicant, admin, reviewer, "review")
-        self.exit(workspace, "p4", applicant, admin, reviewer, "rejected")
         uhi = workspace.product.milestones.get(key="uhi1").application.review_item
         services.save_review_form(uhi, applicant, data=uhi_data(), submit=True)
-        self.register_product(
-            org,
-            applicant,
-            data={
-                **product_data("Medibase Health Locker"),
-                "solution_type": ["health_locker"],
-                "applied_milestones": ["HealthLocker:p4"],
-            },
-        )
+        self.locker_product(org, applicant, admin, reviewer)
         # UHI with M1 alone, and M1 still undecided: the one product where a
         # reviewer is offered the override instead of waiting for the record.
         waiting, form = self.register_product(
@@ -469,7 +455,7 @@ class DemoBuilder:
                 item,
                 reviewer,
                 action="approve",
-                note="M1 approved. This approval also satisfies PHR M1.",
+                note="M1 approved. M2, M3 and M4 are open for submission.",
             )
         elif state == "query":
             services.decide(
@@ -487,6 +473,32 @@ class DemoBuilder:
                 reason="Incomplete documentation",
                 note="Include the data-retention and document-retrieval scenarios, then resubmit the functional report.",
             )
+
+    def locker_product(self, org, applicant, admin, reviewer):
+        """A PHR product on its own track, walking P1 to P4.
+
+        The locker closes the PHR sequence, so this product carries the phases
+        the HMIS no longer can: ABDM and PHR cannot be applied for together.
+        """
+        locker, form = self.register_product(
+            org,
+            applicant,
+            data={
+                **product_data("Medibase Health Locker"),
+                "solution_type": ["health_locker"],
+                "applied_milestones": ["PHR:p1", "PHR:p2", "PHR:p3", "PHR:p4"],
+            },
+        )
+        if not locker:
+            raise CommandError(str(form.errors))
+        save_callback_url(
+            locker.product.credential,
+            applicant,
+            "https://locker.medibase.example/phr/callback",
+        )
+        for key in ("p1", "p2", "p3"):
+            self.exit(locker, key, applicant, admin, reviewer, "review")
+        self.exit(locker, "p4", applicant, admin, reviewer, "rejected")
 
     def events(self, admin):
         for index, (title, kind, days) in enumerate(

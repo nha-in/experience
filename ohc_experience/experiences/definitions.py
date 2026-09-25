@@ -205,13 +205,13 @@ class OutcomeDefinition:
     status: str = "active"
 
 
-def readable_list(names):
+def readable_list(names, conjunction="and"):
     """["a", "b", "c"] -> "a, b and c"."""
     names = list(names)
     if not names:
         return ""
     *rest, last = names
-    return f"{', '.join(rest)} and {last}" if rest else last
+    return f"{', '.join(rest)} {conjunction} {last}" if rest else last
 
 
 @dataclass(frozen=True)
@@ -219,7 +219,10 @@ class MilestoneDefinition:
     key: str
     code: str
     name: str
-    predecessor: str = ""
+    #: The milestone this one builds on. A tuple offers alternatives, any one of
+    #: which opens it: UHI1 and NHCX1 build on whichever identity milestone the
+    #: product's track carries.
+    predecessor: str | tuple[str, ...] = ""
     description: str = ""
     docs_url: str = ""
     #: Milestones shown alongside this one for context, without gating it. Unlike
@@ -229,6 +232,18 @@ class MilestoneDefinition:
     #: Whether the gateway calls back for this milestone's flows. Only these
     #: need a callback URL, and therefore a bridge.
     needs_callback: bool = False
+    #: Whether this milestone can be applied for without its predecessor. It
+    #: still waits for one that was applied for alongside it.
+    stands_alone: bool = False
+
+    @property
+    def predecessors(self) -> tuple[str, ...]:
+        """`predecessor` as a tuple, whether it named one milestone or several."""
+        if not self.predecessor:
+            return ()
+        if isinstance(self.predecessor, str):
+            return (self.predecessor,)
+        return self.predecessor
 
 
 @dataclass(frozen=True)
@@ -249,10 +264,13 @@ class TrackDefinition:
         """
 
         def chain(key):
-            predecessor = milestones[key].predecessor
-            if not predecessor or predecessor in self.keys:
-                return []
-            return [*chain(predecessor), predecessor]
+            found = []
+            for predecessor in milestones[key].predecessors:
+                if predecessor in self.keys:
+                    continue
+                found.extend(chain(predecessor))
+                found.append(predecessor)
+            return found
 
         return tuple(dict.fromkeys(key for own in self.keys for key in chain(own)))
 
@@ -266,7 +284,7 @@ class TrackDefinition:
         def chain(key):
             milestone = milestones[key]
             found = []
-            for other in (milestone.predecessor, *milestone.related):
+            for other in (*milestone.predecessors, *milestone.related):
                 if other and other not in self.keys:
                     found.extend(chain(other))
                     found.append(other)
@@ -706,13 +724,14 @@ class ProgramDefinition:
         offered = {key for track in cls.tracks for key in track.keys}
         for track in cls.tracks:
             for key in track.keys:
-                predecessor = cls.milestones[key].predecessor
-                if predecessor and predecessor not in offered:
-                    msg = (
-                        f"Track {track.code!r} lists {key!r}, but no track offers "
-                        f"its predecessor {predecessor!r}, so it can never unlock."
-                    )
-                    raise ImproperlyConfigured(msg)
+                for predecessor in cls.milestones[key].predecessors:
+                    if predecessor not in offered:
+                        msg = (
+                            f"Track {track.code!r} lists {key!r}, but no track "
+                            f"offers its predecessor {predecessor!r}, so it can "
+                            f"never unlock."
+                        )
+                        raise ImproperlyConfigured(msg)
                 for related in cls.milestones[key].related:
                     if related not in offered:
                         msg = (
@@ -730,10 +749,9 @@ class ProgramDefinition:
             msg = "Application overrides must name a milestone in the catalog."
             raise ImproperlyConfigured(msg)
         for key, milestone in cls.milestones.items():
-            predecessor = milestone.predecessor
             if (
                 key != milestone.key
-                or (predecessor and predecessor not in cls.milestones)
+                or any(other not in cls.milestones for other in milestone.predecessors)
                 or any(other not in cls.milestones for other in milestone.related)
             ):
                 msg = (
@@ -755,12 +773,27 @@ class ProgramDefinition:
         return {key: data[key] for key in ("name", "description")}
 
     @classmethod
+    def product_form_kwargs(cls, organisation):
+        """Extra kwargs for the registration form, which runs before the product
+        exists and so cannot reach the organisation through a review item."""
+        return {}
+
+    @classmethod
     def certification_context(cls, product):
         """Optional product certification summary supplied by the program."""
         return {}
 
     @classmethod
-    def milestone_keys(cls, selections):
+    def milestone_predecessors(cls, key, organisation=None):
+        """Milestones that open this one, any one of which will do.
+
+        Programs override this where a milestone opens differently for some
+        organisations.
+        """
+        return cls.milestones[key].predecessors
+
+    @classmethod
+    def milestone_keys(cls, selections, organisation=None):
         available = {
             f"{track.code}:{key}": key for track in cls.tracks for key in track.keys
         }
@@ -769,23 +802,25 @@ class ProgramDefinition:
             raise ValidationError(msg)
         keys = {available[value] for value in selections}
         for key in keys:
-            prerequisite = cls.milestones[key].predecessor
-            if prerequisite and prerequisite not in keys:
-                msg = (
-                    f"Select {cls.milestones[prerequisite].code} "
-                    f"before {cls.milestones[key].name}."
-                )
-                raise ValidationError(msg)
+            milestone = cls.milestones[key]
+            if milestone.stands_alone:
+                continue
+            options = cls.milestone_predecessors(key, organisation)
+            if not options:
+                continue
+            if any(option in keys for option in options):
+                continue
+            codes = [cls.milestones[option].code for option in options]
+            needed = readable_list(codes, conjunction="or")
+            msg = f"Select {needed} before {milestone.name}."
+            raise ValidationError(msg)
         return keys
 
     @classmethod
     def ordered_milestones(cls):
         return tuple(
             TopologicalSorter(
-                {
-                    key: (item.predecessor,) if item.predecessor else ()
-                    for key, item in cls.milestones.items()
-                },
+                {key: item.predecessors for key, item in cls.milestones.items()},
             ).static_order(),
         )
 
@@ -794,8 +829,10 @@ class ProgramDefinition:
         """The most milestones any one builds on, directly or not."""
         depth = {}
         for key in cls.ordered_milestones():
-            predecessor = cls.milestones[key].predecessor
-            depth[key] = depth[predecessor] + 1 if predecessor else 0
+            deepest = 0
+            for other in cls.milestones[key].predecessors:
+                deepest = max(deepest, depth[other] + 1)
+            depth[key] = deepest
         return max(depth.values(), default=0)
 
     @classmethod

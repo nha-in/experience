@@ -70,6 +70,10 @@ def files():
     )
 
 
+#: The milestones that belong to the PHR & Health Locker track.
+PHR_KEYS = ("p1", "p2", "p3", "p4")
+
+
 @pytest.fixture
 def environment(settings, tmp_path, lgd_lookup):
     settings.STORAGES = {
@@ -100,11 +104,7 @@ def environment(settings, tmp_path, lgd_lookup):
     org.refresh_from_db()
     workspace, form = services.register_product(org, applicant, data=product_data())
     assert workspace, form.errors
-    provision_inline(workspace.product)
-    ProductCredential.objects.filter(product=workspace.product).update(
-        callback_url="https://integrator.example/callback",
-    )
-    workspace.refresh_from_db()
+    ready(workspace)
     return {
         "applicant": applicant,
         "admin": admin,
@@ -115,10 +115,46 @@ def environment(settings, tmp_path, lgd_lookup):
     }
 
 
-def milestone(environment, key="m1"):
-    return (
-        environment["workspace"].product.milestones.get(key=key).application.review_item
+def ready(workspace):
+    """Provisioned and holding a callback URL, as the milestones expect."""
+    provision_inline(workspace.product)
+    ProductCredential.objects.filter(product=workspace.product).update(
+        callback_url="https://integrator.example/callback",
     )
+    workspace.refresh_from_db()
+
+
+def phr_workspace(environment):
+    """The PHR product, registered the first time a test asks for a PHR phase.
+
+    ABDM and PHR cannot be applied for together, so the two tracks need two
+    products. Tests that never touch a PHR phase never pay for this one.
+    """
+    if "phr_workspace" not in environment:
+        workspace, form = services.register_product(
+            environment["org"],
+            environment["applicant"],
+            data={
+                **product_data("Test PHR application"),
+                "solution_type": ["health_locker"],
+                "applied_milestones": [f"PHR:{key}" for key in PHR_KEYS],
+            },
+        )
+        assert workspace, form.errors
+        ready(workspace)
+        environment["phr_workspace"] = workspace
+    return environment["phr_workspace"]
+
+
+def workspace_for(environment, key):
+    if key in PHR_KEYS:
+        return phr_workspace(environment)
+    return environment["workspace"]
+
+
+def milestone(environment, key="m1"):
+    product = workspace_for(environment, key).product
+    return product.milestones.get(key=key).application.review_item
 
 
 def clear_callback_url(environment):
@@ -178,24 +214,28 @@ def reverify(environment):
     return item
 
 
-def test_shared_m1_and_independent_tracks(environment):
+def test_each_track_runs_in_order_from_its_own_identity_milestone(environment):
     product = environment["workspace"].product
     assert product.milestones.filter(key="m1").count() == 1
-    assert TRACK_MAP["PHR"].keys == ("p1", "p2", "p3")
-    assert TRACK_MAP["HealthLocker"].keys == ("p4",)
+    assert TRACK_MAP["PHR"].keys == ("p1", "p2", "p3", "p4")
+    assert TRACK_MAP["PHR"].name == "PHR & Health Locker"
+    assert "HealthLocker" not in TRACK_MAP
     assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
     assert get_program().track_milestones(TRACK_MAP["PHR"]) == (
-        "m1",
         "p1",
         "p2",
         "p3",
+        "p4",
     )
-    assert MILESTONES["nhcx1"].predecessor == "m1"
-    for key in ("m2", "m3", "p1"):
+    # UHI and NHCX open on whichever identity milestone the product carries.
+    assert MILESTONES["nhcx1"].predecessor == ("m1", "p1")
+    assert MILESTONES["uhi1"].predecessor == ("m1", "p1")
+    for key in ("m2", "m3", "m4"):
         assert waiting_on(environment, key) == ["M1 - ABHA Creation and Verification"]
     assert waiting_on(environment, "uhi1") == ["M1 - ABHA Creation and Verification"]
-    for key in ("m4", "p4"):
-        assert waiting_on(environment, key) == []
+    assert waiting_on(environment, "p1") == []
+    for key in ("p2", "p3", "p4"):
+        assert waiting_on(environment, key) == ["P1 - Identity and profile"]
     approve(environment)
     for key in ("m2", "m3", "p1"):
         assert waiting_on(environment, key) == []
@@ -207,18 +247,23 @@ def test_a_review_waits_on_every_earlier_milestone_and_the_organisation(environm
     """Earliest first, so a reviewer can see where the chain is held up."""
     reverify(environment)
 
-    assert waiting_on(environment, "m3") == [
-        "organisation verification",
-        "M1 - ABHA Creation and Verification",
-    ]
-    for key in ("m4", "p4"):
-        assert waiting_on(environment, key) == ["organisation verification"]
+    for key in ("m3", "m4"):
+        assert waiting_on(environment, key) == [
+            "organisation verification",
+            "M1 - ABHA Creation and Verification",
+        ]
+    assert waiting_on(environment, "p1") == ["organisation verification"]
 
 
 def test_uhi_shows_m1_and_m2_as_prerequisites_it_does_not_offer(environment):
     """M1 is one shared record, so approving it completes it on UHI too."""
     assert TRACK_MAP["UHI"].keys == ("uhi1",)
-    assert get_program().track_milestones(TRACK_MAP["UHI"]) == ("m1", "m2", "uhi1")
+    assert get_program().track_milestones(TRACK_MAP["UHI"]) == (
+        "m1",
+        "p1",
+        "m2",
+        "uhi1",
+    )
     product = environment["workspace"].product
     assert product.milestones.filter(key="m1").count() == 1
 
@@ -231,23 +276,23 @@ def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
     """M1 is offered by ABDM; every track that depends on it names the rest."""
     program = get_program()
 
-    assert set(program.shared_with("m1", "PHR")) == {"ABDM", "UHI", "NHCX"}
-    assert set(program.shared_with("m1", "ABDM")) == {"PHR", "UHI", "NHCX"}
-    assert program.shared_with("p4", "HealthLocker") == ()
+    assert set(program.shared_with("m1", "ABDM")) == {"UHI", "NHCX"}
+    assert set(program.shared_with("p1", "PHR")) == {"UHI", "NHCX"}
+    assert program.shared_with("p4", "PHR") == ()
     assert MILESTONES["p4"].code == "P4"
 
 
-def test_a_tracks_description_names_its_shared_milestones(environment, client):
-    """The sentence was hand-written on three tracks and stale on all three."""
+def test_a_tracks_description_names_its_shared_milestones():
+    """Each track names the identity milestone the others reach it through."""
     program = get_program()
-    assert program.shared_note("PHR") == "M1 is shared with ABDM, UHI and NHCX."
+    assert program.shared_note("PHR") == "P1 is shared with UHI and NHCX."
     assert program.shared_note("ABDM") == (
-        "M1 is shared with UHI, NHCX and PHR. M2 is shared with UHI."
+        "M1 is shared with UHI and NHCX. M2 is shared with UHI."
     )
     assert program.shared_note("UHI") == (
-        "M1 is shared with ABDM, NHCX and PHR. M2 is shared with ABDM."
+        "M1 is shared with ABDM and NHCX. P1 is shared with PHR and NHCX. "
+        "M2 is shared with ABDM."
     )
-    assert program.shared_note("HealthLocker") == ""
 
 
 def test_a_predecessor_no_track_offers_can_never_unlock():
@@ -262,9 +307,8 @@ def test_a_predecessor_no_track_offers_can_never_unlock():
 @pytest.mark.parametrize(
     ("code", "expected"),
     [
-        ("PHR", "Shared with ABDM and UHI"),
-        ("UHI", "Shared with ABDM and PHR"),
-        ("ABDM", "Shared with UHI and PHR"),
+        ("UHI", "Shared with ABDM"),
+        ("ABDM", "Shared with UHI"),
     ],
 )
 def test_the_shared_m1_note_follows_the_catalogue_not_a_hardcoded_track(
@@ -669,15 +713,16 @@ def test_a_product_edit_applies_at_once_without_a_review(environment):
 
 
 def test_a_milestone_under_review_is_named_when_an_edit_removes_it(environment):
-    workspace = environment["workspace"]
-    submit(environment, "p4")
+    workspace = phr_workspace(environment)
+    submit(environment, "p1")
     registration = workspace.product.review_items.get(kind="product_registration")
 
-    with pytest.raises(ValidationError, match="P4 is under review"):
+    # UHI stands alone, so it is a valid selection that drops every PHR phase.
+    with pytest.raises(ValidationError, match="P1 is under review"):
         services.save_review_form(
             registration,
             environment["applicant"],
-            data={**product_data(), "applied_milestones": ["ABDM:m1"]},
+            data={**product_data(), "applied_milestones": ["UHI:uhi1"]},
             submit=True,
         )
 
@@ -846,7 +891,7 @@ def test_approved_track_selection_cannot_be_removed(environment):
         services.save_review_form(
             registration,
             environment["applicant"],
-            data={**product_data(), "applied_milestones": ["HealthLocker:p4"]},
+            data={**product_data(), "applied_milestones": ["UHI:uhi1"]},
             submit=True,
         )
 
@@ -876,16 +921,19 @@ def test_date_and_pdf_validation_and_required_documents():
     ).is_valid()
 
 
-def test_phr_requires_m1_but_not_m3_and_locker_is_independent():
-    assert ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["ABDM:m1", "PHR:p1"]},
-    ).is_valid()
-    assert ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["HealthLocker:p4"]},
-    ).is_valid()
-    assert not ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["PHR:p1"]},
-    ).is_valid()
+def test_hiecm_and_phr_are_alternatives_and_the_locker_closes_phr():
+    def form(*selections):
+        return ProductRegistrationForm(
+            data={**product_data(), "applied_milestones": list(selections)},
+        )
+
+    # P1 is the PHR track's own identity milestone; it no longer needs M1.
+    assert form("PHR:p1").is_valid()
+    assert form("ABDM:m1").is_valid()
+    assert not form("HIE-CM:m1", "PHR:p1").is_valid()
+    # The locker is the last PHR phase, so it arrives after P1 to P3.
+    assert form("PHR:p1", "PHR:p2", "PHR:p3", "PHR:p4").is_valid()
+    assert not form("PHR:p4").is_valid()
 
 
 def test_credentials_encrypted_audited_rate_limited_and_not_in_outcomes(
@@ -1078,16 +1126,20 @@ def test_track_filter_respects_which_track_applied_for_shared_m1(environment, cl
     workspace.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
-    assert item in client.get(url, {"item": "ABDM"}).context["page"][0].matching_reviews
-    assert not client.get(url, {"item": "PHR"}).context["page"]
-    workspace.applied_milestones.append("PHR:p1")
+    assert (
+        item in client.get(url, {"item": "ABDM"}).context["page"][0].matching_reviews
+    )
+    assert not client.get(url, {"item": "UHI"}).context["page"]
+    workspace.applied_milestones.append("UHI:uhi1")
     workspace.save()
-    assert item in client.get(url, {"item": "PHR"}).context["page"][0].matching_reviews
+    assert item in client.get(url, {"item": "UHI"}).context["page"][0].matching_reviews
 
 
 def test_the_queue_sorts_by_matching_submission_dates(environment, client):
-    older = submit(environment, "m1")
-    newer = submit(environment, "p4")
+    # Both have to be ready to decide, so M1 is approved before they open.
+    approve(environment, "m1")
+    older = submit(environment, "m2")
+    newer = submit(environment, "m3")
     ReviewItem.objects.filter(pk=older.pk).update(
         submitted_at=timezone.now() - timedelta(days=2),
     )
@@ -1145,7 +1197,7 @@ def test_product_registrations_are_records_not_queue_requests(environment, clien
 
 def test_the_type_filter_gathers_the_milestones_of_every_track(environment, client):
     abdm = submit(environment)
-    locker = submit(environment, "p4")
+    locker = submit(environment, "p1")
     organisation = environment["org"].review_items.get(
         kind=ReviewItem.Kind.ORGANISATION,
     )

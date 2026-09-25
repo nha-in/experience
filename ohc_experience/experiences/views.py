@@ -248,7 +248,12 @@ def _tracks(workspace, user):
             )
         codes = {tile["definition"].key: tile["definition"].code for tile in tiles}
         for tile in tiles:
-            tile["needs"] = codes.get(tile["definition"].predecessor, "")
+            options = workspace.definition.milestone_predecessors(
+                tile["definition"].key,
+                workspace.product.organisation,
+            )
+            needs = [codes[other] for other in options if other in codes]
+            tile["needs"] = readable_list(needs, conjunction="or")
         result.append(
             {
                 "definition": track,
@@ -1056,12 +1061,10 @@ def product_create(request):
     permissions.require_integrator(request.user, org)
     if not org.is_onboarded:
         return redirect("experiences:organisation")
-    form = (
-        get_program()
-        .applications.product.forms[0]
-        .form_class(
-            data=request.POST if request.method == "POST" else None,
-        )
+    program = get_program()
+    form = program.applications.product.forms[0].form_class(
+        data=request.POST if request.method == "POST" else None,
+        **program.product_form_kwargs(org),
     )
     if request.method == "POST":
         workspace, form = services.register_product(

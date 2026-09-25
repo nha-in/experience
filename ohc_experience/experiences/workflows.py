@@ -575,7 +575,7 @@ def project_product(item, actor, *, product_values, solution_type, selections):
     product = item.product
     workspace = ProductWorkspace.objects.select_for_update().get(product=product)
     program = workspace.definition
-    new_keys = program.milestone_keys(selections)
+    new_keys = program.milestone_keys(selections, item.organisation)
     approved = set(
         product.milestones.filter(application__status="approved").values_list(
             "key",
@@ -622,10 +622,9 @@ def project_product(item, actor, *, product_values, solution_type, selections):
             continue
         definition = program.milestones[key]
         dependencies = list(
-            product.milestones.filter(key=definition.predecessor).values_list(
-                "application_id",
-                flat=True,
-            ),
+            product.milestones.filter(
+                key__in=program.milestone_predecessors(key, item.organisation),
+            ).values_list("application_id", flat=True),
         )
         application = create_application(
             application_type=program.application_for(key).key,
@@ -961,7 +960,10 @@ def register_product(organisation, actor, *, data, program=None):
     organisation = Organisation.objects.select_for_update().get(pk=organisation.pk)
     program = program or get_program()
     definition = program.applications.product
-    form = definition.forms[0].form_class(data=data)
+    form = definition.forms[0].form_class(
+        data=data,
+        **program.product_form_kwargs(organisation),
+    )
     if not form.is_valid():
         return None, form
     product = Product.objects.create(

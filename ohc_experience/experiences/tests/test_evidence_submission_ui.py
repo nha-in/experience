@@ -143,7 +143,7 @@ def test_choices_exclude_saved_work_pending_approved_and_auto_approved_requests(
     pending = submit(environment)
     draft = save_draft(environment, "m3")
     approved = approve(environment, "m4")
-    other_pending = submit(environment, "p4")
+    other_pending = submit(environment, "p1")
     current = milestone(environment, "m2")
     client.force_login(environment["applicant"])
     response = client.get(track_url(environment, "m2"))
@@ -307,7 +307,7 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
     client,
 ):
     first = submit(environment)
-    other = submit(environment, "p4")
+    other = submit(environment, "p1")
     assert first.form_id == other.form_id
     client.force_login(environment["applicant"])
     response = client.get(track_url(environment, "m2"))

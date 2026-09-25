@@ -27,7 +27,7 @@ def register_locker(organization, owner, name):
         data={
             **product_data(name),
             "solution_type": ["health_locker"],
-            "applied_milestones": ["HealthLocker:p4"],
+            "applied_milestones": ["PHR:p1", "PHR:p2", "PHR:p3", "PHR:p4"],
         },
     )
     assert workspace, form.errors
@@ -70,13 +70,13 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
 
 
 def test_organization_pages_follow_category_review_scope(environment, client):
-    visible_item = submit(environment, "p4")
+    visible_item = submit(environment, "p1")
     reviewer = UserFactory(is_nha_team=True, is_staff=True)
     AccessGrant.objects.create(
         user=reviewer,
         program="abdm",
         area="review",
-        category="HealthLocker",
+        category="PHR",
     )
     hidden_organization = OrganisationFactory(onboarded=True)
     client.force_login(reviewer)

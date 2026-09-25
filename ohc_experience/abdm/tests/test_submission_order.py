@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from ohc_experience.abdm.demo import evidence_data
+from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve_submitted
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
@@ -19,6 +20,7 @@ from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import ApplicationDependency
 from ohc_experience.experiences.models import ReviewItem
+from ohc_experience.organisations.models import GOVERNMENT
 
 pytestmark = pytest.mark.django_db
 
@@ -71,19 +73,35 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
     assert submit(environment, "uhi1").status == ReviewItem.Status.NEW
 
 
-def test_m4_opens_and_is_approved_before_m1_is_submitted(environment, client):
+def test_m4_waits_for_m1_unless_the_entity_is_a_government_body(environment, client):
+    """A government body registers facilities under its own authority."""
     client.force_login(environment["applicant"])
     html = client.get(track_url(environment), {"milestone": "m4"}).content.decode()
 
-    assert "data-milestone-locked" not in html
-    assert "data-review-form" in html
+    assert "data-milestone-locked" in html
+    assert workflows.milestone_unavailable(milestone(environment, "m4")) == (
+        "M4 - Register Healthcare Professionals and Facilities opens once "
+        "M1 - ABHA Creation and Verification is submitted."
+    )
 
-    m4 = submit(environment, "m4")
+    organisation = environment["org"]
+    organisation.entity_type = GOVERNMENT
+    organisation.save(update_fields=["entity_type"])
+    government, form = workflows.register_product(
+        organisation,
+        environment["applicant"],
+        data={
+            **product_data("State facility registry"),
+            "solution_type": ["govt_program"],
+            "applied_milestones": ["ABDM:m4"],
+        },
+    )
+    assert government, form.errors
 
-    assert milestone(environment).status == ReviewItem.Status.DRAFT
+    m4 = government.product.milestones.get(key="m4").application.review_item
+
+    assert workflows.milestone_unavailable(m4) == ""
     assert workflows.pending_prerequisites(m4) == []
-    approve_submitted(environment, "m4")
-    assert milestone(environment, "m4").status == ReviewItem.Status.APPROVED
 
 
 def reject(environment, key="m1"):
@@ -118,8 +136,7 @@ def test_a_rejected_milestone_locks_the_next_one_until_it_is_resubmitted(
                 submit=submit_form,
             )
     assert workflows.milestone_unavailable(milestone(environment, "p2")) == (
-        "P2 - Linking and records opens once M1 - ABHA Creation and Verification "
-        "and P1 - Identity and profile are submitted."
+        "P2 - Linking and records opens once P1 - Identity and profile is submitted."
     )
 
     submit(environment)
@@ -226,7 +243,7 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
 
     assert milestone_tiles(html) == {
         "M1": (
-            "M1 ABHA Creation and Verification Shared with UHI and PHR "
+            "M1 ABHA Creation and Verification Shared with UHI "
             "Open · Pending Implementation"
         ),
         "M2": (
@@ -239,7 +256,7 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
         ),
         "M4": (
             "M4 Register Healthcare Professionals and Facilities "
-            "Open · Pending Implementation"
+            "Locked · submit M1 first Requires completion of M1"
         ),
     }
     assert "ui-milestone-tile-needs--locked" in html
@@ -279,7 +296,7 @@ def test_the_queue_holds_waiting_requests_apart_from_ready_ones(environment, cli
     m1 = submit(environment)
     m2 = submit(environment, "m2")
     uhi = submit(environment, "uhi1")
-    locker = submit(environment, "p4")
+    locker = submit(environment, "p1")
     client.force_login(environment["reviewer"])
 
     assert set(queue(client)) == {m1, locker}
@@ -304,10 +321,12 @@ def test_the_queue_holds_waiting_requests_apart_from_ready_ones(environment, cli
 
 def test_requests_wait_on_organisation_verification_too(environment, client):
     verification = reverify(environment)
-    locker = submit(environment, "p4")
+    locker = submit(environment, "p1")
     client.force_login(environment["reviewer"])
 
-    assert queue(client) == [verification]
+    # The organisation review rides along with each of its products' entries,
+    # and the PHR phases live on a second product, so compare as sets.
+    assert set(queue(client)) == {verification}
     assert queue(client, scope="waiting") == [locker]
     assert "Waiting on organisation verification · under review" in queue_text(
         client,
@@ -322,7 +341,7 @@ def test_the_waiting_filter_agrees_with_pending_prerequisites(environment):
             item for item in pending if workflows.pending_prerequisites(item)
         }
 
-    for key in ("m1", "m2", "m3", "m4", "uhi1", "p4"):
+    for key in ("m1", "m2", "m3", "m4", "uhi1", "p1"):
         submit(environment, key)
     assert agree()
     verification = reverify(environment)

@@ -32,6 +32,8 @@ from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.services import provision_inline
+from ohc_experience.organisations.models import GOVERNMENT
+from ohc_experience.organisations.models import Organisation
 
 environment = workflow_fixtures.environment
 
@@ -47,16 +49,13 @@ class Inputs(HTMLParser):
             self.fields.append(dict(attrs))
 
 
-def test_registration_defaults_only_apply_to_new_unbound_forms():
+def test_nothing_is_ticked_until_the_integrator_chooses():
+    """Registering and editing both start from what the product has, not a guess."""
     new = ProductRegistrationForm()
-    assert new["solution_type"].value() == ["clinical_hmis"]
-    assert new["applied_milestones"].value() == [
-        "ABDM:m1",
-        "ABDM:m2",
-        "ABDM:m3",
-        "ABDM:m4",
-    ]
+    assert not new["solution_type"].value()
+    assert not new["applied_milestones"].value()
     assert not any(row["warning"] for row in milestone_rows(new).values())
+    assert not any(row["selected"] for row in milestone_rows(new).values())
     assert not ProductRegistrationForm(initial={})["applied_milestones"].value()
     saved = ProductRegistrationForm(
         initial={"applied_milestones": ["UHI:uhi1"], "solution_type": ["other"]},
@@ -73,19 +72,24 @@ def test_registration_defaults_only_apply_to_new_unbound_forms():
 
 
 @pytest.mark.django_db
-def test_register_another_product_keeps_new_defaults(environment, client):
+def test_the_registration_page_preselects_nothing(environment, client):
     client.force_login(environment["applicant"])
     client.get(environment["workspace"].get_absolute_url())
     response = client.get(reverse("experiences:product-create"))
     assert response.status_code == 200
     inputs = Inputs(response.content.decode()).fields
-    selected = [
+    checked = [
         field["value"]
         for field in inputs
-        if field.get("name") == "applied_milestones" and "checked" in field
+        if field.get("name") in {"applied_milestones", "solution_type"}
+        and "checked" in field
     ]
-    assert selected == ["ABDM:m1", "ABDM:m2", "ABDM:m3", "ABDM:m4"]
-    assert b"M1 required for enablement" in response.content
+    assert checked == []
+    assert b"M1 or P1 required for enablement" in response.content
+    # Neither exclusive track is chosen yet, so both sentences sit on the page
+    # hidden, ready for the script the moment one side is ticked.
+    assert response.content.count(b"Not available with") == 2
+    assert b"Not available with ABDM." in response.content
     assert b"Shared with" not in response.content
     assert b"About Clinic HMIS" in response.content
     assert b'popovertarget="info-solution-clinical_hmis"' in response.content
@@ -142,8 +146,8 @@ def test_solution_types_require_the_intent_matrix_milestones():
         "Clinic HMIS": ["M1", "M2", "M3", "M4"],
         "LMIS": ["M1", "M2", "M3", "M4"],
         "Pharmacy": ["M1", "M2", "M3", "M4"],
-        "PHR": ["P1", "P2", "P3", "P4"],
-        "Health Locker": ["P4"],
+        "PHR": ["P1", "P2", "P3"],
+        "Health Locker": ["P1", "P2", "P3", "P4"],
         "HealthTech": ["M1", "M2", "M3", "M4"],
         "Insurance": ["M1", "M3"],
         "Telemedicine": ["M1", "M2", "M3", "M4"],
@@ -168,13 +172,26 @@ def test_an_unchecked_required_milestone_warns_but_still_saves():
     assert not any(rows[code]["warning"] for code in ("M1", "M2", "UHI1"))
 
 
-def test_m4_can_be_chosen_without_m1():
-    form = ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["ABDM:m4"]},
-    )
+def test_m4_needs_m1_unless_the_entity_is_a_government_body():
+    """A government body registers facilities under its own authority."""
 
-    assert form.is_valid(), form.errors
-    assert ABDM.milestone_keys(form.cleaned_data["applied_milestones"]) == {"m4"}
+    def form(organisation=None):
+        return ProductRegistrationForm(
+            data={**product_data(), "applied_milestones": ["ABDM:m4"]},
+            organisation=organisation,
+        )
+
+    government = Organisation(entity_type=GOVERNMENT)
+    refused = form(Organisation(entity_type="private_company"))
+    allowed = form(government)
+
+    assert not refused.is_valid()
+    assert refused.errors["applied_milestones"] == [
+        "Select M1 before Register Healthcare Professionals and Facilities.",
+    ]
+    assert allowed.is_valid(), allowed.errors
+    selections = allowed.cleaned_data["applied_milestones"]
+    assert ABDM.milestone_keys(selections, government) == {"m4"}
 
 
 def test_a_warning_names_only_the_chosen_types_that_require_it():
@@ -224,7 +241,7 @@ def test_the_picker_shows_why_a_saved_product_lacks_a_required_milestone(
 
 
 def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
-    """M1 belongs to ABDM; the other tracks depend on it rather than repeat it."""
+    """Each track carries its own identity milestone; UHI and NHCX take either."""
     tracks = {
         track["definition"].code: (
             [row["definition"].key for row in track["milestones"]],
@@ -236,18 +253,45 @@ def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
 
     assert tracks == {
         "ABDM": (["m1", "m2", "m3", "m4"], "", ""),
-        "UHI": (["uhi1"], "M1", "M2"),
-        "NHCX": (["nhcx1"], "M1", ""),
-        "PHR": (["p1", "p2", "p3"], "M1", ""),
-        "HealthLocker": (["p4"], "", ""),
+        "UHI": (["uhi1"], "M1 or P1", "M2"),
+        "NHCX": (["nhcx1"], "M1 or P1", ""),
+        "PHR": (["p1", "p2", "p3", "p4"], "", ""),
     }
+
+
+def test_both_exclusive_tracks_carry_the_sentence_that_greys_them_out():
+    """The script only shows and hides it, so it is on the page either way."""
+
+    def rows(*selections):
+        form = ProductRegistrationForm(
+            data={**product_data(), "applied_milestones": list(selections)},
+        )
+        return {track["definition"].code: track for track in form.milestone_tracks}
+
+    on_abdm = rows("ABDM:m1")
+    on_phr = rows("PHR:p1")
+
+    for chosen, ruled_out in (("ABDM", "PHR"), ("PHR", "ABDM")):
+        picked = on_abdm if chosen == "ABDM" else on_phr
+        assert picked[ruled_out]["blocked"] is True
+        assert picked[chosen]["blocked"] is False
+        # Both sentences are rendered whichever track was chosen.
+        assert picked["ABDM"]["exclusion"] == "Not available with PHR."
+        assert picked["PHR"]["exclusion"] == "Not available with ABDM."
+    assert on_abdm["UHI"]["exclusion"] == ""
+    assert on_abdm["UHI"]["blocked"] is False
 
 
 def test_a_dependant_track_lists_its_prerequisite_once_chosen():
     """The product page shows M1 and M2 under UHI without UHI storing them."""
     selections = ["ABDM:m1", "ABDM:m2", "UHI:uhi1"]
 
-    assert ABDM.applied_keys(TRACK_MAP["UHI"], selections) == ["m1", "m2", "uhi1"]
+    assert ABDM.applied_keys(TRACK_MAP["UHI"], selections) == [
+        "m1",
+        "p1",
+        "m2",
+        "uhi1",
+    ]
     assert ABDM.applied_keys(TRACK_MAP["ABDM"], selections) == ["m1", "m2"]
     assert ABDM.applied_keys(TRACK_MAP["PHR"], selections) == []
 
@@ -381,13 +425,18 @@ def test_uhi_can_be_chosen_with_only_m1():
     assert form.is_valid(), form.errors
 
 
-def test_uhi_cannot_be_chosen_without_m1():
-    form = ProductRegistrationForm(
-        data=uhi_payload(applied_milestones=["UHI:uhi1"]),
+def test_uhi_may_be_chosen_alone_but_nhcx_may_not():
+    """UHI alone is applied for and assessed; NHCX always rides on a track."""
+    uhi = ProductRegistrationForm(data=uhi_payload(applied_milestones=["UHI:uhi1"]))
+    nhcx = ProductRegistrationForm(
+        data={**product_data(), "applied_milestones": ["NHCX:nhcx1"]},
     )
 
-    assert not form.is_valid()
-    assert form.errors["applied_milestones"] == ["Select M1 before UHI participation."]
+    assert uhi.is_valid(), uhi.errors
+    assert not nhcx.is_valid()
+    assert nhcx.errors["applied_milestones"] == [
+        "Select M1 or P1 before Claims exchange flows.",
+    ]
 
 
 def test_uhi_participation_requires_a_role_and_a_service():

@@ -18,6 +18,7 @@ from ohc_experience.organisations.models import Organisation
 from .catalog import MILESTONES
 from .catalog import SUPPORT_CATEGORIES
 from .catalog import TRACKS
+from .catalog import milestone_predecessors
 from .dhis import DHISHandoff
 from .docs import docs_page
 from .forms import ExitEvidenceForm
@@ -242,6 +243,11 @@ class ProductRegistration(ApplicationFormDefinition):
     auto_approve = True
 
     @classmethod
+    def form_kwargs(cls, item):
+        # M4 opens without M1 for a government body, so the picker needs the org.
+        return {"organisation": item.organisation}
+
+    @classmethod
     def on_submit(cls, item, data, actor):
         project_product(
             item,
@@ -354,6 +360,14 @@ class ABDM(ProgramDefinition):
     signup_organisation_choices = tuple(
         OrganisationForm.base_fields["entity_type"].choices,
     )
+
+    @classmethod
+    def milestone_predecessors(cls, key, organisation=None):
+        return milestone_predecessors(key, organisation)
+
+    @classmethod
+    def product_form_kwargs(cls, organisation):
+        return {"organisation": organisation}
 
     @classmethod
     def certification_context(cls, product):
