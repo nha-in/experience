@@ -154,6 +154,34 @@ def phr_workspace(environment):
     return environment["phr_workspace"]
 
 
+def nhcx_workspace(environment):
+    """A product on ABDM and NHCX, the two tracks that share one evidence form.
+
+    Registered the first time a test needs two tracks on a single product, as
+    ABDM and PHR no longer can be.
+    """
+    if "nhcx_workspace" not in environment:
+        workspace, form = services.register_product(
+            environment["org"],
+            environment["applicant"],
+            data={
+                **product_data("Test claims application"),
+                "solution_type": ["insurance"],
+                "applied_milestones": [
+                    "ABDM:m1",
+                    "ABDM:m2",
+                    "ABDM:m3",
+                    "ABDM:m4",
+                    "NHCX:nhcx1",
+                ],
+            },
+        )
+        assert workspace, form.errors
+        ready(workspace)
+        environment["nhcx_workspace"] = workspace
+    return environment["nhcx_workspace"]
+
+
 def workspace_for(environment, key):
     if key in PHR_KEYS:
         return phr_workspace(environment)
@@ -1134,9 +1162,7 @@ def test_track_filter_respects_which_track_applied_for_shared_m1(environment, cl
     workspace.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
-    assert (
-        item in client.get(url, {"item": "ABDM"}).context["page"][0].matching_reviews
-    )
+    assert item in client.get(url, {"item": "ABDM"}).context["page"][0].matching_reviews
     assert not client.get(url, {"item": "UHI"}).context["page"]
     workspace.applied_milestones.append("UHI:uhi1")
     workspace.save()

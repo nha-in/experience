@@ -23,7 +23,7 @@ def as_date(value):
         return value
     try:
         return date.fromisoformat(value) if value else None
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -60,7 +60,7 @@ def approved_wasa_submission(product, submission_id, *, require_valid=True):
         return None
     try:
         submission_id = int(submission_id)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     approval = next(
         (

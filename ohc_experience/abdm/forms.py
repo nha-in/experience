@@ -410,7 +410,7 @@ class ProductRegistrationForm(ReviewForm):
         return rows
 
     def _requirement(self, track, prerequisites):
-        """"M1 or P1 ": what has to be chosen before this track's own milestones.
+        """ "M1 or P1 ": what has to be chosen before this track's own milestones.
 
         UHI and NHCX open on either identity milestone, so their note reads
         "or"; a track that builds on a chain would read "and".

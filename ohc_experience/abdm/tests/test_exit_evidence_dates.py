@@ -208,8 +208,7 @@ def test_a_draft_keeps_a_certificate_that_outruns_the_year():
     """Records migrated with a longer span must still save."""
     audit = _audited()
     form = ExitEvidenceForm(
-        data=evidence_data()
-        | _certificate(audit, audit.replace(year=audit.year + 2)),
+        data=evidence_data() | _certificate(audit, audit.replace(year=audit.year + 2)),
         files=files(),
         draft=True,
     )

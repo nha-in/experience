@@ -15,6 +15,8 @@ from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import nhcx_workspace
+from ohc_experience.abdm.tests.test_workflow import phr_workspace
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import ReviewItem
@@ -140,9 +142,9 @@ def test_choices_exclude_saved_work_pending_approved_and_auto_approved_requests(
     environment,
     client,
 ):
-    pending = submit(environment)
+    approved = approve(environment)
     draft = save_draft(environment, "m3")
-    approved = approve(environment, "m4")
+    pending = submit(environment, "m4")
     other_pending = submit(environment, "p1")
     current = milestone(environment, "m2")
     client.force_login(environment["applicant"])
@@ -306,36 +308,39 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
     environment,
     client,
 ):
-    first = submit(environment)
-    other = submit(environment, "p1")
+    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    first = submit(claims)
+    other = submit(claims, "nhcx1")
     assert first.form_id == other.form_id
     client.force_login(environment["applicant"])
-    response = client.get(track_url(environment, "m2"))
+    response = client.get(track_url(claims, "m2"))
 
     assert {choice["code"] for choice in response.context["submission_choices"]} == {
         "M3",
         "M4",
     }
-    phr = client.get(track_url(environment, "p1", "PHR"))
-    # The PHR track offers its own later phases, and neither M1 nor the locker.
+    locker = {**environment, "workspace": phr_workspace(environment)}
+    phr = client.get(track_url(locker, "p1", "PHR"))
+    # The PHR track offers its own later phases, and no milestone of another.
     assert {choice["code"] for choice in phr.context["submission_choices"]} == {
         "P2",
         "P3",
+        "P4",
     }
 
 
-@pytest.mark.parametrize("key", ["p1", "p4"])
 def test_batch_rejects_other_categories_even_when_the_form_record_is_shared(
     environment,
     client,
-    key,
 ):
-    current = milestone(environment)
-    other = milestone(environment, key)
+    """NHCX shares the product's evidence form, and still submits on its own."""
+    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    current = milestone(claims)
+    other = milestone(claims, "nhcx1")
     assert current.form_id == other.form_id
     before = review_state(current, other)
     client.force_login(environment["applicant"])
-    response = client.post(track_url(environment), submit_data(other))
+    response = client.post(track_url(claims), submit_data(other))
 
     assert response.status_code == HTTPStatus.OK
     assert review_state(current, other) == before

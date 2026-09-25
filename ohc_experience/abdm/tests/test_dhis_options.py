@@ -12,7 +12,9 @@ from ohc_experience.abdm.definitions import ABDM
 from ohc_experience.abdm.tests.test_dhis_product import approve_milestones
 from ohc_experience.abdm.tests.test_dhis_product import change_solutions
 from ohc_experience.abdm.tests.test_dhis_product import eligible_hmis  # noqa: F401
+from ohc_experience.abdm.tests.test_dhis_product import workspace_of
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
+from ohc_experience.abdm.tests.test_workflow import phr_workspace
 from ohc_experience.abdm.wasa import current_wasa
 
 pytestmark = pytest.mark.django_db
@@ -26,11 +28,11 @@ def configured_dhis(settings):
     settings.ABDM_DHIS_AES_IV = "SyntheticInitVec"
 
 
-def options(environment, *, actor=None):
+def options(environment, *, workspace=None, actor=None):
     return {
         row["key"]: row
         for row in ABDM.handoffs["dhis"].options(
-            environment["workspace"].product,
+            (workspace or environment["workspace"]).product,
             actor=actor or environment["applicant"],
         )
     }
@@ -55,18 +57,25 @@ def test_options_show_five_solutions_without_generating_tokens(
 
 
 def test_all_approved_solutions_can_be_offered_together(environment):
+    """ABDM and PHR sit on separate products, so each offers its own solutions."""
     change_solutions(environment, list(dhis.SOLUTION_MILESTONES))
-    approve_milestones(environment, ("m1", "m2", "m3", "p1", "p2", "p3", "p4"))
+    approve_milestones(environment, ("m1", "m2", "m3"))
+    locker = phr_workspace(environment)
+    approve_milestones(environment, ("p1", "p2", "p3", "p4"))
 
-    assert all(row["enabled"] for row in options(environment).values())
+    rows = options(environment)
+
+    assert all(row["enabled"] for key, row in rows.items() if key != "health_locker")
+    assert not rows["health_locker"]["enabled"]
+    assert options(environment, workspace=locker)["health_locker"]["enabled"]
 
 
 @pytest.mark.parametrize(
     ("solution", "approved", "missing_name"),
     [
         ("hmis", ("m1", "m2"), "M3"),
-        ("health_locker", ("m1", "p1", "p2", "p3"), "Health Locker"),
-        ("health_locker", ("m1", "p4"), "PHR"),
+        ("health_locker", ("p1", "p2", "p3"), "Health Locker"),
+        ("health_locker", ("p1", "p4"), "PHR"),
     ],
 )
 def test_missing_milestones_have_readable_names(
@@ -75,10 +84,11 @@ def test_missing_milestones_have_readable_names(
     approved,
     missing_name,
 ):
-    change_solutions(environment, [solution])
+    workspace = workspace_of(environment, approved)
+    change_solutions(environment, [solution], workspace=workspace)
     approve_milestones(environment, approved)
 
-    row = options(environment)[solution]
+    row = options(environment, workspace=workspace)[solution]
 
     assert not row["enabled"]
     assert row["reason"] == (

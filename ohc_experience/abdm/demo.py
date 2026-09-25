@@ -358,7 +358,15 @@ class DemoBuilder:
             applicant,
             "https://hmis.medibase.example/abdm/callback",
         )
-        self.exit(workspace, "m1", applicant, admin, reviewer, "approved")
+        self.exit(
+            workspace,
+            "m1",
+            applicant,
+            admin,
+            reviewer,
+            "approved",
+            note="M1 approved. M2, M3 and M4 are open for submission.",
+        )
         # A visibly fake ID: the demo never reaches the NHA production gateway.
         production.record(
             workspace.product,
@@ -502,7 +510,7 @@ class DemoBuilder:
         )
         return user
 
-    def exit(self, workspace, key, applicant, admin, reviewer, state):  # noqa: PLR0913, PLR0917
+    def exit(self, workspace, key, applicant, admin, reviewer, state, *, note=""):  # noqa: PLR0913, PLR0917
         item = workspace.product.milestones.get(key=key).application.review_item
         item, form, saved = services.save_review_form(
             item,
@@ -519,7 +527,7 @@ class DemoBuilder:
                 item,
                 reviewer,
                 action="approve",
-                note="M1 approved. M2, M3 and M4 are open for submission.",
+                note=note,
             )
         elif state == "query":
             services.decide(
@@ -543,6 +551,7 @@ class DemoBuilder:
 
         The locker closes the PHR sequence, so this product carries the phases
         the HMIS no longer can: ABDM and PHR cannot be applied for together.
+        P1 is approved because P2, P3 and P4 all build on it.
         """
         locker, form = self.register_product(
             org,
@@ -560,7 +569,16 @@ class DemoBuilder:
             applicant,
             "https://locker.medibase.example/phr/callback",
         )
-        for key in ("p1", "p2", "p3"):
+        self.exit(
+            locker,
+            "p1",
+            applicant,
+            admin,
+            reviewer,
+            "approved",
+            note="P1 approved. P2, P3 and P4 are open for submission.",
+        )
+        for key in ("p2", "p3"):
             self.exit(locker, key, applicant, admin, reviewer, "review")
         self.exit(locker, "p4", applicant, admin, reviewer, "rejected")
 

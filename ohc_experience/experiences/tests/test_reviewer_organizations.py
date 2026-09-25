@@ -8,6 +8,7 @@ from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import pdf
+from ohc_experience.abdm.tests.test_workflow import phr_workspace
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
@@ -71,6 +72,8 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
 
 def test_organization_pages_follow_category_review_scope(environment, client):
     visible_item = submit(environment, "p1")
+    # P1 sits on the organisation's PHR product, not on its ABDM one.
+    workspace = phr_workspace(environment)
     reviewer = UserFactory(is_nha_team=True, is_staff=True)
     AccessGrant.objects.create(
         user=reviewer,
@@ -91,13 +94,13 @@ def test_organization_pages_follow_category_review_scope(environment, client):
             args=[environment["org"].slug],
         ),
     )
-    assert list(detail.context["products"]) == [environment["workspace"]]
+    assert list(detail.context["products"]) == [workspace]
     assert list(detail.context["review_requests"]) == [visible_item]
     assert VERIFICATION_DOCUMENT_NUMBER.encode() not in detail.content
 
     products = client.get(reverse("experiences:products"))
-    assert list(products.context["workspaces"]) == [environment["workspace"]]
-    assert list(products.context["products"]) == [environment["workspace"]]
+    assert list(products.context["workspaces"]) == [workspace]
+    assert list(products.context["products"]) == [workspace]
     assert (
         client.get(
             reverse(

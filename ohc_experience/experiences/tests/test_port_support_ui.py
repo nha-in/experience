@@ -311,17 +311,17 @@ def test_ticket_create_saves_category_and_scopes_product(
         reverse("experiences:support"),
         {
             "subject": "Callback rejects the request",
-            "category": "abdm-m2",
-            "issue_type": "Bridge Service",
+            "category": "phr-app-p2",
+            "issue_type": "Consent Flow",
             "priority": "medium",
             "body": "The callback returns an unexpected status.",
         },
     )
     ticket = Ticket.objects.get()
     assert response.status_code == HTTPStatus.FOUND
-    assert ticket.category == "abdm-m2"
-    assert ticket.issue_type == "Bridge Service"
-    assert ticket.category_label == "ABDM - Milestone 2"
+    assert ticket.category == "phr-app-p2"
+    assert ticket.issue_type == "Consent Flow"
+    assert ticket.category_label == "PHR App - P2"
     assert ticket.product == portal_workspaces[1].product
     assert ticket.messages.get().body == "The callback returns an unexpected status."
 
@@ -477,11 +477,11 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     owner_membership,
 ):
     for product_index, subject, category, priority, status in (
-        (1, "Callback investigation", "abdm-m2", "high", "open"),
-        (1, "Callback fixed", "abdm-m2", "high", "closed"),
-        (1, "Unrelated issue", "abdm-m2", "high", "open"),
-        (1, "Callback medium priority", "abdm-m2", "medium", "open"),
-        (1, "Callback sandbox issue", "abdm-m1", "high", "open"),
+        (1, "Callback investigation", "phr-app-p2", "high", "open"),
+        (1, "Callback fixed", "phr-app-p2", "high", "closed"),
+        (1, "Unrelated issue", "phr-app-p2", "high", "open"),
+        (1, "Callback medium priority", "phr-app-p2", "medium", "open"),
+        (1, "Callback sandbox issue", "phr-app-p1", "high", "open"),
         (0, "Callback on another product", "abdm-m2", "high", "open"),
     ):
         Ticket.objects.create(
@@ -494,7 +494,12 @@ def test_support_counts_keep_filters_and_workspace_before_status(
         )
     response = portal_client.get(
         reverse("experiences:support"),
-        {"q": "callback", "category": "abdm-m2", "priority": "high", "status": "open"},
+        {
+            "q": "callback",
+            "category": "phr-app-p2",
+            "priority": "high",
+            "status": "open",
+        },
     )
     assert response.status_code == HTTPStatus.OK
     assert [ticket.subject for ticket in response.context["tickets"]] == [

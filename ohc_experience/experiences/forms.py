@@ -41,7 +41,7 @@ class ExperienceForm(forms.Form):
         for value in values:
             try:
                 result.add(int(value))
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
         return result
 

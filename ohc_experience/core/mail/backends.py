@@ -265,7 +265,7 @@ class GlobalEmailBackend(AnymailRequestsBackend):
         if "requestId" in result:
             try:
                 response_request_id = str(UUID(result["requestId"]))
-            except (TypeError, ValueError, AttributeError):
+            except TypeError, ValueError, AttributeError:
                 raise GlobalEmailAPIError("response_mismatch") from None
             if response_request_id != data["requestId"]:
                 raise GlobalEmailAPIError("response_mismatch")
@@ -411,7 +411,7 @@ class GlobalEmailPayload(RequestsPayload):
         if "request_id" in extra:
             try:
                 request_id = str(UUID(str(extra["request_id"])))
-            except (TypeError, ValueError, AttributeError):
+            except TypeError, ValueError, AttributeError:
                 self.unsupported_feature("non-UUID request_id")
             self.data["requestId"] = request_id
         if "content_type" in extra:

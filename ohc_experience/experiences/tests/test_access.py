@@ -527,22 +527,23 @@ def test_general_and_all_categories_are_explicit(environment, staff):
 
 
 def test_reused_pins_remain_visible_without_exposing_source_history(environment, staff):
-    source = submit(environment, "m1")
+    """UHI reaches M1 and M2, so M3's evidence is only seen once M2 pins it."""
+    submit(environment, "m1")
+    source = submit(environment, "m3")
     original = source.selected_submission
-    # An ungated milestone, so the source can stay withdrawable, not approved.
-    target = milestone(environment, "p1")
-    grant(staff, category="PHR")
+    target = milestone(environment, "m2")
+    grant(staff, category="UHI")
     assert not permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     workflows.reuse_evidence(target, environment["applicant"])
     target.refresh_from_db()
     assert target.selected_submission_id == original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     # Replacing a reused pin must not break links in this application's history.
-    target = submit(environment, "p1")
+    target = submit(environment, "m2")
     assert target.selected_submission_id != original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     workflows.withdraw(source, environment["applicant"])
-    revised_source = submit(environment, "m1")
+    revised_source = submit(environment, "m3")
     assert (
         not permissions.visible_submissions(staff)
         .filter(pk=revised_source.selected_submission_id)

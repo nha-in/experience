@@ -18,6 +18,7 @@ from ohc_experience.abdm.tests.test_wasa_lifecycle import request_milestone
 from ohc_experience.abdm.tests.test_wasa_lifecycle import request_renewal
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import pdf
+from ohc_experience.abdm.tests.test_workflow import workspace_for
 from ohc_experience.abdm.wasa import current_wasa
 from ohc_experience.experiences import workflows
 from ohc_experience.organisations.models import Membership
@@ -47,23 +48,32 @@ def approve_milestones(environment, keys):
     return source
 
 
-def change_solutions(environment, solution_types, *, submit=True):
-    item = environment["workspace"].product.review_items.get(
-        kind="product_registration",
-    )
+def workspace_of(environment, keys):
+    """The product these milestones sit on: ABDM and PHR never share one."""
+    return workspace_for(environment, keys[0])
+
+
+def change_solutions(environment, solution_types, *, workspace=None, submit=True):
+    """Re-declare the solutions, keeping the milestones the product applied for."""
+    workspace = workspace or environment["workspace"]
+    item = workspace.product.review_items.get(kind="product_registration")
     item, form, saved = workflows.save_review_form(
         item,
         environment["applicant"],
-        data={**product_data(), "solution_type": solution_types},
+        data={
+            **product_data(workspace.product.name),
+            "solution_type": solution_types,
+            "applied_milestones": workspace.applied_milestones,
+        },
         submit=submit,
     )
     assert saved, form.errors
     return item
 
 
-def handoff(environment, solution_type="hmis", *, actor=None):
+def handoff(environment, solution_type="hmis", *, workspace=None, actor=None):
     return dhis.create_product_handoff_url(
-        environment["workspace"].product,
+        (workspace or environment["workspace"]).product,
         solution_type=solution_type,
         actor=actor or environment["applicant"],
     )
@@ -83,7 +93,7 @@ def eligible_hmis(environment):
         ("telemedicine", ("m1", "m2", "m3"), "Telemedicine", "M3"),
         (
             "health_locker",
-            ("m1", "p1", "p2", "p3", "p4"),
+            ("p1", "p2", "p3", "p4"),
             "HealthLocker",
             "Healthlocker",
         ),
@@ -98,13 +108,14 @@ def test_solution_handoff_uses_product_id_and_approved_wasa(  # noqa: PLR0913, P
     intent,
     terminal,
 ):
-    change_solutions(environment, [solution_type])
+    workspace = workspace_of(environment, keys)
+    change_solutions(environment, [solution_type], workspace=workspace)
     source = approve_milestones(environment, keys)
 
-    assert handoff(environment, solution_type) == HANDOFF_URL
+    assert handoff(environment, solution_type, workspace=workspace) == HANDOFF_URL
 
     payload = encoder.call_args.args[0]
-    assert payload["client_id"] == str(environment["workspace"].product.pk)
+    assert payload["client_id"] == str(workspace.product.pk)
     assert payload["intent_request"] == intent
     assert payload["integration_level"] == terminal
     assert payload["wasa_valid_upto_date"] == [
@@ -122,8 +133,8 @@ def test_solution_handoff_uses_product_id_and_approved_wasa(  # noqa: PLR0913, P
         ("hmis", ("m1", "m2")),
         ("lmis", ("m1",)),
         ("telemedicine", ("m1", "m2")),
-        ("health_locker", ("m1", "p1", "p2", "p3")),
-        ("health_locker", ("m1", "p4")),
+        ("health_locker", ("p1", "p2", "p3")),
+        ("health_locker", ("p1", "p4")),
         ("pharmacy", ("m1",)),
     ],
 )
@@ -133,11 +144,12 @@ def test_incomplete_milestones_do_not_generate_a_handoff(
     solution_type,
     approved_keys,
 ):
-    change_solutions(environment, [solution_type])
+    workspace = workspace_of(environment, approved_keys)
+    change_solutions(environment, [solution_type], workspace=workspace)
     approve_milestones(environment, approved_keys)
 
     with pytest.raises(ValidationError):
-        handoff(environment, solution_type)
+        handoff(environment, solution_type, workspace=workspace)
 
     encoder.assert_not_called()
 

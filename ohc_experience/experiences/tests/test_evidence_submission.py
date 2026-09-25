@@ -15,6 +15,7 @@ from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import nhcx_workspace
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import xlsx
@@ -207,9 +208,10 @@ def test_invalid_current_form_returns_errors_without_any_saved_changes(
 
 
 def test_additional_saved_draft_is_never_overwritten(environment):
-    current = milestone(environment)
+    submit(environment, "m1")
+    current = milestone(environment, "m2")
     target, form, saved = workflows.save_review_form(
-        milestone(environment, "m4"),
+        milestone(environment, "m3"),
         environment["applicant"],
         data={"start_date": timezone.localdate()},
     )
@@ -351,13 +353,14 @@ def test_different_form_cannot_join_the_batch(environment):
     assert_fresh(current, target)
 
 
-@pytest.mark.parametrize("key", ["p1", "p4"])
-def test_same_form_in_another_track_cannot_join_the_batch(environment, key):
-    current = milestone(environment)
-    target = milestone(environment, key)
+def test_same_form_in_another_track_cannot_join_the_batch(environment):
+    """NHCX shares the product's evidence form, and still submits on its own."""
+    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    current = milestone(claims)
+    target = milestone(claims, "nhcx1")
     assert current.form_id == target.form_id
     with pytest.raises(ValidationError, match="additional milestone changed"):
-        submit_group(environment, current, target)
+        submit_group(claims, current, target)
     assert_fresh(current, target)
 
 
@@ -427,8 +430,10 @@ def test_invalid_additional_dates_prevent_every_submission(environment, invalid)
 def test_cross_track_inherited_pin_does_not_prefill_answers_or_functional_files(
     environment,
 ):
-    source = submit(environment, "p4").selected_submission
-    target = milestone(environment, "m4")
+    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    submit(claims, "m1")
+    source = submit(claims, "nhcx1").selected_submission
+    target = milestone(claims, "m4")
     inherit_snapshot(target, source)
     form = workflows.build_form(target)
     assert not form.initial.get("start_date")
@@ -483,8 +488,10 @@ def test_same_track_inherited_pin_keeps_files_but_requires_new_dates(environment
 
 
 def test_cross_track_inherited_pin_still_offers_approved_product_wasa(environment):
-    source = approve(environment, "p4").selected_submission
-    target = milestone(environment, "m4")
+    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    approve(claims, "m1")
+    source = approve(claims, "nhcx1").selected_submission
+    target = milestone(claims, "m4")
     inherit_snapshot(target, source)
     form = workflows.build_form(target)
     assert form.initial["use_product_wasa"]

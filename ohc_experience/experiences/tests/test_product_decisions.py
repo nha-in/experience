@@ -182,19 +182,24 @@ def test_automatic_release_is_rolled_back_without_a_notice_on_later_failure(
 ):
     m1, m2 = submitted_pair
     automatic = submit(environment, "uhi1")
-    locker = submit(environment, "p1")
-    workflows.decide(locker, environment["admin"], action="query", note="Clarify this.")
+    queried = submit(environment, "m3")
+    workflows.decide(
+        queried,
+        environment["admin"],
+        action="query",
+        note="Clarify this.",
+    )
     with (
         patch.object(workflows, "notify_decision") as decision_notice,
         patch.object(workflows, "notify_review") as review_notice,
         django_capture_on_commit_callbacks(execute=True) as callbacks,
         pytest.raises(ValidationError, match="Resolve all queries"),
     ):
-        decide_all(environment, [m1, m2, locker])
+        decide_all(environment, [m1, m2, queried])
     assert not callbacks
     decision_notice.assert_not_called()
     review_notice.assert_not_called()
-    assert_pending(m1, m2, locker, automatic)
+    assert_pending(m1, m2, queried, automatic)
 
 
 def test_unselected_new_submission_is_not_decided(environment, submitted_pair):
@@ -238,24 +243,25 @@ def test_every_selected_category_requires_approval_permission(
     environment,
     submitted_pair,
 ):
+    """UHI reaches the M1 and M2 it builds on, and no further: M3 refuses the batch."""
     staff = UserFactory(is_nha_team=True)
     AccessGrant.objects.create(
         user=staff,
         program="abdm",
         area="review",
-        category="PHR",
+        category="UHI",
         can_read=True,
         can_approve=True,
     )
-    locker = submit(environment, "p1")
+    m3 = submit(environment, "m3")
     with pytest.raises(PermissionDenied):
         workflows.decide_product(
             environment["workspace"].product,
             staff,
             action="approve",
-            expected_revisions=revisions(locker, *submitted_pair),
+            expected_revisions=revisions(m3, *submitted_pair),
         )
-    assert_pending(locker, *submitted_pair)
+    assert_pending(m3, *submitted_pair)
 
 
 @pytest.mark.parametrize("invalid", [{}, {"invalid": "1"}, None, {999999999: "1"}])
