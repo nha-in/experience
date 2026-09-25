@@ -130,7 +130,7 @@ TRACKS = (
         "PHR",
         "Personal Health Records",
         "ABHA identity and personal health record application flows. M1 is "
-        "shared with HIE-CM, UHI and NHCX.",
+        "shared with ABDM Milestones, UHI and NHCX.",
         ("p1", "p2", "p3"),
         docs_page("/docs/hiecm/v3/milestones/p1"),
     ),
