@@ -8,7 +8,7 @@
         <h1 class="ui-hero-title">
           {{ track.definition.code }} <span class="font-semibold text-muted-foreground">· {{ track.definition.name }}</span>
         </h1>
-        <p class="ui-hero-lede">{{ track.definition.description }}{% if track.shared_note %} {{ track.shared_note }}{% endif %}</p>
+        <p class="ui-hero-lede">{{ track.definition.description }}</p>
         {% if track.tiles %}
           <div class="mt-6 flex items-baseline gap-2.5">
             <span class="ui-figure ui-figure--xl">{{ track.approved }}</span>
@@ -18,11 +18,11 @@
             {% for choice in track.tiles %}
               {% if choice.status != 'approved' %}Next: <a class="font-semibold text-primary no-underline hover:underline"
     href="{{ choice.url }}">
-                <span class="font-mono">{{ choice.definition.code }}</span> {{ choice.definition.name }}</a> · {% if choice.reply_needed %}reply needed{% elif choice.item.pending %}with the reviewer{% elif choice.locked_by %}{% if choice.resubmit %}resubmit{% else %}submit{% endif %} {{ choice.locked_by }} first{% else %}waiting on you{% endif %}
+                <span class="font-mono">{{ choice.definition.code }}</span> {{ choice.definition.name }}</a> · {% if choice.reply_needed %}reply needed{% elif choice.item.pending %}with the reviewer{% elif choice.locked_by %}{% if choice.resubmit %}resubmit{% else %}submit{% endif %} {{ choice.locked_by }} first{% else %}Pending Implementation{% endif %}
               <br />
             {% endif %}
           {% endfor %}
-          {% if track.approved == track.tiles|length %}Every applied milestone on this track is approved.{% endif %}
+          {% if track.approved == track.tiles|length %}{% if track.definition.code == "UHI" %}All required milestones for UHI onboarding are approved.{% else %}Every applied milestone on this track is approved.{% endif %}{% endif %}
           <a class="text-soft-foreground hover:underline"
              href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
              target="_blank"

@@ -228,11 +228,11 @@ def test_uhi_shows_m1_and_m2_as_prerequisites_it_does_not_offer(environment):
 
 
 def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
-    """M1 is offered by HIE-CM; every track that depends on it names the rest."""
+    """M1 is offered by ABDM; every track that depends on it names the rest."""
     program = get_program()
 
-    assert set(program.shared_with("m1", "PHR")) == {"HIE-CM", "UHI", "NHCX"}
-    assert set(program.shared_with("m1", "HIE-CM")) == {"PHR", "UHI", "NHCX"}
+    assert set(program.shared_with("m1", "PHR")) == {"ABDM", "UHI", "NHCX"}
+    assert set(program.shared_with("m1", "ABDM")) == {"PHR", "UHI", "NHCX"}
     assert program.shared_with("p4", "HealthLocker") == ()
     assert MILESTONES["p4"].code == "P4"
 
@@ -240,21 +240,14 @@ def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
 def test_a_tracks_description_names_its_shared_milestones(environment, client):
     """The sentence was hand-written on three tracks and stale on all three."""
     program = get_program()
-    assert program.shared_note("PHR") == "M1 is shared with HIE-CM, UHI and NHCX."
-    assert program.shared_note("HIE-CM") == (
+    assert program.shared_note("PHR") == "M1 is shared with ABDM, UHI and NHCX."
+    assert program.shared_note("ABDM") == (
         "M1 is shared with UHI, NHCX and PHR. M2 is shared with UHI."
     )
     assert program.shared_note("UHI") == (
-        "M1 is shared with HIE-CM, NHCX and PHR. M2 is shared with HIE-CM."
+        "M1 is shared with ABDM, NHCX and PHR. M2 is shared with ABDM."
     )
     assert program.shared_note("HealthLocker") == ""
-    client.force_login(environment["applicant"])
-
-    html = client.get(
-        reverse("experiences:track", args=[environment["workspace"].reference, "PHR"]),
-    ).content.decode()
-
-    assert "M1 is shared with HIE-CM, UHI and NHCX." in html
 
 
 def test_a_predecessor_no_track_offers_can_never_unlock():
@@ -269,9 +262,9 @@ def test_a_predecessor_no_track_offers_can_never_unlock():
 @pytest.mark.parametrize(
     ("code", "expected"),
     [
-        ("PHR", "Shared with HIE-CM and UHI"),
-        ("UHI", "Shared with HIE-CM and PHR"),
-        ("HIE-CM", "Shared with UHI and PHR"),
+        ("PHR", "Shared with ABDM and UHI"),
+        ("UHI", "Shared with ABDM and PHR"),
+        ("ABDM", "Shared with UHI and PHR"),
     ],
 )
 def test_the_shared_m1_note_follows_the_catalogue_not_a_hardcoded_track(
@@ -357,7 +350,7 @@ def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client
         environment["applicant"],
         data={
             **product_data("M1 and UHI only"),
-            "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
+            "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
         },
     )
     assert workspace, form.errors
@@ -581,7 +574,7 @@ def test_reviewers_with_grants_decide_whoever_is_assigned(environment):
         user=writer,
         program="abdm",
         area=AccessGrant.Area.REVIEW,
-        category="HIE-CM",
+        category="ABDM",
         can_read=True,
         can_write=True,
     )
@@ -684,7 +677,7 @@ def test_a_milestone_under_review_is_named_when_an_edit_removes_it(environment):
         services.save_review_form(
             registration,
             environment["applicant"],
-            data={**product_data(), "applied_milestones": ["HIE-CM:m1"]},
+            data={**product_data(), "applied_milestones": ["ABDM:m1"]},
             submit=True,
         )
 
@@ -714,7 +707,7 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "HIE-CM"],
+        args=[environment["workspace"].reference, "ABDM"],
     )
 
     m3 = client.get(url, {"milestone": "m3"}).content.decode()
@@ -885,7 +878,7 @@ def test_date_and_pdf_validation_and_required_documents():
 
 def test_phr_requires_m1_but_not_m3_and_locker_is_independent():
     assert ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["HIE-CM:m1", "PHR:p1"]},
+        data={**product_data(), "applied_milestones": ["ABDM:m1", "PHR:p1"]},
     ).is_valid()
     assert ProductRegistrationForm(
         data={**product_data(), "applied_milestones": ["HealthLocker:p4"]},
@@ -1081,13 +1074,11 @@ def test_rejected_draft_retains_reason_and_decision_history(environment, client)
 def test_track_filter_respects_which_track_applied_for_shared_m1(environment, client):
     item = submit(environment)
     workspace = environment["workspace"]
-    workspace.applied_milestones = ["HIE-CM:m1"]
+    workspace.applied_milestones = ["ABDM:m1"]
     workspace.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
-    assert (
-        item in client.get(url, {"item": "HIE-CM"}).context["page"][0].matching_reviews
-    )
+    assert item in client.get(url, {"item": "ABDM"}).context["page"][0].matching_reviews
     assert not client.get(url, {"item": "PHR"}).context["page"]
     workspace.applied_milestones.append("PHR:p1")
     workspace.save()
@@ -1130,7 +1121,7 @@ def test_the_item_filter_reaches_requests_outside_any_track(environment, client)
     assert {entry.kind for entry in listed("organisation_verification")} == {
         ReviewItem.Kind.ORGANISATION,
     }
-    assert milestone_item in listed("HIE-CM")
+    assert milestone_item in listed("ABDM")
     assert milestone_item not in listed("organisation_verification")
 
 
@@ -1153,7 +1144,7 @@ def test_product_registrations_are_records_not_queue_requests(environment, clien
 
 
 def test_the_type_filter_gathers_the_milestones_of_every_track(environment, client):
-    hie_cm = submit(environment)
+    abdm = submit(environment)
     locker = submit(environment, "p4")
     organisation = environment["org"].review_items.get(
         kind=ReviewItem.Kind.ORGANISATION,
@@ -1171,10 +1162,10 @@ def test_the_type_filter_gathers_the_milestones_of_every_track(environment, clie
         ]
 
     milestones = listed("milestones")
-    assert hie_cm in milestones
+    assert abdm in milestones
     assert locker in milestones
     assert organisation not in milestones
-    assert locker not in listed("HIE-CM")
+    assert locker not in listed("ABDM")
 
 
 def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
@@ -1324,7 +1315,7 @@ def test_support_members_cannot_reply_or_withdraw(environment, client):
     response = client.get(
         reverse(
             "experiences:track",
-            args=[environment["workspace"].reference, "HIE-CM"],
+            args=[environment["workspace"].reference, "ABDM"],
         ),
     )
     assert response.status_code == 200

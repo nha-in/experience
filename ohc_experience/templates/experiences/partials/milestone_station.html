@@ -22,7 +22,7 @@
       <span class="ui-station-code">{{ tile.definition.code }}</span>
       <span class="ui-station-name">{{ tile.definition.name }}</span>
       <span class="ui-station-status">
-        {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'d/m/Y' }}{% elif tile.locked_by %}Locked · {% if tile.resubmit %}resubmit{% else %}submit{% endif %} {{ tile.locked_by }} first{% elif tile.status == 'query_raised' %}Query raised · {% if tile.reply_needed %}reply needed{% else %}with {{ experience_program.reviewer_name }}{% endif %}{% elif tile.item.pending %}Under review · with {{ experience_program.reviewer_name }}{% elif tile.status == 'rejected' %}Rejected · waiting on you{% else %}{{ tile.label }} · waiting on you{% endif %}
+        {% if tile.status == 'approved' %}Approved · {{ tile.item.decided_at|date:'d/m/Y' }}{% elif tile.locked_by %}Locked · {% if tile.resubmit %}resubmit{% else %}submit{% endif %} {{ tile.locked_by }} first{% elif tile.status == 'query_raised' %}Query raised · {% if tile.reply_needed %}reply needed{% else %}with {{ experience_program.reviewer_name }}{% endif %}{% elif tile.item.pending %}Under review · with {{ experience_program.reviewer_name }}{% elif tile.status == 'rejected' %}Rejected · Pending Implementation{% else %}{{ tile.label }} · Pending Implementation{% endif %}
       </span>
     </span>
   </a>

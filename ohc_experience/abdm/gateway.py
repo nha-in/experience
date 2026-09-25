@@ -27,10 +27,7 @@ class ABDMSandboxCredentials(SandboxCredentialDefinition):
 
 
 class ABDMProductionCredentials(ProductionCredentialDefinition):
-    usage_notice = (
-        "The NHA gateway team sends the production client secret to you directly. "
-        "It is never shown or stored in this portal."
-    )
+    usage_notice = "The NHA team sends the production client secret to you directly."
     pending_notice = (
         "Your exit is approved. The NHA gateway team issues production credentials; "
         "your production client ID will appear here once it is issued."

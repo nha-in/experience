@@ -84,10 +84,10 @@ def product_data(name="Medibase HMIS 4.2"):
         "description": "Hospital information management, patient records and connected health services.",
         "solution_type": ["clinical_hmis"],
         "applied_milestones": [
-            "HIE-CM:m1",
-            "HIE-CM:m2",
-            "HIE-CM:m3",
-            "HIE-CM:m4",
+            "ABDM:m1",
+            "ABDM:m2",
+            "ABDM:m3",
+            "ABDM:m4",
             "PHR:p1",
             "PHR:p2",
             "PHR:p3",
@@ -333,7 +333,7 @@ class DemoBuilder:
                 **product_data("Medibase Teleconsult"),
                 "description": "Teleconsultation and appointment booking over UHI.",
                 "solution_type": ["govt_program"],
-                "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
+                "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
             },
         )
         if not waiting:
@@ -404,7 +404,7 @@ class DemoBuilder:
             ("reviewer", "Priya Sharma", "*", AccessGrant.Area.values),
             ("nhcx-reviewer", "NHCX Reviewer", "NHCX", ["review"]),
             ("uhi-reviewer", "UHI Reviewer", "UHI", ["review"]),
-            ("hiecm-reviewer", "HIE-CM Reviewer", "HIE-CM", ["review"]),
+            ("abdm-reviewer", "ABDM Reviewer", "ABDM", ["review"]),
             # Support is granted by support category, which is finer than the
             # track the same program is reviewed by.
             ("nhcx-support", "NHCX Payload Support", "nhcx-data", ["support"]),
@@ -491,7 +491,7 @@ class DemoBuilder:
     def events(self, admin):
         for index, (title, kind, days) in enumerate(
             [
-                ("HIE-CM integration office hours", "event", 3),
+                ("ABDM integration office hours", "event", 3),
                 ("PHR application flows: developer workshop", "workshop", 7),
                 ("UHI participant integration clinic", "webinar", 14),
                 ("ABHA identity integration walkthrough", "webinar", -7),

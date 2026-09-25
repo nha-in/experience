@@ -39,7 +39,7 @@ def test_selected_product_follows_integrator_into_account_pages(environment):  #
             .split("</nav>", 1)[0]
         )
         assert "nav-track-healthlocker" in nav
-        assert "nav-track-hie-cm" not in nav
+        assert "nav-track-abdm" not in nav
 
 
 def test_switcher_never_lists_another_organisations_products(environment):  # noqa: F811
@@ -80,7 +80,7 @@ def test_boosted_navigation_returns_the_main_and_updated_rail(environment):  # n
 def test_applied_tracks_only_and_approval_counts(environment, rf):  # noqa: F811
     workspace = environment["workspace"]
     ProductWorkspace.objects.filter(pk=workspace.pk).update(
-        applied_milestones=["HIE-CM:m1"],
+        applied_milestones=["ABDM:m1"],
     )
     workspace.refresh_from_db()
     request = rf.get("/")
@@ -88,7 +88,7 @@ def test_applied_tracks_only_and_approval_counts(environment, rf):  # noqa: F811
     context = navigation_context(request, workspace)
     assert [
         (row["definition"].code, row["count"]) for row in context["nav_tracks"]
-    ] == [("HIE-CM", 1)]
+    ] == [("ABDM", 1)]
     assert context["nav_tracks"][0]["approved"] == 0
 
 
@@ -99,7 +99,7 @@ def test_a_track_counts_only_the_milestones_the_product_applied_for(environment,
         environment["applicant"],
         data={
             **product_data("M1 and UHI only"),
-            "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
+            "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
         },
     )
     assert workspace, form.errors
@@ -114,7 +114,7 @@ def test_a_track_counts_only_the_milestones_the_product_applied_for(environment,
         for row in navigation_context(request, workspace)["nav_tracks"]
     }
 
-    assert counts == {"HIE-CM": (0, 1), "UHI": (0, 2)}
+    assert counts == {"ABDM": (0, 1), "UHI": (0, 2)}
 
 
 def test_sidebar_offers_only_setup_links_before_a_product_exists(

@@ -70,14 +70,20 @@ jobs:
             docs.cache-from=type=gha,scope=cached-docs
             docs.cache-to=type=gha,scope=cached-docs,mode=max
 
+      # Postgres is all the test settings reach for: they cache in memory, mail
+      # to locmem, run Celery eagerly and keep media off S3. Started on its own
+      # so `--no-deps` can skip the MinIO images, which are no longer public.
+      - name: Start Postgres
+        run: docker compose -f docker-compose.local.yml up -d postgres
+
       - name: Check DB Migrations
-        run: docker compose -f docker-compose.local.yml run --rm django python manage.py makemigrations --check
+        run: docker compose -f docker-compose.local.yml run --rm --no-deps django python manage.py makemigrations --check
 
       - name: Run DB Migrations
-        run: docker compose -f docker-compose.local.yml run --rm django python manage.py migrate
+        run: docker compose -f docker-compose.local.yml run --rm --no-deps django python manage.py migrate
 
       - name: Run Django Tests
-        run: docker compose -f docker-compose.local.yml run django pytest
+        run: docker compose -f docker-compose.local.yml run --no-deps django pytest
 
       - name: Tear down the Stack
         run: docker compose -f docker-compose.local.yml down

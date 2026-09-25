@@ -280,7 +280,7 @@ class SupportCategoryDefinition:
     """One entry in a program's support menu, and the unit a support grant names.
 
     Support is filed and permissioned more finely than it is reviewed: a track
-    such as HIE-CM answers for four milestones at once, while the people who
+    such as ABDM answers for four milestones at once, while the people who
     answer M1 identity questions are rarely the ones who answer M4 registry
     ones. So the support area gets its own vocabulary, and each category names
     the ``track`` it belongs to, which is what still ties a ticket back to the

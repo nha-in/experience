@@ -108,7 +108,7 @@ def test_a_phr_request_carries_over_as_p1_and_the_locker_as_p4(at_before):
     keys = Milestone.objects.filter(product_id=product.pk).values_list("key", flat=True)
     assert set(keys) == {"p1", "p4"}
     workspace = ProductWorkspace.objects.get(product_id=product.pk)
-    assert workspace.applied_milestones == ["HIE-CM:m1", "PHR:p1", "HealthLocker:p4"]
+    assert workspace.applied_milestones == ["ABDM:m1", "PHR:p1", "HealthLocker:p4"]
     assert set(
         FormSubmission.objects.get(form__product_id=product.pk).data[
             "applied_milestones"

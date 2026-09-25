@@ -52,13 +52,8 @@
               {% include 'experiences/partials/form.html' %}
               <div class="mt-8 flex flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
                 <div class="min-w-0 flex-1">
-                  <p class="text-xs leading-relaxed text-soft-foreground">Approval updates your product's WASA certificate.</p>
                   <p class="mt-1.5 text-xs text-soft-foreground"
                      data-unsaved-status
-                     aria-live="polite"></p>
-                  <p class="mt-1.5 text-xs font-medium text-amber-800"
-                     id="wasa-submit-reason"
-                     data-submit-reason
                      aria-live="polite"></p>
                   <button type="button"
                           class="mt-1 min-h-11 text-sm font-semibold text-primary underline underline-offset-4"
@@ -76,7 +71,6 @@
                             type="submit"
                             name="intent"
                             value="submit"
-                            aria-describedby="wasa-submit-reason"
                             data-request-submit>Submit WASA for review</button>
                   {% endif %}
                 </div>

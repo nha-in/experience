@@ -51,10 +51,10 @@ def test_registration_defaults_only_apply_to_new_unbound_forms():
     new = ProductRegistrationForm()
     assert new["solution_type"].value() == ["clinical_hmis"]
     assert new["applied_milestones"].value() == [
-        "HIE-CM:m1",
-        "HIE-CM:m2",
-        "HIE-CM:m3",
-        "HIE-CM:m4",
+        "ABDM:m1",
+        "ABDM:m2",
+        "ABDM:m3",
+        "ABDM:m4",
     ]
     assert not any(row["warning"] for row in milestone_rows(new).values())
     assert not ProductRegistrationForm(initial={})["applied_milestones"].value()
@@ -84,7 +84,7 @@ def test_register_another_product_keeps_new_defaults(environment, client):
         for field in inputs
         if field.get("name") == "applied_milestones" and "checked" in field
     ]
-    assert selected == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3", "HIE-CM:m4"]
+    assert selected == ["ABDM:m1", "ABDM:m2", "ABDM:m3", "ABDM:m4"]
     assert b"M1 required for enablement" in response.content
     assert b"Shared with" not in response.content
     assert b"About Clinic HMIS" in response.content
@@ -155,7 +155,7 @@ def test_an_unchecked_required_milestone_warns_but_still_saves():
         data={
             **product_data(),
             "solution_type": ["hmis", "insurance", "pharmacy"],
-            "applied_milestones": ["HIE-CM:m1", "HIE-CM:m2"],
+            "applied_milestones": ["ABDM:m1", "ABDM:m2"],
         },
     )
 
@@ -170,7 +170,7 @@ def test_an_unchecked_required_milestone_warns_but_still_saves():
 
 def test_m4_can_be_chosen_without_m1():
     form = ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["HIE-CM:m4"]},
+        data={**product_data(), "applied_milestones": ["ABDM:m4"]},
     )
 
     assert form.is_valid(), form.errors
@@ -182,7 +182,7 @@ def test_a_warning_names_only_the_chosen_types_that_require_it():
         data={
             **product_data(),
             "solution_type": ["insurance", "other"],
-            "applied_milestones": ["HIE-CM:m1"],
+            "applied_milestones": ["ABDM:m1"],
         },
     )
 
@@ -205,7 +205,7 @@ def test_the_picker_shows_why_a_saved_product_lacks_a_required_milestone(
         data={
             **product_data("Claims desk"),
             "solution_type": ["insurance"],
-            "applied_milestones": ["HIE-CM:m1"],
+            "applied_milestones": ["ABDM:m1"],
         },
     )
     assert workspace, form.errors
@@ -217,14 +217,14 @@ def test_the_picker_shows_why_a_saved_product_lacks_a_required_milestone(
 
     inputs = {field.get("id"): field for field in Inputs(html).fields}
     assert "data-solution-type" in inputs["id_solution_type_0"]
-    m3 = inputs["milestone-hie-cmm3"]
+    m3 = inputs["milestone-abdmm3"]
     assert "insurance" in m3["data-required-for"].split()
-    assert m3["aria-describedby"] == "milestone-hie-cmm3-required"
+    assert m3["aria-describedby"] == "milestone-abdmm3-required"
     assert html.count("Required for the Insurance solution type.") == 1
 
 
 def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
-    """M1 belongs to HIE-CM; the other tracks depend on it rather than repeat it."""
+    """M1 belongs to ABDM; the other tracks depend on it rather than repeat it."""
     tracks = {
         track["definition"].code: (
             [row["definition"].key for row in track["milestones"]],
@@ -235,7 +235,7 @@ def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
     }
 
     assert tracks == {
-        "HIE-CM": (["m1", "m2", "m3", "m4"], "", ""),
+        "ABDM": (["m1", "m2", "m3", "m4"], "", ""),
         "UHI": (["uhi1"], "M1", "M2"),
         "NHCX": (["nhcx1"], "M1", ""),
         "PHR": (["p1", "p2", "p3"], "M1", ""),
@@ -245,10 +245,10 @@ def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
 
 def test_a_dependant_track_lists_its_prerequisite_once_chosen():
     """The product page shows M1 and M2 under UHI without UHI storing them."""
-    selections = ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"]
+    selections = ["ABDM:m1", "ABDM:m2", "UHI:uhi1"]
 
     assert ABDM.applied_keys(TRACK_MAP["UHI"], selections) == ["m1", "m2", "uhi1"]
-    assert ABDM.applied_keys(TRACK_MAP["HIE-CM"], selections) == ["m1", "m2"]
+    assert ABDM.applied_keys(TRACK_MAP["ABDM"], selections) == ["m1", "m2"]
     assert ABDM.applied_keys(TRACK_MAP["PHR"], selections) == []
 
 
@@ -258,6 +258,7 @@ def test_stored_inherited_selections_move_to_the_owning_track():
         "0013_drop_inherited_milestone_selections",
     )
 
+    # 0013 predates the track's rename to ABDM, and owns "HIE-CM:m1" for good.
     assert migration.drop_inherited(["HIE-CM:m1", "UHI:m1", "UHI:uhi1"]) == [
         "HIE-CM:m1",
         "UHI:uhi1",
@@ -277,7 +278,7 @@ def test_solution_type_accepts_several_values():
             "name": "Claims platform",
             "description": "Exchanges claims with payers.",
             "solution_type": ["insurance", "telemedicine"],
-            "applied_milestones": ["HIE-CM:m1"],
+            "applied_milestones": ["ABDM:m1"],
         },
     )
     assert form.is_valid(), form.errors
@@ -289,7 +290,7 @@ def other_payload(**overrides):
         "name": "Queue desk",
         "description": "Manages patient queues at the front desk.",
         "solution_type": ["other"],
-        "applied_milestones": ["HIE-CM:m1"],
+        "applied_milestones": ["ABDM:m1"],
         **overrides,
     }
 
@@ -358,7 +359,7 @@ def uhi_payload(**overrides):
         "name": "Discovery app",
         "description": "Finds and books consultations.",
         "solution_type": ["telemedicine"],
-        "applied_milestones": ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"],
+        "applied_milestones": ["ABDM:m1", "ABDM:m2", "UHI:uhi1"],
         **overrides,
     }
 
@@ -374,7 +375,7 @@ def test_registration_no_longer_asks_about_uhi():
 def test_uhi_can_be_chosen_with_only_m1():
     """UHI's hard prerequisite loosened to M1 alone; M2 is shown, not required."""
     form = ProductRegistrationForm(
-        data=uhi_payload(applied_milestones=["HIE-CM:m1", "UHI:uhi1"]),
+        data=uhi_payload(applied_milestones=["ABDM:m1", "UHI:uhi1"]),
     )
 
     assert form.is_valid(), form.errors
@@ -417,8 +418,8 @@ def test_approved_picker_carries_locked_selections(environment, client):
         for field in inputs
         if field.get("name") == "applied_milestones" and field.get("type") == "hidden"
     ]
-    assert "HIE-CM:m1" in carried
-    locked = next(field for field in inputs if field.get("id") == "milestone-hie-cmm1")
+    assert "ABDM:m1" in carried
+    locked = next(field for field in inputs if field.get("id") == "milestone-abdmm1")
     assert "disabled" in locked
     assert "data-required-for" not in locked
 
@@ -440,20 +441,18 @@ def test_picker_locks_a_milestone_under_review_until_it_is_withdrawn(
         for field in inputs
         if field.get("name") == "applied_milestones" and field.get("type") == "hidden"
     ]
-    assert carried == ["HIE-CM:m1", "HIE-CM:m2"]
-    locked = next(field for field in inputs if field.get("id") == "milestone-hie-cmm2")
+    assert carried == ["ABDM:m1", "ABDM:m2"]
+    locked = next(field for field in inputs if field.get("id") == "milestone-abdmm2")
     assert "disabled" in locked
-    assert locked["aria-describedby"] == "milestone-hie-cmm2-why"
-    assert 'id="milestone-hie-cmm2-why">Under review · withdraw to remove<' in html
+    assert locked["aria-describedby"] == "milestone-abdmm2-why"
+    assert 'id="milestone-abdmm2-why">Under review · withdraw to remove<' in html
     assert "1 approved · cannot be removed" in html
     assert "1 under review · withdraw to remove" in html
 
     workflows.withdraw(item, environment["applicant"])
     html = client.get(url).content.decode()
     inputs = Inputs(html).fields
-    unlocked = next(
-        field for field in inputs if field.get("id") == "milestone-hie-cmm2"
-    )
+    unlocked = next(field for field in inputs if field.get("id") == "milestone-abdmm2")
     assert "disabled" not in unlocked
     assert unlocked["name"] == "applied_milestones"
     assert "under review · withdraw to remove" not in html.lower()
@@ -467,7 +466,7 @@ def test_track_draft_uploads_and_withdrawn_snapshot_remain_editable(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "HIE-CM"],
+        args=[environment["workspace"].reference, "ABDM"],
     )
     uploads = {key: value[0] for key, value in files().lists()}
     response = client.post(
@@ -581,7 +580,7 @@ def test_a_pending_panel_shows_what_each_system_is_doing(environment, client):
 
 def _track_url(workspace, milestone):
     return (
-        reverse("experiences:track", args=[workspace.reference, "HIE-CM"])
+        reverse("experiences:track", args=[workspace.reference, "ABDM"])
         + f"?milestone={milestone}"
     )
 
@@ -592,7 +591,7 @@ def test_an_m1_only_product_is_never_asked_for_a_callback_url(environment, clien
     workspace, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
-        data=product_data("Identity only") | {"applied_milestones": ["HIE-CM:m1"]},
+        data=product_data("Identity only") | {"applied_milestones": ["ABDM:m1"]},
     )
     assert workspace, form.errors
     provision_inline(workspace.product)
