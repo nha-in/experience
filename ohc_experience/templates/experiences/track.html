@@ -12,22 +12,21 @@
         {% if track.tiles %}
           <div class="mt-6 flex items-baseline gap-2.5">
             <span class="ui-figure ui-figure--xl">{{ track.approved }}</span>
-            <span class="text-[15px] font-semibold text-muted-foreground">of {{ track.tiles|length }} milestone{{ track.tiles|length|pluralize }} approved</span>
+            <span class="text-[15px] font-semibold text-muted-foreground">of {{ track.tiles|length }} milestone{{ track.tiles|length|pluralize }} approved · {% widthratio track.approved track.tiles|length 100 %}% completed</span>
           </div>
           <p class="mt-2.5 text-[13px] text-muted-foreground">
-            {% for choice in track.tiles %}
-              {% if choice.status != 'approved' %}Next: <a class="font-semibold text-primary no-underline hover:underline"
-    href="{{ choice.url }}">
-                <span class="font-mono">{{ choice.definition.code }}</span> {{ choice.definition.name }}</a> · {% if choice.reply_needed %}reply needed{% elif choice.item.pending %}with the reviewer{% elif choice.locked_by %}{% if choice.resubmit %}resubmit{% else %}submit{% endif %} {{ choice.locked_by }} first{% else %}Pending Implementation{% endif %}
+            {% for group in track.progress %}
+              {{ group.label }}: {% for choice in group.tiles %}<a class="font-mono text-xs font-semibold tracking-[0.04em] text-primary no-underline hover:underline"
+   href="{{ choice.url }}"
+   title="{{ choice.definition.name }}">{{ choice.definition.code }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
               <br />
-            {% endif %}
-          {% endfor %}
-          {% if track.approved == track.tiles|length %}{% if track.definition.code == "UHI" %}All required milestones for UHI onboarding are approved.{% else %}Every applied milestone on this track is approved.{% endif %}{% endif %}
-          <a class="text-soft-foreground hover:underline"
-             href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
-             target="_blank"
-             rel="noopener noreferrer"
-             hx-boost="false">Milestone documentation ↗&#xFE0E;</a>
+            {% endfor %}
+            {% if track.approved == track.tiles|length %}{% if track.definition.code == "UHI" %}All required milestones for UHI onboarding are approved.{% else %}Every applied milestone on this track is approved.{% endif %}{% endif %}
+            <a class="text-soft-foreground hover:underline"
+               href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
+               target="_blank"
+               rel="noopener noreferrer"
+               hx-boost="false">Milestone documentation ↗&#xFE0E;</a>
           </p>
         {% else %}
           <p class="mt-6">

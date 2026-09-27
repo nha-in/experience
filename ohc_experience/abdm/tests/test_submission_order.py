@@ -215,16 +215,53 @@ def test_the_track_page_locks_a_milestone_and_links_what_opens_it(
         "M1 - ABHA Creation and Verification</a>" in html
     )
     assert "Locked · submit M1 first" in html
-    assert "M3 Health Information User Services</a> · submit M1 first" in html.replace(
-        '<span class="font-mono">M3</span>',
-        "M3",
-    )
+    assert progress_lines(html) == [
+        "Pending implementation: M1",
+        "Submit M1 first: M2, M3, M4",
+    ]
 
     submit(environment)
     html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
 
     assert "data-milestone-locked" not in html
     assert "data-review-form" in html
+
+
+def progress_lines(html):
+    """The track hero's progress lines, without the documentation link that
+    closes their paragraph."""
+    hero = re.search(r'<p class="mt-2\.5[^"]*">(.*?)</p>', html, flags=re.S).group(1)
+    *lines, _documentation = hero.split("<br />")
+    return [" ".join(re.sub(r"<[^>]+>", "", line).split()) for line in lines]
+
+
+def test_the_track_hero_groups_what_is_left_by_what_it_waits_on(environment, client):
+    """One line per state instead of one per milestone, the integrator's first."""
+    submit(environment)
+    approve_submitted(environment)
+    submit(environment, "m2")
+    client.force_login(environment["applicant"])
+
+    html = client.get(track_url(environment)).content.decode()
+
+    assert "of 4 milestones approved · 25% completed" in html
+    assert progress_lines(html) == [
+        "Pending implementation: M3, M4",
+        "With the reviewer: M2",
+    ]
+
+    workflows.decide(
+        milestone(environment, "m2"),
+        environment["admin"],
+        action="query",
+        note="Name the consent scenarios you exercised.",
+    )
+    html = client.get(track_url(environment)).content.decode()
+
+    assert progress_lines(html) == [
+        "Reply needed: M2",
+        "Pending implementation: M3, M4",
+    ]
 
 
 def milestone_tiles(html):

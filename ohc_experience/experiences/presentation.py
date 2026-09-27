@@ -213,3 +213,33 @@ def _milestone_next_step(tiles, product_url):
         current["url"],
         "info",
     )
+
+
+def _waiting_on(tile):
+    """The line a milestone belongs under, and where that line sits.
+
+    Whatever the integrator can act on leads; what the reviewer holds trails.
+    """
+    if tile["reply_needed"]:
+        return 0, "Reply needed"
+    if tile["item"].pending:
+        return 3, "With the reviewer"
+    if tile["locked_by"]:
+        verb = "Resubmit" if tile["resubmit"] else "Submit"
+        return 2, f"{verb} {tile['locked_by']} first"
+    return 1, "Pending implementation"
+
+
+def track_progress(track):
+    """What is left on a track, one line per state instead of one per milestone.
+
+    Call it on a track whose tiles have been through `_lock_tiles`.
+    """
+    groups = {}
+    for tile in track["tiles"]:
+        if tile["status"] == "approved":
+            continue
+        groups.setdefault(_waiting_on(tile), []).append(tile)
+    return [
+        {"label": label, "tiles": tiles} for (_, label), tiles in sorted(groups.items())
+    ]

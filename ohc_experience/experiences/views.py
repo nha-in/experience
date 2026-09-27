@@ -75,6 +75,7 @@ from .presentation import agent_skill_groups
 from .presentation import default_agent_skill
 from .presentation import overview_next_step
 from .presentation import overview_progress
+from .presentation import track_progress
 from .queue_presentation import grouped_requests
 from .queue_presentation import populate_queue_page
 from .queue_presentation import queue_requests
@@ -1498,6 +1499,7 @@ def track(request, reference, track_code):
         if row["definition"].code == track_code
     )
     _lock_tiles(workspace, [track_data])
+    track_data["progress"] = track_progress(track_data)
     selected = request.GET.get("milestone", "")
     default_tile = next(
         (
