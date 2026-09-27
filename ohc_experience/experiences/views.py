@@ -1398,50 +1398,54 @@ def _milestone_testing_dates(request, *, prefix, errors=None):
     ]
 
 
-def _track_evidence_context(request, item, form):
+def _page_milestones(track):
+    """What a track page shows: its own milestones and the related ones beside them."""
+    return [tile["definition"].key for tile in track["tiles"]]
+
+
+def _track_evidence_context(request, item, form, track):
     if not item or not permissions.can_integrate(request.user, item.organisation):
         return {}
     choices = []
     additional_forms = getattr(form, "additional_forms", {})
     selected = set(request.POST.getlist("additional_reviews"))
-    for target in sorted(services.submission_targets(item), key=review_order):
+    offered = services.submission_choices(item, _page_milestones(track))
+    for target in sorted(offered, key=review_order):
         milestone = target.program.milestones[target.application.milestone.key]
         token = f"{target.pk}:{target.selected_submission_id or ''}"
-        choices.append(
-            {
-                "item": target,
-                "code": milestone.code,
-                "name": milestone.name,
-                "token": token,
-                "selected": token in selected,
-                "dates": _milestone_testing_dates(
-                    request,
-                    prefix=f"milestone_{target.pk}_",
-                    errors=additional_forms[target.pk].errors
-                    if target.pk in additional_forms
-                    else None,
-                ),
-                "requires": [
-                    str(prerequisite.pk)
-                    for prerequisite in services.unsubmitted_prerequisites(target)
-                    if prerequisite.pk != item.pk
-                ],
-            },
-        )
+        choice = {
+            "item": target,
+            "code": milestone.code,
+            "name": milestone.name,
+            "token": token,
+            "blocked": target.submission_blocked,
+            "selected": False,
+            "dates": [],
+            "requires": [],
+        }
+        if not target.submission_blocked:
+            choice["selected"] = token in selected
+            choice["dates"] = _milestone_testing_dates(
+                request,
+                prefix=f"milestone_{target.pk}_",
+                errors=additional_forms[target.pk].errors
+                if target.pk in additional_forms
+                else None,
+            )
+            choice["requires"] = [
+                str(prerequisite.pk)
+                for prerequisite in services.unsubmitted_prerequisites(target)
+                if prerequisite.pk != item.pk
+            ]
+        choices.append(choice)
     return {
         "submission_choices": choices,
-        "submission_track": next(
-            (
-                track.code
-                for track in item.program.tracks
-                if item.application.milestone.key in track.keys
-            ),
-            "",
-        ),
+        # Blocked choices still render, but there is no group to speak of yet.
+        "submission_group_available": any(not choice["blocked"] for choice in choices),
     }
 
 
-def _save_track_evidence(request, item):
+def _save_track_evidence(request, item, track):
     intent = request.POST.get("intent")
     additional = {}
     if intent in {"draft", "submit"}:
@@ -1457,6 +1461,7 @@ def _save_track_evidence(request, item):
                 item,
                 request.user,
                 additional_revisions=additional,
+                page_keys=_page_milestones(track),
                 **kwargs,
             )
         else:
@@ -1522,7 +1527,11 @@ def track(request, reference, track_code):
         if request.POST.get("intent") == "read":
             return _read_document(request, item.definition)
         try:
-            item, form, saved, notice = _save_track_evidence(request, item)
+            item, form, saved, notice = _save_track_evidence(
+                request,
+                item,
+                track_data,
+            )
             if saved:
                 messages.success(request, notice)
                 return redirect(request.get_full_path())
@@ -1543,7 +1552,7 @@ def track(request, reference, track_code):
             form=form,
             can_edit=services.can_edit_review(item) if item else False,
             locked_by=locked_by,
-            **_track_evidence_context(request, item, form),
+            **_track_evidence_context(request, item, form, track_data),
         ),
     )
 
@@ -1563,15 +1572,20 @@ def _integrator_item_url(item):
             args=[item.product.workspace.reference],
         )
     key = item.application.milestone.key
-    selection = next(
-        value
-        for value in item.product.workspace.applied_milestones
-        if value.endswith(f":{key}")
+    # A product that dropped a milestone keeps the requests that depend on it,
+    # so fall back to the track the catalog files it under.
+    track_code = next(
+        (
+            value.split(":")[0]
+            for value in item.product.workspace.applied_milestones
+            if value.endswith(f":{key}")
+        ),
+        next((track.code for track in item.program.tracks_with(key)), ""),
     )
     return (
         reverse(
             "experiences:track",
-            args=[item.product.workspace.reference, selection.split(":")[0]],
+            args=[item.product.workspace.reference, track_code],
         )
         + f"?milestone={key}"
     )

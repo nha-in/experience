@@ -27,6 +27,9 @@ from ohc_experience.experiences.models import ReviewItem
 
 pytestmark = pytest.mark.django_db
 
+#: Every milestone a page could show, for tests that are not about page scope.
+ALL_KEYS = ("m1", "m2", "m3", "m4", "p1", "p2", "p3", "p4", "uhi1", "nhcx1")
+
 
 def revisions(*items):
     return {str(item.pk): str(item.selected_submission_id or "") for item in items}
@@ -66,6 +69,7 @@ def submit_group(environment, current, *additional, data=None, uploads=None, **k
         files=files() if uploads is None else uploads,
         expected_revision=current.selected_submission_id or "",
         additional_revisions=revisions(*additional),
+        page_keys=kwargs.pop("page_keys", ALL_KEYS),
         **kwargs,
     )
 
@@ -80,7 +84,7 @@ def assert_fresh(*items):
 
 def test_targets_include_compatible_locked_siblings_but_not_distinct_forms(environment):
     current = milestone(environment)
-    targets = workflows.submission_targets(current)
+    targets = workflows.submission_targets(current, ALL_KEYS)
     assert milestone(environment, "m2") in targets
     assert milestone(environment, "m3") in targets
     assert milestone(environment, "m4") in targets
@@ -91,32 +95,51 @@ def test_targets_include_compatible_locked_siblings_but_not_distinct_forms(envir
     assert workflows.milestone_unavailable(milestone(environment, "m2"))
 
 
-def test_targets_exclude_saved_work_and_its_unavailable_dependants(environment):
+def test_targets_include_saved_work_and_the_dependants_it_opens(environment):
+    """Choosing a sibling means submitting this evidence for it, draft or not."""
     m1, form, saved = workflows.save_review_form(
         milestone(environment),
         environment["applicant"],
         data={"start_date": timezone.localdate()},
     )
     assert saved, form.errors
-    targets = workflows.submission_targets(milestone(environment, "m4"))
-    assert m1 not in targets
-    assert milestone(environment, "m2") not in targets
-    assert milestone(environment, "m3") not in targets
-    assert milestone(environment, "m2") in workflows.submission_targets(m1)
+    targets = workflows.submission_targets(milestone(environment, "m4"), ALL_KEYS)
+    assert m1 in targets
+    assert milestone(environment, "m2") in targets
+    assert milestone(environment, "m3") in targets
 
 
 def test_targets_exclude_disabled_milestones(environment):
     m2 = milestone(environment, "m2")
     m2.application.milestone.enabled = False
     m2.application.milestone.save(update_fields=["enabled"])
-    assert m2 not in workflows.submission_targets(milestone(environment))
+    assert m2 not in workflows.submission_targets(milestone(environment), ALL_KEYS)
 
 
 def test_targets_exclude_milestones_waiting_on_a_callback_url(environment):
     clear_callback_url(environment)
-    assert workflows.submission_targets(milestone(environment)) == [
+    assert workflows.submission_targets(milestone(environment), ALL_KEYS) == [
         milestone(environment, "m4"),
     ]
+
+
+def test_choices_keep_a_blocked_milestone_with_the_reason_it_cannot_join(environment):
+    clear_callback_url(environment)
+    choices = workflows.submission_choices(milestone(environment), ALL_KEYS)
+    assert {
+        target.application.milestone.key: target.submission_blocked
+        for target in choices
+    } == {
+        "m2": "Add a callback URL to submit M2.",
+        "m3": "Add a callback URL to submit M3.",
+        "m4": "",
+    }
+
+
+def test_choices_leave_out_a_milestone_answering_its_own_form(environment):
+    """No submission of this evidence could cover UHI1, so it is not a choice."""
+    choices = workflows.submission_choices(milestone(environment), ["m2", "uhi1"])
+    assert [target.application.milestone.key for target in choices] == ["m2"]
 
 
 def test_group_submits_chain_with_independent_snapshots_and_one_upload_set(
@@ -207,7 +230,8 @@ def test_invalid_current_form_returns_errors_without_any_saved_changes(
     assert_fresh(m1, m2)
 
 
-def test_additional_saved_draft_is_never_overwritten(environment):
+def test_an_additional_saved_draft_is_superseded_not_lost(environment):
+    """The batch supersedes the draft with a new revision; the draft stays."""
     submit(environment, "m1")
     current = milestone(environment, "m2")
     target, form, saved = workflows.save_review_form(
@@ -216,12 +240,19 @@ def test_additional_saved_draft_is_never_overwritten(environment):
         data={"start_date": timezone.localdate()},
     )
     assert saved, form.errors
-    original = target.selected_submission_id
-    with pytest.raises(ValidationError, match="saved work"):
-        submit_group(environment, current, target)
-    assert_fresh(current)
+    draft = target.selected_submission
+    drafted = dict(draft.data)
+
+    _, form, saved = submit_group(environment, current, target)
+
+    assert saved, form.errors
     target.refresh_from_db()
-    assert target.selected_submission_id == original
+    assert target.selected_submission_id != draft.pk
+    assert target.selected_submission.submission_number == draft.submission_number
+    assert target.selected_submission.revision == draft.revision + 1
+    assert target.selected_submission.data != drafted
+    draft.refresh_from_db()
+    assert draft.data == drafted
 
 
 def test_stale_target_revision_prevents_current_submission(environment):
@@ -234,6 +265,7 @@ def test_stale_target_revision_prevents_current_submission(environment):
             files=files(),
             expected_revision="",
             additional_revisions={target.pk: "999"},
+            page_keys=ALL_KEYS,
         )
     assert_fresh(current, target)
 
@@ -248,6 +280,7 @@ def test_stale_current_revision_prevents_group_submission(environment):
             files=files(),
             expected_revision="999",
             additional_revisions=revisions(target),
+            page_keys=ALL_KEYS,
         )
     assert_fresh(current, target)
 
@@ -373,6 +406,7 @@ def test_all_additional_dates_are_validated_even_when_primary_is_invalid(environ
         files=files(),
         expected_revision="",
         additional_revisions=revisions(m2, m3),
+        page_keys=ALL_KEYS,
     )
     assert not saved
     assert "start_date" in form.errors
@@ -392,6 +426,7 @@ def test_additional_dates_are_required_and_never_inherited_from_primary(environm
         files=files(),
         expected_revision="",
         additional_revisions=revisions(target),
+        page_keys=ALL_KEYS,
     )
     assert not saved
     additional = form.additional_forms[target.pk]
@@ -525,5 +560,6 @@ def test_integrator_membership_is_required_for_group_submission(environment, act
             data=evidence_data(),
             files=files(),
             expected_revision="",
+            page_keys=ALL_KEYS,
         )
     assert_fresh(target)

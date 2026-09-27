@@ -2,11 +2,11 @@
           aria-describedby="milestone-submission-help">
   <legend class="px-1 text-sm font-semibold">Also submit for other milestones</legend>
   <p class="mt-1 text-xs leading-relaxed text-soft-foreground"
-     id="milestone-submission-help">Choose other {{ submission_track }} milestones and enter their testing dates. The evidence below is shared.</p>
+     id="milestone-submission-help">Choose other milestones to submit with this evidence, and enter their testing dates.</p>
   <div class="mt-2 divide-y divide-soft-border">
     {% for choice in submission_choices %}
       <div class="py-2">
-        <label class="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+        <label class="flex min-h-11 items-center gap-3 text-sm {% if choice.blocked %}text-soft-foreground{% else %}cursor-pointer{% endif %}"
                for="submit-milestone-{{ choice.item.pk }}">
           <input class="ui-checkbox shrink-0"
                  type="checkbox"
@@ -16,17 +16,22 @@
                  data-milestone-code="{{ choice.code }}"
                  data-review-id="{{ choice.item.pk }}"
                  data-requires="{{ choice.requires|join:' ' }}"
-                 aria-controls="milestone-dates-{{ choice.item.pk }}"
+                 {% if choice.blocked %}disabled aria-describedby="submit-milestone-{{ choice.item.pk }}-blocked"{% else %}aria-controls="milestone-dates-{{ choice.item.pk }}"{% endif %}
                  {% if choice.selected %}checked{% endif %} />
           <span class="min-w-0 break-words"><strong class="font-semibold">{{ choice.code }}</strong> · {{ choice.name }}</span>
         </label>
-        <div class="pb-2 pt-1"
-             id="milestone-dates-{{ choice.item.pk }}"
-             data-milestone-dates="{{ choice.item.pk }}"
-             data-testing-dates
-             {% if not choice.selected %}hidden{% endif %}>
-          {% include 'experiences/partials/milestone_testing_dates.html' with dates=choice.dates active=choice.selected %}
-        </div>
+        {% if choice.blocked %}
+          <p class="pb-1 pl-7 text-xs font-medium text-amber-800"
+             id="submit-milestone-{{ choice.item.pk }}-blocked">{{ choice.blocked }}</p>
+        {% else %}
+          <div class="pb-2 pt-1"
+               id="milestone-dates-{{ choice.item.pk }}"
+               data-milestone-dates="{{ choice.item.pk }}"
+               data-testing-dates
+               {% if not choice.selected %}hidden{% endif %}>
+            {% include 'experiences/partials/milestone_testing_dates.html' with dates=choice.dates active=choice.selected %}
+          </div>
+        {% endif %}
       </div>
     {% endfor %}
   </div>

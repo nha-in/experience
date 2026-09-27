@@ -12,6 +12,7 @@ from django.utils import timezone
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
+from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
@@ -138,10 +139,48 @@ def test_fresh_m1_offers_compatible_m2_and_m3_submission_choices(environment, cl
     assert b'name="additional_reviews"' in response.content
 
 
-def test_choices_exclude_saved_work_pending_approved_and_auto_approved_requests(
+def test_a_milestone_missing_a_callback_url_is_offered_disabled_with_the_reason(
     environment,
     client,
 ):
+    clear_callback_url(environment)
+    client.force_login(environment["applicant"])
+    response = client.get(track_url(environment))
+
+    choices = {
+        choice["code"]: choice for choice in response.context["submission_choices"]
+    }
+    assert choices.keys() == {"M2", "M3", "M4"}
+    assert choices["M2"]["blocked"] == "Add a callback URL to submit M2."
+    assert choices["M4"]["blocked"] == ""
+    boxes = attributes_by(response, "data-milestone-code")
+    assert "disabled" in boxes["M2"]
+    assert "disabled" not in boxes["M4"]
+    assert b"Add a callback URL to submit M2." in response.content
+    # A milestone nobody can choose asks for no testing dates.
+    panels = attributes_by(response, "data-milestone-dates")
+    assert set(panels) == {str(choices["M4"]["item"].pk)}
+
+
+def test_the_section_stays_when_every_other_milestone_is_blocked(environment, client):
+    locker = {**environment, "workspace": phr_workspace(environment)}
+    clear_callback_url(environment, "p1")
+    client.force_login(environment["applicant"])
+    response = client.get(track_url(locker, "p1", "PHR"))
+
+    choices = response.context["submission_choices"]
+    assert {choice["code"] for choice in choices} == {"P2", "P3", "P4"}
+    assert all(choice["blocked"] for choice in choices)
+    assert b"Also submit for other milestones" in response.content
+    alone = b"Submitting sends this milestone for review and locks the form."
+    assert alone in response.content
+
+
+def test_choices_exclude_pending_approved_and_auto_approved_requests(
+    environment,
+    client,
+):
+    """Only a milestone still open for submission is offered; a draft is open."""
     approved = approve(environment)
     draft = save_draft(environment, "m3")
     pending = submit(environment, "m4")
@@ -156,14 +195,13 @@ def test_choices_exclude_saved_work_pending_approved_and_auto_approved_requests(
     assert not choice_ids.intersection(
         {
             pending.pk,
-            draft.pk,
             approved.pk,
             other_pending.pk,
             current.pk,
             milestone(environment, "uhi1").pk,
         },
     )
-    assert not choice_ids
+    assert choice_ids == {draft.pk}
 
 
 def test_m2_has_one_evidence_form_after_m1_is_submitted(environment, client):

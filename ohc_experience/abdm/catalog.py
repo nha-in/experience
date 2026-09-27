@@ -128,7 +128,8 @@ TRACKS = (
     TrackDefinition(
         "UHI",
         "Unified Health Interface",
-        "UHI enables the discovery and delivery of digital health services. UHI "
+        "UHI enables the discovery and delivery of UHI digital health services "
+        "(JanAaushadi/Ambulance). UHI "
         "onboarding requires M1 or P1, and M2 is suggested alongside it. These "
         "milestones may also be reused across other ABDM tracks where applicable.",
         ("uhi1",),

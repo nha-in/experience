@@ -193,10 +193,10 @@ def milestone(environment, key="m1"):
     return product.milestones.get(key=key).application.review_item
 
 
-def clear_callback_url(environment):
-    ProductCredential.objects.filter(product=environment["workspace"].product).update(
-        callback_url="",
-    )
+def clear_callback_url(environment, key="m1"):
+    ProductCredential.objects.filter(
+        product=workspace_for(environment, key).product,
+    ).update(callback_url="")
 
 
 def submit(environment, key="m1"):

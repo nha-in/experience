@@ -744,27 +744,45 @@ def _evidence_track_keys(item):
     }
 
 
-def submission_targets(item):
-    """Compatible fresh siblings whose prerequisites can join this submission."""
+def submission_choices(item, page_keys):
+    """Milestones one submission of this evidence can also cover, and their state.
+    """
     if not item.definition.allow_reuse or not item.product_id or not item.editable:
         return []
-    candidates = [
+    members = [
         candidate
         for candidate in ReviewItem.objects.filter(
             product_id=item.product_id,
             form_id=item.form_id,
             status=ReviewItem.Status.DRAFT,
-            submitted_at__isnull=True,
             application__milestone__enabled=True,
-            application__milestone__key__in=_evidence_track_keys(item),
+            application__milestone__key__in=set(page_keys) & _evidence_track_keys(item),
         )
         .exclude(pk=item.pk)
         .select_related("selected_submission", "form", "application__milestone")
         .order_by("pk")
-        if _fresh_evidence_target(candidate)
+        if candidate.definition.allow_reuse
         and candidate.definition.schema_version == item.definition.schema_version
-        and candidate.definition.allow_reuse
-        and not candidate.definition.submission_block_reason(candidate)
+    ]
+    for candidate in members:
+        candidate.submission_blocked = candidate.definition.submission_block_reason(
+            candidate,
+        )
+    joinable = _joinable(item, members)
+    for candidate in members:
+        if candidate.pk not in joinable and not candidate.submission_blocked:
+            candidate.submission_blocked = _prerequisites_left_behind(
+                item,
+                candidate,
+                joinable,
+            )
+    return members
+
+
+def _joinable(item, members):
+    """Members whose own prerequisites can join too, so the batch stays in order."""
+    candidates = [
+        candidate for candidate in members if not candidate.submission_blocked
     ]
     while True:
         selected = {item.pk, *(candidate.pk for candidate in candidates)}
@@ -777,8 +795,27 @@ def submission_targets(item):
             )
         ]
         if len(possible) == len(candidates):
-            return possible
+            return {candidate.pk for candidate in possible}
         candidates = possible
+
+
+def _prerequisites_left_behind(item, candidate, joinable):
+    """What this milestone waits on, when the batch cannot carry it."""
+    names = readable_list(
+        review.application.milestone.definition.code
+        for review in unsubmitted_prerequisites(candidate)
+        if review.pk != item.pk and review.pk not in joinable
+    )
+    return f"Submit {names} first." if names else ""
+
+
+def submission_targets(item, page_keys):
+    """The milestones this submission may be sent for, beside the one shown."""
+    return [
+        candidate
+        for candidate in submission_choices(item, page_keys)
+        if not candidate.submission_blocked
+    ]
 
 
 def _evidence_form(item, source, *, data, files=None, draft=False):
@@ -797,15 +834,15 @@ def _require_evidence_revision(item, expected_revision):
         raise ValidationError(msg)
 
 
-def _submission_batch(item, additional_revisions):
+def _submission_batch(item, additional_revisions, page_keys):
     try:
         revisions = {int(pk): revision for pk, revision in additional_revisions.items()}
     except (AttributeError, TypeError, ValueError) as error:
         msg = "Choose valid additional milestones. Reload the page before submitting."
         raise ValidationError(msg) from error
-    eligible = {candidate.pk for candidate in submission_targets(item)}
+    eligible = {candidate.pk for candidate in submission_targets(item, page_keys)}
     if len(revisions) != len(additional_revisions) or not set(revisions) <= eligible:
-        msg = "An additional milestone changed or has saved work. Reload the page."
+        msg = "An additional milestone changed. Reload the page."
         raise ValidationError(msg)
     additional = list(
         ReviewItem.objects.select_for_update(of=("self",))
@@ -858,13 +895,14 @@ def save_review_forms(  # noqa: PLR0913
     files=None,
     expected_revision=None,
     additional_revisions=None,
+    page_keys,
 ):
-    """Submit the displayed evidence for explicitly selected fresh milestones."""
+    """Submit the displayed evidence for the milestones chosen beside it."""
     item = _lock_review(item.pk)
     require_integrator(actor, item.organisation)
     _require_editable_submission(item, submit=True)
     _require_evidence_revision(item, expected_revision)
-    items = _submission_batch(item, additional_revisions or {})
+    items = _submission_batch(item, additional_revisions or {}, page_keys)
     evidence = item.selected_submission
     form = build_form(item, data=data, files=files)
     valid = form.is_valid()
