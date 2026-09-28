@@ -41,7 +41,7 @@ def test_the_track_offers_its_documentation_as_a_button(environment, client):  #
     )
 
 
-def test_saved_evidence_names_its_version(
+def test_saved_evidence_names_its_version_and_says_when_nothing_is_uploaded(
     environment,  # noqa: F811
     client,
 ):
@@ -53,6 +53,7 @@ def test_saved_evidence_names_its_version(
 
     saved = text(re.search(r"Saved evidence.*?</div>", html, re.S).group(0))
     assert re.search(r"Version 1 · \d{2}/\d{2}/\d{4}, \d{2}:\d{2} IST", saved)
+    assert "No evidence uploaded yet." in saved
     assert "Revision" not in saved
     assert "Submission 1" not in saved
 
@@ -67,3 +68,4 @@ def test_saved_evidence_names_its_version(
 
     saved = text(re.search(r"Saved evidence.*?</div>", html, re.S).group(0))
     assert saved.startswith("Saved evidence Version 2 ·")
+    assert "No evidence uploaded yet." not in saved

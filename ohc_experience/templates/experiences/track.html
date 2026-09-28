@@ -128,6 +128,9 @@
                     {% include 'experiences/partials/submission_version.html' with submission=item.selected_submission only %}
                     {% if item.selected_submission.origin_application_id != item.application_id %}· Reused from another milestone{% endif %}
                   </p>
+                  {% if not item.definition.auto_approve and not item.selected_submission.has_files %}
+                    <p class="mt-1 text-xs leading-relaxed text-foreground">No evidence uploaded yet. Upload your documents below, then save a draft or submit.</p>
+                  {% endif %}
                 </div>
               {% endif %}
               {% include 'experiences/partials/milestone_evidence_form.html' %}

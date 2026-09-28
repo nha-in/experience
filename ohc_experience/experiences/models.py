@@ -475,6 +475,11 @@ class FormSubmission(models.Model):
     def is_expired(self) -> bool:
         return bool(self.valid_until and self.valid_until < timezone.localdate())
 
+    @property
+    def has_files(self) -> bool:
+        """Whether this saved version holds any uploaded document."""
+        return self.attachments.filter(is_current=True).exists()
+
 
 class ApplicationFormUse(models.Model):
     """Links an application to a reusable form and its pinned revision."""
