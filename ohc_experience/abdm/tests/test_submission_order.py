@@ -64,7 +64,7 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
     with pytest.raises(ValidationError, match="cannot be reused"):
         workflows.reuse_evidence(m2, environment["applicant"])
     assert workflows.milestone_unavailable(milestone(environment, "uhi1")) == (
-        "UHI1 - UHI participation opens once "
+        "UHI - UHI participation opens once "
         "M1 - ABHA Creation and Verification is submitted."
     )
 
@@ -181,7 +181,7 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
         workflows.withdraw(milestone(environment), applicant)
     assert error.value.messages == [
         (
-            "Withdraw UHI1 - UHI participation, M3 - Health Information User "
+            "Withdraw UHI - UHI participation, M3 - Health Information User "
             "Services and M2 - Health Information Provider Services first. "
             "They build on this request."
         ),
@@ -191,7 +191,7 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
     workflows.withdraw(milestone(environment, "m3"), applicant)
     with pytest.raises(
         ValidationError,
-        match=r"Withdraw UHI1 - UHI participation first\. It builds on this request\.",
+        match=r"Withdraw UHI - UHI participation first\. It builds on this request\.",
     ):
         workflows.withdraw(milestone(environment), applicant)
 
@@ -319,7 +319,7 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
 
     assert "Requires completion of" not in uhi["M1"]
     assert uhi["M2"].endswith("Requires completion of M1")
-    assert uhi["UHI1"].endswith("Requires completion of M1")
+    assert uhi["UHI"].endswith("Requires completion of M1")
 
     submit(environment)
     html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
@@ -423,7 +423,7 @@ def test_the_review_page_lists_the_requests_waiting_on_it(environment, client):
         f'href="{m2.get_absolute_url()}">'
         "M2 - Health Information Provider Services</a>" in html
     )
-    assert f'href="{uhi.get_absolute_url()}">UHI1 - UHI participation</a>' in html
+    assert f'href="{uhi.get_absolute_url()}">UHI - UHI participation</a>' in html
 
     approve_submitted(environment)
 

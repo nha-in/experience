@@ -87,7 +87,8 @@ MILESTONES = {
         ),
         MilestoneDefinition(
             "uhi1",
-            "UHI1",
+            # NHA calls the milestone UHI; the key keeps its 1 for stored data.
+            "UHI",
             "UHI participation",
             IDENTITY_MILESTONES,
             "Join the network for discovery, booking and delivery of health services.",
@@ -168,6 +169,7 @@ def excluded_track(selected):
     if "PHR" in selected:
         return "ABDM"
     return ""
+
 
 #: What a ticket is filed under, and what a support permission is granted for.
 #: Finer than the tracks the same program is reviewed by, because the milestone

@@ -60,7 +60,7 @@ def test_phr_offers_the_rest_of_the_track_and_shrinks_as_each_is_submitted(
 
 
 def test_uhi_offers_only_what_shares_this_evidence(environment, client):
-    """UHI1 answers its own form, so no submission of M1's evidence covers it."""
+    """UHI answers its own form, so no submission of M1's evidence covers it."""
     client.force_login(environment["applicant"])
 
     assert offered(client, environment, "m1", "UHI") == {"M2": ""}

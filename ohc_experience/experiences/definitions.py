@@ -220,7 +220,7 @@ class MilestoneDefinition:
     code: str
     name: str
     #: The milestone this one builds on. A tuple offers alternatives, any one of
-    #: which opens it: UHI1 and NHCX1 build on whichever identity milestone the
+    #: which opens it: UHI and NHCX1 build on whichever identity milestone the
     #: product's track carries.
     predecessor: str | tuple[str, ...] = ""
     description: str = ""

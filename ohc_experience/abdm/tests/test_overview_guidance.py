@@ -20,7 +20,8 @@ def test_progress_counts_shared_m1_only_once(client, environment):  # noqa: F811
     response = client.get(environment["workspace"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     assert ABDM.milestones_docs_url.encode() in response.content
-    # ABDM shows M1-M4 and UHI shows UHI1 over M1 and M2, so M1 counts once.
+    # ABDM shows M1-M4 and the UHI track shows its milestone over M1 and M2, so M1
+    # counts once.
     assert response.context["progress"] == {
         "total": 5,
         "approved": 1,

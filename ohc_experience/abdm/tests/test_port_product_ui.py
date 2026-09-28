@@ -169,7 +169,7 @@ def test_an_unchecked_required_milestone_warns_but_still_saves():
         "Required for the HMIS, Pharmacy and Insurance solution types."
     )
     assert rows["M4"]["warning"] == "Required for the HMIS and Pharmacy solution types."
-    assert not any(rows[code]["warning"] for code in ("M1", "M2", "UHI1"))
+    assert not any(rows[code]["warning"] for code in ("M1", "M2", "UHI"))
 
 
 def test_m4_needs_m1_unless_the_entity_is_a_government_body():
@@ -208,7 +208,7 @@ def test_a_warning_names_only_the_chosen_types_that_require_it():
     assert not rows["M2"]["warning"]
     assert "insurance" in rows["M3"]["required_for"].split()
     assert "insurance" not in rows["M2"]["required_for"].split()
-    assert not rows["UHI1"]["required_for"]
+    assert not rows["UHI"]["required_for"]
 
 
 @pytest.mark.django_db
@@ -687,7 +687,7 @@ def test_the_m1_page_does_not(environment, client):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(("key", "code"), [("m2", "M2"), ("uhi1", "UHI1")])
+@pytest.mark.parametrize(("key", "code"), [("m2", "M2"), ("uhi1", "UHI")])
 def test_a_milestone_that_calls_back_needs_a_callback_url_to_submit(
     environment,
     key,

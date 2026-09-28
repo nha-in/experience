@@ -137,7 +137,7 @@ def test_choices_keep_a_blocked_milestone_with_the_reason_it_cannot_join(environ
 
 
 def test_choices_leave_out_a_milestone_answering_its_own_form(environment):
-    """No submission of this evidence could cover UHI1, so it is not a choice."""
+    """No submission of this evidence could cover UHI, so it is not a choice."""
     choices = workflows.submission_choices(milestone(environment), ["m2", "uhi1"])
     assert [target.application.milestone.key for target in choices] == ["m2"]
 
