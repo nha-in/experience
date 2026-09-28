@@ -125,7 +125,8 @@
                     {% if item.definition.auto_approve %}Saved answers{% else %}Saved evidence{% endif %}
                   </p>
                   <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
-                    Submission {{ item.selected_submission.submission_number }} · Revision {{ item.selected_submission.revision }}{% if item.selected_submission.origin_application_id != item.application_id %} · Reused from another application{% endif %}
+                    {% include 'experiences/partials/submission_version.html' with submission=item.selected_submission only %}
+                    {% if item.selected_submission.origin_application_id != item.application_id %}· Reused from another milestone{% endif %}
                   </p>
                 </div>
               {% endif %}

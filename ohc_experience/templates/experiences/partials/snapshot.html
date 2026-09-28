@@ -6,7 +6,9 @@
     <div class="{% if not embedded %}ui-card-content{% endif %}">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-base font-bold">Submitted form</h2>
-        <span class="text-xs text-soft-foreground">Submission {{ snapshot.submission_number }} · Revision {{ snapshot.revision }} · Schema {{ snapshot.schema_version }}</span>
+        <span class="text-xs text-soft-foreground">
+          {% include 'experiences/partials/submission_version.html' with submission=snapshot only %}
+        </span>
       </div>
       <dl class="grid gap-4 sm:grid-cols-2">
         {% for row in rows %}
