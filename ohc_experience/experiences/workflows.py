@@ -745,8 +745,7 @@ def _evidence_track_keys(item):
 
 
 def submission_choices(item, page_keys):
-    """Milestones one submission of this evidence can also cover, and their state.
-    """
+    """Milestones one submission of this evidence can also cover, and their state."""
     if not item.definition.allow_reuse or not item.product_id or not item.editable:
         return []
     members = [
