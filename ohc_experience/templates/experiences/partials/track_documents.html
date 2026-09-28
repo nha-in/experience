@@ -1,0 +1,70 @@
+{# Every file saved across a track's milestones, grouped by milestone. `documents` comes from `track_documents`. #}
+<section class="ui-card ui-card--layered ui-rise [animation-delay:.1s]"
+         id="track-documents"
+         aria-labelledby="track-documents-title">
+  <div class="ui-card-content">
+    <h2 class="text-base font-bold" id="track-documents-title">All documents</h2>
+    <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
+      The latest saved files of each milestone. A file used by more than one milestone is listed once.
+    </p>
+    {% if documents.count %}
+      <ul class="mt-4 flex flex-wrap gap-1.5" aria-label="Jump to a milestone">
+        {% for group in documents.groups %}
+          <li>
+            {% if group.count %}
+              <a class="ui-btn ui-btn--outline ui-btn--size-xs no-underline"
+                 href="#documents-{{ group.tile.definition.key }}">{{ group.tile.definition.code }} · {{ group.count }}</a>
+            {% else %}
+              <span class="inline-flex min-h-7 items-center px-2 text-xs text-soft-foreground">{{ group.tile.definition.code }} · none yet</span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% for group in documents.groups %}
+        {% if group.count %}
+          <div class="mt-6 scroll-mt-24"
+               id="documents-{{ group.tile.definition.key }}">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-soft-border pb-2">
+              <h3 class="text-sm font-semibold">
+                <span class="font-mono text-xs font-bold tracking-[0.04em] text-primary">{{ group.tile.definition.code }}</span>
+                {{ group.tile.definition.name }}
+              </h3>
+              {% include 'experiences/partials/status.html' with status=group.tile.item.status label=group.tile.label %}
+            </div>
+            <ul class="divide-y divide-soft-border">
+              {% for row in group.files %}
+                <li class="grid gap-1 py-2.5 text-sm sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+                  <span class="text-soft-foreground">{{ row.label }}</span>
+                  <span class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <a class="min-w-0 truncate font-medium"
+                       href="{% url 'experiences:attachment-preview' row.attachment.pk row.attachment.original_name %}"
+                       target="_blank"
+                       rel="noopener"
+                       hx-boost="false">{{ row.attachment.original_name }}<span class="sr-only"> (opens in a new tab)</span></a>
+                    <span class="text-xs text-soft-foreground">{{ row.attachment.size|filesizeformat }}</span>
+                    {% if row.also %}
+                      <span class="ui-badge ui-badge--neutral ui-badge--size-xs">Also {{ row.also|join:", " }}</span>
+                    {% endif %}
+                  </span>
+                  {% url 'experiences:attachment' row.attachment.pk as download_url %}
+                  {% include 'components/download_button.html' with url=download_url name=row.attachment.original_name %}
+                </li>
+              {% endfor %}
+            </ul>
+            {% if group.shared %}
+              <p class="pt-2.5 text-xs text-soft-foreground">
+                {% if group.files %}
+                  Its other files are listed under {{ group.shared|join:", " }}.
+                {% else %}
+                  Uses the same files as {{ group.shared|join:", " }}.
+                {% endif %}
+              </p>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <p class="mt-4 text-sm text-soft-foreground">No documents uploaded yet. Files you save on a milestone appear here.</p>
+    {% endif %}
+  </div>
+</section>

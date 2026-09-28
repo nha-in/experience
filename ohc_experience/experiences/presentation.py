@@ -265,3 +265,46 @@ def track_progress(track):
     return [
         {"label": label, "tiles": tiles} for (_, label), tiles in sorted(groups.items())
     ]
+
+
+def track_documents(track):
+    """Every file saved for a track's milestones, one group per milestone.
+
+    A milestone lists the files of its latest saved version. A file shared with
+    another milestone, by reusing its evidence or an approved certificate, is
+    the same stored file, so it is listed once, under the first milestone that
+    holds it, and names the others.
+    """
+    groups = []
+    listed = {}
+    for tile in track["tiles"]:
+        code = tile["definition"].code
+        submission = tile["item"].selected_submission
+        schema = submission.field_schema if submission else []
+        order = {field["key"]: index for index, field in enumerate(schema)}
+        labels = {field["key"]: field["label"] for field in schema}
+        attachments = sorted(
+            submission.attachments.filter(is_current=True) if submission else [],
+            key=lambda attachment: (
+                order.get(attachment.field_key, len(order)),
+                attachment.created_at,
+            ),
+        )
+        group = {"tile": tile, "count": len(attachments), "files": [], "shared": []}
+        for attachment in attachments:
+            first = listed.get(attachment.file.name)
+            if first:
+                if code not in first["also"]:
+                    first["also"].append(code)
+                if first["code"] not in group["shared"]:
+                    group["shared"].append(first["code"])
+                continue
+            listed[attachment.file.name] = row = {
+                "code": code,
+                "label": labels.get(attachment.field_key, attachment.field_key),
+                "attachment": attachment,
+                "also": [],
+            }
+            group["files"].append(row)
+        groups.append(group)
+    return {"groups": groups, "count": len(listed)}

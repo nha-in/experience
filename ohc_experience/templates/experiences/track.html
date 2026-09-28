@@ -41,12 +41,25 @@
            target="_blank"
            rel="noopener noreferrer"
            hx-boost="false">{% include "components/nav_icon.html" with icon="docs" icon_size="size-4" %}Milestone documentation <span aria-hidden="true">↗&#xFE0E;</span><span class="sr-only"> (opens in a new tab)</span></a>
-        <ol class="ui-milestone-tiles ui-rise w-full [animation-delay:.05s]"
-            aria-label="Milestones">
-          {% for choice in track.tiles %}
-            {% include 'experiences/partials/milestone_tile.html' with tile=choice selected_key=tile.definition.key %}
-          {% endfor %}
-        </ol>
+        {# The track's two views: its milestones, one at a time, or every file saved across them. #}
+        <div class="ui-rise w-full [animation-delay:.05s]">
+          <nav class="ui-switch" aria-label="Track view">
+            <a class="ui-switch-option"
+               href="{% url 'experiences:track' workspace.reference track.definition.code %}"
+               {% if not documents_view %}aria-current="page"{% endif %}>Milestones</a>
+            <a class="ui-switch-option"
+               href="?view=documents"
+               {% if documents_view %}aria-current="page"{% endif %}>Documents <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ documents.count }}</span></a>
+          </nav>
+        </div>
+        {% if not documents_view %}
+          <ol class="ui-milestone-tiles ui-rise w-full [animation-delay:.05s]"
+              aria-label="Milestones">
+            {% for choice in track.tiles %}
+              {% include 'experiences/partials/milestone_tile.html' with tile=choice selected_key=tile.definition.key %}
+            {% endfor %}
+          </ol>
+        {% endif %}
       {% endif %}
     </div>
   </div>
@@ -54,106 +67,110 @@
 {% block canvas_padding %}pt-0{% endblock %}
 {% block portal_content %}
   {% if track.tiles %}
-    <div class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-      <div class="ui-rise min-w-0 xl:col-start-1 xl:row-start-1 [animation-delay:.1s]">
-        {% if next_step %}
-          <div class="mb-6">{% include 'experiences/partials/next_step.html' %}</div>
-        {% endif %}
-        <section class="ui-card ui-card--layered" id="milestone-detail">
-          <div class="ui-card-content">
-            <div class="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-soft-border pb-5">
-              <div>
-                {# Baselines, not box centres: the code, the name and the status are three font sizes, and centring them leaves each sitting on its own line. #}
-                <div class="flex flex-wrap items-baseline gap-2.5">
-                  <span class="font-mono text-xs font-bold tracking-[0.04em] text-primary">{{ tile.definition.code }}</span>
-                  {# The name and its (i) share one inline flow, so the button trails the last word of a name that wraps. The wrapper takes the heading's size because align-middle measures its parent's font, and the nudge lifts the icon from that x-height centre to the cap-height centre the capitals read against. #}
-                  <div class="min-w-0 text-base">
-                    <h2 class="inline font-bold tracking-[-0.01em]">{{ tile.definition.name }}</h2>
-                    {% include "components/info_popover.html" with extra_class="-my-1 ml-0.5 inline-flex -translate-y-[0.1em] align-middle" scope="milestone" key=tile.definition.key label=tile.definition.name description=tile.definition.description|default:tile.definition.name url=tile.definition.docs_url|default:experience_program.docs_url only %}
+    {% if documents_view %}
+      <div class="ui-float">{% include 'experiences/partials/track_documents.html' %}</div>
+    {% else %}
+      <div class="ui-float grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div class="ui-rise min-w-0 xl:col-start-1 xl:row-start-1 [animation-delay:.1s]">
+          {% if next_step %}
+            <div class="mb-6">{% include 'experiences/partials/next_step.html' %}</div>
+          {% endif %}
+          <section class="ui-card ui-card--layered" id="milestone-detail">
+            <div class="ui-card-content">
+              <div class="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-soft-border pb-5">
+                <div>
+                  {# Baselines, not box centres: the code, the name and the status are three font sizes, and centring them leaves each sitting on its own line. #}
+                  <div class="flex flex-wrap items-baseline gap-2.5">
+                    <span class="font-mono text-xs font-bold tracking-[0.04em] text-primary">{{ tile.definition.code }}</span>
+                    {# The name and its (i) share one inline flow, so the button trails the last word of a name that wraps. The wrapper takes the heading's size because align-middle measures its parent's font, and the nudge lifts the icon from that x-height centre to the cap-height centre the capitals read against. #}
+                    <div class="min-w-0 text-base">
+                      <h2 class="inline font-bold tracking-[-0.01em]">{{ tile.definition.name }}</h2>
+                      {% include "components/info_popover.html" with extra_class="-my-1 ml-0.5 inline-flex -translate-y-[0.1em] align-middle" scope="milestone" key=tile.definition.key label=tile.definition.name description=tile.definition.description|default:tile.definition.name url=tile.definition.docs_url|default:experience_program.docs_url only %}
+                    </div>
+                    {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
                   </div>
-                  {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+                  <p class="mt-1.5 font-mono text-xs text-soft-foreground">{{ item.application.reference }}</p>
                 </div>
-                <p class="mt-1.5 font-mono text-xs text-soft-foreground">{{ item.application.reference }}</p>
+                {% if item.resubmission_count %}
+                  <span class="text-xs text-soft-foreground">Resubmitted {{ item.resubmission_count }} time{{ item.resubmission_count|pluralize }}</span>
+                {% endif %}
               </div>
-              {% if item.resubmission_count %}
-                <span class="text-xs text-soft-foreground">Resubmitted {{ item.resubmission_count }} time{{ item.resubmission_count|pluralize }}</span>
+              {% if item.definition.auto_approve and item.status == 'approved' %}
+                <div class="ui-alert ui-alert--success mb-5" role="status">
+                  <div class="flex-1">
+                    <strong>Participation recorded</strong>
+                    <p class="mt-1 text-xs">You can update your answers below. NHA contacts you directly about onboarding.</p>
+                  </div>
+                </div>
+              {% else %}
+                {% include 'experiences/partials/review_status.html' %}
+              {% endif %}
+              {% if callback_missing %}
+                <div class="ui-alert ui-alert--warning mb-5" role="status">
+                  <div class="flex-1">
+                    <strong>No callback URL saved</strong>
+                    <p class="mt-1 text-xs">
+                      {{ tile.definition.code }} flows have the gateway call your software back, and it has nowhere to reach you. <a class="font-semibold no-underline hover:underline"
+    href="{% url 'experiences:credentials' workspace.reference %}">Add a callback URL</a>.
+                    </p>
+                  </div>
+                </div>
+              {% endif %}
+              {% if locked_by %}
+                <div class="mx-auto max-w-[480px] px-4 py-10 text-center"
+                     data-milestone-locked>
+                  <span class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-soft-background text-soft-foreground"
+                        aria-hidden="true">
+                    <svg class="size-5"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="1.6">
+                      <rect x="5" y="10" width="14" height="11" rx="2" />
+                      <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
+                    </svg>
+                  </span>
+                  <h3 class="text-base font-semibold">Milestone locked</h3>
+                  <p class="mt-2 text-sm leading-relaxed text-soft-foreground">
+                    {{ item.application.title }} opens once {% for review, url in locked_by %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a class="font-semibold text-primary no-underline hover:underline"
+   href="{{ url }}">{{ review.title }}</a>{% endfor %} {{ locked_by|length|pluralize:'is,are' }} {% if tile.resubmit %}resubmitted{% else %}submitted{% endif %}.
+                  </p>
+                  {% if item.selected_submission %}<p class="mt-2 text-xs text-soft-foreground">Your saved draft is kept.</p>{% endif %}
+                </div>
+              {% elif can_edit and can_integrate %}
+                {% if item.selected_submission %}
+                  <div class="mb-7 rounded-xl border border-soft-border bg-soft-background/60 px-4 py-3">
+                    <p class="text-xs font-semibold text-foreground">
+                      {% if item.definition.auto_approve %}Saved answers{% else %}Saved evidence{% endif %}
+                    </p>
+                    <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
+                      {% include 'experiences/partials/submission_version.html' with submission=item.selected_submission only %}
+                      {% if item.selected_submission.origin_application_id != item.application_id %}· Reused from another milestone{% endif %}
+                    </p>
+                    {% if not item.definition.auto_approve and not item.selected_submission.has_files %}
+                      <p class="mt-1 text-xs leading-relaxed text-foreground">No evidence uploaded yet. Upload your documents below, then save a draft or submit.</p>
+                    {% endif %}
+                  </div>
+                {% endif %}
+                {% include 'experiences/partials/milestone_evidence_form.html' %}
+              {% else %}
+                {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission embedded=True %}
               {% endif %}
             </div>
-            {% if item.definition.auto_approve and item.status == 'approved' %}
-              <div class="ui-alert ui-alert--success mb-5" role="status">
-                <div class="flex-1">
-                  <strong>Participation recorded</strong>
-                  <p class="mt-1 text-xs">You can update your answers below. NHA contacts you directly about onboarding.</p>
-                </div>
-              </div>
-            {% else %}
-              {% include 'experiences/partials/review_status.html' %}
-            {% endif %}
-            {% if callback_missing %}
-              <div class="ui-alert ui-alert--warning mb-5" role="status">
-                <div class="flex-1">
-                  <strong>No callback URL saved</strong>
-                  <p class="mt-1 text-xs">
-                    {{ tile.definition.code }} flows have the gateway call your software back, and it has nowhere to reach you. <a class="font-semibold no-underline hover:underline"
-    href="{% url 'experiences:credentials' workspace.reference %}">Add a callback URL</a>.
-                  </p>
-                </div>
-              </div>
-            {% endif %}
-            {% if locked_by %}
-              <div class="mx-auto max-w-[480px] px-4 py-10 text-center"
-                   data-milestone-locked>
-                <span class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-soft-background text-soft-foreground"
-                      aria-hidden="true">
-                  <svg class="size-5"
-                       viewBox="0 0 24 24"
-                       fill="none"
-                       stroke="currentColor"
-                       stroke-width="1.6">
-                    <rect x="5" y="10" width="14" height="11" rx="2" />
-                    <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
-                  </svg>
-                </span>
-                <h3 class="text-base font-semibold">Milestone locked</h3>
-                <p class="mt-2 text-sm leading-relaxed text-soft-foreground">
-                  {{ item.application.title }} opens once {% for review, url in locked_by %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a class="font-semibold text-primary no-underline hover:underline"
-   href="{{ url }}">{{ review.title }}</a>{% endfor %} {{ locked_by|length|pluralize:'is,are' }} {% if tile.resubmit %}resubmitted{% else %}submitted{% endif %}.
-                </p>
-                {% if item.selected_submission %}<p class="mt-2 text-xs text-soft-foreground">Your saved draft is kept.</p>{% endif %}
-              </div>
-            {% elif can_edit and can_integrate %}
-              {% if item.selected_submission %}
-                <div class="mb-7 rounded-xl border border-soft-border bg-soft-background/60 px-4 py-3">
-                  <p class="text-xs font-semibold text-foreground">
-                    {% if item.definition.auto_approve %}Saved answers{% else %}Saved evidence{% endif %}
-                  </p>
-                  <p class="mt-1 text-xs leading-relaxed text-soft-foreground">
-                    {% include 'experiences/partials/submission_version.html' with submission=item.selected_submission only %}
-                    {% if item.selected_submission.origin_application_id != item.application_id %}· Reused from another milestone{% endif %}
-                  </p>
-                  {% if not item.definition.auto_approve and not item.selected_submission.has_files %}
-                    <p class="mt-1 text-xs leading-relaxed text-foreground">No evidence uploaded yet. Upload your documents below, then save a draft or submit.</p>
-                  {% endif %}
-                </div>
-              {% endif %}
-              {% include 'experiences/partials/milestone_evidence_form.html' %}
-            {% else %}
-              {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission embedded=True %}
-            {% endif %}
-          </div>
-        </section>
-        {% include 'experiences/partials/queries.html' %}
+          </section>
+          {% include 'experiences/partials/queries.html' %}
+        </div>
+        {# One column held to the viewport on wide screens, as on the review page. Narrower, it dissolves into the page: saved progress moves above the form and history follows the queries. #}
+        <div class="contents xl:sticky xl:top-2 xl:col-start-2 xl:row-start-1 xl:-m-4 xl:flex xl:max-h-[calc(100dvh-1rem)] xl:flex-col xl:gap-4 xl:overflow-y-auto xl:p-4">
+          {% if can_edit and can_integrate and not locked_by %}
+            <div class="ui-rise -order-1 shrink-0 [animation-delay:.2s]">
+              {% include 'experiences/partials/product_evidence_readiness.html' %}
+            </div>
+          {% endif %}
+          {% include 'experiences/partials/history.html' %}
+        </div>
       </div>
-      {# One column held to the viewport on wide screens, as on the review page. Narrower, it dissolves into the page: saved progress moves above the form and history follows the queries. #}
-      <div class="contents xl:sticky xl:top-2 xl:col-start-2 xl:row-start-1 xl:-m-4 xl:flex xl:max-h-[calc(100dvh-1rem)] xl:flex-col xl:gap-4 xl:overflow-y-auto xl:p-4">
-        {% if can_edit and can_integrate and not locked_by %}
-          <div class="ui-rise -order-1 shrink-0 [animation-delay:.2s]">
-            {% include 'experiences/partials/product_evidence_readiness.html' %}
-          </div>
-        {% endif %}
-        {% include 'experiences/partials/history.html' %}
-      </div>
-    </div>
+    {% endif %}
   {% else %}
     <div class="ui-float ui-card ui-card--layered items-center px-5 py-11 text-center">
       <h2 class="text-[15px] font-semibold">

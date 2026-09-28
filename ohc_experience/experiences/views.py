@@ -76,6 +76,7 @@ from .presentation import default_agent_skill
 from .presentation import overview_next_step
 from .presentation import overview_progress
 from .presentation import recommended_step
+from .presentation import track_documents
 from .presentation import track_progress
 from .queue_presentation import grouped_requests
 from .queue_presentation import populate_queue_page
@@ -1553,6 +1554,8 @@ def track(request, reference, track_code):
             track=track_data,
             tile=tile,
             next_step=next_step,
+            documents=track_documents(track_data),
+            documents_view=request.GET.get("view") == "documents",
             callback_missing=item and services.callback_missing(item),
             item=item,
             form=form,
