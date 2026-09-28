@@ -233,10 +233,10 @@ def test_the_track_page_locks_a_milestone_and_links_what_opens_it(
 
 
 def progress_lines(html):
-    """The track hero's progress lines, without the documentation link that
-    closes their paragraph."""
+    """The track hero's progress lines, without the completion note that closes
+    their paragraph."""
     hero = re.search(r'<p class="mt-2\.5[^"]*">(.*?)</p>', html, flags=re.S).group(1)
-    *lines, _documentation = hero.split("<br />")
+    *lines, _completion = hero.split("<br />")
     return [" ".join(re.sub(r"<[^>]+>", "", line).split()) for line in lines]
 
 

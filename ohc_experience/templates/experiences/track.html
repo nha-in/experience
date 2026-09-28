@@ -25,11 +25,6 @@
               <br />
             {% endfor %}
             {% if track.approved == track.tiles|length %}{% if track.definition.code == "UHI" %}All required milestones for UHI onboarding are approved.{% else %}Every applied milestone on this track is approved.{% endif %}{% endif %}
-            <a class="text-soft-foreground hover:underline"
-               href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
-               target="_blank"
-               rel="noopener noreferrer"
-               hx-boost="false">Milestone documentation ↗&#xFE0E;</a>
           </p>
         {% else %}
           <p class="mt-6">
@@ -40,6 +35,12 @@
         {% endif %}
       </div>
       {% if track.tiles %}
+        {# The track's reference sits across from its progress, level with the last line of it. #}
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm ui-rise no-underline [animation-delay:.05s]"
+           href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           hx-boost="false">{% include "components/nav_icon.html" with icon="docs" icon_size="size-4" %}Milestone documentation <span aria-hidden="true">↗&#xFE0E;</span><span class="sr-only"> (opens in a new tab)</span></a>
         <ol class="ui-milestone-tiles ui-rise w-full [animation-delay:.05s]"
             aria-label="Milestones">
           {% for choice in track.tiles %}
