@@ -69,3 +69,9 @@ def test_saved_evidence_names_its_version_and_says_when_nothing_is_uploaded(
     saved = text(re.search(r"Saved evidence.*?</div>", html, re.S).group(0))
     assert saved.startswith("Saved evidence Version 2 ·")
     assert "No evidence uploaded yet." not in saved
+    # The file it now holds offers a labelled download.
+    assert re.search(
+        r'aria-label="Download [^"]+">\s*<svg.*?</svg>\s*Download\s*</a>',
+        html,
+        re.S,
+    )
