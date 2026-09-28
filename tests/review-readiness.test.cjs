@@ -87,7 +87,7 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
   }
   function date(name, { value = '', min = '', max = '', required = false, disabled = false, parent = form } = {}) {
     const input = {
-      name, value, min, max, required, disabled, parentElement: parent,
+      name, value, min, max, required, disabled, parentElement: parent, dataset: {},
       get validity() {
         return { valid: this.disabled || ((!this.required || Boolean(this.value))
           && (!this.value || ((!this.min || this.value >= this.min) && (!this.max || this.value <= this.max)))) };
@@ -97,6 +97,7 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
       },
       closest(selector) {
         if (selector === '[hidden]') return parent.hidden ? parent : null;
+        if (selector === '[data-autofilled]') return 'autofilled' in input.dataset ? input : null;
         return ['[data-review-form]', 'form'].includes(selector) ? form : null;
       },
     };
@@ -459,7 +460,7 @@ test('participation keeps its own submit label', () => {
   assert.equal(page.submitLabel.textContent, 'Original submit label');
 });
 
-test('selecting an extra milestone requires its own dates and preserves them when deselected', () => {
+test('selecting an extra milestone starts it on these dates and preserves its own when deselected', () => {
   const page = createPage({ currentMilestoneCode: 'M1' });
   page.date('start_date', { value: '2026-09-01', max: '2026-09-18' });
   page.date('end_date', { value: '2026-09-05', max: '2026-09-18' });
@@ -477,14 +478,17 @@ test('selecting an extra milestone requires its own dates and preserves them whe
   assert.equal(dates.start.disabled, false);
   assert.equal(dates.start.required, true);
   assert.equal(dates.end.required, true);
-  assert.equal(dates.start.value, '', 'the primary start date must not be copied');
-  assert.equal(dates.end.value, '', 'the primary end date must not be copied');
-  assert.equal(page.button.disabled, true);
-  assert.match(page.reason.textContent, /^2 fields need attention/);
+  assert.equal(dates.start.value, '2026-09-01');
+  assert.equal(dates.end.value, '2026-09-05');
+  assert.equal(page.button.disabled, false);
 
-  dates.start.value = '2026-09-10';
-  dates.end.value = '2026-09-12';
-  page.input(dates.start);
+  for (const [input, value] of [[dates.start, '2026-09-10'], [dates.end, '2026-09-12']]) {
+    page.document.activeElement = input;
+    input.value = value;
+    page.input(input);
+    page.change(input);
+  }
+  page.document.activeElement = null;
   assert.equal(page.button.disabled, false);
   m2.checked = false;
   page.change(m2);
@@ -502,6 +506,61 @@ test('selecting an extra milestone requires its own dates and preserves them whe
   assert.equal(dates.start.value, '2026-09-10');
   assert.equal(dates.end.value, '2026-09-12');
   assert.equal(page.button.disabled, false);
+});
+
+test("extra milestones' dates follow these dates until the integrator changes them", () => {
+  const page = createPage({ currentMilestoneCode: 'M1' });
+  const start = page.date('start_date', { max: '2026-09-18' });
+  const end = page.date('end_date', { max: '2026-09-18' });
+  page.milestone('M2', '2').checked = true;
+  page.milestone('M3', '3');
+  const dates2 = page.milestoneDates('2');
+  const dates3 = page.milestoneDates('3');
+  page.initialize();
+  assert.equal(dates2.start.value, '');
+  assert.equal(page.button.disabled, true);
+  assert.match(page.reason.textContent, /^2 fields need attention/);
+
+  start.value = '2026-09-01';
+  page.change(start);
+  end.value = '2026-09-05';
+  page.change(end);
+  assert.equal(dates2.start.value, '2026-09-01');
+  assert.equal(dates2.end.value, '2026-09-05');
+  assert.equal(dates2.end.min, '2026-09-01');
+  assert.equal(dates3.start.value, '2026-09-01', 'a milestone not chosen yet is ready once it is');
+  assert.equal(page.button.disabled, false);
+
+  page.document.activeElement = dates2.end;
+  dates2.end.value = '2026-09-07';
+  page.input(dates2.end);
+  page.change(dates2.end);
+  page.document.activeElement = null;
+  start.value = '2026-09-02';
+  page.change(start);
+  end.value = '2026-09-06';
+  page.change(end);
+  assert.equal(dates2.start.value, '2026-09-02');
+  assert.equal(dates2.end.min, '2026-09-02');
+  assert.equal(dates2.end.value, '2026-09-07', 'a date the integrator changed stays theirs');
+  assert.equal(dates3.end.value, '2026-09-06');
+});
+
+test('a date typed halfway into an extra milestone is never overwritten', () => {
+  // Until every segment is filled, a date field's value reads as empty.
+  const page = createPage({ currentMilestoneCode: 'M1' });
+  page.date('start_date', { value: '2026-09-01', max: '2026-09-18' });
+  page.date('end_date', { value: '2026-09-05', max: '2026-09-18' });
+  page.milestone('M2', '2').checked = true;
+  const dates = page.milestoneDates('2', { startValue: '2026-09-03' });
+  page.initialize();
+  assert.equal(dates.start.value, '2026-09-03', 'a date that arrived with the page stays');
+
+  page.document.activeElement = dates.start;
+  dates.start.value = '';
+  page.input(dates.start);
+  page.change(dates.start);
+  assert.equal(dates.start.value, '');
 });
 
 test('auto-selected prerequisite milestones require dates and deselected dependants release them', () => {
@@ -561,6 +620,7 @@ test('each selected milestone constrains its end date using only its own start d
   page.change(primaryStart);
   assert.equal(dates2.end.min, '2026-09-10');
   assert.equal(dates3.end.min, '2026-09-15');
+  page.document.activeElement = dates2.start;
   dates2.start.value = '';
   page.input(dates2.start);
   assert.equal(dates2.end.min, '');
@@ -588,6 +648,7 @@ test('typing a date never rewrites the earliest date of the field being typed', 
     let value = field.min;
     let writes = 0;
     Object.defineProperty(field, 'min', { get: () => value, set: next => { writes += 1; value = next; } });
+    page.document.activeElement = field;
     // Day and month first. From the year's first digit the date is complete, and
     // each digit fires input and change.
     for (const year of ['0002', '0020', '0202', '2026']) {

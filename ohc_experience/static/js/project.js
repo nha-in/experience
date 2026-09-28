@@ -279,6 +279,25 @@
     if (input.max !== value) input.max = value;
   }
 
+  // A milestone submitted alongside this one was usually tested over the same
+  // days, so its dates start as this milestone's own and follow them until the
+  // integrator changes them. The field being typed in is left alone: a date
+  // typed halfway reads as empty.
+  function prefillTestingDates(form) {
+    const own = {
+      '[data-testing-start]': form.querySelector('[name="start_date"]'),
+      '[data-testing-end]': form.querySelector('[name="end_date"]'),
+    };
+    form.querySelectorAll('[data-milestone-dates]').forEach(fields => {
+      for (const [selector, source] of Object.entries(own)) {
+        const target = fields.querySelector(selector);
+        if (!source?.value || !target || target === document.activeElement || !derivable(target)) continue;
+        target.value = source.value;
+        target.dataset.autofilled = 'true';
+      }
+    });
+  }
+
   function updateDateConstraints(form) {
     const start = form.querySelector('[name="start_date"]');
     const end = form.querySelector('[name="end_date"]');
@@ -412,6 +431,7 @@
   function updateSubmission(form) {
     updateMilestoneSelection(form);
     updateWasaFields(form);
+    prefillTestingDates(form);
     updateDateConstraints(form);
     const button = form.querySelector('[data-request-submit]');
     const reason = form.querySelector('[data-submit-reason]');

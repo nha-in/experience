@@ -2,7 +2,7 @@
           aria-describedby="milestone-submission-help">
   <legend class="px-1 text-sm font-semibold">Also submit for other milestones</legend>
   <p class="mt-1 text-xs leading-relaxed text-soft-foreground"
-     id="milestone-submission-help">Choose other milestones to submit with this evidence, and enter their testing dates.</p>
+     id="milestone-submission-help">Choose other milestones to submit with this evidence. Their testing dates are copied from {{ tile.definition.code }}; change any that differ.</p>
   <div class="mt-2 divide-y divide-soft-border">
     {% for choice in submission_choices %}
       <div class="py-2">
