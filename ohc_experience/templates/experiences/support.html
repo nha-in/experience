@@ -12,10 +12,6 @@
           <p class="ui-hero-lede">{% if reviewer %}Reply to integrators and resolve their tickets. Questions, supporting files and updates stay together.{% else %}Raise a ticket and track the NHA team's replies. Keep your questions, supporting files and updates together.{% endif %}</p>
         </div>
         <div class="ui-rise flex flex-wrap items-end gap-x-9 gap-y-4 [animation-delay:50ms]">
-          <div>
-            <span class="ui-kicker block">{% if has_ticket_filters %}Matching{% else %}Tickets{% endif %}</span>
-            <span class="ui-figure mt-0.5 block">{% if has_ticket_filters %}{{ tickets.paginator.count }}{% else %}{{ ticket_total }}{% endif %}</span>
-          </div>
           {% if not reviewer and workspace and can_integrate %}
             <a class="ui-btn ui-btn--default ui-btn--size-sm mb-1 no-underline"
                href="?new=1&amp;product={{ workspace.reference }}">New ticket</a>
