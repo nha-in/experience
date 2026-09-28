@@ -21,12 +21,12 @@ pytestmark = pytest.mark.django_db
         (
             "start_date",
             1,
-            "The sandbox testing start date cannot be in the future.",
+            "The milestone start date cannot be in the future.",
         ),
         (
             "end_date",
             1,
-            "The sandbox testing end date cannot be in the future.",
+            "The milestone end date cannot be in the future.",
         ),
         (
             "tentative_demo_date",

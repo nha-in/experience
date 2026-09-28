@@ -521,7 +521,7 @@
   /* ── Milestone tiles ────────────────────────────────────────────────── */
 
   .ui-milestone-tiles {
-    @apply m-0 grid list-none grid-cols-2 gap-2 p-0 sm:flex;
+    @apply m-0 grid list-none grid-cols-2 gap-x-2 gap-y-8 p-0 pt-6 sm:flex;
   }
 
   .ui-milestone-tiles > li {
@@ -529,7 +529,7 @@
   }
 
   .ui-milestone-tile {
-    @apply flex h-full flex-col gap-0.5 rounded-xl border border-border bg-card/55 px-3 pt-2.5 pb-0.5 text-foreground no-underline transition-colors hover:border-stronger-border hover:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary;
+    @apply relative flex h-full flex-col gap-1 rounded-xl border border-border bg-card/55 px-3 pt-3.5 pb-0.5 text-foreground no-underline transition-colors hover:border-stronger-border hover:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary;
   }
 
   .ui-milestone-tile[aria-current] {
@@ -537,41 +537,19 @@
     box-shadow: 0 0 0 1px var(--primary), var(--layered-shadow);
   }
 
-  .ui-milestone-tile-dot {
-    @apply mb-2 flex size-7 shrink-0 items-center justify-center rounded-full bg-card;
-    box-shadow: inset 0 0 0 2.5px var(--primary);
-  }
-
-  .ui-milestone-tile-dot svg {
-    @apply size-[13px];
-  }
-
-  .ui-milestone-tile--current .ui-milestone-tile-dot::after {
-    content: "";
-    @apply size-2.5 rounded-full bg-primary;
-  }
-
-  .ui-milestone-tile--done .ui-milestone-tile-dot {
-    @apply bg-primary text-primary-foreground;
-    box-shadow: none;
-  }
-
-  .ui-milestone-tile--locked .ui-milestone-tile-dot {
-    @apply bg-soft-background text-soft-foreground;
-    box-shadow: inset 0 0 0 1.5px var(--border);
-  }
-
   .ui-milestone-tile-code {
     @apply font-mono text-[11px] font-bold tracking-[0.04em] text-soft-foreground;
   }
 
-  .ui-milestone-tile--current .ui-milestone-tile-code,
+  .ui-milestone-tile--review .ui-milestone-tile-code,
+  .ui-milestone-tile--draft .ui-milestone-tile-code,
+  .ui-milestone-tile--query .ui-milestone-tile-code,
   .ui-milestone-tile[aria-current] .ui-milestone-tile-code {
     @apply text-primary;
   }
 
-  .ui-milestone-tile-viewing {
-    @apply ml-1 inline-block rounded-full bg-primary/12 px-1.5 align-[1px] font-sans text-[10px] leading-4 font-semibold tracking-[0.02em];
+  .ui-milestone-tile-head {
+    @apply mb-1 flex min-h-5 flex-wrap items-center justify-between gap-x-2 gap-y-1;
   }
 
   .ui-milestone-tile-name {
@@ -591,11 +569,48 @@
   }
 
   .ui-milestone-tile-status {
-    @apply mb-2 text-xs leading-[17px] text-muted-foreground;
+    @apply mb-3 text-xs leading-[17px] text-muted-foreground;
   }
 
-  .ui-milestone-tile--done .ui-milestone-tile-status {
+  .ui-milestone-tile-tab {
+    @apply inline-flex h-5 items-center gap-1.5 rounded-md border pr-[7px] pl-1.5 text-[11px] font-semibold whitespace-nowrap;
+  }
+
+  .ui-milestone-tile-tab svg {
+    @apply size-3 shrink-0;
+  }
+
+  .ui-milestone-tile--done .ui-milestone-tile-tab {
+    border-color: var(--status-success-border);
+    background: var(--status-success-bg);
     color: var(--status-success-text);
+  }
+
+  .ui-milestone-tile--review .ui-milestone-tile-tab {
+    border-color: var(--status-info-border);
+    background: var(--status-info-bg);
+    color: var(--status-info-text);
+  }
+
+  .ui-milestone-tile--draft .ui-milestone-tile-tab {
+    border-color: var(--status-progress-border);
+    background: var(--status-progress-bg);
+    color: var(--status-progress-text);
+  }
+
+  .ui-milestone-tile--query .ui-milestone-tile-tab {
+    border-color: var(--status-warning-border);
+    background: var(--status-warning-bg);
+    color: var(--status-warning-text);
+  }
+
+  .ui-milestone-tile--locked .ui-milestone-tile-tab {
+    @apply border-border bg-muted-background text-muted-foreground;
+  }
+
+  .ui-milestone-tile[aria-current] .ui-milestone-tile-tab {
+    @apply absolute right-2.5 bottom-[calc(100%-1px)] h-6 rounded-t-[9px] rounded-b-none border-b-0 border-primary pr-2.5 pl-2 text-[11.5px];
+    box-shadow: 0 -1px 0 0 var(--primary), -1px 0 0 0 var(--primary), 1px 0 0 0 var(--primary);
   }
 
   .ui-milestone-tile--locked .ui-milestone-tile-status {

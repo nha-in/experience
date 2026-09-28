@@ -22,13 +22,14 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
         draft=True,
     )
     readiness = evidence_readiness(form)
-    assert readiness["total"] == 3  # noqa: PLR2004
-    assert readiness["completed"] == 0
+    assert readiness["total"] == 4  # noqa: PLR2004
+    assert readiness["completed"] == 1
     assert readiness["missing"] == 3  # noqa: PLR2004
     assert [row["label"] for row in readiness["rows"]] == [
         "Sandbox testing",
         "WASA audit",
         "Functional testing",
+        "Undertaking",
     ]
     assert readiness["rows"][1]["field_ids"] == [
         "id_wasa_certificate",
@@ -39,8 +40,10 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
     assert readiness["rows"][2]["field_ids"] == [
         "id_functional_certificate",
         "id_functional_report",
-        "id_undertaking_form",
     ]
+    assert readiness["rows"][2]["done"] is True
+    assert readiness["rows"][3]["field_ids"] == ["id_undertaking_form"]
+    assert readiness["rows"][3]["done"] is False
 
 
 @pytest.mark.django_db
@@ -126,6 +129,8 @@ def test_readiness_jump_uses_first_missing_prefixed_field():
         {"form": form},
     )
     assert 'href="#id_evidence-consent"' in html
+    assert "data-next-step-name>Consent</p>" in html
+    assert "data-complete>" not in html
     assert 'data-readiness-form="evidence-form"' in html
     assert 'data-readiness-item="id_evidence-consent"' in html
     assert "section need attention" in html
@@ -142,7 +147,8 @@ def test_complete_readiness_links_to_actions_without_claiming_approval():
         {"form": form, "submission_blocked": "Organisation approval is pending."},
     )
     assert 'href="#evidence-actions"' in html
-    assert "Go to form actions" in html
+    assert "data-complete>" in html
+    assert "Review &amp; submit" in html
     # The blocker belongs beside the form's actions; repeating it in the
     # sidebar put the same sentence on screen twice.
     assert "Organisation approval is pending." not in html

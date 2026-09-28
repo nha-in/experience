@@ -12,7 +12,7 @@
       {% if prerequisite.withdrawn %}
         {% include 'experiences/partials/status.html' with status='withdrawn' label='Withdrawn' %}
       {% elif not prerequisite.review or prerequisite.review.status == 'draft' %}
-        {% include 'experiences/partials/status.html' with status='draft' label='Not submitted' %}
+        {% include 'experiences/partials/status.html' with status='not_started' label='Not submitted' %}
       {% else %}
         {% include 'experiences/partials/status.html' with status=prerequisite.review.status label=prerequisite.review.get_status_display %}
       {% endif %}

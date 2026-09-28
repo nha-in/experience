@@ -37,6 +37,14 @@
     if (scroll) element.scrollIntoView({ block: 'center', behavior: 'instant' });
   }
 
+  function jumpTo(element) {
+    if (!element) return;
+    focusElement(element, false);
+    element.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+    if (element.id) history.replaceState(history.state, '', `#${element.id}`);
+    element.closest('.ui-form-section, .ui-form-actions')?.setAttribute('data-flash', '');
+  }
+
   function firstIncomplete(form) {
     const available = input => !input.matches(':disabled') && !input.closest('[hidden]');
     const missing = [...form.querySelectorAll('input, select, textarea')].find(input => available(input) && !input.validity.valid);
@@ -61,9 +69,10 @@
       list.querySelectorAll('[data-readiness-item]').forEach(item => {
         const inputs = item.dataset.readinessFields.split(',').map(id => document.getElementById(id)).filter(Boolean);
         const filled = inputs.length > 0 && inputs.every(input => !input.disabled && (
-          input.type === 'file' ? input.files.length > 0 :
+          input.type === 'file' ? input.files.length > 0 || !!input.closest('[data-file-upload]')?.querySelector('[data-existing-file-remove]:not(:checked)') :
             input.type === 'checkbox' || input.type === 'radio' ? input.checked : input.value.trim() !== ''
         ));
+        inputs[0]?.closest('.ui-form-section')?.toggleAttribute('data-missing', !filled);
         const indicator = item.querySelector('[data-readiness-indicator]');
         const label = item.querySelector('[data-readiness-label]');
         if (indicator) indicator.className = filled
@@ -75,6 +84,13 @@
           label.querySelector('.sr-only').textContent = filled ? ': filled, not saved yet' : ': not saved yet';
         }
       });
+    });
+    document.querySelectorAll('[data-next-step]').forEach(step => {
+      if (step.dataset.nextStep !== form.id) return;
+      const next = firstIncomplete(form);
+      const section = next && (next.closest('.ui-form-section') || next.closest('fieldset'));
+      step.toggleAttribute('data-complete', !next);
+      if (next) step.querySelector('[data-next-step-name]').textContent = section?.querySelector(':scope > legend')?.textContent.trim() ?? '';
     });
   }
 
@@ -426,15 +442,22 @@
     const continueForm = event.target.closest('[data-continue-form]');
     if (continueForm) {
       event.preventDefault();
-      const next = firstIncomplete(document.getElementById(continueForm.dataset.continueForm));
-      if (next) window.location.hash = next.id;
-      focusElement(next);
+      jumpTo(firstIncomplete(document.getElementById(continueForm.dataset.continueForm)) ?? document.getElementById('evidence-actions'));
+    }
+    const readinessLink = event.target.closest('[data-readiness-label]');
+    if (readinessLink) {
+      event.preventDefault();
+      jumpTo(document.getElementById(readinessLink.hash.slice(1)));
     }
     const jump = event.target.closest('[data-submit-missing]');
     if (jump) {
       const form = jump.closest('form');
-      focusElement(firstIncomplete(form));
+      jumpTo(firstIncomplete(form));
     }
+  });
+
+  document.addEventListener('animationend', event => {
+    if (event.animationName === 'ui-flash') event.target.removeAttribute('data-flash');
   });
 
   document.addEventListener('htmx:beforeRequest', event => {

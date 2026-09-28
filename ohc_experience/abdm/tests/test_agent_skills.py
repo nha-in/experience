@@ -147,7 +147,7 @@ def install(target, slug, sections):
     )
 
 
-M1_SECTIONS = ("scaffold", "integrate", "debug")
+M1_SECTIONS = ("scaffold", "design", "integrate", "debug")
 
 
 def test_each_agent_gets_the_command_that_fetches_the_chosen_skill(
@@ -236,7 +236,7 @@ def test_every_agent_gets_a_one_click_link_for_the_chosen_skill(
     m1 = next(link for link in claude if link["slug"] == "abdm-m1")
     prompt = unquote(m1["href"].split("q=", 1)[1])
     assert install("claude", "abdm-m1", M1_SECTIONS) in prompt
-    assert "M1, ABHA identity" in prompt
+    assert "M1, create and verify ABHA" in prompt
     html = page.content.decode()
     # Copilot runs in VS Code and in its own app, so its tab offers both.
     assert ">Open in VS Code</span>" in html
@@ -333,8 +333,9 @@ def test_skills_for_the_milestones_on_the_product_are_recommended(environment, c
         "abdm-m1",
         "abdm-m2",
         "abdm-m3",
-        "abdm-subscription",
+        "abdm-scan-and-register",
         "abdm-scan-and-pay",
+        "abdm-record-share",
         "abdm-fhir",
     }
     # The track the product applied for is read first, then the shared skills it
@@ -360,8 +361,9 @@ def test_skills_that_are_no_milestone_of_their_own_are_listed_apart(
     assert shared["title"] == "Shared Agent Skills"
     assert slugs(shared) == [
         "abdm-gateway",
-        "abdm-subscription",
+        "abdm-scan-and-register",
         "abdm-scan-and-pay",
+        "abdm-record-share",
         "abdm-fhir",
     ]
     assert 'id="agent-skills-shared-title"' in page.content.decode()
@@ -374,7 +376,7 @@ def test_a_card_says_what_the_skill_covers(environment, client):
 
     rows = cards(page)
     # The title and the description are the site's own, not a copy kept here.
-    assert rows["abdm-m2"]["definition"]["title"] == "M2, linking and sharing"
+    assert rows["abdm-m2"]["definition"]["title"] == "M2, create and link records"
     # A card shows only what the opening sentence lists: its "Use when" lead-in
     # and the rest are written for an agent deciding whether to load the skill.
     assert rows["abdm-m2"]["summary"] == (
@@ -398,19 +400,21 @@ def test_a_card_links_to_the_docs_the_product_form_gives_its_milestone(
     links.feed(page.content.decode())
     docs = "https://docs.example"
     milestones = f"{docs}/docs/hiecm/v3/milestones"
+    use_cases = f"{docs}/docs/hiecm/v3/use-cases"
     assert links.links == {
         "Gateway, sessions and the bridge registry": (
             f"{docs}/docs/hiecm/v3/concepts/gateway"
         ),
-        "M1, ABHA identity": f"{milestones}/m1",
-        "M2, linking and sharing": f"{milestones}/m2",
-        "M3, consent and fetching": f"{milestones}/m3",
-        "M4, facility and professional registries": f"{milestones}/m4",
-        "Subscriptions": f"{docs}/reference/hiecm-subscription",
-        "Scan and pay": f"{docs}/reference/hiecm-scan-and-pay",
+        "M1, create and verify ABHA": f"{milestones}/m1",
+        "M2, create and link records": f"{milestones}/m2",
+        "M3, fetch data with consent": f"{milestones}/m3",
+        "M4, register facilities and professionals": f"{milestones}/m4",
+        "Scan and register": f"{use_cases}/scan-and-register",
+        "Scan and pay": f"{use_cases}/scan-and-pay",
+        "Patient scan and record share": f"{use_cases}/patient-record-share",
         "FHIR, generating and auditing bundles": f"{docs}/docs/hiecm/v3/concepts/fhir",
         "P1, PHR registration and login": f"{milestones}/p1",
-        "P2, PHR management": f"{milestones}/p2",
+        "P2, Consents Management": f"{milestones}/p2",
         "P3, PHR subscriptions": f"{milestones}/p3",
         # P4 has no milestone page; the product form links this section too.
         "P4, health lockers": (
@@ -435,8 +439,9 @@ def test_skills_the_product_did_not_apply_for_can_still_be_installed(
         "abdm-m3",
         "abdm-m4",
         "abdm-gateway",
-        "abdm-subscription",
+        "abdm-scan-and-register",
         "abdm-scan-and-pay",
+        "abdm-record-share",
         "abdm-fhir",
         "abdm-p1",
         "abdm-p2",

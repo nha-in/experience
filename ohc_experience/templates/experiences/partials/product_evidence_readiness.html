@@ -35,8 +35,18 @@
     <div class="hidden xl:block">{% include 'experiences/partials/product_evidence_checklist.html' %}</div>
   </div>
   <div class="ui-card-content">
-    <a class="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline decoration-primary/30 underline-offset-4 hover:decoration-primary"
-       data-continue-form="evidence-form"
-       href="{% if readiness.first_missing %}#{{ readiness.first_missing.field_id }}{% else %}#evidence-actions{% endif %}">{% if readiness.first_missing %}Continue form{% else %}Go to form actions{% endif %}<span aria-hidden="true">&nbsp;↓</span></a>
+    <div class="group flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 py-2.5 pr-2.5 pl-3.5 data-complete:border-soft-border data-complete:bg-soft-background/60"
+         data-next-step="evidence-form"
+         {% if not readiness.first_missing %}data-complete{% endif %}>
+      <div class="min-w-0 text-sm font-semibold" id="next-step">
+        <p class="text-[11px] tracking-[0.06em] text-amber-700 uppercase group-data-complete:text-soft-foreground">Next up</p>
+        <p class="group-data-complete:hidden" data-next-step-name>{{ readiness.first_missing.label }}</p>
+        <p class="hidden group-data-complete:block">Review &amp; submit</p>
+      </div>
+      <a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
+         data-continue-form="evidence-form"
+         aria-describedby="next-step"
+         href="{% if readiness.first_missing %}#{{ readiness.first_missing.field_id }}{% else %}#evidence-actions{% endif %}">Continue<span aria-hidden="true">&nbsp;↓</span></a>
+    </div>
   </div>
 </aside>

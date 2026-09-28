@@ -66,10 +66,9 @@ class ABDMAgentSkills(AgentSkillsDefinition):
             (DeepLink("Claude Code", "claude://code/new?q={prompt}"),),
         ),
     }
-    # Every ABDM and PHR call goes through the gateway. Subscriptions are the
-    # HIU side. Scan and pay follows scan and share, which the HIP builds in M2
-    # and the PHR app in P2. FHIR belongs to M2, where a bundle is first pushed
-    # to a requester.
+    # Every ABDM and PHR call goes through the gateway. A use case carries its
+    # own milestone and the PHR one for the patient's side. FHIR belongs to M2,
+    # where a bundle is first pushed to a requester.
     milestones_by_skill = {
         "abdm-gateway": ("m1", "m2", "m3", "m4", "p1", "p2", "p3", "p4"),
         "abdm-m1": ("m1",),
@@ -80,14 +79,16 @@ class ABDMAgentSkills(AgentSkillsDefinition):
         "abdm-p2": ("p2",),
         "abdm-p3": ("p3",),
         "abdm-p4": ("p4",),
-        "abdm-subscription": ("m3",),
+        "abdm-scan-and-register": ("m1", "p2"),
         "abdm-scan-and-pay": ("m2", "p2"),
+        "abdm-record-share": ("m3", "p3"),
         "abdm-fhir": ("m2",),
     }
     shared_skills = (
         "abdm-gateway",
-        "abdm-subscription",
+        "abdm-scan-and-register",
         "abdm-scan-and-pay",
+        "abdm-record-share",
         "abdm-fhir",
     )
     docs_by_skill = {
@@ -100,8 +101,13 @@ class ABDMAgentSkills(AgentSkillsDefinition):
         "abdm-p2": MILESTONES["p2"].docs_url,
         "abdm-p3": MILESTONES["p3"].docs_url,
         "abdm-p4": MILESTONES["p4"].docs_url,
-        "abdm-subscription": docs_page("/reference/hiecm-subscription"),
-        "abdm-scan-and-pay": docs_page("/reference/hiecm-scan-and-pay"),
+        "abdm-scan-and-register": docs_page(
+            "/docs/hiecm/v3/use-cases/scan-and-register",
+        ),
+        "abdm-scan-and-pay": docs_page("/docs/hiecm/v3/use-cases/scan-and-pay"),
+        "abdm-record-share": docs_page(
+            "/docs/hiecm/v3/use-cases/patient-record-share",
+        ),
         "abdm-fhir": docs_page("/docs/hiecm/v3/concepts/fhir"),
     }
     limits = (

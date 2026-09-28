@@ -12,37 +12,40 @@
     },
     {
       "slug": "abdm-m1",
-      "title": "M1, ABHA identity",
+      "title": "M1, create and verify ABHA",
       "description": "Use when building, debugging or testing ABDM Milestone 1: creating an ABHA number or address, ABHA login, profile management, or the gateway session token. Carries the endpoints, the required headers, the two token rule, the encryption rule and the error codes its specification's examples return. Also carries the scaffolding loop that builds it flow by flow and the loop from a failed call to a named fix, in references/.",
       "sections": [
         "scaffold",
+        "design",
         "integrate",
         "debug"
       ]
     },
     {
       "slug": "abdm-m2",
-      "title": "M2, linking and sharing",
+      "title": "M2, create and link records",
       "description": "Use when building, debugging or testing ABDM Milestone 2: care contexts, HIP initiated linking, discovery, and pushing encrypted health records to a requester. Carries the endpoints and the encryption parameters. Also carries the scaffolding loop that builds it flow by flow and the loop from a failed call to a named fix, in references/.",
       "sections": [
         "scaffold",
+        "design",
         "integrate",
         "debug"
       ]
     },
     {
       "slug": "abdm-m3",
-      "title": "M3, consent and fetching",
+      "title": "M3, fetch data with consent",
       "description": "Use when building, debugging or testing ABDM Milestone 3: raising a consent request, tracking its status, reading consent artefacts, and fetching encrypted health records as an HIU. Carries the endpoints and the consent rules. Also carries the scaffolding loop that builds it flow by flow and the loop from a failed call to a named fix, in references/.",
       "sections": [
         "scaffold",
+        "design",
         "integrate",
         "debug"
       ]
     },
     {
       "slug": "abdm-m4",
-      "title": "M4, facility and professional registries",
+      "title": "M4, register facilities and professionals",
       "description": "Use when building, debugging or testing ABDM Milestone 4, the NHPR: creating an HPID, registering a healthcare professional on the HPR, onboarding a facility to the HFR, and linking that facility to a bridge. Carries the operations, their hosts and headers.",
       "sections": [
         "scaffold",
@@ -62,7 +65,7 @@
     },
     {
       "slug": "abdm-p2",
-      "title": "P2, PHR management",
+      "title": "P2, Consents Management",
       "description": "Use when building, debugging or testing ABDM P2 in a PHR app: the PHR profile, linking an ABHA number, switching profiles, and linking, sharing and consent for the patient.",
       "sections": [
         "scaffold",
@@ -73,7 +76,7 @@
     {
       "slug": "abdm-p3",
       "title": "P3, PHR subscriptions",
-      "description": "Use when building, debugging or testing ABDM P3 in a PHR app: reading, approving, denying, enabling, disabling and updating the patient's subscriptions and subscription requests.",
+      "description": "Use when building, debugging or testing ABDM P3 in a PHR app: reading, approving, denying, enabling, disabling and updating the patient's subscriptions and subscription requests, and the subscription request and notifications on the health locker side.",
       "sections": [
         "scaffold",
         "integrate",
@@ -91,9 +94,9 @@
       ]
     },
     {
-      "slug": "abdm-subscription",
-      "title": "Subscriptions",
-      "description": "Use when building, debugging or testing ABDM subscriptions: subscribing an HIU to changes on an ABHA address.",
+      "slug": "abdm-scan-and-register",
+      "title": "Scan and register",
+      "description": "Use when building, debugging or testing ABDM scan and register: receiving the profile a patient shares by QR code at a counter and answering with a queue token.",
       "sections": [
         "scaffold",
         "integrate",
@@ -104,6 +107,16 @@
       "slug": "abdm-scan-and-pay",
       "title": "Scan and pay",
       "description": "Use when building, debugging or testing ABDM scan and pay: open orders, patient selection and payment status between a facility and a PHR app.",
+      "sections": [
+        "scaffold",
+        "integrate",
+        "debug"
+      ]
+    },
+    {
+      "slug": "abdm-record-share",
+      "title": "Patient scan and record share",
+      "description": "Use when building, debugging or testing ABDM patient scan and record share: a PHR app shares chosen records with an HIU after scanning its QR code, on either side.",
       "sections": [
         "scaffold",
         "integrate",

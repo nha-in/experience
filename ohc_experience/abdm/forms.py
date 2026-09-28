@@ -676,15 +676,8 @@ class ExitEvidenceForm(WasaReviewForm):
                 "wasa_valid_until",
             ),
         ),
-        (
-            "Functional testing",
-            (
-                "functional_certificate",
-                "functional_report",
-                "undertaking_form",
-                "supporting_evidence",
-            ),
-        ),
+        ("Functional testing", ("functional_certificate", "functional_report")),
+        ("Undertaking", ("undertaking_form", "supporting_evidence")),
     )
     start_date = forms.DateField(
         label="Start date",

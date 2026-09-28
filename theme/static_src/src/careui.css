@@ -204,6 +204,12 @@
     color: var(--status-warning-text);
   }
 
+  .ui-badge--progress {
+    border-color: var(--status-progress-border);
+    background: var(--status-progress-bg);
+    color: var(--status-progress-text);
+  }
+
   .ui-badge--info {
     border-color: var(--status-info-border);
     background: var(--status-info-bg);
@@ -533,7 +539,46 @@
     @apply text-[11px] font-semibold tracking-[0.06em] text-soft-foreground uppercase;
   }
 
+  .ui-form-section:is([data-missing], [data-flash]),
+  .ui-form-actions[data-flash] {
+    @apply relative isolate;
+  }
+
+  /* The legend sits above a fieldset's padding box, so the top reaches past it. */
+  .ui-form-section:is([data-missing], [data-flash])::before {
+    content: "";
+    @apply pointer-events-none absolute -inset-x-3.5 -top-[34px] bottom-3 -z-10 rounded-2xl;
+  }
+
+  .ui-form-section:is([data-missing], [data-flash]):last-child::before {
+    @apply -bottom-3;
+  }
+
+  .ui-form-section[data-missing]::before {
+    @apply border-[1.5px] border-dashed border-amber-500 bg-amber-50;
+  }
+
+  .ui-form-section[data-missing] > legend {
+    @apply text-amber-700;
+  }
+
+  .ui-form-actions[data-flash]::before {
+    content: "";
+    @apply pointer-events-none absolute -inset-x-3.5 top-3 -bottom-3 -z-10 rounded-2xl;
+  }
+
+  :is(.ui-form-section, .ui-form-actions)[data-flash]::before {
+    animation: ui-flash 1.6s ease-out;
+  }
+
   .ui-prose-link {
     @apply font-semibold text-primary-700 underline-offset-2 hover:text-primary-800 hover:underline;
+  }
+}
+
+@keyframes ui-flash {
+  0%,
+  40% {
+    background-color: --theme(--color-amber-100);
   }
 }

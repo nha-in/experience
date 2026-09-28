@@ -11,7 +11,7 @@
     {% elif production.eligible %}
       {% include 'experiences/partials/status.html' with status='in_review' label='Awaiting client ID' %}
     {% else %}
-      {% include 'experiences/partials/status.html' with status='draft' label='Not yet available' %}
+      {% include 'experiences/partials/status.html' with status='not_started' label='Not yet available' %}
     {% endif %}
   </div>
   <div class="ui-card-content">

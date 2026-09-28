@@ -203,6 +203,9 @@
   --status-warning-bg: #fff8eb;
   --status-warning-border: #eed9ab;
   --status-warning-text: #865918;
+  --status-progress-bg: var(--color-amber-50);
+  --status-progress-border: var(--color-amber-200);
+  --status-progress-text: var(--color-amber-700);
   --status-danger-bg: #fdf1f0;
   --status-danger-border: #efccca;
   --status-danger-text: #a13737;
