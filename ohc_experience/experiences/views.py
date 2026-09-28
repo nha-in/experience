@@ -2184,10 +2184,10 @@ def queue(request):
         query = query.filter(item_filter)
     if search:
         query = query.filter(_queue_search(search))
-    waiting = services.waiting_reviews()
+    # Pending holds every open request, one waiting on a prerequisite included,
+    # so a product's submissions show together; its row says what each waits on.
     scopes = {
-        "ready": (services.PENDING_STATUSES, ~waiting),
-        "waiting": (services.PENDING_STATUSES, waiting),
+        "ready": (services.PENDING_STATUSES, Q()),
         "decided": ((ReviewItem.Status.APPROVED, ReviewItem.Status.REJECTED), Q()),
     }
     stage_counts = {

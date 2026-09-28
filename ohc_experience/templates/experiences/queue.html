@@ -6,9 +6,7 @@
       <div class="ui-rise min-w-0">
         <p class="ui-hero-eyebrow">{{ experience_program.review_heading }}</p>
         <h1 class="ui-hero-title">Review queue</h1>
-        {% if queue_scope == 'waiting' %}
-          <p class="ui-hero-lede">Products with requests waiting on a prerequisite. Open a product to see all its milestones.</p>
-        {% elif queue_scope == 'decided' %}
+        {% if queue_scope == 'decided' %}
           <p class="ui-hero-lede">Products with approved or rejected requests. Open a product to review its full progress.</p>
         {% endif %}
       </div>
@@ -41,9 +39,6 @@
              href="?scope=ready&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'ready' %}aria-current="page"{% endif %}>Pending <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.ready }}</span></a>
           <a class="ui-switch-option"
-             href="?scope=waiting&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
-             {% if queue_scope == 'waiting' %}aria-current="page"{% endif %}>Blocked <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.waiting }}</span></a>
-          <a class="ui-switch-option"
              href="?scope=decided&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'decided' %}aria-current="page"{% endif %}>Done <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.decided }}</span></a>
           <a class="ui-switch-option"
@@ -56,7 +51,6 @@
             <div class="ui-select-wrapper">
               <select class="ui-select" id="queue-scope" name="scope">
                 <option value="ready" {% if queue_scope == 'ready' %}selected{% endif %}>Pending ({{ stage_counts.ready }})</option>
-                <option value="waiting" {% if queue_scope == 'waiting' %}selected{% endif %}>Blocked ({{ stage_counts.waiting }})</option>
                 <option value="decided" {% if queue_scope == 'decided' %}selected{% endif %}>Done ({{ stage_counts.decided }})</option>
                 <option value="all" {% if queue_scope == 'all' %}selected{% endif %}>All ({{ stage_counts.all }})</option>
               </select>
@@ -92,7 +86,7 @@
             <label class="ui-label" for="queue-status">Status</label>
             <div class="ui-select-wrapper">
               <select class="ui-select" id="queue-status" name="status">
-                <option value="">{% if queue_scope == 'ready' or queue_scope == 'waiting' %}All open statuses{% elif queue_scope == 'decided' %}All decided statuses{% else %}All statuses{% endif %}</option>
+                <option value="">{% if queue_scope == 'ready' %}All open statuses{% elif queue_scope == 'decided' %}All decided statuses{% else %}All statuses{% endif %}</option>
                 {% for value, label in statuses %}
                   <option value="{{ value }}"
                           {% if filters.status == value %}selected{% endif %}>{{ label }}</option>

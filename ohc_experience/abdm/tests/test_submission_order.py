@@ -346,25 +346,25 @@ def test_withdrawing_names_the_requests_to_withdraw_first(environment, client):
     assert "Withdraw request</button>" in m2
 
 
-def test_the_queue_holds_waiting_requests_apart_from_ready_ones(environment, client):
+def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
+    """A milestone submitted after the one it builds on shows under Pending too,
+    marked as waiting, so a product's submissions are never split across tabs."""
     m1 = submit(environment)
     m2 = submit(environment, "m2")
     uhi = submit(environment, "uhi1")
     locker = submit(environment, "p1")
     client.force_login(environment["reviewer"])
 
-    assert set(queue(client)) == {m1, locker}
+    assert set(queue(client)) == {m1, m2, uhi, locker}
     assert client.get(reverse("experiences:queue")).context["queue_scope"] == "ready"
-    assert set(queue(client, scope="waiting")) == {m2, uhi}
     assert "2 waiting on this" in queue_text(client)
-    assert "Waiting on M1 · new" in queue_text(client, scope="waiting")
+    assert "Waiting on M1 · new" in queue_text(client)
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
     assert (dashboard["ready_count"], dashboard["waiting_count"]) == (2, 2)
 
     approve_submitted(environment)
 
     assert set(queue(client)) == {m2, locker}
-    assert queue(client, scope="waiting") == []
     uhi.refresh_from_db()
     assert uhi.status == ReviewItem.Status.APPROVED
 
@@ -380,12 +380,8 @@ def test_requests_wait_on_organisation_verification_too(environment, client):
 
     # The organisation review rides along with each of its products' entries,
     # and the PHR phases live on a second product, so compare as sets.
-    assert set(queue(client)) == {verification}
-    assert queue(client, scope="waiting") == [locker]
-    assert "Waiting on organisation verification · under review" in queue_text(
-        client,
-        scope="waiting",
-    )
+    assert set(queue(client)) == {verification, locker}
+    assert "Waiting on organisation verification · under review" in queue_text(client)
 
 
 def test_the_waiting_filter_agrees_with_pending_prerequisites(environment):

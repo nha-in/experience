@@ -53,7 +53,7 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
         item.queue_milestone.code for item in entry.reviews if item.queue_milestone
     ]
     assert codes == ["M1", "M2"]
-    assert entry.matching_reviews == [m1]
+    assert entry.matching_reviews == [m1, m2]
     assert entry.url == reverse(
         "experiences:product-detail",
         args=[environment["workspace"].reference],
@@ -61,9 +61,9 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
     assert entry.url.encode() in response.content
     assert b"Not submitted" not in response.content
     assert m3.get_absolute_url().encode() not in response.content
-    # The product qualifies for both pending and blocked; each stage counts it once.
+    # M2 waits on M1, and still shows beside it; the product counts once.
     assert response.context["stage_counts"]["ready"] == 1
-    assert response.context["stage_counts"]["waiting"] == 1
+    assert "waiting" not in response.context["stage_counts"]
 
 
 def test_queue_chips_show_only_the_requests_in_the_current_tab(environment, client):
@@ -84,19 +84,9 @@ def test_queue_chips_show_only_the_requests_in_the_current_tab(environment, clie
 
     response = client.get(url)
     entry = response.context["page"][0]
-    assert [item.queue_state for item in entry.matching_reviews] == ["new"]
+    assert [item.queue_state for item in entry.matching_reviews] == ["new", "blocked"]
     compact = " ".join(response.content.decode().split())
     assert "ui-queue-chip--approved font-mono" not in compact
-    assert "ui-queue-chip--blocked font-mono" not in compact
-    assert "1 of 3 approved" in compact
-    assert "M2 waiting on M1" not in compact
-
-    response = client.get(url, {"scope": "waiting"})
-    entry = response.context["page"][0]
-    assert [item.queue_state for item in entry.matching_reviews] == ["blocked"]
-    compact = " ".join(response.content.decode().split())
-    assert "ui-queue-chip--approved font-mono" not in compact
-    assert "ui-queue-chip--new font-mono" not in compact
     assert "1 of 3 approved · M2 waiting on M1" in compact
 
 
@@ -112,7 +102,7 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     response = client.get(
         reverse("experiences:queue"),
         {
-            "scope": "waiting",
+            "scope": "ready",
             "item": "Quality",
             "status": "in_review",
             "assignee": "me",
@@ -127,8 +117,7 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     assert entry.matching_reviews == [release]
     assert entry.assignees == [reviewer]
     assert response.context["stage_counts"] == {
-        "ready": 0,
-        "waiting": 1,
+        "ready": 1,
         "decided": 0,
         "all": 1,
     }
@@ -217,7 +206,6 @@ def test_pagination_never_splits_products_or_merges_similar_product_names(
     assert first_page.paginator.count == 11
     assert first.context["stage_counts"] == {
         "ready": 11,
-        "waiting": 11,
         "decided": 0,
         "all": 11,
     }

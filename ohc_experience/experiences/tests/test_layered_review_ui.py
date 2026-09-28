@@ -34,7 +34,6 @@ def test_stage_counts_keep_search_and_assignee_filters(client, review_item):
     assert response.context["page"][0].matching_reviews == [review_item]
     assert response.context["stage_counts"] == {
         "ready": 1,
-        "waiting": 0,
         "decided": 0,
         "all": 1,
     }
