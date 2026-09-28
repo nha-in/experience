@@ -175,3 +175,19 @@ def test_an_approved_milestone_recommends_what_to_do_next(environment, client): 
         args=[environment["workspace"].reference, "ABDM"],
     )
     assert f'href="{track}?milestone=m2"' in banner
+
+
+def test_the_dashboard_says_what_each_chart_counts(environment, client):  # noqa: F811
+    client.force_login(environment["reviewer"])
+
+    html = client.get(reverse("experiences:assess-dashboard")).content.decode()
+
+    for title in (
+        "Ready for review, by track",
+        "Approved this month, by milestone",
+        "Approvals and rejections per week",
+        "Ready for review, by type",
+        "How long ready requests have waited",
+        "Ready for review, by assignee",
+    ):
+        assert title in html
