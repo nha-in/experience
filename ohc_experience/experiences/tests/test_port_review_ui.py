@@ -277,7 +277,7 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
 
     client.force_login(owner_membership.user)
     response = client.get(reverse("experiences:pending-queries"))
-    assert b"Reply needed" in response.content
+    assert b"Action required from applicant" in response.content
     response = client.post(
         reverse("experiences:query-action", args=[query.pk]),
         {"body": "Confirmed against the inspection report."},

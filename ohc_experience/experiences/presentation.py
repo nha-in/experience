@@ -243,7 +243,7 @@ def _waiting_on(tile):
     Whatever the integrator can act on leads; what the reviewer holds trails.
     """
     if tile["reply_needed"]:
-        return 0, "Reply needed"
+        return 0, "Action required from applicant"
     if tile["item"].pending:
         return 3, "With the reviewer"
     if tile["locked_by"]:

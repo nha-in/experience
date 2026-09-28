@@ -264,7 +264,7 @@ def test_the_track_hero_groups_what_is_left_by_what_it_waits_on(environment, cli
     html = client.get(track_url(environment)).content.decode()
 
     assert progress_lines(html) == [
-        "Reply needed: M2",
+        "Action required from applicant: M2",
         "Pending implementation: M3, M4",
     ]
 

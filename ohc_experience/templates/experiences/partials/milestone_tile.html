@@ -64,7 +64,7 @@
     <span class="ui-milestone-tile-name">{{ tile.definition.name }}</span>
     {% if tile.shared_label %}<span class="ui-milestone-tile-alias">{{ tile.shared_label }}</span>{% endif %}
     <span class="ui-milestone-tile-status">
-      {% if tile.status == 'approved' %}{{ tile.item.decided_at|date:'d/m/Y' }}{% elif tile.locked_by %}{% if tile.resubmit %}Resubmit{% else %}Submit{% endif %} {{ tile.locked_by }} first{% elif tile.status == 'query_raised' %}{% if tile.reply_needed %}Reply needed{% else %}With {{ experience_program.reviewer_name }}{% endif %}{% elif tile.item.pending %}With {{ experience_program.reviewer_name }}{% else %}Pending Implementation{% endif %}
+      {% if tile.status == 'approved' %}{{ tile.item.decided_at|date:'d/m/Y' }}{% elif tile.locked_by %}{% if tile.resubmit %}Resubmit{% else %}Submit{% endif %} {{ tile.locked_by }} first{% elif tile.status == 'query_raised' %}{% if tile.reply_needed %}Action required from applicant{% else %}With {{ experience_program.reviewer_name }}{% endif %}{% elif tile.item.pending %}With {{ experience_program.reviewer_name }}{% else %}Pending Implementation{% endif %}
     </span>
     {% if tile.needs %}
       <span class="ui-milestone-tile-needs {% if tile.locked_by %}ui-milestone-tile-needs--locked{% endif %}">
