@@ -234,26 +234,6 @@
   gap: 36px;
   padding-bottom: 52px;
 }
-.marketing-footer-intro {
-  display: flex;
-  align-items: center;
-  gap: 48px;
-  padding-bottom: 32px;
-  margin-bottom: 36px;
-  border-bottom: 1px solid #ccd8ea;
-}
-.marketing-footer-logos {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  flex-shrink: 0;
-}
-.marketing-footer-logos img {
-  height: 48px;
-  width: auto;
-  max-width: 150px;
-  object-fit: contain;
-}
 .marketing-footer-grid :is(address, p, li, dd, a, figcaption) {
   color: #4c607d;
   font-size: 13px;
@@ -285,9 +265,6 @@
 }
 .marketing-footer-policy-list li + li {
   margin-top: 8px;
-}
-.marketing-footer-policy-list span {
-  color: #596b85;
 }
 .marketing-footer-qr {
   display: flex;
@@ -462,11 +439,6 @@
   .marketing-footer-grid {
     grid-template-columns: 1fr 1fr;
     gap: 36px;
-  }
-  .marketing-footer-intro {
-    align-items: start;
-    flex-direction: column;
-    gap: 22px;
   }
   .marketing-footer-bottom {
     align-items: start;

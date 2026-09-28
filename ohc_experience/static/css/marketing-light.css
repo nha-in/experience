@@ -118,7 +118,7 @@
 }
 
 @media (forced-colors: active) {
-  .marketing-light :is(.marketing-brand, .marketing-footer-logos, .marketing-partners, .marketing-footer-qr) img {
+  .marketing-light :is(.marketing-brand, .marketing-partners, .marketing-footer-qr) img {
     forced-color-adjust: none;
     background: #fff;
     border-radius: 4px;

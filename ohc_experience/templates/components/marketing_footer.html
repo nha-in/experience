@@ -46,20 +46,6 @@
 </section>
 <footer class="marketing-footer">
   <div class="marketing-container">
-    <div class="marketing-footer-intro">
-      <div class="marketing-footer-logos">
-        <img src="{% static 'images/marketing/nha-logo-trim.png' %}"
-             alt="{% translate 'National Health Authority' %}"
-             width="132"
-             height="48"
-             loading="lazy" />
-        <img src="{% static 'images/marketing/abdm-logo-trim.png' %}"
-             alt="{% translate 'Ayushman Bharat Digital Mission' %}"
-             width="102"
-             height="56"
-             loading="lazy" />
-      </div>
-    </div>
     <div class="marketing-footer-grid">
       <section class="marketing-footer-contact"
                aria-labelledby="footer-contact-title">
@@ -155,18 +141,17 @@
         <a href="https://facility.abdm.gov.in/">{% translate "Health Facility Registry (HFR)" %}</a>
         <a href="https://grievance.abdm.gov.in/">{% translate "Grievance Portal" %}</a>
         <a href="mailto:abdm@nha.gov.in?subject=Website%20feedback">{% translate "Tell us what you think of our website" %}</a>
-        <a href="mailto:abdm@nha.gov.in?subject=Feedback%20or%20suggestion">{% translate "Feedback/Suggestion" %}</a>
       </nav>
       <section class="marketing-footer-policies"
                aria-labelledby="footer-policies-title">
         <h2 id="footer-policies-title" class="marketing-eyebrow">{% translate "Policies" %}</h2>
         <ul class="marketing-footer-policy-list" role="list">
-          <li><span>{% translate "Terms & Conditions" %}</span></li>
-          <li><span>{% translate "Website Policy" %}</span></li>
-          <li><span>{% translate "Data Privacy Policy" %}</span></li>
+          <li><a href="https://abdm.gov.in/terms-condition">{% translate "Terms & Conditions" %}</a></li>
+          <li><a href="https://abdm.gov.in/website-policy">{% translate "Website Policy" %}</a></li>
+          <li><a href="https://abdm.gov.in/strapicms/uploads/privacypolicy_178041845b.pdf">{% translate "Data Privacy Policy" %}</a></li>
           <li><a href="https://abdm.gov.in/publications/policies_regulations/health_data_management_policy">{% translate "Health Data Management Policy" %}</a></li>
           <li><a href="https://abdm.gov.in/abha-PRIVACY-POLICY-english">{% translate "ABDM Health Records (PHR) Mobile App Privacy Policy" %}</a></li>
-          <li><span>{% translate "ABDM Health Records (PHR) Mobile App Privacy Policy (Hindi)" %}</span></li>
+          <li><a href="https://abdm.gov.in/abha-PRIVACY-POLICY-hindi">{% translate "ABDM Health Records (PHR) Mobile App Privacy Policy (Hindi)" %}</a></li>
         </ul>
       </section>
       <section class="marketing-footer-app" aria-labelledby="footer-app-title">

@@ -524,9 +524,6 @@
 .marketing-landing .marketing-footer :is(address, p, li, dd, a, figcaption) {
   color: var(--marketing-muted);
 }
-.marketing-landing .marketing-footer-policy-list span {
-  color: var(--marketing-muted);
-}
 .marketing-landing .marketing-footer :is(.marketing-eyebrow, dt) {
   color: var(--marketing-text);
 }
