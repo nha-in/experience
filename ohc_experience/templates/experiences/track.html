@@ -8,7 +8,10 @@
         <h1 class="ui-hero-title">
           {{ track.definition.code }} <span class="font-semibold text-muted-foreground">· {{ track.definition.name }}</span>
         </h1>
-        <p class="ui-hero-lede">{{ track.definition.description }}</p>
+        {# NHA asked for no description under the ABDM title. The product form's (i) beside the track still carries it. #}
+        {% if track.definition.code != "ABDM" %}
+          <p class="ui-hero-lede">{{ track.definition.description }}</p>
+        {% endif %}
         {% if track.tiles %}
           <div class="mt-6 flex items-baseline gap-2.5">
             <span class="ui-figure ui-figure--xl">{{ track.approved }}</span>

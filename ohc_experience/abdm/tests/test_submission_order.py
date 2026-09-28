@@ -9,6 +9,7 @@ from django.apps import apps as registry
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
+from ohc_experience.abdm.catalog import TRACK_MAP
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve_submitted
@@ -266,6 +267,18 @@ def test_the_track_hero_groups_what_is_left_by_what_it_waits_on(environment, cli
         "Reply needed: M2",
         "Pending implementation: M3, M4",
     ]
+
+
+def test_only_the_abdm_track_page_leaves_out_its_description(environment, client):
+    """NHA asked for the line under the ABDM title to go; UHI keeps its own."""
+    client.force_login(environment["applicant"])
+
+    abdm = client.get(track_url(environment)).content.decode()
+    uhi = client.get(track_url(environment, "UHI")).content.decode()
+
+    assert 'class="ui-hero-lede"' not in abdm
+    assert TRACK_MAP["ABDM"].description not in abdm
+    assert f'<p class="ui-hero-lede">{TRACK_MAP["UHI"].description}</p>' in uhi
 
 
 def milestone_tiles(html):
