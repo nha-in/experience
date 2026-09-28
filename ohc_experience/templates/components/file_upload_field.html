@@ -98,38 +98,59 @@
       </ul>
     </div>
   {% endif %}
-  <label class="mt-2 flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-strong-border bg-soft-background/60 px-4 py-4 text-center transition-colors hover:border-primary/60 hover:bg-primary/5"
-         for="{{ field.id_for_label }}"
-         data-file-dropzone>
-    <span class="flex size-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground"
-          aria-hidden="true">
+  {% if existing_files %}
+    {# A saved file only needs a way to swap it or add to it, not a drop area of its own. #}
+    <label class="ui-btn ui-btn--outline ui-btn--size-xs mt-2 w-fit cursor-pointer"
+           for="{{ field.id_for_label }}"
+           data-file-dropzone>
       <svg viewBox="0 0 24 24"
-           class="size-4"
            fill="none"
            stroke="currentColor"
-           stroke-width="1.8">
+           stroke-width="1.8"
+           aria-hidden="true">
         <path d="M12 16V4M7 9l5-5 5 5" />
         <path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" />
       </svg>
-    </span>
-    <span class="mt-2 text-sm font-semibold">
       {% if is_multiple_file %}
         {% translate "Add files" %}
-      {% elif existing_files %}
+      {% else %}
         {% translate "Replace file" %}
-      {% else %}
-        {% translate "Choose file" %}
       {% endif %}
-    </span>
-    <span class="mt-0.5 text-xs text-soft-foreground">
-      {% if is_multiple_file %}
-        {% translate "Choose several at once or drop them here" %}
-      {% else %}
-        {% translate "Choose a file or drop it here" %}
-      {% endif %}
-    </span>
-    {% if accepted_types %}<span class="mt-0.5 font-mono text-xs text-soft-foreground">{{ accepted_types }}</span>{% endif %}
-  </label>
+    </label>
+  {% else %}
+    <label class="mt-2 flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border border-dashed border-strong-border bg-soft-background/60 px-4 py-3 transition-colors hover:border-primary/60 hover:bg-primary/5"
+           for="{{ field.id_for_label }}"
+           data-file-dropzone>
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground"
+            aria-hidden="true">
+        <svg viewBox="0 0 24 24"
+             class="size-4"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="1.8">
+          <path d="M12 16V4M7 9l5-5 5 5" />
+          <path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" />
+        </svg>
+      </span>
+      <span class="min-w-0">
+        <span class="block text-sm font-semibold">
+          {% if is_multiple_file %}
+            {% translate "Add files" %}
+          {% else %}
+            {% translate "Choose file" %}
+          {% endif %}
+        </span>
+        <span class="block text-xs text-soft-foreground">
+          {% if is_multiple_file %}
+            {% translate "Choose several at once or drop them here" %}
+          {% else %}
+            {% translate "Choose a file or drop it here" %}
+          {% endif %}
+          {% if accepted_types %}· <span class="font-mono">{{ accepted_types }}</span>{% endif %}
+        </span>
+      </span>
+    </label>
+  {% endif %}
   {{ field }}
   <div class="mt-2 hidden overflow-hidden rounded-xl border border-primary/25 bg-primary/5"
        data-selected-files>

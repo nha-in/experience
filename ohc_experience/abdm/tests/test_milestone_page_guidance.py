@@ -75,3 +75,38 @@ def test_saved_evidence_names_its_version_and_says_when_nothing_is_uploaded(
         html,
         re.S,
     )
+
+
+def test_a_saved_upload_keeps_a_small_button_instead_of_a_drop_area(
+    environment,  # noqa: F811
+    client,
+):
+    """A milestone form's uploads take room only while they are empty."""
+    item = milestone(environment)
+    workflows.save_review_form(
+        item,
+        environment["applicant"],
+        data=evidence_data(),
+        files=files(),
+    )
+    client.force_login(environment["applicant"])
+
+    html = page(client, environment)
+
+    def picker(field):
+        found = re.search(
+            rf'<label class="([^"]*)"\s+for="id_{field}"\s+data-file-dropzone>'
+            r"(.*?)</label>",
+            html,
+            re.S,
+        )
+        return found.group(1), text(found.group(2))
+
+    assert picker("functional_certificate") == (
+        "ui-btn ui-btn--outline ui-btn--size-xs mt-2 w-fit cursor-pointer",
+        "Replace file",
+    )
+    assert picker("functional_report")[1] == "Add files"
+    classes, words = picker("supporting_evidence")
+    assert "min-h-16" in classes
+    assert words == "Add files Choose several at once or drop them here · .pdf"
