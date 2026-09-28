@@ -282,6 +282,18 @@ def test_both_exclusive_tracks_carry_the_sentence_that_greys_them_out():
     assert on_abdm["UHI"]["blocked"] is False
 
 
+def test_abdm_and_phr_are_refused_together():
+    """The script only greys the other track out; saving still refuses the pair."""
+    form = ProductRegistrationForm(
+        data={**product_data(), "applied_milestones": ["PHR:p1", "ABDM:m1"]},
+    )
+
+    assert not form.is_valid()
+    assert form.errors["applied_milestones"] == [
+        "ABDM and PHR cannot be applied for together. Choose one of them.",
+    ]
+
+
 def test_a_dependant_track_lists_its_prerequisite_once_chosen():
     """The product page shows M1 and M2 under UHI without UHI storing them."""
     selections = ["ABDM:m1", "ABDM:m2", "UHI:uhi1"]
