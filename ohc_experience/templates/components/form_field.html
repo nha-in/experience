@@ -3,7 +3,9 @@
   {% ui_field form.email %} from the careui template library.
 
   A required field is marked with an asterisk, an optional one says so. A field
-  in `conditional_requirements` renders both, the inapplicable one hidden.
+  in `conditional_requirements` renders both, the inapplicable one hidden. A
+  field in the form's `field_info` gets an (i) beside its label that says what
+  the field is for.
 {% endcomment %}
 {% load careui i18n %}
 
@@ -17,22 +19,15 @@
   {% elif field|is_checkbox_group %}
     {% include "components/checkbox_group.html" %}
   {% else %}
-    <label class="ui-label" for="{{ field.id_for_label }}">
-      {{ label }}
-      {% if mark_required %}
-        {% if is_required or requirement_varies %}
-          <span class="ui-required"
-                aria-hidden="true"
-                data-required-marker
-                {% if not is_required %}hidden{% endif %}>*</span>
-        {% endif %}
-      {% endif %}
-      {% if is_optional or requirement_varies %}
-        <span class="font-normal text-soft-foreground"
-              data-optional-marker
-              {% if not is_optional %}hidden{% endif %}>({% translate "optional" %})</span>
-      {% endif %}
-    </label>
+    {% if info %}
+      {# The (i) sits outside the label: a button inside one would focus the field. #}
+      <div class="mb-1.5">
+        {% include "components/form_field_label.html" with label_class="mb-0 inline" %}
+        {% include "components/info_popover.html" with extra_class="-my-1.5 ml-0.5 inline-flex align-middle" scope="field" key=field.auto_id label=label description=info only %}
+      </div>
+    {% else %}
+      {% include "components/form_field_label.html" %}
+    {% endif %}
     {% if field|is_select %}
       <div class="ui-select-wrapper">{{ field }}</div>
     {% elif is_password %}

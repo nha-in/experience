@@ -658,6 +658,12 @@ class WasaReviewForm(ReviewForm):
 
 class ExitEvidenceForm(WasaReviewForm):
     full_width_fields = ("use_product_wasa", "wasa_certificate")
+    field_info = {
+        "tentative_demo_date": (
+            "When you expect to demonstrate this milestone to NHA. It can't be "
+            "before today or before your testing ends."
+        ),
+    }
     section_notes = {
         "WASA audit": (
             "The certificate must cover the application and version being submitted."

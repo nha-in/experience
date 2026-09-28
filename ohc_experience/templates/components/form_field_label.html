@@ -1,0 +1,20 @@
+{# The label of a `form_field.html` field, with its required or optional marker. #}
+{% load i18n %}
+
+<label class="ui-label{% if label_class %} {{ label_class }}{% endif %}"
+       for="{{ field.id_for_label }}">
+  {{ label }}
+  {% if mark_required %}
+    {% if is_required or requirement_varies %}
+      <span class="ui-required"
+            aria-hidden="true"
+            data-required-marker
+            {% if not is_required %}hidden{% endif %}>*</span>
+    {% endif %}
+  {% endif %}
+  {% if is_optional or requirement_varies %}
+    <span class="font-normal text-soft-foreground"
+          data-optional-marker
+          {% if not is_optional %}hidden{% endif %}>({% translate "optional" %})</span>
+  {% endif %}
+</label>

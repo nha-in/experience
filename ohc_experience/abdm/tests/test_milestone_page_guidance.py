@@ -110,3 +110,19 @@ def test_a_saved_upload_keeps_a_small_button_instead_of_a_drop_area(
     classes, words = picker("supporting_evidence")
     assert "min-h-16" in classes
     assert words == "Add files Choose several at once or drop them here · .pdf"
+
+
+def test_the_demo_date_explains_what_it_is_for(environment, client):  # noqa: F811
+    client.force_login(environment["applicant"])
+
+    html = page(client, environment)
+
+    # Behind the (i) beside the label, not printed under the field.
+    panel = re.search(
+        r'<div class="ui-info-panel"\s+id="info-field-id_tentative_demo_date".*?</div>',
+        html,
+        re.S,
+    )
+    assert "When you expect to demonstrate this milestone to NHA." in panel.group(0)
+    assert 'aria-label="About Tentative demo date"' in html
+    assert "id_tentative_demo_date_helptext" not in html

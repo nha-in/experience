@@ -160,6 +160,9 @@ def ui_field(  # noqa: PLR0913, PLR0917
         "field": _style(field, extra_class, inline_errors=inline_errors),
         "label": label or field.label,
         "help_text": help_text or field.help_text,
+        # What the field is for, behind an (i) beside its label, from a form's
+        # `field_info`. Constraints the answer must meet stay in `help_text`.
+        "info": getattr(form, "field_info", {}).get(field.name, ""),
         "choices_in_columns": choices_in_columns,
         "inline_errors": inline_errors,
         "is_required": is_required,
