@@ -104,7 +104,7 @@ def test_reviewer_does_not_receive_integrator_actions(client, environment):  # n
     ]
     assert response.status_code == HTTPStatus.OK
     assert "next_step" not in response.context
-    assert b"Your next step" not in response.content
+    assert b"Recommended next step" not in response.content
 
 
 def test_withdrawn_organisation_guidance_requires_resubmission(

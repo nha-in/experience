@@ -75,6 +75,7 @@ from .presentation import agent_skill_groups
 from .presentation import default_agent_skill
 from .presentation import overview_next_step
 from .presentation import overview_progress
+from .presentation import recommended_step
 from .presentation import track_progress
 from .queue_presentation import grouped_requests
 from .queue_presentation import populate_queue_page
@@ -1493,11 +1494,8 @@ def track(request, reference, track_code):
     workspace = _workspace(request, reference)
     if track_code not in workspace.definition.track_map():
         raise Http404
-    track_data = next(
-        row
-        for row in _tracks(workspace, request.user)
-        if row["definition"].code == track_code
-    )
+    rows = _tracks(workspace, request.user)
+    track_data = next(row for row in rows if row["definition"].code == track_code)
     _lock_tiles(workspace, [track_data])
     track_data["progress"] = track_progress(track_data)
     selected = request.GET.get("milestone", "")
@@ -1539,6 +1537,11 @@ def track(request, reference, track_code):
                 return redirect(request.get_full_path())
         except ValidationError as error:
             _error(request, error)
+    next_step = None
+    if item and item.status == ReviewItem.Status.APPROVED:
+        # Once this milestone is done, point at the work left anywhere on the product.
+        _lock_tiles(workspace, [row for row in rows if row is not track_data])
+        next_step = recommended_step(rows)
     return render(
         request,
         "experiences/track.html",
@@ -1549,6 +1552,7 @@ def track(request, reference, track_code):
             nav=track_code,
             track=track_data,
             tile=tile,
+            next_step=next_step,
             callback_missing=item and services.callback_missing(item),
             item=item,
             form=form,

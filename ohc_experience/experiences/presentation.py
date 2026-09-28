@@ -175,7 +175,22 @@ def overview_next_step(workspace, tracks, organisation_review):
     return _milestone_next_step(tiles, product_url)
 
 
-def _milestone_next_step(tiles, product_url):
+def recommended_step(tracks):
+    """What to do next once the milestone on screen is approved.
+
+    A query to answer or a rejection to address comes first, then the next
+    milestone open for work. Nothing is recommended while everything left is
+    with the reviewers, or once it is all approved.
+
+    Call it on tracks whose tiles have been through `_lock_tiles`.
+    """
+    tiles = [tile for track in tracks for tile in track["tiles"]]
+    return _review_attention(
+        [(tile["item"], tile["url"]) for tile in tiles],
+    ) or _continue_step(tiles)
+
+
+def _continue_step(tiles):
     for tile in tiles:
         if tile["status"] == "draft" and not tile.get("locked_by"):
             return _step(
@@ -184,6 +199,13 @@ def _milestone_next_step(tiles, product_url):
                 "Continue milestone",
                 tile["url"],
             )
+    return None
+
+
+def _milestone_next_step(tiles, product_url):
+    step = _continue_step(tiles)
+    if step:
+        return step
     if tiles and all(tile["status"] == "approved" for tile in tiles):
         return _step(
             "All applied milestones are approved",

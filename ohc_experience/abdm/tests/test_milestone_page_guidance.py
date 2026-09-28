@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from ohc_experience.abdm.catalog import TRACK_MAP
 from ohc_experience.abdm.demo import evidence_data
+from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
@@ -154,3 +155,23 @@ def test_a_long_history_shows_its_newest_events_first_and_the_rest_on_request(
     assert "Checked item 2" in earlier
     assert "Checked item 1" in earlier
     assert "Checked item 2" not in shown
+
+
+def test_an_approved_milestone_recommends_what_to_do_next(environment, client):  # noqa: F811
+    client.force_login(environment["applicant"])
+    assert "Recommended next step" not in page(client, environment)
+
+    approve(environment)
+    html = page(client, environment)
+
+    banner = re.search(
+        r'<section class="flex flex-col gap-4 rounded-xl border.*?</section>',
+        html,
+        re.S,
+    ).group(0)
+    assert text(banner).startswith("Recommended next step Continue with M2")
+    track = reverse(
+        "experiences:track",
+        args=[environment["workspace"].reference, "ABDM"],
+    )
+    assert f'href="{track}?milestone=m2"' in banner
