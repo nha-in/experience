@@ -6,13 +6,16 @@ const vm = require('node:vm');
 
 // Like Django's CheckboxSelectMultiple, individual choices have valid native
 // validity even when a required group has no selected option.
-function createPage({ autoApprove = false, approvedUpdate = false, draft = true, submit = true, currentMilestoneCode = '' } = {}) {
+function createPage({
+  autoApprove = false, approvedUpdate = false, draft = true, submit = true, currentMilestoneCode = '', reducedMotion = false,
+} = {}) {
   const listeners = new Map();
   const tasks = [];
   const controls = [];
   const groups = [];
   const choices = [];
   const testingDates = [];
+  const steps = [];
   const submitLabel = { textContent: 'Original submit label' };
   const selectionSummary = { textContent: '' };
   const document = {
@@ -22,9 +25,17 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
       if (!listeners.has(name)) listeners.set(name, []);
       listeners.get(name).push(callback);
     },
-    querySelectorAll(selector) { return selector === '[data-review-form]' ? [form] : []; },
+    querySelectorAll(selector) {
+      if (selector === '[data-review-form]') return [form];
+      if (selector === '[data-next-step]') return steps;
+      return [];
+    },
     querySelector() { return null; },
-    getElementById(id) { return id === 'evidence-form' ? form : null; },
+    getElementById(id) {
+      if (id === form.id) return form;
+      if (id === actions.id) return actions;
+      return controls.find(input => input.id === id) || null;
+    },
   };
   document.body = document;
   const button = { disabled: false };
@@ -35,6 +46,7 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     closest: selector => selector === '[data-continue-form]' ? continueForm : null,
   };
   const form = {
+    id: 'evidence-form',
     dataset: { autoApprove: String(autoApprove), approvedUpdates: String(approvedUpdate), currentMilestoneCode },
     parentElement: null,
     closest: () => null,
@@ -59,10 +71,52 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
       return [];
     },
   };
-  function group(name, { checked = false, hidden = false, disabled = false } = {}) {
+  // Enough of an element for a jump to land on: it takes focus, remembers how
+  // it was scrolled to, and carries the attributes the page flags it with.
+  function element(properties) {
+    const attributes = new Set();
+    return {
+      parentElement: form,
+      matches: () => false,
+      closest: () => null,
+      hasAttribute: name => attributes.has(name),
+      setAttribute: name => { attributes.add(name); },
+      removeAttribute: name => { attributes.delete(name); },
+      toggleAttribute(name, force = !attributes.has(name)) {
+        if (force) attributes.add(name);
+        else attributes.delete(name);
+        return force;
+      },
+      focus() { document.activeElement = this; },
+      scrollIntoView(options) { this.scrolled = { ...options }; },
+      ...properties,
+    };
+  }
+  // The row of submit buttons, where Continue goes once nothing is missing.
+  const actions = element({
+    id: 'evidence-actions',
+    closest: selector => (selector === '.ui-form-section, .ui-form-actions' ? actions : null),
+  });
+  // The "Next up" panel beside the form, first drawn by the server.
+  function nextStep(name = '') {
+    const label = { textContent: name };
+    const step = element({
+      dataset: { nextStep: form.id },
+      label,
+      querySelector: selector => (selector === '[data-next-step-name]' ? label : null),
+    });
+    steps.push(step);
+    return step;
+  }
+  function group(name, { checked = false, hidden = false, disabled = false, legend = name } = {}) {
+    // Each group sits in its own form section, headed by a legend.
+    const section = element({
+      tagName: 'FIELDSET',
+      querySelector: selector => (selector === ':scope > legend' ? { textContent: `\n  ${legend}\n` } : null),
+    });
     const result = {
       dataset: { requiredCheckboxGroup: name },
-      hidden, disabled, parentElement: form,
+      hidden, disabled, parentElement: section,
       querySelectorAll: () => [input],
     };
     const input = {
@@ -75,15 +129,16 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
       closest(selector) {
         if (selector === '[hidden]') return result.hidden ? result : null;
         if (selector === '[data-review-form]' || selector === 'form') return form;
+        if (selector === '.ui-form-section' || selector === '.ui-form-section, .ui-form-actions') return section;
         return null;
       },
       focus() { document.activeElement = this; },
-      scrollIntoView() {},
+      scrollIntoView(options) { this.scrolled = { ...options }; },
       compareDocumentPosition(other) { return this.order > other.order ? 2 : 4; },
     };
     controls.push(input);
     groups.push(result);
-    return { group: result, input };
+    return { group: result, input, section };
   }
   function date(name, { value = '', min = '', max = '', required = false, disabled = false, parent = form } = {}) {
     const input = {
@@ -140,7 +195,7 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     document,
     window,
     history,
-    matchMedia: () => ({ matches: false }),
+    matchMedia: query => ({ matches: reducedMotion && query === '(prefers-reduced-motion: reduce)' }),
     navigator: {},
     Element: class {},
     Node: { DOCUMENT_POSITION_PRECEDING: 2 },
@@ -155,12 +210,24 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     while (tasks.length) tasks.shift()();
   }
   return {
-    form, button, reason, jump, group, date, document, window, milestone, milestoneDates, submitLabel, selectionSummary,
+    form, button, reason, jump, actions, group, date, nextStep, document, window, milestone, milestoneDates, submitLabel,
+    selectionSummary,
     initialize: () => fire('DOMContentLoaded'),
     change: input => fire('change', input),
     input: input => fire('input', input),
     clickJump: () => fire('click', { closest: selector => selector === '[data-submit-missing]' ? jump : null }),
     clickContinue: () => fire('click', { closest: selector => selector === '[data-continue-form]' ? continueForm : null }, { preventDefault() {} }),
+    // A link in the readiness checklist, to the field it names. Reports whether
+    // the page kept the browser from following it.
+    clickChecklist(fieldId) {
+      let prevented = false;
+      const link = { hash: `#${fieldId}` };
+      fire('click', { closest: selector => (selector === '[data-readiness-label]' ? link : null) }, {
+        preventDefault() { prevented = true; },
+      });
+      return prevented;
+    },
+    endAnimation: (target, animationName) => fire('animationend', target, { animationName }),
   };
 }
 
@@ -194,6 +261,69 @@ test('required UHI groups block recording until each group has a choice', () => 
   // Complete says nothing: the enabled button is the message.
   assert.equal(page.reason.textContent, '');
   assert.equal(page.jump.hidden, true);
+});
+
+test('Continue on a finished form goes to the submit buttons', () => {
+  const page = createPage({ autoApprove: true });
+  page.group('uhi_role', { checked: true });
+  page.initialize();
+
+  page.clickContinue();
+  assert.equal(page.document.activeElement, page.actions);
+  assert.equal(page.window.location.hash, '#evidence-actions');
+  assert.equal(page.actions.hasAttribute('data-flash'), true);
+});
+
+test('a jump glides to its field unless motion is reduced, and flashes its section once', () => {
+  for (const reducedMotion of [false, true]) {
+    const page = createPage({ reducedMotion });
+    const role = page.group('uhi_role');
+    page.initialize();
+
+    page.clickJump();
+    assert.deepEqual(role.input.scrolled, { block: 'center', behavior: reducedMotion ? 'instant' : 'smooth' });
+    assert.equal(role.section.hasAttribute('data-flash'), true);
+
+    // Only the flash's own animation ending clears it.
+    page.endAnimation(role.section, 'ui-fade');
+    assert.equal(role.section.hasAttribute('data-flash'), true);
+    page.endAnimation(role.section, 'ui-flash');
+    assert.equal(role.section.hasAttribute('data-flash'), false);
+  }
+});
+
+test('a readiness checklist link jumps to its field in place of the browser', () => {
+  const page = createPage();
+  page.group('uhi_role');
+  const services = page.group('uhi_services');
+  page.initialize();
+
+  assert.equal(page.clickChecklist('id_uhi_services'), true);
+  assert.equal(page.document.activeElement, services.input);
+  assert.equal(page.window.location.hash, '#id_uhi_services');
+  assert.equal(services.section.hasAttribute('data-flash'), true);
+});
+
+test('the next step follows the first section still missing, then gives way to submitting', () => {
+  const page = createPage();
+  const role = page.group('uhi_role', { legend: 'Role' });
+  const services = page.group('uhi_services', { legend: 'Services offered' });
+  const step = page.nextStep('Role');
+  page.initialize();
+
+  role.input.checked = true;
+  page.change(role.input);
+  assert.equal(step.label.textContent, 'Services offered');
+  assert.equal(step.hasAttribute('data-complete'), false);
+
+  services.input.checked = true;
+  page.change(services.input);
+  assert.equal(step.hasAttribute('data-complete'), true);
+
+  role.input.checked = false;
+  page.change(role.input);
+  assert.equal(step.hasAttribute('data-complete'), false);
+  assert.equal(step.label.textContent, 'Role');
 });
 
 test('hidden and disabled required groups do not block submission', () => {
