@@ -318,6 +318,8 @@ class UserSocialSignupForm(OrganisationSignupMixin, SocialSignupForm):
 
 
 class UserLoginForm(LoginForm):
+    mark_required = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["login"].label = _("Work email")
@@ -326,12 +328,16 @@ class UserLoginForm(LoginForm):
 
 
 class UserResetPasswordForm(ResetPasswordForm):
+    mark_required = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["email"].label = _("Work email")
 
 
 class UserChangePasswordForm(PasswordConfirmationMixin, ChangePasswordForm):
+    mark_required = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["oldpassword"].label = _("Current password")
@@ -340,12 +346,16 @@ class UserChangePasswordForm(PasswordConfirmationMixin, ChangePasswordForm):
 
 
 class UserSetPasswordForm(PasswordConfirmationMixin, SetPasswordForm):
+    mark_required = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["password2"].label = _("Confirm password")
 
 
 class UserResetPasswordKeyForm(PasswordConfirmationMixin, ResetPasswordKeyForm):
+    mark_required = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["password1"].label = _("New password")
@@ -360,6 +370,8 @@ class UserChangeEmailForm(ChangeEmailForm):
     so here instead, while the visitor can still type another.
     """
 
+    mark_required = False
+
     def clean_email(self) -> str:
         email = super().clean_email()
         if self.account_already_exists:
@@ -371,6 +383,8 @@ class UserChangePhoneForm(ChangePhoneForm):
     """The same for a number, which would otherwise be texted a code that
     belongs to whoever already registered it."""
 
+    mark_required = False
+
     def clean_phone(self) -> str:
         phone = super().clean_phone()
         if self.account_already_exists:
@@ -380,6 +394,8 @@ class UserChangePhoneForm(ChangePhoneForm):
 
 class CodeInputMixin:
     """Every code field is the same, on this screen and in settings."""
+
+    mark_required = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

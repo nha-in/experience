@@ -139,24 +139,33 @@ def ui_field(  # noqa: PLR0913, PLR0917
         is_file and getattr(field.field.widget, "allow_multiple_selected", False),
     )
     form = field.form
+    # What submitting demands, not what the field declares: a draft relaxes every
+    # field, and a self-checked upload declares required=False.
+    is_required = not field.field.disabled and (
+        (
+            form.base_fields.get(field.name, field.field).required
+            if getattr(form, "draft", False)
+            else field.field.required
+        )
+        or field.name in getattr(form, "required_uploads", ())
+    )
+    emits_required = (
+        field.field.required
+        and form.use_required_attribute
+        and field.field.widget.use_required_attribute(field.initial)
+    )
+    if is_required and not emits_required:
+        field.field.widget.attrs["aria-required"] = "true"
     return {
         "field": _style(field, extra_class, inline_errors=inline_errors),
         "label": label or field.label,
         "help_text": help_text or field.help_text,
         "choices_in_columns": choices_in_columns,
         "inline_errors": inline_errors,
-        "submit_required": (
-            form.base_fields.get(field.name, field.field).required
-            if getattr(form, "draft", False)
-            else field.field.required
-        ),
-        # The mockups mark nothing as required — almost every field is. Flag the
-        # exceptions instead, which is both closer to the design and the clearer
-        # convention.
-        "is_optional": not field.field.required
-        and field.name not in getattr(form, "required_uploads", ()),
-        # Whether another answer decides it, and the marker is therefore worth
-        # rendering hidden for a script to reveal.
+        "is_required": is_required,
+        "is_optional": not is_required and not field.field.disabled,
+        "mark_required": getattr(form, "mark_required", True),
+        # Both markers render, one hidden, for the script that swaps them.
         "requirement_varies": field.name
         in getattr(form, "conditional_requirements", ()),
         "is_file": is_file,

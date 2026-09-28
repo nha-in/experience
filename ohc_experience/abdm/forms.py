@@ -356,7 +356,12 @@ class ProductRegistrationForm(ReviewForm):
             ("other", "Other"),
         ],
         widget=forms.CheckboxSelectMultiple(
-            attrs={"class": "ui-checkbox shrink-0", "data-solution-type": ""},
+            # Its own picker renders this, so `ui_field` cannot stamp the aria.
+            attrs={
+                "class": "ui-checkbox shrink-0",
+                "data-solution-type": "",
+                "aria-required": "true",
+            },
         ),
     )
     solution_type_other = forms.CharField(
@@ -682,18 +687,18 @@ class ExitEvidenceForm(WasaReviewForm):
         ),
     )
     start_date = forms.DateField(
-        label="Sandbox testing start date",
+        label="Start date",
         widget=forms.DateInput(attrs={"type": "date"}),
     )
     end_date = forms.DateField(
-        label="Sandbox testing end date",
+        label="End date",
         widget=forms.DateInput(attrs={"type": "date"}),
     )
     tentative_demo_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}),
     )
     use_product_wasa = forms.BooleanField(
-        label="Use an approved certificate",
+        label="Reuse Previously Approved Certificate",
         required=False,
         help_text="Uncheck to upload a new certificate for review.",
     )
@@ -848,12 +853,12 @@ class ExitEvidenceForm(WasaReviewForm):
         if start and start > today:
             self.add_error(
                 "start_date",
-                "The sandbox testing start date cannot be in the future.",
+                "The milestone start date cannot be in the future.",
             )
         if end and end > today:
             self.add_error(
                 "end_date",
-                "The sandbox testing end date cannot be in the future.",
+                "The milestone end date cannot be in the future.",
             )
         if demo and demo < today:
             self.add_error(

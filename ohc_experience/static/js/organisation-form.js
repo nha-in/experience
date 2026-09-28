@@ -12,9 +12,11 @@
   function update(form) {
     const soleProprietorship = form.elements.namedItem('entity_type').value === 'sole_proprietor';
 
+    // Only the words: writing the whole label would throw away its marker.
     const nameLabel = form.elements.namedItem('name').labels[0];
-    nameLabel.dataset.defaultLabel ??= nameLabel.textContent.trim();
-    nameLabel.textContent = soleProprietorship ? 'Business name' : nameLabel.dataset.defaultLabel;
+    const words = [...nameLabel.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+    nameLabel.dataset.defaultLabel ??= words.textContent.trim();
+    words.textContent = `${soleProprietorship ? 'Business name' : nameLabel.dataset.defaultLabel} `;
 
     const documentType = form.elements.namedItem('verification_document_type');
     const cin = documentType.querySelector('option[value="CIN"]');

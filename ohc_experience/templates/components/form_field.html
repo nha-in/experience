@@ -2,12 +2,8 @@
   One form field: label, control, help text, errors. Rendered via
   {% ui_field form.email %} from the careui template library.
 
-  Required fields carry no marker — the design marks none, and on these forms
-  nearly everything is required. Optional fields say so instead.
-
-  A field the form lists in `conditional_requirements` keeps the marker in the
-  page either way, hidden while the field is required, so the script that
-  follows the answer it depends on has one to show.
+  A required field is marked with an asterisk, an optional one says so. A field
+  in `conditional_requirements` renders both, the inapplicable one hidden.
 {% endcomment %}
 {% load careui i18n %}
 
@@ -17,12 +13,20 @@
   {% elif field|is_checkbox %}
     {{ field }}
     <label class="text-sm leading-snug text-muted-foreground select-none"
-           for="{{ field.id_for_label }}">{{ label }}</label>
+           for="{{ field.id_for_label }}">{{ label }}{% if mark_required and is_required %} <span class="ui-required" aria-hidden="true">*</span>{% endif %}</label>
   {% elif field|is_checkbox_group %}
     {% include "components/checkbox_group.html" %}
   {% else %}
     <label class="ui-label" for="{{ field.id_for_label }}">
       {{ label }}
+      {% if mark_required %}
+        {% if is_required or requirement_varies %}
+          <span class="ui-required"
+                aria-hidden="true"
+                data-required-marker
+                {% if not is_required %}hidden{% endif %}>*</span>
+        {% endif %}
+      {% endif %}
       {% if is_optional or requirement_varies %}
         <span class="font-normal text-soft-foreground"
               data-optional-marker

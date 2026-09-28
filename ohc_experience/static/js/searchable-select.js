@@ -132,7 +132,9 @@
       // Sized by its longest option, the search box takes the room the select took.
       input.size = Math.max(1, ...[...select.options].map(option => option.label.length));
       input.disabled = select.disabled;
-      setAttribute(input, 'aria-required', select.required ? 'true' : null);
+      // A select whose first option has a value carries the aria, not `required`.
+      const required = select.required || select.getAttribute('aria-required') === 'true';
+      setAttribute(input, 'aria-required', required ? 'true' : null);
       setAttribute(input, 'aria-invalid', select.getAttribute('aria-invalid'));
       if (query !== null) return;
       const option = chosen();

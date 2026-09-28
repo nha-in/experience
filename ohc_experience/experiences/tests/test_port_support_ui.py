@@ -167,9 +167,11 @@ def test_others_asks_which_kind_of_general_question_it_is(portal_workspaces):
 
 
 def field_label(response, name):
-    """The text of a field's label on the page, whitespace collapsed."""
+    """A field's label on the page, whitespace collapsed, its required asterisk
+    reduced to a trailing *."""
     html = " ".join(response.content.decode().split())
-    return html.split(f'for="id_{name}">', 1)[1].split("</label>", 1)[0].strip()
+    label = html.split(f'for="id_{name}">', 1)[1].split("</label>", 1)[0]
+    return re.sub(r'<span class="ui-required"[^>]*>(\*)</span>', r"\1", label).strip()
 
 
 def test_a_ticket_is_always_filed_under_a_category(portal_client):
@@ -185,7 +187,7 @@ def test_a_ticket_is_always_filed_under_a_category(portal_client):
     }
 
     page = portal_client.get(url, {"new": "1"})
-    assert field_label(page, "category") == "Category"
+    assert field_label(page, "category") == "Category *"
     html = " ".join(page.content.decode().split())
     assert '<option value="" selected>Select a category</option>' in html
     assert " required " in re.search(r'<select name="category"[^>]*>', html).group()
@@ -208,7 +210,7 @@ def test_new_ticket_asks_for_an_issue_type_without_calling_it_optional(
     url = reverse("experiences:support")
 
     page = portal_client.get(url, {"new": "1"})
-    assert field_label(page, "issue_type") == "Issue type"
+    assert field_label(page, "issue_type") == "Issue type *"
     html = " ".join(page.content.decode().split())
     assert " required " in re.search(r'<select name="issue_type"[^>]*>', html).group()
     response = portal_client.post(
@@ -223,7 +225,7 @@ def test_new_ticket_asks_for_an_issue_type_without_calling_it_optional(
     assert response.context["form"].errors["issue_type"] == [
         "Choose the issue type this ticket is about.",
     ]
-    assert field_label(response, "issue_type") == "Issue type"
+    assert field_label(response, "issue_type") == "Issue type *"
 
 
 def test_issue_type_is_required_wherever_it_shows():

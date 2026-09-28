@@ -30,7 +30,9 @@ opens in place.
             method="post"
             action="{% url 'experiences:query-action' query.pk %}">
         {% csrf_token %}
-        <label class="ui-label" for="reply-{{ query.pk }}">Your reply</label>
+        <label class="ui-label" for="reply-{{ query.pk }}">
+          Your reply <span class="ui-required" aria-hidden="true">*</span>
+        </label>
         <textarea class="ui-textarea mt-1 mb-2 min-h-36" id="reply-{{ query.pk }}" name="body" rows="4" required maxlength="10000">
 </textarea>
         <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Send reply</button>
