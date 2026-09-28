@@ -55,6 +55,13 @@ To run the tests, check your test coverage, and generate an HTML coverage report
 
     uv run pytest
 
+#### Running the browser behaviour tests
+
+The scripts in `ohc_experience/static/js` have their own tests. CI runs them
+with Node, and so can you:
+
+    node --test tests/*.test.cjs
+
 ### Live reloading and Sass CSS compilation
 
 Moved to [Live reloading and SASS compilation](https://cookiecutter-django.readthedocs.io/en/latest/2-local-development/developing-locally.html#using-webpack-or-gulp).
