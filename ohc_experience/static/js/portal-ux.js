@@ -101,7 +101,6 @@
     });
     document.querySelectorAll('[data-password-toggle][hidden]').forEach(button => { button.hidden = false; });
     document.querySelectorAll('form:has([data-milestone-key])').forEach(form => {
-      refreshTracks(form);
       refreshMilestones(form);
       refreshRequirements(form);
     });
@@ -294,6 +293,8 @@
     let cleared = true;
     while (cleared) {
       cleared = false;
+      // Clearing a track's last ticked box opens the track it ruled out.
+      refreshTracks(form);
       for (const input of gated) {
         const required = (input.dataset.milestoneRequires || '').split(' ').filter(Boolean);
         const standsAlone = 'milestoneStandsAlone' in input.dataset;
@@ -372,7 +373,6 @@
       preselected.get(form)?.delete(input);
       applyExclusivity(input);
     }
-    refreshTracks(form);
     refreshMilestones(form);
     refreshRequirements(form, true);
   });
