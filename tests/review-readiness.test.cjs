@@ -128,9 +128,19 @@ function createPage({ autoApprove = false, approvedUpdate = false, draft = true,
     return choice;
   }
   const window = { addEventListener() {}, location: { hash: '' } };
+  // Replacing the URL moves its hash without the jump that setting one makes.
+  const history = {
+    state: null,
+    replaceState(state, title, url) {
+      this.state = state;
+      window.location.hash = new URL(url, 'https://portal.test/').hash;
+    },
+  };
   const context = vm.createContext({
     document,
     window,
+    history,
+    matchMedia: () => ({ matches: false }),
     navigator: {},
     Element: class {},
     Node: { DOCUMENT_POSITION_PRECEDING: 2 },
@@ -167,7 +177,7 @@ test('required UHI groups block recording until each group has a choice', () => 
 
   page.clickContinue();
   assert.equal(page.document.activeElement, role.input);
-  assert.equal(page.window.location.hash, 'id_uhi_role');
+  assert.equal(page.window.location.hash, '#id_uhi_role');
 
   role.input.checked = true;
   page.change(role.input);
@@ -176,7 +186,7 @@ test('required UHI groups block recording until each group has a choice', () => 
   assert.equal(page.document.activeElement, services.input);
   page.clickContinue();
   assert.equal(page.document.activeElement, services.input);
-  assert.equal(page.window.location.hash, 'id_uhi_services');
+  assert.equal(page.window.location.hash, '#id_uhi_services');
 
   services.input.checked = true;
   page.change(services.input);
