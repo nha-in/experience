@@ -13,6 +13,7 @@ from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.models import AuditEvent
 
 pytestmark = pytest.mark.django_db
 
@@ -126,3 +127,30 @@ def test_the_demo_date_explains_what_it_is_for(environment, client):  # noqa: F8
     assert "When you expect to demonstrate this milestone to NHA." in panel.group(0)
     assert 'aria-label="About Tentative demo date"' in html
     assert "id_tentative_demo_date_helptext" not in html
+
+
+def test_a_long_history_shows_its_newest_events_first_and_the_rest_on_request(
+    environment,  # noqa: F811
+    client,
+):
+    item = milestone(environment)
+    for number in range(1, 8):
+        AuditEvent.objects.create(
+            organisation=item.organisation,
+            product=item.product,
+            item=item,
+            action=f"Checked item {number}",
+        )
+    client.force_login(environment["applicant"])
+
+    html = page(client, environment)
+
+    history = html[html.index('id="history-title"') :]
+    shown, _, earlier = history.partition("<details")
+    assert f"Show {item.history.count() - 5} earlier events" in earlier
+    assert [f"Checked item {number}" in shown for number in (7, 6, 5, 4, 3)] == [
+        True,
+    ] * 5
+    assert "Checked item 2" in earlier
+    assert "Checked item 1" in earlier
+    assert "Checked item 2" not in shown
