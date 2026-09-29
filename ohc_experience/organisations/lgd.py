@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
-import logging
 import math
 import re
 from datetime import UTC
@@ -19,8 +18,6 @@ from django.conf import settings
 from django.core.cache.backends.locmem import LocMemCache
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
-
-logger = logging.getLogger(__name__)
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 MAX_NAME_LENGTH = 120
@@ -80,9 +77,6 @@ def _configuration() -> tuple[str, str, float, int]:
 
 def _fetch_locations(url: str, api_key: str, pincode: str, timeout: float):
     """Fetch a bounded JSON response without following redirects with the key."""
-    query = urlencode({"pinCode": pincode, "view": "All"})
-    # The key travels in a header, so the URL is safe to log.
-    lookup_url = f"{url}/search?{query}"
     connection = None
     try:
         parsed = urlsplit(url)
@@ -96,6 +90,7 @@ def _fetch_locations(url: str, api_key: str, pincode: str, timeout: float):
             port=parsed.port,
             timeout=timeout,
         )
+        query = urlencode({"pinCode": pincode, "view": "All"})
         connection.request(
             "GET",
             f"{parsed.path}/search?{query}",
@@ -110,7 +105,6 @@ def _fetch_locations(url: str, api_key: str, pincode: str, timeout: float):
             },
         )
         response = connection.getresponse()
-        logger.info("LGD lookup GET %s returned %s", lookup_url, response.status)
         if response.status != HTTPStatus.OK:
             raise LGDLookupError
         body = response.read(MAX_RESPONSE_BYTES + 1)
@@ -118,12 +112,6 @@ def _fetch_locations(url: str, api_key: str, pincode: str, timeout: float):
             raise LGDLookupError
         return json.loads(body)
     except (http.client.HTTPException, OSError, ValueError) as exc:
-        logger.warning(
-            "LGD lookup GET %s failed: %s: %s",
-            lookup_url,
-            type(exc).__name__,
-            exc,
-        )
         # Provider error bodies and credentials must not reach browser responses.
         raise LGDLookupError from exc
     finally:
