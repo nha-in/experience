@@ -10,6 +10,7 @@ from html import unescape
 
 import pytest
 from django.urls import reverse
+from django.utils.html import escape
 
 from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
@@ -45,7 +46,7 @@ def test_milestone_header_describes_the_milestone_and_links_its_docs(
     )
 
     assert f'id="info-milestone-{key}"'.encode() in response.content
-    assert milestone.description.encode() in response.content
+    assert escape(milestone.description).encode() in response.content
     # The milestone's own page, not the track's documentation on every milestone.
     assert documented(response)[milestone.name] == milestone.docs_url
     assert milestone.docs_url != TRACK_MAP["ABDM"].docs_url

@@ -416,10 +416,7 @@ def test_a_card_links_to_the_docs_the_product_form_gives_its_milestone(
         "P1, PHR registration and login": f"{milestones}/p1",
         "P2, Consents Management": f"{milestones}/p2",
         "P3, PHR subscriptions": f"{milestones}/p3",
-        # P4 has no milestone page; the product form links this section too.
-        "P4, health lockers": (
-            f"{docs}/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip"
-        ),
+        "P4, health lockers": f"{milestones}/p4",
     }
 
 

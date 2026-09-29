@@ -16,7 +16,9 @@ MILESTONES = {
             "m1",
             "M1",
             "ABHA Creation and Verification",
-            description="Create and verify ABHA identities for people receiving care.",
+            description="Create an ABHA, the 14-digit health ID, for patients who "
+            "have none, and verify the ones they bring. Also covers their profile, "
+            "ABHA card and QR code, and Scan and Register at your counter.",
             docs_url=docs_page("/docs/hiecm/v3/milestones/m1"),
         ),
         MilestoneDefinition(
@@ -24,7 +26,10 @@ MILESTONES = {
             "M2",
             "Health Information Provider Services",
             "m1",
-            "Link care contexts and share health records with consent.",
+            "As a Health Information Provider (HIP), link each visit's records to "
+            "the patient's ABHA address, help them find older records from their "
+            "app, and share records, encrypted, when they consent. Needs a "
+            "facility ID, registered on the NHPR portal or through M4.",
             docs_page("/docs/hiecm/v3/milestones/m2"),
             needs_callback=True,
         ),
@@ -33,7 +38,9 @@ MILESTONES = {
             "M3",
             "Health Information User Services",
             "m1",
-            "Request consent and retrieve health records held by other providers.",
+            "As a Health Information User (HIU), ask patients for consent by their "
+            "ABHA address, then fetch and decrypt the records they grant from other "
+            "providers. Access must stop when consent is revoked or expires.",
             docs_page("/docs/hiecm/v3/milestones/m3"),
             needs_callback=True,
         ),
@@ -42,47 +49,52 @@ MILESTONES = {
             "M4",
             "Register Healthcare Professionals and Facilities",
             "m1",
-            description="Register your health facility and professionals for "
-            "ABDM services.",
+            description="From your software, register healthcare professionals on "
+            "the Healthcare Professionals Registry (HPR) and facilities on the "
+            "Health Facility Registry (HFR), then link the facility to your "
+            "software. M2 and M3 need a facility ID to go live.",
             docs_url=docs_page("/docs/hiecm/v3/milestones/m4"),
         ),
         MilestoneDefinition(
             "p1",
             "P1",
-            "Identity and profile",
-            description="Register people in a PHR application, sign them in and "
-            "manage their profile.",
+            "Registration and login",
+            description="Let people create an ABHA address in your PHR app, with a "
+            "mobile number, ABHA number or Aadhaar, and sign in. Every login route "
+            "is required.",
             docs_url=docs_page("/docs/hiecm/v3/milestones/p1"),
         ),
         MilestoneDefinition(
             "p2",
             "P2",
-            "Linking and records",
+            "Consents Management",
             "p1",
-            "Help people discover health records held elsewhere and link them "
-            "to their ABHA.",
+            "Let people manage their profile, ABHA card and QR code, share their "
+            "profile at a facility by scanning its QR code, and find and link "
+            "records from facilities they have visited.",
             docs_page("/docs/hiecm/v3/milestones/p2"),
             needs_callback=True,
         ),
         MilestoneDefinition(
             "p3",
             "P3",
-            "Subscription flow",
+            "Subscription",
             "p1",
-            "Subscribe to a person's records, and let them grant and revoke consent.",
+            "Let people grant, deny and revoke consent, get notified when a record "
+            "is linked to their ABHA address, and fetch and show the records a "
+            "consent covers.",
             docs_page("/docs/hiecm/v3/milestones/p3"),
             needs_callback=True,
         ),
         MilestoneDefinition(
             "p4",
             "P4",
-            "Health locker",
+            "Locker",
             "p1",
-            description="Store and retrieve personal health records in a health "
-            "locker.",
-            docs_url=docs_page(
-                "/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip",
-            ),
+            description="Keep people's health records for the long term: set up a "
+            "locker for each person, subscribe to their ABHA address, and fetch "
+            "each new record with their consent.",
+            docs_url=docs_page("/docs/hiecm/v3/milestones/p4"),
             needs_callback=True,
         ),
         MilestoneDefinition(
@@ -91,7 +103,9 @@ MILESTONES = {
             "UHI",
             "UHI participation",
             IDENTITY_MILESTONES,
-            "Join the network for discovery, booking and delivery of health services.",
+            "Join the UHI network as a patient-facing app (EUA) or a provider "
+            "platform (HSPA), to discover and book health services such as "
+            "consultations, ambulances, blood banks and Jan Aushadhi medicines.",
             docs_page("/docs/uhi/v1"),
             related=("m2",),
             needs_callback=True,
@@ -102,7 +116,9 @@ MILESTONES = {
             "NHCX1",
             "Claims exchange flows",
             IDENTITY_MILESTONES,
-            "Exchange health insurance claims and pre-authorisation requests.",
+            "Exchange insurance claims between hospitals and insurers on NHCX, a "
+            "separate claims gateway: eligibility checks, pre-authorisation, "
+            "claims, queries and payment notices.",
             docs_page("/docs/nhcx/v1"),
             needs_callback=True,
         ),
@@ -114,25 +130,27 @@ TRACKS = (
     TrackDefinition(
         "ABDM",
         "Milestones",
-        "ABHA identity, health information exchange and facility registration.",
+        "ABHA identity, consent-based sharing of health records, and registering "
+        "facilities and professionals.",
         ("m1", "m2", "m3", "m4"),
         docs_page("/docs/hiecm/v3"),
     ),
     TrackDefinition(
         "PHR",
         "PHR & Health Locker",
-        "Personal health record application flows, and storage and retrieval "
-        "of records in a health locker.",
+        "A person's own health record app: ABHA sign-up and login, finding and "
+        "linking their records, managing consent, and keeping records in a "
+        "health locker.",
         ("p1", "p2", "p3", "p4"),
-        docs_page("/docs/hiecm/v3/milestones/p1"),
+        docs_page("/docs/hiecm/v3/concepts/participants/phr"),
     ),
     TrackDefinition(
         "UHI",
         "Unified Health Interface",
-        "UHI enables the discovery and delivery of UHI digital health services "
-        "(JanAaushadi/Ambulance). UHI "
-        "onboarding requires M1 or P1, and M2 is suggested alongside it. These "
-        "milestones may also be reused across other ABDM tracks where applicable.",
+        "Discover and book health services, such as consultations, ambulances and "
+        "Jan Aushadhi medicines, on the UHI network. UHI onboarding requires M1 or "
+        "P1, and M2 is suggested alongside it. These milestones may also be reused "
+        "across other ABDM tracks where applicable.",
         ("uhi1",),
         docs_page("/docs/uhi/v1"),
     ),

@@ -271,7 +271,7 @@ def test_each_track_runs_in_order_from_its_own_identity_milestone(environment):
     assert waiting_on(environment, "uhi1") == ["M1 - ABHA Creation and Verification"]
     assert waiting_on(environment, "p1") == []
     for key in ("p2", "p3", "p4"):
-        assert waiting_on(environment, key) == ["P1 - Identity and profile"]
+        assert waiting_on(environment, key) == ["P1 - Registration and login"]
     approve(environment)
     for key in ("m2", "m3", "p1"):
         assert waiting_on(environment, key) == []

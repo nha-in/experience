@@ -69,6 +69,7 @@
       list.querySelectorAll('[data-readiness-item]').forEach(item => {
         const inputs = item.dataset.readinessFields.split(',').map(id => document.getElementById(id)).filter(Boolean);
         const filled = inputs.length > 0 && inputs.every(input => !input.disabled && (
+          input.matches('[data-required-checkbox-group]') ? !!input.querySelector('input:checked') :
           input.type === 'file' ? input.files.length > 0 || !!input.closest('[data-file-upload]')?.querySelector('[data-existing-file-remove]:not(:checked)') :
             input.type === 'checkbox' || input.type === 'radio' ? input.checked : input.value.trim() !== ''
         ));

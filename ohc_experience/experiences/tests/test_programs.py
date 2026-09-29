@@ -210,7 +210,7 @@ def test_product_registration_links_each_track_to_its_documentation(
 
     assert response.status_code == HTTPStatus.OK
     assert MILESTONES["m1"].docs_url.encode() in response.content
-    assert b"Create and verify ABHA identities" in response.content
+    assert b"Create an ABHA, the 14-digit health ID" in response.content
     assert b'id="info-milestone-m1"' in response.content
     assert TRACK_MAP["UHI"].docs_url.encode() in response.content
     assert TRACK_MAP["NHCX"].docs_url.encode() in response.content

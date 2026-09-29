@@ -137,7 +137,7 @@ def test_a_rejected_milestone_locks_the_next_one_until_it_is_resubmitted(
                 submit=submit_form,
             )
     assert workflows.milestone_unavailable(milestone(environment, "p2")) == (
-        "P2 - Linking and records opens once P1 - Identity and profile is submitted."
+        "P2 - Consents Management opens once P1 - Registration and login is submitted."
     )
 
     submit(environment)

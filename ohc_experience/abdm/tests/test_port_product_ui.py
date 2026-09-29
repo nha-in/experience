@@ -96,9 +96,9 @@ def test_the_registration_page_preselects_nothing(environment, client):
     assert b'id="info-solution-clinical_hmis"' in response.content
     assert b"/concepts/hip-hiu" in response.content
     assert b"/concepts/participants/pharmacy" in response.content
-    assert b"/concepts/phr" in response.content
+    assert b"/concepts/participants/phr" in response.content
     assert b"/concepts/participants/insurer" in response.content
-    assert b"/uhi/v1/getting-started/onboarding" in response.content
+    assert b"/concepts/participants/lab" in response.content
 
 
 @pytest.mark.django_db

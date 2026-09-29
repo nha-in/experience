@@ -13,6 +13,8 @@ function createPage({
   const tasks = [];
   const controls = [];
   const groups = [];
+  const readinessLists = [];
+  const fieldsets = new Map();
   const choices = [];
   const testingDates = [];
   const steps = [];
@@ -28,13 +30,14 @@ function createPage({
     querySelectorAll(selector) {
       if (selector === '[data-review-form]') return [form];
       if (selector === '[data-next-step]') return steps;
+      if (selector === '[data-readiness-form]') return readinessLists;
       return [];
     },
     querySelector() { return null; },
     getElementById(id) {
       if (id === form.id) return form;
       if (id === actions.id) return actions;
-      return controls.find(input => input.id === id) || null;
+      return fieldsets.get(id) || controls.find(input => input.id === id) || null;
     },
   };
   document.body = document;
@@ -118,9 +121,13 @@ function createPage({
       querySelector: selector => (selector === ':scope > legend' ? { textContent: `\n  ${legend}\n` } : null),
     });
     const result = {
+      id: `id_${name}`,
       dataset: { requiredCheckboxGroup: name },
       hidden, disabled, parentElement: section,
       querySelectorAll: () => [input],
+      querySelector: selector => (selector === 'input:checked' && input.checked ? input : null),
+      matches: selector => selector === '[data-required-checkbox-group]',
+      closest: selector => (selector === '.ui-form-section' ? section : null),
     };
     const input = {
       id: `id_${name}`, name, checked, disabled: false, validity: { valid: true },
@@ -188,6 +195,16 @@ function createPage({
     choices.push(choice);
     return choice;
   }
+  // The saved-progress checklist. Like Django, it names a checkbox group by the
+  // id on the group's fieldset rather than on any one of its boxes.
+  function readiness(...items) {
+    for (const item of items) fieldsets.set(item.id, item);
+    const row = { dataset: { readinessFields: items.map(item => item.id).join(',') }, querySelector: () => null };
+    readinessLists.push({
+      dataset: { readinessForm: form.id },
+      querySelectorAll: selector => (selector === '[data-readiness-item]' ? [row] : []),
+    });
+  }
   const window = { addEventListener() {}, location: { hash: '' } };
   // Replacing the URL moves its hash without the jump that setting one makes.
   const history = {
@@ -216,8 +233,8 @@ function createPage({
     while (tasks.length) tasks.shift()();
   }
   return {
-    form, button, reason, jump, actions, group, date, nextStep, document, window, milestone, milestoneDates, submitLabel,
-    selectionSummary,
+    form, button, reason, jump, actions, group, date, nextStep, readiness, document, window, milestone, milestoneDates,
+    submitLabel, selectionSummary,
     initialize: () => fire('DOMContentLoaded'),
     change: input => fire('change', input),
     input: input => fire('input', input),
@@ -267,6 +284,25 @@ test('required UHI groups block recording until each group has a choice', () => 
   // Complete says nothing: the enabled button is the message.
   assert.equal(page.reason.textContent, '');
   assert.equal(page.jump.hidden, true);
+});
+
+test('an unsaved UHI section stays marked until each group has a choice', () => {
+  const page = createPage({ autoApprove: true });
+  const role = page.group('uhi_role');
+  const services = page.group('uhi_services');
+  page.readiness(role.group, services.group);
+  page.initialize();
+
+  page.change(role.input);
+  assert.equal(role.section.hasAttribute('data-missing'), true);
+
+  role.input.checked = true;
+  page.change(role.input);
+  assert.equal(role.section.hasAttribute('data-missing'), true);
+
+  services.input.checked = true;
+  page.change(services.input);
+  assert.equal(role.section.hasAttribute('data-missing'), false);
 });
 
 test('Continue on a finished form goes to the submit buttons', () => {

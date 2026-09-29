@@ -295,7 +295,7 @@ class ProductRegistrationForm(ReviewForm):
         ),
         "lmis": (
             "A laboratory system for lab operations and test results.",
-            docs_page("/docs/hiecm/v3/getting-started/glossary?#lmis"),
+            docs_page("/docs/hiecm/v3/concepts/participants/lab"),
         ),
         "pharmacy": (
             "A system that manages pharmacy dispensing and medication records.",
@@ -303,11 +303,11 @@ class ProductRegistrationForm(ReviewForm):
         ),
         "phr": (
             "An application that helps people access and control their health records.",
-            docs_page("/docs/hiecm/v3/concepts/phr"),
+            docs_page("/docs/hiecm/v3/concepts/participants/phr"),
         ),
         "health_locker": (
             "A service that stores and retrieves personal health records.",
-            docs_page("/docs/hiecm/v3/concepts/phr#where-the-citizen-is-the-hip"),
+            docs_page("/docs/hiecm/v3/milestones/p4"),
         ),
         "healthtech": (
             "A digital health product integrating with ABDM services.",
@@ -319,7 +319,7 @@ class ProductRegistrationForm(ReviewForm):
         ),
         "telemedicine": (
             "A service that delivers healthcare remotely through digital channels.",
-            docs_page("/docs/uhi/v1/getting-started/onboarding"),
+            docs_page("/docs/hiecm/v3/milestones"),
         ),
         "govt_program": (
             "A government programme that integrates with ABDM services.",

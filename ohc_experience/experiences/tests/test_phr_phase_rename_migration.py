@@ -126,7 +126,7 @@ def test_the_request_is_retitled_without_losing_the_rest_of_its_metadata(at_befo
     MigrationExecutor(connection).migrate(latest())
 
     application = ApplicationInstance.objects.get(product_id=product.pk)
-    assert application.title == "P1 - Identity and profile"
+    assert application.title == "P1 - Registration and login"
     assert application.metadata == {"milestone": "p1", "note": "kept"}
 
 

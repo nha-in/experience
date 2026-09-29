@@ -25,7 +25,7 @@ def test_the_catalog_reads_its_links_from_the_deployment(settings):
     assert MILESTONES["m1"].docs_url == f"{STAGING}/docs/hiecm/v3/milestones/m1"
     assert TRACK_MAP["UHI"].docs_url == f"{STAGING}/docs/uhi/v1"
     _, url = ProductRegistrationForm.solution_type_details["phr"]
-    assert url == f"{STAGING}/docs/hiecm/v3/concepts/phr"
+    assert url == f"{STAGING}/docs/hiecm/v3/concepts/participants/phr"
 
 
 @pytest.mark.django_db
