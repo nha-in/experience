@@ -4,8 +4,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import http.client
 import json
+import logging
 from datetime import datetime
 from http import HTTPStatus
 from unittest.mock import Mock
@@ -24,6 +26,7 @@ from ohc_experience.users.tests.factories import UserFactory
 
 PINCODE = "560001"
 LOOKUP_URL = reverse("organisations:pincode-lookup")
+PROVIDER_URL = "https://lgd.example.test/internal/lgd/search?pinCode=560001&view=All"
 PROVIDER_ROW = {
     "stateName": "KARNATAKA",
     "stateCode": 29,
@@ -91,6 +94,26 @@ class TestLookupPincode:
         https_factory.assert_not_called()
         args, _ = connection.request.call_args
         assert args == ("GET", "/internal/lgd/search?pinCode=560001&view=All")
+
+    @pytest.mark.parametrize("status", [200, 401])
+    def test_logs_the_url_hit_and_its_status(self, provider, caplog, status):
+        _, connection = provider
+        connection.getresponse.return_value.status = status
+        caplog.set_level(logging.INFO, logger=lgd.__name__)
+        with contextlib.suppress(LGDLookupError):
+            lookup_pincode(PINCODE)
+        assert caplog.messages == [f"LGD lookup GET {PROVIDER_URL} returned {status}"]
+        assert "test-provider-key" not in caplog.text
+
+    def test_logs_a_request_that_gets_no_response(self, provider, caplog):
+        _, connection = provider
+        connection.getresponse.side_effect = TimeoutError("timed out")
+        caplog.set_level(logging.INFO, logger=lgd.__name__)
+        with pytest.raises(LGDLookupError):
+            lookup_pincode(PINCODE)
+        assert caplog.messages == [
+            f"LGD lookup GET {PROVIDER_URL} failed: TimeoutError: timed out",
+        ]
 
     def test_deduplicates_villages_but_preserves_distinct_districts(self, provider):
         _, connection = provider
