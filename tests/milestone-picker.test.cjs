@@ -101,7 +101,7 @@ function createPage({ selected = [] } = {}) {
   const form = new Element('form');
   const types = {};
   for (const [value, [label]] of Object.entries(SOLUTION_TYPES)) {
-    types[value] = new Element('input', { type: 'checkbox', name: 'solution_type', 'data-solution-type': '' });
+    types[value] = new Element('input', { type: 'radio', name: 'solution_type', 'data-solution-type': '' });
     Object.assign(types[value], { value, labels: [{ textContent: `\n  ${label}\n` }] });
     form.append(types[value]);
   }
@@ -159,10 +159,17 @@ function createPage({ selected = [] } = {}) {
   const fire = (type, target) => {
     for (const listener of listeners.get(type) || []) listener({ type, target });
   };
-  // A click on a box: the browser flips it, then says it changed.
+  // A click on a box: the browser flips it, then says it changed. A click on a
+  // radio checks it and clears the rest of its group, but says only it changed.
   const click = input => {
     assert.equal(input.disabled, false, `${input.id} cannot be clicked while disabled`);
-    input.checked = !input.checked;
+    if (input.getAttribute('type') === 'radio') {
+      if (input.checked) return;
+      form.querySelectorAll(`[name="${input.getAttribute('name')}"]`).forEach(radio => { radio.checked = false; });
+      input.checked = true;
+    } else {
+      input.checked = !input.checked;
+    }
     fire('change', input);
   };
   return { boxes, types, notes, warnings, status, click, initialize: () => fire('DOMContentLoaded', document) };
@@ -232,48 +239,60 @@ test('a saved track keeps the other one out as the page loads', () => {
   assert.equal(page.notes.ABDM.hidden, true);
 });
 
-test('a solution type ticks what it requires, and takes back only what nothing else keeps', () => {
+test('a solution type ticks what it requires, and the next takes back what only it needed', () => {
   const page = createPage();
   page.initialize();
 
   page.click(page.types.hmis);
   assert.deepEqual(checked(page, ...ALL), ['m1', 'm2', 'm3', 'm4']);
+
+  // Insurance requires M1 and M3 as well, so only M2 and M4 go.
   page.click(page.types.insurance);
+  assert.equal(page.types.hmis.checked, false);
+  assert.deepEqual(checked(page, ...ALL), ['m1', 'm3']);
+
+  // PHR is on the other track: ABDM clears, so PHR can open.
+  page.click(page.types.phr);
+  assert.deepEqual(checked(page, ...ALL), ['p1', 'p2', 'p3']);
+  assert.equal(page.notes.ABDM.hidden, false);
+  assert.equal(page.notes.PHR.hidden, true);
+});
+
+test('a milestone the integrator changed stays when the solution type changes', () => {
+  const page = createPage();
+  page.initialize();
+  page.click(page.types.hmis);
   // The integrator unticks M4 and ticks it again: it is theirs now.
   page.click(page.boxes.m4);
   page.click(page.boxes.m4);
 
-  page.click(page.types.hmis);
-  // Insurance still requires M1 and M3, and M4 builds on M1.
-  assert.deepEqual(checked(page, ...ALL), ['m1', 'm3', 'm4']);
-
   // M4 is the integrator's, and keeps the M1 it builds on.
   page.click(page.types.insurance);
-  assert.deepEqual(checked(page, ...ALL), ['m1', 'm4']);
+  assert.deepEqual(checked(page, ...ALL), ['m1', 'm3', 'm4']);
 });
 
-test('a required milestone left unticked names the solution types that need it', () => {
+test('a required milestone left unticked names the solution type that needs it', () => {
   const page = createPage();
   page.initialize();
   page.click(page.types.hmis);
-  page.click(page.types.insurance);
   assert.deepEqual(Object.values(page.warnings).filter(warning => !warning.hidden), []);
 
   page.click(page.boxes.m3);
   assert.equal(page.warnings.m3.hidden, false);
-  assert.equal(page.warnings.m3.textContent, 'Required for the HMIS and Insurance solution types.');
-  assert.equal(page.status.textContent, 'M3: Required for the HMIS and Insurance solution types.');
+  assert.equal(page.warnings.m3.textContent, 'Required for the HMIS solution type.');
+  assert.equal(page.status.textContent, 'M3: Required for the HMIS solution type.');
 
-  // Closing M2 with M1 says so for each, once.
+  // Closing M2 and M4 with M1 says so for each, once.
   page.click(page.boxes.m1);
   assert.equal(page.warnings.m2.textContent, 'Required for the HMIS solution type.');
   assert.equal(
     page.status.textContent,
-    'M1: Required for the HMIS and Insurance solution types. M2: Required for the HMIS solution type. '
+    'M1: Required for the HMIS solution type. M2: Required for the HMIS solution type. '
       + 'M4: Required for the HMIS solution type.',
   );
 
-  page.click(page.types.hmis);
+  // Insurance ticks the M1 and M3 it requires, and nothing asks for M2 or M4.
   page.click(page.types.insurance);
+  assert.deepEqual(checked(page, ...ALL), ['m1', 'm3']);
   assert.deepEqual(Object.values(page.warnings).filter(warning => !warning.hidden), []);
 });

@@ -311,10 +311,11 @@
     }
   }
 
-  // Checking a solution type ticks the milestones it requires, with the ones
-  // those build on. Unchecking it clears those again unless another checked type
-  // requires them or the integrator has changed them since. A required milestone
-  // left unchecked says which types require it; the form still saves.
+  // Choosing a solution type ticks the milestones it requires, with the ones
+  // those build on. It clears what the type before it ticked, unless the new
+  // type requires it too or the integrator has changed it since: only the new
+  // radio says it changed, never the one it replaced. A required milestone left
+  // unchecked says which type requires it; the form still saves.
   const preselected = new WeakMap();
   const milestoneFor = (form, key) => key && form.querySelector(`[data-milestone-key="${CSS.escape(key)}"]`);
   const readableList = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join('');
@@ -325,16 +326,6 @@
     const form = type.form;
     if (!preselected.has(form)) preselected.set(form, new Set());
     const added = preselected.get(form);
-    if (type.checked) {
-      form.querySelectorAll('[data-required-for]').forEach(input => {
-        if (!input.dataset.requiredFor.split(' ').includes(type.value)) return;
-        for (let current = input; current && !current.checked; current = milestoneFor(form, current.dataset.milestoneRequires)) {
-          current.checked = true;
-          added.add(current);
-        }
-      });
-      return;
-    }
     const kept = new Set();
     form.querySelectorAll('[data-milestone-key]').forEach(input => {
       if (!input.checked || (added.has(input) && !requiringTypes(form, input).length)) return;
@@ -346,6 +337,13 @@
       if (kept.has(input)) return;
       input.checked = false;
       added.delete(input);
+    });
+    form.querySelectorAll('[data-required-for]').forEach(input => {
+      if (!input.dataset.requiredFor.split(' ').includes(type.value)) return;
+      for (let current = input; current && !current.checked; current = milestoneFor(form, current.dataset.milestoneRequires)) {
+        current.checked = true;
+        added.add(current);
+      }
     });
   }
 

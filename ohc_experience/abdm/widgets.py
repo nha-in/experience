@@ -3,6 +3,17 @@ from django import forms
 from .wasa_extraction import is_enabled
 
 
+class ListRadioSelect(forms.RadioSelect):
+    """Radios for a field that keeps its answer as a list.
+
+    Only one can be chosen, but the post is read the way a checkbox group's is,
+    so a multiple choice field still cleans it to a list and saves it as one.
+    """
+
+    def value_from_datadict(self, data, files, name):
+        return getattr(data, "getlist", data.get)(name)
+
+
 class WasaCertificateInput(forms.FileInput):
     """A PDF chooser that offers to read the audit fields off the certificate.
 

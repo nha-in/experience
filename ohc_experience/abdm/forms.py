@@ -32,6 +32,7 @@ from .wasa import as_date
 from .wasa import certificate_context
 from .wasa import current_wasa
 from .wasa import validity_limit
+from .widgets import ListRadioSelect
 from .widgets import WasaCertificateInput
 
 
@@ -346,8 +347,9 @@ class ProductRegistrationForm(ReviewForm):
     )
     name = forms.CharField(label="Product name", max_length=255)
     description = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}))
+    # One type is chosen but saved as a list, the shape everything else reads.
     solution_type = forms.MultipleChoiceField(
-        label="Solution types applying for",
+        label="Solution type applying for",
         choices=[
             ("hmis", "HMIS"),
             ("clinical_hmis", "Clinic HMIS"),
@@ -361,13 +363,8 @@ class ProductRegistrationForm(ReviewForm):
             ("govt_program", "Government Programme"),
             ("other", "Other"),
         ],
-        widget=forms.CheckboxSelectMultiple(
-            # Its own picker renders this, so `ui_field` cannot stamp the aria.
-            attrs={
-                "class": "ui-checkbox shrink-0",
-                "data-solution-type": "",
-                "aria-required": "true",
-            },
+        widget=ListRadioSelect(
+            attrs={"class": "ui-checkbox shrink-0", "data-solution-type": ""},
         ),
     )
     solution_type_other = forms.CharField(

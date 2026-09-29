@@ -29,6 +29,7 @@ from ohc_experience.abdm.tests.test_workflow import stored_secret
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.services import provision_inline
@@ -326,6 +327,22 @@ def test_stored_inherited_selections_move_to_the_owning_track():
     assert migration.drop_inherited(["HealthLocker:p4"]) == [
         "HealthLocker:p4",
     ]
+
+
+@pytest.mark.django_db
+def test_one_solution_type_is_chosen_and_saved_as_a_list(environment, client):
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:product-create")
+
+    inputs = Inputs(client.get(url).content.decode()).fields
+    radios = [field for field in inputs if field.get("name") == "solution_type"]
+    assert len(radios) == len(ABDM.solution_types)
+    assert all(field["type"] == "radio" and "required" in field for field in radios)
+
+    # A browser posts the one radio chosen.
+    client.post(url, {**product_data("Dispensary"), "solution_type": "pharmacy"})
+    workspace = ProductWorkspace.objects.get(product__name="Dispensary")
+    assert workspace.solution_type == ["pharmacy"]
 
 
 def test_solution_type_accepts_several_values():

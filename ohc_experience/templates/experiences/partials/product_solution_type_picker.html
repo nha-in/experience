@@ -1,9 +1,7 @@
 {% load careui %}
 
-<fieldset id="{{ field.auto_id }}"
-          class="scroll-mt-6"
-          tabindex="-1"
-          data-required-checkbox-group="{{ field.html_name }}">
+{# The radios carry `required` themselves, unlike a checkbox group. #}
+<fieldset id="{{ field.auto_id }}" class="scroll-mt-6" tabindex="-1">
   <legend class="ui-label">
     {{ field.label }} <span class="ui-required" aria-hidden="true">*</span>
   </legend>
