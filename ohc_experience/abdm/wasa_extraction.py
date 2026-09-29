@@ -243,7 +243,7 @@ def _page_images(content: bytes) -> list[bytes]:
             # Do not spend CPU rendering later pages when this request cannot
             # be sent to the provider in the first place.
             if len(rendered) > MAX_IMAGE_BYTES:
-                raise WasaExtractionError(
+                raise WasaExtractionError(  # noqa: TRY301
                     _(
                         "This certificate's pages are too large to read. "
                         "Enter the audit details yourself.",
