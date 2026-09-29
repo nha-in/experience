@@ -25,11 +25,17 @@
     cin.disabled = soleProprietorship;
 
     const documentNumber = form.elements.namedItem('verification_document_number');
+    documentNumber.dataset.defaultMaxLength ??= documentNumber.maxLength;
     const limit = documentLimits[documentType.value];
     if (limit) {
       documentNumber.maxLength = limit.maxLength;
       documentNumber.pattern = limit.pattern;
       documentNumber.title = `Enter a ${limit.maxLength}-character ${documentType.value} number.`;
+    } else {
+      // No type chosen, so no format to hold the number to.
+      documentNumber.maxLength = documentNumber.dataset.defaultMaxLength;
+      documentNumber.removeAttribute('pattern');
+      documentNumber.removeAttribute('title');
     }
   }
 

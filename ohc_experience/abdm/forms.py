@@ -103,11 +103,18 @@ class OrganisationForm(ReviewForm):
     )
     verification_document_type = forms.ChoiceField(
         label="Document type",
-        choices=[("PAN", "PAN"), ("GSTIN", "GSTIN"), ("CIN", "CIN")],
+        choices=[
+            ("", "Select a document type"),
+            ("PAN", "PAN"),
+            ("GSTIN", "GSTIN"),
+            ("CIN", "CIN"),
+        ],
+        required=False,
     )
     verification_document_number = forms.CharField(
         label="Document number",
         max_length=32,
+        required=False,
     )
     supporting_document = forms.FileField(
         label="Verification document",
@@ -115,7 +122,6 @@ class OrganisationForm(ReviewForm):
         validators=[validate_pdf],
         widget=forms.FileInput(attrs={"accept": ".pdf"}),
     )
-    required_uploads = ("supporting_document",)
     conditional_requirements = ("website",)
 
     class Media:
