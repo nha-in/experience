@@ -270,6 +270,7 @@ dump.rdb
 
 ### Project template
 ohc_experience/media/
+legacy-import-report/
 
 .pytest_cache/
 .ipython/
