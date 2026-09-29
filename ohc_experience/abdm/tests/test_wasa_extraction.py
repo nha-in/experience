@@ -347,6 +347,44 @@ def test_the_hook_is_off_without_a_model(settings):
         extract_certificate(certificate())
 
 
+def test_the_switch_turns_the_hook_off_without_disturbing_the_model(settings, reader):
+    """Switching it back on must not mean remembering what the model was."""
+    settings.WASA_EXTRACTION_ENABLED = False
+    reader["reply"] = stated()
+
+    assert not wasa_extraction.is_enabled()
+    with pytest.raises(WasaExtractionError):
+        extract_certificate(certificate())
+    assert settings.WASA_EXTRACTION_MODEL
+
+    settings.WASA_EXTRACTION_ENABLED = True
+
+    assert wasa_extraction.is_enabled()
+    assert extract_certificate(certificate())["wasa_agency"] == AGENCY
+
+
+def test_a_switched_off_hook_leaves_the_field_a_plain_upload(settings):
+    settings.WASA_EXTRACTION_ENABLED = False
+
+    html = render_to_string(
+        "experiences/partials/form.html",
+        {"form": ExitEvidenceForm()},
+    )
+
+    assert "data-read-document=" not in html
+
+
+def test_a_switched_off_hook_does_not_ask_a_stale_page_to_try_again(settings):
+    """A page opened before the switch was flipped still posts; nothing failed."""
+    settings.WASA_EXTRACTION_ENABLED = False
+
+    with pytest.raises(WasaExtractionError) as refusal:
+        extract_certificate(certificate())
+
+    assert not refusal.value.retryable
+    assert "switched off" in str(refusal.value)
+
+
 def test_the_field_only_offers_the_hook_when_it_is_configured(settings):
     html = render_to_string(
         "experiences/partials/form.html",

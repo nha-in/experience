@@ -148,6 +148,14 @@ def is_enabled() -> bool:
 
 
 def _configuration() -> tuple[str, float, int, int]:
+    if not settings.WASA_EXTRACTION_ENABLED:
+        raise WasaExtractionError(
+            _(
+                "Reading certificates is switched off here. "
+                "Enter the audit details yourself.",
+            ),
+            retryable=False,
+        )
     model = settings.WASA_EXTRACTION_MODEL
     if not isinstance(model, str) or not model.strip():
         raise WasaExtractionError

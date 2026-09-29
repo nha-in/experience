@@ -54,6 +54,10 @@ INTEGRATION_PORTS = {
 WSO2_API_IDS = {"abdm": ("api-healthid", "api-gateway")}
 # Pinned off for the same reason: a test must never reach a model provider.
 WASA_EXTRACTION_MODEL = ""
+# Pinned, not inherited: a developer's own .env must not decide whether the
+# reader's tests exercise the switch or its cache.
+WASA_EXTRACTION_ENABLED = True
+WASA_EXTRACTION_CACHE_TTL = 3600
 
 # The limits live in the cache, which outlasts a test, so one test's verification
 # code would rate-limit the next test's signup with the same address.

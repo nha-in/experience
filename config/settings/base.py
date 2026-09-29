@@ -175,8 +175,7 @@ LGD_API_KEY = env("LGD_API_KEY", default="")
 LGD_API_TIMEOUT = env.float("LGD_API_TIMEOUT", default=5.0)
 LGD_CACHE_TTL = env.int("LGD_CACHE_TTL", default=3600)
 
-# Reads an uploaded WASA certificate to propose the audit fields. Blanking the
-# model switches the hook off and the fields are typed in as before.
+# Reads an uploaded WASA certificate to propose the audit fields.
 
 
 def _tuning(name, cast, default):
@@ -188,6 +187,8 @@ def _tuning(name, cast, default):
         return default
 
 
+# Asked for by name or not at all: every reading is paid for.
+WASA_EXTRACTION_ENABLED = env.bool("WASA_EXTRACTION_ENABLED", default=False)
 WASA_EXTRACTION_MODEL = env(
     "WASA_EXTRACTION_MODEL",
     default="bedrock/converse/in.openai.gpt-5.6-terra",
