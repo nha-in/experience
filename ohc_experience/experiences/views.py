@@ -1395,8 +1395,8 @@ def _milestone_testing_dates(request, *, prefix, errors=None):
             "is_start": key == "start_date",
         }
         for key, label in (
-            ("start_date", "Testing start date"),
-            ("end_date", "Testing end date"),
+            ("start_date", "Start date"),
+            ("end_date", "End date"),
         )
     ]
 

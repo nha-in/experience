@@ -42,7 +42,7 @@
         {% endfor %}
       {% endif %}
     </fieldset>
-    {% if show_milestone_choices and section.title == 'Sandbox testing' and submission_choices %}
+    {% if show_milestone_choices and section.title == 'Milestone dates' and submission_choices %}
       {% include 'experiences/partials/milestone_submission_choices.html' %}
     {% endif %}
   {% endfor %}

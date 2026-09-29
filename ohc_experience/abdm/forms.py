@@ -670,7 +670,7 @@ class ExitEvidenceForm(WasaReviewForm):
         ),
     }
     sections = (
-        ("Sandbox testing", ("start_date", "end_date", "tentative_demo_date")),
+        ("Milestone dates", ("start_date", "end_date", "tentative_demo_date")),
         (
             "WASA audit",
             (

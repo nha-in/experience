@@ -26,7 +26,7 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
     assert readiness["completed"] == 1
     assert readiness["missing"] == 3  # noqa: PLR2004
     assert [row["label"] for row in readiness["rows"]] == [
-        "Sandbox testing",
+        "Milestone dates",
         "WASA audit",
         "Functional testing",
         "Undertaking",
