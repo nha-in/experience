@@ -175,8 +175,7 @@ LGD_API_KEY = env("LGD_API_KEY", default="")
 LGD_API_TIMEOUT = env.float("LGD_API_TIMEOUT", default=5.0)
 LGD_CACHE_TTL = env.int("LGD_CACHE_TTL", default=3600)
 
-# Reads an uploaded WASA certificate to propose the audit fields. Blanking the
-# model switches the hook off and the fields are typed in as before.
+# Reads an uploaded WASA certificate to propose the audit fields.
 
 
 def _tuning(name, cast, default):
@@ -188,6 +187,8 @@ def _tuning(name, cast, default):
         return default
 
 
+# Asked for by name or not at all: every reading is paid for.
+WASA_EXTRACTION_ENABLED = env.bool("WASA_EXTRACTION_ENABLED", default=False)
 WASA_EXTRACTION_MODEL = env(
     "WASA_EXTRACTION_MODEL",
     default="bedrock/converse/in.openai.gpt-5.6-terra",
@@ -198,6 +199,9 @@ WASA_EXTRACTION_CACHE_TTL = _tuning("WASA_EXTRACTION_CACHE_TTL", int, 3600)
 # Pages are rendered to images at this resolution. Higher reads small print more
 # reliably and costs more per page.
 WASA_EXTRACTION_DPI = _tuning("WASA_EXTRACTION_DPI", int, 150)
+# The JPEG quality those page images are saved at. Higher keeps small print
+# sharper and makes each page a larger upload.
+WASA_EXTRACTION_JPEG_QUALITY = _tuning("WASA_EXTRACTION_JPEG_QUALITY", int, 85)
 
 # Bedrock's own principal, deliberately apart from the AWS_* settings that carry
 # the media bucket's credentials: reading a document must not borrow the rights

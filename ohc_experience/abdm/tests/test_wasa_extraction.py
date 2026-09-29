@@ -347,6 +347,44 @@ def test_the_hook_is_off_without_a_model(settings):
         extract_certificate(certificate())
 
 
+def test_the_switch_turns_the_hook_off_without_disturbing_the_model(settings, reader):
+    """Switching it back on must not mean remembering what the model was."""
+    settings.WASA_EXTRACTION_ENABLED = False
+    reader["reply"] = stated()
+
+    assert not wasa_extraction.is_enabled()
+    with pytest.raises(WasaExtractionError):
+        extract_certificate(certificate())
+    assert settings.WASA_EXTRACTION_MODEL
+
+    settings.WASA_EXTRACTION_ENABLED = True
+
+    assert wasa_extraction.is_enabled()
+    assert extract_certificate(certificate())["wasa_agency"] == AGENCY
+
+
+def test_a_switched_off_hook_leaves_the_field_a_plain_upload(settings):
+    settings.WASA_EXTRACTION_ENABLED = False
+
+    html = render_to_string(
+        "experiences/partials/form.html",
+        {"form": ExitEvidenceForm()},
+    )
+
+    assert "data-read-document=" not in html
+
+
+def test_a_switched_off_hook_does_not_ask_a_stale_page_to_try_again(settings):
+    """A page opened before the switch was flipped still posts; nothing failed."""
+    settings.WASA_EXTRACTION_ENABLED = False
+
+    with pytest.raises(WasaExtractionError) as refusal:
+        extract_certificate(certificate())
+
+    assert not refusal.value.retryable
+    assert "switched off" in str(refusal.value)
+
+
 def test_the_field_only_offers_the_hook_when_it_is_configured(settings):
     html = render_to_string(
         "experiences/partials/form.html",
@@ -598,7 +636,7 @@ def sent(provider):
     return recorded
 
 
-def test_the_pages_are_sent_as_images_beside_the_instruction(sent):
+def test_the_jpeg_pages_are_sent_as_images_beside_the_instruction(sent):
     assert extract_certificate(certificate())["wasa_agency"] == AGENCY
     blocks = sent["messages"][0]["content"]
     assert sent["model"] == "bedrock/test-model"
@@ -606,7 +644,7 @@ def test_the_pages_are_sent_as_images_beside_the_instruction(sent):
     assert "JSON object" in blocks[0]["text"]
     assert [block["type"] for block in blocks[1:]] == ["image_url"]
     assert blocks[1]["image_url"]["url"] == (
-        "data:image/png;base64," + base64.b64encode(b"page-png").decode()
+        "data:image/jpeg;base64," + base64.b64encode(b"page-png").decode()
     )
 
 
@@ -629,13 +667,13 @@ def test_no_temperature_is_offered_because_providers_disagree(sent):
     assert sent["drop_params"] is True
 
 
-def test_pages_really_render_to_png(settings):
+def test_pages_really_render_to_jpeg(settings):
     settings.WASA_EXTRACTION_DPI = 150
 
     images = wasa_extraction._page_images(blank_pdf(2))  # noqa: SLF001
 
     assert len(images) == 2  # noqa: PLR2004
-    assert all(image.startswith(b"\x89PNG") for image in images)
+    assert all(image.startswith(b"\xff\xd8\xff") for image in images)
 
 
 def test_only_the_first_pages_are_rendered(settings):
@@ -660,6 +698,23 @@ def test_the_render_resolution_is_configurable(settings):
 @pytest.mark.parametrize("dpi", [0, 71, 401])
 def test_an_implausible_resolution_switches_the_hook_off(settings, dpi):
     settings.WASA_EXTRACTION_DPI = dpi
+
+    assert not wasa_extraction.is_enabled()
+
+
+def test_the_page_quality_is_configurable(settings):
+    settings.WASA_EXTRACTION_DPI = 150
+    settings.WASA_EXTRACTION_JPEG_QUALITY = 20
+    coarse = wasa_extraction._page_images(blank_pdf())  # noqa: SLF001
+    settings.WASA_EXTRACTION_JPEG_QUALITY = 95
+    fine = wasa_extraction._page_images(blank_pdf())  # noqa: SLF001
+
+    assert len(fine[0]) > len(coarse[0])
+
+
+@pytest.mark.parametrize("quality", [0, 96])
+def test_an_implausible_page_quality_switches_the_hook_off(settings, quality):
+    settings.WASA_EXTRACTION_JPEG_QUALITY = quality
 
     assert not wasa_extraction.is_enabled()
 
