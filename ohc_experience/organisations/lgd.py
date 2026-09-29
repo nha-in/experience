@@ -53,8 +53,9 @@ def _configuration() -> tuple[str, str, float, int]:
         parsed = urlsplit(url)
         timeout = float(settings.LGD_API_TIMEOUT)
         cache_ttl = int(settings.LGD_CACHE_TTL)
+        # Some deployments reach the provider only over plain HTTP.
         valid_url = (
-            parsed.scheme == "https"
+            parsed.scheme in {"http", "https"}
             and parsed.hostname
             and not parsed.username
             and not parsed.password
@@ -79,7 +80,12 @@ def _fetch_locations(url: str, api_key: str, pincode: str, timeout: float):
     connection = None
     try:
         parsed = urlsplit(url)
-        connection = http.client.HTTPSConnection(
+        connection_class = (
+            http.client.HTTPSConnection
+            if parsed.scheme == "https"
+            else http.client.HTTPConnection
+        )
+        connection = connection_class(
             parsed.hostname,
             port=parsed.port,
             timeout=timeout,

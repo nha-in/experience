@@ -81,6 +81,17 @@ class TestLookupPincode:
         assert datetime.fromisoformat(timestamp).utcoffset().total_seconds() == 0
         connection.close.assert_called_once()
 
+    def test_http_url_connects_without_tls(self, settings, provider, monkeypatch):
+        https_factory, connection = provider
+        http_factory = Mock(return_value=connection)
+        monkeypatch.setattr(lgd.http.client, "HTTPConnection", http_factory)
+        settings.LGD_API_URL = "http://lgd.example.test/internal/lgd"
+        assert lookup_pincode(PINCODE) == [LOCATION]
+        http_factory.assert_called_once_with("lgd.example.test", port=None, timeout=5.0)
+        https_factory.assert_not_called()
+        args, _ = connection.request.call_args
+        assert args == ("GET", "/internal/lgd/search?pinCode=560001&view=All")
+
     def test_deduplicates_villages_but_preserves_distinct_districts(self, provider):
         _, connection = provider
         another_district = {
@@ -115,7 +126,7 @@ class TestLookupPincode:
         [
             ("LGD_API_KEY", ""),
             ("LGD_API_KEY", None),
-            ("LGD_API_URL", "http://lgd.example.test"),
+            ("LGD_API_URL", "ftp://lgd.example.test/lgd"),
             ("LGD_API_URL", "https://name:password@lgd.example.test/lgd"),
             ("LGD_API_TIMEOUT", 0),
             ("LGD_API_TIMEOUT", float("inf")),

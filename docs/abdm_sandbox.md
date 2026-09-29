@@ -470,7 +470,7 @@ The metadata keys are `state_lgd_code` and `district_lgd_code`.
 | Environment setting | Default and purpose |
 | --- | --- |
 | `LGD_API_KEY` | Required server-side API key. Supply through the deployment's secret configuration; never include it in templates, JavaScript or committed files. |
-| `LGD_API_URL` | `https://apissbx.abdm.gov.in/global/api/v3/internal/lgd`. Override with the approved HTTPS LGD base for the deployment. |
+| `LGD_API_URL` | `https://apissbx.abdm.gov.in/global/api/v3/internal/lgd`. Override with the approved LGD base for the deployment; `http` is accepted where HTTPS is unreachable, but then the key travels unencrypted. |
 | `LGD_API_TIMEOUT` | `5.0` seconds per provider connection/read operation; must be greater than zero and at most 30. |
 | `LGD_CACHE_TTL` | `3600` seconds; allowed range 0–86400. Set 0 to disable caching. Each worker caches at most 512 PIN results; provider failures are not cached. |
 

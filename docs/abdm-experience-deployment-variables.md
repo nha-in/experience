@@ -52,7 +52,7 @@ For **signup and organisation address lookup**, configure:
 | `TURNSTILE_SITE_KEY` | **Required for production signup.** Turnstile site key registered for the deployed hostname. Default: empty. |
 | `TURNSTILE_SECRET_KEY` | **Required for production signup.** Turnstile secret key. Default: empty. |
 | `LGD_API_KEY` | **Required for address lookup.** Server-side LGD API key. Default: empty. |
-| `LGD_API_URL` | Default: `https://apissbx.abdm.gov.in/global/api/v3/internal/lgd`. Override with the approved HTTPS LGD base URL for the deployment. |
+| `LGD_API_URL` | Default: `https://apissbx.abdm.gov.in/global/api/v3/internal/lgd`. Override with the approved LGD base URL for the deployment; `http` is accepted where HTTPS is unreachable, but then the key travels unencrypted. |
 | `LGD_API_TIMEOUT` | Default: `5` seconds. Allowed: greater than `0`, up to `30`. |
 | `LGD_CACHE_TTL` | Default: `3600` seconds. Allowed: `0–86400`; `0` disables caching. |
 
