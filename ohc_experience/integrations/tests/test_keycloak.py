@@ -27,7 +27,7 @@ from ohc_experience.integrations.tests.keycloak_stub import KeycloakStubTranspor
 
 SANDBOX_ROLES = ("healthId", "hip", "hiu")
 SPEC = ClientSpec(
-    reference="SBX-2026-00001",
+    reference="APP-2026-00001",
     display_name="Demo HMIS",
     role_names=SANDBOX_ROLES,
 )

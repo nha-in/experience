@@ -340,7 +340,7 @@ class ABDM(ProgramDefinition):
     logo = "images/abdm-logo.png"
     authority_logo = "images/nha-logo.png"
     authority_name = "National Health Authority"
-    product_reference_prefix = "SBX"
+    product_reference_prefix = "APP"
     solution_types = dict(ProductRegistrationForm.base_fields["solution_type"].choices)
     organisation_form = OrganisationVerification
     applications = ApplicationSet(

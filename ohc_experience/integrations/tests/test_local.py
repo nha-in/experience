@@ -26,10 +26,10 @@ from ohc_experience.integrations.ports import NotificationGateway
 from ohc_experience.integrations.ports import NotificationMessage
 from ohc_experience.integrations.secret_ref import store_secret
 
-SPEC = ClientSpec(reference="SBX-2026-00001", display_name="Acme", role_names=("hip",))
-APP_SPEC = GatewayAppSpec(reference="SBX-2026-00001", name="Acme", api_ids=("abha",))
+SPEC = ClientSpec(reference="APP-2026-00001", display_name="Acme", role_names=("hip",))
+APP_SPEC = GatewayAppSpec(reference="APP-2026-00001", name="Acme", api_ids=("abha",))
 #: WSO2 derives the name from the reference, and so does the local adapter.
-APP_NAME = "sbx-SBX-2026-00001"
+APP_NAME = "sbx-APP-2026-00001"
 BRIDGE_SPEC = BridgeSpec(
     bridge_id="SBX_ABC",
     name="Acme",

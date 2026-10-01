@@ -33,7 +33,7 @@ def test_engine_demo_command_runs_registered_abdm_builder(settings):
     assert ReviewItem.objects.filter(status="query_raised").exists()
     # The approved M1 comes with a visibly fake production client ID.
     recorded = Product.objects.exclude(production_client_id="").get()
-    assert recorded.production_client_id.startswith("DEMO_PROD_SBX_")
+    assert recorded.production_client_id.startswith("DEMO_PROD_APP_")
     with pytest.raises(CommandError, match="already exists"):
         call_command("seed_experience_demo", stdout=StringIO())
 

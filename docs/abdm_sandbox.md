@@ -92,7 +92,7 @@ application data:
 docker compose -f docker-compose.local.yml exec django python manage.py seed_experience_demo --permissions-only
 ```
 
-`SBX-2026-00001` demonstrates an approved shared M1 with a (fake) production
+`APP-2026-00001` demonstrates an approved shared M1 with a (fake) production
 client ID and issue date, an M2 query, an M3 review, a P1 review, a rejected
 P4 locker request and a UHI application recorded automatically, since M1 —
 its only prerequisite — is already approved by the time it's submitted. The

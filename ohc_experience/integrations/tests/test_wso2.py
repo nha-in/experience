@@ -25,11 +25,11 @@ from ohc_experience.integrations.wso2.apis import api_ids_for
 
 API_IDS = ("api-0001-abha", "api-0002-hip")
 SPEC = GatewayAppSpec(
-    reference="SBX-2026-00001",
+    reference="APP-2026-00001",
     name="Demo HMIS",
     api_ids=API_IDS,
 )
-APP_NAME = "sbx-SBX-2026-00001"
+APP_NAME = "sbx-APP-2026-00001"
 
 SERVER_ERROR = 500
 CONSUMER_KEY = "SBX_ABCDEF0123456789"

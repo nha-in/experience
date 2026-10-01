@@ -177,14 +177,14 @@ def test_revealed_secret_keeps_authenticated_mask_and_reveal_template():
         "experiences/partials/secret.html",
         {
             "credential": SimpleNamespace(status="active"),
-            "workspace": SimpleNamespace(reference="SBX-2026-00001"),
+            "workspace": SimpleNamespace(reference="APP-2026-00001"),
             "revealed_secret": "temporary-test-value",
             "csrf_token": "test-token",
         },
     )
     assert "data-revealed-secret" in html
     assert "data-secret-masked" in html
-    assert 'action="/products/SBX-2026-00001/credentials/"' in html
+    assert 'action="/products/APP-2026-00001/credentials/"' in html
     assert 'name="intent" value="reveal"' in html
     assert 'name="csrfmiddlewaretoken"' in html
     assert "Reveal secret" in html

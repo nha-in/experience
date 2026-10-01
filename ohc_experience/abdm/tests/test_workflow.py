@@ -826,6 +826,13 @@ def test_registering_a_product_records_it_without_a_review(environment):
     assert "Solution type: Clinic HMIS\n" in notice.body
 
 
+def test_a_product_reference_is_app_the_year_and_its_number(environment):
+    workspace = environment["workspace"]
+    year = timezone.localdate().year
+
+    assert workspace.reference == f"APP-{year}-{workspace.product.pk:05d}"
+
+
 def test_withdraw_and_resubmit_preserves_original_fields_and_files(environment):
     item = submit(environment)
     original = item.selected_submission
