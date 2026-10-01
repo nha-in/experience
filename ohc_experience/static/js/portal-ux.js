@@ -250,9 +250,10 @@
       updatePermissionSummary(group);
     }
   });
-  // A milestone opens once one of the milestones it builds on is ticked;
-  // unticking them clears everything after it. One marked stands-alone, like
-  // UHI, is only ever suggested them. The form re-checks this on submit.
+  // A milestone opens once one of the milestones it builds on is ticked, or all
+  // of them for one marked requires-all, like P4; unticking them clears
+  // everything after it. One marked stands-alone, like UHI, is only ever
+  // suggested them. The form re-checks this on submit.
   const isTicked = (form, key) => [...form.querySelectorAll(`[data-milestone-key="${CSS.escape(key)}"]`)].some(input => input.checked);
 
   // Approved and under-review milestones are posted as hidden fields, so the
@@ -299,7 +300,9 @@
       for (const input of gated) {
         const required = (input.dataset.milestoneRequires || '').split(' ').filter(Boolean);
         const standsAlone = 'milestoneStandsAlone' in input.dataset;
-        const built = required.some(key => isTicked(form, key));
+        const built = 'milestoneRequiresAll' in input.dataset
+          ? required.every(key => isTicked(form, key))
+          : required.some(key => isTicked(form, key));
         const met = standsAlone || required.length === 0 || built;
         const open = met && !input.dataset.trackBlocked;
         if (!open && input.checked) {
@@ -318,6 +321,13 @@
   // unchecked says which type requires it; the form still saves.
   const preselected = new WeakMap();
   const milestoneFor = (form, key) => key && form.querySelector(`[data-milestone-key="${CSS.escape(key)}"]`);
+  // What a milestone builds on: every one for P4, the only one otherwise. A
+  // choice between several, like UHI's, is left to the integrator.
+  const buildsOn = (form, input) => {
+    const keys = (input.dataset.milestoneRequires || '').split(' ').filter(Boolean);
+    if (keys.length > 1 && !('milestoneRequiresAll' in input.dataset)) return [];
+    return keys.map(key => milestoneFor(form, key)).filter(Boolean);
+  };
   const readableList = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join('');
   const requiringTypes = (form, input) => [...form.querySelectorAll('[data-solution-type]:checked')].filter(type =>
     (input.dataset.requiredFor || '').split(' ').includes(type.value));
@@ -327,23 +337,28 @@
     if (!preselected.has(form)) preselected.set(form, new Set());
     const added = preselected.get(form);
     const kept = new Set();
+    const keep = input => {
+      if (kept.has(input)) return;
+      kept.add(input);
+      buildsOn(form, input).forEach(keep);
+    };
     form.querySelectorAll('[data-milestone-key]').forEach(input => {
       if (!input.checked || (added.has(input) && !requiringTypes(form, input).length)) return;
-      for (let current = input; current && !kept.has(current); current = milestoneFor(form, current.dataset.milestoneRequires)) {
-        kept.add(current);
-      }
+      keep(input);
     });
     added.forEach(input => {
       if (kept.has(input)) return;
       input.checked = false;
       added.delete(input);
     });
+    const tick = input => {
+      if (input.checked) return;
+      input.checked = true;
+      added.add(input);
+      buildsOn(form, input).forEach(tick);
+    };
     form.querySelectorAll('[data-required-for]').forEach(input => {
-      if (!input.dataset.requiredFor.split(' ').includes(type.value)) return;
-      for (let current = input; current && !current.checked; current = milestoneFor(form, current.dataset.milestoneRequires)) {
-        current.checked = true;
-        added.add(current);
-      }
+      if (input.dataset.requiredFor.split(' ').includes(type.value)) tick(input);
     });
   }
 

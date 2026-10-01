@@ -134,7 +134,7 @@ def test_solution_handoff_uses_product_id_and_approved_wasa(  # noqa: PLR0913, P
         ("lmis", ("m1",)),
         ("telemedicine", ("m1", "m2")),
         ("health_locker", ("p1", "p2", "p3")),
-        ("health_locker", ("p1", "p4")),
+        ("health_locker", ("p1", "p2")),
         ("pharmacy", ("m1",)),
     ],
 )

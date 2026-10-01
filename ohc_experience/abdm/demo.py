@@ -551,7 +551,7 @@ class DemoBuilder:
 
         The locker closes the PHR sequence, so this product carries the phases
         the HMIS no longer can: ABDM and PHR cannot be applied for together.
-        P1 is approved because P2, P3 and P4 all build on it.
+        P1 is approved because P2 and P3 build on it; P4 waits on all three.
         """
         locker, form = self.register_product(
             org,
@@ -576,11 +576,10 @@ class DemoBuilder:
             admin,
             reviewer,
             "approved",
-            note="P1 approved. P2, P3 and P4 are open for submission.",
+            note="P1 approved. P2 and P3 are open for submission.",
         )
-        for key in ("p2", "p3"):
+        for key in ("p2", "p3", "p4"):
             self.exit(locker, key, applicant, admin, reviewer, "review")
-        self.exit(locker, "p4", applicant, admin, reviewer, "rejected")
 
     def events(self, admin):
         for index, (title, kind, days) in enumerate(

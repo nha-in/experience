@@ -221,7 +221,7 @@ class MilestoneDefinition:
     name: str
     #: The milestone this one builds on. A tuple offers alternatives, any one of
     #: which opens it: UHI and NHCX1 build on whichever identity milestone the
-    #: product's track carries.
+    #: product's track carries. With `requires_all`, it needs every one.
     predecessor: str | tuple[str, ...] = ""
     description: str = ""
     docs_url: str = ""
@@ -235,6 +235,9 @@ class MilestoneDefinition:
     #: Whether this milestone can be applied for without its predecessor. It
     #: still waits for one that was applied for alongside it.
     stands_alone: bool = False
+    #: Whether every predecessor must be chosen, not just one: P4 builds on
+    #: P1, P2 and P3 together.
+    requires_all: bool = False
 
     @property
     def predecessors(self) -> tuple[str, ...]:
@@ -808,10 +811,14 @@ class ProgramDefinition:
             options = cls.milestone_predecessors(key, organisation)
             if not options:
                 continue
-            if any(option in keys for option in options):
+            met = all if milestone.requires_all else any
+            if met(option in keys for option in options):
                 continue
             codes = [cls.milestones[option].code for option in options]
-            needed = readable_list(codes, conjunction="or")
+            needed = readable_list(
+                codes,
+                conjunction="and" if milestone.requires_all else "or",
+            )
             msg = f"Select {needed} before {milestone.name}."
             raise ValidationError(msg)
         return keys

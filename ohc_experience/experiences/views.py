@@ -251,12 +251,16 @@ def _tracks(workspace, user):
             )
         codes = {tile["definition"].key: tile["definition"].code for tile in tiles}
         for tile in tiles:
+            definition = tile["definition"]
             options = workspace.definition.milestone_predecessors(
-                tile["definition"].key,
+                definition.key,
                 workspace.product.organisation,
             )
             needs = [codes[other] for other in options if other in codes]
-            tile["needs"] = readable_list(needs, conjunction="or")
+            tile["needs"] = readable_list(
+                needs,
+                conjunction="and" if definition.requires_all else "or",
+            )
         result.append(
             {
                 "definition": track,

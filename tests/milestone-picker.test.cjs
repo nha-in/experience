@@ -81,10 +81,11 @@ class Element {
 }
 
 // The ABDM program's tracks, each milestone with the milestones that open it,
-// any one of which will do. ABDM and PHR rule each other out.
+// any one of which will do unless it needs them all. ABDM and PHR rule each
+// other out.
 const TRACKS = [
   { code: 'ABDM', excludes: 'PHR', milestones: { m1: '', m2: 'm1', m3: 'm1', m4: 'm1' } },
-  { code: 'PHR', excludes: 'ABDM', milestones: { p1: '', p2: 'p1', p3: 'p1', p4: 'p1' } },
+  { code: 'PHR', excludes: 'ABDM', milestones: { p1: '', p2: 'p1', p3: 'p1', p4: 'p1 p2 p3' }, requiresAll: ['p4'] },
   { code: 'UHI', milestones: { uhi1: 'm1 p1' }, standsAlone: true },
   { code: 'NHCX', milestones: { nhcx1: 'm1 p1' } },
 ];
@@ -92,6 +93,7 @@ const TRACKS = [
 const SOLUTION_TYPES = {
   hmis: ['HMIS', ['m1', 'm2', 'm3', 'm4']],
   phr: ['PHR', ['p1', 'p2', 'p3']],
+  health_locker: ['Health Locker', ['p1', 'p2', 'p3', 'p4']],
   insurance: ['Insurance', ['m1', 'm3']],
 };
 
@@ -124,6 +126,7 @@ function createPage({ selected = [] } = {}) {
         type: 'checkbox', id, name: 'applied_milestones', 'data-milestone-key': key, 'data-milestone-requires': requires,
       });
       if (track.standsAlone) box.setAttribute('data-milestone-stands-alone', '');
+      if (track.requiresAll?.includes(key)) box.setAttribute('data-milestone-requires-all', '');
       box.disabled = chosen?.excludes === track.code;
       box.checked = selected.includes(key);
       const requiredFor = Object.keys(SOLUTION_TYPES).filter(value => SOLUTION_TYPES[value][1].includes(key));
@@ -201,7 +204,7 @@ test('NHCX opens on either identity milestone', () => {
   page.initialize();
 
   page.click(page.boxes.p1);
-  assert.deepEqual(enabled(page, 'nhcx1', 'p2', 'p3', 'p4'), ['nhcx1', 'p2', 'p3', 'p4']);
+  assert.deepEqual(enabled(page, 'nhcx1', 'p2', 'p3'), ['nhcx1', 'p2', 'p3']);
   page.click(page.boxes.nhcx1);
   page.click(page.boxes.p1);
   assert.deepEqual(checked(page, 'nhcx1'), []);
@@ -295,4 +298,36 @@ test('a required milestone left unticked names the solution type that needs it',
   page.click(page.types.insurance);
   assert.deepEqual(checked(page, ...ALL), ['m1', 'm3']);
   assert.deepEqual(Object.values(page.warnings).filter(warning => !warning.hidden), []);
+});
+
+test('P4 opens only once P1, P2 and P3 are all ticked, and closes with any of them', () => {
+  const page = createPage();
+  page.initialize();
+
+  page.click(page.boxes.p1);
+  assert.deepEqual(enabled(page, 'p4'), []);
+  page.click(page.boxes.p2);
+  assert.deepEqual(enabled(page, 'p4'), []);
+  page.click(page.boxes.p3);
+  assert.deepEqual(enabled(page, 'p4'), ['p4']);
+  page.click(page.boxes.p4);
+
+  page.click(page.boxes.p2);
+  assert.deepEqual(checked(page, 'p1', 'p2', 'p3', 'p4'), ['p1', 'p3']);
+  assert.deepEqual(enabled(page, 'p4'), []);
+});
+
+test('Health Locker ticks P1 to P4, and P4 the integrator kept keeps P1 to P3', () => {
+  const page = createPage();
+  page.initialize();
+
+  page.click(page.types.health_locker);
+  assert.deepEqual(checked(page, ...ALL), ['p1', 'p2', 'p3', 'p4']);
+
+  // P4 is the integrator's now, so PHR, which needs only P1 to P3, keeps it
+  // along with all three it builds on.
+  page.click(page.boxes.p4);
+  page.click(page.boxes.p4);
+  page.click(page.types.phr);
+  assert.deepEqual(checked(page, ...ALL), ['p1', 'p2', 'p3', 'p4']);
 });

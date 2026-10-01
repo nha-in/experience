@@ -16,6 +16,7 @@ from ohc_experience.abdm.tests.test_workflow import approve_submitted
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import phr_workspace
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
@@ -517,3 +518,23 @@ def test_the_migration_keeps_a_uhi_request_on_m1_when_m2_was_never_chosen(
     migration.forwards(registry, None)
 
     assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m1"]]
+
+
+def test_p4_waits_on_p1_p2_and_p3_together(environment, client):
+    """The locker builds on the whole PHR sequence, not just its first step."""
+    workspace = phr_workspace(environment)
+    client.force_login(environment["applicant"])
+    locker = workspace.product.milestones.get(key="p4").application
+
+    assert set(
+        ApplicationDependency.objects.filter(application=locker).values_list(
+            "depends_on__metadata__milestone",
+            flat=True,
+        ),
+    ) == {"p1", "p2", "p3"}
+    tiles = milestone_tiles(
+        client.get(
+            track_url({**environment, "workspace": workspace}, "PHR"),
+        ).content.decode(),
+    )
+    assert "Requires completion of P1, P2 and P3" in tiles["P4"]

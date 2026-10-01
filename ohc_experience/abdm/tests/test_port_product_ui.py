@@ -195,6 +195,33 @@ def test_m4_needs_m1_unless_the_entity_is_a_government_body():
     assert ABDM.milestone_keys(selections, government) == {"m4"}
 
 
+def test_p4_needs_p1_p2_and_p3_not_just_one_of_them():
+    """A health locker is never applied for alone: it builds on the PHR sequence."""
+
+    def form(*keys):
+        return ProductRegistrationForm(
+            data={
+                **product_data(),
+                "solution_type": ["health_locker"],
+                "applied_milestones": [f"PHR:{key}" for key in keys],
+            },
+        )
+
+    for keys in (("p4",), ("p1", "p4"), ("p1", "p2", "p4")):
+        refused = form(*keys)
+        assert not refused.is_valid(), keys
+        assert refused.errors["applied_milestones"] == [
+            "Select P1, P2 and P3 before Locker.",
+        ]
+    allowed = form("p1", "p2", "p3", "p4")
+    assert allowed.is_valid(), allowed.errors
+    selections = allowed.cleaned_data["applied_milestones"]
+    assert ABDM.milestone_keys(selections) == {"p1", "p2", "p3", "p4"}
+    with pytest.raises(ValidationError, match="Select P1, P2 and P3 before Locker"):
+        ABDM.milestone_keys(["PHR:p1", "PHR:p4"])
+    assert REQUIRED_MILESTONES["health_locker"] == ("p1", "p2", "p3", "p4")
+
+
 def test_a_warning_names_only_the_chosen_types_that_require_it():
     form = ProductRegistrationForm(
         data={

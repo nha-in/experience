@@ -75,7 +75,7 @@ def test_all_approved_solutions_can_be_offered_together(environment):
     [
         ("hmis", ("m1", "m2"), "M3"),
         ("health_locker", ("p1", "p2", "p3"), "Health Locker"),
-        ("health_locker", ("p1", "p4"), "PHR"),
+        ("health_locker", ("p1",), "PHR, Health Locker"),
     ],
 )
 def test_missing_milestones_have_readable_names(

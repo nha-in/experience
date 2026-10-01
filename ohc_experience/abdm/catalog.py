@@ -90,12 +90,13 @@ MILESTONES = {
             "p4",
             "P4",
             "Locker",
-            "p1",
+            ("p1", "p2", "p3"),
             description="Keep people's health records for the long term: set up a "
             "locker for each person, subscribe to their ABHA address, and fetch "
             "each new record with their consent.",
             docs_url=docs_page("/docs/hiecm/v3/milestones/p4"),
             needs_callback=True,
+            requires_all=True,
         ),
         MilestoneDefinition(
             "uhi1",

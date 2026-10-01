@@ -360,7 +360,7 @@ def _prerequisite_applications(application):
         for dependency in current.dependencies.select_related(
             "review_item",
             "milestone",
-        ):
+        ).order_by("pk"):
             if dependency.pk not in seen:
                 seen.add(dependency.pk)
                 visit(dependency)

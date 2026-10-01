@@ -426,7 +426,8 @@ class ProductRegistrationForm(ReviewForm):
         codes = [MILESTONES[key].code for key in prerequisites]
         alternatives = False
         for key in track.keys:
-            if len(MILESTONES[key].predecessors) > 1:
+            milestone = MILESTONES[key]
+            if len(milestone.predecessors) > 1 and not milestone.requires_all:
                 alternatives = True
         return readable_list(codes, conjunction="or" if alternatives else "and")
 
@@ -449,6 +450,7 @@ class ProductRegistrationForm(ReviewForm):
             "selected": value in selected,
             "requires": " ".join(milestone_predecessors(key, self.organisation)),
             "stands_alone": definition.stands_alone,
+            "requires_all": definition.requires_all,
             "required_for": " ".join(solution for solution, _ in required_for),
             "warning": required_warning(missing_for),
         }
@@ -475,10 +477,14 @@ class ProductRegistrationForm(ReviewForm):
             options = milestone_predecessors(key, self.organisation)
             if not options:
                 continue
-            if any(option in keys for option in options):
+            met = all if milestone.requires_all else any
+            if met(option in keys for option in options):
                 continue
             codes = [MILESTONES[option].code for option in options]
-            needed = readable_list(codes, conjunction="or")
+            needed = readable_list(
+                codes,
+                conjunction="and" if milestone.requires_all else "or",
+            )
             msg = f"Select {needed} before {milestone.name}."
             raise ValidationError(msg)
         return selections
