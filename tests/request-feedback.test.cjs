@@ -77,6 +77,25 @@ class Element {
   }
 }
 
+// An error page as layouts/error.html marks it.
+const errorPage = (heading, message) => `<!DOCTYPE html><html><body><main>
+  <p>403</p>
+  <h1 class="mt-3" data-error-heading>
+    ${heading}
+  </h1>
+  <p class="mt-3.5" data-error-message>
+    ${message}
+  </p>
+</main></body></html>`;
+
+// Reads the marked parts of a response the way a browser's parser would.
+class DOMParser {
+  parseFromString(html) {
+    const parts = [...html.matchAll(/<(\w+)[^>]*\sdata-error-(?:heading|message)[^>]*>([\s\S]*?)<\/\1>/g)];
+    return { querySelectorAll: () => parts.map(([, , text]) => ({ textContent: text })) };
+  }
+}
+
 // The signed-in shell around one request: the toaster's failure toast, the
 // main column a boosted link loads into, and a form that saves.
 function createPage() {
@@ -121,6 +140,7 @@ function createPage() {
     navigator: {},
     CSS: { escape: value => value },
     Node: { DOCUMENT_POSITION_PRECEDING: 2 },
+    DOMParser,
   });
   fire('DOMContentLoaded');
 
@@ -144,6 +164,14 @@ function createPage() {
   return { main, toast, message, dismiss, link, form, send, click };
 }
 
+test('a load that loses its connection says so', () => {
+  const page = createPage();
+  page.send({ elt: page.link, status: 0 });
+
+  assert.equal(page.toast.hidden, false);
+  assert.equal(page.message.textContent, 'The connection was interrupted, so this could not be loaded. Check your connection, then try again.');
+});
+
 test('the part of the page a load replaces is marked busy until it answers', () => {
   const page = createPage();
   assert.equal(page.send({ elt: page.link, status: 200 }), true);
@@ -151,4 +179,70 @@ test('the part of the page a load replaces is marked busy until it answers', () 
   assert.equal(page.main.hasAttribute('aria-busy'), false);
 
   assert.equal(page.send({ elt: page.form, verb: 'post', status: 200 }), false, 'a save keeps the page as it is; its button shows the wait');
+});
+
+test('a refusal says why, in the error page\'s own words', () => {
+  const page = createPage();
+  page.send({
+    elt: page.link,
+    status: 403,
+    response: errorPage('You do not have access to this page', 'You do not have events access.'),
+  });
+
+  assert.equal(page.message.textContent, 'You do not have access to this page. You do not have events access.');
+});
+
+test('a page that has gone says so in its own words', () => {
+  const page = createPage();
+  page.send({
+    elt: page.link,
+    status: 404,
+    response: errorPage('We could not find that page', 'The link may be out of date, or the page may have moved.'),
+  });
+
+  assert.equal(page.message.textContent, 'We could not find that page. The link may be out of date, or the page may have moved.');
+});
+
+test('a server error from outside the app still gets a message', () => {
+  const page = createPage();
+  page.send({ elt: page.link, status: 502, response: '<html><body><h1>502 Bad Gateway</h1></body></html>' });
+
+  assert.equal(page.message.textContent, 'The server could not complete this request. Try again in a moment.');
+});
+
+test('a save the server failed says the entries are still there', () => {
+  const page = createPage();
+  page.send({
+    elt: page.form,
+    verb: 'post',
+    status: 500,
+    response: errorPage('Something went wrong on our side', 'The error has been logged and the NHA team will look at it. Try again in a moment.'),
+  });
+
+  assert.equal(
+    page.message.textContent,
+    'Something went wrong on our side. The error has been logged and the NHA team will look at it. Try again in a moment. Your entries are still here.',
+  );
+});
+
+test('a save whose answer never came asks for a check before it is sent again', () => {
+  const page = createPage();
+  page.send({ elt: page.form, verb: 'post', status: 0 });
+
+  assert.equal(
+    page.message.textContent,
+    'The connection was interrupted, so we could not confirm the result. Your entries are still here. Check whether it was saved before trying again.',
+  );
+});
+
+test('the next request clears the notice, as dismissing it does', () => {
+  const page = createPage();
+  page.send({ elt: page.link, status: 0 });
+  page.click(page.dismiss);
+  assert.equal(page.toast.hidden, true);
+
+  page.send({ elt: page.link, status: 0 });
+  assert.equal(page.toast.hidden, false);
+  page.send({ elt: page.link, status: 200 });
+  assert.equal(page.toast.hidden, true);
 });

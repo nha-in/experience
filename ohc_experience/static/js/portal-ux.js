@@ -136,6 +136,52 @@
     if (region) region.hidden = true;
   }
 
+  // The error pages mark their words (layouts/error.html), so a request that
+  // fails says what the page would have: why access was refused, that the
+  // session expired, that the page is gone.
+  function errorPageWords(xhr) {
+    const html = xhr?.responseText;
+    if (!html) return '';
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    return [...page.querySelectorAll('[data-error-heading], [data-error-message]')]
+      .map(part => part.textContent.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .map(part => (/[.!?]$/.test(part) ? part : `${part}.`))
+      .join(' ');
+  }
+
+  // Status 0 is a dropped connection; 504 is a server that answered too late.
+  // A save that got no answer may have gone through all the same, so its
+  // message asks for a check before it is sent again; a load can simply be
+  // tried again.
+  function reportFailure({ elt, xhr, requestConfig }, status) {
+    const loading = (requestConfig?.verb || 'get') === 'get';
+    const fields = elt?.closest('form')?.querySelector('input:not([type="hidden"]), select, textarea');
+    const kept = !loading && fields ? ' Your entries are still here.' : '';
+    const words = status === 0 || status === 504 || status === 429 ? '' : errorPageWords(xhr);
+    let message;
+    if (status === 0) {
+      message = loading
+        ? 'The connection was interrupted, so this could not be loaded. Check your connection, then try again.'
+        : `The connection was interrupted, so we could not confirm the result.${kept} Check whether it was saved before trying again.`;
+    } else if (status === 504) {
+      message = loading
+        ? 'The server took too long to respond. Try again in a moment.'
+        : `The server took too long to respond, so we could not confirm the result.${kept} Check whether it was saved before trying again.`;
+    } else if (status === 429) {
+      message = `Too many requests.${kept} Wait a moment, then try again.`;
+    } else if (words) {
+      message = `${words}${kept}`;
+    } else if (status >= 500) {
+      message = `The server could not complete this request.${kept} Try again in a moment.`;
+    } else if (status === 403) {
+      message = `This request could not be authorised.${kept} Check your session before trying again.`;
+    } else {
+      message = `The request could not be completed.${kept}`;
+    }
+    showError(message);
+  }
+
   // The part of the page a load will replace is marked busy; project.css fades
   // it once the wait is long enough to notice.
   function markLoading(target) {
@@ -505,21 +551,13 @@
     requests.get(xhr)?.();
     requests.delete(xhr);
     leaving = false;
-    if (failed) {
-      const message = xhr.status === 403
-        ? 'This request could not be authorised. Check your session before trying again.'
-        : xhr.status === 429
-          ? 'Too many requests. Wait a moment, then try again.'
-          : xhr.status === 0
-            ? 'The connection was interrupted. Your entries are still here. Check the connection and try again.'
-            : 'The request could not be completed. Your entries are still here. Please try again.';
-      showError(message);
-    }
+    if (failed) reportFailure(event.detail, xhr.status);
   });
 
-  ['htmx:sendError', 'htmx:timeout'].forEach(type => document.addEventListener(type, () => {
-    showError('We could not confirm the result. Your entries are still here. Check the connection before trying again.');
-  }));
+  // A dropped connection or a timeout ends with no response, so htmx reports
+  // these on their own events rather than as a failed afterRequest.
+  document.addEventListener('htmx:sendError', event => reportFailure(event.detail, 0));
+  document.addEventListener('htmx:timeout', event => reportFailure(event.detail, 504));
 
   document.addEventListener('htmx:afterSettle', event => {
     initialize();

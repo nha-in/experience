@@ -7,6 +7,10 @@
   depends on that context would fail a second time inside the handler.
 
   Blocks: code, heading, message, actions.
+
+  data-error-heading and data-error-message mark the words a request made
+  inside a page shows instead, in its failure toast (static/js/portal-ux.js),
+  when this page is the answer it gets.
 {% endcomment %}
 {% load i18n %}
 
@@ -19,11 +23,13 @@
         {% block code %}
         {% endblock code %}
       </p>
-      <h1 class="mt-3 text-[26px] font-bold tracking-[-0.02em] text-balance sm:text-[30px]">
+      <h1 class="mt-3 text-[26px] font-bold tracking-[-0.02em] text-balance sm:text-[30px]"
+          data-error-heading>
         {% block heading %}
         {% endblock heading %}
       </h1>
-      <p class="mt-3.5 text-[15px] leading-[1.6] text-muted-foreground">
+      <p class="mt-3.5 text-[15px] leading-[1.6] text-muted-foreground"
+         data-error-message>
         {% block message %}
         {% endblock message %}
       </p>
