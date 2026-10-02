@@ -95,7 +95,8 @@ class DocsLinks(HTMLParser):
         a = dict(attrs)
         label = a.get("aria-label") or ""
         if tag == "a" and label.startswith("Docs for "):
-            self.links[label.removeprefix("Docs for ")] = a["href"]
+            title = label.removeprefix("Docs for ")
+            self.links[title.removesuffix(" (opens in a new tab)")] = a["href"]
 
 
 def a_skill(slug):

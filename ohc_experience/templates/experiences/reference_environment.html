@@ -219,7 +219,7 @@
                 <a class="mt-1 block text-sm font-medium hover:text-primary hover:underline"
                    href="{{ milestone.docs_url|default:experience_program.docs_url }}"
                    target="_blank"
-                   rel="noopener noreferrer">{{ name }} <span aria-hidden="true">↗&#xFE0E;</span></a>
+                   rel="noopener noreferrer">{{ name }} {% include "components/new_tab_mark.html" %}</a>
               </li>
             {% endfor %}
           {% endfor %}

@@ -39,7 +39,7 @@
                    target="_blank"
                    rel="noopener noreferrer"
                    hx-boost="false"
-                   aria-label="Join {{ event.title }} (opens in a new tab)">Join event ↗&#xFE0E;</a>
+                   aria-label="Join {{ event.title }} (opens in a new tab)">Join event{% include "components/new_tab_mark.html" %}</a>
               {% endif %}
               <button class="ui-btn ui-btn--ghost ui-btn--size-sm min-h-11"
                       name="intent"
@@ -101,7 +101,7 @@
            href="{{ event.join_url }}"
            target="_blank"
            rel="noopener noreferrer"
-           hx-boost="false">{{ event.join_url }} ↗&#xFE0E;</a>
+           hx-boost="false">{{ event.join_url }} {% include "components/new_tab_mark.html" %}</a>
       </p>
     {% endif %}
     {% if can_manage %}

@@ -135,7 +135,7 @@
            href="{{ agent_skills.docs_url }}"
            target="_blank"
            rel="noopener noreferrer"
-           hx-boost="false">How Agent Skills work <span aria-hidden="true">↗&#xFE0E;</span></a>
+           hx-boost="false">How Agent Skills work {% include "components/new_tab_mark.html" %}</a>
       </div>
     </section>
     {% for group in skill_groups %}
@@ -176,7 +176,7 @@
                        target="_blank"
                        rel="noopener noreferrer"
                        hx-boost="false"
-                       aria-label="Docs for {{ row.definition.title }}">Docs <span aria-hidden="true">↗&#xFE0E;</span></a>
+                       aria-label="Docs for {{ row.definition.title }} (opens in a new tab)">Docs {% include "components/new_tab_mark.html" %}</a>
                   {% endif %}
                   <label class="ui-btn ui-btn--default ui-btn--size-sm cursor-pointer group-has-[:checked]:hidden"
                          for="agent-skill-{{ row.definition.slug }}"
