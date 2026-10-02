@@ -75,15 +75,21 @@ def _post(url: str, body: dict, timeout: float) -> object:
         connection.close()
 
 
-def _count(payload: dict, field: str) -> int:
-    # The service sends each count as text in Indian grouping, "1,22,47,14,978".
-    value = payload.get(field)
+def parse_count(value: object) -> int | None:
+    """A count as the service writes it, "1,22,47,14,978", or a plain number."""
     if isinstance(value, str) and re.fullmatch(r"[0-9][0-9,]*", value.strip()):
         return int(value.strip().replace(",", ""))
     if type(value) is int and value >= 0:
         return value
-    msg = f"The KPI service sent no usable {field!r}."
-    raise DashboardUnavailableError(msg)
+    return None
+
+
+def _count(payload: dict, field: str) -> int:
+    count = parse_count(payload.get(field))
+    if count is None:
+        msg = f"The KPI service sent no usable {field!r}."
+        raise DashboardUnavailableError(msg)
+    return count
 
 
 def fetch_figures(timeout: float = TIMEOUT_SECONDS) -> dict[str, int]:
@@ -116,18 +122,27 @@ def fetch_figures(timeout: float = TIMEOUT_SECONDS) -> dict[str, int]:
         raise
 
 
+def store_figures(figures: dict[str, int]) -> None:
+    """Keep the figures until a successful fetch replaces them."""
+    # No expiry: when the service is down, the last good figures stay on the page.
+    cache.set(CACHE_KEY, figures, timeout=None)
+
+
 def refresh_figures(timeout: float = TIMEOUT_SECONDS) -> dict[str, int]:
     """Fetch the figures and keep them until the next refresh replaces them."""
     figures = fetch_figures(timeout)
-    # No expiry: when the service is down, the last good figures stay on the page.
-    cache.set(CACHE_KEY, figures, timeout=None)
+    store_figures(figures)
     return figures
 
 
 def cached_figures() -> dict[str, int] | None:
-    """The last fetched figures, or None before the first successful fetch."""
+    """The last stored figures, or None before any were fetched or set."""
     figures = cache.get(CACHE_KEY)
-    if not isinstance(figures, dict) or set(figures) != set(FIELDS):
+    if (
+        not isinstance(figures, dict)
+        or set(figures) != set(FIELDS)
+        or any(type(count) is not int or count < 0 for count in figures.values())
+    ):
         return None
     return figures
 

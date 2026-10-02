@@ -70,7 +70,15 @@ For the **landing page's ABDM figures**, configure:
 
 Celery beat fetches health records linked, healthcare professionals and facilities from the KPI service every day at 06:00 IST, retrying a failure after 5 minutes, 30 minutes and 2 hours, and keeps them in the Redis cache without expiry. The landing page reads only the cache, so a failed fetch leaves the last good figures in place. Before the first successful fetch, as on a new deployment or after Redis loses its data, one landing-page visit fetches them, at most once every ten minutes; until then those three figures are left out. Successful Integrators is counted from the database on each visit: organisations with at least one approved milestone.
 
-Source: `config/settings/base.py`, `ohc_experience/pages/abdm_dashboard.py`, `ohc_experience/pages/tasks.py`, `ohc_experience/pages/views.py`.
+While the deployment cannot reach the KPI service, set the three figures by hand from any web or worker container:
+
+```
+python manage.py set_abdm_figures --records-linked 1,22,47,14,978 --professionals 12,20,798 --facilities 5,85,761
+```
+
+They are kept like fetched figures, without expiry, until the daily task's first successful fetch replaces them. The command reads them back and fails if Redis did not keep them.
+
+Source: `config/settings/base.py`, `ohc_experience/pages/abdm_dashboard.py`, `ohc_experience/pages/tasks.py`, `ohc_experience/pages/views.py`, `ohc_experience/pages/management/commands/set_abdm_figures.py`.
 
 For the **documentation site**, which the portal links to and the Agent Skills are installed from, configure:
 

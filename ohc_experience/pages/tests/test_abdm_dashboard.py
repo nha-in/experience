@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 import logging
 from http import HTTPStatus
+from io import StringIO
 from unittest.mock import Mock
 
 import pytest
 from celery.exceptions import Retry
 from celery.schedules import crontab
 from django.core.cache import cache
+from django.core.management import call_command
+from django.core.management.base import CommandError
 
 from ohc_experience.pages import abdm_dashboard
 from ohc_experience.pages.abdm_dashboard import CACHE_KEY
@@ -166,8 +169,16 @@ class TestCache:
 
         assert cached_figures() == FIGURES
 
-    def test_an_unexpected_cached_value_counts_as_nothing_cached(self):
-        cache.set(CACHE_KEY, {"records_linked": 1})
+    @pytest.mark.parametrize(
+        "value",
+        [
+            {"records_linked": 1},
+            {**FIGURES, "records_linked": "1,22,47,14,978"},
+            {**FIGURES, "facilities_registered": -1},
+        ],
+    )
+    def test_an_unexpected_cached_value_counts_as_nothing_cached(self, value):
+        cache.set(CACHE_KEY, value)
 
         assert cached_figures() is None
 
@@ -240,3 +251,71 @@ class TestDailyTask:
 
         assert entry["task"] == refresh_abdm_dashboard_figures.name
         assert entry["schedule"] == crontab(hour=6, minute=0)
+
+
+def set_by_hand(
+    records="1,22,47,14,978",
+    professionals="12,20,798",
+    facilities="585761",
+):
+    out = StringIO()
+    call_command(
+        "set_abdm_figures",
+        "--records-linked",
+        records,
+        "--professionals",
+        professionals,
+        "--facilities",
+        facilities,
+        stdout=out,
+    )
+    return out.getvalue()
+
+
+class TestSetFiguresByHand:
+    def test_sets_the_figures_the_page_shows(self):
+        output = set_by_hand()
+
+        assert cached_figures() == FIGURES
+        assert "1,22,47,14,978 health records linked" in output
+
+    def test_a_failed_daily_fetch_leaves_them_in_place(self, service):
+        _, connection = service
+        reply_with(connection, REFUSAL)
+        set_by_hand()
+
+        refresh_abdm_dashboard_figures.apply(retries=len(RETRY_DELAYS))
+
+        assert cached_figures() == FIGURES
+
+    def test_the_first_successful_fetch_replaces_them(self, service):
+        set_by_hand("1", "1", "1")
+
+        refresh_abdm_dashboard_figures.delay()
+
+        assert cached_figures() == FIGURES
+
+    @pytest.mark.parametrize("value", ["12.5", "-3", "twelve", ""])
+    def test_refuses_anything_but_a_count(self, value):
+        with pytest.raises(CommandError, match="is not a count"):
+            set_by_hand(records=value)
+
+        assert cached_figures() is None
+
+    def test_needs_all_three(self):
+        with pytest.raises(CommandError, match="--facilities"):
+            call_command(
+                "set_abdm_figures",
+                "--records-linked",
+                "1",
+                "--professionals",
+                "1",
+            )
+
+    def test_says_so_when_the_cache_kept_nothing(self, settings):
+        settings.CACHES = {
+            "default": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"},
+        }
+
+        with pytest.raises(CommandError, match="did not keep the figures"):
+            set_by_hand()
