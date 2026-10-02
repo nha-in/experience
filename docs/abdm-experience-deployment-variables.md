@@ -68,6 +68,8 @@ For the **landing page's ABDM figures**, configure:
 | `PMJAY_CLIENT_SECRET` | **Required for the ABDM figures.** Client secret for the same service. Default: empty. |
 | `ABDM_DASHBOARD_KPI_URL` | Default: `https://dashboard.abdm.gov.in/abdmservice/api/dashboard/ABDM/KPI`. Must be `https`. |
 
+In production the deploy workflow writes both credentials into every task definition from the `production` environment, `PMJAY_CLIENT_ID` as a variable and `PMJAY_CLIENT_SECRET` as a secret, and stops before building if either is empty. Do not also set them on the task definitions: ECS rejects a name set both ways.
+
 Celery beat fetches health records linked, healthcare professionals and facilities from the KPI service every day at 06:00 IST, retrying a failure after 5 minutes, 30 minutes and 2 hours, and keeps them in the Redis cache without expiry. The landing page reads only the cache, so a failed fetch leaves the last good figures in place. Before the first successful fetch, as on a new deployment or after Redis loses its data, one landing-page visit fetches them, at most once every ten minutes; until then those three figures are left out. Successful Integrators is counted from the database on each visit: organisations with at least one approved milestone.
 
 While the deployment cannot reach the KPI service, set the three figures by hand from any web or worker container:
@@ -78,7 +80,7 @@ python manage.py set_abdm_figures --records-linked 1,22,47,14,978 --professional
 
 They are kept like fetched figures, without expiry, until the daily task's first successful fetch replaces them. The command reads them back and fails if Redis did not keep them.
 
-Source: `config/settings/base.py`, `ohc_experience/pages/abdm_dashboard.py`, `ohc_experience/pages/tasks.py`, `ohc_experience/pages/views.py`, `ohc_experience/pages/management/commands/set_abdm_figures.py`.
+Source: `config/settings/base.py`, `ohc_experience/pages/abdm_dashboard.py`, `ohc_experience/pages/tasks.py`, `ohc_experience/pages/views.py`, `ohc_experience/pages/management/commands/set_abdm_figures.py`, `.github/workflows/deploy-prod.yml`.
 
 For the **documentation site**, which the portal links to and the Agent Skills are installed from, configure:
 
@@ -293,7 +295,7 @@ For **deployment configuration placement and remaining setup**:
 6. Traefik's web/Flower hostnames and certificate contact email are hardcoded in `compose/production/traefik/traefik.yml`. Update them for the deployed domain; `DJANGO_ALLOWED_HOSTS` alone does not change routing. The app expects the proxy's `X-Forwarded-Proto` to identify HTTPS.
 7. `CSRF_TRUSTED_ORIGINS` and SMTP connection settings are not mapped from environment variables in production settings. Adding those environment names alone does not configure Django. The default mail path is the Global Email API.
 8. Environment values do not create the required database, Redis service, private bucket, approved email templates, Turnstile registration, Keycloak service client, WSO2 APIs/key manager, or HIE-CM access. Those resources and network routes must exist for their features to operate.
-9. The production publishing workflow authenticates to Amazon ECR with the `production` environment's `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY` secrets. It also writes the three `INTEGRATION_*` adapters, the Keycloak, WSO2 and HIE-CM values, `NOTIFICATION_APP_BASE_URL`, and the WASA document reader's `WASA_EXTRACTION_ENABLED`, `WASA_EXTRACTION_MODEL` and three `BEDROCK_*` values into every task definition, taking them from that environment's variables and secrets, and fails before building if any of them is empty. `EXPERIENCE_CREDENTIAL_KEY` stays an ECS secret on the task definitions: ECS rejects a name set both ways, and the key must not change. `APP_HOME` is an optional Docker build argument (default `/app`), while `UV_COMPILE_BYTECODE`, `UV_LINK_MODE`, `UV_PYTHON_DOWNLOADS`, and `PATH` are preset image/build settings, not required application runtime inputs.
+9. The production publishing workflow authenticates to Amazon ECR with the `production` environment's `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY` secrets. It also writes the three `INTEGRATION_*` adapters, the Keycloak, WSO2 and HIE-CM values, `NOTIFICATION_APP_BASE_URL`, the ABDM dashboard's `PMJAY_CLIENT_ID` and `PMJAY_CLIENT_SECRET`, and the WASA document reader's `WASA_EXTRACTION_ENABLED`, `WASA_EXTRACTION_MODEL` and three `BEDROCK_*` values into every task definition, taking them from that environment's variables and secrets, and fails before building if any of them is empty. `EXPERIENCE_CREDENTIAL_KEY` stays an ECS secret on the task definitions: ECS rejects a name set both ways, and the key must not change. `APP_HOME` is an optional Docker build argument (default `/app`), while `UV_COMPILE_BYTECODE`, `UV_LINK_MODE`, `UV_PYTHON_DOWNLOADS`, and `PATH` are preset image/build settings, not required application runtime inputs.
 
 Source: `docker-compose.production.yml`, `.dockerignore`, `compose/production/django/Dockerfile`, `compose/production/django/build-static`, `config/settings/build.py`, `compose/production/django/start`, `compose/production/traefik/traefik.yml`, `.github/workflows/deploy-prod.yml`.
 
