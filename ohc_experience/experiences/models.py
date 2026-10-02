@@ -14,6 +14,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.core.constraints import validate_constraint_on_field
+
 
 class CertificationAgency(models.Model):
     """An administrator-maintained certification agency for one program."""
@@ -83,6 +85,9 @@ class AccessGrant(models.Model):
             models.CheckConstraint(
                 condition=Q(can_read=True) | Q(can_write=False, can_approve=False),
                 name="experience_write_approve_requires_read",
+                violation_error_message=(
+                    "Write and approve permissions require read access."
+                ),
             ),
         ]
 
@@ -105,9 +110,11 @@ class AccessGrant(models.Model):
         named = {code for code, _label, _description in vocabulary}
         if self.category not in {"*", *named}:
             raise ValidationError({"category": "Choose a category in this program."})
-        if (self.can_write or self.can_approve) and not self.can_read:
-            msg = "Write and approve permissions require read access."
-            raise ValidationError(msg)
+        validate_constraint_on_field(
+            self,
+            "experience_write_approve_requires_read",
+            "can_read",
+        )
 
 
 class Product(models.Model):
@@ -404,6 +411,7 @@ class ApplicationDependency(models.Model):
             models.CheckConstraint(
                 condition=~Q(application=F("depends_on")),
                 name="application_cannot_depend_on_itself",
+                violation_error_message=_("An application cannot depend on itself."),
             ),
         ]
 
@@ -414,8 +422,11 @@ class ApplicationDependency(models.Model):
         super().clean()
         if not self.application_id or not self.depends_on_id:
             return
-        if self.application_id == self.depends_on_id:
-            raise ValidationError(_("An application cannot depend on itself."))
+        validate_constraint_on_field(
+            self,
+            "application_cannot_depend_on_itself",
+            "depends_on",
+        )
         if self.application.product_id != self.depends_on.product_id:
             raise ValidationError(
                 _("Application dependencies must belong to the same product."),

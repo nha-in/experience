@@ -20,6 +20,7 @@ from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import permissions
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.admin_access import AccessGrantForm
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import TicketAttachment
@@ -513,6 +514,21 @@ def test_invalid_grants_and_inactive_accounts_are_denied(staff):
     assert not permissions.has_area(staff, "review")
     assert not permissions.visible_reviews(staff).exists()
     assert not permissions.visible_events(staff).exists()
+
+
+def test_write_without_read_is_flagged_on_read_access(staff):
+    form = AccessGrantForm(
+        {
+            "user": staff.pk,
+            "program": "abdm",
+            "area": "review",
+            "category": "UHI",
+            "can_write": "on",
+        },
+    )
+    assert form.errors == {
+        "can_read": ["Write and approve permissions require read access."],
+    }
 
 
 def test_general_and_all_categories_are_explicit(environment, staff):

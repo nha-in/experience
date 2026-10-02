@@ -117,6 +117,16 @@ def test_application_dependencies_reject_cycles(product):
         link.clean()
 
 
+def test_an_application_cannot_depend_on_itself(product):
+    application = start(product)
+    link = ApplicationDependency(application=application, depends_on=application)
+    with pytest.raises(ValidationError) as raised:
+        link.full_clean()
+    assert raised.value.message_dict == {
+        "depends_on": ["An application cannot depend on itself."],
+    }
+
+
 def test_registry_rejects_duplicate_application_keys_and_form_keys():
     class Evidence(ApplicationFormDefinition):
         key = "evidence"
