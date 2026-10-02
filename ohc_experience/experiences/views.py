@@ -2493,7 +2493,8 @@ def open_record(request, pk):
     return redirect(item.product if item.product_id else "experiences:organisation")
 
 
-# Uploads are PDFs; organisation logos were images before they became links.
+# PDFs, and images: a ticket takes screenshots, and organisation logos were
+# images before they became links. Office files and text download.
 PREVIEW_TYPES = {
     ".gif": "image/gif",
     ".jpeg": "image/jpeg",

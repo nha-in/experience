@@ -8,7 +8,8 @@ from .fields import MultipleFileField
 from .production import validate_client_id
 from .production import validate_issued_on
 from .registry import get_program
-from .uploads import validate_pdf
+from .uploads import TICKET_ATTACHMENT_SIGNATURES
+from .uploads import validate_ticket_attachment
 
 
 class ExperienceForm(forms.Form):
@@ -186,9 +187,10 @@ class SupportForm(forms.Form):
     body = forms.CharField(label="Message", widget=forms.Textarea(attrs={"rows": 5}))
     attachments = MultipleFileField(
         required=False,
+        help_text="PDF, Word, Excel, CSV, text, PNG or JPG, up to 5 files, 10 MB each.",
         max_files=5,
-        validators=[validate_pdf],
-        accept=".pdf",
+        validators=[validate_ticket_attachment],
+        accept=",".join(TICKET_ATTACHMENT_SIGNATURES),
     )
 
     def __init__(self, *args, program=None, product=None, resolving=False, **kwargs):

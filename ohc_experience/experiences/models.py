@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import uuid4
 
 from django.conf import settings
@@ -1066,3 +1067,8 @@ class TicketAttachment(models.Model):
 
     def __str__(self):
         return self.original_name
+
+    @property
+    def extension(self) -> str:
+        """The file's type as the thread labels it, such as PDF or PNG."""
+        return Path(self.original_name).suffix.removeprefix(".").upper()

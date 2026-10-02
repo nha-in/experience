@@ -10,6 +10,25 @@ SPREADSHEET_SIGNATURES = {
     ".xls": b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",
     ".xlsx": b"PK\x03\x04",
 }
+# Word files come in the same two containers.
+OFFICE_SIGNATURES = tuple(SPREADSHEET_SIGNATURES.values())
+# A PNG, then a JPEG: what screenshots and photos are saved as.
+IMAGE_SIGNATURES = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")
+# What a support ticket takes, by extension, with the bytes each file may open
+# with. An Office file or an image saved under a sibling's extension still
+# opens, so either container or either image passes. Text has no signature.
+TICKET_ATTACHMENT_SIGNATURES = {
+    ".pdf": (b"%PDF-",),
+    ".doc": OFFICE_SIGNATURES,
+    ".docx": OFFICE_SIGNATURES,
+    ".xls": OFFICE_SIGNATURES,
+    ".xlsx": OFFICE_SIGNATURES,
+    ".csv": (),
+    ".txt": (),
+    ".png": IMAGE_SIGNATURES,
+    ".jpg": IMAGE_SIGNATURES,
+    ".jpeg": IMAGE_SIGNATURES,
+}
 
 
 def validate_upload_size(upload, limit=MAX_UPLOAD_BYTES):
@@ -45,4 +64,18 @@ def validate_evidence_spreadsheet(upload):
     upload.seek(0)
     if not expected or not signature.startswith(expected):
         msg = "Upload an Excel workbook (.xls or .xlsx)."
+        raise ValidationError(msg)
+
+
+def validate_ticket_attachment(upload):
+    """A file on a support ticket: a document, spreadsheet, text or image.
+
+    The message names the file, since a ticket takes several of mixed types.
+    """
+    validate_upload_size(upload)
+    expected = TICKET_ATTACHMENT_SIGNATURES.get(Path(upload.name).suffix.lower())
+    signature = upload.read(8)
+    upload.seek(0)
+    if expected is None or (expected and not signature.startswith(expected)):
+        msg = f"{upload.name} is not a PDF, Word, Excel, CSV, text, PNG or JPG file."
         raise ValidationError(msg)

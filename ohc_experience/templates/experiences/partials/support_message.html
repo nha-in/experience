@@ -19,7 +19,7 @@
    href="{% url 'experiences:ticket-attachment-preview' file.pk file.original_name %}"
    target="_blank"
    rel="noopener"
-   hx-boost="false"><span class="font-mono text-[9.5px] font-bold text-soft-foreground uppercase">PDF</span><span class="break-all">{{ file.original_name }}</span><span class="sr-only"> (opens in a new tab)</span></a>{% url 'experiences:ticket-attachment' file.pk as download_url %}{% include 'components/download_button.html' with url=download_url name=file.original_name %}</span></p>
+   hx-boost="false"><span class="font-mono text-[9.5px] font-bold text-soft-foreground uppercase">{{ file.extension }}</span><span class="break-all">{{ file.original_name }}</span><span class="sr-only"> (opens in a new tab)</span></a>{% url 'experiences:ticket-attachment' file.pk as download_url %}{% include 'components/download_button.html' with url=download_url name=file.original_name %}</span></p>
       {% endfor %}
     </div>
   </li>

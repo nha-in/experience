@@ -3,6 +3,7 @@ from datetime import timedelta
 from http import HTTPStatus
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
@@ -15,6 +16,8 @@ from ohc_experience.experiences.forms import SupportForm
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import EventRegistration
 from ohc_experience.experiences.models import Notification
+from ohc_experience.experiences.uploads import TICKET_ATTACHMENT_SIGNATURES
+from ohc_experience.experiences.uploads import validate_ticket_attachment
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import ReviewerFactory
@@ -326,6 +329,117 @@ def test_ticket_create_saves_category_and_scopes_product(
     assert ticket.category_label == "PHR App - P2"
     assert ticket.product == portal_products[1]
     assert ticket.messages.get().body == "The callback returns an unexpected status."
+
+
+def test_a_ticket_takes_documents_spreadsheets_text_and_screenshots(portal_client):
+    """Each file is labelled with its own type in the thread. Screenshots open in
+    the browser as PDFs do; Office files and text download."""
+    files = {
+        "screenshot.png": b"\x89PNG\r\n\x1a\nimage",
+        "photo.jpeg": b"\xff\xd8\xff\xe0photo",
+        "steps.docx": b"PK\x03\x04document",
+        "results.xls": b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1workbook",
+        "response.txt": b'{"error": "INVALID_CONSENT"}',
+    }
+    response = portal_client.post(
+        reverse("experiences:support"),
+        {
+            "subject": "Callback rejects the request",
+            "category": "phr-app-p2",
+            "issue_type": "Consent Flow",
+            "priority": "medium",
+            "body": "The callback returns an unexpected status.",
+            "attachments": [
+                SimpleUploadedFile(name, content) for name, content in files.items()
+            ],
+        },
+    )
+    assert response.status_code == HTTPStatus.FOUND
+    ticket = Ticket.objects.get()
+    attachments = ticket.messages.get().attachments.order_by("pk")
+    assert [file.original_name for file in attachments] == list(files)
+    page = portal_client.get(ticket.get_absolute_url()).content.decode()
+    for label in ("PNG", "JPEG", "DOCX", "XLS", "TXT"):
+        assert f'uppercase">{label}</span>' in page
+    for file, disposition in zip(
+        attachments,
+        ["inline", "inline", "attachment", "attachment", "attachment"],
+        strict=True,
+    ):
+        preview = portal_client.get(
+            reverse(
+                "experiences:ticket-attachment-preview",
+                args=[file.pk, file.original_name],
+            ),
+        )
+        assert preview["Content-Disposition"].startswith(f"{disposition};")
+        assert b"".join(preview.streaming_content) == files[file.original_name]
+
+
+def test_ticket_attachments_say_what_they_take(
+    portal_client,
+    portal_products,
+    owner_membership,
+):
+    """The picker and the hint name what the validator takes, on the new ticket
+    and on a reply. The hint says it in words, so the drop area adds no list."""
+    field = SupportForm().fields["attachments"]
+    assert field.widget.attrs["accept"] == ",".join(TICKET_ATTACHMENT_SIGNATURES)
+    assert field.help_text == (
+        "PDF, Word, Excel, CSV, text, PNG or JPG, up to 5 files, 10 MB each."
+    )
+    creating = portal_client.get(reverse("experiences:support"), {"new": "1"})
+    assert b"PDF, Word, Excel, CSV, text, PNG or JPG, 10 MB each." in creating.content
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_products[1],
+        subject="Callback rejects the request",
+        created_by=owner_membership.user,
+        category="phr-app-p2",
+    )
+    replying = portal_client.get(ticket.get_absolute_url())
+    assert field.help_text.encode() in replying.content
+    for page in (creating, replying):
+        assert b'<span class="font-mono">.pdf' not in page.content
+
+
+@pytest.mark.parametrize(
+    ("name", "content"),
+    [
+        ("report.pdf", b"%PDF-1.7"),
+        ("steps.doc", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"),
+        ("results.xlsx", b"PK\x03\x04"),
+        ("export.csv", b"request_id,status\n1,FAILED\n"),
+        ("response.TXT", b"HTTP/1.1 400 Bad Request"),
+        ("screenshot.jpg", b"\xff\xd8\xff\xe0"),
+        # Saved under a sibling's extension, each still opens.
+        ("screenshot.png", b"\xff\xd8\xff\xe0"),
+        ("results.xls", b"PK\x03\x04"),
+    ],
+)
+def test_a_ticket_attachment_opens_like_its_kind(name, content):
+    validate_ticket_attachment(SimpleUploadedFile(name, content))
+
+
+@pytest.mark.parametrize(
+    ("name", "content"),
+    [
+        ("installer.exe", b"MZ\x90\x00"),
+        ("archive.zip", b"PK\x03\x04"),
+        ("logo.svg", b"<svg xmlns='http://www.w3.org/2000/svg'/>"),
+        ("photo.heic", b"\x00\x00\x00\x18ftypheic"),
+        ("no-extension", b"%PDF-1.7"),
+        # A saved error page, and a PDF renamed to an image.
+        ("report.pdf", b"<html>Session expired</html>"),
+        ("screenshot.png", b"%PDF-1.7"),
+    ],
+)
+def test_a_ticket_refuses_a_file_it_cannot_open(name, content):
+    with pytest.raises(ValidationError) as refused:
+        validate_ticket_attachment(SimpleUploadedFile(name, content))
+    assert refused.value.messages == [
+        f"{name} is not a PDF, Word, Excel, CSV, text, PNG or JPG file.",
+    ]
 
 
 def test_ticket_list_shows_category_and_sub_category_columns(
