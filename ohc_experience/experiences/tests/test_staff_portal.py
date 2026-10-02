@@ -597,6 +597,33 @@ def test_only_event_creators_are_offered_a_duplicate(staff, client):
         assert page.context["form"]["title"].value() == ""
 
 
+def test_an_event_ending_before_it_starts_is_flagged_on_its_end_time(staff, client):
+    AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="events",
+        category="UHI",
+        can_write=True,
+    )
+    client.force_login(staff)
+    response = client.post(
+        reverse("experiences:event-create"),
+        {
+            "title": "Backwards event",
+            "category": "UHI",
+            "kind": "event",
+            "starts_at": "2027-01-02T10:00",
+            "ends_at": "2027-01-01T10:00",
+        },
+    )
+    assert response.context["form"].errors == {
+        "ends_at": ["The event must end after it starts."],
+    }
+    assertContains(response, 'href="#id_ends_at"')
+    assertNotContains(response, "is violated")
+    assert not Event.objects.exists()
+
+
 def test_event_manager_cannot_access_other_categories(staff, client):
     AccessGrant.objects.create(
         user=staff,

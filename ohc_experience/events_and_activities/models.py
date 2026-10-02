@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.core.constraints import validate_constraint_on_field
 from ohc_experience.experiences.registry import default_program_key
 
 
@@ -102,6 +103,7 @@ class Event(models.Model):
             models.CheckConstraint(
                 condition=Q(ends_at__isnull=True) | Q(ends_at__gt=F("starts_at")),
                 name="event_ends_after_it_starts",
+                violation_error_message=_("The event must end after it starts."),
             ),
         ]
 
@@ -115,6 +117,10 @@ class Event(models.Model):
 
     def get_absolute_url(self) -> str:
         return reverse("experiences:event-detail", args=[self.pk])
+
+    def clean(self) -> None:
+        super().clean()
+        validate_constraint_on_field(self, "event_ends_after_it_starts", "ends_at")
 
     def _build_unique_slug(self) -> str:
         base = slugify(self.title)[:200] or "event"

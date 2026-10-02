@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db import transaction
 from django.utils import timezone
@@ -231,3 +232,14 @@ class TestEndsAfterItStarts:
         event = make_event("No end time", starts_in=timedelta(days=1), duration=None)
 
         assert event.ends_at is None
+
+    def test_validation_blames_the_end_time_not_the_whole_form(self):
+        starts_at = timezone.now() + timedelta(days=1)
+        event = Event(title="Backwards", starts_at=starts_at, ends_at=starts_at)
+
+        with pytest.raises(ValidationError) as raised:
+            event.full_clean(exclude={"slug"})  # save() fills the slug
+
+        assert raised.value.message_dict == {
+            "ends_at": ["The event must end after it starts."],
+        }
