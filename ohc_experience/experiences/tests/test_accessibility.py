@@ -71,3 +71,14 @@ def test_a_request_waiting_over_a_week_carries_a_clock_as_well_as_red(
     assert html.count(CLOCK) == 1
     age = html[html.index(CLOCK) :].split("</span>", 1)[0]
     assert "10 days" in age
+
+
+@pytest.mark.django_db
+def test_the_protected_mark_names_itself_to_screen_readers(environment, client):
+    """An aria-label on a plain span is ignored, so the words are in the span."""
+    client.force_login(environment["admin"])
+
+    html = page(client, reverse("experiences:staff-list"))
+
+    assert '<span class="sr-only">Protected superadmin account</span>' in html
+    assert 'aria-label="Protected superadmin account"' not in html
