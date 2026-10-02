@@ -2567,9 +2567,17 @@ def queue(request):
         query = query.filter(_queue_search(search))
     # Pending holds every open request, one waiting on a prerequisite included,
     # so a product's submissions show together; its row says what each waits on.
+    # Done holds only products with nothing open, so the two tabs add up to All.
+    open_products = query.filter(
+        status__in=services.PENDING_STATUSES,
+        queue_product_id__isnull=False,
+    ).values("queue_product_id")
     scopes = {
         "ready": (services.PENDING_STATUSES, Q()),
-        "decided": ((ReviewItem.Status.APPROVED, ReviewItem.Status.REJECTED), Q()),
+        "decided": (
+            (ReviewItem.Status.APPROVED, ReviewItem.Status.REJECTED),
+            Q(queue_product_id=None) | ~Q(queue_product_id__in=open_products),
+        ),
     }
     stage_counts = {
         stage: grouped_requests(

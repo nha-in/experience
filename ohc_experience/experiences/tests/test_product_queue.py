@@ -93,6 +93,26 @@ def test_queue_chips_put_open_requests_first_and_approved_ones_below(
         assert "of 3 approved" not in done_row
 
 
+def test_product_with_an_open_request_is_pending_only_and_done_once_decided(
+    environment,
+    client,
+):
+    submit(environment, "m1")
+    client.force_login(environment["reviewer"])
+    url = reverse("experiences:queue")
+
+    response = client.get(url, {"scope": "decided"})
+    assert not response.context["page"]
+    assert response.context["stage_counts"] == {"ready": 1, "decided": 0, "all": 1}
+
+    ReviewItem.objects.filter(status__in=workflows.PENDING_STATUSES).update(
+        status=ReviewItem.Status.APPROVED,
+    )
+    response = client.get(url, {"scope": "decided"})
+    assert response.context["page"][0].product == environment["product"]
+    assert response.context["stage_counts"] == {"ready": 0, "decided": 1, "all": 1}
+
+
 def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     client,
     review_item,
