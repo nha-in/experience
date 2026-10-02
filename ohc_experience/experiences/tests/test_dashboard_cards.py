@@ -36,7 +36,8 @@ def test_every_dashboard_figure_is_the_row_count_of_the_queue_it_opens(
     services.assign_review(locker, environment["admin"], environment["reviewer"])
     services.decide(locker, environment["reviewer"], action="reject", reason=DOCUMENTS)
     submit_claims(environment, "m1")
-    submit_claims(environment, "nhcx1")
+    submit_claims(environment, "m3")
+    submit_claims(environment, "nhcx_payer")
     client.force_login(environment["admin"])
 
     response = client.get(reverse("experiences:assess-dashboard"))

@@ -19,12 +19,16 @@ from ohc_experience.organisations.widgets import WebsiteInput
 from .catalog import EXCLUSIVE_TRACKS
 from .catalog import MILESTONE_CHOICES
 from .catalog import MILESTONES
+from .catalog import NHCX_ROLE_TRACKS
+from .catalog import NHCX_ROLES
+from .catalog import OPTIONAL_MILESTONES
 from .catalog import REQUIRED_MILESTONES
 from .catalog import TRACKS
 from .catalog import canonical_keys
 from .catalog import excluded_track
 from .catalog import fixed_selections
 from .catalog import milestone_predecessors
+from .catalog import other_nhcx_role
 from .docs import docs_page
 from .wasa import WASA_FIELDS
 from .wasa import WASA_VALIDITY_YEARS
@@ -411,7 +415,7 @@ class ProductRegistrationForm(ReviewForm):
             other = excluded_track({track.code})
             exclusion = ""
             if other:
-                exclusion = f"Not available with {other}."
+                exclusion = f"Not in implementation scope of {other}."
             locked = fixed is not None and track.code in EXCLUSIVE_TRACKS
             owns_fixed = locked and any(
                 value.startswith(f"{track.code}:") for value in fixed
@@ -439,9 +443,12 @@ class ProductRegistrationForm(ReviewForm):
     def _requirement(self, track, prerequisites):
         """ "M1 or P1 ": what has to be chosen before this track's own milestones.
 
-        UHI and NHCX open on either identity milestone, so their note reads
-        "or"; a track that builds on a chain would read "and".
+        UHI opens on either identity milestone, so its note reads "or"; a track
+        that builds on a chain would read "and". NHCX's roles each need
+        something different, so each role's row names its own.
         """
+        if track.keys == NHCX_ROLES:
+            return ""
         codes = [MILESTONES[key].code for key in prerequisites]
         alternatives = False
         for key in track.keys:
@@ -453,6 +460,14 @@ class ProductRegistrationForm(ReviewForm):
     def _milestone_row(self, value, selected):
         key = value.split(":", 1)[1]
         definition = MILESTONES[key]
+        chosen = {value.split(":", 1)[0] for value in selected} & set(EXCLUSIVE_TRACKS)
+        other = other_nhcx_role(key)
+        # Once ABDM or PHR is chosen, only that track's NHCX roles show.
+        hidden = (
+            key in NHCX_ROLE_TRACKS
+            and bool(chosen)
+            and NHCX_ROLE_TRACKS[key] not in chosen
+        )
         required_for = [
             solution
             for solution, _ in self.fields["solution_type"].choices
@@ -461,10 +476,20 @@ class ProductRegistrationForm(ReviewForm):
         return {
             "definition": definition,
             "value": value,
-            "selected": value in selected,
+            "selected": value in selected and not hidden,
             "requires": " ".join(milestone_predecessors(key, self.organisation)),
             "stands_alone": definition.stands_alone,
             "requires_all": definition.requires_all,
+            "optional": key in OPTIONAL_MILESTONES,
+            "needs": readable_list(
+                MILESTONES[other].code for other in definition.predecessors
+            )
+            if key in NHCX_ROLES
+            else "",
+            "excludes": f"NHCX:{other}" if other else "",
+            "excludes_code": MILESTONES[other].code if other else "",
+            "role_track": NHCX_ROLE_TRACKS.get(key, ""),
+            "hidden": hidden,
             "required_for": " ".join(required_for),
         }
 
@@ -472,16 +497,21 @@ class ProductRegistrationForm(ReviewForm):
         """Swap the ABDM and PHR selections for the ones the solution type fixes.
 
         Posted ones in `saved` stay: approved and under-review milestones arrive
-        as hidden fields, and the save refuses to drop them.
+        as hidden fields, and the save refuses to drop them. So does an optional
+        milestone on the track the type fixes: M4 under an ABDM type.
         """
         fixed = fixed_selections(solutions)
         if fixed is None:
             return list(selections)
-        kept = [
-            value
-            for value in selections
-            if value.split(":", 1)[0] not in EXCLUSIVE_TRACKS or value in saved
-        ]
+        fixed_tracks = {value.split(":", 1)[0] for value in fixed}
+
+        def keeps(value):
+            track, key = value.split(":", 1)
+            if track not in EXCLUSIVE_TRACKS or value in saved:
+                return True
+            return key in OPTIONAL_MILESTONES and track in fixed_tracks
+
+        kept = [value for value in selections if keeps(value)]
         return kept + [value for value in fixed if value not in kept]
 
     def clean(self):
@@ -503,6 +533,9 @@ class ProductRegistrationForm(ReviewForm):
             msg = f"{names} cannot be applied for together. Choose one of them."
             raise ValidationError(msg)
         keys = canonical_keys(selections)
+        if len(keys & set(NHCX_ROLES)) > 1:
+            msg = "Choose one NHCX role: Payer, Provider or Patient app."
+            raise ValidationError(msg)
         for key in keys:
             milestone = MILESTONES[key]
             if milestone.stands_alone:

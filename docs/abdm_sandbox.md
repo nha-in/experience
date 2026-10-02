@@ -173,7 +173,7 @@ retired; reviewer work uses the engine's assessment screens.
   show M2 as related context for UHI, but it no longer gates the form or the
   decision. M4 needs no earlier milestone,
   not even M1, so its form is open from the start. M2, M3, P2, P3, P4, UHI1
-  and NHCX1 flows have the gateway call the integrator back, so none of them
+  and every NHCX role have the gateway call the integrator back, so none of them
   can be submitted, alone or alongside another milestone, while the product's
   credentials have no callback URL; drafts still save. A
   rejected or withdrawn milestone counts once it is resubmitted, so M2 stays

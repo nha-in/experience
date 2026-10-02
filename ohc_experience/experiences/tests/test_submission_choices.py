@@ -68,13 +68,16 @@ def test_uhi_offers_only_what_shares_this_evidence(environment, client):
     assert offered(client, environment, "m2", "UHI") == {}
 
 
-def test_nhcx_offers_nothing_beside_the_identity_milestone(environment, client):
-    """NHCX1 shares the evidence form but not the evidence: another scope."""
+def test_nhcx_offers_only_what_its_role_builds_on(environment, client):
+    """NHCX shares the evidence form but not the evidence: another scope.
+
+    A payer's track shows M1 and M3, never the provider's M2.
+    """
     claims = {**environment, "product": nhcx_product(environment)}
     client.force_login(environment["applicant"])
 
-    assert offered(client, claims, "m1", "NHCX") == {}
-    assert offered(client, claims, "nhcx1", "NHCX") == {}
+    assert offered(client, claims, "m1", "NHCX") == {"M3": ""}
+    assert offered(client, claims, "nhcx_payer", "NHCX") == {}
 
 
 def test_a_milestone_submitted_once_can_be_resubmitted_with_the_batch(

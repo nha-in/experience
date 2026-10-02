@@ -184,7 +184,7 @@ def nhcx_product(environment):
                     "ABDM:m2",
                     "ABDM:m3",
                     "ABDM:m4",
-                    "NHCX:nhcx1",
+                    "NHCX:nhcx_payer",
                 ],
             },
         )
@@ -268,15 +268,18 @@ def test_each_track_runs_in_order_from_its_own_identity_milestone(environment):
     assert TRACK_MAP["PHR"].keys == ("p1", "p2", "p3", "p4")
     assert TRACK_MAP["PHR"].name == "PHR & Health Locker"
     assert "HealthLocker" not in TRACK_MAP
-    assert TRACK_MAP["NHCX"].keys == ("nhcx1",)
+    assert TRACK_MAP["NHCX"].keys == ("nhcx_payer", "nhcx_provider", "nhcx_patient_app")
     assert get_program().track_milestones(TRACK_MAP["PHR"]) == (
         "p1",
         "p2",
         "p3",
         "p4",
     )
-    # UHI and NHCX open on whichever identity milestone the product carries.
-    assert MILESTONES["nhcx1"].predecessor == ("m1", "p1")
+    # UHI opens on whichever identity milestone the product carries; an NHCX
+    # payer needs M1 and M3, a provider M1 and M2, a patient app P1.
+    assert MILESTONES["nhcx_payer"].predecessor == ("m1", "m3")
+    assert MILESTONES["nhcx_provider"].predecessor == ("m1", "m2")
+    assert MILESTONES["nhcx_patient_app"].predecessor == "p1"
     assert MILESTONES["uhi1"].predecessor == ("m1", "p1")
     for key in ("m2", "m3", "m4"):
         assert waiting_on(environment, key) == ["M1 - ABHA Creation and Verification"]
@@ -330,7 +333,8 @@ def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
     program = get_program()
 
     assert set(program.shared_with("m1", "ABDM")) == {"UHI", "NHCX"}
-    assert set(program.shared_with("p1", "PHR")) == {"UHI", "NHCX"}
+    assert program.shared_with("m3", "ABDM") == ("NHCX",)
+    assert program.shared_with("p1", "PHR") == ("UHI", "NHCX")
     assert program.shared_with("p4", "PHR") == ()
     assert MILESTONES["p4"].code == "P4"
 
@@ -340,11 +344,12 @@ def test_a_tracks_description_names_its_shared_milestones():
     program = get_program()
     assert program.shared_note("PHR") == "P1 is shared with UHI and NHCX."
     assert program.shared_note("ABDM") == (
-        "M1 is shared with UHI and NHCX. M2 is shared with UHI."
+        "M1 is shared with UHI and NHCX. M2 is shared with UHI and NHCX. "
+        "M3 is shared with NHCX."
     )
     assert program.shared_note("UHI") == (
         "M1 is shared with ABDM and NHCX. P1 is shared with PHR and NHCX. "
-        "M2 is shared with ABDM."
+        "M2 is shared with ABDM and NHCX."
     )
 
 
@@ -749,7 +754,7 @@ def test_a_product_edit_applies_at_once_without_a_review(environment):
         environment["applicant"],
         data={
             **product_data(),
-            "applied_milestones": [*product.applied_milestones, "NHCX:nhcx1"],
+            "applied_milestones": [*product.applied_milestones, "NHCX:nhcx_provider"],
         },
         submit=True,
     )
@@ -759,11 +764,33 @@ def test_a_product_edit_applies_at_once_without_a_review(environment):
     assert item.decided_by is None
     assert item.history.filter(action="Record updated").exists()
     product.refresh_from_db()
-    assert "NHCX:nhcx1" in product.applied_milestones
-    assert product.milestones.get(key="nhcx1").enabled
+    assert "NHCX:nhcx_provider" in product.applied_milestones
+    assert product.milestones.get(key="nhcx_provider").enabled
     assert product.registered_at == registered_at
     with pytest.raises(ValidationError, match="Only an active review request"):
         services.withdraw(item, environment["applicant"])
+
+
+def test_an_nhcx_role_added_by_an_edit_waits_on_both_its_milestones(environment):
+    product = environment["product"]
+    registration = product.review_items.get(kind="product_registration")
+
+    _item, form, saved = services.save_review_form(
+        registration,
+        environment["applicant"],
+        data={
+            **product_data(),
+            "applied_milestones": [*product.applied_milestones, "NHCX:nhcx_payer"],
+        },
+        submit=True,
+    )
+
+    assert saved, form.errors
+    payer = product.milestones.get(key="nhcx_payer").application
+    assert sorted(payer.dependencies.values_list("milestone__key", flat=True)) == [
+        "m1",
+        "m3",
+    ]
 
 
 def test_a_milestone_under_review_is_named_when_an_edit_removes_it(environment):
@@ -1230,7 +1257,8 @@ def nhcx_reviewer(client):
 
 def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client):
     m1 = submit_claims(environment, "m1")
-    nhcx1 = submit_claims(environment, "nhcx1")
+    submit_claims(environment, "m3")
+    nhcx_payer = submit_claims(environment, "nhcx_payer")
     client.force_login(environment["reviewer"])
 
     def listed(item):
@@ -1243,9 +1271,9 @@ def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client
             for review in entry.matching_reviews
         ]
 
-    assert listed("NHCX") == [nhcx1]
+    assert listed("NHCX") == [nhcx_payer]
     assert m1 in listed("ABDM")
-    assert nhcx1 not in listed("ABDM")
+    assert nhcx_payer not in listed("ABDM")
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
     pending = {
         card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
@@ -1258,19 +1286,23 @@ def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
     client,
 ):
     m1 = submit_claims(environment, "m1")
-    nhcx1 = submit_claims(environment, "nhcx1")
+    submit_claims(environment, "m3")
+    nhcx_payer = submit_claims(environment, "nhcx_payer")
     staff = nhcx_reviewer(client)
 
     queue = client.get(reverse("experiences:queue"), {"scope": "all"})
     rows = [review for entry in queue.context["page"] for review in entry.reviews]
     assert m1 not in rows
-    [row] = [review for review in rows if review == nhcx1]
-    assert [name for name, _status in row.waiting_on] == ["M1"]
+    [row] = [review for review in rows if review == nhcx_payer]
+    assert [name for name, _status in row.waiting_on] == ["M1", "M3"]
 
     assert client.get(m1.get_absolute_url()).status_code == 404
-    page = client.get(nhcx1.get_absolute_url())
+    page = client.get(nhcx_payer.get_absolute_url())
     assert page.status_code == 200
-    assert b"once M1 - ABHA Creation and Verification is approved" in page.content
+    assert (
+        b"once M1 - ABHA Creation and Verification and "
+        b"M3 - Health Information User Services are approved"
+    ) in page.content
     with pytest.raises(ValidationError):
         services.assign_review(m1, environment["admin"], staff)
 

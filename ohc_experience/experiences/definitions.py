@@ -277,11 +277,12 @@ class TrackDefinition:
 
         return tuple(dict.fromkeys(key for own in self.keys for key in chain(own)))
 
-    def related_milestones(self, milestones):
+    def related_milestones(self, milestones, keys=None):
         """Other tracks' milestones this track builds on or is shown alongside.
 
         Superset of `prerequisites`: also walks each milestone's `related`
         milestones, which are named here for context but never enforced.
+        `keys` narrows the walk to some of the track's own milestones.
         """
 
         def chain(key):
@@ -293,7 +294,9 @@ class TrackDefinition:
                     found.append(other)
             return found
 
-        return tuple(dict.fromkeys(key for own in self.keys for key in chain(own)))
+        return tuple(
+            dict.fromkeys(key for own in keys or self.keys for key in chain(own)),
+        )
 
 
 @dataclass(frozen=True)
@@ -673,11 +676,12 @@ class ProgramDefinition:
 
     @classmethod
     def applied_keys(cls, track, selections):
-        """A product's chosen milestones on this track, with their related ones."""
+        """A product's chosen milestones on this track, with the ones they relate
+        to: an NHCX payer shows M3, a provider M2."""
         chosen = [key for key in track.keys if f"{track.code}:{key}" in selections]
         if not chosen:
             return []
-        return [*track.related_milestones(cls.milestones), *chosen]
+        return [*track.related_milestones(cls.milestones, chosen), *chosen]
 
     @classmethod
     def tracks_with(cls, milestone_key):

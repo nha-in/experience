@@ -113,14 +113,38 @@ MILESTONES = {
             stands_alone=True,
         ),
         MilestoneDefinition(
-            "nhcx1",
-            "NHCX1",
-            "Claims exchange flows",
-            IDENTITY_MILESTONES,
-            "Exchange insurance claims between hospitals and insurers on NHCX, a "
-            "separate claims gateway: eligibility checks, pre-authorisation, "
-            "claims, queries and payment notices.",
-            docs_page("/docs/nhcx/v1"),
+            "nhcx_payer",
+            "Payer",
+            "Claims exchange as a payer",
+            ("m1", "m3"),
+            "As an insurer or TPA, host the claims flows on NHCX, a separate "
+            "claims gateway: answer eligibility checks, pre-authorisation and "
+            "claims, and send payment notices.",
+            docs_page("/docs/nhcx/v1/roles/payer"),
+            needs_callback=True,
+            requires_all=True,
+        ),
+        MilestoneDefinition(
+            "nhcx_provider",
+            "Provider",
+            "Claims exchange as a provider",
+            ("m1", "m2"),
+            "As a hospital, raise claims from your HMIS on NHCX, a separate claims "
+            "gateway: eligibility checks, pre-authorisation, discharge, claims and "
+            "payment tracking.",
+            docs_page("/docs/nhcx/v1/roles/provider"),
+            needs_callback=True,
+            requires_all=True,
+        ),
+        MilestoneDefinition(
+            "nhcx_patient_app",
+            "Patient app",
+            "Claim updates in a patient app",
+            "p1",
+            "As a PHR app, subscribe on a person's behalf and show them each step "
+            "of their claim as NHCX reports it: pre-authorisation, approval, "
+            "payment and requests for documents.",
+            docs_page("/docs/nhcx/v1/reference/notifications-and-patient-apps"),
             needs_callback=True,
         ),
     )
@@ -158,8 +182,11 @@ TRACKS = (
     TrackDefinition(
         "NHCX",
         "National Health Claims Exchange",
-        "Claims and pre-authorisation exchange between payers and providers.",
-        ("nhcx1",),
+        "Claims and pre-authorisation exchange between payers and providers. An "
+        "ABDM product joins as a payer, which needs M1 and M3, or as a provider, "
+        "which needs M1 and M2. A PHR app joins as a patient app on P1, to show "
+        "people how their claims move.",
+        ("nhcx_payer", "nhcx_provider", "nhcx_patient_app"),
         docs_page("/docs/nhcx/v1"),
     ),
 )
@@ -168,6 +195,25 @@ TRACK_MAP = {track.code: track for track in TRACKS}
 #: A product holds health records either as a provider or as a citizen's own
 #: application, so it applies for one of these two tracks, never both.
 EXCLUSIVE_TRACKS = ("ABDM", "PHR")
+
+#: A product joins NHCX as a payer or as a provider, never both.
+NHCX_ROLES = ("nhcx_payer", "nhcx_provider", "nhcx_patient_app")
+#: The track each NHCX role is offered with: payers and providers build on ABDM,
+#: a patient app on PHR.
+NHCX_ROLE_TRACKS = {
+    "nhcx_payer": "ABDM",
+    "nhcx_provider": "ABDM",
+    "nhcx_patient_app": "PHR",
+}
+
+
+def other_nhcx_role(key):
+    """The ABDM role this one rules out: Payer for Provider and back, else ""."""
+    if key == "nhcx_payer":
+        return "nhcx_provider"
+    if key == "nhcx_provider":
+        return "nhcx_payer"
+    return ""
 
 
 def milestone_predecessors(key, organisation=None):
@@ -335,20 +381,23 @@ SUPPORT_CATEGORIES = (
 SUPPORT_CATEGORY_MAP = {category.code: category for category in SUPPORT_CATEGORIES}
 
 #: Milestones each solution type requires, from NHA's intent-for-request matrix.
-#: A listed type fixes the product's ABDM or PHR milestones to exactly these.
-#: Other leaves them to the integrator.
+#: A listed type fixes the product's ABDM or PHR milestones to exactly these,
+#: apart from the optional ones below. Other leaves them to the integrator.
 REQUIRED_MILESTONES = {
-    "hmis": ("m1", "m2", "m3", "m4"),
-    "clinical_hmis": ("m1", "m2", "m3", "m4"),
-    "lmis": ("m1", "m2", "m3", "m4"),
-    "pharmacy": ("m1", "m2", "m3", "m4"),
+    "hmis": ("m1", "m2", "m3"),
+    "clinical_hmis": ("m1", "m2", "m3"),
+    "lmis": ("m1", "m2", "m3"),
+    "pharmacy": ("m1", "m2", "m3"),
     "phr": ("p1", "p2", "p3"),
     "health_locker": ("p1", "p2", "p3", "p4"),
-    "healthtech": ("m1", "m2", "m3", "m4"),
+    "healthtech": ("m1", "m2", "m3"),
     "insurance": ("m1", "m3"),
-    "telemedicine": ("m1", "m2", "m3", "m4"),
+    "telemedicine": ("m1", "m2", "m3"),
     "govt_program": ("m1", "m2", "m3"),
 }
+#: Never fixed by a solution type: on ABDM the integrator decides whether to
+#: apply for M4.
+OPTIONAL_MILESTONES = ("m4",)
 MILESTONE_CHOICES = [
     (
         track.name,

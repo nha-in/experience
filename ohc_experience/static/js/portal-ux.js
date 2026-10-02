@@ -303,7 +303,7 @@
           ? required.every(key => isTicked(form, key))
           : required.some(key => isTicked(form, key));
         const met = standsAlone || required.length === 0 || built;
-        const open = met && !input.dataset.trackBlocked;
+        const open = met && !input.dataset.trackBlocked && !('roleLocked' in input.dataset);
         if (!open && input.checked) {
           input.checked = false;
           cleared = true;
@@ -311,11 +311,20 @@
         input.disabled = !open || 'milestoneLocked' in input.dataset;
       }
     }
+    // NHCX shows the roles of whichever of ABDM or PHR is chosen, and all before either.
+    const chosen = [...form.querySelectorAll('[data-track-excludes]')].find(hasSelection);
+    form.querySelectorAll('[data-role-track]').forEach(row => {
+      row.hidden = Boolean(chosen) && row.dataset.roleTrack !== chosen.dataset.track;
+    });
+    // An approved or under-review role posts as a hidden field, without a name here.
+    const clear = form.querySelector('[data-nhcx-clear]');
+    if (clear) clear.disabled = ![...form.querySelectorAll('input[type="radio"][name][data-milestone-key]')].some(radio => radio.checked);
   }
 
   // A solution type in NHA's matrix fixes the ABDM or PHR milestones to the
-  // ones it requires. Other lets the integrator choose. The form applies the
-  // same rule on submit.
+  // ones it requires. Other lets the integrator choose. An optional one, M4, is
+  // never fixed: it stays as ticked while the type fixes its track, and clears
+  // when the type fixes the other one. The form applies the same rule on submit.
   const requiredBy = (input, type) => (input.dataset.requiredFor || '').split(' ').includes(type.value);
   const readableList = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join('');
 
@@ -325,7 +334,12 @@
     const boxes = groups.flatMap(changeable);
     const fixes = boxes.some(input => requiredBy(input, type));
     const label = type.labels[0]?.textContent.trim() || type.value;
+    const fixedGroup = groups.find(group => changeable(group).some(input => requiredBy(input, type)));
     for (const input of boxes) {
+      if ('milestoneOptional' in input.dataset) {
+        if (fixes && input.closest('[data-track-excludes]') !== fixedGroup) input.checked = false;
+        continue;
+      }
       if (fixes) input.checked = requiredBy(input, type);
       input.toggleAttribute('data-milestone-locked', fixes);
     }
@@ -338,7 +352,7 @@
     }
     const status = form.querySelector('[data-milestone-status]');
     if (!status) return;
-    const codes = boxes.filter(input => fixes && input.checked).map(input => input.dataset.milestoneKey.toUpperCase());
+    const codes = boxes.filter(input => fixes && input.checked && requiredBy(input, type)).map(input => input.dataset.milestoneKey.toUpperCase());
     status.textContent = codes.length ? `${readableList(codes)} set by the ${label} solution type.` : '';
   }
 
@@ -350,6 +364,16 @@
     if (type) applySolutionType(type);
     else applyExclusivity(input);
     refreshMilestones(form);
+  });
+  // NHCX's roles are radios, so a click cannot untick them.
+  document.addEventListener('click', event => {
+    const clear = event.target.closest('[data-nhcx-clear]');
+    if (!clear) return;
+    const form = clear.form;
+    form.querySelectorAll('input[type="radio"][name][data-milestone-key]').forEach(radio => { radio.checked = false; });
+    refreshMilestones(form);
+    updateForm(form);
+    updateReadiness(form);
   });
   ['input', 'change'].forEach(type => document.addEventListener(type, event => {
     const form = event.target.closest('form');

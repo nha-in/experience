@@ -546,11 +546,11 @@ def test_general_and_all_categories_are_explicit(environment, staff):
 
 
 def test_reused_pins_remain_visible_without_exposing_source_history(environment, staff):
-    """NHCX1 shares ABDM's evidence form; M3's evidence shows once NHCX1 pins it."""
+    """NHCX shares ABDM's evidence form; M3's evidence shows once Payer pins it."""
     submit_claims(environment, "m1")
     source = submit_claims(environment, "m3")
     original = source.selected_submission
-    target = nhcx_product(environment).milestones.get(key="nhcx1")
+    target = nhcx_product(environment).milestones.get(key="nhcx_payer")
     target = target.application.review_item
     grant(staff, category="NHCX")
     assert not permissions.visible_submissions(staff).filter(pk=original.pk).exists()
@@ -559,9 +559,11 @@ def test_reused_pins_remain_visible_without_exposing_source_history(environment,
     assert target.selected_submission_id == original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
     # Replacing a reused pin must not break links in this application's history.
-    target = submit_claims(environment, "nhcx1")
+    target = submit_claims(environment, "nhcx_payer")
     assert target.selected_submission_id != original.pk
     assert permissions.visible_submissions(staff).filter(pk=original.pk).exists()
+    # Payer builds on M3, so it is withdrawn first.
+    workflows.withdraw(target, environment["applicant"])
     workflows.withdraw(source, environment["applicant"])
     revised_source = submit_claims(environment, "m3")
     assert (

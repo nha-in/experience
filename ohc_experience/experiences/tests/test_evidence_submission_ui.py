@@ -348,13 +348,13 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
 ):
     claims = {**environment, "product": nhcx_product(environment)}
     first = submit(claims)
-    other = submit(claims, "nhcx1")
+    submit(claims, "m3")
+    other = submit(claims, "nhcx_payer")
     assert first.form_id == other.form_id
     client.force_login(environment["applicant"])
     response = client.get(track_url(claims, "m2"))
 
     assert {choice["code"] for choice in response.context["submission_choices"]} == {
-        "M3",
         "M4",
     }
     locker = {**environment, "product": phr_product(environment)}
@@ -374,7 +374,7 @@ def test_batch_rejects_other_categories_even_when_the_form_record_is_shared(
     """NHCX shares the product's evidence form, and still submits on its own."""
     claims = {**environment, "product": nhcx_product(environment)}
     current = milestone(claims)
-    other = milestone(claims, "nhcx1")
+    other = milestone(claims, "nhcx_payer")
     assert current.form_id == other.form_id
     before = review_state(current, other)
     client.force_login(environment["applicant"])

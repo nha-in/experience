@@ -28,7 +28,10 @@ from ohc_experience.experiences.models import ReviewItem
 pytestmark = pytest.mark.django_db
 
 #: Every milestone a page could show, for tests that are not about page scope.
-ALL_KEYS = ("m1", "m2", "m3", "m4", "p1", "p2", "p3", "p4", "uhi1", "nhcx1")
+ALL_KEYS = (
+    *("m1", "m2", "m3", "m4", "p1", "p2", "p3", "p4"),
+    *("uhi1", "nhcx_payer", "nhcx_provider"),
+)
 
 
 def revisions(*items):
@@ -390,7 +393,7 @@ def test_same_form_in_another_track_cannot_join_the_batch(environment):
     """NHCX shares the product's evidence form, and still submits on its own."""
     claims = {**environment, "product": nhcx_product(environment)}
     current = milestone(claims)
-    target = milestone(claims, "nhcx1")
+    target = milestone(claims, "nhcx_payer")
     assert current.form_id == target.form_id
     with pytest.raises(ValidationError, match="additional milestone changed"):
         submit_group(claims, current, target)
@@ -467,7 +470,8 @@ def test_cross_track_inherited_pin_does_not_prefill_answers_or_functional_files(
 ):
     claims = {**environment, "product": nhcx_product(environment)}
     submit(claims, "m1")
-    source = submit(claims, "nhcx1").selected_submission
+    submit(claims, "m3")
+    source = submit(claims, "nhcx_payer").selected_submission
     target = milestone(claims, "m4")
     inherit_snapshot(target, source)
     form = workflows.build_form(target)
@@ -525,7 +529,8 @@ def test_same_track_inherited_pin_keeps_files_but_requires_new_dates(environment
 def test_cross_track_inherited_pin_still_offers_approved_product_wasa(environment):
     claims = {**environment, "product": nhcx_product(environment)}
     approve(claims, "m1")
-    source = approve(claims, "nhcx1").selected_submission
+    approve(claims, "m3")
+    source = approve(claims, "nhcx_payer").selected_submission
     target = milestone(claims, "m4")
     inherit_snapshot(target, source)
     form = workflows.build_form(target)
