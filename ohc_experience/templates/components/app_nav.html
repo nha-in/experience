@@ -79,7 +79,8 @@
       {% endif %}
       {% if can_read_support %}<li><a id="nav-support"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:support' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}</span>{% endif %}</a></li>
+   href="{% url 'experiences:support' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}<span class="font-mono text-[11px] text-soft-foreground"
+      title="{{ nav_ticket_count }} open ticket{{ nav_ticket_count|pluralize }}">{{ nav_ticket_count }}<span class="sr-only"> open ticket{{ nav_ticket_count|pluralize }}</span></span>{% endif %}</a></li>
     {% endif %}
   {% endif %}
   {% if can_integrate %}

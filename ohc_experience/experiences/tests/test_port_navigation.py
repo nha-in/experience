@@ -10,6 +10,7 @@ from ohc_experience.experiences.context_processors import navigation_context
 from ohc_experience.experiences.models import Product
 from ohc_experience.integrations.services import provision_inline
 from ohc_experience.organisations.tests.factories import MembershipFactory
+from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -153,3 +154,34 @@ def test_the_product_step_goes_once_the_organisation_has_a_product(environment):
     assert response.status_code == 200
     assert response.context["can_edit"], "the form still takes edits after approval"
     assert "Continue to product" not in response.content.decode()
+
+
+def app_nav(client, url):
+    """The sidebar of the page at `url`, its whitespace collapsed."""
+    html = client.get(url).content.decode()
+    return " ".join(html.split('<nav id="app-nav"', 1)[1].split("</nav>", 1)[0].split())
+
+
+def test_the_support_count_says_what_it_counts(environment):  # noqa: F811
+    """Tickets with the NHA team or awaiting the integrator; resolved ones drop off."""
+    for status in ("open", "awaiting_integrator", "closed"):
+        Ticket.objects.create(
+            organisation=environment["org"],
+            product=environment["product"],
+            created_by=environment["applicant"],
+            subject=f"A ticket {status}",
+            status=status,
+        )
+    client = Client()
+    client.force_login(environment["admin"])
+
+    nav = app_nav(client, reverse("experiences:assess-dashboard"))
+
+    assert (
+        '<span class="font-mono text-[11px] text-soft-foreground" '
+        'title="2 open tickets">2<span class="sr-only"> open tickets</span></span>'
+    ) in nav
+    Ticket.objects.filter(status="open").update(status="closed")
+    client.force_login(environment["applicant"])
+    nav = app_nav(client, environment["product"].get_absolute_url())
+    assert 'title="1 open ticket">1<span class="sr-only"> open ticket</span>' in nav
