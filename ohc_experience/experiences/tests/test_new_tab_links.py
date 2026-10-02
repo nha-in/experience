@@ -11,6 +11,8 @@ from django.urls import reverse
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 
 TEMPLATES = Path(settings.APPS_DIR) / "templates"
+#: The sign-in pages follow the landing page's design, arrow and all.
+SIGN_IN = TEMPLATES / "account" / "base_entrance.html"
 NEW_TAB_LINK = re.compile(r'<a\b[^>]*\btarget="_blank"[^>]*>(.*?)</a>', re.S)
 #: How such a link ends: components/new_tab_mark.html.
 MARK = " ".join(render_to_string("components/new_tab_mark.html").split())
@@ -25,6 +27,7 @@ def test_no_link_that_opens_a_new_tab_ends_with_a_bare_arrow():
     found = [
         f"{path.relative_to(TEMPLATES)}: {' '.join(content.split())[:60]}"
         for path in sorted(TEMPLATES.rglob("*.html"))
+        if path != SIGN_IN
         for content in NEW_TAB_LINK.findall(path.read_text())
         if "↗" in content
     ]
@@ -38,13 +41,6 @@ def test_the_mark_explains_itself_in_a_tooltip_and_to_screen_readers():
         '<span class="ui-tooltip ui-tooltip--top" aria-hidden="true">'
         "Opens in a new tab</span>"
     ) in MARK
-
-
-@pytest.mark.django_db
-def test_the_sign_in_page_marks_its_documentation_link(client):
-    html = compact(client.get(reverse("account_login")))
-
-    assert f"Explore the documentation {MARK}" in html
 
 
 @pytest.mark.django_db

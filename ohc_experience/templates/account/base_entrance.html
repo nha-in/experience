@@ -37,9 +37,7 @@
             <p>{% translate "Build and test your integration, submit your evidence, and follow each review with your team." %}</p>
             <a href="{{ experience_program.docs_url }}"
                target="_blank"
-               rel="noopener noreferrer">{% translate "Explore the documentation" %}
-              {% include "components/new_tab_mark.html" %}
-            </a>
+               rel="noopener noreferrer">{% translate "Explore the documentation" %} <span aria-hidden="true">↗&#xFE0E;</span></a>
           </div>
         {% endblock entrance_story_body %}
       </aside>
