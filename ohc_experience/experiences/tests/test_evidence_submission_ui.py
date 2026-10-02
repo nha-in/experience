@@ -367,24 +367,28 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
     }
 
 
-def test_batch_rejects_other_categories_even_when_the_form_record_is_shared(
+def test_batch_takes_an_nhcx_role_with_the_milestones_it_builds_on(
     environment,
     client,
 ):
-    """NHCX shares the product's evidence form, and still submits on its own."""
+    """NHCX shares the product's evidence form; its page sends M1, M3 and Payer."""
     claims = {**environment, "product": nhcx_product(environment)}
     current = milestone(claims)
-    other = milestone(claims, "nhcx_payer")
-    assert current.form_id == other.form_id
-    before = review_state(current, other)
+    m3, payer = milestone(claims, "m3"), milestone(claims, "nhcx_payer")
+    assert current.form_id == payer.form_id
     client.force_login(environment["applicant"])
-    response = client.post(track_url(claims), submit_data(other))
 
+    # The ABDM page does not show the role, so it cannot send it.
+    before = review_state(current, payer)
+    response = client.post(track_url(claims), submit_data(m3, payer))
     assert response.status_code == HTTPStatus.OK
-    assert review_state(current, other) == before
-    assert other.pk not in {
-        choice["item"].pk for choice in response.context["submission_choices"]
-    }
+    assert review_state(current, payer) == before
+
+    response = client.post(track_url(claims, code="NHCX"), submit_data(m3, payer))
+    assert response.status_code == HTTPStatus.FOUND
+    for item in (current, m3, payer):
+        item.refresh_from_db()
+        assert item.status == ReviewItem.Status.NEW
 
 
 def test_save_draft_ignores_additional_milestone_choices(environment, client):

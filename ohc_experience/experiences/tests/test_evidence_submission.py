@@ -389,15 +389,28 @@ def test_different_form_cannot_join_the_batch(environment):
     assert_fresh(current, target)
 
 
-def test_same_form_in_another_track_cannot_join_the_batch(environment):
-    """NHCX shares the product's evidence form, and still submits on its own."""
+def test_an_nhcx_role_joins_the_batch_of_what_it_builds_on(environment):
+    """NHCX shares the product's evidence form, and M1 and M3 carry a payer."""
     claims = {**environment, "product": nhcx_product(environment)}
     current = milestone(claims)
-    target = milestone(claims, "nhcx_payer")
-    assert current.form_id == target.form_id
-    with pytest.raises(ValidationError, match="additional milestone changed"):
-        submit_group(claims, current, target)
-    assert_fresh(current, target)
+    m3, payer = milestone(claims, "m3"), milestone(claims, "nhcx_payer")
+    assert current.form_id == payer.form_id
+
+    submit_group(claims, current, m3, payer)
+
+    for item in (current, m3, payer):
+        item.refresh_from_db()
+        assert item.status == ReviewItem.Status.NEW
+
+
+def test_an_nhcx_role_cannot_join_without_what_it_builds_on(environment):
+    """Without M3 in the batch, a payer would be sent ahead of it."""
+    claims = {**environment, "product": nhcx_product(environment)}
+    current = milestone(claims)
+    payer = milestone(claims, "nhcx_payer")
+    with pytest.raises(ValidationError, match=r"Payer .* opens once M1 .* and M3"):
+        submit_group(claims, current, payer)
+    assert_fresh(current, payer)
 
 
 def test_all_additional_dates_are_validated_even_when_primary_is_invalid(environment):
@@ -465,9 +478,8 @@ def test_invalid_additional_dates_prevent_every_submission(environment, invalid)
     assert_fresh(current, target)
 
 
-def test_cross_track_inherited_pin_does_not_prefill_answers_or_functional_files(
-    environment,
-):
+def test_a_pin_from_an_nhcx_role_prefills_like_one_from_its_track(environment):
+    """A payer shares ABDM's evidence, so M4 inheriting it keeps its answers."""
     claims = {**environment, "product": nhcx_product(environment)}
     submit(claims, "m1")
     submit(claims, "m3")
@@ -477,28 +489,8 @@ def test_cross_track_inherited_pin_does_not_prefill_answers_or_functional_files(
     form = workflows.build_form(target)
     assert not form.initial.get("start_date")
     assert not form.initial.get("end_date")
-    assert not form.initial.get("tentative_demo_date")
-    assert not form.initial.get("wasa_agency")
-    for key in ("functional_certificate", "functional_report", "undertaking_form"):
-        assert not form.existing_files.get(key)
-    target.refresh_from_db()
-    assert target.selected_submission_id == source.pk
-    assert target.application.form_uses.get().selected_submission_id == source.pk
-
-    item, form, saved = workflows.save_review_form(
-        target,
-        environment["applicant"],
-        data=sandbox_dates(),
-        submit=True,
-        expected_revision=source.pk,
-    )
-    assert not saved
-    for key in ("functional_certificate", "functional_report", "undertaking_form"):
-        assert key in form.errors
-    assert item.selected_submission_id == source.pk
-    target.refresh_from_db()
-    assert target.status == ReviewItem.Status.DRAFT
-    assert target.selected_submission_id == source.pk
+    assert form.initial["tentative_demo_date"] == source.data["tentative_demo_date"]
+    assert form.existing_files["functional_report"]
 
 
 def test_same_track_inherited_pin_keeps_files_but_requires_new_dates(environment):
@@ -526,7 +518,7 @@ def test_same_track_inherited_pin_keeps_files_but_requires_new_dates(environment
     assert item.selected_submission.attachments.count() == 4
 
 
-def test_cross_track_inherited_pin_still_offers_approved_product_wasa(environment):
+def test_a_pin_from_an_approved_nhcx_role_offers_its_product_wasa(environment):
     claims = {**environment, "product": nhcx_product(environment)}
     approve(claims, "m1")
     approve(claims, "m3")
@@ -537,8 +529,7 @@ def test_cross_track_inherited_pin_still_offers_approved_product_wasa(environmen
     assert form.initial["use_product_wasa"]
     assert form.wasa_source.pk == source.pk
     assert form.existing_files["wasa_certificate"]
-    assert not form.existing_files.get("functional_report")
-    assert not form.initial.get("tentative_demo_date")
+    assert form.existing_files["functional_report"]
 
 
 def test_current_milestone_draft_keeps_its_own_testing_dates_and_files(environment):

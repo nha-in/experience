@@ -17,7 +17,9 @@ from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Organisation
 
 from .catalog import MILESTONES
+from .catalog import NHCX_ROLE_TRACKS
 from .catalog import SUPPORT_CATEGORIES
+from .catalog import TRACK_MAP
 from .catalog import TRACKS
 from .catalog import milestone_predecessors
 from .dhis import DHISHandoff
@@ -370,6 +372,18 @@ class ABDM(ProgramDefinition):
     @classmethod
     def milestone_predecessors(cls, key, organisation=None):
         return milestone_predecessors(key, organisation)
+
+    @classmethod
+    def evidence_keys(cls, key):
+        """An NHCX role also shares the evidence of the track it builds on, as
+        legacy took NHCX on the same exit form as M1."""
+        keys = super().evidence_keys(key)
+        if key in NHCX_ROLE_TRACKS:
+            keys |= set(TRACK_MAP[NHCX_ROLE_TRACKS[key]].keys)
+        for role, track in NHCX_ROLE_TRACKS.items():
+            if key in TRACK_MAP[track].keys:
+                keys.add(role)
+        return keys
 
     @classmethod
     def product_form_kwargs(cls, organisation):

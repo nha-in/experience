@@ -738,16 +738,11 @@ def _fresh_evidence_target(item):
 
 
 def _evidence_track_keys(item):
-    """Only a track's own milestones can share evidence; prerequisites do not."""
+    """The milestones the program lets share this milestone's evidence."""
     milestone = getattr(item.application, "milestone", None)
     if not milestone:
         return set()
-    return {
-        key
-        for track in item.program.tracks
-        if milestone.key in track.keys
-        for key in track.keys
-    }
+    return item.program.evidence_keys(milestone.key)
 
 
 def submission_choices(item, page_keys):

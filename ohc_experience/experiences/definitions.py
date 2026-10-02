@@ -799,6 +799,16 @@ class ProgramDefinition:
         return cls.milestones[key].predecessors
 
     @classmethod
+    def evidence_keys(cls, key):
+        """Milestones one submission of this milestone's evidence may also cover.
+
+        A track's own milestones; prerequisites from other tracks do not share.
+        """
+        return {
+            other for track in cls.tracks if key in track.keys for other in track.keys
+        }
+
+    @classmethod
     def milestone_keys(cls, selections, organisation=None):
         available = {
             f"{track.code}:{key}": key for track in cls.tracks for key in track.keys
