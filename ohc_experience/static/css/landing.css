@@ -164,7 +164,7 @@
 .sbx-hero .marketing-button {
   color: #fff;
   border-color: #c9d4ee88;
-  font-size: 0.8125rem;
+  font-size: 1rem;
   padding-inline: 19px;
 }
 .sbx-hero .marketing-button:hover {
@@ -182,6 +182,15 @@
   border-color: #f29142;
   color: #112044;
 }
+.sbx-hero .marketing-actions {
+  container-type: inline-size;
+}
+/* The two buttons need about 548px side by side; below that each takes a full row. */
+@container (max-width: 560px) {
+  .sbx-hero .marketing-button {
+    flex: 1 1 100%;
+  }
+}
 .sbx-stats {
   container-type: inline-size;
   background: #1e2c4bd1;
@@ -192,7 +201,7 @@
 }
 .marketing-shell .sbx-stats h2 {
   padding: 18px 0 16px;
-  font: 500 0.6875rem/1.7 var(--marketing-font-mono);
+  font: 500 0.75rem/1.7 var(--marketing-font-mono);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: #c9d4ee;
@@ -202,7 +211,8 @@
   padding: 18px 0 20px;
   border-top: 1px solid #c9d4ee2e;
   color: #c9d4ee;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 .sbx-stat-value {
   display: flex;
@@ -848,14 +858,8 @@
   }
 }
 @media (max-width: 480px) {
-  .sbx-hero .marketing-button {
-    flex: 1 1 100%;
-  }
   .sbx-stats {
     padding-inline: 18px;
-  }
-  .sbx-stat {
-    font-size: 0.75rem;
   }
   .sbx-ai-features {
     grid-template-columns: minmax(0, 1fr);
