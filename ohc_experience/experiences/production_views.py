@@ -67,7 +67,7 @@ def production_list(request):
         "experiences/production_list.html",
         {
             "nav": "production",
-            "page_title": "Production Approval",
+            "page_title": "Production approval",
             "page": page,
             "rows": production.with_codes(page),
             "stage": stage,
