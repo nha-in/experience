@@ -205,9 +205,18 @@ def test_documentation_says_it_opens_in_a_new_tab(environment):  # noqa: F811
 
     docs = nav[nav.index('<a id="nav-docs"') :].split("</a>", 1)[0]
     assert 'target="_blank"' in docs
+    assert "group/tip" in docs
+    # An external-link icon the size of the other icons, not a small arrow.
+    assert "↗" not in docs
+    assert (
+        '<svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor"'
+    ) in docs
+    assert 'd="M15 3h6v6M10 14 21 3' in docs
     assert docs.endswith(
-        'Documentation <span aria-hidden="true">↗&#xFE0E;</span>'
-        '<span class="sr-only"> (opens in a new tab)</span>',
+        '<span class="sr-only"> (opens in a new tab)</span>'
+        '<span class="ui-tooltip bottom-full left-3 mb-1" aria-hidden="true">'
+        "Opens in a new tab</span>",
     )
 
 

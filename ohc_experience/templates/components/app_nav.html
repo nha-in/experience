@@ -112,11 +112,11 @@
    class="ui-nav-link"
    href="{% url 'organisations:team' %}">{% include "components/nav_icon.html" with icon="team" %}Team &amp; invitations</a></li>{% endif %}
   <li><a id="nav-docs"
-   class="ui-nav-link"
+   class="ui-nav-link group/tip relative"
    href="{{ experience_program.docs_url }}"
    target="_blank"
    rel="noopener noreferrer"
-   hx-boost="false">{% include "components/nav_icon.html" with icon="docs" %}Documentation <span aria-hidden="true">↗&#xFE0E;</span><span class="sr-only"> (opens in a new tab)</span></a></li>
+   hx-boost="false">{% include "components/nav_icon.html" with icon="docs" %}Documentation{% include "components/nav_icon.html" with icon="external" icon_size="size-4" %}<span class="sr-only"> (opens in a new tab)</span><span class="ui-tooltip bottom-full left-3 mb-1" aria-hidden="true">Opens in a new tab</span></a></li>
 </ul>
 </div>
 {# The account: who is signed in, which opens their profile, and signing out. #}
