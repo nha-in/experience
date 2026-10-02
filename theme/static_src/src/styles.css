@@ -164,7 +164,8 @@
   --inverse-border: var(--color-white);
 
   --input: var(--color-slate-400);
-  --ring: --alpha(var(--primary-600) / 75%);
+  /* Solid: a focus ring clears 3:1 on white, the hero wash and the sidebar. */
+  --ring: var(--primary-600);
 
   --chart-1: var(--primary-800);
   --chart-2: var(--primary-600);
@@ -308,6 +309,15 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  /* Keyboard focus draws a solid ring on anything that draws none of its own,
+     with the staff directory's 4px corners, so even a plain text link gets a
+     rounded ring. An outline, unlike a box-shadow ring, still shows in forced
+     colours. A container that script focuses (tabindex="-1") keeps the
+     browser's. */
+  :focus-visible:not([tabindex="-1"]) {
+    @apply rounded-[4px] outline-2 outline-offset-2 outline-ring;
   }
 
   body {

@@ -60,7 +60,7 @@
       </div>
       <div class="divide-y divide-soft-border md:hidden">
         {% for product in products %}
-          <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+          <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
              href="{{ product.get_absolute_url }}">
             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary">{{ product.name|first }}</span>
             <div class="min-w-0 flex-1">

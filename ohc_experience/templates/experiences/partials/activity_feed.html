@@ -29,7 +29,7 @@ pages link to them.
   {% if count > 5 and not anchors %}
     {% with earlier=count|add:'-5' %}
       <details class="group/earlier mt-2">
-        <summary class="flex min-h-11 w-fit cursor-pointer items-center rounded-md text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+        <summary class="flex min-h-11 w-fit cursor-pointer items-center rounded-md text-xs font-semibold text-primary">
           <span class="group-open/earlier:hidden">Show {{ earlier }} earlier event{{ earlier|pluralize }}</span>
           <span class="hidden group-open/earlier:inline">Hide earlier events</span>
         </summary>

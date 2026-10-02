@@ -1,6 +1,6 @@
 <fieldset id="{{ field.auto_id }}"
           tabindex="-1"
-          class="scroll-mt-6 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          class="scroll-mt-6 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           aria-describedby="milestone-picker-hint{% for error in field.errors %} {{ field.auto_id }}-error-{{ forloop.counter }}{% endfor %}"
           {% if field.errors %}aria-invalid="true"{% endif %}>
   <legend class="sr-only">{{ field.label }}</legend>

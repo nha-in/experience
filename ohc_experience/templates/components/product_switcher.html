@@ -20,7 +20,7 @@
 <details class="group relative {% if variant == 'card' %}rounded-xl border border-sidebar-border bg-soft-background{% else %}min-w-0{% endif %}"
          id="product-switcher{% if variant == 'card' %}-card{% endif %}"
          data-popover>
-  <summary class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden {% if variant == 'card' %}px-3 py-3{% else %}-mx-1 px-1 py-0.5 hover:bg-muted-background{% endif %}"
+  <summary class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-md [&::-webkit-details-marker]:hidden {% if variant == 'card' %}px-3 py-3{% else %}-mx-1 px-1 py-0.5 hover:bg-muted-background{% endif %}"
            title="{% translate 'Switch product' %}">
     {% if variant == "card" %}
       <span class="ui-avatar ui-avatar--primary size-9 rounded-lg text-xs"

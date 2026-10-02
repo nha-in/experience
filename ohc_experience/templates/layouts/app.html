@@ -50,10 +50,7 @@
            aria-controls="app-sidebar" />
     <!-- Mobile top bar -->
     <header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card px-4 md:hidden">
-      <a href="{% url 'dashboard' %}"
-         class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
-        {% include "components/brand.html" %}
-      </a>
+      <a href="{% url 'dashboard' %}" class="rounded-md">{% include "components/brand.html" %}</a>
       <label for="app-drawer"
              class="ui-btn ui-btn--ghost size-11 px-0 no-underline [&_svg]:size-5"
              role="button"
@@ -78,10 +75,7 @@
     <aside id="app-sidebar"
            class="invisible fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar px-3 pt-5 pb-4 transition-transform duration-200 motion-reduce:transition-none peer-checked:visible peer-checked:translate-x-0 md:visible md:sticky md:top-0 md:h-screen md:w-[248px] md:shrink-0 md:translate-x-0 md:transition-none">
       <div class="mb-6 flex items-start justify-between px-1.5">
-        <a href="{% url 'dashboard' %}"
-           class="rounded-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
-          {% include "components/brand.html" with size="sm" %}
-        </a>
+        <a href="{% url 'dashboard' %}" class="rounded-md">{% include "components/brand.html" with size="sm" %}</a>
         <label for="app-drawer"
                class="ui-btn ui-btn--ghost size-11 px-0 no-underline md:hidden [&_svg]:size-5"
                role="button"

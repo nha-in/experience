@@ -376,7 +376,6 @@
   .ui-info-button {
     @apply flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-soft-foreground transition-colors;
     @apply hover:bg-soft-background hover:text-foreground;
-    @apply focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none;
   }
 
   /* Its panel is a popover in the top layer, like the combobox list: a card
@@ -422,7 +421,6 @@
 
   .ui-checkbox {
     @apply size-4 shrink-0 rounded-sm border border-input text-primary accent-[var(--primary)];
-    @apply focus-visible:ring-3 focus-visible:ring-ring/15 focus-visible:outline-none;
   }
 
   .ui-label {
@@ -589,7 +587,7 @@
   .ui-subnav-link {
     @apply block rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors;
     @apply hover:bg-accent hover:text-accent-foreground;
-    @apply focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none;
+    @apply focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring;
   }
 
   .ui-subnav-link--active {

@@ -3,7 +3,7 @@
   Context: product, annotated with open_count; optional padding.
 {% endcomment %}
 <li>
-  <a class="group flex flex-wrap items-center gap-x-4 gap-y-2 {{ padding|default:'px-4 py-3' }} text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+  <a class="group flex flex-wrap items-center gap-x-4 gap-y-2 {{ padding|default:'px-4 py-3' }} text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
      href="{% url 'experiences:product-detail' product.reference %}">
     <span class="min-w-0 flex-1">
       <span class="block text-sm font-semibold break-words group-hover:text-primary">{{ product.name }}</span>
