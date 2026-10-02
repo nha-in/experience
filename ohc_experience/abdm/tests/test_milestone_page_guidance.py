@@ -13,6 +13,7 @@ from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AuditEvent
 
@@ -175,6 +176,32 @@ def test_an_approved_milestone_recommends_what_to_do_next(environment, client): 
         args=[environment["product"].reference, "ABDM"],
     )
     assert f'href="{track}?milestone=m2"' in banner
+
+
+def test_a_track_with_every_milestone_approved_recommends_nothing_else(
+    environment,  # noqa: F811
+    client,
+):
+    """The next step stays on the track on screen; the overview has the rest.
+
+    UHI is done once M1, M2 and its own milestone are, though ABDM's M3 is not.
+    """
+    approve(environment)
+    approve(environment, "m2")
+    submit(environment, "uhi1")
+    client.force_login(environment["applicant"])
+    uhi = reverse(
+        "experiences:track",
+        args=[environment["product"].reference, "UHI"],
+    )
+
+    html = client.get(uhi, {"milestone": "uhi1"}).content.decode()
+
+    assert "All required milestones for UHI onboarding are approved." in html
+    assert "Recommended next step" not in html
+    assert "M3" not in text(html[html.index('id="main-content"') :])
+    overview = client.get(environment["product"].get_absolute_url()).content.decode()
+    assert "Continue with M3" in overview
 
 
 def test_the_dashboard_says_what_each_chart_counts(environment, client):  # noqa: F811

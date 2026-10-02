@@ -1564,9 +1564,9 @@ def track(request, reference, track_code):
             _error(request, error)
     next_step = None
     if item and item.status == ReviewItem.Status.APPROVED:
-        # Once this milestone is done, point at the work left anywhere on the product.
-        _lock_tiles(product, [row for row in rows if row is not track_data])
-        next_step = recommended_step(rows)
+        # Once this milestone is done, point at the work left on this track. The
+        # overview is where the rest of the product's work is recommended.
+        next_step = recommended_step([track_data])
     return render(
         request,
         "experiences/track.html",
