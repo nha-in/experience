@@ -18,6 +18,14 @@ def test_the_document_type_starts_unchosen():
     assert '<option value="" selected>Select a document type</option>' in select
 
 
+def test_the_document_upload_states_what_it_takes():
+    """The picker and the hint say the same thing the validator enforces."""
+    field = OrganisationForm().fields["supporting_document"]
+
+    assert field.widget.attrs["accept"] == ".pdf"
+    assert field.help_text == "PDF, up to 10 MB."
+
+
 def test_an_organisation_submits_without_a_verification_document():
     applicant = UserFactory()
     organisation = Organisation.objects.create(name="Medibase Technologies")

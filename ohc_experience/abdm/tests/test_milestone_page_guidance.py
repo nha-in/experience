@@ -111,7 +111,7 @@ def test_a_saved_upload_keeps_a_small_button_instead_of_a_drop_area(
     assert picker("functional_report")[1] == "Add files"
     classes, words = picker("supporting_evidence")
     assert "min-h-16" in classes
-    assert words == "Add files Choose several at once or drop them here · .pdf"
+    assert words == "Add files Choose several at once or drop them here"
 
 
 def test_the_demo_date_explains_what_it_is_for(environment, client):  # noqa: F811

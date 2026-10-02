@@ -120,6 +120,7 @@ class OrganisationForm(ReviewForm):
     supporting_document = forms.FileField(
         label="Verification document",
         required=False,
+        help_text="PDF, up to 10 MB.",
         validators=[validate_pdf],
         widget=forms.FileInput(attrs={"accept": ".pdf"}),
     )
@@ -733,6 +734,7 @@ class ExitEvidenceForm(WasaReviewForm):
     supporting_evidence = MultipleFileField(
         label="Additional evidence",
         required=False,
+        help_text="PDF, up to 8 files, 10 MB each.",
         max_files=8,
         accept=".pdf",
         validators=[validate_pdf],

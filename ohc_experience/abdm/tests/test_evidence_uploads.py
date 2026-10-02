@@ -126,6 +126,7 @@ def test_uploads_at_large_keep_the_ten_megabyte_limit():
             ".xls,.xlsx",
             "Excel workbook (.xls or .xlsx), up to 3 files, 5 MB each.",
         ),
+        ("supporting_evidence", ".pdf", "PDF, up to 8 files, 10 MB each."),
         ("undertaking_form", ".pdf", "PDF, up to 5 MB."),
     ],
 )
