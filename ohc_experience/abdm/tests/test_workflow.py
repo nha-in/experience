@@ -1523,22 +1523,18 @@ def _pending_organisation(environment):
     return org, workspace.product
 
 
-def test_registering_provisions_before_the_organisation_is_verified(environment):
-    org, product = _pending_organisation(environment)
+def _second_product(environment):
+    """Another product from the verified organisation."""
+    workspace, form = services.register_product(
+        environment["org"],
+        environment["applicant"],
+        data=product_data("Second product"),
+    )
+    assert workspace, form.errors
+    return workspace.product
 
-    assert not org.is_verified
-    assert not awaiting_provisioning(product)
-    provision_inline(product)
-    assert ProductCredential.objects.get(product=product).status == "active"
 
-
-def test_verification_leaves_provisioning_alone(environment):
-    """Registration starts every chain, so re-approval must not open another."""
-    first = environment["workspace"].product
-    org, second = _pending_organisation(environment)
-    runs_before = {
-        product.pk: product.provisioning_runs.count() for product in (first, second)
-    }
+def _approve_verification(environment, org):
     item = org.review_items.get(kind="organisation_verification")
     services.save_review_form(
         item,
@@ -1548,7 +1544,6 @@ def test_verification_leaves_provisioning_alone(environment):
         submit=True,
     )
     services.assign_review(item, environment["admin"], environment["reviewer"])
-
     services.decide(
         item,
         environment["reviewer"],
@@ -1556,17 +1551,53 @@ def test_verification_leaves_provisioning_alone(environment):
         note="Evidence verified.",
     )
 
-    assert {
-        product.pk: product.provisioning_runs.count() for product in (first, second)
-    } == runs_before
+
+def test_registering_waits_for_organisation_verification(environment):
+    org, product = _pending_organisation(environment)
+
+    assert not org.is_verified
+    assert awaiting_provisioning(product)
+    assert not ProductCredential.objects.filter(product=product).exists()
+
+
+def test_a_verified_organisation_provisions_another_product_at_once(environment):
+    product = _second_product(environment)
+
+    assert not awaiting_provisioning(product)
+    provision_inline(product)
+    assert ProductCredential.objects.get(product=product).status == "active"
+
+
+def test_verification_starts_the_products_that_waited_for_it(environment):
+    first = environment["workspace"].product
+    org, second = _pending_organisation(environment)
+    first_runs = first.provisioning_runs.count()
+
+    _approve_verification(environment, org)
+
+    assert second.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
+    assert first.provisioning_runs.count() == first_runs
+
+
+def test_reverifying_leaves_running_products_alone(environment):
+    """Re-approval must not open a second chain for a product that has one."""
+    second = _second_product(environment)
+    provision_inline(second)
+    org = environment["org"]
+    Organisation.objects.filter(pk=org.pk).update(verification_status="pending")
+    org.refresh_from_db()
+    runs_before = second.provisioning_runs.count()
+
+    _approve_verification(environment, org)
+
+    assert second.provisioning_runs.count() == runs_before
 
 
 def test_a_reviewer_can_start_a_product_that_was_never_provisioned(
     environment,
     client,
 ):
-    """Registered while provisioning still waited for verification."""
-    _org, product = _pending_organisation(environment)
+    product = _second_product(environment)
     ProvisioningRun.objects.filter(product=product).delete()
     item = product.review_items.get(kind="product_registration")
     client.force_login(environment["reviewer"])
@@ -1583,10 +1614,26 @@ def test_a_reviewer_can_start_a_product_that_was_never_provisioned(
     assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
 
 
+def test_a_reviewer_cannot_start_a_product_before_verification(environment, client):
+    _org, product = _pending_organisation(environment)
+    item = product.review_items.get(kind="product_registration")
+    client.force_login(environment["reviewer"])
+
+    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
+    response = client.post(
+        reverse("experiences:review", args=[item.pk]),
+        {"intent": "retry_provisioning"},
+    )
+
+    assert "retry_provisioning" not in html
+    assert response.status_code == 403
+    assert awaiting_provisioning(product)
+
+
 def _failed_registration(environment):
     """A product whose chain died, and the review item a reviewer sees it on."""
     fail_next(ExternalSystem.KEYCLOAK, "create_client", retryable=False)
-    _org, product = _pending_organisation(environment)
+    product = _second_product(environment)
     provision_inline(product)
     return product, product.review_items.get(kind="product_registration")
 
@@ -1652,7 +1699,7 @@ def test_an_integrator_cannot_restart_a_chain(environment, client):
 def test_the_product_page_offers_the_retry_too(environment, client):
     """The page an operator reaches a broken product from, not only its request."""
     fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
-    _org, product = _pending_organisation(environment)
+    product = _second_product(environment)
     provision_inline(product)
     url = reverse("experiences:product-detail", args=[product.workspace.reference])
     client.force_login(environment["reviewer"])
@@ -1670,7 +1717,7 @@ def test_the_product_page_starts_a_product_that_was_never_provisioned(
     environment,
     client,
 ):
-    _org, product = _pending_organisation(environment)
+    product = _second_product(environment)
     ProvisioningRun.objects.filter(product=product).delete()
     url = reverse("experiences:product-detail", args=[product.workspace.reference])
     client.force_login(environment["reviewer"])

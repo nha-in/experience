@@ -12,6 +12,7 @@ from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.workflows import callback_missing
 from ohc_experience.experiences.workflows import project_product
+from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Organisation
 
@@ -114,6 +115,11 @@ class OrganisationVerification(ApplicationFormDefinition):
     @classmethod
     def on_approve(cls, item, actor):
         item.organisation.set_verification("verified")
+        for product in item.organisation.products.filter(
+            workspace__experience_type=ABDM.key,
+        ):
+            if awaiting_provisioning(product):
+                start_provisioning(product, started_by=actor)
         return ()
 
     @classmethod
@@ -375,7 +381,9 @@ class ABDM(ProgramDefinition):
 
     @classmethod
     def on_product_created(cls, product, actor):
-        start_provisioning(product, started_by=actor)
+        """Unverified organisations wait; their verification starts the chain."""
+        if product.organisation.is_verified:
+            start_provisioning(product, started_by=actor)
 
     @classmethod
     def seed_demo(cls, **options):

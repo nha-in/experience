@@ -162,8 +162,8 @@ retired; reviewer work uses the engine's assessment screens.
 - `ReviewItem` wraps organisation verification, product registration or exit.
   Product registration is recorded rather than reviewed: registering or editing a
   product applies at once, keeps its revision history and never enters the
-  review queue. Registration starts sandbox provisioning, whether or not the
-  organisation is verified yet.
+  review queue. Sandbox provisioning starts once the organisation is verified:
+  at registration if it already is, otherwise when its verification is approved.
 - A milestone's form opens once every milestone before it is submitted: M2,
   M3 and UHI1 once M1 is. M3 builds on
   M1, not M2: NHA's own portal gates M3 on M1 alone,

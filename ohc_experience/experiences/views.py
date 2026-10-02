@@ -2262,12 +2262,12 @@ def _can_provision(user, product, program_key):
 
     Its usual causes — a gateway outage, a missing API-name list — are ones only
     an operator can clear, and a button the integrator cannot act on is worse
-    than none. The same button starts a product that was never provisioned:
-    registration only began provisioning every product once it stopped waiting
-    for organisation verification.
+    than none. The same button starts a verified product that was never
+    provisioned.
     """
     return bool(
         product
+        and product.organisation.is_verified
         and permissions.has_access(user, "review", program=program_key)
         and (provisioning_can_be_retried(product) or awaiting_provisioning(product)),
     )
