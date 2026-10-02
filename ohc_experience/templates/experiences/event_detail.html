@@ -55,6 +55,11 @@
           <a class="ui-btn ui-btn--secondary ui-btn--size-sm min-h-11"
              href="{% url 'experiences:event-edit' event.pk %}">{% include 'components/nav_icon.html' with icon='edit' icon_size='size-4' %}Edit</a>
         {% endif %}
+        {% if can_create_events %}
+          {# Opens New event filled in from this one, all but its dates and times. Nothing is saved until that form is. #}
+          <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
+             href="{% url 'experiences:event-create' %}?from={{ event.pk }}">Duplicate</a>
+        {% endif %}
         {% if can_publish %}
           <form method="post"
                 action="{% url 'experiences:event-publication' event.pk %}"

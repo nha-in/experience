@@ -482,6 +482,113 @@ def test_portal_only_event_staff_can_create_edit_and_publish_separately(staff, c
     )
 
 
+#: What a duplicate carries over: everything the form asks but the dates.
+COPIED = ("title", "kind", "category", "summary", "description", "location", "join_url")
+
+
+def test_an_event_is_duplicated_into_a_new_event_without_its_dates(staff, client):
+    """Nothing is saved until the new event is, and it starts unpublished."""
+    AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="events",
+        category="UHI",
+        can_write=True,
+    )
+    author = UserFactory(is_nha_team=True)
+    starts_at = timezone.now() + timedelta(days=3)
+    source = Event.objects.create(
+        title="UHI hands-on workshop",
+        kind="workshop",
+        category="UHI",
+        summary="Build a UHI end-user app in a day.",
+        description="Bring a laptop with the sandbox credentials.",
+        location="NHA office, New Delhi",
+        join_url="https://meet.example.test/uhi",
+        starts_at=starts_at,
+        ends_at=starts_at + timedelta(hours=2),
+        published_at=timezone.now(),
+        created_by=author,
+    )
+    duplicate = f"{reverse('experiences:event-create')}?from={source.pk}"
+    client.force_login(staff)
+
+    assertContains(
+        client.get(reverse("experiences:event-detail", args=[source.pk])),
+        f'href="{duplicate}">Duplicate</a>',
+    )
+    page = client.get(duplicate)
+
+    form = page.context["form"]
+    assert {name: form[name].value() for name in COPIED} == {
+        name: getattr(source, name) for name in COPIED
+    }
+    assert form["starts_at"].value() is None
+    assert form["ends_at"].value() is None
+    assertContains(page, "Filled in from UHI hands-on workshop.")
+    assert Event.objects.count() == 1
+
+    response = client.post(
+        duplicate,
+        {
+            **{name: form[name].value() for name in COPIED},
+            "starts_at": "2027-02-02T10:00",
+        },
+    )
+
+    copy = Event.objects.exclude(pk=source.pk).get()
+    assert response.url == reverse("experiences:event-detail", args=[copy.pk])
+    assert {name: getattr(copy, name) for name in COPIED} == {
+        name: getattr(source, name) for name in COPIED
+    }
+    assert copy.slug != source.slug
+    assert copy.created_by == staff
+    assert not copy.is_published
+    assert copy.ends_at is None
+    source.refresh_from_db()
+    assert source.is_published
+    assert source.created_by == author
+    assert source.starts_at == starts_at
+
+
+def test_only_event_creators_are_offered_a_duplicate(staff, client):
+    access = AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="events",
+        category="UHI",
+        can_read=True,
+    )
+    event = Event.objects.create(
+        title="Published workshop",
+        category="UHI",
+        starts_at=timezone.now() + timedelta(days=3),
+        published_at=timezone.now(),
+    )
+    url = reverse("experiences:event-detail", args=[event.pk])
+    client.force_login(staff)
+    assertNotContains(client.get(url), "Duplicate")
+    client.force_login(MembershipFactory(organisation__onboarded=True).user)
+    assertNotContains(client.get(url), "Duplicate")
+
+    access.can_write = True
+    access.save()
+    client.force_login(staff)
+    assertContains(client.get(url), "Duplicate")
+    create = reverse("experiences:event-create")
+    hidden = Event.objects.create(
+        title="Another track's workshop",
+        category="NHCX",
+        starts_at=timezone.now() + timedelta(days=3),
+    )
+    # A copy only ever comes from an event the reader can see.
+    for source in ("not-a-number", "", "²", str(hidden.pk), "9" * 30):
+        page = client.get(create, {"from": source})
+        assert page.status_code == 200
+        assert page.context["source"] is None
+        assert page.context["form"]["title"].value() == ""
+
+
 def test_event_manager_cannot_access_other_categories(staff, client):
     AccessGrant.objects.create(
         user=staff,

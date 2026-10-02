@@ -11,12 +11,15 @@
            hx-swap="outerHTML show:window:top">
     {% if form.instance.pk %}
       {% url 'experiences:event-detail' form.instance.pk as back_url %}
+    {% elif source %}
+      {% url 'experiences:event-detail' source.pk as back_url %}
     {% else %}
       {% url 'experiences:events' as back_url %}
     {% endif %}
     <a class="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary"
-       href="{{ back_url }}">{% if form.instance.pk %}{{ form.instance.title|truncatechars:40 }}{% else %}All events{% endif %}</a>
-    <h1 class="ui-page-title mb-6">{{ page_title }}</h1>
+       href="{{ back_url }}">{% if form.instance.pk %}{{ form.instance.title|truncatechars:40 }}{% elif source %}{{ source.title|truncatechars:40 }}{% else %}All events{% endif %}</a>
+    <h1 class="ui-page-title {% if not source %}mb-6{% endif %}">{{ page_title }}</h1>
+    {% if source %}<p class="ui-page-subtitle mb-6">Filled in from {{ source.title }}. Add the dates and times, then save it as a new event.</p>{% endif %}
     <form method="post"
           data-unsaved-form
           novalidate

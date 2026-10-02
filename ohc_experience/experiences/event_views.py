@@ -79,6 +79,28 @@ class EventForm(forms.ModelForm):
         )
 
 
+def duplicate_source(request):
+    """The event that New event, opened as its duplicate, is filled in from."""
+    try:
+        pk = int(request.GET.get("from", ""))
+    except ValueError:
+        return None
+    return permissions.visible_events(request.user).filter(pk=pk).first()
+
+
+def duplicate_initial(source):
+    """The form's answers taken from `source`, all but its dates and times.
+
+    A duplicate needs dates of its own. Publication, the slug and the author are
+    not on the form, so a duplicate starts unpublished and gets its own.
+    """
+    return {
+        name: getattr(source, name)
+        for name in EventForm.Meta.fields
+        if name not in {"starts_at", "ends_at"}
+    }
+
+
 def event_log(actor, event, action, *, flag=CHANGE):
     LogEntry.objects.create(
         user=actor,
@@ -190,6 +212,7 @@ def event_detail(request, pk):
 def event_edit(request, pk=None):
     if not permissions.has_area(request.user, "events", "write"):
         raise PermissionDenied
+    source = None if pk else duplicate_source(request)
     with transaction.atomic():
         event = (
             get_object_or_404(
@@ -197,11 +220,18 @@ def event_edit(request, pk=None):
                 pk=pk,
             )
             if pk
+            else Event(program=source.program)
+            if source
             else Event()
         )
         if pk and not can_edit_event(request.user, event):
             raise PermissionDenied
-        form = EventForm(request.POST or None, instance=event, actor=request.user)
+        form = EventForm(
+            request.POST or None,
+            instance=event,
+            initial=duplicate_initial(source) if source else None,
+            actor=request.user,
+        )
         if request.method == "POST" and form.is_valid():
             if not permissions.has_access(
                 request.user,
@@ -231,6 +261,7 @@ def event_edit(request, pk=None):
             "nav": "events",
             "page_title": "Edit event" if pk else "New event",
             "form": form,
+            "source": source,
         },
     )
 
