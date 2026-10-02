@@ -50,6 +50,14 @@ class SignInForm(forms.Form):
     remember = forms.BooleanField(required=False)
 
 
+class UploadForm(forms.Form):
+    hinted = forms.FileField(
+        help_text="PDF, up to 5 MB.",
+        widget=forms.FileInput(attrs={"accept": ".pdf"}),
+    )
+    bare = forms.FileField(widget=forms.FileInput(attrs={"accept": ".pdf"}))
+
+
 class ScheduleForm(forms.Form):
     starts_at = forms.DateTimeField(
         widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
@@ -147,6 +155,14 @@ def test_an_upload_the_form_checks_itself_is_marked_required():
     assert 'class="ui-required"' in html
     assert "(optional)" not in html
     assert 'aria-required="true"' in html
+
+
+def test_an_upload_hint_names_the_types_so_the_drop_area_does_not():
+    form = UploadForm()
+    hinted = render_field(form["hinted"])
+    assert "PDF, up to 5 MB." in hinted
+    assert '<span class="font-mono">.pdf</span>' not in hinted
+    assert '<span class="font-mono">.pdf</span>' in render_field(form["bare"])
 
 
 def test_a_checkbox_group_marks_its_legend_and_every_box():

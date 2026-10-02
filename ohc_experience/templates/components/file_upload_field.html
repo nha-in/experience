@@ -146,7 +146,8 @@
           {% else %}
             {% translate "Choose a file or drop it here" %}
           {% endif %}
-          {% if accepted_types %}· <span class="font-mono">{{ accepted_types }}</span>{% endif %}
+          {# A hint names the types in words, so the bare list only stands in for one. #}
+          {% if accepted_types and not help_text %}· <span class="font-mono">{{ accepted_types }}</span>{% endif %}
         </span>
       </span>
     </label>
