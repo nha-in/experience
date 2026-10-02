@@ -3,6 +3,7 @@ from datetime import timedelta
 from http import HTTPStatus
 
 import pytest
+from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -324,6 +325,9 @@ def test_ticket_create_saves_category_and_scopes_product(
     )
     ticket = Ticket.objects.get()
     assert response.status_code == HTTPStatus.FOUND
+    assert [str(message) for message in get_messages(response.wsgi_request)] == [
+        f"Ticket {ticket.reference} created.",
+    ]
     assert ticket.category == "phr-app-p2"
     assert ticket.issue_type == "Consent Flow"
     assert ticket.category_label == "PHR App - P2"
@@ -547,6 +551,9 @@ def test_ticket_reply_needs_no_category_and_keeps_downloads(
         {"body": "More details", "attachments": upload},
     )
     assert response.status_code == HTTPStatus.FOUND
+    assert [str(message) for message in get_messages(response.wsgi_request)] == [
+        "Reply sent.",
+    ]
     message = ticket.messages.get()
     assert message.body == "More details"
     assert message.attachments.get().original_name == "diagnostic.pdf"
@@ -1117,6 +1124,9 @@ def test_integrator_can_resolve_their_own_ticket(
     response = portal_client.post(url, {"intent": "close", "body": "Fixed now."})
 
     assert response.status_code == HTTPStatus.FOUND
+    assert [str(message) for message in get_messages(response.wsgi_request)] == [
+        "Ticket marked as resolved.",
+    ]
     ticket.refresh_from_db()
     assert ticket.status == "closed"
     assert list(ticket.messages.values_list("kind", "body")) == [

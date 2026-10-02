@@ -21,6 +21,7 @@
 # Toasts
 
 - What an action did, or why it was refused, is a Django message (`messages.success`, `messages.error`, …), and every shell shows its messages as toasts at the foot of the screen through `components/toaster.html`. Never put an action's result in an inline alert, and never build another toast or add a toast library.
+- A message says what happened and to what, in the words of the button that did it: "M2 - HIP services assigned to you.", "Ticket TKT-2001 created.", "Query resolved." Never a catch-all like "Review updated." or "Saved." that one message covers for several actions.
 - Success and info toasts fade after six seconds, held while pointed at or focused. Errors and warnings stay until dismissed.
 - An htmx response raises a toast by ending with `{% include "components/messages.html" with oob=True %}`; `components/messages.html` explains the contract.
 - An alert about the state of the page, such as "No callback URL saved", "Under review" or a form's error summary, is not a toast. It stays an inline `ui-alert` next to what it describes.

@@ -1735,10 +1735,15 @@ def _credential_notice(intent, credential):
     """Registration runs on a worker, so a save cannot report its outcome."""
     if intent == "callback" and not credential.callback_url:
         return "Callback URL cleared."
-    if intent in {"callback", "register"}:
+    if intent == "callback":
         return (
-            "Saved. Registering it with the gateway — reload in a few minutes to see "
-            "whether it went through."
+            "Callback URL saved. Registering it with the gateway — reload in a few "
+            "minutes to see whether it went through."
+        )
+    if intent == "register":
+        return (
+            "Registering your callback URL with the gateway again — reload in a few "
+            "minutes to see whether it went through."
         )
     return "Credentials updated."
 
@@ -2743,6 +2748,7 @@ def support(request):
                         file=upload,
                         original_name=upload.name,
                     )
+            messages.success(request, f"Ticket {ticket.reference} created.")
             return redirect("experiences:ticket", reference=ticket.reference)
     return render(
         request,
@@ -2826,6 +2832,10 @@ def ticket(request, reference):
                         file=upload,
                         original_name=upload.name,
                     )
+            messages.success(
+                request,
+                "Ticket marked as resolved." if resolving else "Reply sent.",
+            )
             return redirect("experiences:ticket", reference=reference)
     return render(
         request,

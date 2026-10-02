@@ -8,6 +8,7 @@ from html.parser import HTMLParser
 from importlib import import_module
 
 import pytest
+from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
@@ -639,8 +640,35 @@ def test_saving_a_new_callback_url_replaces_the_old_one(environment, client):
     )
 
     assert response.status_code == 302
+    assert [str(message) for message in get_messages(response.wsgi_request)] == [
+        (
+            "Callback URL saved. Registering it with the gateway — reload in a few "
+            "minutes to see whether it went through."
+        ),
+    ]
     credential.refresh_from_db()
     assert credential.callback_url == "https://new.example/callback"
+
+
+@pytest.mark.django_db
+def test_trying_the_gateway_again_says_what_it_is_doing(environment, client):
+    credential = ProductCredential.objects.get(product=environment["product"])
+    credential.callback_url = "https://kept.example/callback"
+    credential.save(update_fields=["callback_url"])
+    client.force_login(environment["applicant"])
+
+    response = client.post(
+        reverse("experiences:credentials", args=[environment["product"].reference]),
+        {"intent": "register"},
+    )
+
+    assert response.status_code == 302
+    assert [str(message) for message in get_messages(response.wsgi_request)] == [
+        (
+            "Registering your callback URL with the gateway again — reload in a few "
+            "minutes to see whether it went through."
+        ),
+    ]
 
 
 @pytest.mark.django_db
