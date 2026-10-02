@@ -1,7 +1,8 @@
 import re
+from collections import Counter
 from datetime import timedelta
 from pathlib import Path
-from statistics import median
+from urllib.parse import urlencode
 
 from django import forms
 from django.conf import settings
@@ -27,6 +28,7 @@ from django.db.models.fields.json import KT
 from django.db.models.functions import Coalesce
 from django.db.models.functions import Lower
 from django.db.models.functions import NullIf
+from django.db.models.functions import TruncMonth
 from django.db.models.functions import Upper
 from django.http import FileResponse
 from django.http import Http404
@@ -48,7 +50,6 @@ from ohc_experience.experiences.definitions import DocumentReadError
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
-from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.selectors import bridge_state
 from ohc_experience.integrations.selectors import latest_run
@@ -2299,57 +2300,109 @@ def _item_filter(program, item):
     return None
 
 
+def _queue_url(**params):
+    return f"{reverse('experiences:queue')}?{urlencode(params)}"
+
+
+#: Audit actions that approve a request; "Recorded" needs no reviewer.
+APPROVALS = ("Approved", "Approved (prerequisites overridden)", "Recorded")
+
+
+def _last_twelve_months(today):
+    """The first day of this month and of the eleven before it, oldest first."""
+    months = [today.replace(day=1)]
+    for _ in range(11):
+        months.insert(0, (months[0] - timedelta(days=1)).replace(day=1))
+    return months
+
+
+def _decisions_by_month(requests, months):
+    counts = Counter()
+    decisions = (
+        AuditEvent.objects.filter(
+            item__in=requests,
+            action__in=[*APPROVALS, "Rejected"],
+            created_at__date__gte=months[0],
+        )
+        .annotate(month=TruncMonth("created_at"))
+        .values("month", "action")
+        .annotate(count=Count("pk"))
+    )
+    for row in decisions:
+        outcome = "rejected" if row["action"] == "Rejected" else "approved"
+        counts[row["month"].date(), outcome] += row["count"]
+    return [
+        {
+            "start": month,
+            "approved": counts[month, "approved"],
+            "rejected": counts[month, "rejected"],
+        }
+        for month in months
+    ]
+
+
+def _bar_height(count, busiest):
+    return max(2, round(count / busiest * 80)) if count else 0
+
+
+def _status_card(user, item, title, caption, months):
+    """The queue's rows for one Type filter, and its decisions in each month."""
+    item_filter = _item_filter(get_program(), item)
+    requests = queue_requests(user).filter(item_filter)
+    decisions = _decisions_by_month(
+        permissions.visible_reviews(user).filter(item_filter),
+        months,
+    )
+    busiest = max(month["approved"] + month["rejected"] for month in decisions)
+    for month in decisions:
+        month["approved_height"] = _bar_height(month["approved"], busiest)
+        month["rejected_height"] = _bar_height(month["rejected"], busiest)
+    return {
+        "title": title,
+        "caption": caption,
+        "total": grouped_requests(requests).count(),
+        "url": _queue_url(scope="all", item=item),
+        "tiles": [
+            {
+                "label": "Pending",
+                "variant": "info",
+                "count": grouped_requests(
+                    requests.filter(status__in=services.PENDING_STATUSES),
+                ).count(),
+                "url": _queue_url(scope="ready", item=item),
+            },
+            {
+                "label": "Rejected",
+                "variant": "warning",
+                "count": grouped_requests(
+                    requests.filter(status=ReviewItem.Status.REJECTED),
+                ).count(),
+                "url": _queue_url(scope="all", status="rejected", item=item),
+            },
+            {
+                "label": "Approved",
+                "variant": "success",
+                "count": grouped_requests(
+                    requests.filter(status=ReviewItem.Status.APPROVED),
+                ).count(),
+                "url": _queue_url(scope="all", status="approved", item=item),
+            },
+        ],
+        "months": decisions,
+        "this_month": decisions[-1],
+        "busiest": busiest,
+    }
+
+
 @login_required
 def assess_dashboard(request):
     _reviewer_required(request)
-    allowed_tracks = permissions.allowed_tracks(request.user)
-    allowed_milestones = {
-        key for track in allowed_tracks for key in get_program().track_milestones(track)
-    }
-    items = permissions.visible_reviews(request.user).exclude(status="draft")
-    waiting = services.waiting_reviews()
-    ready = items.filter(~waiting, status__in=services.PENDING_STATUSES)
-    today = timezone.localdate()
-    decisions = list(
-        AuditEvent.objects.filter(
-            item__in=items,
-            action__in=["Approved", "Rejected"],
-            created_at__gte=timezone.now() - timedelta(weeks=8),
-        ),
+    program = get_program()
+    months = _last_twelve_months(timezone.localdate())
+    ready = permissions.visible_reviews(request.user).filter(
+        ~services.waiting_reviews(),
+        status__in=services.PENDING_STATUSES,
     )
-    submitted_at = dict(
-        FormSubmission.objects.filter(
-            pk__in=[event.detail.get("submission_id") for event in decisions],
-        ).values_list("pk", "submitted_at"),
-    )
-    durations = [
-        (event.created_at - submitted_at[event.detail["submission_id"]]).total_seconds()
-        / 86400
-        for event in decisions
-        if event.detail.get("submission_id") in submitted_at
-    ]
-    weeks = []
-    monday = today - timedelta(days=today.weekday())
-    for index in range(7, -1, -1):
-        start = monday - timedelta(weeks=index)
-        end = start + timedelta(days=7)
-        subset = [
-            item
-            for item in decisions
-            if start <= timezone.localtime(item.created_at).date() < end
-        ]
-        weeks.append(
-            {
-                "label": start.strftime("%d/%m"),
-                "start": start,
-                "approved": sum(item.action == "Approved" for item in subset),
-                "rejected": sum(item.action == "Rejected" for item in subset),
-            },
-        )
-    maximum = max([week["approved"] + week["rejected"] for week in weeks] or [1]) or 1
-    for week in weeks:
-        week["approved_height"] = round(week["approved"] / maximum * 110)
-        week["rejected_height"] = round(week["rejected"] / maximum * 110)
     context = _context(
         request,
         # Superusers administer the portal; Staff & permissions is theirs alone.
@@ -2358,62 +2411,18 @@ def assess_dashboard(request):
         else "Reviewer dashboard",
         nav="assess-dashboard",
         my_open=ready.filter(assignee=request.user).count(),
-        approved_by_milestone=[
-            {
-                "label": milestone.code,
-                "name": milestone.name,
-                "count": items.filter(
-                    status="approved",
-                    decided_at__date__gte=today.replace(day=1),
-                    application__milestone__key=milestone.key,
-                ).count(),
-            }
-            for milestone in get_program().milestones.values()
-            if milestone.key in allowed_milestones
-        ],
-        ready_count=ready.count(),
-        waiting_count=items.filter(waiting).count(),
-        new_count=ready.filter(status="new").count(),
-        review_count=ready.filter(status="in_review").count(),
-        query_count=ready.filter(status="query_raised").count(),
-        approved_month=AuditEvent.objects.filter(
-            item__in=items,
-            action="Approved",
-            created_at__date__gte=today.replace(day=1),
-        ).count(),
-        median_days=round(median(durations), 1) if durations else None,
-        weeks=weeks,
-        by_type=ready.values("kind").annotate(count=Count("pk")),
-        by_assignee=ready.values("assignee__name", "assignee__email").annotate(
-            count=Count("pk"),
-        ),
-        by_track=[
-            {
-                "code": track.code,
-                "count": ready.filter(_track_filter(track.code)).count(),
-            }
-            for track in allowed_tracks
-        ],
-        ageing=[
-            (
-                "0-2 days",
-                ready.filter(
-                    submitted_at__gte=timezone.now() - timedelta(days=3),
-                ).count(),
-            ),
-            (
-                "3-7 days",
-                ready.filter(
-                    submitted_at__lt=timezone.now() - timedelta(days=3),
-                    submitted_at__gte=timezone.now() - timedelta(days=8),
-                ).count(),
-            ),
-            (
-                "8+ days",
-                ready.filter(
-                    submitted_at__lt=timezone.now() - timedelta(days=8),
-                ).count(),
-            ),
+        sandbox_card=_status_card(
+            request.user,
+            ReviewItem.Kind.ORGANISATION.value,
+            "Sandbox access",
+            "Organisation verification",
+            months,
+        )
+        if permissions.has_access(request.user, "review", program=program.key)
+        else None,
+        track_cards=[
+            _status_card(request.user, track.code, track.code, track.name, months)
+            for track in permissions.allowed_tracks(request.user)
         ],
     )
     return render(request, "experiences/assess_dashboard.html", context)

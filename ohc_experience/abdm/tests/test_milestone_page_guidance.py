@@ -306,12 +306,10 @@ def test_the_dashboard_says_what_each_chart_counts(environment, client):  # noqa
     html = client.get(reverse("experiences:assess-dashboard")).content.decode()
 
     for title in (
-        "Ready for review, by track",
-        "Approved this month, by milestone",
-        "Approvals and rejections per week",
-        "Ready for review, by type",
-        "How long ready requests have waited",
-        "Ready for review, by assignee",
+        "Sandbox access",
+        "Organisation verification",
+        "Decisions per month",
+        "so far:",
     ):
         assert title in html
 

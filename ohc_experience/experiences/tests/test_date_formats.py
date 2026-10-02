@@ -8,9 +8,9 @@ from django.utils import translation
 
 TEMPLATES = Path(settings.APPS_DIR) / "templates"
 # Formats that print no date for a person to read: ISO for machines and
-# comparisons, times, the weekday, and the calendar tiles' separate day and
-# short month.
-NOT_A_DATE = {"c", "Y-m-d", "H:i", "D", "D, H:i", "d", "M"}
+# comparisons, times, the weekday, the calendar tiles' separate day and
+# short month, and the dashboard's months.
+NOT_A_DATE = {"c", "Y-m-d", "H:i", "D", "D, H:i", "d", "M", "F", "F Y"}
 
 
 def test_templates_print_dates_day_first():

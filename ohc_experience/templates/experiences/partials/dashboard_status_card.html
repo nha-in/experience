@@ -1,0 +1,87 @@
+<section class="ui-card ui-card--layered ui-card--sm ui-rise"
+         aria-labelledby="{{ card.title|slugify }}-card-title">
+  <div class="ui-card-header grid-cols-[minmax(0,1fr)_auto] gap-x-4">
+    <h2 class="ui-card-title" id="{{ card.title|slugify }}-card-title">{{ card.title }}</h2>
+    <p class="ui-card-description col-start-1">{{ card.caption }}</p>
+    <a class="col-start-2 row-span-2 row-start-1 self-center text-sm font-semibold text-primary no-underline tabular-nums hover:underline"
+       href="{{ card.url }}">{{ card.total }} application{{ card.total|pluralize }}</a>
+  </div>
+  <div class="ui-card-content grid grid-cols-3 gap-2.5">
+    {% for tile in card.tiles %}
+      <a class="ui-stat"
+         href="{{ tile.url }}"
+         aria-label="{{ tile.label }} in {{ card.title }}: {{ tile.count }}">
+        <span class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          {% include "components/status_dot.html" with variant=tile.variant %}
+        {{ tile.label }}</span>
+        <span class="ui-stat-figure">{{ tile.count }}</span>
+      </a>
+    {% endfor %}
+  </div>
+  <div class="ui-card-content">
+    <div class="flex flex-col gap-2 border-t border-soft-border pt-4">
+      <p class="text-sm text-foreground">
+        <span class="font-semibold">{{ card.this_month.start|date:'F' }} so far:</span> {{ card.this_month.approved }} approved · {{ card.this_month.rejected }} rejected
+      </p>
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span>Decisions per month</span>
+        <span class="flex items-center gap-3"><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-[2px] bg-primary" aria-hidden="true"></span>Approved</span><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-[2px] bg-amber-400" aria-hidden="true"></span>Rejected</span></span>
+      </div>
+      <div class="relative mt-1 grid h-24 grid-cols-12 gap-1.5 border-b border-stronger-border"
+           role="img"
+           aria-label="Approvals and rejections per month for {{ card.title }}; exact counts in the table below">
+        {% if card.busiest %}
+          <span class="pointer-events-none absolute inset-x-0 top-4 border-t border-dashed border-soft-border"
+                aria-hidden="true"></span>
+          <span class="absolute top-0.5 left-0 text-[10px] leading-none text-soft-foreground tabular-nums"
+                aria-hidden="true">{{ card.busiest }}</span>
+        {% endif %}
+        {% for month in card.months %}
+          <div class="relative flex h-full flex-col items-center justify-end"
+               title="{{ month.start|date:'F Y' }}{% if forloop.last %} so far{% endif %}: {{ month.approved }} approved, {{ month.rejected }} rejected">
+            {% if forloop.last %}
+              <span class="mb-1.5 text-[10px] leading-none font-semibold text-foreground tabular-nums">{{ month.approved|add:month.rejected }}</span>
+            {% endif %}
+            <span class="flex w-full max-w-7 flex-col {% if forloop.last %}rounded-[4px] outline-1 outline-offset-2 outline-stronger-border outline-dashed{% endif %}">
+              {% if month.rejected %}
+                <span class="block rounded-t-[3px] bg-amber-400"
+                      style="height: {{ month.rejected_height }}px"></span>
+              {% endif %}
+              {% if month.approved %}
+                <span class="block bg-primary {% if not month.rejected %}rounded-t-[3px]{% endif %}"
+                      style="height: {{ month.approved_height }}px"></span>
+              {% endif %}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="grid grid-cols-12 gap-1.5 text-center text-[10px] leading-none text-soft-foreground"
+           aria-hidden="true">
+        {% for month in card.months %}
+          <span {% if forloop.last %}class="font-semibold text-foreground"{% endif %}>{{ month.start|date:'M' }}</span>
+        {% endfor %}
+      </div>
+      <div class="sr-only">
+        <table>
+          <caption>Decisions per month, {{ card.title }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col">Approved</th>
+              <th scope="col">Rejected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for month in card.months %}
+              <tr>
+                <td>{{ month.start|date:'F Y' }}</td>
+                <td>{{ month.approved }}</td>
+                <td>{{ month.rejected }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>

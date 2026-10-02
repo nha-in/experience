@@ -8,7 +8,6 @@ lands in, so each screen marks one link per row: the one to the row's page.
 from datetime import timedelta
 from html.parser import HTMLParser
 from http import HTTPStatus
-from urllib.parse import quote
 
 import pytest
 from django.urls import reverse
@@ -106,18 +105,6 @@ def test_staff_rows_open_the_editor_except_a_superadmins(environment, client):
     assert admin.email in response.content.decode()
     url = reverse("experiences:staff-edit", args=[environment["reviewer"].pk])
     assert row_links(response) == [url, url]
-
-
-def test_dashboard_track_rows_open_the_queue_for_their_track(environment, client):
-    submit(environment, "m1")
-    client.force_login(environment["reviewer"])
-    response = client.get(reverse("experiences:assess-dashboard"))
-    queue = reverse("experiences:queue")
-    tracks = response.context["by_track"]
-    assert tracks
-    assert row_links(response) == [
-        f"{queue}?scope=ready&item={quote(row['code'])}" for row in tracks
-    ]
 
 
 def test_event_rows_open_the_event(client):

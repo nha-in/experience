@@ -96,8 +96,9 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
         "PHR",
     ]
     response = client.get(reverse("experiences:assess-dashboard"))
-    assert response.context["ready_count"] == 1
-    assert response.context["approved_month"] == 0
+    assert response.context["sandbox_card"] is None
+    [card] = response.context["track_cards"]
+    assert (card["title"], card["tiles"][0]["count"]) == ("PHR", 1)
     assert b'id="nav-support"' not in response.content
     assert b'id="nav-events"' not in response.content
     assert client.get(hicm.get_absolute_url()).status_code == 404

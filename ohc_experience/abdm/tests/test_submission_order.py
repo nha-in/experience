@@ -362,7 +362,10 @@ def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
     assert "2 waiting on this" in queue_text(client)
     assert "Waiting on M1 · new" in queue_text(client)
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
-    assert (dashboard["ready_count"], dashboard["waiting_count"]) == (2, 2)
+    pending = {
+        card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
+    }
+    assert pending == {"ABDM": 1, "PHR": 1, "UHI": 1, "NHCX": 0}
 
     approve_submitted(environment)
 

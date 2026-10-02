@@ -132,6 +132,15 @@
     @apply text-xs text-muted-foreground tabular-nums;
   }
 
+  /* A small figure inside a card, linking to the list it counts. */
+  .ui-stat {
+    @apply flex min-w-0 flex-col gap-2 rounded-xl bg-soft-background px-3.5 pt-3 pb-3.5 text-card-foreground no-underline transition-[background-color,box-shadow] duration-150 hover:bg-card hover:shadow-layered-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
+  }
+
+  .ui-stat-figure {
+    @apply text-[28px] leading-none font-extrabold tracking-[-0.03em] text-foreground tabular-nums;
+  }
+
   /* ── Meters ─────────────────────────────────────────────────────────── */
 
   .ui-meter {

@@ -1182,8 +1182,8 @@ def test_rejected_draft_retains_reason_and_decision_history(environment, client)
     assert item.status == "in_review"
     client.force_login(environment["reviewer"])
     response = client.get(reverse("experiences:assess-dashboard"))
-    assert sum(week["rejected"] for week in response.context["weeks"]) == 1
-    assert response.context["median_days"] is not None
+    abdm = response.context["track_cards"][0]
+    assert (abdm["title"], abdm["this_month"]["rejected"]) == ("ABDM", 1)
 
 
 def test_track_filter_keeps_shared_m1_on_its_own_track(environment, client):
@@ -1247,8 +1247,10 @@ def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client
     assert m1 in listed("ABDM")
     assert nhcx1 not in listed("ABDM")
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
-    counts = {row["code"]: row["count"] for row in dashboard["by_track"]}
-    assert counts["NHCX"] == 0
+    pending = {
+        card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
+    }
+    assert (pending["ABDM"], pending["NHCX"]) == (1, 1)
 
 
 def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(

@@ -88,7 +88,7 @@ def test_queue_scope_tracks_a_real_decision(client, review_item):
     )
 
 
-def test_dashboard_counts_use_current_reviewer_and_canonical_milestone(
+def test_dashboard_counts_open_requests_and_this_months_decisions(
     client,
     review_item,
 ):
@@ -98,12 +98,8 @@ def test_dashboard_counts_use_current_reviewer_and_canonical_milestone(
     url = reverse("experiences:assess-dashboard")
     response = client.get(url)
     assert response.context["my_open"] == 1
-    # A meter whose total is missing from the context renders full width.
-    assert b"width: %" not in response.content
     workflows.decide(review_item, reviewer, action="approve", note="Evidence checked.")
     response = client.get(url)
     assert response.context["my_open"] == 0
-    approved = {
-        row["label"]: row["count"] for row in response.context["approved_by_milestone"]
-    }
-    assert approved["INS"] == 1
+    [card] = response.context["track_cards"]
+    assert (card["title"], card["this_month"]["approved"]) == ("Quality", 1)
