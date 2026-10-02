@@ -102,7 +102,7 @@
                hx-push-url="true"
                class="flex min-w-0 items-center gap-1.5 text-sm text-soft-foreground"
                aria-label="{% translate 'Breadcrumb' %}">
-            {% if workspace %}
+            {% if selected_product %}
               {% include "components/product_switcher.html" with variant="bar" %}
             {% else %}
               <span class="truncate">{% translate "Sandbox" %}</span>

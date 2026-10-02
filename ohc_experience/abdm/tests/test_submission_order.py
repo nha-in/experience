@@ -2,10 +2,8 @@
 
 # ruff: noqa: F811
 import re
-from importlib import import_module
 
 import pytest
-from django.apps import apps as registry
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
@@ -16,7 +14,7 @@ from ohc_experience.abdm.tests.test_workflow import approve_submitted
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
-from ohc_experience.abdm.tests.test_workflow import phr_workspace
+from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
@@ -30,7 +28,7 @@ pytestmark = pytest.mark.django_db
 def track_url(environment, code="ABDM"):
     return reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, code],
+        args=[environment["product"].reference, code],
     )
 
 
@@ -100,7 +98,7 @@ def test_m4_waits_for_m1_unless_the_entity_is_a_government_body(environment, cli
     )
     assert government, form.errors
 
-    m4 = government.product.milestones.get(key="m4").application.review_item
+    m4 = government.milestones.get(key="m4").application.review_item
 
     assert workflows.milestone_unavailable(m4) == ""
     assert workflows.pending_prerequisites(m4) == []
@@ -166,7 +164,7 @@ def test_the_track_page_asks_for_a_rejected_milestone_to_be_resubmitted(
     assert tiles["M3"].startswith("M3 Locked ")
     assert "Resubmit M1 first" in tiles["M3"]
     overview = client.get(
-        reverse("experiences:overview", args=[environment["workspace"].reference]),
+        reverse("experiences:overview", args=[environment["product"].reference]),
     ).content.decode()
     assert "Locked · resubmit M1 first" in overview
 
@@ -432,99 +430,11 @@ def test_the_review_page_lists_the_requests_waiting_on_it(environment, client):
     assert "wait on this one" not in html
 
 
-def test_the_migration_moves_a_saved_m3_request_from_m2_to_m1(environment):
-    """Requests created under the old catalog still depend on M2."""
-    migration = import_module(
-        "ohc_experience.experiences.migrations.0018_m3_builds_on_m1",
-    )
-    applications = {
-        row.key: row.application_id
-        for row in environment["workspace"].product.milestones.all()
-    }
-    saved = ApplicationDependency.objects.filter(application_id=applications["m3"])
-    saved.delete()
-    ApplicationDependency.objects.create(
-        application_id=applications["m3"],
-        depends_on_id=applications["m2"],
-    )
-
-    migration.forwards(registry, None)
-
-    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m1"]]
-
-    migration.backwards(registry, None)
-
-    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m2"]]
-
-
-def test_the_migration_drops_a_saved_m4_dependency_on_m3(environment):
-    migration = import_module(
-        "ohc_experience.experiences.migrations.0019_m4_has_no_prerequisite",
-    )
-    applications = {
-        row.key: row.application_id
-        for row in environment["workspace"].product.milestones.all()
-    }
-    saved = ApplicationDependency.objects.filter(application_id=applications["m4"])
-    ApplicationDependency.objects.create(
-        application_id=applications["m4"],
-        depends_on_id=applications["m3"],
-    )
-    others = ApplicationDependency.objects.exclude(application_id=applications["m4"])
-    unrelated = set(others.values_list("pk", flat=True))
-
-    migration.forwards(registry, None)
-
-    assert not saved.exists()
-    assert set(others.values_list("pk", flat=True)) == unrelated
-
-    migration.backwards(registry, None)
-
-    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m3"]]
-
-
-def test_the_migration_moves_a_saved_uhi_request_from_m1_to_m2(environment):
-    migration = import_module(
-        "ohc_experience.experiences.migrations.0021_uhi_builds_on_m2",
-    )
-    applications = {
-        row.key: row.application_id
-        for row in environment["workspace"].product.milestones.all()
-    }
-    saved = ApplicationDependency.objects.filter(application_id=applications["uhi1"])
-    saved.update(depends_on_id=applications["m1"])
-
-    migration.forwards(registry, None)
-
-    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m2"]]
-
-    migration.backwards(registry, None)
-
-    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m1"]]
-
-
-def test_the_migration_keeps_a_uhi_request_on_m1_when_m2_was_never_chosen(
-    environment,
-):
-    migration = import_module(
-        "ohc_experience.experiences.migrations.0021_uhi_builds_on_m2",
-    )
-    product = environment["workspace"].product
-    applications = {row.key: row.application_id for row in product.milestones.all()}
-    saved = ApplicationDependency.objects.filter(application_id=applications["uhi1"])
-    saved.update(depends_on_id=applications["m1"])
-    product.milestones.filter(key="m2").delete()
-
-    migration.forwards(registry, None)
-
-    assert list(saved.values_list("depends_on_id", flat=True)) == [applications["m1"]]
-
-
 def test_p4_waits_on_p1_p2_and_p3_together(environment, client):
     """The locker builds on the whole PHR sequence, not just its first step."""
-    workspace = phr_workspace(environment)
+    product = phr_product(environment)
     client.force_login(environment["applicant"])
-    locker = workspace.product.milestones.get(key="p4").application
+    locker = product.milestones.get(key="p4").application
 
     assert set(
         ApplicationDependency.objects.filter(application=locker).values_list(
@@ -534,7 +444,7 @@ def test_p4_waits_on_p1_p2_and_p3_together(environment, client):
     ) == {"p1", "p2", "p3"}
     tiles = milestone_tiles(
         client.get(
-            track_url({**environment, "workspace": workspace}, "PHR"),
+            track_url({**environment, "product": product}, "PHR"),
         ).content.decode(),
     )
     assert "Requires completion of P1, P2 and P3" in tiles["P4"]

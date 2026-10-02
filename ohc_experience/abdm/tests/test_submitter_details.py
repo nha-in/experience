@@ -72,16 +72,16 @@ def test_an_address_off_the_website_domain_is_flagged(client):
 
 def test_the_product_page_shows_who_sent_the_verification_and_flags_it(client):
     item = submitted_verification("priya@gmail.com")
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         item.organisation,
         item.selected_submission.submitted_by,
         data=product_data(),
     )
-    assert workspace, form.errors
+    assert product, form.errors
     client.force_login(ReviewerFactory())
 
     html = client.get(
-        reverse("experiences:product-detail", args=[workspace.reference]),
+        reverse("experiences:product-detail", args=[product.reference]),
     ).content.decode()
     row = html.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]
 

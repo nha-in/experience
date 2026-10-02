@@ -10,7 +10,7 @@
      hx-swap="outerHTML show:window:top"
      hx-push-url="true"
      hx-indicator="#nav-progress">
-  {% if workspace %}
+  {% if selected_product %}
     <div class="mb-5">{% include "components/product_switcher.html" with variant="card" %}</div>
   {% endif %}
   <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -36,64 +36,64 @@
    href="{% url 'experiences:production-list' %}">{% include "components/nav_icon.html" with icon="credentials" %}Production Approval</a></li>
           {% endif %}
         {% endif %}
-      {% elif not workspace %}
+      {% elif not selected_product %}
         <li><a id="nav-dashboard"
    class="ui-nav-link"
    href="{% url 'experiences:home' %}">{% include "components/nav_icon.html" with icon="overview" %}Dashboard</a></li>
         <li><a id="nav-products"
    class="ui-nav-link"
    href="{% url 'experiences:products' %}">{% include "components/nav_icon.html" with icon="track" %}Products</a></li>
-      {% elif workspace %}
+      {% elif selected_product %}
         <li><a id="nav-overview"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'overview' %}ui-nav-link--active{% endif %}"
    {% if nav == 'overview' %}aria-current="page"{% endif %}
-   href="{{ workspace.get_absolute_url }}">{% include "components/nav_icon.html" with icon="overview" %}Overview</a></li>
+   href="{{ selected_product.get_absolute_url }}">{% include "components/nav_icon.html" with icon="overview" %}Overview</a></li>
         {% if can_integrate and experience_program.sandbox_credentials %}<li><a id="nav-credentials"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'credentials' %}ui-nav-link--active{% endif %}"
    {% if nav == 'credentials' %}aria-current="page"{% endif %}
-   href="{% url 'experiences:credentials' workspace.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}Credentials &amp; outcomes</a></li>{% endif %}
+   href="{% url 'experiences:credentials' selected_product.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}Credentials &amp; outcomes</a></li>{% endif %}
         {% if can_integrate and experience_program.reference_environment %}<li><a id="nav-reference"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'reference' %}ui-nav-link--active{% endif %}"
    {% if nav == 'reference' %}aria-current="page"{% endif %}
-   href="{% url 'experiences:reference-environment' workspace.reference %}">{% include "components/nav_icon.html" with icon="reference" %}Reference</a></li>{% endif %}
+   href="{% url 'experiences:reference-environment' selected_product.reference %}">{% include "components/nav_icon.html" with icon="reference" %}Reference</a></li>{% endif %}
         {% if can_integrate and experience_program.agent_skills %}<li><a id="nav-skills"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'skills' %}ui-nav-link--active{% endif %}"
    {% if nav == 'skills' %}aria-current="page"{% endif %}
-   href="{% url 'experiences:agent-skills' workspace.reference %}">{% include "components/nav_icon.html" with icon="skills" %}Agent Skills</a></li>{% endif %}
+   href="{% url 'experiences:agent-skills' selected_product.reference %}">{% include "components/nav_icon.html" with icon="skills" %}Agent Skills</a></li>{% endif %}
         {% if nav_tracks %}<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Tracks</li>{% endif %}
         {% for row in nav_tracks %}
           <li><a id="nav-track-{{ row.definition.code|slugify }}"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == row.definition.code %}ui-nav-link--active{% endif %}"
    {% if nav == row.definition.code %}aria-current="page"{% endif %}
-   href="{% url 'experiences:track' workspace.reference row.definition.code %}">{% include "components/nav_icon.html" with icon="track" %}<span class="min-w-0 flex-1 truncate">{{ row.definition.code }}</span><span class="font-mono text-[11px] text-soft-foreground">{{ row.approved }}/{{ row.count }}<span class="sr-only"> milestones approved</span></span></a></li>
+   href="{% url 'experiences:track' selected_product.reference row.definition.code %}">{% include "components/nav_icon.html" with icon="track" %}<span class="min-w-0 flex-1 truncate">{{ row.definition.code }}</span><span class="font-mono text-[11px] text-soft-foreground">{{ row.approved }}/{{ row.count }}<span class="sr-only"> milestones approved</span></span></a></li>
         {% endfor %}
       {% endif %}
-      {% if reviewer or workspace %}
+      {% if reviewer or selected_product %}
         {% if can_read_support or can_read_events or not reviewer %}<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Programme</li>{% endif %}
         {% if not reviewer %}<li><a id="nav-queries"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'queries' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:pending-queries' %}">{% include "components/nav_icon.html" with icon="queries" %}<span class="flex-1">Pending queries</span>{% if query_count %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ query_count }}</span>{% endif %}</a></li>{% endif %}
         {% if can_read_events %}<li><a id="nav-events"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'events' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:events' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Events and Activities</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
+   href="{% url 'experiences:events' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Events and Activities</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
       {% endif %}
       {% if can_read_support %}<li><a id="nav-support"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}</span>{% endif %}</a></li>
+   href="{% url 'experiences:support' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}</span>{% endif %}</a></li>
     {% endif %}
   {% endif %}
   {% if can_integrate %}
     <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Product</li>
-    {% if workspace and not reviewer and experience_program.applications.certification %}<li><a id="nav-certification"
+    {% if selected_product and not reviewer and experience_program.applications.certification %}<li><a id="nav-certification"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'certification' %}ui-nav-link--active{% endif %}"
    {% if nav == 'certification' %}aria-current="page"{% endif %}
-   href="{% url 'experiences:product-certification' workspace.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}WASA</a></li>{% endif %}
-    {% if workspace %}<li><a id="nav-edit"
+   href="{% url 'experiences:product-certification' selected_product.reference %}">{% include "components/nav_icon.html" with icon="credentials" %}WASA</a></li>{% endif %}
+    {% if selected_product %}<li><a id="nav-edit"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'edit' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:product-edit' workspace.reference %}">{% include "components/nav_icon.html" with icon="edit" %}Edit product</a></li>{% endif %}
+   href="{% url 'experiences:product-edit' selected_product.reference %}">{% include "components/nav_icon.html" with icon="edit" %}Edit product</a></li>{% endif %}
     <li><a id="nav-register"
    class="ui-nav-link flex items-center gap-2.5"
-   href="{% url 'experiences:product-create' %}">{% include "components/nav_icon.html" with icon="add" %}{% if workspace %}Register another product{% else %}Register a product{% endif %}</a></li>
+   href="{% url 'experiences:product-create' %}">{% include "components/nav_icon.html" with icon="add" %}{% if selected_product %}Register another product{% else %}Register a product{% endif %}</a></li>
     <li><a id="nav-organisation"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'organisation' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:organisation' %}">{% include "components/nav_icon.html" with icon="organisation" %}{{ current_organisation.noun|capfirst }}</a></li>

@@ -328,4 +328,4 @@ def test_a_name_of_pure_punctuation_falls_back_to_the_reference(product):
     product.organisation.legal_name = "!!!"
     product.organisation.save()
 
-    assert _external_name(product) == product.workspace.reference.replace("-", " ")
+    assert _external_name(product) == product.reference.replace("-", " ")

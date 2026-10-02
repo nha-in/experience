@@ -24,7 +24,7 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def portal_workspaces(owner_membership):
+def portal_products(owner_membership):
     result = []
     for name, milestones in (
         ("Alpha HMIS", ["ABDM:m1"]),
@@ -32,29 +32,29 @@ def portal_workspaces(owner_membership):
     ):
         data = product_data(name)
         data["applied_milestones"] = milestones
-        workspace, form = workflows.register_product(
+        product, form = workflows.register_product(
             owner_membership.organisation,
             owner_membership.user,
             data=data,
         )
-        assert workspace, form.errors
-        workspace.refresh_from_db()
-        result.append(workspace)
+        assert product, form.errors
+        product.refresh_from_db()
+        result.append(product)
     return result
 
 
 @pytest.fixture
-def portal_client(client, owner_membership, portal_workspaces):
+def portal_client(client, owner_membership, portal_products):
     client.force_login(owner_membership.user)
     session = client.session
-    session["experience_product"] = portal_workspaces[1].reference
+    session["experience_product"] = portal_products[1].reference
     session.save()
     return client
 
 
-def test_ticket_defaults_and_applied_category_choices(portal_workspaces):
+def test_ticket_defaults_and_applied_category_choices(portal_products):
     """A product on ABDM is offered that track's categories, and the catch-all."""
-    form = SupportForm(workspace=portal_workspaces[0])
+    form = SupportForm(product=portal_products[0])
     assert form["priority"].value() == "medium"
     assert [value for value, _label in form.fields["category"].choices] == [
         "",
@@ -74,12 +74,12 @@ def test_ticket_defaults_and_applied_category_choices(portal_workspaces):
 
 @pytest.mark.parametrize("category", ["phr-app", "nhcx-auth", "HIE-CM", "unknown"])
 def test_ticket_refuses_a_category_this_product_cannot_file_under(
-    portal_workspaces,
+    portal_products,
     category,
 ):
     """Another track's categories, a retired track code, and nonsense alike."""
     form = SupportForm(
-        workspace=portal_workspaces[0],
+        product=portal_products[0],
         data={
             "subject": "Help",
             "priority": "medium",
@@ -91,10 +91,10 @@ def test_ticket_refuses_a_category_this_product_cannot_file_under(
     assert "category" in form.errors
 
 
-def test_a_category_takes_an_issue_type_from_its_own_sub_menu(portal_workspaces):
+def test_a_category_takes_an_issue_type_from_its_own_sub_menu(portal_products):
     def submit(**extra):
         return SupportForm(
-            workspace=portal_workspaces[0],
+            product=portal_products[0],
             data={
                 "subject": "Help",
                 "priority": "medium",
@@ -144,12 +144,12 @@ def test_a_category_with_no_sub_menu_records_no_issue_type():
     assert form.cleaned_data["issue_type"] == ""
 
 
-def test_others_asks_which_kind_of_general_question_it_is(portal_workspaces):
+def test_others_asks_which_kind_of_general_question_it_is(portal_products):
     """The catch-all carries a sub-menu of its own, so it is answered like one."""
 
     def submit(**extra):
         return SupportForm(
-            workspace=portal_workspaces[0],
+            product=portal_products[0],
             data={
                 "subject": "Help",
                 "priority": "medium",
@@ -261,11 +261,11 @@ def test_issue_type_is_required_wherever_it_shows():
 
 
 def test_issue_type_menu_is_flat_and_tags_each_option_with_its_category(
-    portal_workspaces,
+    portal_products,
 ):
     """The sub-menu lists issue types only: no category heading, but each option
     still carries the category it belongs to so the script can narrow it."""
-    html = str(SupportForm(workspace=portal_workspaces[0])["issue_type"])
+    html = str(SupportForm(product=portal_products[0])["issue_type"])
     assert "<optgroup" not in html
     # Category names all read "ABDM - …"; no issue type does, so none leaked in.
     assert "ABDM - " not in html
@@ -273,22 +273,22 @@ def test_issue_type_menu_is_flat_and_tags_each_option_with_its_category(
 
 
 @pytest.mark.parametrize("route", ["experiences:support", "experiences:events"])
-def test_programme_pages_keep_current_product(portal_client, portal_workspaces, route):
+def test_programme_pages_keep_current_product(portal_client, portal_products, route):
     response = portal_client.get(reverse(route))
     assert response.status_code == HTTPStatus.OK
-    assert response.context["workspace"] == portal_workspaces[1]
-    assert f"product={portal_workspaces[1].reference}".encode() in response.content
+    assert response.context["product"] == portal_products[1]
+    assert f"product={portal_products[1].reference}".encode() in response.content
     response = portal_client.get(
         reverse(route),
-        {"product": portal_workspaces[0].reference},
+        {"product": portal_products[0].reference},
     )
-    assert response.context["workspace"] == portal_workspaces[0]
-    assert portal_client.session["experience_product"] == portal_workspaces[0].reference
+    assert response.context["product"] == portal_products[0]
+    assert portal_client.session["experience_product"] == portal_products[0].reference
 
 
 def test_support_ignores_another_organisations_product(
     portal_client,
-    portal_workspaces,
+    portal_products,
 ):
     membership = MembershipFactory()
     other, form = workflows.register_product(
@@ -301,13 +301,13 @@ def test_support_ignores_another_organisations_product(
         reverse("experiences:support"),
         {"product": other.reference},
     )
-    assert response.context["workspace"] == portal_workspaces[1]
+    assert response.context["product"] == portal_products[1]
     assert b"Private product" not in response.content
 
 
 def test_ticket_create_saves_category_and_scopes_product(
     portal_client,
-    portal_workspaces,
+    portal_products,
 ):
     response = portal_client.post(
         reverse("experiences:support"),
@@ -324,18 +324,18 @@ def test_ticket_create_saves_category_and_scopes_product(
     assert ticket.category == "phr-app-p2"
     assert ticket.issue_type == "Consent Flow"
     assert ticket.category_label == "PHR App - P2"
-    assert ticket.product == portal_workspaces[1].product
+    assert ticket.product == portal_products[1]
     assert ticket.messages.get().body == "The callback returns an unexpected status."
 
 
 def test_ticket_list_shows_category_and_sub_category_columns(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[1].product,
+        product=portal_products[1],
         subject="Callback rejects the request",
         created_by=owner_membership.user,
         category="abdm-m2",
@@ -376,7 +376,7 @@ def test_ticket_creation_error_keeps_form_and_does_not_write(portal_client):
 def test_support_hides_the_new_ticket_form_from_those_who_cannot_use_it(
     client,
     owner_membership,
-    portal_workspaces,
+    portal_products,
     actor,
     message,
 ):
@@ -412,12 +412,12 @@ def test_support_hides_the_new_ticket_form_from_those_who_cannot_use_it(
 
 def test_ticket_reply_needs_no_category_and_keeps_downloads(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[0].product,
+        product=portal_products[0],
         subject="Existing ticket",
         created_by=owner_membership.user,
         category="abdm-m1",
@@ -439,27 +439,27 @@ def test_ticket_reply_needs_no_category_and_keeps_downloads(
     response = portal_client.get(ticket.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     assert b"diagnostic.pdf" in response.content
-    assert portal_client.session["experience_product"] == portal_workspaces[0].reference
+    assert portal_client.session["experience_product"] == portal_products[0].reference
     assert set(response.context["form"].fields) == {"body", "attachments"}
     ticket.refresh_from_db()
     assert ticket.category == "abdm-m1"
     assert ticket.issue_type == "ABHA Creation"
 
 
-def test_support_search_keeps_workspace_and_status(
+def test_support_search_keeps_product_and_status(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
-    for workspace, subject, status in (
-        (portal_workspaces[0], "Callback on another product", "open"),
-        (portal_workspaces[1], "Callback investigation", "open"),
-        (portal_workspaces[1], "Callback fixed", "closed"),
-        (portal_workspaces[1], "Other issue", "open"),
+    for product, subject, status in (
+        (portal_products[0], "Callback on another product", "open"),
+        (portal_products[1], "Callback investigation", "open"),
+        (portal_products[1], "Callback fixed", "closed"),
+        (portal_products[1], "Other issue", "open"),
     ):
         Ticket.objects.create(
             organisation=owner_membership.organisation,
-            product=workspace.product,
+            product=product,
             subject=subject,
             status=status,
         )
@@ -473,9 +473,9 @@ def test_support_search_keeps_workspace_and_status(
     ]
 
 
-def test_support_counts_keep_filters_and_workspace_before_status(
+def test_support_counts_keep_filters_and_product_before_status(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     for product_index, subject, category, priority, status in (
@@ -488,7 +488,7 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     ):
         Ticket.objects.create(
             organisation=owner_membership.organisation,
-            product=portal_workspaces[product_index].product,
+            product=portal_products[product_index],
             subject=subject,
             category=category,
             priority=priority,
@@ -507,8 +507,8 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     assert [ticket.subject for ticket in response.context["tickets"]] == [
         "Callback investigation",
     ]
-    expected_workspace_tickets = 5
-    assert response.context["ticket_total"] == expected_workspace_tickets
+    expected_product_tickets = 5
+    assert response.context["ticket_total"] == expected_product_tickets
     assert {tab["value"]: tab["count"] for tab in response.context["status_tabs"]} == {
         "": 2,
         "open": 1,
@@ -519,18 +519,18 @@ def test_support_counts_keep_filters_and_workspace_before_status(
     assert b">Clear filters</a>" in response.content
     cleared = portal_client.get(
         reverse("experiences:support"),
-        {"product": portal_workspaces[1].reference},
+        {"product": portal_products[1].reference},
     )
     assert not cleared.context["has_ticket_filters"]
     assert cleared.context["ticket_filters"]["status"] == "open"
-    open_workspace_tickets = 4
-    assert len(cleared.context["tickets"]) == open_workspace_tickets
-    assert cleared.context["workspace"] == portal_workspaces[1]
+    open_product_tickets = 4
+    assert len(cleared.context["tickets"]) == open_product_tickets
+    assert cleared.context["product"] == portal_products[1]
 
 
 def test_filters_stay_on_all_tickets(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     """The filter form sends the tab it sits under, All tickets included.
@@ -540,7 +540,7 @@ def test_filters_stay_on_all_tickets(
     """
     Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[1].product,
+        product=portal_products[1],
         subject="Callback fixed",
         status="closed",
     )
@@ -557,13 +557,13 @@ def test_filters_stay_on_all_tickets(
 
 def test_header_counts_every_ticket_until_something_is_filtered(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     for status in ("open", "closed"):
         Ticket.objects.create(
             organisation=owner_membership.organisation,
-            product=portal_workspaces[1].product,
+            product=portal_products[1],
             subject=f"An {status} ticket",
             status=status,
         )
@@ -579,13 +579,13 @@ def test_header_counts_every_ticket_until_something_is_filtered(
 
 def test_others_filters_to_the_catch_all_category(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     for subject, category in (("General question", "others"), ("Callback", "abdm-m1")):
         Ticket.objects.create(
             organisation=owner_membership.organisation,
-            product=portal_workspaces[1].product,
+            product=portal_products[1],
             subject=subject,
             category=category,
             status="open",
@@ -644,14 +644,14 @@ def test_status_tabs_say_whose_turn_it_is(portal_client, as_reviewer, labels):
 )
 def test_an_empty_first_tab_does_not_claim_there_are_no_tickets(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
     as_reviewer,
     message,
 ):
     Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[0].product,
+        product=portal_products[0],
         subject="Waiting on the integrator",
         status="awaiting_integrator",
     )
@@ -659,7 +659,7 @@ def test_an_empty_first_tab_does_not_claim_there_are_no_tickets(
         portal_client.force_login(ReviewerFactory(is_nha_team=True))
     response = portal_client.get(
         reverse("experiences:support"),
-        {"product": portal_workspaces[0].reference},
+        {"product": portal_products[0].reference},
     )
     assert response.status_code == HTTPStatus.OK
     assert b"No tickets yet" not in response.content
@@ -725,7 +725,7 @@ def test_registered_event_explains_missing_joining_details(
 
 def test_support_pages_keep_filters_in_links(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     url = reverse("experiences:support")
@@ -733,7 +733,7 @@ def test_support_pages_keep_filters_in_links(
     for number in range(per_page + 1):
         Ticket.objects.create(
             organisation=owner_membership.organisation,
-            product=portal_workspaces[1].product,
+            product=portal_products[1],
             subject=f"Callback {number}",
             status="open",
         )
@@ -765,7 +765,7 @@ def test_events_paginate_in_date_order(portal_client):
 
 def test_event_register_and_cancel_on_the_event_page(
     portal_client,
-    portal_workspaces,
+    portal_products,
 ):
     event = Event.objects.create(
         title="Integration office hours",
@@ -777,7 +777,7 @@ def test_event_register_and_cancel_on_the_event_page(
     )
     url = event.get_absolute_url()
     listing = (
-        f"{reverse('experiences:events')}?product={portal_workspaces[1].reference}"
+        f"{reverse('experiences:events')}?product={portal_products[1].reference}"
         "&kind=event&period=upcoming"
     )
     # The listing no longer registers anyone; it sends them to the event instead.
@@ -785,7 +785,7 @@ def test_event_register_and_cancel_on_the_event_page(
     response = portal_client.post(url, {"intent": "register"}, follow=True)
     assert response.status_code == HTTPStatus.OK
     # The product the integrator came from stays selected on the event's page.
-    assert response.context["workspace"] == portal_workspaces[1]
+    assert response.context["product"] == portal_products[1]
     assert response.redirect_chain == [(url, HTTPStatus.FOUND)]
     assert [str(message) for message in response.context["messages"]] == [
         f"You are registered for {event.title}.",
@@ -829,12 +829,12 @@ def test_an_event_that_has_ended_takes_no_registration(portal_client):
 
 def test_reviewer_can_reply_and_resolve(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[0].product,
+        product=portal_products[0],
         subject="Needs review",
     )
     portal_client.force_login(ReviewerFactory(is_nha_team=True))
@@ -853,14 +853,14 @@ def test_reviewer_can_reply_and_resolve(
 
 def test_staff_who_reply_can_correct_a_priority(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     """An integrator can file a ticket as High without cause. The NHA team puts
     it right, and the thread tells both sides who changed it from what."""
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[0].product,
+        product=portal_products[0],
         subject="Where is the sandbox guide?",
         priority="high",
         created_by=owner_membership.user,
@@ -910,12 +910,12 @@ def test_staff_who_reply_can_correct_a_priority(
 def test_only_staff_who_reply_can_change_a_priority(
     client,
     owner_membership,
-    portal_workspaces,
+    portal_products,
     actor,
 ):
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[0].product,
+        product=portal_products[0],
         subject="Where is the sandbox guide?",
         priority="high",
     )
@@ -924,7 +924,7 @@ def test_only_staff_who_reply_can_change_a_priority(
         user = UserFactory(is_nha_team=True)
         AccessGrant.objects.create(
             user=user,
-            program=portal_workspaces[0].experience_type,
+            program=portal_products[0].experience_type,
             area="support",
             category="*",
             can_read=True,
@@ -945,12 +945,12 @@ def test_only_staff_who_reply_can_change_a_priority(
 
 def test_a_priority_off_the_list_is_refused(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[0].product,
+        product=portal_products[0],
         subject="Where is the sandbox guide?",
         priority="high",
     )
@@ -973,28 +973,28 @@ def test_a_priority_off_the_list_is_refused(
 @pytest.mark.parametrize("route", ["experiences:events", "experiences:support"])
 def test_reviewer_pages_do_not_select_a_product(
     portal_client,
-    portal_workspaces,
+    portal_products,
     route,
 ):
     portal_client.force_login(ReviewerFactory(is_nha_team=True))
     session = portal_client.session
-    session["experience_product"] = portal_workspaces[1].reference
+    session["experience_product"] = portal_products[1].reference
     session.save()
     response = portal_client.get(reverse(route))
 
     assert response.status_code == HTTPStatus.OK
-    assert response.context["workspace"] is None
-    assert portal_client.session["experience_product"] == portal_workspaces[1].reference
+    assert response.context["product"] is None
+    assert portal_client.session["experience_product"] == portal_products[1].reference
 
 
 def test_integrator_can_resolve_their_own_ticket(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[0].product,
+        product=portal_products[0],
         subject="Sorted on our side",
     )
     url = ticket.get_absolute_url()
@@ -1014,12 +1014,12 @@ def test_integrator_can_resolve_their_own_ticket(
 
 def test_resolving_takes_a_comment_of_at_least_ten_characters(
     portal_client,
-    portal_workspaces,
+    portal_products,
     owner_membership,
 ):
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
-        product=portal_workspaces[0].product,
+        product=portal_products[0],
         subject="Sorted on our side",
     )
     url = ticket.get_absolute_url()

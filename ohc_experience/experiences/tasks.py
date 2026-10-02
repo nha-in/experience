@@ -209,10 +209,7 @@ def _outcome_recipients(organisation):
 def _outcome_url(product) -> str:
     """The certification page carries the certificate and the renewal action."""
     base = settings.SITE_BASE_URL.rstrip("/")
-    workspace = getattr(product, "workspace", None)
-    if not workspace:
-        return base
-    path = reverse("experiences:product-certification", args=[workspace.reference])
+    path = reverse("experiences:product-certification", args=[product.reference])
     return f"{base}{path}"
 
 

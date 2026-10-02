@@ -19,7 +19,6 @@ from .models import Notification
 from .models import Product
 from .models import ProductCredential
 from .models import ProductOutcome
-from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
 from .permissions import eligible_reviewer
@@ -278,7 +277,6 @@ class NotificationAdmin(ReadOnlyAdmin):
 
 
 for model in (
-    ProductWorkspace,
     Milestone,
     ReviewQuery,
     EventRegistration,

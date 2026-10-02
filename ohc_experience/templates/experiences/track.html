@@ -45,7 +45,7 @@
         <div class="ui-rise w-full [animation-delay:.05s]">
           <nav class="ui-switch" aria-label="Track view">
             <a class="ui-switch-option"
-               href="{% url 'experiences:track' workspace.reference track.definition.code %}"
+               href="{% url 'experiences:track' product.reference track.definition.code %}"
                {% if not documents_view %}aria-current="page"{% endif %}>Milestones</a>
             <a class="ui-switch-option"
                href="?view=documents"
@@ -111,7 +111,7 @@
                     <strong>No callback URL saved</strong>
                     <p class="mt-1 text-xs">
                       {{ tile.definition.code }} flows have the gateway call your software back, and it has nowhere to reach you. <a class="font-semibold no-underline hover:underline"
-    href="{% url 'experiences:credentials' workspace.reference %}">Add a callback URL</a>.
+    href="{% url 'experiences:credentials' product.reference %}">Add a callback URL</a>.
                     </p>
                   </div>
                 </div>
@@ -183,7 +183,7 @@
       <div class="flex flex-wrap justify-center gap-2">
         {% if track.definition.keys and can_integrate %}
           <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
-             href="{% url 'experiences:product-edit' workspace.reference %}">Edit product</a>
+             href="{% url 'experiences:product-edit' product.reference %}">Edit product</a>
         {% elif not track.definition.keys %}
           <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
              href="{% url 'experiences:events' %}">See events</a>

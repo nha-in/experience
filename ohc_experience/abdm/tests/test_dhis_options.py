@@ -14,7 +14,7 @@ from ohc_experience.abdm.tests.test_dhis_product import change_solutions
 from ohc_experience.abdm.tests.test_dhis_product import eligible_hmis  # noqa: F401
 from ohc_experience.abdm.tests.test_dhis_product import workspace_of
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
-from ohc_experience.abdm.tests.test_workflow import phr_workspace
+from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.wasa import current_wasa
 
 pytestmark = pytest.mark.django_db
@@ -28,11 +28,11 @@ def configured_dhis(settings):
     settings.ABDM_DHIS_AES_IV = "SyntheticInitVec"
 
 
-def options(environment, *, workspace=None, actor=None):
+def options(environment, *, product=None, actor=None):
     return {
         row["key"]: row
         for row in ABDM.handoffs["dhis"].options(
-            (workspace or environment["workspace"]).product,
+            (product or environment["product"]),
             actor=actor or environment["applicant"],
         )
     }
@@ -60,14 +60,14 @@ def test_all_approved_solutions_can_be_offered_together(environment):
     """ABDM and PHR sit on separate products, so each offers its own solutions."""
     change_solutions(environment, list(dhis.SOLUTION_MILESTONES))
     approve_milestones(environment, ("m1", "m2", "m3"))
-    locker = phr_workspace(environment)
+    locker = phr_product(environment)
     approve_milestones(environment, ("p1", "p2", "p3", "p4"))
 
     rows = options(environment)
 
     assert all(row["enabled"] for key, row in rows.items() if key != "health_locker")
     assert not rows["health_locker"]["enabled"]
-    assert options(environment, workspace=locker)["health_locker"]["enabled"]
+    assert options(environment, product=locker)["health_locker"]["enabled"]
 
 
 @pytest.mark.parametrize(
@@ -84,11 +84,11 @@ def test_missing_milestones_have_readable_names(
     approved,
     missing_name,
 ):
-    workspace = workspace_of(environment, approved)
-    change_solutions(environment, [solution], workspace=workspace)
+    product = workspace_of(environment, approved)
+    change_solutions(environment, [solution], product=product)
     approve_milestones(environment, approved)
 
-    row = options(environment, workspace=workspace)[solution]
+    row = options(environment, product=product)[solution]
 
     assert not row["enabled"]
     assert row["reason"] == (
@@ -118,7 +118,7 @@ def test_an_unverified_organisation_is_offered_no_solution(eligible_hmis):
 
 def test_revoked_current_wasa_disables_previously_eligible_option(eligible_hmis):
     assert options(eligible_hmis)["hmis"]["enabled"]
-    approval = current_wasa(eligible_hmis["workspace"].product)
+    approval = current_wasa(eligible_hmis["product"])
     approval.status = "revoked"
     approval.save(update_fields=["status"])
 
@@ -149,7 +149,7 @@ def test_missing_configuration_disables_handoff_with_safe_retry_message(
     assert row["reason"] == dhis.UNAVAILABLE_MESSAGE
     with pytest.raises(ValidationError) as error:
         dhis.DHISHandoff.create_url(
-            eligible_hmis["workspace"].product,
+            eligible_hmis["product"],
             option="hmis",
             actor=eligible_hmis["applicant"],
         )

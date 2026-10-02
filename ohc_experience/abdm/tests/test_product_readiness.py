@@ -177,7 +177,7 @@ def test_revealed_secret_keeps_authenticated_mask_and_reveal_template():
         "experiences/partials/secret.html",
         {
             "credential": SimpleNamespace(status="active"),
-            "workspace": SimpleNamespace(reference="APP-2026-00001"),
+            "product": SimpleNamespace(reference="APP-2026-00001"),
             "revealed_secret": "temporary-test-value",
             "csrf_token": "test-token",
         },

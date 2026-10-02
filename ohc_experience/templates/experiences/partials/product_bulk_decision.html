@@ -63,11 +63,11 @@
           <p class="ui-hint" id="bulk-decision-help">Saved to every included request and shared with the integrator. At least {{ min_note_length }} characters.</p>
         </div>
       </details>
-      {% if product.workspace.callback_codes and credential and not credential.callback_url %}
+      {% if product.callback_codes and credential and not credential.callback_url %}
         <div class="ui-alert ui-alert--warning" role="status">
           <div class="flex-1">
             <strong>No callback URL saved</strong>
-            <p class="mt-1 text-xs">{{ product.workspace.callback_codes|join:', ' }} flows have the gateway call the integrator's software back.</p>
+            <p class="mt-1 text-xs">{{ product.callback_codes|join:', ' }} flows have the gateway call the integrator's software back.</p>
           </div>
         </div>
       {% endif %}

@@ -39,7 +39,7 @@ def supplier_program(monkeypatch, settings):
 
 @pytest.fixture
 def equipment(supplier_program, owner_membership):
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         owner_membership.organisation,
         owner_membership.user,
         data={
@@ -48,8 +48,8 @@ def equipment(supplier_program, owner_membership):
             "checks": ["Quality:inspection", "Quality:release"],
         },
     )
-    assert workspace, form.errors
-    return workspace
+    assert product, form.errors
+    return product
 
 
 def test_non_abdm_lifecycle_reuse_dependencies_queries_and_outcomes(
@@ -60,11 +60,11 @@ def test_non_abdm_lifecycle_reuse_dependencies_queries_and_outcomes(
     reviewer = ReviewerFactory(is_nha_team=True)
     admin = UserFactory(is_superuser=True)
     assert equipment.reference.startswith("QA-")
-    assert equipment.product.outcomes.get(outcome_type="receipt").data["reference"]
-    inspection = equipment.product.milestones.get(
+    assert equipment.outcomes.get(outcome_type="receipt").data["reference"]
+    inspection = equipment.milestones.get(
         key="inspection",
     ).application.review_item
-    release = equipment.product.milestones.get(key="release").application.review_item
+    release = equipment.milestones.get(key="release").application.review_item
     assert inspection.form_id == release.form_id
     assert [row.name for row in workflows.pending_prerequisites(release)] == [
         "INS - Inspection",
@@ -90,7 +90,7 @@ def test_non_abdm_lifecycle_reuse_dependencies_queries_and_outcomes(
     workflows.reply_query(query, actor, "Confirmed")
     workflows.resolve_query(query, reviewer)
     workflows.decide(inspection, reviewer, action="approve", note="Result confirmed.")
-    assert equipment.product.outcomes.get(outcome_type="quality_certificate").data == {
+    assert equipment.outcomes.get(outcome_type="quality_certificate").data == {
         "score": 95,
     }
     release.refresh_from_db()
@@ -108,7 +108,7 @@ def test_a_dependant_opens_once_its_prerequisite_is_submitted_and_waits_on_appro
 ):
     actor = owner_membership.user
     reviewer = ReviewerFactory(is_nha_team=True)
-    milestones = equipment.product.milestones
+    milestones = equipment.milestones
     inspection = milestones.get(key="inspection").application.review_item
     release = milestones.get(key="release").application.review_item
     release_data = {"report_reference": "Q-2", "score": 91}
@@ -158,7 +158,7 @@ def test_definition_hook_failure_rolls_back_generic_review(
     owner_membership,
     monkeypatch,
 ):
-    item = equipment.product.milestones.get(key="inspection").application.review_item
+    item = equipment.milestones.get(key="inspection").application.review_item
     before = FormSubmission.objects.count()
 
     def reject(*args):
@@ -186,7 +186,7 @@ def test_generic_portal_renders_other_program(equipment, owner_membership, clien
     assert b"Supplier Quality Portal" in response.content
     assert b"ABDM" not in response.content
     assert b"HIE-CM" not in response.content
-    receipt = equipment.product.outcomes.get(outcome_type="receipt")
+    receipt = equipment.outcomes.get(outcome_type="receipt")
     assert receipt.data["reference"].encode() in response.content
     credential_url = reverse("experiences:credentials", args=[equipment.reference])
     assert credential_url.encode() not in response.content
@@ -239,7 +239,7 @@ def test_definition_schema_versions_preserve_old_submissions(
     owner_membership,
     monkeypatch,
 ):
-    item = equipment.product.milestones.get(key="inspection").application.review_item
+    item = equipment.milestones.get(key="inspection").application.review_item
     data = {"report_reference": "Q-3", "score": 90}
     item, form, saved = workflows.save_review_form(
         item,

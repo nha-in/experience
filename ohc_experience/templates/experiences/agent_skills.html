@@ -4,7 +4,7 @@
   <div class="ui-hero">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
-        <p class="ui-hero-eyebrow">{{ workspace.product.name }}</p>
+        <p class="ui-hero-eyebrow">{{ product.name }}</p>
         <h1 class="ui-hero-title">Agent Skills</h1>
         <p class="ui-hero-lede">Install an Agent Skill into the coding assistant you already use, so it works from the documented {{ experience_program.short_name }} flows rather than from memory. Each milestone has a skill of its own: the API calls and their headers, the recorded error codes, and the loops that build and debug it.</p>
       </div>
@@ -148,7 +148,7 @@
             <p class="text-xs text-soft-foreground">{{ group.caption }}</p>
           </div>
           {% if group.matched %}
-            <p class="text-xs text-soft-foreground">Matched to the milestones on {{ workspace.reference }}</p>
+            <p class="text-xs text-soft-foreground">Matched to the milestones on {{ product.reference }}</p>
           {% endif %}
         </div>
         <ul class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

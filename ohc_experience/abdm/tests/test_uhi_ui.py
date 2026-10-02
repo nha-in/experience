@@ -18,7 +18,7 @@ pytestmark = pytest.mark.django_db
 def uhi_url(environment):
     return reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "UHI"],
+        args=[environment["product"].reference, "UHI"],
     )
 
 

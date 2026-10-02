@@ -45,17 +45,17 @@ def dhis_configuration(settings):
 def handoff_url(environment, key="dhis"):
     return reverse(
         "experiences:product-handoff",
-        args=[environment["workspace"].reference, key],
+        args=[environment["product"].reference, key],
     )
 
 
 def overview_url(environment):
-    return environment["workspace"].get_absolute_url()
+    return environment["product"].get_absolute_url()
 
 
 def handoff_events(environment):
     return AuditEvent.objects.filter(
-        product=environment["workspace"].product,
+        product=environment["product"],
         action__startswith="DHIS handoff",
     )
 
@@ -132,7 +132,7 @@ def test_overview_shows_only_lmis_when_hmis_milestones_are_incomplete(
 
 
 def test_overview_hides_dhis_after_wasa_is_revoked(eligible_hmis, client):
-    approval = current_wasa(eligible_hmis["workspace"].product)
+    approval = current_wasa(eligible_hmis["product"])
     approval.status = "revoked"
     approval.save(update_fields=["status"])
     client.force_login(eligible_hmis["applicant"])
@@ -152,7 +152,7 @@ def test_post_creates_signed_redirect_from_trusted_product_data(
 ):
     client.force_login(eligible_hmis["applicant"])
     monkeypatch.setattr(dhis.time, "time_ns", lambda: 1_789_000_000_123_999_999)
-    product = eligible_hmis["workspace"].product
+    product = eligible_hmis["product"]
     outcome_count = product.outcomes.count()
 
     response = client.post(
@@ -217,7 +217,7 @@ def test_staff_cannot_initiate_or_see_handoff_actions(environment, client, actor
     assert page.status_code == 200
     assert page.redirect_chain[0][0] == reverse(
         "experiences:product-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     assert "handoffs" not in page.context
     assert handoff_url(environment).encode() not in page.content
@@ -310,7 +310,7 @@ def test_unapproved_solution_cannot_be_posted_directly(eligible_hmis, client):
 )
 def test_post_rechecks_changes_after_the_page_was_loaded(eligible_hmis, client, change):
     client.force_login(eligible_hmis["applicant"])
-    product = eligible_hmis["workspace"].product
+    product = eligible_hmis["product"]
     page = client.get(overview_url(eligible_hmis))
     assert next(
         option

@@ -13,7 +13,6 @@ from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
-from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.organisations.lgd import LGDLookupError
 from ohc_experience.organisations.models import Organisation
@@ -28,7 +27,7 @@ def test_engine_demo_command_runs_registered_abdm_builder(settings):
         "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
     }
     call_command("seed_experience_demo", stdout=StringIO())
-    assert ProductWorkspace.objects.filter(experience_type="abdm").exists()
+    assert Product.objects.filter(experience_type="abdm").exists()
     assert ProductCredential.objects.filter(status="active").exists()
     assert ReviewItem.objects.filter(status="query_raised").exists()
     # The approved M1 comes with a visibly fake production client ID.
@@ -78,7 +77,7 @@ def test_demo_lgd_preflight_preserves_existing_data(settings, monkeypatch, unava
         call_command("seed_experience_demo", reset=True, stdout=StringIO())
 
     assert Organisation.objects.get(pk=organisation.pk).name == "Existing organisation"
-    assert not ProductWorkspace.objects.exists()
+    assert not Product.objects.exists()
 
 
 def test_demo_skip_lgd_seeds_while_lgd_is_unavailable(settings, monkeypatch):
@@ -95,7 +94,7 @@ def test_demo_skip_lgd_seeds_while_lgd_is_unavailable(settings, monkeypatch):
     monkeypatch.setattr(forms, "lookup_pincode", unavailable)
     call_command("seed_experience_demo", skip_lgd=True, stdout=StringIO())
 
-    assert ProductWorkspace.objects.exists()
+    assert Product.objects.exists()
     assert FormSubmission.objects.filter(data__district_lgd_code="525").exists()
     # The stand-in answers only while the seed runs.
     assert forms.lookup_pincode is unavailable
@@ -144,7 +143,7 @@ def test_demo_without_active_agency_preserves_existing_data(
 
     assert Organisation.objects.get(pk=organisation.pk).name == "Existing organisation"
     assert list(CertificationAgency.objects.order_by("pk").values()) == agencies_before
-    assert not ProductWorkspace.objects.exists()
+    assert not Product.objects.exists()
 
 
 def test_demo_reset_preserves_agency_master_data_and_sequence(settings):
@@ -178,7 +177,7 @@ def test_demo_reset_preserves_agency_master_data_and_sequence(settings):
     call_command("seed_experience_demo", reset=True, stdout=StringIO())
 
     assert not Organisation.objects.filter(name=organisation.name).exists()
-    assert ProductWorkspace.objects.filter(experience_type="abdm").exists()
+    assert Product.objects.filter(experience_type="abdm").exists()
     assert list(CertificationAgency.objects.order_by("pk").values()) == agencies_before
     new_agency = CertificationAgency.objects.create(
         program="abdm",

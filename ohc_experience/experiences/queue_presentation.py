@@ -31,7 +31,7 @@ def queue_requests(user):
     product page, including when no product request is currently submitted.
     The filtered left join retains a standalone row when no product is visible.
     """
-    products = permissions.visible_products(user).filter(workspace__isnull=False)
+    products = permissions.visible_products(user)
     return (
         permissions.visible_reviews(user)
         .exclude(kind=ReviewItem.Kind.PRODUCT)
@@ -95,7 +95,7 @@ class QueueEntry:
     @property
     def reference(self):
         if self.product:
-            return self.product.workspace.reference
+            return self.product.reference
         return self.reviews[0].reference
 
     @property
@@ -171,7 +171,7 @@ def populate_queue_page(page, user, matching):
         product.pk: product
         for product in Product.objects.filter(
             pk__in=[row["queue_product_id"] for row in groups],
-        ).select_related("workspace", "organisation")
+        ).select_related("organisation")
     }
     standalone_ids = [row["standalone_id"] for row in groups if row["standalone_id"]]
     matches = defaultdict(set)
@@ -195,7 +195,7 @@ def populate_queue_page(page, user, matching):
         .exclude(kind=ReviewItem.Kind.PRODUCT)
         .exclude(status=ReviewItem.Status.DRAFT)
         .select_related(
-            "product__workspace",
+            "product",
             "organisation",
             "application__milestone",
             "assignee",

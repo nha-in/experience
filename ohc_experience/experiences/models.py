@@ -136,6 +136,11 @@ class Product(models.Model):
     )
     #: When this portal saved the ID, which is not when it was issued.
     production_recorded_at = models.DateTimeField(null=True, blank=True)
+    reference = models.CharField(max_length=32, unique=True, null=True, blank=True)
+    experience_type = models.CharField(max_length=100)
+    solution_type = models.JSONField(default=list, blank=True)
+    applied_milestones = models.JSONField(default=list)
+    registered_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -159,15 +164,52 @@ class Product(models.Model):
         ]
 
     def __str__(self) -> str:
-        return self.name
+        return f"{self.reference} - {self.name}"
 
     def save(self, *args, **kwargs) -> None:
         if not self.slug:
             self.slug = self._build_unique_slug()
         super().save(*args, **kwargs)
+        if not self.reference:
+            self.reference = self._build_reference()
+            super().save(update_fields=["reference"])
 
     def get_absolute_url(self) -> str:
-        return self.workspace.get_absolute_url()
+        return reverse("experiences:overview", args=[self.reference])
+
+    def _build_reference(self) -> str:
+        prefix = "PRD"
+        if self.experience_type:
+            prefix = self.definition.product_reference_prefix
+        return f"{prefix}-{timezone.localdate().year}-{self.pk:05d}"
+
+    @property
+    def definition(self):
+        from .registry import get_program  # noqa: PLC0415
+
+        return get_program(self.experience_type)
+
+    def get_solution_type_display(self):
+        labels = self.definition.solution_types
+        return ", ".join(labels.get(key, key) for key in self.solution_type)
+
+    @property
+    def needs_callback(self):
+        """Whether any milestone this product is doing has the gateway call back."""
+        return any(
+            milestone.definition.needs_callback
+            for milestone in self.milestones.filter(enabled=True)
+        )
+
+    @property
+    def callback_codes(self):
+        """Codes of under-review milestones whose flows have the gateway call back."""
+        return sorted(
+            milestone.definition.code
+            for milestone in self.milestones.filter(enabled=True)
+            if milestone.definition.needs_callback
+            and milestone.application.review_item.pending
+        )
 
     def _build_unique_slug(self) -> str:
         base = slugify(self.name)[:220] or "product"
@@ -648,53 +690,6 @@ class FormAttachment(models.Model):
         return self.original_name
 
 
-class ProductWorkspace(models.Model):
-    product = models.OneToOneField(
-        "experiences.Product",
-        on_delete=models.CASCADE,
-        related_name="workspace",
-    )
-    reference = models.CharField(max_length=32, unique=True)
-    experience_type = models.CharField(max_length=100)
-    solution_type = models.JSONField(default=list, blank=True)
-    applied_milestones = models.JSONField(default=list)
-    registered_at = models.DateTimeField(null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.reference} - {self.product.name}"
-
-    def get_absolute_url(self):
-        return reverse("experiences:overview", args=[self.reference])
-
-    @property
-    def definition(self):
-        from .registry import get_program  # noqa: PLC0415
-
-        return get_program(self.experience_type)
-
-    def get_solution_type_display(self):
-        labels = self.definition.solution_types
-        return ", ".join(labels.get(key, key) for key in self.solution_type)
-
-    @property
-    def needs_callback(self):
-        """Whether any milestone this product is doing has the gateway call back."""
-        return any(
-            milestone.definition.needs_callback
-            for milestone in self.product.milestones.filter(enabled=True)
-        )
-
-    @property
-    def callback_codes(self):
-        """Codes of under-review milestones whose flows have the gateway call back."""
-        return sorted(
-            milestone.definition.code
-            for milestone in self.product.milestones.filter(enabled=True)
-            if milestone.definition.needs_callback
-            and milestone.application.review_item.pending
-        )
-
-
 class Milestone(models.Model):
     product = models.ForeignKey(
         "experiences.Product",
@@ -722,14 +717,11 @@ class Milestone(models.Model):
 
     @property
     def definition(self):
-        return self.product.workspace.definition.milestones[self.key]
+        return self.product.definition.milestones[self.key]
 
     @property
     def track_codes(self):
-        return [
-            track.code
-            for track in self.product.workspace.definition.tracks_with(self.key)
-        ]
+        return [track.code for track in self.product.definition.tracks_with(self.key)]
 
 
 class ReviewItem(models.Model):
@@ -853,7 +845,7 @@ class ReviewItem(models.Model):
         from .registry import get_program  # noqa: PLC0415
 
         if self.product_id:
-            return self.product.workspace.definition
+            return self.product.definition
         return get_program(self.form.metadata.get("program"))
 
     @property

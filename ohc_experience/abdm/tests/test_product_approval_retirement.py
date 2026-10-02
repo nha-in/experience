@@ -13,7 +13,7 @@ from ohc_experience.experiences.models import ApplicationFormUse
 from ohc_experience.experiences.models import ApplicationInstance
 from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import FormSubmission
-from ohc_experience.experiences.models import ProductWorkspace
+from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ReviewItem
 
 pytestmark = pytest.mark.django_db
@@ -23,18 +23,18 @@ BEFORE = [("experiences", "0015_product_production_client_id")]
 AFTER = [("experiences", "0017_remove_productworkspace_registration_status")]
 
 
-def registration(workspace):
-    return workspace.product.review_items.get(kind="product_registration")
+def registration(product):
+    return product.review_items.get(kind="product_registration")
 
 
 def another_product(environment, name):
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
         data=product_data(name),
     )
-    assert workspace, form.errors
-    return workspace
+    assert product, form.errors
+    return product
 
 
 def set_legacy_state(item, status, application_status, reviewer=None):
@@ -69,7 +69,7 @@ def retirement(item):
 
 
 def test_open_registrations_are_recorded_and_locked_milestones_open(environment):
-    withdrawn = registration(environment["workspace"])
+    withdrawn = registration(environment["product"])
     approved = withdrawn.selected_submission
     AuditEvent.objects.create(
         organisation=withdrawn.organisation,
@@ -99,9 +99,10 @@ def test_open_registrations_are_recorded_and_locked_milestones_open(environment)
         ApplicationInstance.objects.filter(pk=locked.application_id).update(
             status="locked",
         )
-        ProductWorkspace.objects.filter(product=in_review.product).update(
-            registered_at=None,
-        )
+        MigrationExecutor(connection).loader.project_state(BEFORE).apps.get_model(
+            "experiences",
+            "ProductWorkspace",
+        ).objects.filter(product_id=in_review.product_id).update(registered_at=None)
 
         migrate(AFTER)
     finally:
@@ -135,7 +136,7 @@ def test_open_registrations_are_recorded_and_locked_milestones_open(environment)
     assert FormSubmission.objects.get(pk=approved.pk).is_current
     assert not FormSubmission.objects.get(pk=withdrawn_change.pk).is_current
     assert (
-        ProductWorkspace.objects.get(product=in_review.product).registered_at
+        Product.objects.get(pk=in_review.product_id).registered_at
         == in_review.product.created_at
     )
     assert ApplicationInstance.objects.get(pk=locked.application_id).status == "draft"

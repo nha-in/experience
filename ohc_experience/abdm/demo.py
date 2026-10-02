@@ -28,7 +28,7 @@ from ohc_experience.experiences.credentials import save_callback_url
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.experiences.models import FormAttachment
-from ohc_experience.experiences.models import ProductWorkspace
+from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import TicketAttachment
 from ohc_experience.integrations.services import provision_inline
 from ohc_experience.organisations.lgd import LGDLookupError
@@ -292,7 +292,7 @@ class DemoBuilder:
             for name in files:
                 if name:
                     default_storage.delete(name)
-        elif ProductWorkspace.objects.exists():
+        elif Product.objects.exists():
             msg = "Sandbox data already exists. Pass --reset for a fresh local demo."
             raise CommandError(msg)
         password = options["password"]
@@ -350,16 +350,16 @@ class DemoBuilder:
             note="Organisation identity verified for sandbox participation.",
         )
         org.refresh_from_db()
-        workspace, form = self.register_product(org, applicant, data=product_data())
-        if not workspace:
+        product, form = self.register_product(org, applicant, data=product_data())
+        if not product:
             raise CommandError(str(form.errors))
         save_callback_url(
-            workspace.product.credential,
+            product.credential,
             applicant,
             "https://hmis.medibase.example/abdm/callback",
         )
         self.exit(
-            workspace,
+            product,
             "m1",
             applicant,
             admin,
@@ -369,17 +369,17 @@ class DemoBuilder:
         )
         # A visibly fake ID: the demo never reaches the NHA production gateway.
         production.record(
-            workspace.product,
+            product,
             reviewer,
-            client_id=f"DEMO_PROD_{workspace.reference.replace('-', '_')}",
+            client_id=f"DEMO_PROD_{product.reference.replace('-', '_')}",
             issued_on=timezone.localdate() - timedelta(days=9),
             expected="",
         )
-        self.exit(workspace, "m2", applicant, admin, reviewer, "query")
+        self.exit(product, "m2", applicant, admin, reviewer, "query")
         # M3 builds on M1, which is approved, so this review is ready to decide.
-        self.exit(workspace, "m3", applicant, admin, reviewer, "review")
-        self.exit(workspace, "m4", applicant, admin, reviewer, "review")
-        uhi = workspace.product.milestones.get(key="uhi1").application.review_item
+        self.exit(product, "m3", applicant, admin, reviewer, "review")
+        self.exit(product, "m4", applicant, admin, reviewer, "review")
+        uhi = product.milestones.get(key="uhi1").application.review_item
         services.save_review_form(uhi, applicant, data=uhi_data(), submit=True)
         self.locker_product(org, applicant, admin, reviewer)
         # UHI with M1 alone, and M1 still undecided: the one product where a
@@ -397,12 +397,12 @@ class DemoBuilder:
         if not waiting:
             raise CommandError(str(form.errors))
         save_callback_url(
-            waiting.product.credential,
+            waiting.credential,
             applicant,
             "https://teleconsult.medibase.example/uhi/callback",
         )
         self.exit(waiting, "m1", applicant, admin, reviewer, "review")
-        waiting_uhi = waiting.product.milestones.get(key="uhi1").application.review_item
+        waiting_uhi = waiting.milestones.get(key="uhi1").application.review_item
         services.save_review_form(waiting_uhi, applicant, data=uhi_data(), submit=True)
         pending_user = self.user("new-integrator@abdm-demo.in", "Nisha Patel", password)
         pending_org = Organisation.objects.create(name="HealthBridge Digital")
@@ -427,7 +427,7 @@ class DemoBuilder:
         self.events(admin)
         ticket = Ticket.objects.create(
             organisation=org,
-            product=workspace.product,
+            product=product,
             category="abdm-m2",
             issue_type="Bridge Service",
             subject="Clarification on consent callback acknowledgement",
@@ -449,7 +449,7 @@ class DemoBuilder:
         )
         self.stdout.write(self.style.SUCCESS("Fresh ABDM sandbox demo ready."))
         self.stdout.write(
-            f"Product: http://localhost:8000{workspace.get_absolute_url()}",
+            f"Product: http://localhost:8000{product.get_absolute_url()}",
         )
         self.stdout.write(
             "Applicant: applicant@abdm-demo.in\nReviewer: reviewer@abdm-demo.in\nAdministrator: admin@abdm-demo.in",
@@ -488,10 +488,10 @@ class DemoBuilder:
 
     def register_product(self, org, applicant, *, data):
         """Registers, then runs the chain inline — a seed waits for no worker."""
-        workspace, form = services.register_product(org, applicant, data=data)
-        if workspace:
-            provision_inline(workspace.product)
-        return workspace, form
+        product, form = services.register_product(org, applicant, data=data)
+        if product:
+            provision_inline(product)
+        return product, form
 
     def user(self, email, name, password, *, reviewer=False, admin=False):
         user, _ = get_user_model().objects.get_or_create(email=email)
@@ -510,8 +510,8 @@ class DemoBuilder:
         )
         return user
 
-    def exit(self, workspace, key, applicant, admin, reviewer, state, *, note=""):  # noqa: PLR0913, PLR0917
-        item = workspace.product.milestones.get(key=key).application.review_item
+    def exit(self, product, key, applicant, admin, reviewer, state, *, note=""):  # noqa: PLR0913, PLR0917
+        item = product.milestones.get(key=key).application.review_item
         item, form, saved = services.save_review_form(
             item,
             applicant,
@@ -565,7 +565,7 @@ class DemoBuilder:
         if not locker:
             raise CommandError(str(form.errors))
         save_callback_url(
-            locker.product.credential,
+            locker.credential,
             applicant,
             "https://locker.medibase.example/phr/callback",
         )

@@ -36,7 +36,6 @@ from .models import AuditEvent
 from .models import Milestone
 from .models import Notification
 from .models import ProductCredential
-from .models import ProductWorkspace
 from .models import ReviewItem
 from .models import ReviewQuery
 from .notifications import notify_decision
@@ -573,8 +572,8 @@ def _set_application_status(item, status):
 
 def project_product(item, actor, *, product_values, solution_type, selections):
     product = item.product
-    workspace = ProductWorkspace.objects.select_for_update().get(product=product)
-    program = workspace.definition
+    Product.objects.select_for_update().get(pk=product.pk)
+    program = product.definition
     new_keys = program.milestone_keys(selections, item.organisation)
     approved = set(
         product.milestones.filter(application__status="approved").values_list(
@@ -584,7 +583,7 @@ def project_product(item, actor, *, product_values, solution_type, selections):
     )
     required_selections = {
         value
-        for value in workspace.applied_milestones
+        for value in product.applied_milestones
         if value.split(":", 1)[1] in approved
     }
     if not required_selections.issubset(selections):
@@ -607,10 +606,17 @@ def project_product(item, actor, *, product_values, solution_type, selections):
         raise ValidationError(msg)
     for key, value in product_values.items():
         setattr(product, key, value)
-    product.save(update_fields=["name", "description", "updated_at"])
-    workspace.solution_type = solution_type
-    workspace.applied_milestones = selections
-    workspace.save()
+    product.solution_type = solution_type
+    product.applied_milestones = selections
+    product.save(
+        update_fields=[
+            "name",
+            "description",
+            "solution_type",
+            "applied_milestones",
+            "updated_at",
+        ],
+    )
     product.milestones.exclude(key__in=new_keys).update(enabled=False)
     for key in program.ordered_milestones():
         if key not in new_keys:
@@ -958,7 +964,7 @@ def certification_review(product, actor):
     """Continue an open certification request, or begin a new review cycle."""
     require_integrator(actor, product.organisation)
     Organisation.objects.select_for_update().get(pk=product.organisation_id)
-    definition = product.workspace.definition.applications.certification
+    definition = product.definition.applications.certification
     if definition is None:
         msg = "This program does not offer product certification reviews."
         raise ValidationError(msg)
@@ -1005,13 +1011,9 @@ def register_product(organisation, actor, *, data, program=None):
         return None, form
     product = Product.objects.create(
         organisation=organisation,
+        experience_type=program.key,
         created_by=actor,
         **program.product_values(form.cleaned_data),
-    )
-    workspace = ProductWorkspace.objects.create(
-        product=product,
-        experience_type=program.key,
-        reference=f"{program.product_reference_prefix}-{timezone.localdate().year}-{product.pk:05d}",
     )
     application = create_application(
         application_type=definition.key,
@@ -1028,9 +1030,9 @@ def register_product(organisation, actor, *, data, program=None):
     )
     save_review_form(item, actor, data=data, submit=True)
     program.on_product_created(product, actor)
-    # Recording the registration stamped the workspace behind this instance.
-    workspace.refresh_from_db()
-    return workspace, form
+    # Recording the registration stamped registered_at on the row.
+    product.refresh_from_db()
+    return product, form
 
 
 @transaction.atomic

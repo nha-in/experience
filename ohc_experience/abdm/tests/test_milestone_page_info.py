@@ -41,7 +41,7 @@ def test_milestone_header_describes_the_milestone_and_links_its_docs(
     milestone = MILESTONES[key]
 
     response = client.get(
-        reverse("experiences:track", args=[environment["workspace"].reference, "ABDM"])
+        reverse("experiences:track", args=[environment["product"].reference, "ABDM"])
         + f"?milestone={key}",
     )
 

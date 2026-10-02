@@ -6,7 +6,7 @@
   <div class="ui-hero">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
-        <p class="ui-hero-eyebrow">{{ workspace.product.name }}</p>
+        <p class="ui-hero-eyebrow">{{ product.name }}</p>
         <h1 class="ui-hero-title">Reference environment</h1>
         <p class="ui-hero-lede">Run the approved {{ experience_program.short_name }} flows locally with synthetic test data to learn a flow before you build your own.</p>
       </div>
@@ -103,7 +103,7 @@
                   Your client ID and secret appear in
                 {% endif %}
                 <a class="font-semibold text-primary no-underline hover:underline"
-                   href="{% url 'experiences:credentials' workspace.reference %}">Credentials</a>{% if not has_credential %} once they are issued{% endif %}. Nothing entered here is saved or sent.
+                   href="{% url 'experiences:credentials' product.reference %}">Credentials</a>{% if not has_credential %} once they are issued{% endif %}. Nothing entered here is saved or sent.
               </p>
             </fieldset>
           {% endif %}

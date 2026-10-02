@@ -28,8 +28,8 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import stored_secret
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
-from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.services import provision_inline
@@ -75,7 +75,7 @@ def test_nothing_is_ticked_until_the_integrator_chooses():
 @pytest.mark.django_db
 def test_the_registration_page_preselects_nothing(environment, client):
     client.force_login(environment["applicant"])
-    client.get(environment["workspace"].get_absolute_url())
+    client.get(environment["product"].get_absolute_url())
     response = client.get(reverse("experiences:product-create"))
     assert response.status_code == 200
     inputs = Inputs(response.content.decode()).fields
@@ -244,7 +244,7 @@ def test_the_picker_shows_why_a_saved_product_lacks_a_required_milestone(
     environment,
     client,
 ):
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
         data={
@@ -253,11 +253,11 @@ def test_the_picker_shows_why_a_saved_product_lacks_a_required_milestone(
             "applied_milestones": ["ABDM:m1"],
         },
     )
-    assert workspace, form.errors
+    assert product, form.errors
     client.force_login(environment["applicant"])
 
     html = client.get(
-        reverse("experiences:product-edit", args=[workspace.reference]),
+        reverse("experiences:product-edit", args=[product.reference]),
     ).content.decode()
 
     inputs = {field.get("id"): field for field in Inputs(html).fields}
@@ -368,8 +368,8 @@ def test_one_solution_type_is_chosen_and_saved_as_a_list(environment, client):
 
     # A browser posts the one radio chosen.
     client.post(url, {**product_data("Dispensary"), "solution_type": "pharmacy"})
-    workspace = ProductWorkspace.objects.get(product__name="Dispensary")
-    assert workspace.solution_type == ["pharmacy"]
+    product = Product.objects.get(name="Dispensary")
+    assert product.solution_type == ["pharmacy"]
 
 
 def test_solution_type_accepts_several_values():
@@ -437,21 +437,21 @@ def test_other_description_starts_hidden_and_opens_with_other():
 @pytest.mark.django_db
 def test_editing_a_product_persists_several_solution_types(environment, client):
     client.force_login(environment["applicant"])
-    workspace = environment["workspace"]
-    item = workspace.product.review_items.get(kind="product_registration")
+    product = environment["product"]
+    item = product.review_items.get(kind="product_registration")
     payload = dict(item.selected_submission.data)
     payload["solution_type"] = ["clinical_hmis", "pharmacy"]
     payload["revision"] = str(item.selected_submission_id or "")
     payload["intent"] = "submit"
     response = client.post(
-        reverse("experiences:product-edit", args=[workspace.reference]),
+        reverse("experiences:product-edit", args=[product.reference]),
         payload,
         follow=True,
     )
     assert response.status_code == 200
-    workspace.refresh_from_db()
-    assert workspace.solution_type == ["clinical_hmis", "pharmacy"]
-    assert workspace.get_solution_type_display() == "Clinic HMIS, Pharmacy"
+    product.refresh_from_db()
+    assert product.solution_type == ["clinical_hmis", "pharmacy"]
+    assert product.get_solution_type_display() == "Clinic HMIS, Pharmacy"
 
 
 def uhi_payload(**overrides):
@@ -514,7 +514,7 @@ def test_approved_picker_carries_locked_selections(environment, client):
     approve(environment)
     client.force_login(environment["applicant"])
     response = client.get(
-        reverse("experiences:product-edit", args=[environment["workspace"].reference]),
+        reverse("experiences:product-edit", args=[environment["product"].reference]),
     )
     assert response.status_code == 200
     inputs = Inputs(response.content.decode()).fields
@@ -537,7 +537,7 @@ def test_picker_locks_a_milestone_under_review_until_it_is_withdrawn(
     approve(environment)
     item = submit(environment, "m2")
     client.force_login(environment["applicant"])
-    url = reverse("experiences:product-edit", args=[environment["workspace"].reference])
+    url = reverse("experiences:product-edit", args=[environment["product"].reference])
 
     html = client.get(url).content.decode()
     inputs = Inputs(html).fields
@@ -571,7 +571,7 @@ def test_track_draft_uploads_and_withdrawn_snapshot_remain_editable(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "ABDM"],
+        args=[environment["product"].reference, "ABDM"],
     )
     uploads = {key: value[0] for key, value in files().lists()}
     response = client.post(
@@ -610,9 +610,9 @@ def test_track_draft_uploads_and_withdrawn_snapshot_remain_editable(
 @pytest.mark.django_db
 @pytest.mark.parametrize("htmx", [False, True])
 def test_credential_reveal_preserves_full_page_fallback(environment, client, htmx):
-    plain = stored_secret(environment["workspace"].product)
+    plain = stored_secret(environment["product"])
     client.force_login(environment["applicant"])
-    url = reverse("experiences:credentials", args=[environment["workspace"].reference])
+    url = reverse("experiences:credentials", args=[environment["product"].reference])
     assert plain not in client.get(url).content.decode()
     response = client.post(
         url,
@@ -628,13 +628,13 @@ def test_credential_reveal_preserves_full_page_fallback(environment, client, htm
 
 @pytest.mark.django_db
 def test_saving_a_new_callback_url_replaces_the_old_one(environment, client):
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    credential = ProductCredential.objects.get(product=environment["product"])
     credential.callback_url = "https://old.example/callback"
     credential.save(update_fields=["callback_url"])
     client.force_login(environment["applicant"])
 
     response = client.post(
-        reverse("experiences:credentials", args=[environment["workspace"].reference]),
+        reverse("experiences:credentials", args=[environment["product"].reference]),
         {"intent": "callback", "callback_url": "https://new.example/callback"},
     )
 
@@ -645,13 +645,13 @@ def test_saving_a_new_callback_url_replaces_the_old_one(environment, client):
 
 @pytest.mark.django_db
 def test_a_plain_http_callback_url_is_refused(environment, client):
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    credential = ProductCredential.objects.get(product=environment["product"])
     credential.callback_url = "https://kept.example/callback"
     credential.save()
     client.force_login(environment["applicant"])
 
     response = client.post(
-        reverse("experiences:credentials", args=[environment["workspace"].reference]),
+        reverse("experiences:credentials", args=[environment["product"].reference]),
         {"intent": "callback", "callback_url": "http://plain.example/callback"},
     )
 
@@ -665,17 +665,17 @@ def test_a_plain_http_callback_url_is_refused(environment, client):
 def test_a_pending_panel_shows_what_each_system_is_doing(environment, client):
     """ "No credentials yet" and "the gateway never happened" must not look alike."""
     fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
         data=product_data("Second product"),
     )
-    assert workspace, form.errors
-    provision_inline(workspace.product)
+    assert product, form.errors
+    provision_inline(product)
     client.force_login(environment["applicant"])
 
     html = client.get(
-        reverse("experiences:credentials", args=[workspace.reference]),
+        reverse("experiences:credentials", args=[product.reference]),
     ).content.decode()
 
     assert "Provisioning in progress" in html
@@ -683,9 +683,9 @@ def test_a_pending_panel_shows_what_each_system_is_doing(environment, client):
     assert "Gateway" in html
 
 
-def _track_url(workspace, milestone):
+def _track_url(product, milestone):
     return (
-        reverse("experiences:track", args=[workspace.reference, "ABDM"])
+        reverse("experiences:track", args=[product.reference, "ABDM"])
         + f"?milestone={milestone}"
     )
 
@@ -693,20 +693,20 @@ def _track_url(workspace, milestone):
 @pytest.mark.django_db
 def test_an_m1_only_product_is_never_asked_for_a_callback_url(environment, client):
     """The gateway never calls an M1-only integrator back."""
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
         data=product_data("Identity only") | {"applied_milestones": ["ABDM:m1"]},
     )
-    assert workspace, form.errors
-    provision_inline(workspace.product)
+    assert product, form.errors
+    provision_inline(product)
     client.force_login(environment["applicant"])
 
     html = client.get(
-        reverse("experiences:credentials", args=[workspace.reference]),
+        reverse("experiences:credentials", args=[product.reference]),
     ).content.decode()
 
-    assert workspace.needs_callback is False
+    assert product.needs_callback is False
     assert "Callback URL" not in html
 
 
@@ -715,10 +715,10 @@ def test_a_product_doing_m2_is_asked_for_one(environment, client):
     client.force_login(environment["applicant"])
 
     html = client.get(
-        reverse("experiences:credentials", args=[environment["workspace"].reference]),
+        reverse("experiences:credentials", args=[environment["product"].reference]),
     ).content.decode()
 
-    assert environment["workspace"].needs_callback is True
+    assert environment["product"].needs_callback is True
     assert "Callback URL" in html
 
 
@@ -727,7 +727,7 @@ def test_the_m2_page_says_when_no_callback_url_is_saved(environment, client):
     clear_callback_url(environment)
     client.force_login(environment["applicant"])
 
-    html = client.get(_track_url(environment["workspace"], "m2")).content.decode()
+    html = client.get(_track_url(environment["product"], "m2")).content.decode()
 
     assert "No callback URL saved" in html
 
@@ -737,7 +737,7 @@ def test_the_m1_page_does_not(environment, client):
     clear_callback_url(environment)
     client.force_login(environment["applicant"])
 
-    html = client.get(_track_url(environment["workspace"], "m1")).content.decode()
+    html = client.get(_track_url(environment["product"], "m1")).content.decode()
 
     assert "No callback URL saved" not in html
 
@@ -771,7 +771,7 @@ def test_the_m2_page_disables_submit_until_a_callback_url_is_saved(
     submit(environment, "m1")
     clear_callback_url(environment)
     client.force_login(environment["applicant"])
-    url = _track_url(environment["workspace"], "m2")
+    url = _track_url(environment["product"], "m2")
 
     html = client.get(url).content.decode()
 
@@ -779,7 +779,7 @@ def test_the_m2_page_disables_submit_until_a_callback_url_is_saved(
     assert 'data-submit-blocked="true"' in html
     assert "Add a callback URL to submit M2." in html
 
-    ProductCredential.objects.filter(product=environment["workspace"].product).update(
+    ProductCredential.objects.filter(product=environment["product"]).update(
         callback_url="https://integrator.example/callback",
     )
     html = client.get(url).content.decode()
@@ -822,7 +822,7 @@ def test_the_product_page_flags_a_missing_callback_url(environment, client):
     clear_callback_url(environment)
     url = reverse(
         "experiences:product-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     client.force_login(environment["reviewer"])
 
@@ -840,7 +840,7 @@ def test_the_product_page_does_not_flag_it_once_a_callback_url_is_saved(
     submit(environment, "m2")
     url = reverse(
         "experiences:product-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     client.force_login(environment["reviewer"])
 
@@ -856,7 +856,7 @@ def test_saving_a_callback_url_reports_its_registration_on_reload(
     django_capture_on_commit_callbacks,
 ):
     client.force_login(environment["applicant"])
-    url = reverse("experiences:credentials", args=[environment["workspace"].reference])
+    url = reverse("experiences:credentials", args=[environment["product"].reference])
 
     with django_capture_on_commit_callbacks(execute=True):
         client.post(

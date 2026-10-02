@@ -26,13 +26,13 @@ def _agent_skill_summary(description):
     return f"{scope[:1].upper()}{scope[1:]}." if scope else ""
 
 
-def agent_skill_groups(workspace, tracks):
+def agent_skill_groups(product, tracks):
     """Agent Skills by track, then the shared ones that belong to no single track.
 
     Any skill can be installed. A skill is recommended when the product applied
     for a milestone it carries.
     """
-    program = workspace.definition
+    program = product.definition
     applied = {tile["definition"].key for track in tracks for tile in track["tiles"]}
     groups = {}
     for skill in program.agent_skills.skills():
@@ -144,10 +144,10 @@ def _review_attention(requests):
     return None
 
 
-def overview_next_step(workspace, tracks, organisation_review):
+def overview_next_step(product, tracks, organisation_review):
     """Prioritise an actionable current request, then the next available form."""
     organisation_url = reverse("experiences:organisation")
-    product_url = reverse("experiences:product-edit", args=[workspace.reference])
+    product_url = reverse("experiences:product-edit", args=[product.reference])
     tiles = [tile for track in tracks for tile in track["tiles"]]
     requests = [
         (organisation_review, organisation_url),
@@ -156,7 +156,7 @@ def overview_next_step(workspace, tracks, organisation_review):
     attention = _review_attention(requests)
     if attention:
         return attention
-    organisation = workspace.product.organisation
+    organisation = product.organisation
     if (
         not organisation.is_verified
         and organisation_review

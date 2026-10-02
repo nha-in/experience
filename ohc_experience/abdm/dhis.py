@@ -61,7 +61,6 @@ def _configuration():
 
 def _fresh_product(product, actor):
     product = Product.objects.select_related(
-        "workspace",
         "organisation",
         "created_by",
     ).get(pk=product.pk)
@@ -102,10 +101,7 @@ def _recorded_data(item):
 
 
 def _registration_data(product):
-    if (
-        product.workspace.experience_type != "abdm"
-        or not product.organisation.is_verified
-    ):
+    if product.experience_type != "abdm" or not product.organisation.is_verified:
         noun = capfirst(product.organisation.noun)
         msg = f"{noun} verification must be approved for DHIS."
         raise ValidationError(msg)

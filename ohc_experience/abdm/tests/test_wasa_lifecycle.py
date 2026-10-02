@@ -64,7 +64,7 @@ def request_milestone(environment, key="m1", *, certificate=None, source=None):
 
 def request_renewal(environment, *, certificate=None, name="renewed-wasa.pdf"):
     item = workflows.certification_review(
-        environment["workspace"].product,
+        environment["product"],
         environment["applicant"],
     )
     item, form, saved = workflows.save_review_form(
@@ -89,7 +89,7 @@ def decide(environment, item, action="approve", note="Certificate verified."):
 
 
 def test_milestone_approval_makes_its_certificate_available_to_product(environment):
-    product = environment["workspace"].product
+    product = environment["product"]
     item = request_milestone(environment)
     assert current_wasa(product) is None
 
@@ -108,7 +108,7 @@ def test_milestone_approval_makes_its_certificate_available_to_product(environme
 
 
 def test_renewal_reuses_open_request_and_creates_new_cycle_after_approval(environment):
-    product = environment["workspace"].product
+    product = environment["product"]
     first = workflows.certification_review(product, environment["applicant"])
     assert first.application.application_type == "abdm_wasa_review"
     assert (
@@ -149,7 +149,7 @@ def test_renewal_reuses_open_request_and_creates_new_cycle_after_approval(enviro
 
 
 def test_pending_and_rejected_renewals_preserve_approved_certificate(environment):
-    product = environment["workspace"].product
+    product = environment["product"]
     first = decide(environment, request_milestone(environment))
     approval = current_wasa(product)
     renewal = request_renewal(
@@ -170,7 +170,7 @@ def test_pending_and_rejected_renewals_preserve_approved_certificate(environment
 
 
 def test_first_pending_wasa_is_reported_as_a_submission_awaiting_approval(environment):
-    product = environment["workspace"].product
+    product = environment["product"]
     renewal = request_renewal(environment)
 
     context = wasa_context(product)
@@ -183,7 +183,7 @@ def test_first_pending_wasa_is_reported_as_a_submission_awaiting_approval(enviro
 
 def test_stale_renewal_edit_cannot_overwrite_teammates_revision(environment):
     item = workflows.certification_review(
-        environment["workspace"].product,
+        environment["product"],
         environment["applicant"],
     )
     item, form, saved = workflows.save_review_form(
@@ -222,10 +222,10 @@ def test_stale_renewal_edit_cannot_overwrite_teammates_revision(environment):
 
 @pytest.mark.parametrize("intent", ["draft", "submit"])
 def test_product_wasa_page_saves_and_renders_result(environment, client, intent):
-    product = environment["workspace"].product
+    product = environment["product"]
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     client.force_login(environment["applicant"])
     page = client.get(url)
@@ -275,10 +275,10 @@ def test_stale_renewal_page_cannot_start_another_cycle_after_approval(
     client,
     intent,
 ):
-    product = environment["workspace"].product
+    product = environment["product"]
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     client.force_login(environment["applicant"])
     initial_count = product.review_items.count()
@@ -329,7 +329,7 @@ def test_rejected_renewal_resubmission_keeps_reviewed_revision(environment):
     assert original.data == original_data
     assert original.attachments.get(field_key="wasa_certificate").pk == original_file.pk
     decide(environment, revised)
-    approved = current_wasa(environment["workspace"].product)
+    approved = current_wasa(environment["product"])
     assert int(approved.data["submission_id"]) == (revised.selected_submission_id)
 
 
@@ -408,7 +408,7 @@ def test_inherited_milestone_evidence_defaults_to_current_certificate(environmen
 
 
 def test_revoked_current_certificate_does_not_default_to_older_approval(environment):
-    product = environment["workspace"].product
+    product = environment["product"]
     decide(environment, request_milestone(environment))
     renewal = decide(
         environment,
@@ -432,7 +432,7 @@ def test_revoked_current_certificate_does_not_default_to_older_approval(environm
 
 
 def test_reused_milestone_cannot_replace_newer_product_certificate(environment):
-    product = environment["workspace"].product
+    product = environment["product"]
     first = decide(environment, request_milestone(environment))
     second = request_milestone(environment, "m2", source=first.selected_submission)
     old_snapshot = dict(second.selected_submission.data)
@@ -518,7 +518,7 @@ def test_expiry_is_required_for_new_certificates(environment, kind):
         milestone(environment)
         if kind == "milestone"
         else workflows.certification_review(
-            environment["workspace"].product,
+            environment["product"],
             environment["applicant"],
         )
     )
@@ -537,7 +537,7 @@ def test_expiry_is_required_for_new_certificates(environment, kind):
 @pytest.mark.parametrize("expires_in", [-1, -20])
 def test_expired_or_inverted_validity_is_rejected(environment, expires_in):
     item = workflows.certification_review(
-        environment["workspace"].product,
+        environment["product"],
         environment["applicant"],
     )
     _, form, saved = workflows.save_review_form(
@@ -614,7 +614,7 @@ def test_approved_certificate_cannot_be_reused_by_another_product(environment):
         data=product_data("Another product"),
     )
     assert other, form.errors
-    other_item = other.product.milestones.get(key="m1").application.review_item
+    other_item = other.milestones.get(key="m1").application.review_item
     _, form, saved = workflows.save_review_form(
         other_item,
         environment["applicant"],
@@ -629,7 +629,7 @@ def test_approved_certificate_cannot_be_reused_by_another_product(environment):
     )
     assert not saved
     assert form.errors
-    assert current_wasa(other.product) is None
+    assert current_wasa(other) is None
 
 
 def test_expired_certificate_cannot_be_reused_even_with_forged_future_date(environment):
@@ -694,7 +694,7 @@ def test_renewal_review_permission_is_general_and_keeps_track_boundaries(
 
 
 def test_another_organisations_user_cannot_open_or_submit_renewal(environment, client):
-    product = environment["workspace"].product
+    product = environment["product"]
     item = workflows.certification_review(product, environment["applicant"])
     with pytest.raises(PermissionDenied):
         workflows.certification_review(product, environment["outsider"])
@@ -712,7 +712,7 @@ def test_another_organisations_user_cannot_open_or_submit_renewal(environment, c
         client.get(
             reverse(
                 "experiences:product-certification",
-                args=[environment["workspace"].reference],
+                args=[environment["product"].reference],
             ),
         ).status_code
         == 404
@@ -756,7 +756,7 @@ def test_product_page_shows_a_certificate_held_only_as_milestone_evidence(
 ):
     url = reverse(
         "experiences:product-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     item = request_milestone(environment)
     client.force_login(environment["admin"])

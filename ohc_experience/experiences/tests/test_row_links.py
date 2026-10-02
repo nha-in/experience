@@ -50,7 +50,7 @@ def row_links(response):
 def open_ticket(environment):
     return Ticket.objects.create(
         organisation=environment["org"],
-        product=environment["workspace"].product,
+        product=environment["product"],
         subject="Callback fails",
         status="open",
     )
@@ -62,12 +62,12 @@ def test_production_rows_open_the_product(environment, client):
     url = reverse("experiences:production-list")
     detail = reverse(
         "experiences:production-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     # An approved exit puts the product in Pending, waiting on its client ID...
     assert row_links(client.get(url, {"tab": "pending"})) == [detail]
     production.record(
-        environment["workspace"].product,
+        environment["product"],
         environment["reviewer"],
         client_id="PROD-ROW-LINK",
         expected="",
@@ -80,7 +80,7 @@ def test_queue_rows_open_the_product_review(environment, client):
     submit(environment, "m1")
     client.force_login(environment["reviewer"])
     response = client.get(reverse("experiences:queue"))
-    reference = environment["workspace"].reference
+    reference = environment["product"].reference
     assert row_links(response) == [
         reverse("experiences:product-detail", args=[reference]),
     ]
@@ -91,7 +91,7 @@ def test_ticket_rows_open_the_ticket(environment, client):
     client.force_login(environment["applicant"])
     response = client.get(
         reverse("experiences:support"),
-        {"product": environment["workspace"].reference},
+        {"product": environment["product"].reference},
     )
     # The table row, and the card that replaces it on a narrow screen.
     assert row_links(response) == [url, url]
@@ -170,7 +170,7 @@ def test_production_exit_rows_open_their_review(environment, client):
     response = client.get(
         reverse(
             "experiences:production-detail",
-            args=[environment["workspace"].reference],
+            args=[environment["product"].reference],
         ),
     )
     assert row_links(response) == [milestone(environment, "m1").get_absolute_url()]
@@ -178,7 +178,7 @@ def test_production_exit_rows_open_their_review(environment, client):
 
 def test_product_page_ticket_rows_open_the_ticket(environment, client):
     ticket = reverse("experiences:ticket", args=[open_ticket(environment).reference])
-    reference = environment["workspace"].reference
+    reference = environment["product"].reference
     client.force_login(environment["reviewer"])
     response = client.get(reverse("experiences:product-detail", args=[reference]))
     assert row_links(response) == [ticket]
@@ -187,7 +187,7 @@ def test_product_page_ticket_rows_open_the_ticket(environment, client):
 def test_wasa_history_rows_open_the_submission(environment, client):
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     client.force_login(environment["applicant"])
     page = client.get(url)
@@ -217,7 +217,7 @@ def test_upcoming_event_rows_open_the_event(environment, client):
     )
     client.force_login(environment["applicant"])
     response = client.get(
-        reverse("experiences:overview", args=[environment["workspace"].reference]),
+        reverse("experiences:overview", args=[environment["product"].reference]),
     )
     assert "Launch webinar" in response.content.decode()
     assert row_links(response) == [event.get_absolute_url()]

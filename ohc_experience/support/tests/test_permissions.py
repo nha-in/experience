@@ -21,7 +21,6 @@ from ohc_experience.experiences import permissions
 from ohc_experience.experiences.forms import SupportForm
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import Product
-from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.experiences.registry import get_program
 from ohc_experience.experiences.registry import registry
 from ohc_experience.experiences.tests.example_program import SupplierQuality
@@ -58,12 +57,10 @@ def product_in(program_key, membership, name="Sandbox HMIS"):
         name=name,
         description="A product under test.",
         created_by=membership.user,
-    )
-    ProductWorkspace.objects.create(
-        product=product,
-        reference=f"{program_key}-{product.pk}",
         experience_type=program_key,
     )
+    product.reference = f"{program_key}-{product.pk}"
+    product.save(update_fields=["reference"])
     return product
 
 

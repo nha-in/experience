@@ -30,7 +30,7 @@
       {% endif %}
     {% elif can_integrate %}
       <a class="mt-1 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-         href="{% url 'experiences:product-certification' workspace.reference %}">{% if certification.review.pending %}View review{% elif certification.review %}Continue submission{% elif certification.status == 'valid' %}Manage{% elif certification.status == 'needs_verification' %}Update WASA{% else %}{{ certification.action_label }}{% endif %}<span aria-hidden="true">→</span></a>
+         href="{% url 'experiences:product-certification' product.reference %}">{% if certification.review.pending %}View review{% elif certification.review %}Continue submission{% elif certification.status == 'valid' %}Manage{% elif certification.status == 'needs_verification' %}Update WASA{% else %}{{ certification.action_label }}{% endif %}<span aria-hidden="true">→</span></a>
     {% endif %}
   </div>
 </section>

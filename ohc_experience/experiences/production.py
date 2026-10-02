@@ -114,7 +114,7 @@ def _exits(program):
 
 def approved_exits(product):
     """The product's approved exits, in catalog order, with their applications."""
-    program = product.workspace.definition
+    program = product.definition
     order = list(program.milestones)
     return sorted(
         product.milestones.filter(_exits(program)).select_related("application"),
@@ -125,13 +125,13 @@ def approved_exits(product):
 
 
 def eligible(product):
-    program = product.workspace.definition
+    program = product.definition
     return enabled(program) and product.milestones.filter(_exits(program)).exists()
 
 
 def state(product):
     """What the product's pages show; None when the program doesn't record it."""
-    if not enabled(product.workspace.definition):
+    if not enabled(product.definition):
         return None
     client_id = product.production_client_id
     return {
@@ -148,7 +148,7 @@ def _lock_for_change(actor, product):
     Returns the ID and issue date as saved, which the caller's copy of the
     product may predate.
     """
-    if not can_manage(actor, product.workspace.definition):
+    if not can_manage(actor, product.definition):
         msg = "Only onboarding approvers can change production details."
         raise PermissionDenied(msg)
     rate_limit(actor, "production", limit=10)
@@ -269,7 +269,7 @@ def listing(program, *, stage="all", q=""):
         action__in=AUTHORED,
     ).order_by("-created_at", "-pk")
     query = (
-        Product.objects.filter(workspace__experience_type=program.key)
+        Product.objects.filter(experience_type=program.key)
         .annotate(
             has_exit=Exists(exits),
             first_exit_at=Subquery(
@@ -282,12 +282,12 @@ def listing(program, *, stage="all", q=""):
             recorded_by_email=Subquery(recorder.values("actor__email")[:1]),
         )
         .filter(Q(has_exit=True) | ~Q(production_client_id=""))
-        .select_related("organisation", "workspace")
+        .select_related("organisation")
     )
     if q:
         query = query.filter(
             Q(name__icontains=q)
-            | Q(workspace__reference__icontains=q)
+            | Q(reference__icontains=q)
             | Q(organisation__name__icontains=q)
             | Q(organisation__legal_name__icontains=q)
             | Q(production_client_id__icontains=q)
@@ -326,7 +326,7 @@ def approved_codes(products):
     return {
         product_id: [
             milestone.code
-            for key, milestone in product.workspace.definition.milestones.items()
+            for key, milestone in product.definition.milestones.items()
             if key in keys[product_id]
         ]
         for product_id, product in products.items()
@@ -434,7 +434,7 @@ def csv_rows(query):
         yield tuple(
             _cell(value)
             for value in (
-                product.workspace.reference,
+                product.reference,
                 product.name,
                 organisation.display_name,
                 organisation.state,

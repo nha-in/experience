@@ -1,16 +1,16 @@
 {% comment %}
   One of an organization's products as staff see it, linking to its staff page.
-  Context: workspace, annotated with open_count; optional padding.
+  Context: product, annotated with open_count; optional padding.
 {% endcomment %}
 <li>
   <a class="group flex flex-wrap items-center gap-x-4 gap-y-2 {{ padding|default:'px-4 py-3' }} text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-     href="{% url 'experiences:product-detail' workspace.reference %}">
+     href="{% url 'experiences:product-detail' product.reference %}">
     <span class="min-w-0 flex-1">
-      <span class="block text-sm font-semibold break-words group-hover:text-primary">{{ workspace.product.name }}</span>
-      <span class="mt-0.5 block text-xs text-soft-foreground"><span class="font-mono">{{ workspace.reference }}</span>{% if workspace.solution_type %} · {{ workspace.get_solution_type_display }}{% endif %}{% if workspace.registered_at %} · Registered {{ workspace.registered_at|date:'d/m/Y' }}{% endif %}</span>
+      <span class="block text-sm font-semibold break-words group-hover:text-primary">{{ product.name }}</span>
+      <span class="mt-0.5 block text-xs text-soft-foreground"><span class="font-mono">{{ product.reference }}</span>{% if product.solution_type %} · {{ product.get_solution_type_display }}{% endif %}{% if product.registered_at %} · Registered {{ product.registered_at|date:'d/m/Y' }}{% endif %}</span>
     </span>
-    {% if workspace.open_count %}
-      <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ workspace.open_count }} open<span class="sr-only"> request{{ workspace.open_count|pluralize }}</span></span>
+    {% if product.open_count %}
+      <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>
     {% endif %}
     <span class="text-primary" aria-hidden="true">→</span>
   </a>

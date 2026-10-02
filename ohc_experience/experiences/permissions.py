@@ -101,10 +101,10 @@ def review_scope(program, category):
         application__isnull=True,
         form__metadata__program=program.key,
     ) | Q(
-        product__workspace__experience_type=program.key,
+        product__experience_type=program.key,
         kind=ReviewItem.Kind.PRODUCT,
     )
-    product_program = Q(product__workspace__experience_type=program.key)
+    product_program = Q(product__experience_type=program.key)
     if program.applications.certification:
         general |= product_program & Q(
             kind=ReviewItem.Kind.APPLICATION,
@@ -126,7 +126,7 @@ def track_items(track):
     for key in track.keys:
         query |= Q(
             application__milestone__key=key,
-            product__workspace__applied_milestones__contains=[f"{track.code}:{key}"],
+            product__applied_milestones__contains=[f"{track.code}:{key}"],
         )
     return query
 
@@ -236,7 +236,7 @@ def visible_tickets(user, action="read"):
     scope = Q(pk__in=[])
     for grant in grants(user, "support", action):
         program = Q(
-            product__workspace__experience_type=grant.program,
+            product__experience_type=grant.program,
         )
         if grant.category == "*":
             scope |= program

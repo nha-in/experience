@@ -7,8 +7,8 @@ import pytest
 from django.urls import reverse
 
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
-from ohc_experience.abdm.tests.test_workflow import nhcx_workspace
-from ohc_experience.abdm.tests.test_workflow import phr_workspace
+from ohc_experience.abdm.tests.test_workflow import nhcx_product
+from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
 
@@ -18,7 +18,7 @@ pytestmark = pytest.mark.django_db
 def offered(client, environment, key, code="ABDM"):
     """Every milestone the page lists, mapped to the reason it cannot join."""
     response = client.get(
-        reverse("experiences:track", args=[environment["workspace"].reference, code])
+        reverse("experiences:track", args=[environment["product"].reference, code])
         + f"?milestone={key}",
     )
     assert response.status_code == HTTPStatus.OK
@@ -47,7 +47,7 @@ def test_phr_offers_the_rest_of_the_track_and_shrinks_as_each_is_submitted(
     environment,
     client,
 ):
-    locker = {**environment, "workspace": phr_workspace(environment)}
+    locker = {**environment, "product": phr_product(environment)}
     client.force_login(environment["applicant"])
 
     assert offered(client, locker, "p1", "PHR") == {"P2": "", "P3": "", "P4": ""}
@@ -70,7 +70,7 @@ def test_uhi_offers_only_what_shares_this_evidence(environment, client):
 
 def test_nhcx_offers_nothing_beside_the_identity_milestone(environment, client):
     """NHCX1 shares the evidence form but not the evidence: another scope."""
-    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    claims = {**environment, "product": nhcx_product(environment)}
     client.force_login(environment["applicant"])
 
     assert offered(client, claims, "m1", "NHCX") == {}
@@ -90,14 +90,14 @@ def test_a_milestone_submitted_once_can_be_resubmitted_with_the_batch(
     submit(environment, "m2")
     workflows.withdraw(
         workflows.ReviewItem.objects.get(
-            product=environment["workspace"].product,
+            product=environment["product"],
             application__milestone__key="m2",
         ),
         environment["applicant"],
     )
     workflows.withdraw(
         workflows.ReviewItem.objects.get(
-            product=environment["workspace"].product,
+            product=environment["product"],
             application__milestone__key="m1",
         ),
         environment["applicant"],

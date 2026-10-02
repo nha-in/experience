@@ -69,22 +69,22 @@
       </div>
     </form>
     <div class="divide-y divide-soft-border">
-      {% for workspace in products %}
+      {% for product in products %}
         <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-           href="{% url 'experiences:product-detail' workspace.reference %}">
+           href="{% url 'experiences:product-detail' product.reference %}">
           <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
-                aria-hidden="true">{{ workspace.product.name|first }}</span>
+                aria-hidden="true">{{ product.name|first }}</span>
           <div class="min-w-0 flex-[1_1_12rem]">
-            <h2 class="text-base font-bold break-words group-hover:text-primary">{{ workspace.product.name }}</h2>
+            <h2 class="text-base font-bold break-words group-hover:text-primary">{{ product.name }}</h2>
             <p class="mt-1 text-xs text-soft-foreground">
-              <span class="font-mono">{{ workspace.reference }}</span>{% if workspace.solution_type %} · {{ workspace.get_solution_type_display }}{% endif %} · {{ workspace.product.organisation.display_name }}
+              <span class="font-mono">{{ product.reference }}</span>{% if product.solution_type %} · {{ product.get_solution_type_display }}{% endif %} · {{ product.organisation.display_name }}
             </p>
           </div>
-          {% if workspace.open_count %}
-            <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ workspace.open_count }} open<span class="sr-only"> request{{ workspace.open_count|pluralize }}</span></span>
+          {% if product.open_count %}
+            <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>
           {% endif %}
-          {% if workspace.registered_at %}
-            <span class="text-xs text-soft-foreground">Registered {{ workspace.registered_at|date:'d/m/Y' }}</span>
+          {% if product.registered_at %}
+            <span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>
           {% endif %}
           <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
                 aria-hidden="true">→</span>

@@ -14,7 +14,7 @@ from django.utils import timezone
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
-from ohc_experience.abdm.tests.test_workflow import nhcx_workspace
+from ohc_experience.abdm.tests.test_workflow import nhcx_product
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.events_and_activities.models import Event
@@ -105,7 +105,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
         client.get(
             reverse(
                 "experiences:track",
-                args=[environment["workspace"].reference, "ABDM"],
+                args=[environment["product"].reference, "ABDM"],
             ),
         ).status_code
         == 404
@@ -127,7 +127,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
             ).status_code
             == expected
         )
-    registration = environment["workspace"].product.review_items.get(
+    registration = environment["product"].review_items.get(
         kind="product_registration",
     )
     assert client.get(registration.get_absolute_url()).status_code == 404
@@ -247,7 +247,7 @@ def tickets(environment):
     for category in ["NHCX", "UHI", "ABDM", ""]:
         ticket = Ticket.objects.create(
             organisation=environment["org"],
-            product=environment["workspace"].product,
+            product=environment["product"],
             category=category,
             created_by=environment["applicant"],
             subject=f"{category or 'General'} support request",
@@ -533,7 +533,7 @@ def test_reused_pins_remain_visible_without_exposing_source_history(environment,
     submit_claims(environment, "m1")
     source = submit_claims(environment, "m3")
     original = source.selected_submission
-    target = nhcx_workspace(environment).product.milestones.get(key="nhcx1")
+    target = nhcx_product(environment).milestones.get(key="nhcx1")
     target = target.application.review_item
     grant(staff, category="NHCX")
     assert not permissions.visible_submissions(staff).filter(pk=original.pk).exists()

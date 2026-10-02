@@ -29,7 +29,7 @@
           <p class="ui-card-description">Products represented in review requests you can access.</p>
         </div>
         <ul class="divide-y divide-soft-border border-t border-soft-border">
-          {% for workspace in products %}
+          {% for product in products %}
             {% include 'experiences/partials/organization_product.html' with padding='px-6 py-4' %}
           {% empty %}
             <li class="px-6 py-6 text-sm text-muted-foreground">No products are visible with your review permissions.</li>

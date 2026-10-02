@@ -56,7 +56,7 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
     assert entry.matching_reviews == [m1, m2]
     assert entry.url == reverse(
         "experiences:product-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     assert entry.url.encode() in response.content
     assert b"Not submitted" not in response.content
@@ -177,7 +177,7 @@ def test_pagination_never_splits_products_or_merges_similar_product_names(
 ):
     items = [review_item]
     for _index in range(10):
-        workspace, form = workflows.register_product(
+        product, form = workflows.register_product(
             owner_membership.organisation,
             owner_membership.user,
             data={
@@ -186,14 +186,14 @@ def test_pagination_never_splits_products_or_merges_similar_product_names(
                 "checks": ["Quality:inspection", "Quality:release"],
             },
         )
-        assert workspace, form.errors
-        inspection = workspace.product.milestones.get(
+        assert product, form.errors
+        inspection = product.milestones.get(
             key="inspection",
         ).application.review_item
         inspection, form, saved = workflows.save_review_form(
             inspection,
             owner_membership.user,
-            data={"report_reference": workspace.reference, "score": 90},
+            data={"report_reference": product.reference, "score": 90},
             submit=True,
         )
         assert saved, form.errors
@@ -350,11 +350,9 @@ def test_search_for_one_product_leaves_out_its_organisations_other_products(
     # must not bring in the other.
     for search in ("Air compressor", compressor.reference):
         page = client.get(url, {"q": search}).context["page"]
-        assert [entry.product for entry in page] == [compressor.product]
+        assert [entry.product for entry in page] == [compressor]
         assert page[0].matching_reviews == [organisation]
-    page = client.get(url, {"q": review_item.product.workspace.reference}).context[
-        "page"
-    ]
+    page = client.get(url, {"q": review_item.product.reference}).context["page"]
     assert [entry.product for entry in page] == [review_item.product]
     assert page[0].matching_reviews == [organisation, review_item]
 
@@ -372,7 +370,7 @@ def test_search_finds_what_the_queue_shows(client, review_item, owner_membership
         page = client.get(url, {"q": search}).context["page"]
         return [entry.reference for entry in page]
 
-    product = review_item.product.workspace.reference
+    product = review_item.product.reference
     assert found(f"  {product} ") == [product]
     # The queue names an organisation by its legal name when it has one.
     assert found("medical devices") == [product]

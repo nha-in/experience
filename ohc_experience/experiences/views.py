@@ -59,8 +59,8 @@ from . import production as production_services
 from . import workflows as services
 from .context_processors import navigation_context
 from .context_processors import product_scope
-from .context_processors import selected_workspace
-from .context_processors import workspaces_for
+from .context_processors import products_for
+from .context_processors import selected_product
 from .forms import CallbackURLForm
 from .forms import SupportForm
 from .models import AuditEvent
@@ -157,14 +157,14 @@ def _organisation(request):
     return membership.organisation
 
 
-def _workspaces(user):
-    return workspaces_for(user)
+def _products(user):
+    return products_for(user)
 
 
-def _workspace(request, reference):
-    workspace = get_object_or_404(_workspaces(request.user), reference=reference)
-    request.session["experience_product"] = workspace.reference
-    return workspace
+def _product(request, reference):
+    product = get_object_or_404(_products(request.user), reference=reference)
+    request.session["experience_product"] = product.reference
+    return product
 
 
 def _item(request, pk):
@@ -172,7 +172,7 @@ def _item(request, pk):
         "selected_submission__submitted_by",
         "form",
         "organisation",
-        "product__workspace",
+        "product",
         "application",
         "assignee",
         "decided_by",
@@ -192,33 +192,33 @@ def _off_domain_website(item, submitter):
     return ""
 
 
-def _tracks(workspace, user):
+def _tracks(product, user):
     rows = {
         milestone.key: milestone
-        for milestone in workspace.product.milestones.filter(
+        for milestone in product.milestones.filter(
             enabled=True,
         ).select_related("application__review_item")
     }
     applied = {
-        track.code: workspace.definition.applied_keys(
+        track.code: product.definition.applied_keys(
             track,
-            workspace.applied_milestones,
+            product.applied_milestones,
         )
-        for track in workspace.definition.tracks
+        for track in product.definition.tracks
     }
     result = []
-    for track in permissions.allowed_tracks(user, workspace.definition):
+    for track in permissions.allowed_tracks(user, product.definition):
         tiles = []
         for key in applied[track.code]:
             if key not in rows:
                 continue
             milestone = rows[key]
-            definition = workspace.definition.milestones[key]
+            definition = product.definition.milestones[key]
             # Only tracks this product actually applied for: naming one it never
             # chose is noise. The registration note carries the catalogue-wide fact.
             shared = [
                 code
-                for code in workspace.definition.shared_with(key, track.code)
+                for code in product.definition.shared_with(key, track.code)
                 if key in applied[code]
             ]
             item = milestone.application.review_item
@@ -244,7 +244,7 @@ def _tracks(workspace, user):
                     ).exists(),
                     "url": reverse(
                         "experiences:track",
-                        args=[workspace.reference, track.code],
+                        args=[product.reference, track.code],
                     )
                     + f"?milestone={key}",
                 },
@@ -252,9 +252,9 @@ def _tracks(workspace, user):
         codes = {tile["definition"].key: tile["definition"].code for tile in tiles}
         for tile in tiles:
             definition = tile["definition"]
-            options = workspace.definition.milestone_predecessors(
+            options = product.definition.milestone_predecessors(
                 definition.key,
-                workspace.product.organisation,
+                product.organisation,
             )
             needs = [codes[other] for other in options if other in codes]
             tile["needs"] = readable_list(
@@ -264,7 +264,7 @@ def _tracks(workspace, user):
         result.append(
             {
                 "definition": track,
-                "shared_note": workspace.definition.shared_note(track.code),
+                "shared_note": product.definition.shared_note(track.code),
                 "tiles": tiles,
                 "approved": sum(tile["status"] == "approved" for tile in tiles),
             },
@@ -272,11 +272,11 @@ def _tracks(workspace, user):
     return result
 
 
-def _lock_tiles(workspace, tracks):
+def _lock_tiles(product, tracks):
     """Name what each unsubmitted milestone waits on before its form opens."""
     codes = {
-        milestone.application_id: workspace.definition.milestones[milestone.key].code
-        for milestone in workspace.product.milestones.all()
+        milestone.application_id: product.definition.milestones[milestone.key].code
+        for milestone in product.milestones.all()
     }
     unsubmitted = {}
     for tile in (tile for track in tracks for tile in track["tiles"]):
@@ -300,22 +300,23 @@ def _page(request, items):
     return Paginator(items, 10).get_page(request.GET.get("page"))
 
 
-def _context(request, workspace=None, **kwargs):
+def _context(request, product=None, **kwargs):
     is_reviewer = permissions.reviewer(request.user)
     if is_reviewer:
         # Staff never work inside a product: the switcher and the product's own
         # navigation belong to its integrators. Staff pages link to products instead.
-        workspace = None
-    elif workspace is None:
-        workspace = selected_workspace(request)
-    request.experience_navigation = navigation_context(request, workspace)
+        product = None
+    elif product is None:
+        product = selected_product(request)
+    request.experience_navigation = navigation_context(request, product)
     result = {
         **request.experience_navigation,
-        "experience_program": workspace.definition if workspace else get_program(),
+        "experience_program": product.definition if product else get_program(),
         "reviewer": is_reviewer,
-        "workspaces": _workspaces(request.user),
-        "workspace": workspace,
-        "tracks": _tracks(workspace, request.user) if workspace else [],
+        "products": _products(request.user),
+        "product": product,
+        "selected_product": product,
+        "tracks": _tracks(product, request.user) if product else [],
         "today": timezone.localdate(),
         **kwargs,
     }
@@ -341,11 +342,11 @@ def _context(request, workspace=None, **kwargs):
                 (review, _integrator_item_url(review))
                 for review in reversed(services.pending_dependants(item))
             ]
-    if workspace:
-        result["organisation"] = workspace.product.organisation
+    if product:
+        result["organisation"] = product.organisation
         result["can_integrate"] = permissions.can_integrate(
             request.user,
-            workspace.product.organisation,
+            product.organisation,
         )
     if not is_reviewer:
         org = result.get("organisation") or _organisation(request)
@@ -359,7 +360,7 @@ def _error(request, error):
 
 
 def _certification_context(request, product):
-    program = product.workspace.definition
+    program = product.definition
     if permissions.reviewer(request.user) and not permissions.has_access(
         request.user,
         "review",
@@ -387,8 +388,8 @@ def dashboard(request):
     organisation = _organisation(request)
     if not organisation.is_onboarded:
         return redirect("experiences:organisation")
-    workspace = (
-        _workspaces(request.user)
+    product = (
+        _products(request.user)
         .filter(
             reference=request.GET.get(
                 "product",
@@ -396,10 +397,10 @@ def dashboard(request):
             ),
         )
         .first()
-        or _workspaces(request.user).order_by("product__created_at").first()
+        or _products(request.user).order_by("created_at").first()
     )
     return redirect(
-        workspace.get_absolute_url() if workspace else "experiences:product-create",
+        product.get_absolute_url() if product else "experiences:product-create",
     )
 
 
@@ -415,7 +416,7 @@ def products(request):
             request,
             page_title="Products",
             nav="products",
-            products=_page(request, _workspaces(request.user)),
+            products=_page(request, _products(request.user)),
         ),
     )
 
@@ -433,10 +434,10 @@ def _open_requests(user):
 
 def _product_rows(user):
     """The products a reviewer can see, each with its open request count."""
-    return _workspaces(user).annotate(
+    return _products(user).annotate(
         open_count=Count(
-            "product__review_items",
-            filter=Q(product__review_items__in=_open_requests(user)),
+            "review_items",
+            filter=Q(review_items__in=_open_requests(user)),
             distinct=True,
         ),
     )
@@ -446,7 +447,7 @@ def _solution_type_choices(user):
     """The solution types the reviewer's products applied for, in catalogue order."""
     applied = {
         key
-        for keys in _workspaces(user)
+        for keys in _products(user)
         .order_by()
         .values_list("solution_type", flat=True)
         .distinct()
@@ -545,12 +546,12 @@ def _reviewer_products(request):
     rows = _product_rows(request.user)
     organization_choices = (
         permissions.visible_organisations(request.user)
-        .filter(pk__in=_workspaces(request.user).values("product__organisation"))
+        .filter(pk__in=_products(request.user).values("organisation"))
         .order_by("name")
     )
     organization = request.GET.get("organization", "")
     if organization and organization_choices.filter(slug=organization).exists():
-        rows = rows.filter(product__organisation__slug=organization)
+        rows = rows.filter(organisation__slug=organization)
     else:
         organization = ""
     solution_type_choices = _solution_type_choices(request.user)
@@ -562,7 +563,7 @@ def _reviewer_products(request):
     search = request.GET.get("q", "").strip()
     if search:
         rows = rows.filter(
-            Q(product__name__icontains=search) | Q(reference__icontains=search),
+            Q(name__icontains=search) | Q(reference__icontains=search),
         )
     return render(
         request,
@@ -594,15 +595,15 @@ def organization_detail(request, slug):
         .select_related(
             "assignee",
             "application",
-            "product__workspace",
+            "product",
             "selected_submission",
         )
         .order_by("-submitted_at", "-pk")
     )
     products = (
         _product_rows(request.user)
-        .filter(product__organisation=organization)
-        .order_by("-open_count", "product__name")
+        .filter(organisation=organization)
+        .order_by("-open_count", "name")
     )
     verification = visible_reviews.filter(kind=ReviewItem.Kind.ORGANISATION).first()
     withdrawn = (
@@ -667,11 +668,11 @@ def _product_review_scope(product):
     )
 
 
-def _posted_product_review(request, workspace):
+def _posted_product_review(request, product):
     """The request that a single-request form on the product page was sent for."""
     return get_object_or_404(
         permissions.visible_reviews(request.user).filter(
-            _product_review_scope(workspace.product),
+            _product_review_scope(product),
         ),
         pk=_product_review_id(request.POST.get("review_id", "")),
     )
@@ -687,10 +688,10 @@ def _posted_assignee(request):
     )
 
 
-def _product_review_post(request, workspace):
+def _product_review_post(request, product):
     if request.POST.get("intent") == "bulk_decision":
         decided = services.decide_product(
-            workspace.product,
+            product,
             request.user,
             action=request.POST.get("action"),
             expected_revisions=_posted_product_reviews(request),
@@ -704,7 +705,7 @@ def _product_review_post(request, workspace):
         )
         anchor = "decisions"
     elif request.POST.get("intent") == "decision":
-        item = _posted_product_review(request, workspace)
+        item = _posted_product_review(request, product)
         services.decide(
             item,
             request.user,
@@ -717,7 +718,7 @@ def _product_review_post(request, workspace):
         messages.success(request, "Review updated.")
         anchor = f"review-{item.pk}"
     elif request.POST.get("intent") == "assign":
-        item = _posted_product_review(request, workspace)
+        item = _posted_product_review(request, product)
         services.assign_review(item, request.user, _posted_assignee(request))
         messages.success(request, "Review updated.")
         anchor = f"review-{item.pk}"
@@ -725,8 +726,7 @@ def _product_review_post(request, workspace):
         msg = "Choose a review action."
         raise ValidationError(msg)
     return redirect(
-        reverse("experiences:product-detail", args=[workspace.reference])
-        + f"#{anchor}",
+        reverse("experiences:product-detail", args=[product.reference]) + f"#{anchor}",
     )
 
 
@@ -840,18 +840,17 @@ def _bulk_holds(approve_blockers, reject_blockers):
 def product_detail(request, reference):
     """Review a product's submitted evidence and milestone progress together."""
     _reviewer_required(request)
-    workspace = get_object_or_404(_workspaces(request.user), reference=reference)
-    product = workspace.product
-    program = workspace.definition
+    product = get_object_or_404(_products(request.user), reference=reference)
+    program = product.definition
     if request.method == "POST":
         if request.POST.get("intent") in CONNECTION_INTENTS:
             _connection_post(request, product, program.key)
             return redirect(
-                reverse("experiences:product-detail", args=[workspace.reference])
+                reverse("experiences:product-detail", args=[product.reference])
                 + "#connection",
             )
         try:
-            return _product_review_post(request, workspace)
+            return _product_review_post(request, product)
         except ValidationError as error:
             _error(request, error)
     visible_items = permissions.visible_reviews(request.user)
@@ -864,7 +863,7 @@ def product_detail(request, reference):
             "selected_submission__submitted_by",
             "form",
             "organisation",
-            "product__workspace",
+            "product",
             "application__milestone",
             "assignee",
         )
@@ -895,11 +894,11 @@ def product_detail(request, reference):
     )
     pending = list(
         visible_items.filter(
-            product_scope(workspace),
+            product_scope(product),
             organisation=product.organisation,
             status__in=["new", "in_review", "query_raised"],
         ).select_related(
-            "application__milestone__product__workspace",
+            "application__milestone__product",
             "assignee",
             "product",
         ),
@@ -911,7 +910,7 @@ def product_detail(request, reference):
         .filter(pk__in=[item.pk for item in pending])
         .values_list("pk", flat=True)
     }
-    tracks = _tracks(workspace, request.user)
+    tracks = _tracks(product, request.user)
     progress = overview_progress(tracks)
     submitted_ids = {item.pk for item in product_items}
     for row in tracks:
@@ -955,7 +954,7 @@ def product_detail(request, reference):
             nav="organizations",
             experience_program=program,
             product=product,
-            reference=workspace.reference,
+            reference=product.reference,
             organisation=product.organisation,
             organisation_details=(
                 organisation_section["snapshot"].data
@@ -1074,14 +1073,14 @@ def product_create(request):
         **program.product_form_kwargs(org),
     )
     if request.method == "POST":
-        workspace, form = services.register_product(
+        product, form = services.register_product(
             org,
             request.user,
             data=request.POST,
         )
-        if workspace:
+        if product:
             messages.success(request, "Product registered.")
-            return redirect(workspace)
+            return redirect(product)
     return render(
         request,
         "experiences/product_form.html",
@@ -1097,9 +1096,9 @@ def product_create(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def product_edit(request, reference):
-    workspace = _workspace(request, reference)
-    permissions.require_integrator(request.user, workspace.product.organisation)
-    item = workspace.product.review_items.get(kind="product_registration")
+    product = _product(request, reference)
+    permissions.require_integrator(request.user, product.organisation)
+    item = product.review_items.get(kind="product_registration")
     form = services.build_form(item)
     if request.method == "POST":
         try:
@@ -1112,21 +1111,21 @@ def product_edit(request, reference):
             )
             if saved:
                 messages.success(request, "Product updated.")
-                return redirect(workspace)
+                return redirect(product)
         except ValidationError as error:
             _error(request, error)
     approved_selections = [
         value
-        for value in workspace.applied_milestones
-        if workspace.product.milestones.filter(
+        for value in product.applied_milestones
+        if product.milestones.filter(
             key=value.split(":", 1)[1],
             application__status="approved",
         ).exists()
     ]
     under_review_selections = [
         value
-        for value in workspace.applied_milestones
-        if workspace.product.milestones.filter(
+        for value in product.applied_milestones
+        if product.milestones.filter(
             key=value.split(":", 1)[1],
             application__review_item__status__in=services.PENDING_STATUSES,
         ).exists()
@@ -1136,7 +1135,7 @@ def product_edit(request, reference):
         "experiences/product_form.html",
         _context(
             request,
-            workspace,
+            product,
             item=item,
             form=form,
             page_title="Edit product",
@@ -1152,8 +1151,7 @@ def product_edit(request, reference):
 def overview(request, reference):
     if permissions.reviewer(request.user):
         return redirect("experiences:product-detail", reference=reference)
-    workspace = _workspace(request, reference)
-    product = workspace.product
+    product = _product(request, reference)
     visible_items = permissions.visible_reviews(request.user)
     activity = product.audit_events.all()
     outcomes = product.outcomes.all()
@@ -1172,7 +1170,7 @@ def overview(request, reference):
         )
     context = _context(
         request,
-        workspace,
+        product,
         page_title="Overview",
         nav="overview",
         organisation_details=(
@@ -1190,22 +1188,22 @@ def overview(request, reference):
         credential=ProductCredential.objects.filter(product=product).first(),
         production=production_services.state(product),
         outcomes=outcomes.exclude(
-            outcome_type=workspace.definition.sandbox_credentials.outcome_type
-            if workspace.definition.sandbox_credentials
+            outcome_type=product.definition.sandbox_credentials.outcome_type
+            if product.definition.sandbox_credentials
             else "",
         )[:6],
         certification=certification,
     )
-    _lock_tiles(workspace, context["tracks"])
+    _lock_tiles(product, context["tracks"])
     context["progress"] = overview_progress(context["tracks"])
     context["next_step"] = (
-        overview_next_step(workspace, context["tracks"], organisation_review)
+        overview_next_step(product, context["tracks"], organisation_review)
         if context["can_integrate"]
         else None
     )
     context["handoffs"] = []
     if context["can_integrate"]:
-        for key, definition in workspace.definition.handoffs.items():
+        for key, definition in product.definition.handoffs.items():
             options = [
                 option
                 for option in definition.options(product, actor=request.user)
@@ -1222,10 +1220,9 @@ def overview(request, reference):
 @never_cache
 @require_POST
 def product_handoff(request, reference, handoff_key):
-    workspace = _workspace(request, reference)
-    product = workspace.product
+    product = _product(request, reference)
     permissions.require_integrator(request.user, product.organisation)
-    definition = workspace.definition.handoffs.get(handoff_key)
+    definition = product.definition.handoffs.get(handoff_key)
     if definition is None:
         raise Http404
     option = request.POST.get("option", "")
@@ -1235,7 +1232,7 @@ def product_handoff(request, reference, handoff_key):
     except ValidationError as error:
         _error(request, error)
         result = "blocked"
-        response = redirect(workspace.get_absolute_url())
+        response = redirect(product.get_absolute_url())
     else:
         result = "created"
         response = redirect(url)
@@ -1256,10 +1253,9 @@ def product_handoff(request, reference, handoff_key):
 @login_required
 @require_http_methods(["GET", "POST"])
 def product_certification(request, reference):
-    workspace = _workspace(request, reference)
-    product = workspace.product
+    product = _product(request, reference)
     permissions.require_integrator(request.user, product.organisation)
-    definition = workspace.definition.applications.certification
+    definition = product.definition.applications.certification
     if definition is None:
         raise Http404
     reviews = product.review_items.filter(
@@ -1316,7 +1312,7 @@ def product_certification(request, reference):
                 )
                 return redirect(
                     "experiences:product-certification",
-                    workspace.reference,
+                    product.reference,
                 )
         except ValidationError as error:
             _error(request, error)
@@ -1326,7 +1322,7 @@ def product_certification(request, reference):
         "experiences/certification.html",
         _context(
             request,
-            workspace,
+            product,
             page_title="WASA certification",
             nav="certification",
             item=item,
@@ -1341,8 +1337,8 @@ def product_certification(request, reference):
 
 def _staff_track(request, reference, track_code):
     """A track link opens the milestone's review for staff, or the product's tracks."""
-    workspace = get_object_or_404(_workspaces(request.user), reference=reference)
-    program = workspace.definition
+    product = get_object_or_404(_products(request.user), reference=reference)
+    program = product.definition
     track = program.track_map().get(track_code)
     if track is None or not permissions.has_access(
         request.user,
@@ -1355,18 +1351,18 @@ def _staff_track(request, reference, track_code):
     item = (
         permissions.visible_reviews(request.user)
         .filter(
-            product=workspace.product,
+            product=product,
             application__milestone__key=key,
             application__milestone__enabled=True,
         )
         .first()
-        if key in program.applied_keys(track, workspace.applied_milestones)
+        if key in program.applied_keys(track, product.applied_milestones)
         else None
     )
     if item:
         return redirect(item)
     return redirect(
-        reverse("experiences:product-detail", args=[workspace.reference])
+        reverse("experiences:product-detail", args=[product.reference])
         + f"#track-{slugify(track_code)}",
     )
 
@@ -1496,12 +1492,12 @@ def _save_track_evidence(request, item, track):
 def track(request, reference, track_code):
     if permissions.reviewer(request.user):
         return _staff_track(request, reference, track_code)
-    workspace = _workspace(request, reference)
-    if track_code not in workspace.definition.track_map():
+    product = _product(request, reference)
+    if track_code not in product.definition.track_map():
         raise Http404
-    rows = _tracks(workspace, request.user)
+    rows = _tracks(product, request.user)
     track_data = next(row for row in rows if row["definition"].code == track_code)
-    _lock_tiles(workspace, [track_data])
+    _lock_tiles(product, [track_data])
     track_data["progress"] = track_progress(track_data)
     selected = request.GET.get("milestone", "")
     default_tile = next(
@@ -1545,14 +1541,14 @@ def track(request, reference, track_code):
     next_step = None
     if item and item.status == ReviewItem.Status.APPROVED:
         # Once this milestone is done, point at the work left anywhere on the product.
-        _lock_tiles(workspace, [row for row in rows if row is not track_data])
+        _lock_tiles(product, [row for row in rows if row is not track_data])
         next_step = recommended_step(rows)
     return render(
         request,
         "experiences/track.html",
         _context(
             request,
-            workspace,
+            product,
             page_title=track_code,
             nav=track_code,
             track=track_data,
@@ -1576,13 +1572,13 @@ def _integrator_item_url(item):
     if item.kind == "product_registration":
         return reverse(
             "experiences:product-edit",
-            args=[item.product.workspace.reference],
+            args=[item.product.reference],
         )
     certification = item.program.applications.certification
     if certification and item.application.application_type == certification.key:
         return reverse(
             "experiences:product-certification",
-            args=[item.product.workspace.reference],
+            args=[item.product.reference],
         )
     key = item.application.milestone.key
     # A product that dropped a milestone keeps the requests that depend on it,
@@ -1590,7 +1586,7 @@ def _integrator_item_url(item):
     track_code = next(
         (
             value.split(":")[0]
-            for value in item.product.workspace.applied_milestones
+            for value in item.product.applied_milestones
             if value.endswith(f":{key}")
         ),
         next((track.code for track in item.program.tracks_with(key)), ""),
@@ -1598,7 +1594,7 @@ def _integrator_item_url(item):
     return (
         reverse(
             "experiences:track",
-            args=[item.product.workspace.reference, track_code],
+            args=[item.product.reference, track_code],
         )
         + f"?milestone={key}"
     )
@@ -1632,13 +1628,13 @@ def query_action(request, pk):
     return_reference = request.POST.get("return_to_product")
     if return_reference and permissions.reviewer(request.user):
         if return_reference == "1" and item.product_id:
-            return_reference = item.product.workspace.reference
-        workspace = _workspaces(request.user).filter(reference=return_reference).first()
+            return_reference = item.product.reference
+        product = _products(request.user).filter(reference=return_reference).first()
         if (
-            workspace
+            product
             and permissions.visible_reviews(request.user)
             .filter(
-                _product_review_scope(workspace.product),
+                _product_review_scope(product),
                 pk=item.pk,
             )
             .exists()
@@ -1646,7 +1642,7 @@ def query_action(request, pk):
             return redirect(
                 reverse(
                     "experiences:product-detail",
-                    args=[workspace.reference],
+                    args=[product.reference],
                 )
                 + f"#review-{item.pk}",
             )
@@ -1685,14 +1681,14 @@ def pending_queries(request):
         query = query.filter(unresolved_query_count__gt=0)
     else:
         query = query.filter(
-            product_scope(selected_workspace(request)),
+            product_scope(selected_product(request)),
             status="query_raised",
             organisation__memberships__user=request.user,
         )
     items = _page(
         request,
         query.select_related(
-            "product__workspace",
+            "product",
             "application",
             "organisation",
         ).order_by("submitted_at", "pk"),
@@ -1726,15 +1722,15 @@ def _credential_notice(intent, credential):
 @never_cache
 @require_http_methods(["GET", "POST"])
 def credentials(request, reference):  # noqa: C901
-    workspace = _workspace(request, reference)
-    if workspace.definition.sandbox_credentials is None:
+    product = _product(request, reference)
+    if product.definition.sandbox_credentials is None:
         raise Http404
     # Reviewers can see health metadata in context, but cannot open this surface.
-    permissions.require_integrator(request.user, workspace.product.organisation)
-    credential = ProductCredential.objects.filter(product=workspace.product).first()
-    production = production_services.state(workspace.product)
+    permissions.require_integrator(request.user, product.organisation)
+    credential = ProductCredential.objects.filter(product=product).first()
+    production = production_services.state(product)
     # Integration events carry no review item; the review pages carry the rest.
-    activity = workspace.product.audit_events.filter(
+    activity = product.audit_events.filter(
         item__isnull=True,
     ).select_related("actor")[:10]
     form = CallbackURLForm(
@@ -1750,14 +1746,14 @@ def credentials(request, reference):  # noqa: C901
             else "experiences/credentials.html",
             _context(
                 request,
-                workspace,
+                product,
                 credential=credential,
                 form=form,
                 nav="credentials",
-                page_title=workspace.definition.sandbox_credentials.name,
-                demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
-                progress=provisioning_progress(workspace.product),
-                bridge=bridge_state(workspace.product),
+                page_title=product.definition.sandbox_credentials.name,
+                demo_credentials=product.definition.sandbox_credentials.is_demo(),
+                progress=provisioning_progress(product),
+                bridge=bridge_state(product),
                 production=production,
                 activity=activity,
                 secret=secret,
@@ -1795,13 +1791,13 @@ def credentials(request, reference):  # noqa: C901
                         "experiences/credentials.html",
                         _context(
                             request,
-                            workspace,
+                            product,
                             credential=credential,
                             form=form,
                             nav="credentials",
-                            page_title=workspace.definition.sandbox_credentials.name,
-                            progress=provisioning_progress(workspace.product),
-                            bridge=bridge_state(workspace.product),
+                            page_title=product.definition.sandbox_credentials.name,
+                            progress=provisioning_progress(product),
+                            bridge=bridge_state(product),
                             production=production,
                             activity=activity,
                         ),
@@ -1821,7 +1817,7 @@ def credentials(request, reference):  # noqa: C901
                     {
                         "error": " ".join(error.messages),
                         "credential": credential,
-                        "workspace": workspace,
+                        "product": product,
                     },
                 )
             _error(request, error)
@@ -1830,14 +1826,14 @@ def credentials(request, reference):  # noqa: C901
         "experiences/credentials.html",
         _context(
             request,
-            workspace,
+            product,
             credential=credential,
             form=form,
             nav="credentials",
-            page_title=workspace.definition.sandbox_credentials.name,
-            demo_credentials=workspace.definition.sandbox_credentials.is_demo(),
-            progress=provisioning_progress(workspace.product),
-            bridge=bridge_state(workspace.product),
+            page_title=product.definition.sandbox_credentials.name,
+            demo_credentials=product.definition.sandbox_credentials.is_demo(),
+            progress=provisioning_progress(product),
+            bridge=bridge_state(product),
             production=production,
             activity=activity,
         ),
@@ -1846,21 +1842,21 @@ def credentials(request, reference):  # noqa: C901
 
 @login_required
 def reference_environment(request, reference):
-    workspace = _workspace(request, reference)
-    environment = workspace.definition.reference_environment
+    product = _product(request, reference)
+    environment = product.definition.reference_environment
     if environment is None:
         raise Http404
-    permissions.require_integrator(request.user, workspace.product.organisation)
+    permissions.require_integrator(request.user, product.organisation)
     milestones = [
         (
-            workspace.definition.milestones[key],
+            product.definition.milestones[key],
             names,
             environment.milestone_options.get(key, ""),
             key in environment.in_progress,
         )
         for key, names in environment.flows.items()
     ]
-    credential = ProductCredential.objects.filter(product=workspace.product).first()
+    credential = ProductCredential.objects.filter(product=product).first()
     client_id = credential.client_id if credential else ""
     shells = [
         (key, shell, environment.command_segments(shell, client_id))
@@ -1871,7 +1867,7 @@ def reference_environment(request, reference):
         "experiences/reference_environment.html",
         _context(
             request,
-            workspace,
+            product,
             nav="reference",
             page_title="Reference environment",
             reference_environment=environment,
@@ -1885,19 +1881,19 @@ def reference_environment(request, reference):
 
 @login_required
 def agent_skills(request, reference):
-    workspace = _workspace(request, reference)
-    catalogue = workspace.definition.agent_skills
+    product = _product(request, reference)
+    catalogue = product.definition.agent_skills
     if catalogue is None:
         raise Http404
-    permissions.require_integrator(request.user, workspace.product.organisation)
+    permissions.require_integrator(request.user, product.organisation)
     context = _context(
         request,
-        workspace,
+        product,
         nav="skills",
         page_title="Agent Skills",
         agent_skills=catalogue,
     )
-    context["skill_groups"] = agent_skill_groups(workspace, context["tracks"])
+    context["skill_groups"] = agent_skill_groups(product, context["tracks"])
     context["selected_skill"] = default_agent_skill(
         context["skill_groups"],
         context["tracks"],
@@ -2122,7 +2118,7 @@ def _queue_search(search):
     soon as any of them matched.
     """
     products = Product.objects.filter(
-        Q(name__icontains=search) | Q(workspace__reference__icontains=search),
+        Q(name__icontains=search) | Q(reference__icontains=search),
     )
     matches = (
         Q(queue_product_id__in=products.values("pk"))
@@ -2494,8 +2490,7 @@ def open_record(request, pk):
     item = _item(request, pk)
     if permissions.reviewer(request.user):
         return redirect("experiences:review", pk=item.pk)
-    workspace = getattr(item.product, "workspace", None) if item.product_id else None
-    return redirect(workspace or "experiences:organisation")
+    return redirect(item.product if item.product_id else "experiences:organisation")
 
 
 # Uploads are PDFs; organisation logos were images before they became links.
@@ -2573,7 +2568,7 @@ def submission(request, pk, submission_id):
         "experiences/submission.html",
         _context(
             request,
-            item.product.workspace if item.product_id else None,
+            item.product if item.product_id else None,
             item=item,
             snapshot=snapshot,
             page_title=(
@@ -2588,18 +2583,18 @@ def submission(request, pk, submission_id):
 @require_safe
 def events(request):
     permissions.require_area(request.user, "events")
-    workspaces = _workspaces(request.user)
-    workspace = None
+    products = _products(request.user)
+    product = None
     if not permissions.reviewer(request.user):
-        workspace = (
-            workspaces.filter(reference=request.GET.get("product")).first()
-            or workspaces.filter(
+        product = (
+            products.filter(reference=request.GET.get("product")).first()
+            or products.filter(
                 reference=request.session.get("experience_product", ""),
             ).first()
-            or workspaces.first()
+            or products.first()
         )
-    if workspace:
-        request.session["experience_product"] = workspace.reference
+    if product:
+        request.session["experience_product"] = product.reference
     upcoming = permissions.visible_events(request.user).upcoming()
     past = permissions.visible_events(request.user).past()
     # Drafts reach only the team that writes them: an integrator sees published
@@ -2624,7 +2619,7 @@ def events(request):
         "experiences/events.html",
         _context(
             request,
-            workspace,
+            product,
             page_title="Events and Activities",
             nav="events",
             events=_page(request, listed[period]),
@@ -2649,25 +2644,25 @@ def events(request):
 @require_http_methods(["GET", "POST"])
 def support(request):
     permissions.require_area(request.user, "support")
-    workspaces = _workspaces(request.user)
-    workspace = None
+    products = _products(request.user)
+    product = None
     if not permissions.reviewer(request.user):
-        workspace = (
-            workspaces.filter(reference=request.GET.get("product")).first()
-            or workspaces.filter(
+        product = (
+            products.filter(reference=request.GET.get("product")).first()
+            or products.filter(
                 reference=request.session.get("experience_product", ""),
             ).first()
-            or workspaces.first()
+            or products.first()
         )
-    if workspace:
-        request.session["experience_product"] = workspace.reference
+    if product:
+        request.session["experience_product"] = product.reference
     tickets = permissions.visible_tickets(request.user)
-    if workspace and not permissions.reviewer(request.user):
-        tickets = tickets.filter(product=workspace.product)
+    if product and not permissions.reviewer(request.user):
+        tickets = tickets.filter(product=product)
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
         files=request.FILES or None,
-        workspace=workspace,
+        product=product,
     )
     inbox = support_inbox(
         tickets,
@@ -2677,9 +2672,9 @@ def support(request):
     )
     inbox["tickets"] = _page(request, inbox["tickets"])
     can_open_ticket = bool(
-        workspace
+        product
         and not permissions.reviewer(request.user)
-        and permissions.can_integrate(request.user, workspace.product.organisation),
+        and permissions.can_integrate(request.user, product.organisation),
     )
     if request.method == "POST":
         if not can_open_ticket:
@@ -2694,12 +2689,12 @@ def support(request):
                 ),
             )
             return redirect("experiences:support")
-        permissions.require_integrator(request.user, workspace.product.organisation)
+        permissions.require_integrator(request.user, product.organisation)
         if form.is_valid():
             with transaction.atomic():
                 ticket = Ticket.objects.create(
-                    organisation=workspace.product.organisation,
-                    product=workspace.product,
+                    organisation=product.organisation,
+                    product=product,
                     subject=form.cleaned_data["subject"],
                     category=form.cleaned_data["category"],
                     issue_type=form.cleaned_data["issue_type"],
@@ -2724,7 +2719,7 @@ def support(request):
         "experiences/support.html",
         _context(
             request,
-            workspace,
+            product,
             page_title="Support",
             nav="support",
             **inbox,
@@ -2759,17 +2754,17 @@ def _change_ticket_priority(request, ticket):
 @require_http_methods(["GET", "POST"])
 def ticket(request, reference):
     query = permissions.visible_tickets(request.user).select_related(
-        "product__workspace",
+        "product",
     )
     ticket = get_object_or_404(query, reference=reference)
-    workspace = ticket.product.workspace
+    product = ticket.product
     # Docs follow the track the ticket's support category belongs to. A category
     # the program has retired falls back to reading as a track code itself.
-    category = workspace.definition.support_category_map().get(ticket.category)
-    track = workspace.definition.track_map().get(
+    category = product.definition.support_category_map().get(ticket.category)
+    track = product.definition.track_map().get(
         category.track if category else ticket.category,
     )
-    request.session["experience_product"] = workspace.reference
+    request.session["experience_product"] = product.reference
     if request.POST.get("intent") == "priority":
         return _change_ticket_priority(request, ticket)
     resolving = request.POST.get("intent") == "close"
@@ -2807,14 +2802,14 @@ def ticket(request, reference):
         "experiences/ticket.html",
         _context(
             request,
-            workspace,
+            product,
             page_title=ticket.reference,
             nav="support",
             ticket=ticket,
             ticket_docs_url=(
                 track.docs_url
                 if track and track.docs_url
-                else workspace.definition.docs_url
+                else product.definition.docs_url
             ),
             can_reply=permissions.can_reply_ticket(request.user, ticket),
             can_close=ticket.status != Status.CLOSED

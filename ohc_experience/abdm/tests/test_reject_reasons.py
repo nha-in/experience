@@ -70,7 +70,7 @@ def test_the_reason_reaches_the_integrator_beside_the_note(environment, client):
     client.force_login(environment["applicant"])
     track = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "ABDM"],
+        args=[environment["product"].reference, "ABDM"],
     )
     page = client.get(track, {"milestone": "m1"}).content.decode()
     assert f"Reason:</span> {DOCUMENTS}" in page
@@ -134,7 +134,7 @@ def test_the_reason_is_cleared_when_the_integrator_resubmits(environment):
 def product_page(environment):
     return reverse(
         "experiences:product-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
 
 

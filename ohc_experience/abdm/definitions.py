@@ -8,7 +8,7 @@ from ohc_experience.experiences.definitions import OutcomeDefinition
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import ProgramDefinition
 from ohc_experience.experiences.models import FormReuseScope
-from ohc_experience.experiences.models import ProductWorkspace
+from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.workflows import callback_missing
 from ohc_experience.experiences.workflows import project_product
@@ -116,7 +116,7 @@ class OrganisationVerification(ApplicationFormDefinition):
     def on_approve(cls, item, actor):
         item.organisation.set_verification("verified")
         for product in item.organisation.products.filter(
-            workspace__experience_type=ABDM.key,
+            experience_type=ABDM.key,
         ):
             if awaiting_provisioning(product):
                 start_provisioning(product, started_by=actor)
@@ -265,8 +265,8 @@ class ProductRegistration(ApplicationFormDefinition):
 
     @classmethod
     def on_approve(cls, item, actor):
-        ProductWorkspace.objects.filter(
-            product=item.product,
+        Product.objects.filter(
+            pk=item.product_id,
             registered_at__isnull=True,
         ).update(registered_at=item.decided_at)
         return ()

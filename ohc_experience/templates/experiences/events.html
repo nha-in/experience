@@ -4,7 +4,7 @@
   <div class="ui-hero">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
-        <p class="ui-hero-eyebrow">{{ workspace.product.name|default:"Programme" }}</p>
+        <p class="ui-hero-eyebrow">{{ product.name|default:"Programme" }}</p>
         <h1 class="ui-hero-title">Events and Activities</h1>
         <p class="ui-hero-lede">Events, webinars and workshops run by the integration team. Registrations are recorded on your account; find details for every session below.</p>
       </div>
@@ -22,10 +22,10 @@
       <h2 class="sr-only" id="events-title">Events</h2>
       <nav class="flex flex-wrap items-center gap-1" aria-label="Filter events">
         <a class="ui-pill"
-           href="?period={{ period }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
+           href="?period={{ period }}{% if product %}&amp;product={{ product.reference }}{% endif %}"
            {% if not request.GET.kind %}aria-current="page"{% endif %}>All types</a>
         {% for value,label in kinds %}<a class="ui-pill"
-   href="?kind={{ value }}&amp;period={{ period }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
+   href="?kind={{ value }}&amp;period={{ period }}{% if product %}&amp;product={{ product.reference }}{% endif %}"
    {% if request.GET.kind == value %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
       </nav>
       <span class="text-xs text-soft-foreground">Registered for {{ registered_upcoming_count|default:0 }} upcoming session{{ registered_upcoming_count|default:0|pluralize }}</span>
@@ -33,10 +33,10 @@
     <div class="flex flex-wrap items-end justify-between gap-4 px-6 pt-4">
       <nav class="flex flex-wrap gap-x-7 gap-y-3" aria-label="Event period">
         <a class="ui-tabstat"
-           href="?period=upcoming&amp;kind={{ request.GET.kind|urlencode }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
+           href="?period=upcoming&amp;kind={{ request.GET.kind|urlencode }}{% if product %}&amp;product={{ product.reference }}{% endif %}"
            {% if period == 'upcoming' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ upcoming_count|default:0 }}</span><span class="ui-kicker">Upcoming</span></a>
         <a class="ui-tabstat"
-           href="?period=past&amp;kind={{ request.GET.kind|urlencode }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}"
+           href="?period=past&amp;kind={{ request.GET.kind|urlencode }}{% if product %}&amp;product={{ product.reference }}{% endif %}"
            {% if period == 'past' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ past_count|default:0 }}</span><span class="ui-kicker">Past events</span></a>
         {% if can_manage_events %}
           <a class="ui-tabstat"
@@ -61,7 +61,7 @@
         <h3 class="ui-section-title">No {% if period == 'past' %}past{% elif period == 'drafts' %}draft{% else %}upcoming{% endif %} events to show</h3>
         <p class="text-sm text-muted-foreground">{% if request.GET.kind %}Nothing matches this filter. Choose another event type to see more sessions.{% elif period == 'past' %}No sessions have run yet.{% elif period == 'drafts' %}Every event you can reach is published. A new event starts as a draft and waits here until you publish it.{% else %}Nothing is scheduled right now. Events, webinars and workshops appear here as soon as dates are announced.{% endif %}</p>
         {% if request.GET.kind %}<a class="ui-btn ui-btn--secondary ui-btn--size-sm no-underline"
-   href="?period={{ period }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}">Show all event types</a>{% endif %}
+   href="?period={{ period }}{% if product %}&amp;product={{ product.reference }}{% endif %}">Show all event types</a>{% endif %}
       </div>
     {% endif %}
   </section>

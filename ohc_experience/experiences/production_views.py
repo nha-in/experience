@@ -19,8 +19,8 @@ from django.views.decorators.http import require_safe
 from . import permissions
 from . import production
 from .forms import ProductionAccessForm
+from .models import Product
 from .models import ProductCredential
-from .models import ProductWorkspace
 from .registry import get_program
 
 PAGE_SIZE = 20
@@ -105,12 +105,11 @@ def production_export(request):
 @require_http_methods(["GET", "POST"])
 def production_detail(request, reference):
     program = _program(request.user)
-    workspace = get_object_or_404(
-        ProductWorkspace.objects.select_related("product__organisation"),
+    product = get_object_or_404(
+        Product.objects.select_related("organisation"),
         reference=reference,
         experience_type=program.key,
     )
-    product = workspace.product
     can_manage = production.can_manage(request.user, program)
     current_id = product.production_client_id
     form = ProductionAccessForm(
@@ -167,7 +166,7 @@ def production_detail(request, reference):
             "nav": "production",
             "page_title": f"{product.name} · Production details",
             "product": product,
-            "reference": workspace.reference,
+            "reference": product.reference,
             "sandbox": ProductCredential.objects.filter(product=product).first(),
             "exits": exits,
             "eligible": bool(exits),

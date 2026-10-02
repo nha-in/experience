@@ -9,7 +9,7 @@
       {% for option in handoff.options %}
         <form class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
               method="post"
-              action="{% url 'experiences:product-handoff' workspace.reference handoff.key %}">
+              action="{% url 'experiences:product-handoff' product.reference handoff.key %}">
           {% csrf_token %}
           <h3 class="min-w-0 text-sm font-semibold">{{ option.label }}</h3>
           <button class="ui-btn ui-btn--outline ui-btn--size-sm shrink-0"

@@ -57,8 +57,7 @@ def _is_registration(item: ReviewItem, event: str) -> bool:
 def thread_anchor_id(item: ReviewItem) -> str:
     """One mail thread per product per review subject, so replies group together."""
     product = item.product if item.product_id else None
-    workspace = getattr(product, "workspace", None)
-    scope = getattr(workspace, "reference", None) or item.organisation_id
+    scope = product.reference if product else item.organisation_id
     return f"<{scope}.{item.reference}@{settings.SUPPORT_EMAIL_DOMAIN}>"
 
 

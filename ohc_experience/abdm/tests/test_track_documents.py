@@ -17,7 +17,7 @@ pytestmark = pytest.mark.django_db
 def page(client, environment, **params):  # noqa: F811
     url = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "ABDM"],
+        args=[environment["product"].reference, "ABDM"],
     )
     return client.get(url, params).content.decode()
 
@@ -71,7 +71,7 @@ def test_the_documents_view_lists_each_file_once_under_its_milestone(
     assert "ui-milestone-tiles" not in html
     track = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "ABDM"],
+        args=[environment["product"].reference, "ABDM"],
     )
     assert re.search(rf'href="{re.escape(track)}"\s*>Milestones', html)
 

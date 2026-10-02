@@ -8,7 +8,7 @@ from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import pdf
-from ohc_experience.abdm.tests.test_workflow import phr_workspace
+from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
@@ -22,7 +22,7 @@ VERIFICATION_DOCUMENT_NUMBER = organisation_data()["verification_document_number
 
 
 def register_locker(organization, owner, name):
-    workspace, form = services.register_product(
+    product, form = services.register_product(
         organization,
         owner,
         data={
@@ -31,14 +31,14 @@ def register_locker(organization, owner, name):
             "applied_milestones": ["PHR:p1", "PHR:p2", "PHR:p3", "PHR:p4"],
         },
     )
-    assert workspace, form.errors
-    return workspace
+    assert product, form.errors
+    return product
 
 
 def test_reviewer_navigation_and_organization_detail(environment, client):
     reviewer = environment["reviewer"]
     organization = environment["org"]
-    workspace = environment["workspace"]
+    product = environment["product"]
     verification = organization.review_items.get(kind="organisation_verification")
 
     client.force_login(reviewer)
@@ -62,18 +62,18 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
     )
     assert detail.status_code == HTTPStatus.OK
     assert detail.context["organization"] == organization
-    assert list(detail.context["products"]) == [workspace]
+    assert list(detail.context["products"]) == [product]
     assert verification in detail.context["review_requests"]
     assert VERIFICATION_DOCUMENT_NUMBER.encode() in detail.content
-    staff_url = reverse("experiences:product-detail", args=[workspace.reference])
+    staff_url = reverse("experiences:product-detail", args=[product.reference])
     assert f'href="{staff_url}"'.encode() in detail.content
-    assert f'href="{workspace.get_absolute_url()}"'.encode() not in detail.content
+    assert f'href="{product.get_absolute_url()}"'.encode() not in detail.content
 
 
 def test_organization_pages_follow_category_review_scope(environment, client):
     visible_item = submit(environment, "p1")
     # P1 sits on the organisation's PHR product, not on its ABDM one.
-    workspace = phr_workspace(environment)
+    product = phr_product(environment)
     reviewer = UserFactory(is_nha_team=True, is_staff=True)
     AccessGrant.objects.create(
         user=reviewer,
@@ -94,13 +94,13 @@ def test_organization_pages_follow_category_review_scope(environment, client):
             args=[environment["org"].slug],
         ),
     )
-    assert list(detail.context["products"]) == [workspace]
+    assert list(detail.context["products"]) == [product]
     assert list(detail.context["review_requests"]) == [visible_item]
     assert VERIFICATION_DOCUMENT_NUMBER.encode() not in detail.content
 
     products = client.get(reverse("experiences:products"))
-    assert list(products.context["workspaces"]) == [workspace]
-    assert list(products.context["products"]) == [workspace]
+    assert list(products.context["products"]) == [product]
+    assert list(products.context["products"]) == [product]
     assert (
         client.get(
             reverse(
@@ -113,7 +113,7 @@ def test_organization_pages_follow_category_review_scope(environment, client):
 
 
 def test_staff_see_products_as_a_tab_of_organizations(environment, client):
-    workspace = environment["workspace"]
+    product = environment["product"]
     client.force_login(environment["admin"])
 
     response = client.get(reverse("experiences:products"))
@@ -122,20 +122,20 @@ def test_staff_see_products_as_a_tab_of_organizations(environment, client):
     assert response.context["nav"] == "organizations"
     assert b'id="nav-products"' not in response.content
     assert f'href="{reverse("experiences:organizations")}"'.encode() in response.content
-    staff_url = reverse("experiences:product-detail", args=[workspace.reference])
+    staff_url = reverse("experiences:product-detail", args=[product.reference])
     assert f'href="{staff_url}"'.encode() in response.content
 
     client.force_login(environment["applicant"])
     response = client.get(reverse("experiences:products"))
     assert response.status_code == HTTPStatus.OK
     assert "experiences/products.html" in [t.name for t in response.templates]
-    assert list(response.context["products"]) == [workspace]
+    assert list(response.context["products"]) == [product]
 
 
 def test_open_request_counts_leave_out_drafts(environment, client):
     submitted = submit(environment, "m1")
     organization = environment["org"]
-    workspace = environment["workspace"]
+    product = environment["product"]
     quiet = register_locker(organization, environment["applicant"], "Aarogya Locker")
     assert organization.review_items.filter(status="draft").exists()
     client.force_login(environment["admin"])
@@ -147,7 +147,7 @@ def test_open_request_counts_leave_out_drafts(environment, client):
     products = client.get(reverse("experiences:products")).context["products"]
     assert [(product, product.open_count) for product in products] == [
         (quiet, 0),
-        (workspace, 1),
+        (product, 1),
     ]
 
     detail = client.get(
@@ -157,7 +157,7 @@ def test_open_request_counts_leave_out_drafts(environment, client):
     assert [
         (product, product.open_count) for product in detail.context["products"]
     ] == [
-        (workspace, 1),
+        (product, 1),
         (quiet, 0),
     ]
     requests = list(detail.context["review_requests"])
@@ -187,7 +187,7 @@ def catalogue(environment):
     return {
         "admin": environment["admin"],
         "organization": environment["org"],
-        "hmis": environment["workspace"],
+        "hmis": environment["product"],
         "locker": register_locker(
             environment["org"],
             environment["applicant"],

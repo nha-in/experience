@@ -24,7 +24,7 @@ def approve_certificate(environment, *, expires_in):
     decide(environment, item)
     # The approval mails the applicant too; only the reminders are under test.
     Notification.objects.all().delete()
-    return current_wasa(environment["workspace"].product)
+    return current_wasa(environment["product"])
 
 
 def reminders():

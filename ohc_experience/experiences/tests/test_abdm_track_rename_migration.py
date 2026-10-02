@@ -1,6 +1,6 @@
 """The HIE-CM track becoming ABDM.
 
-A track code is written down in four places — the workspace's selections, the
+A track code is written down in four places — the product's selections, the
 registration form's own copy, the grants that hand a reviewer the track, and
 the events filed under it. A rename reaching only some of them leaves a
 product whose catalog lookup raises on a track the catalog no longer has, or a
@@ -14,7 +14,6 @@ from django.db.migrations.executor import MigrationExecutor
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import FormSubmission
-from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -84,6 +83,13 @@ def product_on_the_old_track(apps, *, experience_type="abdm"):
     return product
 
 
+def selections(state, product):
+    """The product's chosen milestones, read at the given migration state."""
+    apps = MigrationExecutor(connection).loader.project_state(state).apps
+    workspace = apps.get_model("experiences", "ProductWorkspace")
+    return workspace.objects.get(product_id=product.pk).applied_milestones
+
+
 def grant(apps, user, area, category, *, program="abdm"):
     return apps.get_model("experiences", "AccessGrant").objects.create(
         user_id=user.pk,
@@ -108,8 +114,7 @@ def test_a_products_selections_and_its_registration_copy_move_together(at_before
 
     MigrationExecutor(connection).migrate(AFTER)
 
-    workspace = ProductWorkspace.objects.get(product_id=product.pk)
-    assert workspace.applied_milestones == ["ABDM:m1", "ABDM:m2", "UHI:uhi1"]
+    assert selections(AFTER, product) == ["ABDM:m1", "ABDM:m2", "UHI:uhi1"]
     submission = FormSubmission.objects.get(form__product_id=product.pk)
     assert submission.data["applied_milestones"] == ["ABDM:m1", "ABDM:m2", "UHI:uhi1"]
     assert submission.data["name"] == product.name
@@ -120,8 +125,7 @@ def test_the_selections_of_another_program_are_left_where_they_are(at_before):
 
     MigrationExecutor(connection).migrate(AFTER)
 
-    workspace = ProductWorkspace.objects.get(product_id=product.pk)
-    assert workspace.applied_milestones == ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"]
+    assert selections(AFTER, product) == ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"]
 
 
 def test_review_and_events_grants_follow_the_track_and_support_does_not(at_before):
@@ -168,6 +172,5 @@ def test_the_way_back_returns_the_track_to_its_old_code(at_before):
 
     MigrationExecutor(connection).migrate(BEFORE)
 
-    workspace = ProductWorkspace.objects.get(product_id=product.pk)
-    assert workspace.applied_milestones == ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"]
+    assert selections(BEFORE, product) == ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"]
     assert categories(user, "review") == {"HIE-CM"}

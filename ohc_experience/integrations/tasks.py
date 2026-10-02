@@ -482,7 +482,7 @@ def complete_provisioning(task: Task, product_id: int) -> int:
         enqueue_bridge_sync(product)
     notify_integrators(
         product.organisation,
-        f"{product.workspace.definition.short_name}: credentials available",
+        f"{product.definition.short_name}: credentials available",
         f"Credentials for {product.name} are available in the portal.",
     )
     return product_id
@@ -492,11 +492,11 @@ _NON_ALPHANUMERIC = re.compile(r"[^a-zA-Z0-9]+")
 
 
 def _reference(product: Product) -> str:
-    return product.workspace.reference
+    return product.reference
 
 
 def _program(product: Product) -> str:
-    return product.workspace.experience_type
+    return product.experience_type
 
 
 def _external_name(product: Product) -> str:

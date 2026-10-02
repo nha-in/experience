@@ -17,7 +17,7 @@ pytestmark = pytest.mark.django_db
 def test_progress_counts_shared_m1_only_once(client, environment):  # noqa: F811
     approve(environment)
     client.force_login(environment["applicant"])
-    response = client.get(environment["workspace"].get_absolute_url())
+    response = client.get(environment["product"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     assert ABDM.milestones_docs_url.encode() in response.content
     # ABDM shows M1-M4 and the UHI track shows its milestone over M1 and M2, so M1
@@ -32,7 +32,7 @@ def test_progress_counts_shared_m1_only_once(client, environment):  # noqa: F811
 
 def test_next_step_opens_an_available_milestone(client, environment):  # noqa: F811
     client.force_login(environment["applicant"])
-    response = client.get(environment["workspace"].get_absolute_url())
+    response = client.get(environment["product"].get_absolute_url())
     next_step = response.context["next_step"]
     assert next_step["action"] == "Continue milestone"
     assert next_step["url"].endswith("/tracks/ABDM/?milestone=m1")
@@ -52,7 +52,7 @@ def test_query_is_prioritised_only_until_the_integrator_replies(
         note="Clarify evidence",
     )
     client.force_login(environment["applicant"])
-    url = environment["workspace"].get_absolute_url()
+    url = environment["product"].get_absolute_url()
     response = client.get(url)
     assert response.context["next_step"]["action"] == "Respond to query"
     assert response.context["next_step"]["url"].endswith("?milestone=m1#queries")
@@ -92,12 +92,12 @@ def test_another_products_query_does_not_replace_this_products_guidance(
 
 def test_reviewer_does_not_receive_integrator_actions(client, environment):  # noqa: F811
     client.force_login(environment["reviewer"])
-    response = client.get(environment["workspace"].get_absolute_url(), follow=True)
+    response = client.get(environment["product"].get_absolute_url(), follow=True)
     assert response.redirect_chain == [
         (
             reverse(
                 "experiences:product-detail",
-                args=[environment["workspace"].reference],
+                args=[environment["product"].reference],
             ),
             HTTPStatus.FOUND,
         ),
@@ -124,7 +124,7 @@ def test_withdrawn_organisation_guidance_requires_resubmission(
     assert saved, form.errors
     workflows.withdraw(item, environment["applicant"])
     client.force_login(environment["applicant"])
-    response = client.get(environment["workspace"].get_absolute_url())
+    response = client.get(environment["product"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     next_step = response.context["next_step"]
     assert next_step["action"] == "Continue verification"
@@ -148,7 +148,7 @@ def test_verification_under_review_still_leads_to_milestone_evidence(
     )
     assert saved, form.errors
     client.force_login(environment["applicant"])
-    response = client.get(environment["workspace"].get_absolute_url())
+    response = client.get(environment["product"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     next_step = response.context["next_step"]
     assert next_step["action"] == "Continue milestone"
@@ -163,7 +163,7 @@ def test_review_guidance_skips_approved_milestones(client, environment):  # noqa
     for key in ("m2", "m3", "m4", "p3", "p4", "uhi1"):
         submit(environment, key)
     client.force_login(environment["applicant"])
-    response = client.get(environment["workspace"].get_absolute_url())
+    response = client.get(environment["product"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     next_step = response.context["next_step"]
     assert next_step["action"] == "View current request"

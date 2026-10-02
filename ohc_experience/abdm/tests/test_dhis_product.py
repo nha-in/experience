@@ -18,7 +18,7 @@ from ohc_experience.abdm.tests.test_wasa_lifecycle import request_milestone
 from ohc_experience.abdm.tests.test_wasa_lifecycle import request_renewal
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import pdf
-from ohc_experience.abdm.tests.test_workflow import workspace_for
+from ohc_experience.abdm.tests.test_workflow import product_for
 from ohc_experience.abdm.wasa import current_wasa
 from ohc_experience.experiences import workflows
 from ohc_experience.organisations.models import Membership
@@ -50,20 +50,20 @@ def approve_milestones(environment, keys):
 
 def workspace_of(environment, keys):
     """The product these milestones sit on: ABDM and PHR never share one."""
-    return workspace_for(environment, keys[0])
+    return product_for(environment, keys[0])
 
 
-def change_solutions(environment, solution_types, *, workspace=None, submit=True):
+def change_solutions(environment, solution_types, *, product=None, submit=True):
     """Re-declare the solutions, keeping the milestones the product applied for."""
-    workspace = workspace or environment["workspace"]
-    item = workspace.product.review_items.get(kind="product_registration")
+    product = product or environment["product"]
+    item = product.review_items.get(kind="product_registration")
     item, form, saved = workflows.save_review_form(
         item,
         environment["applicant"],
         data={
-            **product_data(workspace.product.name),
+            **product_data(product.name),
             "solution_type": solution_types,
-            "applied_milestones": workspace.applied_milestones,
+            "applied_milestones": product.applied_milestones,
         },
         submit=submit,
     )
@@ -71,9 +71,9 @@ def change_solutions(environment, solution_types, *, workspace=None, submit=True
     return item
 
 
-def handoff(environment, solution_type="hmis", *, workspace=None, actor=None):
+def handoff(environment, solution_type="hmis", *, product=None, actor=None):
     return dhis.create_product_handoff_url(
-        (workspace or environment["workspace"]).product,
+        (product or environment["product"]),
         solution_type=solution_type,
         actor=actor or environment["applicant"],
     )
@@ -108,14 +108,14 @@ def test_solution_handoff_uses_product_id_and_approved_wasa(  # noqa: PLR0913, P
     intent,
     terminal,
 ):
-    workspace = workspace_of(environment, keys)
-    change_solutions(environment, [solution_type], workspace=workspace)
+    product = workspace_of(environment, keys)
+    change_solutions(environment, [solution_type], product=product)
     source = approve_milestones(environment, keys)
 
-    assert handoff(environment, solution_type, workspace=workspace) == HANDOFF_URL
+    assert handoff(environment, solution_type, product=product) == HANDOFF_URL
 
     payload = encoder.call_args.args[0]
-    assert payload["client_id"] == str(workspace.product.pk)
+    assert payload["client_id"] == str(product.pk)
     assert payload["intent_request"] == intent
     assert payload["integration_level"] == terminal
     assert payload["wasa_valid_upto_date"] == [
@@ -144,12 +144,12 @@ def test_incomplete_milestones_do_not_generate_a_handoff(
     solution_type,
     approved_keys,
 ):
-    workspace = workspace_of(environment, approved_keys)
-    change_solutions(environment, [solution_type], workspace=workspace)
+    product = workspace_of(environment, approved_keys)
+    change_solutions(environment, [solution_type], product=product)
     approve_milestones(environment, approved_keys)
 
     with pytest.raises(ValidationError):
-        handoff(environment, solution_type, workspace=workspace)
+        handoff(environment, solution_type, product=product)
 
     encoder.assert_not_called()
 
@@ -223,7 +223,7 @@ def test_multiple_solutions_share_one_product_identity(eligible_hmis, encoder):
     payloads = [call.args[0] for call in encoder.call_args_list]
     assert {payload["intent_request"] for payload in payloads} == {"HMIS", "LMIS"}
     assert {payload["client_id"] for payload in payloads} == {
-        str(eligible_hmis["workspace"].product.pk),
+        str(eligible_hmis["product"].pk),
     }
 
 
@@ -262,7 +262,7 @@ def test_organisation_draft_uses_last_approved_identity(
 
 
 def test_pending_renewal_preserves_current_certificate(eligible_hmis, encoder):
-    original = current_wasa(eligible_hmis["workspace"].product)
+    original = current_wasa(eligible_hmis["product"])
     request_renewal(
         eligible_hmis,
         certificate=certificate_data(expires_in=90, audited_ago=1),
@@ -299,7 +299,7 @@ def test_invalid_latest_certificate_does_not_fall_back_to_old_approval(
     encoder,
     status,
 ):
-    product = eligible_hmis["workspace"].product
+    product = eligible_hmis["product"]
     decide(
         eligible_hmis,
         request_renewal(
@@ -318,7 +318,7 @@ def test_invalid_latest_certificate_does_not_fall_back_to_old_approval(
 
 
 def test_certificate_expiry_is_checked_at_handoff_time(eligible_hmis, encoder):
-    latest = current_wasa(eligible_hmis["workspace"].product)
+    latest = current_wasa(eligible_hmis["product"])
     latest.valid_until = timezone.localdate() - timedelta(days=1)
     latest.save(update_fields=["valid_until"])
 
@@ -338,7 +338,7 @@ def test_missing_approved_certificate_blocks_handoff(environment, encoder):
 
 
 def test_revoked_milestone_approval_blocks_handoff(eligible_hmis, encoder):
-    approval = eligible_hmis["workspace"].product.outcomes.get(
+    approval = eligible_hmis["product"].outcomes.get(
         outcome_type="milestone_approval",
         source_application__milestone__key="m2",
     )

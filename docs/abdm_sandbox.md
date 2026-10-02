@@ -155,7 +155,7 @@ retired; reviewer work uses the engine's assessment screens.
 
 ## Model Mapping
 
-- `ProductWorkspace` extends the existing `Product` with its reference and program key,
+- `Product` carries its reference and program key,
   registration date, solution type and selected track/milestone pairs.
 - Each canonical `Milestone` has an `ApplicationInstance`. ABDM M1 and PHR M1
   share the same milestone and approval. HealthLocker does not require M3.

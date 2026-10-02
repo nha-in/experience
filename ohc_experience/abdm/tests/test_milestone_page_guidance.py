@@ -22,7 +22,7 @@ pytestmark = pytest.mark.django_db
 def page(client, environment, key="m1"):  # noqa: F811
     url = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "ABDM"],
+        args=[environment["product"].reference, "ABDM"],
     )
     return client.get(url, {"milestone": key}).content.decode()
 
@@ -172,7 +172,7 @@ def test_an_approved_milestone_recommends_what_to_do_next(environment, client): 
     assert text(banner).startswith("Recommended next step Continue with M2")
     track = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "ABDM"],
+        args=[environment["product"].reference, "ABDM"],
     )
     assert f'href="{track}?milestone=m2"' in banner
 

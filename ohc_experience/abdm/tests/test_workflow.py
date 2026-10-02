@@ -110,36 +110,36 @@ def environment(settings, tmp_path, lgd_lookup):
     services.assign_review(item, admin, reviewer)
     services.decide(item, reviewer, action="approve", note="Identity verified.")
     org.refresh_from_db()
-    workspace, form = services.register_product(org, applicant, data=product_data())
-    assert workspace, form.errors
-    ready(workspace)
+    product, form = services.register_product(org, applicant, data=product_data())
+    assert product, form.errors
+    ready(product)
     return {
         "applicant": applicant,
         "admin": admin,
         "reviewer": reviewer,
         "outsider": outsider,
         "org": org,
-        "workspace": workspace,
+        "product": product,
     }
 
 
-def ready(workspace):
+def ready(product):
     """Provisioned and holding a callback URL, as the milestones expect."""
-    provision_inline(workspace.product)
-    ProductCredential.objects.filter(product=workspace.product).update(
+    provision_inline(product)
+    ProductCredential.objects.filter(product=product).update(
         callback_url="https://integrator.example/callback",
     )
-    workspace.refresh_from_db()
+    product.refresh_from_db()
 
 
-def phr_workspace(environment):
+def phr_product(environment):
     """The PHR product, registered the first time a test asks for a PHR phase.
 
     ABDM and PHR cannot be applied for together, so the two tracks need two
     products. Tests that never touch a PHR phase never pay for this one.
     """
-    if "phr_workspace" not in environment:
-        workspace, form = services.register_product(
+    if "phr_product" not in environment:
+        product, form = services.register_product(
             environment["org"],
             environment["applicant"],
             data={
@@ -148,20 +148,20 @@ def phr_workspace(environment):
                 "applied_milestones": [f"PHR:{key}" for key in PHR_KEYS],
             },
         )
-        assert workspace, form.errors
-        ready(workspace)
-        environment["phr_workspace"] = workspace
-    return environment["phr_workspace"]
+        assert product, form.errors
+        ready(product)
+        environment["phr_product"] = product
+    return environment["phr_product"]
 
 
-def nhcx_workspace(environment):
+def nhcx_product(environment):
     """A product on ABDM and NHCX, the two tracks that share one evidence form.
 
     Registered the first time a test needs two tracks on a single product, as
     ABDM and PHR no longer can be.
     """
-    if "nhcx_workspace" not in environment:
-        workspace, form = services.register_product(
+    if "nhcx_product" not in environment:
+        product, form = services.register_product(
             environment["org"],
             environment["applicant"],
             data={
@@ -176,26 +176,26 @@ def nhcx_workspace(environment):
                 ],
             },
         )
-        assert workspace, form.errors
-        ready(workspace)
-        environment["nhcx_workspace"] = workspace
-    return environment["nhcx_workspace"]
+        assert product, form.errors
+        ready(product)
+        environment["nhcx_product"] = product
+    return environment["nhcx_product"]
 
 
-def workspace_for(environment, key):
+def product_for(environment, key):
     if key in PHR_KEYS:
-        return phr_workspace(environment)
-    return environment["workspace"]
+        return phr_product(environment)
+    return environment["product"]
 
 
 def milestone(environment, key="m1"):
-    product = workspace_for(environment, key).product
+    product = product_for(environment, key)
     return product.milestones.get(key=key).application.review_item
 
 
 def clear_callback_url(environment, key="m1"):
     ProductCredential.objects.filter(
-        product=workspace_for(environment, key).product,
+        product=product_for(environment, key),
     ).update(callback_url="")
 
 
@@ -251,7 +251,7 @@ def reverify(environment):
 
 
 def test_each_track_runs_in_order_from_its_own_identity_milestone(environment):
-    product = environment["workspace"].product
+    product = environment["product"]
     assert product.milestones.filter(key="m1").count() == 1
     assert TRACK_MAP["PHR"].keys == ("p1", "p2", "p3", "p4")
     assert TRACK_MAP["PHR"].name == "PHR & Health Locker"
@@ -305,7 +305,7 @@ def test_uhi_shows_m1_and_m2_as_prerequisites_it_does_not_offer(environment):
         "m2",
         "uhi1",
     )
-    product = environment["workspace"].product
+    product = environment["product"]
     assert product.milestones.filter(key="m1").count() == 1
 
     approve(environment)
@@ -363,7 +363,7 @@ def test_the_shared_m1_note_follows_the_catalogue_not_a_hardcoded_track(
     client.force_login(environment["applicant"])
 
     html = client.get(
-        reverse("experiences:track", args=[environment["workspace"].reference, code]),
+        reverse("experiences:track", args=[environment["product"].reference, code]),
     ).content.decode()
 
     assert f'<span class="ui-milestone-tile-alias">{expected}</span>' in html
@@ -430,7 +430,7 @@ def test_uhi_answers_can_be_corrected_after_recording(environment):
 
 def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client):
     """UHI only needs M1: a product can apply for it without ever choosing M2."""
-    workspace, form = services.register_product(
+    product, form = services.register_product(
         environment["org"],
         environment["applicant"],
         data={
@@ -438,19 +438,19 @@ def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client
             "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
         },
     )
-    assert workspace, form.errors
-    provision_inline(workspace.product)
-    ProductCredential.objects.filter(product=workspace.product).update(
+    assert product, form.errors
+    provision_inline(product)
+    ProductCredential.objects.filter(product=product).update(
         callback_url="https://integrator.example/callback",
     )
-    workspace.refresh_from_db()
-    m1 = workspace.product.milestones.get(key="m1").application.review_item
-    uhi = workspace.product.milestones.get(key="uhi1").application.review_item
-    assert not workspace.product.milestones.filter(key="m2").exists()
+    product.refresh_from_db()
+    m1 = product.milestones.get(key="m1").application.review_item
+    uhi = product.milestones.get(key="uhi1").application.review_item
+    assert not product.milestones.filter(key="m2").exists()
     assert [review.pk for review in services.unsubmitted_prerequisites(uhi)] == [m1.pk]
 
     client.force_login(environment["applicant"])
-    url = reverse("experiences:track", args=[workspace.reference, "UHI"])
+    url = reverse("experiences:track", args=[product.reference, "UHI"])
     locked_html = client.get(url, {"milestone": "uhi1"}).content.decode()
     assert "Milestone locked" in locked_html
     assert "opens once" in locked_html
@@ -726,9 +726,9 @@ def test_queries_pause_until_all_answered_and_resolved(environment):
 
 
 def test_a_product_edit_applies_at_once_without_a_review(environment):
-    workspace = environment["workspace"]
-    registered_at = workspace.registered_at
-    registration = workspace.product.review_items.get(kind="product_registration")
+    product = environment["product"]
+    registered_at = product.registered_at
+    registration = product.review_items.get(kind="product_registration")
     assert registration.status == ReviewItem.Status.APPROVED
 
     item, form, saved = services.save_review_form(
@@ -736,7 +736,7 @@ def test_a_product_edit_applies_at_once_without_a_review(environment):
         environment["applicant"],
         data={
             **product_data(),
-            "applied_milestones": [*workspace.applied_milestones, "NHCX:nhcx1"],
+            "applied_milestones": [*product.applied_milestones, "NHCX:nhcx1"],
         },
         submit=True,
     )
@@ -745,18 +745,18 @@ def test_a_product_edit_applies_at_once_without_a_review(environment):
     assert item.status == ReviewItem.Status.APPROVED
     assert item.decided_by is None
     assert item.history.filter(action="Record updated").exists()
-    workspace.refresh_from_db()
-    assert "NHCX:nhcx1" in workspace.applied_milestones
-    assert workspace.product.milestones.get(key="nhcx1").enabled
-    assert workspace.registered_at == registered_at
+    product.refresh_from_db()
+    assert "NHCX:nhcx1" in product.applied_milestones
+    assert product.milestones.get(key="nhcx1").enabled
+    assert product.registered_at == registered_at
     with pytest.raises(ValidationError, match="Only an active review request"):
         services.withdraw(item, environment["applicant"])
 
 
 def test_a_milestone_under_review_is_named_when_an_edit_removes_it(environment):
-    workspace = phr_workspace(environment)
+    product = phr_product(environment)
     submit(environment, "p1")
-    registration = workspace.product.review_items.get(kind="product_registration")
+    registration = product.review_items.get(kind="product_registration")
 
     # UHI stands alone, so it is a valid selection that drops every PHR phase.
     with pytest.raises(ValidationError, match="P1 is under review"):
@@ -772,11 +772,11 @@ def test_the_product_form_saves_changes_rather_than_requesting_review(
     environment,
     client,
 ):
-    workspace = environment["workspace"]
+    product = environment["product"]
     client.force_login(environment["applicant"])
 
     html = client.get(
-        reverse("experiences:product-edit", args=[workspace.reference]),
+        reverse("experiences:product-edit", args=[product.reference]),
     ).content.decode()
 
     assert re.search(r">\s*Save changes\s*<", html)
@@ -793,7 +793,7 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "ABDM"],
+        args=[environment["product"].reference, "ABDM"],
     )
 
     m3 = client.get(url, {"milestone": "m3"}).content.decode()
@@ -807,17 +807,17 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
 
 
 def test_registering_a_product_records_it_without_a_review(environment):
-    workspace, form = services.register_product(
+    product, form = services.register_product(
         environment["org"],
         environment["applicant"],
         data=product_data("Second product"),
     )
-    assert workspace, form.errors
-    item = workspace.product.review_items.get(kind="product_registration")
+    assert product, form.errors
+    item = product.review_items.get(kind="product_registration")
 
     assert item.status == ReviewItem.Status.APPROVED
     assert item.application.status == "approved"
-    assert workspace.registered_at == item.decided_at
+    assert product.registered_at == item.decided_at
     assert item.history.filter(action="Recorded").exists()
     assert not item.history.filter(action="Requested review").exists()
     notice = mail.outbox[-1]
@@ -827,10 +827,10 @@ def test_registering_a_product_records_it_without_a_review(environment):
 
 
 def test_a_product_reference_is_app_the_year_and_its_number(environment):
-    workspace = environment["workspace"]
+    product = environment["product"]
     year = timezone.localdate().year
 
-    assert workspace.reference == f"APP-{year}-{workspace.product.pk:05d}"
+    assert product.reference == f"APP-{year}-{product.pk:05d}"
 
 
 def test_withdraw_and_resubmit_preserves_original_fields_and_files(environment):
@@ -932,7 +932,7 @@ def test_stale_form_cannot_overwrite_teammate(environment):
 
 def test_approved_track_selection_cannot_be_removed(environment):
     approve(environment)
-    registration = environment["workspace"].product.review_items.get(
+    registration = environment["product"].review_items.get(
         kind="product_registration",
     )
     with pytest.raises(ValidationError, match="Approved milestones"):
@@ -988,13 +988,13 @@ def test_credentials_encrypted_audited_rate_limited_and_not_in_outcomes(
     environment,
     client,
 ):
-    product = environment["workspace"].product
+    product = environment["product"]
     credential = ProductCredential.objects.get(product=product)
     plain = credentials.cipher().decrypt(credential.encrypted_secret.encode()).decode()
     outcome = product.outcomes.get(outcome_type="sandbox_credentials")
     assert plain not in str(outcome.data)
     assert plain not in credential.encrypted_secret
-    url = reverse("experiences:credentials", args=[environment["workspace"].reference])
+    url = reverse("experiences:credentials", args=[environment["product"].reference])
     client.force_login(environment["applicant"])
     response = client.get(url)
     assert response.status_code == 200
@@ -1014,7 +1014,7 @@ def test_credentials_encrypted_audited_rate_limited_and_not_in_outcomes(
 
 
 def test_rotation_replaces_the_stored_secret(environment):
-    product = environment["workspace"].product
+    product = environment["product"]
     credential = ProductCredential.objects.get(product=product)
     first = credentials.reveal(credential, environment["applicant"])
 
@@ -1028,7 +1028,7 @@ def test_revoke_switches_every_system_off_and_closes_the_panel(
     environment,
     django_capture_on_commit_callbacks,
 ):
-    product = environment["workspace"].product
+    product = environment["product"]
     credential = ProductCredential.objects.get(product=product)
 
     with django_capture_on_commit_callbacks(execute=True):
@@ -1048,7 +1048,7 @@ def test_revoke_switches_every_system_off_and_closes_the_panel(
 
 
 def test_permission_boundaries_and_all_portal_pages_render(environment, client):
-    workspace = environment["workspace"]
+    product = environment["product"]
     approve(environment)
     item = submit(environment, "m2")
     services.assign_review(item, environment["admin"], environment["reviewer"])
@@ -1061,16 +1061,16 @@ def test_permission_boundaries_and_all_portal_pages_render(environment, client):
     client.force_login(environment["applicant"])
     paths = [
         reverse("experiences:products"),
-        workspace.get_absolute_url(),
+        product.get_absolute_url(),
         reverse("experiences:organisation"),
-        reverse("experiences:product-edit", args=[workspace.reference]),
+        reverse("experiences:product-edit", args=[product.reference]),
         reverse("experiences:pending-queries"),
         reverse("experiences:events"),
         reverse("experiences:support"),
         reverse("experiences:submission", args=[item.pk, item.selected_submission_id]),
     ]
     paths += [
-        reverse("experiences:track", args=[workspace.reference, code])
+        reverse("experiences:track", args=[product.reference, code])
         for code in TRACK_MAP
     ]
     for path in paths:
@@ -1079,7 +1079,7 @@ def test_permission_boundaries_and_all_portal_pages_render(environment, client):
         assert b'id="portal"' in response.content, path
     assert client.get(reverse("experiences:queue")).status_code == 403
     client.force_login(environment["outsider"])
-    assert client.get(workspace.get_absolute_url()).status_code == 404
+    assert client.get(product.get_absolute_url()).status_code == 404
     file = item.selected_submission.attachments.first()
     assert (
         client.get(reverse("experiences:attachment", args=[file.pk])).status_code == 404
@@ -1169,20 +1169,20 @@ def test_rejected_draft_retains_reason_and_decision_history(environment, client)
 
 def test_track_filter_keeps_shared_m1_on_its_own_track(environment, client):
     item = submit(environment)
-    workspace = environment["workspace"]
-    workspace.applied_milestones = ["ABDM:m1"]
-    workspace.save()
+    product = environment["product"]
+    product.applied_milestones = ["ABDM:m1"]
+    product.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
     assert item in client.get(url, {"item": "ABDM"}).context["page"][0].matching_reviews
     assert not client.get(url, {"item": "UHI"}).context["page"]
-    workspace.applied_milestones.append("UHI:uhi1")
-    workspace.save()
+    product.applied_milestones.append("UHI:uhi1")
+    product.save()
     assert not client.get(url, {"item": "UHI"}).context["page"]
 
 
 def submit_claims(environment, key):
-    product = nhcx_workspace(environment).product
+    product = nhcx_product(environment)
     item, form, saved = services.save_review_form(
         product.milestones.get(key=key).application.review_item,
         environment["applicant"],
@@ -1297,7 +1297,7 @@ def test_the_item_filter_reaches_requests_outside_any_track(environment, client)
 
 
 def test_product_registrations_are_records_not_queue_requests(environment, client):
-    registration = environment["workspace"].product.review_items.get(
+    registration = environment["product"].review_items.get(
         kind="product_registration",
     )
     client.force_login(environment["reviewer"])
@@ -1397,7 +1397,7 @@ def test_the_product_page_offers_the_same_override(environment, client):
     uhi = submit(environment, "uhi1")
     url = reverse(
         "experiences:product-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     client.force_login(environment["reviewer"])
 
@@ -1442,7 +1442,7 @@ def test_pending_queries_follow_the_selected_product(environment, client):
     client.force_login(environment["applicant"])
     url = reverse("experiences:pending-queries")
 
-    here = client.get(url, {"product": environment["workspace"].reference})
+    here = client.get(url, {"product": environment["product"].reference})
     assert item in here.context["items"]
     assert here.context["query_count"] == 1
 
@@ -1486,7 +1486,7 @@ def test_support_members_cannot_reply_or_withdraw(environment, client):
     response = client.get(
         reverse(
             "experiences:track",
-            args=[environment["workspace"].reference, "ABDM"],
+            args=[environment["product"].reference, "ABDM"],
         ),
     )
     assert response.status_code == 200
@@ -1514,24 +1514,24 @@ def _pending_organisation(environment):
     org = environment["org"]
     Organisation.objects.filter(pk=org.pk).update(verification_status="pending")
     org.refresh_from_db()
-    workspace, form = services.register_product(
+    product, form = services.register_product(
         org,
         environment["applicant"],
         data=product_data("Second product"),
     )
-    assert workspace, form.errors
-    return org, workspace.product
+    assert product, form.errors
+    return org, product
 
 
 def _second_product(environment):
     """Another product from the verified organisation."""
-    workspace, form = services.register_product(
+    product, form = services.register_product(
         environment["org"],
         environment["applicant"],
         data=product_data("Second product"),
     )
-    assert workspace, form.errors
-    return workspace.product
+    assert product, form.errors
+    return product
 
 
 def _approve_verification(environment, org):
@@ -1569,7 +1569,7 @@ def test_a_verified_organisation_provisions_another_product_at_once(environment)
 
 
 def test_verification_starts_the_products_that_waited_for_it(environment):
-    first = environment["workspace"].product
+    first = environment["product"]
     org, second = _pending_organisation(environment)
     first_runs = first.provisioning_runs.count()
 
@@ -1654,7 +1654,7 @@ def test_a_reviewer_can_restart_a_failed_chain(environment, client):
 
 
 def test_the_retry_is_not_offered_once_there_is_nothing_to_retry(environment, client):
-    registration = environment["workspace"].product.review_items.get(
+    registration = environment["product"].review_items.get(
         kind="product_registration",
     )
     client.force_login(environment["reviewer"])
@@ -1671,7 +1671,7 @@ def test_a_reviewer_cannot_force_a_retry_the_ledger_does_not_want(
     client,
 ):
     """The button is hidden on a healthy product; posting the intent anyway fails."""
-    registration = environment["workspace"].product.review_items.get(
+    registration = environment["product"].review_items.get(
         kind="product_registration",
     )
     client.force_login(environment["reviewer"])
@@ -1701,7 +1701,7 @@ def test_the_product_page_offers_the_retry_too(environment, client):
     fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
     product = _second_product(environment)
     provision_inline(product)
-    url = reverse("experiences:product-detail", args=[product.workspace.reference])
+    url = reverse("experiences:product-detail", args=[product.reference])
     client.force_login(environment["reviewer"])
 
     html = client.get(url).content.decode()
@@ -1719,7 +1719,7 @@ def test_the_product_page_starts_a_product_that_was_never_provisioned(
 ):
     product = _second_product(environment)
     ProvisioningRun.objects.filter(product=product).delete()
-    url = reverse("experiences:product-detail", args=[product.workspace.reference])
+    url = reverse("experiences:product-detail", args=[product.reference])
     client.force_login(environment["reviewer"])
 
     html = client.get(url).content.decode()
@@ -1735,8 +1735,8 @@ def test_the_product_page_hides_the_retry_a_healthy_ledger_does_not_want(
     client,
 ):
     """The button is hidden on a healthy product; posting the intent anyway fails."""
-    workspace = environment["workspace"]
-    url = reverse("experiences:product-detail", args=[workspace.reference])
+    product = environment["product"]
+    url = reverse("experiences:product-detail", args=[product.reference])
     client.force_login(environment["reviewer"])
 
     html = client.get(url).content.decode()
@@ -1747,8 +1747,8 @@ def test_the_product_page_hides_the_retry_a_healthy_ledger_does_not_want(
 
 
 def test_a_rotation_that_cannot_be_stored_says_so(environment):
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
-    before = stored_secret(environment["workspace"].product)
+    credential = ProductCredential.objects.get(product=environment["product"])
+    before = stored_secret(environment["product"])
 
     with (
         patch.object(
@@ -1761,7 +1761,7 @@ def test_a_rotation_that_cannot_be_stored_says_so(environment):
         credentials.rotate(credential, environment["applicant"])
 
     credential.refresh_from_db()
-    assert stored_secret(environment["workspace"].product) == before
+    assert stored_secret(environment["product"]) == before
 
 
 def test_pdf_validation_keeps_upload_readable_without_network_access():

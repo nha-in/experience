@@ -48,9 +48,9 @@ def product(owner):
         user=owner,
         role=Role.OWNER,
     )
-    workspace, form = register_product(organisation, owner, data=product_data())
-    assert workspace, form.errors
-    return workspace.product
+    product, form = register_product(organisation, owner, data=product_data())
+    assert product, form.errors
+    return product
 
 
 @pytest.fixture

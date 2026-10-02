@@ -23,7 +23,7 @@ pytestmark = pytest.mark.django_db
 def product_url(environment):
     return reverse(
         "experiences:product-detail",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
 
 
@@ -353,7 +353,7 @@ def test_product_actions_cannot_target_another_product(environment, client, data
         data={**product_data(), "name": "Other product"},
     )
     assert other, form.errors
-    item = other.product.milestones.get(key="m1").application.review_item
+    item = other.milestones.get(key="m1").application.review_item
     client.force_login(environment["admin"])
 
     response = client.post(product_url(environment), {**data, "review_id": item.pk})
@@ -463,14 +463,14 @@ def test_organisation_queries_return_to_the_product(environment, client):
     workflows.reply_query(query, environment["applicant"], "It is our certificate.")
     response = client.get(product_url(environment))
     assert (
-        f'name="return_to_product" value="{environment["workspace"].reference}"'
+        f'name="return_to_product" value="{environment["product"].reference}"'
         in " ".join(response.content.decode().split())
     )
     response = client.post(
         reverse("experiences:query-action", args=[query.pk]),
         {
             "intent": "resolve",
-            "return_to_product": environment["workspace"].reference,
+            "return_to_product": environment["product"].reference,
         },
     )
     assert response.url == product_url(environment) + f"#review-{verification.pk}"

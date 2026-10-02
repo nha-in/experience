@@ -118,6 +118,28 @@ and migrations.
 Standalone value: one object per product; every `product.workspace.x` read
 becomes `product.x`.
 
+Landed 2026-10-02 on branch `request-model-1` (migration
+`0037_fold_product_workspace`). Decisions made on the way:
+
+- `Product.reference` is minted in `Product.save()` the way the slug is, so
+  tests and the importer can create products without choosing one; the column
+  is unique and nullable only for the instant between insert and mint.
+- The navigation's "selected integrator product" is `selected_product` in the
+  template context; `product` on a page is the product the page is about. On
+  staff pages the two differ (the first is None), which is what keeps the
+  integrator nav off the staff product page.
+- `0037` depends on the latest `support` and `organisations` migrations: their
+  data migrations join `product__workspace`, so on a fresh database they must
+  run before the table goes.
+- Tests of the data migrations `0011`, `0018`, `0019` and `0021` ran the
+  historical code against the current models; that is impossible once the
+  table is gone, so they were removed (`test_uhi_upgrade.py`, four tests in
+  `test_submission_order.py`). The migrations themselves are untouched and
+  run on a fresh database.
+- Migration tests that create products at an older state build them through
+  `apps.get_model`, with a workspace row, and read selections back through the
+  state's own `ProductWorkspace` model.
+
 ### 2. Fold `Milestone` into `ReviewItem`
 
 14 files, 30 refs; 26 `.milestone` attribute reads.

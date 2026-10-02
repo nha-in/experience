@@ -191,7 +191,7 @@ class SupportForm(forms.Form):
         accept=".pdf",
     )
 
-    def __init__(self, *args, program=None, workspace=None, resolving=False, **kwargs):
+    def __init__(self, *args, program=None, product=None, resolving=False, **kwargs):
         super().__init__(*args, **kwargs)
         if resolving:
             body = self.fields["body"]
@@ -200,10 +200,10 @@ class SupportForm(forms.Form):
                 f"Add a comment of at least {RESOLVE_COMMENT_MIN_LENGTH} characters "
                 "to resolve this ticket."
             )
-        program = program or (workspace.definition if workspace else get_program())
+        program = program or (product.definition if product else get_program())
         applied = (
-            {value.split(":", 1)[0] for value in workspace.applied_milestones}
-            if workspace
+            {value.split(":", 1)[0] for value in product.applied_milestones}
+            if product
             else None
         )
         # A category for a track this product never applied for is not offered.

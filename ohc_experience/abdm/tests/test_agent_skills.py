@@ -32,8 +32,8 @@ VS_CODE_SCHEME = "vscode://GitHub.copilot-chat?mode=agent&prompt="
 COPILOT_SCHEME = "ghapp://chats/new?prompt="
 
 
-def skills_url(workspace):
-    return reverse("experiences:agent-skills", args=[workspace.reference])
+def skills_url(product):
+    return reverse("experiences:agent-skills", args=[product.reference])
 
 
 def command(response, target):
@@ -125,14 +125,14 @@ def groups(response):
 
 def abdm_only(environment, name="ABDM only"):
     """A product that applied for one track only."""
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
         data=product_data(name)
         | {"applied_milestones": ["ABDM:m1", "ABDM:m2", "ABDM:m3"]},
     )
-    assert workspace, form.errors
-    return workspace
+    assert product, form.errors
+    return product
 
 
 def install(target, slug, sections):
@@ -156,7 +156,7 @@ def test_each_agent_gets_the_command_that_fetches_the_chosen_skill(
 ):
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     assert page.status_code == 200
     # A skill is a folder, so the command takes SKILL.md and the sections it
@@ -178,7 +178,7 @@ def test_copilot_is_the_first_agent_and_the_one_the_page_opens_on(
 ):
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     tabs = AgentTabs()
     tabs.feed(page.content.decode())
@@ -196,7 +196,7 @@ def test_the_command_fetches_only_the_sections_the_chosen_skill_has(
 ):
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     # FHIR carries two sections rather than the usual three, and the command has
     # to name its own, or the loop fetches files that are not published.
@@ -216,7 +216,7 @@ def test_every_agent_gets_a_one_click_link_for_the_chosen_skill(
 ):
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     installable = [skill["slug"] for skill in page.context["installable_skills"]]
     # Each app opens a link, one per skill the command offers.
@@ -256,7 +256,7 @@ def test_an_agent_with_no_url_scheme_only_offers_the_command_to_copy(
     monkeypatch.setitem(ABDMAgentSkills.targets, "codex", schemeless)
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     # A link that could not open is not drawn.
     assert not deeplinks(page, CODEX_SCHEME)
@@ -314,7 +314,7 @@ def test_the_panel_opens_on_the_skill_for_the_milestone_being_worked_on(
     approve(environment, "m1")
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     # The gateway and FHIR carry M2 as well, but M2's own skill is the one to open on.
     assert page.context["selected_skill"] == "abdm-m2"
@@ -322,10 +322,10 @@ def test_the_panel_opens_on_the_skill_for_the_milestone_being_worked_on(
 
 
 def test_skills_for_the_milestones_on_the_product_are_recommended(environment, client):
-    workspace = abdm_only(environment)
+    product = abdm_only(environment)
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(workspace))
+    page = client.get(skills_url(product))
 
     recommended = {slug for slug, row in cards(page).items() if row["recommended"]}
     assert recommended == {
@@ -350,7 +350,7 @@ def test_skills_that_are_no_milestone_of_their_own_are_listed_apart(
 ):
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     def slugs(group):
         return [row["definition"]["slug"] for row in group["skills"]]
@@ -372,7 +372,7 @@ def test_skills_that_are_no_milestone_of_their_own_are_listed_apart(
 def test_a_card_says_what_the_skill_covers(environment, client):
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     rows = cards(page)
     # The title and the description are the site's own, not a copy kept here.
@@ -394,7 +394,7 @@ def test_a_card_links_to_the_docs_the_product_form_gives_its_milestone(
     settings.ABDM_DOCS_URL = "https://docs.example"
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     links = DocsLinks()
     links.feed(page.content.decode())
@@ -424,10 +424,10 @@ def test_skills_the_product_did_not_apply_for_can_still_be_installed(
     environment,
     client,
 ):
-    workspace = abdm_only(environment)
+    product = abdm_only(environment)
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(workspace))
+    page = client.get(skills_url(product))
 
     slugs = [skill["slug"] for skill in page.context["installable_skills"]]
     assert slugs == [
@@ -454,7 +454,7 @@ def test_a_track_with_no_skill_of_its_own_leaves_no_empty_group(
 ):
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     # NHCX and UHI carry no skills yet, so neither gets a heading with nothing under it.
     assert set(groups(page)) == {"ABDM", "PHR", ""}
@@ -485,7 +485,7 @@ def test_the_deployment_decides_which_documentation_site_is_installed_from(
     settings.ABDM_DOCS_URL = "https://docs.staging.example/"
     client.force_login(environment["applicant"])
 
-    page = client.get(skills_url(environment["workspace"]))
+    page = client.get(skills_url(environment["product"]))
 
     assert "https://docs.staging.example/skills/abdm-m1/SKILL.md" in command(
         page,
@@ -524,7 +524,7 @@ def test_a_newly_published_skill_is_offered_before_it_is_mapped(environment, cli
 
     with mock.patch.object(ABDMAgentSkills, "milestones_by_skill", mapped):
         client.force_login(environment["applicant"])
-        page = client.get(skills_url(environment["workspace"]))
+        page = client.get(skills_url(environment["product"]))
 
     slugs = [skill["slug"] for skill in page.context["installable_skills"]]
     assert published[0]["slug"] in slugs
@@ -532,7 +532,7 @@ def test_a_newly_published_skill_is_offered_before_it_is_mapped(environment, cli
 
 
 def test_support_members_have_no_agent_skills_page(environment, client):
-    workspace = environment["workspace"]
+    product = environment["product"]
     support = UserFactory()
     Membership.objects.create(
         organisation=environment["org"],
@@ -541,24 +541,24 @@ def test_support_members_have_no_agent_skills_page(environment, client):
     )
     client.force_login(support)
 
-    assert client.get(skills_url(workspace)).status_code == 403
-    overview = client.get(workspace.get_absolute_url())
+    assert client.get(skills_url(product)).status_code == 403
+    overview = client.get(product.get_absolute_url())
     assert 'id="nav-skills"' not in main_nav(overview)
 
 
 def test_other_organisations_cannot_find_the_page(environment, client):
     client.force_login(environment["outsider"])
 
-    assert client.get(skills_url(environment["workspace"])).status_code == 404
+    assert client.get(skills_url(environment["product"])).status_code == 404
 
 
 def test_a_program_without_agent_skills_has_no_page(environment, client, monkeypatch):
     monkeypatch.setattr(ABDM, "agent_skills", None)
-    workspace = environment["workspace"]
+    product = environment["product"]
     client.force_login(environment["applicant"])
 
-    assert client.get(skills_url(workspace)).status_code == 404
-    overview = client.get(workspace.get_absolute_url())
+    assert client.get(skills_url(product)).status_code == 404
+    overview = client.get(product.get_absolute_url())
     assert 'id="nav-skills"' not in main_nav(overview)
 
 
@@ -581,7 +581,7 @@ def test_a_skill_the_file_no_longer_lists_is_not_offered(environment, client):
 
     with mock.patch.object(ABDMAgentSkills, "skills", classmethod(lambda cls: kept)):
         client.force_login(environment["applicant"])
-        page = client.get(skills_url(environment["workspace"]))
+        page = client.get(skills_url(environment["product"]))
 
     assert "abdm-m1" not in cards(page)
     assert "abdm-m2" in cards(page)

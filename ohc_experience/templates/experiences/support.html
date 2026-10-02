@@ -7,7 +7,7 @@
     <div class="ui-hero">
       <div class="ui-hero-inner">
         <div class="ui-rise min-w-0">
-          <p class="ui-hero-eyebrow">{{ workspace.product.name|default:"Programme" }}</p>
+          <p class="ui-hero-eyebrow">{{ product.name|default:"Programme" }}</p>
           <h1 class="ui-hero-title">Support</h1>
           <p class="ui-hero-lede">{% if reviewer %}Reply to integrators and resolve their tickets. Questions, supporting files and updates stay together.{% else %}Raise a ticket and track the NHA team's replies. Keep your questions, supporting files and updates together.{% endif %}</p>
         </div>
@@ -16,9 +16,9 @@
             <span class="ui-kicker block">{% if has_ticket_filters %}Matching{% else %}Tickets{% endif %}</span>
             <span class="ui-figure mt-0.5 block">{% if has_ticket_filters %}{{ tickets.paginator.count }}{% else %}{{ ticket_total }}{% endif %}</span>
           </div>
-          {% if not reviewer and workspace and can_integrate %}
+          {% if not reviewer and product and can_integrate %}
             <a class="ui-btn ui-btn--default ui-btn--size-sm mb-1 no-underline"
-               href="?new=1&amp;product={{ workspace.reference }}">New ticket</a>
+               href="?new=1&amp;product={{ product.reference }}">New ticket</a>
           {% endif %}
         </div>
       </div>
@@ -31,7 +31,7 @@
     <nav class="mb-3 text-[12.5px] text-soft-foreground"
          aria-label="Breadcrumb">
       <a class="text-soft-foreground no-underline hover:underline"
-         href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Support</a>
+         href="{% url 'experiences:support' %}{% if product %}?product={{ product.reference }}{% endif %}">Support</a>
       <span aria-hidden="true">/</span><span aria-current="page">New ticket</span>
     </nav>
     <div class="mb-5">
@@ -55,8 +55,8 @@
               <div>
                 <span class="ui-label">Product</span>
                 <div class="rounded-lg border border-border bg-soft-background px-3 py-2 text-sm">
-                  <span class="block font-semibold">{{ workspace.product.name }}</span>
-                  <span class="font-mono text-xs text-soft-foreground">{{ workspace.reference }}</span>
+                  <span class="block font-semibold">{{ product.name }}</span>
+                  <span class="font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
                 </div>
               </div>
               {% ui_field form.body label="What happened?" placeholder="Describe the issue and any error messages" help_text="Include the steps you tried, what you expected, and the response you received." extra_class="min-h-36" %}
@@ -65,7 +65,7 @@
             <div class="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row-reverse sm:justify-start">
               <button class="ui-btn ui-btn--default ui-btn--size-default" type="submit">Create ticket</button>
               <a class="ui-btn ui-btn--outline ui-btn--size-default no-underline"
-                 href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Cancel</a>
+                 href="{% url 'experiences:support' %}{% if product %}?product={{ product.reference }}{% endif %}">Cancel</a>
             </div>
           </form>
         </div>
@@ -79,13 +79,13 @@
         <nav class="flex flex-wrap gap-x-6 gap-y-3" aria-label="Ticket status">
           {% for tab in status_tabs %}
             <a class="ui-tabstat"
-               href="?status={{ tab.value }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;q={{ ticket_filters.q|urlencode }}&amp;category={{ ticket_filters.category|urlencode }}&amp;priority={{ ticket_filters.priority|urlencode }}"
+               href="?status={{ tab.value }}{% if product %}&amp;product={{ product.reference }}{% endif %}&amp;q={{ ticket_filters.q|urlencode }}&amp;category={{ ticket_filters.category|urlencode }}&amp;priority={{ ticket_filters.priority|urlencode }}"
                {% if ticket_filters.status|default:'' == tab.value %}aria-current="page"{% endif %}>
               <span class="ui-figure ui-figure--md">{{ tab.count }}</span><span class="ui-kicker">{{ tab.label }}</span>
             </a>
           {% empty %}
             {% for value,label in ticket_statuses %}<a class="ui-pill"
-   href="?status={{ value }}{% if workspace %}&amp;product={{ workspace.reference }}{% endif %}&amp;q={{ ticket_filters.q|urlencode }}"
+   href="?status={{ value }}{% if product %}&amp;product={{ product.reference }}{% endif %}&amp;q={{ ticket_filters.q|urlencode }}"
    {% if ticket_filters.status|default:'' == value %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
           {% endfor %}
         </nav>
@@ -100,7 +100,7 @@
             hx-trigger="change[target.tagName === 'SELECT'], submit"
             hx-push-url="true"
             hx-indicator="#nav-progress">
-        {% if workspace %}<input type="hidden" name="product" value="{{ workspace.reference }}" />{% endif %}
+        {% if product %}<input type="hidden" name="product" value="{{ product.reference }}" />{% endif %}
         {# Sent even when blank: that is All tickets, and no status opens the default tab. #}
         <input type="hidden" name="status" value="{{ ticket_filters.status }}" />
         <div class="w-[calc(50%_-_0.3125rem)] sm:w-[170px]">
@@ -127,8 +127,8 @@
           <div class="flex w-full flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground">
             <p role="status">Showing {{ tickets.paginator.count }} of {{ ticket_total }} ticket{{ ticket_total|pluralize }}</p>
             <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
-               href="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}"
-               hx-get="{% url 'experiences:support' %}{% if workspace %}?product={{ workspace.reference }}{% endif %}">Clear filters</a>
+               href="{% url 'experiences:support' %}{% if product %}?product={{ product.reference }}{% endif %}"
+               hx-get="{% url 'experiences:support' %}{% if product %}?product={{ product.reference }}{% endif %}">Clear filters</a>
           </div>
         {% endif %}
       </form>
@@ -173,8 +173,8 @@
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
             <h3 class="ui-section-title">No tickets yet</h3>
             <p class="text-sm text-muted-foreground">{% if reviewer %}No tickets are available in your assigned categories.{% else %}Open a ticket when you need help with the sandbox, APIs or certification.{% endif %}</p>
-            {% if not reviewer and workspace and can_integrate %}<a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
-   href="?new=1&amp;product={{ workspace.reference }}">New ticket</a>{% endif %}
+            {% if not reviewer and product and can_integrate %}<a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
+   href="?new=1&amp;product={{ product.reference }}">New ticket</a>{% endif %}
           </div>
         {% endif %}
       </div>

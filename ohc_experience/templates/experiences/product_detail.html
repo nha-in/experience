@@ -14,9 +14,9 @@
         <h1 class="ui-hero-title text-[28px] sm:text-[30px] sm:leading-9">{{ product.name }}</h1>
         <p class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span class="inline-flex items-center gap-0.5"><span class="font-mono text-[13px] text-foreground">{{ reference }}</span>{% include 'components/copy_button.html' with value=reference label='product reference' %}</span>
-          {% if product.workspace.solution_type %}<span aria-hidden="true">·</span><span>{{ product.workspace.get_solution_type_display }}</span>{% endif %}
-          {% if product.workspace.registered_at %}<span aria-hidden="true">·</span><span>Registered {% if registration %}<a class="font-semibold text-primary hover:underline"
-   href="{{ registration.get_absolute_url }}">{{ product.workspace.registered_at|date:'d/m/Y' }}</a>{% else %}{{ product.workspace.registered_at|date:'d/m/Y' }}{% endif %}</span>{% endif %}
+          {% if product.solution_type %}<span aria-hidden="true">·</span><span>{{ product.get_solution_type_display }}</span>{% endif %}
+          {% if product.registered_at %}<span aria-hidden="true">·</span><span>Registered {% if registration %}<a class="font-semibold text-primary hover:underline"
+   href="{{ registration.get_absolute_url }}">{{ product.registered_at|date:'d/m/Y' }}</a>{% else %}{{ product.registered_at|date:'d/m/Y' }}{% endif %}</span>{% endif %}
           {% if progress.total %}<span aria-hidden="true">·</span><span><strong class="font-semibold tabular-nums text-primary">{{ progress.approved }}/{{ progress.total }}</strong> milestones approved</span>{% endif %}
         </p>
       </div>

@@ -451,7 +451,7 @@ def test_the_certification_page_reads_a_chosen_certificate(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
 
     response = read_request(client, url)
@@ -476,7 +476,7 @@ def test_the_browser_can_ask_for_the_certificate_to_be_read_again(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     assert read_request(client, url).json()["fields"]["wasa_agency"] == ""
 
@@ -492,7 +492,7 @@ def test_the_same_certificate_is_not_read_twice_unasked(reader, environment, cli
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
 
     assert read_request(client, url).json() == read_request(client, url).json()
@@ -505,7 +505,7 @@ def test_a_milestone_page_reads_a_chosen_certificate(reader, environment, client
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["workspace"].reference, "ABDM"],
+        args=[environment["product"].reference, "ABDM"],
     )
 
     response = read_request(client, url, milestone="m1")
@@ -517,7 +517,7 @@ def test_a_milestone_page_reads_a_chosen_certificate(reader, environment, client
 def test_reading_needs_the_same_access_as_the_form(reader, environment, client):
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     assert read_request(client, url).status_code != OK
     client.force_login(environment["outsider"])
@@ -542,7 +542,7 @@ def test_reading_refuses_anything_the_form_would_not_accept(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     payload = {"intent": "read", "field": field}
     if upload is not None:
@@ -562,7 +562,7 @@ def test_reading_stops_paying_for_an_account_that_never_stops(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
 
     codes = [
@@ -583,11 +583,11 @@ def test_reading_stops_paying_for_an_account_that_never_stops(
 
 def test_reading_never_starts_a_review_or_stores_the_file(reader, environment, client):
     reader["reply"] = stated()
-    product = environment["workspace"].product
+    product = environment["product"]
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
     before = product.review_items.count()
 
@@ -757,7 +757,7 @@ def test_an_unreadable_document_answers_differently_from_an_outage(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:product-certification",
-        args=[environment["workspace"].reference],
+        args=[environment["product"].reference],
     )
 
     response = read_request(client, url)
@@ -825,7 +825,7 @@ def test_endpoint_hides_the_provider_detail_of_a_failed_reading(
         client,
         reverse(
             "experiences:product-certification",
-            args=[environment["workspace"].reference],
+            args=[environment["product"].reference],
         ),
     )
     assert response.status_code == UNAVAILABLE

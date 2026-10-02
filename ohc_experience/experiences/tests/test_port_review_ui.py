@@ -21,7 +21,7 @@ def review_item(monkeypatch, settings, owner_membership):
         monkeypatch.setattr(registry, attribute, dict(getattr(registry, attribute)))
     registry.register_program(SupplierQuality)
     settings.EXPERIENCE_PORTAL = SupplierQuality.key
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         owner_membership.organisation,
         owner_membership.user,
         data={
@@ -30,8 +30,8 @@ def review_item(monkeypatch, settings, owner_membership):
             "checks": ["Quality:inspection", "Quality:release"],
         },
     )
-    assert workspace, form.errors
-    item = workspace.product.milestones.get(key="inspection").application.review_item
+    assert product, form.errors
+    item = product.milestones.get(key="inspection").application.review_item
     item, form, saved = workflows.save_review_form(
         item,
         owner_membership.user,
@@ -87,7 +87,7 @@ def test_queue_filters_still_work_when_requested_through_htmx(review_item, clien
     assert (
         reverse(
             "experiences:product-detail",
-            args=[review_item.product.workspace.reference],
+            args=[review_item.product.reference],
         ).encode()
         in response.content
     )
@@ -102,7 +102,7 @@ def test_queue_searches_by_product_reference_and_preserves_it_in_navigation(
     owner_membership,
     client,
 ):
-    other_workspace, form = workflows.register_product(
+    other_product, form = workflows.register_product(
         owner_membership.organisation,
         owner_membership.user,
         data={
@@ -111,8 +111,8 @@ def test_queue_searches_by_product_reference_and_preserves_it_in_navigation(
             "checks": ["Quality:inspection", "Quality:release"],
         },
     )
-    assert other_workspace, form.errors
-    other_item = other_workspace.product.milestones.get(
+    assert other_product, form.errors
+    other_item = other_product.milestones.get(
         key="inspection",
     ).application.review_item
     other_item, form, saved = workflows.save_review_form(
@@ -125,7 +125,7 @@ def test_queue_searches_by_product_reference_and_preserves_it_in_navigation(
 
     reviewer = ReviewerFactory(is_nha_team=True)
     client.force_login(reviewer)
-    reference = review_item.product.workspace.reference
+    reference = review_item.product.reference
     response = client.get(
         reverse("experiences:queue"),
         {"scope": "ready", "q": reference},
@@ -153,10 +153,10 @@ def test_staff_product_page_links_open_requests_to_their_reviews(
     owner_membership,
     client,
 ):
-    workspace = review_item.product.workspace
-    url = reverse("experiences:product-detail", args=[workspace.reference])
+    product = review_item.product
+    url = reverse("experiences:product-detail", args=[product.reference])
     client.force_login(ReviewerFactory(is_nha_team=True))
-    assert client.get(workspace.get_absolute_url()).url == url
+    assert client.get(product.get_absolute_url()).url == url
     response = client.get(url)
 
     assert response.status_code == HTTPStatus.OK
@@ -166,12 +166,12 @@ def test_staff_product_page_links_open_requests_to_their_reviews(
     assert b"Supplier Quality Portal" in response.content
     assert b'id="product-switcher' not in response.content
     assert (
-        f"{reverse('experiences:queue')}?scope=ready&amp;q={workspace.reference}".encode()
+        f"{reverse('experiences:queue')}?scope=ready&amp;q={product.reference}".encode()
         in response.content
     )
 
     client.force_login(owner_membership.user)
-    response = client.get(workspace.get_absolute_url())
+    response = client.get(product.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     assert b"Needs a decision" not in response.content
     assert client.get(url).status_code == HTTPStatus.FORBIDDEN
@@ -387,7 +387,7 @@ def test_queries_open_in_full_only_for_whoever_can_act_on_them(
     # full with the reply form, and their answered one folds.
     track = reverse(
         "experiences:track",
-        args=[item.product.workspace.reference, "Quality"],
+        args=[item.product.reference, "Quality"],
     )
     card = queries_card(integrator, f"{track}?milestone=inspection")
     assert "1 awaiting your reply · 1 with reviewer" in " ".join(card.split())
@@ -430,7 +430,7 @@ def test_the_product_page_names_who_submitted_each_request(review_item, client):
     html = client.get(
         reverse(
             "experiences:product-detail",
-            args=[review_item.product.workspace.reference],
+            args=[review_item.product.reference],
         ),
     ).content.decode()
     row = html.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]

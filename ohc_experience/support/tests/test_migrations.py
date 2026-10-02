@@ -19,6 +19,10 @@ def test_resolved_tickets_close_without_moving_in_the_queue(organisation):
     product = product_for(organisation)
     after = latest()
     executor = MigrationExecutor(connection)
+    # The product's deferred foreign key checks would block the schema changes
+    # the way back makes to its table.
+    with connection.cursor() as cursor:
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
     executor.migrate(BEFORE)
     try:
         old_ticket = executor.loader.project_state(BEFORE).apps.get_model(

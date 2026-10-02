@@ -15,7 +15,7 @@ from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
-from ohc_experience.abdm.tests.test_workflow import nhcx_workspace
+from ohc_experience.abdm.tests.test_workflow import nhcx_product
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import xlsx
@@ -371,7 +371,7 @@ def test_another_products_target_is_rejected(environment):
         data=product_data("Another product"),
     )
     assert other, form.errors
-    target = milestone({**environment, "workspace": other})
+    target = milestone({**environment, "product": other})
     current = milestone(environment)
     with pytest.raises(ValidationError, match="additional milestone changed"):
         submit_group(environment, current, target)
@@ -388,7 +388,7 @@ def test_different_form_cannot_join_the_batch(environment):
 
 def test_same_form_in_another_track_cannot_join_the_batch(environment):
     """NHCX shares the product's evidence form, and still submits on its own."""
-    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    claims = {**environment, "product": nhcx_product(environment)}
     current = milestone(claims)
     target = milestone(claims, "nhcx1")
     assert current.form_id == target.form_id
@@ -465,7 +465,7 @@ def test_invalid_additional_dates_prevent_every_submission(environment, invalid)
 def test_cross_track_inherited_pin_does_not_prefill_answers_or_functional_files(
     environment,
 ):
-    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    claims = {**environment, "product": nhcx_product(environment)}
     submit(claims, "m1")
     source = submit(claims, "nhcx1").selected_submission
     target = milestone(claims, "m4")
@@ -523,7 +523,7 @@ def test_same_track_inherited_pin_keeps_files_but_requires_new_dates(environment
 
 
 def test_cross_track_inherited_pin_still_offers_approved_product_wasa(environment):
-    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    claims = {**environment, "product": nhcx_product(environment)}
     approve(claims, "m1")
     source = approve(claims, "nhcx1").selected_submission
     target = milestone(claims, "m4")

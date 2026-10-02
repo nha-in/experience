@@ -7,7 +7,7 @@ not import ABDM. Implementations register ordinary Python definitions through
 ## Boundary
 
 - `models.py`: products, independent forms, immutable submission revisions,
-  application/form links, dependencies, outcomes, workspaces, milestones,
+  application/form links, dependencies, outcomes, products, milestones,
   reviews, queries, append-only audit events, credentials, notifications and
   program-specific certification agency lists maintained by administrators.
 - `definitions.py`, `registry.py`: implementation contracts and registration.

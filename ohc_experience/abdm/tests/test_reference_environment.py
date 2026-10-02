@@ -15,8 +15,8 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 
-def reference_url(workspace):
-    return reverse("experiences:reference-environment", args=[workspace.reference])
+def reference_url(product):
+    return reverse("experiences:reference-environment", args=[product.reference])
 
 
 def main_nav(response):
@@ -88,11 +88,11 @@ def test_integrators_get_run_commands_that_open_care_when_it_is_ready(
     environment,
     client,
 ):
-    workspace = environment["workspace"]
-    client_id = workspace.product.credential.client_id
+    product = environment["product"]
+    client_id = product.credential.client_id
     client.force_login(environment["applicant"])
 
-    page = client.get(reference_url(workspace))
+    page = client.get(reference_url(product))
 
     assert page.status_code == 200
     credentials = (
@@ -124,7 +124,7 @@ def test_integrators_get_run_commands_that_open_care_when_it_is_ready(
 def test_m1_always_runs_and_m2_adds_its_profile(environment, client):
     client.force_login(environment["applicant"])
 
-    page = client.get(reference_url(environment["workspace"]))
+    page = client.get(reference_url(environment["product"]))
 
     milestones = {
         milestone.code: (option, in_progress)
@@ -145,7 +145,7 @@ def test_m1_always_runs_and_m2_adds_its_profile(environment, client):
 def test_the_flows_card_links_to_the_milestone_documentation(environment, client):
     client.force_login(environment["applicant"])
 
-    page = client.get(reference_url(environment["workspace"]))
+    page = client.get(reference_url(environment["product"]))
 
     card = page.content.decode().split('id="reference-flows-title"', 1)[1]
     card = card.split("</section>", 1)[0]
@@ -157,13 +157,13 @@ def test_credential_fields_fill_every_command_and_are_never_submitted(
     environment,
     client,
 ):
-    workspace = environment["workspace"]
+    product = environment["product"]
     client.force_login(environment["applicant"])
 
-    page = client.get(reference_url(workspace))
+    page = client.get(reference_url(product))
 
     fields = credential_fields(page)
-    assert fields["client_id"]["value"] == workspace.product.credential.client_id
+    assert fields["client_id"]["value"] == product.credential.client_id
     assert "value" not in fields["client_secret"]
     assert fields["client_secret"]["placeholder"] == "YOUR_CLIENT_SECRET"
     # Inputs without a name are left out of any submission.
@@ -175,11 +175,11 @@ def test_credential_fields_fill_every_command_and_are_never_submitted(
 
 
 def test_the_command_waits_for_credentials_that_are_not_issued(environment, client):
-    workspace = environment["workspace"]
-    workspace.product.credential.delete()
+    product = environment["product"]
+    product.credential.delete()
     client.force_login(environment["applicant"])
 
-    page = client.get(reference_url(workspace))
+    page = client.get(reference_url(product))
 
     assert command(page, "macos").startswith(
         "ABDM_CLIENT_ID='YOUR_CLIENT_ID' ABDM_CLIENT_SECRET='YOUR_CLIENT_SECRET' ",
@@ -201,7 +201,7 @@ def test_single_quotes_in_a_client_id_are_escaped_for_each_shell():
 
 
 def test_support_members_have_no_reference_page(environment, client):
-    workspace = environment["workspace"]
+    product = environment["product"]
     support = UserFactory()
     Membership.objects.create(
         organisation=environment["org"],
@@ -210,15 +210,15 @@ def test_support_members_have_no_reference_page(environment, client):
     )
     client.force_login(support)
 
-    assert client.get(reference_url(workspace)).status_code == 403
-    overview = client.get(workspace.get_absolute_url())
+    assert client.get(reference_url(product)).status_code == 403
+    overview = client.get(product.get_absolute_url())
     assert 'id="nav-reference"' not in main_nav(overview)
 
 
 def test_other_organisations_cannot_find_the_page(environment, client):
     client.force_login(environment["outsider"])
 
-    assert client.get(reference_url(environment["workspace"])).status_code == 404
+    assert client.get(reference_url(environment["product"])).status_code == 404
 
 
 def test_a_program_without_a_reference_environment_has_no_page(
@@ -227,9 +227,9 @@ def test_a_program_without_a_reference_environment_has_no_page(
     monkeypatch,
 ):
     monkeypatch.setattr(ABDM, "reference_environment", None)
-    workspace = environment["workspace"]
+    product = environment["product"]
     client.force_login(environment["applicant"])
 
-    assert client.get(reference_url(workspace)).status_code == 404
-    overview = client.get(workspace.get_absolute_url())
+    assert client.get(reference_url(product)).status_code == 404
+    overview = client.get(product.get_absolute_url())
     assert 'id="nav-reference"' not in main_nav(overview)

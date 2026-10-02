@@ -102,9 +102,9 @@
                 <tr class="group">
                   <td class="min-w-[180px]">
                     <a class="font-semibold text-foreground no-underline group-hover:text-primary"
-                       href="{% url 'experiences:production-detail' product.workspace.reference %}"
+                       href="{% url 'experiences:production-detail' product.reference %}"
                        data-row-link>{{ product.name }}</a>
-                    <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.workspace.reference }}</span>
+                    <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
                   </td>
                   <td class="max-w-[180px] text-muted-foreground">{{ product.organisation.display_name }}</td>
                   <td>
@@ -121,7 +121,7 @@
                   {% endif %}
                   <td class="text-right">
                     <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 whitespace-nowrap"
-                       href="{% url 'experiences:production-detail' product.workspace.reference %}">
+                       href="{% url 'experiences:production-detail' product.reference %}">
                       {% if not can_manage %}
                         View
                       {% elif stage == 'pending' %}

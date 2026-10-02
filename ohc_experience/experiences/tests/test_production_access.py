@@ -45,7 +45,7 @@ def staff(category="", *, approver=False, **fields):
 
 
 def product_of(environment):
-    return environment["workspace"].product
+    return environment["product"]
 
 
 def saved_id(environment):
@@ -83,13 +83,13 @@ def announced():
 
 def second_product(environment):
     """Another registered product in the same organisation."""
-    workspace, form = services.register_product(
+    product, form = services.register_product(
         environment["org"],
         environment["applicant"],
         data=product_data("Second product"),
     )
-    assert workspace, form.errors
-    return workspace.product
+    assert product, form.errors
+    return product
 
 
 def test_recording_waits_for_an_approved_exit(environment):
@@ -196,7 +196,7 @@ def test_production_client_ids_are_unique_whatever_their_case(environment):
 
 def test_staff_pages_need_general_review_access(environment, client):
     approve(environment)
-    reference = environment["workspace"].reference
+    reference = environment["product"].reference
     list_url = reverse("experiences:production-list")
     export_url = reverse("experiences:production-export")
     detail_url = reverse("experiences:production-detail", args=[reference])
@@ -236,7 +236,7 @@ def test_staff_pages_need_general_review_access(environment, client):
 
 def test_detail_page_records_and_removes(environment, client):
     approve(environment)
-    reference = environment["workspace"].reference
+    reference = environment["product"].reference
     url = reverse("experiences:production-detail", args=[reference])
     client.force_login(staff(approver=True))
     response = client.get(url)
@@ -307,7 +307,7 @@ def test_list_tabs_search_and_csv(environment, client):
         "prod-1",
         sandbox_id(product),
         product.organisation.name[:8],
-        environment["workspace"].reference,
+        environment["product"].reference,
     ]:
         response = client.get(url, {"tab": "approved", "q": query})
         assert [row.pk for row in response.context["rows"]] == [product.pk]
@@ -336,7 +336,7 @@ def test_list_tabs_search_and_csv(environment, client):
 
 
 def test_integrator_and_reviewer_pages(environment, client):
-    reference = environment["workspace"].reference
+    reference = environment["product"].reference
     credentials_url = reverse("experiences:credentials", args=[reference])
     copy = get_program().production_credentials
     client.force_login(environment["applicant"])
@@ -384,7 +384,7 @@ def test_programs_that_do_not_record_production_ids(environment, client, monkeyp
     )
     client.force_login(environment["applicant"])
     content = client.get(
-        reverse("experiences:credentials", args=[environment["workspace"].reference]),
+        reverse("experiences:credentials", args=[environment["product"].reference]),
     ).content.decode()
     assert 'id="production-card"' not in content
 
@@ -455,7 +455,7 @@ def test_the_screens_use_nhas_words(environment, client):
     content = client.get(
         reverse(
             "experiences:production-detail",
-            args=[environment["workspace"].reference],
+            args=[environment["product"].reference],
         ),
     ).content.decode()
     assert "Update production details" in content

@@ -16,8 +16,8 @@ from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
-from ohc_experience.abdm.tests.test_workflow import nhcx_workspace
-from ohc_experience.abdm.tests.test_workflow import phr_workspace
+from ohc_experience.abdm.tests.test_workflow import nhcx_product
+from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import ReviewItem
@@ -30,7 +30,7 @@ def track_url(environment, key="m1", code="ABDM"):
     return (
         reverse(
             "experiences:track",
-            args=[environment["workspace"].reference, code],
+            args=[environment["product"].reference, code],
         )
         + f"?milestone={key}"
     )
@@ -163,7 +163,7 @@ def test_a_milestone_missing_a_callback_url_is_offered_disabled_with_the_reason(
 
 
 def test_the_section_stays_when_every_other_milestone_is_blocked(environment, client):
-    locker = {**environment, "workspace": phr_workspace(environment)}
+    locker = {**environment, "product": phr_product(environment)}
     clear_callback_url(environment, "p1")
     client.force_login(environment["applicant"])
     response = client.get(track_url(locker, "p1", "PHR"))
@@ -346,7 +346,7 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
     environment,
     client,
 ):
-    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    claims = {**environment, "product": nhcx_product(environment)}
     first = submit(claims)
     other = submit(claims, "nhcx1")
     assert first.form_id == other.form_id
@@ -357,7 +357,7 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
         "M3",
         "M4",
     }
-    locker = {**environment, "workspace": phr_workspace(environment)}
+    locker = {**environment, "product": phr_product(environment)}
     phr = client.get(track_url(locker, "p1", "PHR"))
     # The PHR track offers its own later phases, and no milestone of another.
     assert {choice["code"] for choice in phr.context["submission_choices"]} == {
@@ -372,7 +372,7 @@ def test_batch_rejects_other_categories_even_when_the_form_record_is_shared(
     client,
 ):
     """NHCX shares the product's evidence form, and still submits on its own."""
-    claims = {**environment, "workspace": nhcx_workspace(environment)}
+    claims = {**environment, "product": nhcx_product(environment)}
     current = milestone(claims)
     other = milestone(claims, "nhcx1")
     assert current.form_id == other.form_id
@@ -435,13 +435,13 @@ def test_batch_rejects_targets_from_another_product_or_organisation(
     other_organisation,
 ):
     membership = MembershipFactory(role="owner") if other_organisation else None
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         membership.organisation if membership else environment["org"],
         membership.user if membership else environment["applicant"],
         data=product_data("Another product"),
     )
-    assert workspace, form.errors
-    other = workspace.product.milestones.get(key="m2").application.review_item
+    assert product, form.errors
+    other = product.milestones.get(key="m2").application.review_item
     current = milestone(environment)
     before = review_state(current, other)
     client.force_login(environment["applicant"])

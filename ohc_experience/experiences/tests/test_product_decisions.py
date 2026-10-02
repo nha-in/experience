@@ -35,7 +35,7 @@ def revisions(*items):
 
 def decide_all(environment, items, *, action="approve", note="Reviewed the evidence."):
     return workflows.decide_product(
-        environment["workspace"].product,
+        environment["product"],
         environment["admin"],
         action=action,
         expected_revisions=revisions(*items),
@@ -215,7 +215,7 @@ def test_stale_revision_prevents_all_decisions(environment, submitted_pair, acti
     expected[str(m2.pk)] = "0"
     with pytest.raises(ValidationError, match="submission changed"):
         workflows.decide_product(
-            environment["workspace"].product,
+            environment["product"],
             environment["admin"],
             action=action,
             expected_revisions=expected,
@@ -256,7 +256,7 @@ def test_every_selected_category_requires_approval_permission(
     m3 = submit(environment, "m3")
     with pytest.raises(PermissionDenied):
         workflows.decide_product(
-            environment["workspace"].product,
+            environment["product"],
             staff,
             action="approve",
             expected_revisions=revisions(m3, *submitted_pair),
@@ -268,7 +268,7 @@ def test_every_selected_category_requires_approval_permission(
 def test_invalid_selection_is_rejected(environment, submitted_pair, invalid):
     with pytest.raises(ValidationError):
         workflows.decide_product(
-            environment["workspace"].product,
+            environment["product"],
             environment["admin"],
             action="approve",
             expected_revisions=invalid,
@@ -387,7 +387,7 @@ def test_organisation_selection_requires_general_approval_permission(
     )
     with pytest.raises(PermissionDenied):
         workflows.decide_product(
-            environment["workspace"].product,
+            environment["product"],
             reviewer,
             action="approve",
             expected_revisions=revisions(*submitted_pair, organisation_review),
@@ -406,7 +406,7 @@ def test_stale_organisation_snapshot_prevents_the_whole_batch(
     expected[str(organisation_review.pk)] = "0"
     with pytest.raises(ValidationError, match="submission changed"):
         workflows.decide_product(
-            environment["workspace"].product,
+            environment["product"],
             environment["admin"],
             action=action,
             expected_revisions=expected,
@@ -447,13 +447,13 @@ def test_shared_organisation_does_not_allow_other_product_requests(
     submitted_pair,
     action,
 ):
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
         data={**product_data(), "name": "Another product"},
     )
-    assert workspace, form.errors
-    other = submit({**environment, "workspace": workspace})
+    assert product, form.errors
+    other = submit({**environment, "product": product})
     organisation_review = reverify(environment)
     with pytest.raises(ValidationError, match="belong to this product"):
         decide_all(

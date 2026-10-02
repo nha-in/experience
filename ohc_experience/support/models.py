@@ -74,7 +74,7 @@ class TicketQuerySet(models.QuerySet["Ticket"]):
         return self.select_related(
             "organisation",
             "product",
-            "product__workspace",
+            "product",
             "created_by",
             "assignee",
         )
@@ -198,10 +198,9 @@ class Ticket(models.Model):
     @property
     def support_category(self):
         """The definition this ticket was filed under, or None once retired."""
-        workspace = getattr(self.product, "workspace", None)
-        if workspace is None:
+        if self.product is None:
             return None
-        return workspace.definition.support_category_map().get(self.category)
+        return self.product.definition.support_category_map().get(self.category)
 
     @property
     def category_label(self) -> str:

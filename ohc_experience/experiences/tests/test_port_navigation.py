@@ -7,7 +7,7 @@ from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.context_processors import navigation_context
-from ohc_experience.experiences.models import ProductWorkspace
+from ohc_experience.experiences.models import Product
 from ohc_experience.integrations.services import provision_inline
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.users.tests.factories import UserFactory
@@ -31,8 +31,8 @@ def test_selected_product_follows_integrator_into_account_pages(environment):  #
     for url in (reverse("users:profile"), reverse("organisations:team")):
         response = client.get(url)
         assert response.status_code == 200
-        assert response.context["workspace"].pk == second.pk
-        assert second.product.name.encode() in response.content
+        assert response.context["product"].pk == second.pk
+        assert second.name.encode() in response.content
         nav = (
             response.content.decode()
             .split('<nav id="app-nav"', 1)[1]
@@ -56,7 +56,7 @@ def test_switcher_never_lists_another_organisations_products(environment):  # no
     session["experience_product"] = other.reference
     session.save()
     response = client.get(reverse("users:profile"))
-    assert response.context["workspace"].pk == environment["workspace"].pk
+    assert response.context["product"].pk == environment["product"].pk
     assert b"Private other product" not in response.content
     assert client.get(other.get_absolute_url()).status_code == 404
 
@@ -65,7 +65,7 @@ def test_boosted_navigation_returns_the_main_and_updated_rail(environment):  # n
     client = Client()
     client.force_login(environment["applicant"])
     response = client.get(
-        environment["workspace"].get_absolute_url(),
+        environment["product"].get_absolute_url(),
         HTTP_HX_REQUEST="true",
         HTTP_HX_BOOSTED="true",
     )
@@ -78,14 +78,14 @@ def test_boosted_navigation_returns_the_main_and_updated_rail(environment):  # n
 
 
 def test_applied_tracks_only_and_approval_counts(environment, rf):  # noqa: F811
-    workspace = environment["workspace"]
-    ProductWorkspace.objects.filter(pk=workspace.pk).update(
+    product = environment["product"]
+    Product.objects.filter(pk=product.pk).update(
         applied_milestones=["ABDM:m1"],
     )
-    workspace.refresh_from_db()
+    product.refresh_from_db()
     request = rf.get("/")
     request.user = environment["applicant"]
-    context = navigation_context(request, workspace)
+    context = navigation_context(request, product)
     assert [
         (row["definition"].code, row["count"]) for row in context["nav_tracks"]
     ] == [("ABDM", 1)]
@@ -94,7 +94,7 @@ def test_applied_tracks_only_and_approval_counts(environment, rf):  # noqa: F811
 
 def test_a_track_counts_only_the_milestones_the_product_applied_for(environment, rf):  # noqa: F811
     """UHI shows M2 as related context, but a product without it counts 2, not 3."""
-    workspace, form = workflows.register_product(
+    product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
         data={
@@ -102,16 +102,16 @@ def test_a_track_counts_only_the_milestones_the_product_applied_for(environment,
             "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
         },
     )
-    assert workspace, form.errors
-    provision_inline(workspace.product)
-    workspace.refresh_from_db()
-    assert not workspace.product.milestones.filter(key="m2").exists()
+    assert product, form.errors
+    provision_inline(product)
+    product.refresh_from_db()
+    assert not product.milestones.filter(key="m2").exists()
 
     request = rf.get("/")
     request.user = environment["applicant"]
     counts = {
         row["definition"].code: (row["approved"], row["count"])
-        for row in navigation_context(request, workspace)["nav_tracks"]
+        for row in navigation_context(request, product)["nav_tracks"]
     }
 
     assert counts == {"ABDM": (0, 1), "UHI": (0, 2)}

@@ -1,7 +1,7 @@
 """PHR1 becoming P1, and the locker becoming P4.
 
 A milestone key is written down in four places — the milestone row, the
-application's title and metadata, the workspace's selections and the
+application's title and metadata, the product's selections and the
 registration form's own copy — and a rename that reaches only some of them
 leaves a product whose catalog lookup raises on a key the catalog dropped.
 """
@@ -13,7 +13,7 @@ from django.db.migrations.executor import MigrationExecutor
 from ohc_experience.experiences.models import ApplicationInstance
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import Milestone
-from ohc_experience.experiences.models import ProductWorkspace
+from ohc_experience.experiences.models import Product
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -107,8 +107,11 @@ def test_a_phr_request_carries_over_as_p1_and_the_locker_as_p4(at_before):
 
     keys = Milestone.objects.filter(product_id=product.pk).values_list("key", flat=True)
     assert set(keys) == {"p1", "p4"}
-    workspace = ProductWorkspace.objects.get(product_id=product.pk)
-    assert workspace.applied_milestones == ["ABDM:m1", "PHR:p1", "HealthLocker:p4"]
+    assert Product.objects.get(pk=product.pk).applied_milestones == [
+        "ABDM:m1",
+        "PHR:p1",
+        "HealthLocker:p4",
+    ]
     assert set(
         FormSubmission.objects.get(form__product_id=product.pk).data[
             "applied_milestones"

@@ -7,7 +7,7 @@ from django.urls import reverse
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
-from ohc_experience.abdm.tests.test_workflow import phr_workspace
+from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ProductCredential
@@ -21,14 +21,14 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 
-def product_url(environment, workspace=None):
-    workspace = workspace or environment["workspace"]
-    return reverse("experiences:product-detail", args=[workspace.reference])
+def product_url(environment, product=None):
+    product = product or environment["product"]
+    return reverse("experiences:product-detail", args=[product.reference])
 
 
-def track_url(environment, code, workspace=None):
-    workspace = workspace or environment["workspace"]
-    return reverse("experiences:track", args=[workspace.reference, code])
+def track_url(environment, code, product=None):
+    product = product or environment["product"]
+    return reverse("experiences:track", args=[product.reference, code])
 
 
 def staff(category, **actions):
@@ -75,7 +75,7 @@ def test_category_reviewers_see_their_tracks_and_act_only_with_a_grant(
     reader = staff("PHR")
     client.force_login(reader)
 
-    response = client.get(product_url(environment, phr_workspace(environment)))
+    response = client.get(product_url(environment, phr_product(environment)))
 
     assert response.status_code == HTTPStatus.OK
     assert [row["definition"].code for row in response.context["tracks"]] == [
@@ -90,7 +90,7 @@ def test_category_reviewers_see_their_tracks_and_act_only_with_a_grant(
     assert b"Integration connection" not in response.content
 
     client.force_login(staff("PHR", can_approve=True))
-    response = client.get(product_url(environment, phr_workspace(environment)))
+    response = client.get(product_url(environment, phr_product(environment)))
     assert response.context["decidable"] == {locker.pk}
 
 
@@ -108,7 +108,7 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
     m1 = milestone(environment, "m1")
     client.force_login(environment["admin"])
 
-    assert client.get(environment["workspace"].get_absolute_url()).url == (
+    assert client.get(environment["product"].get_absolute_url()).url == (
         product_url(environment)
     )
     response = client.get(track_url(environment, "ABDM"), {"milestone": "m1"})
@@ -126,11 +126,11 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
     assert response.url == f"{product_url(environment)}#track-uhi"
     client.force_login(staff("PHR"))
     response = client.get(
-        track_url(environment, "PHR", phr_workspace(environment)),
+        track_url(environment, "PHR", phr_product(environment)),
         {"milestone": "m1"},
     )
     assert response.url == (
-        f"{product_url(environment, phr_workspace(environment))}#track-phr"
+        f"{product_url(environment, phr_product(environment))}#track-phr"
     )
     assert client.get(track_url(environment, "ABDM")).status_code == (
         HTTPStatus.NOT_FOUND
@@ -144,7 +144,7 @@ def test_staff_pages_never_offer_the_product_switcher(environment, client):
     item = approve(environment)
     ticket = Ticket.objects.create(
         organisation=environment["org"],
-        product=environment["workspace"].product,
+        product=environment["product"],
         created_by=environment["applicant"],
         subject="Callback help",
         category="ABDM",
@@ -190,7 +190,7 @@ def test_a_super_admin_revokes_the_credentials_from_the_product(
     django_capture_on_commit_callbacks,
 ):
     approve(environment)
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    credential = ProductCredential.objects.get(product=environment["product"])
     client.force_login(environment["admin"])
 
     with django_capture_on_commit_callbacks(execute=True):
@@ -214,7 +214,7 @@ def test_a_reviewer_cannot_revoke_by_posting_the_intent(environment, client):
     response = client.post(product_url(environment), {"intent": "revoke_credentials"})
 
     assert response.status_code == HTTPStatus.FORBIDDEN
-    credential = ProductCredential.objects.get(product=environment["workspace"].product)
+    credential = ProductCredential.objects.get(product=environment["product"])
     assert credential.status == "active"
 
 
@@ -223,28 +223,28 @@ def test_a_revoked_integrator_is_sent_to_support_not_offered_new_credentials(
     client,
     django_capture_on_commit_callbacks,
 ):
-    workspace = environment["workspace"]
+    product = environment["product"]
     client.force_login(environment["admin"])
     with django_capture_on_commit_callbacks(execute=True):
         client.post(product_url(environment), {"intent": "revoke_credentials"})
-    url = reverse("experiences:credentials", args=[workspace.reference])
+    url = reverse("experiences:credentials", args=[product.reference])
     client.force_login(environment["applicant"])
 
     content = client.get(url).content.decode()
 
     assert "Your credentials have been revoked." in content
-    assert f"{reverse('experiences:support')}?product={workspace.reference}" in content
+    assert f"{reverse('experiences:support')}?product={product.reference}" in content
     assert 'value="reveal"' not in content
-    assert workspace.definition.sandbox_credentials.demo_notice not in content
+    assert product.definition.sandbox_credentials.demo_notice not in content
     client.post(url, {"intent": "rotate"})
-    credential = ProductCredential.objects.get(product=workspace.product)
+    credential = ProductCredential.objects.get(product=product)
     assert credential.status == "revoked"
 
 
 def _revoked(environment, client, capture):
     """Revoked by a super admin, after the READY run a registration leaves."""
     ProvisioningRun.objects.create(
-        product=environment["workspace"].product,
+        product=environment["product"],
         status=ProvisioningRun.Status.READY,
     )
     client.force_login(environment["admin"])
@@ -280,8 +280,8 @@ def test_a_super_admin_reprovisions_revoked_credentials(
     django_capture_on_commit_callbacks,
 ):
     approve(environment)
-    workspace = environment["workspace"]
-    client_id = ProductCredential.objects.get(product=workspace.product).client_id
+    product = environment["product"]
+    client_id = ProductCredential.objects.get(product=product).client_id
     _revoked(environment, client, django_capture_on_commit_callbacks)
 
     with django_capture_on_commit_callbacks(execute=True):
@@ -291,14 +291,14 @@ def test_a_super_admin_reprovisions_revoked_credentials(
         )
 
     assert response.url == f"{product_url(environment)}#connection"
-    credential = ProductCredential.objects.get(product=workspace.product)
+    credential = ProductCredential.objects.get(product=product)
     assert credential.status == "active"
     assert credential.client_id == client_id
     content = client.get(product_url(environment)).content
     assert b"reprovision_credentials" not in content
     assert b"revoke_credentials" in content
     client.force_login(environment["applicant"])
-    url = reverse("experiences:credentials", args=[workspace.reference])
+    url = reverse("experiences:credentials", args=[product.reference])
     assert b'value="reveal"' in client.get(url).content
 
 

@@ -10,8 +10,6 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
 from ohc_experience.experiences.models import AccessGrant
-from ohc_experience.experiences.models import Product
-from ohc_experience.experiences.models import ProductWorkspace
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -36,19 +34,23 @@ def latest():
 def at_before():
     MigrationExecutor(connection).migrate(BEFORE)
     yield MigrationExecutor(connection).loader.project_state(BEFORE).apps
+    # The way forward alters the product table, which deferred checks block.
+    with connection.cursor() as cursor:
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
     MigrationExecutor(connection).migrate(latest())
 
 
-def product_in(program, membership):
+def product_in(apps, program, membership):
     """A product registered in a program, which is what ties a ticket to it."""
-    product = Product.objects.create(
-        organisation=membership.organisation,
+    product = apps.get_model("experiences", "Product").objects.create(
+        organisation_id=membership.organisation_id,
         name=f"{program} product",
+        slug=f"{program}-product",
         description="A product under test.",
-        created_by=membership.user,
+        created_by_id=membership.user_id,
     )
-    ProductWorkspace.objects.create(
-        product=product,
+    apps.get_model("experiences", "ProductWorkspace").objects.create(
+        product_id=product.pk,
         reference=f"{program}-{product.pk}",
         experience_type=program,
     )
@@ -84,14 +86,14 @@ def grants(user):
 
 
 def test_the_catch_all_tickets_take_its_code(at_before, owner_membership):
-    abdm = product_in("abdm", owner_membership)
+    abdm = product_in(at_before, "abdm", owner_membership)
     others = file_ticket(at_before, 1, abdm, "")
     milestone = file_ticket(at_before, 2, abdm, "abdm-m1")
     # Others is ABDM's catch-all; a blank another program left means its own.
     unrelated = file_ticket(
         at_before,
         3,
-        product_in("supplier-quality", owner_membership),
+        product_in(at_before, "supplier-quality", owner_membership),
         "",
     )
 
@@ -127,7 +129,12 @@ def test_only_support_grants_for_the_catch_all_move(at_before):
 def test_the_way_back_returns_the_catch_all_to_blank(at_before, owner_membership):
     user = UserFactory(is_nha_team=True)
     grant(at_before, user, "support", "")
-    ticket = file_ticket(at_before, 1, product_in("abdm", owner_membership), "")
+    ticket = file_ticket(
+        at_before,
+        1,
+        product_in(at_before, "abdm", owner_membership),
+        "",
+    )
     MigrationExecutor(connection).migrate(AFTER)
 
     MigrationExecutor(connection).migrate(BEFORE)
