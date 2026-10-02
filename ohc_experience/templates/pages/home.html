@@ -63,16 +63,18 @@
       </div>
       <aside class="sbx-stats" aria-labelledby="sandbox-glance-title">
         <h2 id="sandbox-glance-title">{% translate "ABDM at a glance" %}</h2>
-        {# Dummy figures from the supplied design; replace with API values when available. #}
         <dl>
-          {% translate "ABHA Linked Health Record Created" as records_label %}
-          {% include "components/marketing_stat.html" with label=records_label value="1,22,30,76,704" only %}
-          {% translate "Healthcare Professionals Registered" as professionals_label %}
-          {% include "components/marketing_stat.html" with label=professionals_label value="12,01,600" only %}
-          {% translate "Facilities using ABDM enabled software" as facilities_label %}
-          {% include "components/marketing_stat.html" with label=facilities_label value="2,86,280" only %}
+          {# The ABDM dashboard's figures, fetched daily; left out until the first fetch succeeds. #}
+          {% if abdm_figures %}
+            {% translate "ABHA Linked Health Record Created" as records_label %}
+            {% include "components/marketing_stat.html" with label=records_label value=abdm_figures.records_linked only %}
+            {% translate "Healthcare Professionals Registered" as professionals_label %}
+            {% include "components/marketing_stat.html" with label=professionals_label value=abdm_figures.professionals_registered only %}
+            {% translate "Facilities using ABDM enabled software" as facilities_label %}
+            {% include "components/marketing_stat.html" with label=facilities_label value=abdm_figures.facilities_registered only %}
+          {% endif %}
           {% translate "Successful Integrators" as integrators_label %}
-          {% include "components/marketing_stat.html" with label=integrators_label value="604" only %}
+          {% include "components/marketing_stat.html" with label=integrators_label value=successful_integrators only %}
         </dl>
       </aside>
     </div>

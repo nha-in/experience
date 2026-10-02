@@ -6,6 +6,7 @@ import ssl
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 from ohc_experience.core.mail.templates import APPROVED_TEMPLATE_IDS
 
@@ -174,6 +175,14 @@ LGD_API_URL = env(
 LGD_API_KEY = env("LGD_API_KEY", default="")
 LGD_API_TIMEOUT = env.float("LGD_API_TIMEOUT", default=5.0)
 LGD_CACHE_TTL = env.int("LGD_CACHE_TTL", default=3600)
+
+# Server-only ABDM dashboard figures for the landing page, fetched daily.
+ABDM_DASHBOARD_KPI_URL = env(
+    "ABDM_DASHBOARD_KPI_URL",
+    default="https://dashboard.abdm.gov.in/abdmservice/api/dashboard/ABDM/KPI",
+)
+PMJAY_CLIENT_ID = env("PMJAY_CLIENT_ID", default="")
+PMJAY_CLIENT_SECRET = env("PMJAY_CLIENT_SECRET", default="")
 
 # Reads an uploaded WASA certificate to propose the audit fields.
 
@@ -503,6 +512,10 @@ CELERY_BEAT_SCHEDULE = {
     "sandbox-outcome-expiry": {
         "task": "ohc_experience.experiences.tasks.remind_expiring_outcomes",
         "schedule": 3600.0,
+    },
+    "landing-abdm-figures": {
+        "task": "ohc_experience.pages.tasks.refresh_abdm_dashboard_figures",
+        "schedule": crontab(hour=6, minute=0),
     },
 }
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#worker-send-task-events

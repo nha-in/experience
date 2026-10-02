@@ -6,11 +6,19 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import pytest
+from django.core.cache import cache
 from django.urls import reverse
 
+from ohc_experience.experiences.models import ApplicationInstance
+from ohc_experience.experiences.models import Milestone
+from ohc_experience.experiences.models import Product
 from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.tests.factories import MembershipFactory
+from ohc_experience.organisations.tests.factories import OrganisationFactory
+from ohc_experience.pages.abdm_dashboard import CACHE_KEY
+from ohc_experience.pages.views import indian_grouping
 from ohc_experience.pages.views import resolve_post_login_destination
+from ohc_experience.pages.views import successful_integrator_count
 from ohc_experience.users.tests.factories import UserFactory
 
 if TYPE_CHECKING:
@@ -93,6 +101,121 @@ class TestLandingView:
 
         assert response.status_code == HTTPStatus.OK
         assert response.redirect_chain == []
+
+
+def milestone_for(organisation, key="m1", *, status="approved", enabled=True):
+    owner = UserFactory.create()
+    product, _ = Product.objects.get_or_create(
+        organisation=organisation,
+        slug="product",
+        defaults={
+            "name": "Product",
+            "description": "A product",
+            "experience_type": "abdm",
+            "created_by": owner,
+        },
+    )
+    application = ApplicationInstance.objects.create(
+        reference=f"{organisation.slug}-{key}",
+        application_type="abdm_sandbox_exit",
+        title=key.upper(),
+        product=product,
+        created_by=owner,
+        status=status,
+    )
+    return Milestone.objects.create(
+        product=product,
+        key=key,
+        application=application,
+        enabled=enabled,
+    )
+
+
+class TestLandingFigures:
+    @pytest.fixture(autouse=True)
+    def empty_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    def test_shows_the_cached_abdm_figures_grouped_as_in_india(self, client):
+        cache.set(
+            CACHE_KEY,
+            {
+                "records_linked": 1224714978,
+                "professionals_registered": 1220798,
+                "facilities_registered": 585761,
+            },
+        )
+
+        response = client.get(reverse("home"))
+        html = response.content.decode()
+
+        assert response.context["abdm_figures"] == {
+            "records_linked": "1,22,47,14,978",
+            "professionals_registered": "12,20,798",
+            "facilities_registered": "5,85,761",
+        }
+        assert '<span class="sr-only">1,22,47,14,978</span>' in html
+        assert "ABHA Linked Health Record Created" in html
+
+    def test_leaves_the_abdm_figures_out_until_they_are_fetched(self, client):
+        # The test settings carry no credentials, so the first fetch fails.
+        response = client.get(reverse("home"))
+        html = response.content.decode()
+
+        assert response.context["abdm_figures"] == {}
+        assert "ABHA Linked Health Record Created" not in html
+        assert "Successful Integrators" in html
+
+    def test_counts_successful_integrators_from_the_database(self, client):
+        milestone_for(OrganisationFactory.create(), "m1")
+
+        response = client.get(reverse("home"))
+
+        assert response.context["successful_integrators"] == "1"
+        assert '<span class="sr-only">1</span>' in response.content.decode()
+
+
+class TestSuccessfulIntegratorCount:
+    def test_counts_each_organisation_with_an_approved_milestone_once(self):
+        twice = OrganisationFactory.create()
+        milestone_for(twice, "m1")
+        milestone_for(twice, "m2")
+        milestone_for(OrganisationFactory.create(), "uhi1")
+
+        assert successful_integrator_count() == 2  # noqa: PLR2004
+
+    @pytest.mark.parametrize(
+        ("status", "enabled"),
+        [
+            ("draft", True),
+            ("under_review", True),
+            ("query_raised", True),
+            ("approved", False),
+        ],
+    )
+    def test_leaves_out_an_organisation_without_one(self, status, enabled):
+        organisation = OrganisationFactory.create()
+        milestone_for(organisation, "m1", status=status, enabled=enabled)
+        OrganisationFactory.create()
+
+        assert successful_integrator_count() == 0
+
+
+@pytest.mark.parametrize(
+    ("number", "grouped"),
+    [
+        (0, "0"),
+        (604, "604"),
+        (1234, "1,234"),
+        (123456, "1,23,456"),
+        (1220798, "12,20,798"),
+        (1224714978, "1,22,47,14,978"),
+    ],
+)
+def test_indian_grouping(number, grouped):
+    assert indian_grouping(number) == grouped
 
 
 class TestDashboardView:

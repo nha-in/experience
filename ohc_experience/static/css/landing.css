@@ -241,9 +241,6 @@
   height: 1px;
   background: #0009;
 }
-.sbx-digit--flipping {
-  animation: sbx-digit-flap 400ms ease-in-out;
-}
 .sbx-digit--rolling {
   animation: sbx-digit-flap 180ms linear infinite;
 }

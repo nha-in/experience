@@ -60,6 +60,18 @@ Missing Turnstile configuration blocks production signup. Organisation address v
 
 Source: `config/settings/base.py`, `ohc_experience/users/captcha.py`, `ohc_experience/organisations/lgd.py`.
 
+For the **landing page's ABDM figures**, configure:
+
+| Variable | Requirement / default |
+| --- | --- |
+| `PMJAY_CLIENT_ID` | **Required for the ABDM figures.** Client ID for the ABDM dashboard's KPI service. Default: empty. |
+| `PMJAY_CLIENT_SECRET` | **Required for the ABDM figures.** Client secret for the same service. Default: empty. |
+| `ABDM_DASHBOARD_KPI_URL` | Default: `https://dashboard.abdm.gov.in/abdmservice/api/dashboard/ABDM/KPI`. Must be `https`. |
+
+Celery beat fetches health records linked, healthcare professionals and facilities from the KPI service every day at 06:00 IST, retrying a failure after 5 minutes, 30 minutes and 2 hours, and keeps them in the Redis cache without expiry. The landing page reads only the cache, so a failed fetch leaves the last good figures in place. Before the first successful fetch, as on a new deployment or after Redis loses its data, one landing-page visit fetches them, at most once every ten minutes; until then those three figures are left out. Successful Integrators is counted from the database on each visit: organisations with at least one approved milestone.
+
+Source: `config/settings/base.py`, `ohc_experience/pages/abdm_dashboard.py`, `ohc_experience/pages/tasks.py`, `ohc_experience/pages/views.py`.
+
 For the **documentation site**, which the portal links to and the Agent Skills are installed from, configure:
 
 | Variable | Requirement / default |

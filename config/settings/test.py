@@ -54,6 +54,9 @@ INTEGRATION_PORTS = {
 WSO2_API_IDS = {"abdm": ("api-healthid", "api-gateway")}
 # Pinned off for the same reason: a test must never reach a model provider.
 WASA_EXTRACTION_MODEL = ""
+# Pinned blank for the same reason: a test must never reach the ABDM dashboard.
+PMJAY_CLIENT_ID = ""
+PMJAY_CLIENT_SECRET = ""
 # Pinned, not inherited: a developer's own .env must not decide whether the
 # reader's tests exercise the switch or its cache.
 WASA_EXTRACTION_ENABLED = True
