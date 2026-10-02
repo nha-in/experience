@@ -10,11 +10,11 @@
   Context: form (InvitationForm),
            oob — True when this rides on a response as an out-of-band swap.
 
-  No hx-indicator here on purpose, unlike the row actions: leaving it off makes
-  the form itself the indicator, which is what lets the spinner inside the
-  button light up (.htmx-request .htmx-indicator). Naming #nav-progress instead
-  would move the htmx-request class off the form and the spinner could never
-  show. This is the same arrangement organisation_form.html uses.
+  hx-indicator="this", unlike the row actions: the form itself is the
+  indicator, which is what lets the spinner inside the button light up
+  (.htmx-request .htmx-indicator). The #nav-progress it would otherwise inherit
+  from the shell takes the htmx-request class off the form, and the spinner
+  could never show. profile_form.html does the same.
 
   No-JS contract: method, action and the CSRF token are real, so without htmx
   this POSTs the team page and the view redirects back as it always did.
@@ -28,6 +28,7 @@
       hx-post="{% url 'organisations:team' %}"
       hx-target="#invitation-rows"
       hx-swap="afterbegin"
+      hx-indicator="this"
       hx-disabled-elt="find button[type=submit]">
   {% csrf_token %}
   {% include "components/form_errors.html" %}

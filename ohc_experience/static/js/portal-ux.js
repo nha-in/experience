@@ -6,6 +6,7 @@
   const idleStatuses = new WeakMap();
   const requests = new WeakMap();
   const pendingForms = new Map();
+  const loads = new WeakMap();
   let leaving = false;
 
   const formValues = form => JSON.stringify([...new FormData(form)].filter(([name]) => name !== 'csrfmiddlewaretoken').map(([name, value]) => [
@@ -133,6 +134,22 @@
   function clearError() {
     const region = document.getElementById('request-feedback');
     if (region) region.hidden = true;
+  }
+
+  // The part of the page a load will replace is marked busy; project.css fades
+  // it once the wait is long enough to notice.
+  function markLoading(target) {
+    if (!target) return () => {};
+    loads.set(target, (loads.get(target) || 0) + 1);
+    target.setAttribute('data-request-loading', '');
+    target.setAttribute('aria-busy', 'true');
+    return () => {
+      const count = (loads.get(target) || 1) - 1;
+      loads.set(target, count);
+      if (count) return;
+      target.removeAttribute('data-request-loading');
+      target.removeAttribute('aria-busy');
+    };
   }
 
   function markPending(element) {
@@ -475,7 +492,12 @@
       }
     }
     clearError();
-    requests.set(xhr, markPending(form || target));
+    const restore = markPending(form || target);
+    const settle = requestConfig.verb === 'get' ? markLoading(target) : () => {};
+    requests.set(xhr, () => {
+      restore();
+      settle();
+    });
   });
 
   document.addEventListener('htmx:afterRequest', event => {

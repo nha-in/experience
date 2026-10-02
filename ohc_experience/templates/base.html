@@ -115,9 +115,9 @@
 
     #nav-progress is the shared page-level indicator: any element can point
     hx-indicator at it and get the thin bar across the top of the viewport for
-    the life of its request. The signed-in shell's navigation (see
-    components/app_nav.html) uses it for boosted navigation. It is inert until
-    something references it, and invisible when scripts do not run.
+    the life of its request. The signed-in shell (layouts/app.html) points
+    every request inside it here. It is inert until something references it,
+    and invisible when scripts do not run.
   {% endcomment %}
   <body class="min-h-screen bg-soft-background text-foreground antialiased {% block bodyclass %}{% endblock bodyclass %}"
         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>

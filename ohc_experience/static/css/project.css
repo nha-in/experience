@@ -80,3 +80,14 @@ button[data-request-pending]:not(:has(.htmx-indicator))::after {
 @media (prefers-reduced-motion: reduce) {
   button[data-request-pending]:not(:has(.htmx-indicator))::after { animation: none; }
 }
+
+/* The part of the page a load will replace fades once the wait is long enough
+   to notice, so a quick load never flickers (static/js/portal-ux.js marks it). */
+[data-request-loading] {
+  opacity: 0.55;
+  transition: opacity 0.2s ease-out 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-request-loading] { transition-duration: 0s; }
+}

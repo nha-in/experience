@@ -30,13 +30,19 @@
   The toaster is fixed to the viewport all the same. --toaster-left on #portal
   centres its toasts on the content column rather than across the sidebar.
   Dismissing a toast is wired once for every shell in base.html.
+
+  #portal names #nav-progress as the indicator every request inside it
+  inherits, so anything that loads or saves in the shell runs the bar across
+  the top of the viewport. A form that lights a spinner in its own button names
+  itself instead (hx-indicator="this"), since htmx marks only the indicator.
 {% endcomment %}
 {% load i18n %}
 
 {% block body %}
   <div id="portal"
        class="flex min-h-screen flex-col md:flex-row md:[--toaster-left:calc(248px+1rem)]"
-       hx-history="false">
+       hx-history="false"
+       hx-indicator="#nav-progress">
     <input type="checkbox"
            id="app-drawer"
            class="peer sr-only md:hidden"

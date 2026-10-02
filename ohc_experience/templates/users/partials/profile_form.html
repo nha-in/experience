@@ -13,6 +13,9 @@
   The swap leaves the page where it was: the toast is in view wherever the
   reader has scrolled, and portal-ux.js brings an error summary into view.
 
+  hx-indicator="this" keeps the spinner in Save changes lit, as in
+  organisations/partials/invite_form.html.
+
   No-JS contract: method/action are real and {% csrf_token %} is present, so
   submitting without htmx POSTs the page and the view redirects as it always
   did. Every hx-* attribute here is enhancement on top of that.
@@ -28,6 +31,7 @@
       hx-post="{{ form_action }}"
       hx-target="this"
       hx-swap="outerHTML"
+      hx-indicator="this"
       hx-disabled-elt="find button[type=submit]">
   {% csrf_token %}
   <div class="ui-card-content flex flex-col gap-4">
