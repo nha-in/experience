@@ -1167,7 +1167,7 @@ def test_rejected_draft_retains_reason_and_decision_history(environment, client)
     assert response.context["median_days"] is not None
 
 
-def test_track_filter_respects_which_track_applied_for_shared_m1(environment, client):
+def test_track_filter_keeps_shared_m1_on_its_own_track(environment, client):
     item = submit(environment)
     workspace = environment["workspace"]
     workspace.applied_milestones = ["ABDM:m1"]
@@ -1178,7 +1178,80 @@ def test_track_filter_respects_which_track_applied_for_shared_m1(environment, cl
     assert not client.get(url, {"item": "UHI"}).context["page"]
     workspace.applied_milestones.append("UHI:uhi1")
     workspace.save()
-    assert item in client.get(url, {"item": "UHI"}).context["page"][0].matching_reviews
+    assert not client.get(url, {"item": "UHI"}).context["page"]
+
+
+def submit_claims(environment, key):
+    product = nhcx_workspace(environment).product
+    item, form, saved = services.save_review_form(
+        product.milestones.get(key=key).application.review_item,
+        environment["applicant"],
+        data=evidence_data(),
+        files=files(),
+        submit=True,
+    )
+    assert saved, form.errors
+    return item
+
+
+def nhcx_reviewer(client):
+    staff = UserFactory(is_nha_team=True, is_staff=True)
+    AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="review",
+        category="NHCX",
+        can_read=True,
+        can_write=True,
+        can_approve=True,
+    )
+    client.force_login(staff)
+    return staff
+
+
+def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client):
+    m1 = submit_claims(environment, "m1")
+    nhcx1 = submit_claims(environment, "nhcx1")
+    client.force_login(environment["reviewer"])
+
+    def listed(item):
+        return [
+            review
+            for entry in client.get(
+                reverse("experiences:queue"),
+                {"item": item, "scope": "all"},
+            ).context["page"]
+            for review in entry.matching_reviews
+        ]
+
+    assert listed("NHCX") == [nhcx1]
+    assert m1 in listed("ABDM")
+    assert nhcx1 not in listed("ABDM")
+    dashboard = client.get(reverse("experiences:assess-dashboard")).context
+    counts = {row["code"]: row["count"] for row in dashboard["by_track"]}
+    assert counts["NHCX"] == 0
+
+
+def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
+    environment,
+    client,
+):
+    m1 = submit_claims(environment, "m1")
+    nhcx1 = submit_claims(environment, "nhcx1")
+    staff = nhcx_reviewer(client)
+
+    queue = client.get(reverse("experiences:queue"), {"scope": "all"})
+    rows = [review for entry in queue.context["page"] for review in entry.reviews]
+    assert m1 not in rows
+    [row] = [review for review in rows if review == nhcx1]
+    assert [name for name, _status in row.waiting_on] == ["M1"]
+
+    assert client.get(m1.get_absolute_url()).status_code == 404
+    page = client.get(nhcx1.get_absolute_url())
+    assert page.status_code == 200
+    assert b"once M1 - ABHA Creation and Verification is approved" in page.content
+    with pytest.raises(ValidationError):
+        services.assign_review(m1, environment["admin"], staff)
 
 
 def test_the_queue_sorts_by_matching_submission_dates(environment, client):

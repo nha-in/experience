@@ -120,9 +120,10 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
         HTTPStatus.NOT_FOUND
     )
 
+    # M1 belongs to ABDM, so a UHI reviewer lands on the track, not on M1.
     client.force_login(staff("UHI"))
     response = client.get(track_url(environment, "UHI"), {"milestone": "m1"})
-    assert response.url == m1.get_absolute_url()
+    assert response.url == f"{product_url(environment)}#track-uhi"
     client.force_login(staff("PHR"))
     response = client.get(
         track_url(environment, "PHR", phr_workspace(environment)),

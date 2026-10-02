@@ -66,28 +66,31 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
     assert "waiting" not in response.context["stage_counts"]
 
 
-def test_queue_chips_show_only_the_requests_in_the_current_tab(environment, client):
+def test_queue_chips_put_open_requests_first_and_approved_ones_below(
+    environment,
+    client,
+):
     submit(environment, "m1")
     submit(environment, "m2")
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
 
-    response = client.get(url, {"scope": "all"})
-    entry = response.context["page"][0]
-    assert [item.queue_state for item in entry.matching_reviews] == [
-        "approved",
-        "new",
-        "blocked",
-    ]
-    compact = " ".join(response.content.decode().split())
-    assert "1 of 3 approved · M2 waiting on M1" in compact
+    def rows(response):
+        html = response.content.decode()
+        open_row = html[html.index("data-queue-open") : html.index("data-queue-done")]
+        done_row = html[html.index("data-queue-done") :].split("</ul>", 1)[0]
+        return " ".join(open_row.split()), " ".join(done_row.split())
 
-    response = client.get(url)
-    entry = response.context["page"][0]
-    assert [item.queue_state for item in entry.matching_reviews] == ["new", "blocked"]
-    compact = " ".join(response.content.decode().split())
-    assert "ui-queue-chip--approved font-mono" not in compact
-    assert "1 of 3 approved · M2 waiting on M1" in compact
+    for scope in ("all", "ready"):
+        response = client.get(url, {"scope": scope})
+        entry = response.context["page"][0]
+        assert [item.queue_state for item in entry.open_reviews] == ["new", "blocked"]
+        assert [item.queue_state for item in entry.approved] == ["approved"]
+        open_row, done_row = rows(response)
+        assert "M2 waiting on M1" in open_row
+        assert "ui-queue-chip--approved" not in open_row
+        assert "ui-queue-chip--approved" in done_row
+        assert "of 3 approved" not in done_row
 
 
 def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
@@ -125,7 +128,8 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     compact = " ".join(response.content.decode().split())
     assert 'title="REL Release · Under review · waiting on INS"' in compact
     assert 'title="INS Inspection' not in compact
-    assert "0 of 2 approved · REL waiting on INS" in compact
+    assert "REL waiting on INS" in compact
+    assert "data-queue-done" not in compact
 
 
 def test_organisation_verification_merges_into_its_product_entry(

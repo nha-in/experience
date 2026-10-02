@@ -117,16 +117,15 @@ def review_scope(program, category):
     track = program.track_map().get(category)
     if track is None:
         return Q(pk__in=[])
-    return product_program & track_items(program, track)
+    return product_program & track_items(track)
 
 
-def track_items(program, track):
-    """A track's chosen milestones, and the related ones they build on or beside."""
-    prerequisites = track.related_milestones(program.milestones)
+def track_items(track):
+    """A track's own chosen milestones; prerequisites belong to their own track."""
     query = Q(pk__in=[])
     for key in track.keys:
         query |= Q(
-            application__milestone__key__in=[*prerequisites, key],
+            application__milestone__key=key,
             product__workspace__applied_milestones__contains=[f"{track.code}:{key}"],
         )
     return query

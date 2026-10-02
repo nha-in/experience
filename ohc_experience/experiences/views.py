@@ -1943,7 +1943,7 @@ def _review_requests(user):
 
 def _track_filter(code):
     program = get_program()
-    return permissions.track_items(program, program.track_map()[code])
+    return permissions.track_items(program.track_map()[code])
 
 
 def _requests(program):

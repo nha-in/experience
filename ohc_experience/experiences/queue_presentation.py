@@ -113,6 +113,15 @@ class QueueEntry:
         return any(review.pending for review in self.matching_reviews)
 
     @property
+    def open_reviews(self):
+        """The tab's requests still to decide; approved ones get a row of their own."""
+        return [
+            review
+            for review in self.matching_reviews
+            if review.status != ReviewItem.Status.APPROVED
+        ]
+
+    @property
     def approved(self):
         return [
             review
