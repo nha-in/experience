@@ -5,8 +5,9 @@
 
   It shows at once when that `ui-tooltip-host` element is hovered, and when it,
   or the link or button around it, has keyboard focus. `side` is where it
-  opens: "top" (the default), above with right edges aligned, or "left". It is
-  aria-hidden, so the host has to say the same to screen readers.
+  opens: "top" (the default), above with right edges aligned, "top-start",
+  above with left edges aligned, or "left". It is aria-hidden, so the host has
+  to say the same to screen readers.
 {% endcomment %}
 <span class="ui-tooltip ui-tooltip--{{ side|default:'top' }}"
       aria-hidden="true">{{ text }}</span>

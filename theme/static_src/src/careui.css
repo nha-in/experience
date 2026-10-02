@@ -404,6 +404,11 @@
     @apply right-0 bottom-full mb-1.5;
   }
 
+  /* Above, left edges aligned: for a host near the start of a row. */
+  .ui-tooltip--top-start {
+    @apply bottom-full left-0 mb-1.5;
+  }
+
   .ui-tooltip--left {
     @apply top-1/2 right-full mr-2 -translate-y-1/2;
   }

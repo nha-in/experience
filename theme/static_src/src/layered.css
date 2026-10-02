@@ -164,8 +164,24 @@
     @apply bg-primary-500;
   }
 
-  .ui-meter-fill--warning {
-    @apply bg-orange-500;
+  /* A legend key: the colour and stripes of the marks it names. */
+  .ui-key {
+    @apply inline-block size-2.5 shrink-0 rounded-[2px] bg-primary;
+  }
+
+  /* One segment of a column in a column chart; the top one is rounded. */
+  .ui-bar {
+    @apply block bg-primary first:rounded-t-[3px];
+  }
+
+  /* With the applicant: a query raised, a rejection. Orange clears 3:1 on the
+     card and the track, and the darker stripes tell it from the blues without
+     colour. */
+  .ui-meter-fill--warning,
+  .ui-key--warning,
+  .ui-bar--warning {
+    @apply bg-orange-600;
+    background-image: repeating-linear-gradient(-45deg, var(--color-orange-700) 0 1.5px, transparent 1.5px 4px);
   }
 
   .ui-meter-fill--danger {
@@ -177,11 +193,14 @@
     @apply bg-primary-500;
   }
 
-  /* Forced colours repaint every background, which would empty the meters.
-     Their fills take the text colour instead, inside an outlined track. */
+  /* Forced colours repaint every background, which would empty the meters and
+     the charts. Their marks take the text colour instead, inside an outlined
+     track, and the stripes still set the warning ones apart. */
   @media (forced-colors: active) {
     .ui-meter,
-    .ui-meter-fill {
+    .ui-meter-fill,
+    .ui-key,
+    .ui-bar {
       forced-color-adjust: none;
     }
 
@@ -194,8 +213,18 @@
       box-shadow: none;
     }
 
-    .ui-meter-fill {
+    .ui-meter-fill,
+    .ui-key,
+    .ui-bar {
       background-color: CanvasText;
+    }
+
+    .ui-meter-fill--warning,
+    .ui-key--warning,
+    .ui-bar--warning {
+      background-color: Canvas;
+      background-image: repeating-linear-gradient(-45deg, CanvasText 0 1.5px, transparent 1.5px 4px);
+      box-shadow: inset 0 0 0 1px CanvasText;
     }
   }
 
