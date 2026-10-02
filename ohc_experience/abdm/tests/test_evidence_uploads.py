@@ -14,7 +14,12 @@ from ohc_experience.experiences import uploads
 
 pytestmark = pytest.mark.django_db
 
-PDF_FIELDS = ("wasa_certificate", "functional_certificate", "undertaking_form")
+PDF_FIELDS = (
+    "wasa_certificate",
+    "functional_certificate",
+    "undertaking_form",
+    "supporting_evidence",
+)
 
 
 def xls(name="report.xls"):
@@ -126,7 +131,7 @@ def test_uploads_at_large_keep_the_ten_megabyte_limit():
             ".xls,.xlsx",
             "Excel workbook (.xls or .xlsx), up to 3 files, 5 MB each.",
         ),
-        ("supporting_evidence", ".pdf", "PDF, up to 8 files, 10 MB each."),
+        ("supporting_evidence", ".pdf", "PDF, up to 8 files, 5 MB each."),
         ("undertaking_form", ".pdf", "PDF, up to 5 MB."),
     ],
 )

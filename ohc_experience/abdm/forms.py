@@ -743,10 +743,10 @@ class ExitEvidenceForm(WasaReviewForm):
     supporting_evidence = MultipleFileField(
         label="Additional evidence",
         required=False,
-        help_text="PDF, up to 8 files, 10 MB each.",
+        help_text="PDF, up to 8 files, 5 MB each.",
         max_files=8,
         accept=".pdf",
-        validators=[validate_pdf],
+        validators=[validate_evidence_pdf],
     )
     undertaking_form = forms.FileField(
         label="Undertaking form",
