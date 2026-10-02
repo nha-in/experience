@@ -681,6 +681,7 @@ class ExitEvidenceForm(WasaReviewForm):
     }
     sections = (
         ("Milestone dates", ("start_date", "end_date", "tentative_demo_date")),
+        ("Functional testing", ("functional_certificate", "functional_report")),
         (
             "WASA audit",
             (
@@ -692,9 +693,12 @@ class ExitEvidenceForm(WasaReviewForm):
                 "wasa_valid_until",
             ),
         ),
-        ("Functional testing", ("functional_certificate", "functional_report")),
         ("Undertaking", ("undertaking_form", "supporting_evidence")),
     )
+    # The reviewer's copy of a submission and the error summary list fields in this
+    # order, so it follows the sections instead of leading with the inherited WASA
+    # fields.
+    field_order = [key for _title, keys in sections for key in keys]
     start_date = forms.DateField(
         label="Start date",
         widget=forms.DateInput(attrs={"type": "date"}),

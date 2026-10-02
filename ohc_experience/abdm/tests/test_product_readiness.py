@@ -25,23 +25,24 @@ def test_readiness_uses_required_schema_fields_and_saved_attachments():
     assert readiness["total"] == 4  # noqa: PLR2004
     assert readiness["completed"] == 1
     assert readiness["missing"] == 3  # noqa: PLR2004
+    # NHA reads functional testing before the WASA audit.
     assert [row["label"] for row in readiness["rows"]] == [
         "Milestone dates",
-        "WASA audit",
         "Functional testing",
+        "WASA audit",
         "Undertaking",
     ]
     assert readiness["rows"][1]["field_ids"] == [
+        "id_functional_certificate",
+        "id_functional_report",
+    ]
+    assert readiness["rows"][1]["done"] is True
+    assert readiness["rows"][2]["field_ids"] == [
         "id_wasa_certificate",
         "id_wasa_agency",
         "id_wasa_date",
         "id_wasa_valid_until",
     ]
-    assert readiness["rows"][2]["field_ids"] == [
-        "id_functional_certificate",
-        "id_functional_report",
-    ]
-    assert readiness["rows"][2]["done"] is True
     assert readiness["rows"][3]["field_ids"] == ["id_undertaking_form"]
     assert readiness["rows"][3]["done"] is False
 

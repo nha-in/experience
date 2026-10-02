@@ -232,6 +232,47 @@ def test_reusing_the_approved_certificate_says_what_it_does(environment, client)
     )
 
 
+def test_functional_testing_comes_before_the_wasa_audit(environment, client):  # noqa: F811
+    """On the form, and in the reviewer's copy of what was sent."""
+    client.force_login(environment["applicant"])
+
+    html = page(client, environment)
+
+    assert re.findall(
+        r'<legend class="ui-field-legend[^"]*">([^<]+)</legend>',
+        html,
+    ) == [
+        "Milestone dates",
+        "Functional testing",
+        "WASA audit",
+        "Undertaking",
+    ]
+    item = submit(environment)
+    assert [field["key"] for field in item.selected_submission.field_schema] == [
+        "start_date",
+        "end_date",
+        "tentative_demo_date",
+        "functional_certificate",
+        "functional_report",
+        "use_product_wasa",
+        "wasa_certificate",
+        "wasa_agency",
+        "wasa_date",
+        "wasa_valid_until",
+        "undertaking_form",
+        "supporting_evidence",
+    ]
+    client.force_login(environment["reviewer"])
+    review = client.get(item.get_absolute_url()).content.decode()
+    labels = re.findall(
+        r'<dt class="ui-kicker pt-1 tracking-\[0.04em\]">([^<]+)</dt>',
+        review,
+    )
+    assert labels.index("Functional testing certificate") < labels.index(
+        "WASA certificate",
+    )
+
+
 def test_the_dashboard_says_what_each_chart_counts(environment, client):  # noqa: F811
     client.force_login(environment["reviewer"])
 
