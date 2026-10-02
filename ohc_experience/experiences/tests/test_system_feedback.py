@@ -107,6 +107,16 @@ def test_a_missing_page_marks_its_words_for_the_notice(client):
     assert found["data-error-message"]["text"].startswith("The link may be out of date")
 
 
+def test_a_server_error_page_offers_to_load_the_page_again():
+    html = render_to_string("500.html")
+    found = marked(html, "data-error-heading", "data-error-message")
+    actions = re.findall(r'<a class="ui-btn[^"]*"\s+href="([^"]*)">([^<]+)</a>', html)
+
+    assert found["data-error-heading"]["text"] == "Something went wrong on our side"
+    # An empty href is the page's own address.
+    assert actions[0] == ("", "Try again")
+
+
 def test_every_request_in_the_shell_runs_the_loading_bar(client):
     client.force_login(administrator())
     response = client.get(reverse("experiences:assess-dashboard"))

@@ -12,3 +12,12 @@
 {% block message %}
   {% translate "The error has been logged and the NHA team will look at it. Try again in a moment." %}
 {% endblock message %}
+{% block actions %}
+  {% comment %}
+    An empty href is this page's own address, so Try again loads it afresh.
+    Django renders this page without the request, which leaves no path to name.
+  {% endcomment %}
+  <a class="ui-btn ui-btn--default ui-btn--size-default" href="">{% translate "Try again" %}</a>
+  <a class="ui-btn ui-btn--outline ui-btn--size-default"
+     href="{% url 'home' %}">{% translate "Go home" %}</a>
+{% endblock actions %}
