@@ -543,7 +543,9 @@
   .ui-nav-link {
     @apply flex min-h-10 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors;
     @apply hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
-    @apply focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none;
+    /* Solid, and drawn inside the link: the sidebar scrolls, so it clips anything
+       drawn outside, and an outline still shows in forced colours. */
+    @apply focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-ring;
   }
 
   .ui-nav-link--active {

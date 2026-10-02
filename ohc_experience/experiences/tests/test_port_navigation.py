@@ -185,3 +185,17 @@ def test_the_support_count_says_what_it_counts(environment):  # noqa: F811
     client.force_login(environment["applicant"])
     nav = app_nav(client, environment["product"].get_absolute_url())
     assert 'title="1 open ticket">1<span class="sr-only"> open ticket</span>' in nav
+
+
+def test_documentation_says_it_opens_in_a_new_tab(environment):  # noqa: F811
+    client = Client()
+    client.force_login(environment["applicant"])
+
+    nav = app_nav(client, environment["product"].get_absolute_url())
+
+    docs = nav[nav.index('<a id="nav-docs"') :].split("</a>", 1)[0]
+    assert 'target="_blank"' in docs
+    assert docs.endswith(
+        'Documentation <span aria-hidden="true">↗&#xFE0E;</span>'
+        '<span class="sr-only"> (opens in a new tab)</span>',
+    )
