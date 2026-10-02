@@ -14,8 +14,17 @@
     {% include "components/file_upload_field.html" %}
   {% elif field|is_checkbox %}
     {{ field }}
-    <label class="text-sm leading-snug text-muted-foreground select-none"
-           for="{{ field.id_for_label }}">{{ label }}{% if mark_required and is_required %} <span class="ui-required" aria-hidden="true">*</span>{% endif %}</label>
+    {# The hint and errors run under the label, not in a column beside it. #}
+    <div class="min-w-0">
+      <label class="text-sm leading-snug text-muted-foreground select-none"
+             for="{{ field.id_for_label }}">{{ label }}{% if mark_required and is_required %} <span class="ui-required" aria-hidden="true">*</span>{% endif %}</label>
+      {% if help_text %}<span class="ui-hint" id="{{ field.auto_id }}_helptext">{{ help_text }}</span>{% endif %}
+      {% if field.errors and inline_errors %}
+        <div id="{{ field.auto_id }}_errors">
+          {% for error in field.errors %}<span class="ui-error">{{ error }}</span>{% endfor %}
+        </div>
+      {% endif %}
+    </div>
   {% elif field|is_checkbox_group %}
     {% include "components/checkbox_group.html" %}
   {% else %}
@@ -76,7 +85,7 @@
       {{ field }}
     {% endif %}
   {% endif %}
-  {% if not is_file %}
+  {% if not is_file and not field|is_checkbox %}
     {% if help_text %}<span class="ui-hint" id="{{ field.auto_id }}_helptext">{{ help_text }}</span>{% endif %}
     {% if field.errors and inline_errors %}
       <div id="{{ field.auto_id }}_errors">

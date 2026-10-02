@@ -709,7 +709,12 @@ class ExitEvidenceForm(WasaReviewForm):
     use_product_wasa = forms.BooleanField(
         label="Reuse Previously Approved Certificate",
         required=False,
-        help_text="Uncheck to upload a new certificate for review.",
+        help_text=(
+            "Uses the WASA certificate already approved for this product instead "
+            "of uploading it again. An approved certificate stays available to "
+            "every milestone of the product until it expires. Untick to upload a "
+            "new certificate, which NHA reviews with this milestone."
+        ),
     )
     wasa_source_submission = forms.IntegerField(
         label="Approved WASA submission",

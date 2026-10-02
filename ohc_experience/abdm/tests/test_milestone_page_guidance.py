@@ -204,6 +204,34 @@ def test_a_track_with_every_milestone_approved_recommends_nothing_else(
     assert "Continue with M3" in overview
 
 
+def test_reusing_the_approved_certificate_says_what_it_does(environment, client):  # noqa: F811
+    approve(environment)
+    client.force_login(environment["applicant"])
+
+    html = page(client, environment, "m2")
+
+    checkbox = re.search(r'<input type="checkbox" name="use_product_wasa"[^>]*>', html)
+    assert 'aria-describedby="id_use_product_wasa_helptext"' in checkbox.group(0)
+    # The explanation runs under the label it explains.
+    assert re.search(
+        r'<div class="min-w-0">\s*<label [^>]*for="id_use_product_wasa">'
+        r"Reuse Previously Approved Certificate</label>\s*"
+        r'<span class="ui-hint" id="id_use_product_wasa_helptext">',
+        html,
+    )
+    hint = re.search(
+        r'<span class="ui-hint" id="id_use_product_wasa_helptext">(.*?)</span>',
+        html,
+        re.S,
+    )
+    assert text(hint.group(1)) == (
+        "Uses the WASA certificate already approved for this product instead of "
+        "uploading it again. An approved certificate stays available to every "
+        "milestone of the product until it expires. Untick to upload a new "
+        "certificate, which NHA reviews with this milestone."
+    )
+
+
 def test_the_dashboard_says_what_each_chart_counts(environment, client):  # noqa: F811
     client.force_login(environment["reviewer"])
 

@@ -178,6 +178,25 @@ def test_a_required_checkbox_is_marked_beside_its_own_label():
     assert 'class="ui-required"' in html
 
 
+def test_a_checkbox_s_hint_and_error_run_under_its_label():
+    """Beside the box, in the label's column, rather than a column of their own."""
+
+    class ReuseForm(forms.Form):
+        reuse = forms.BooleanField(help_text="What ticking it does.")
+
+    html = render_field(ReuseForm({})["reuse"])
+    column = " ".join(html.split('<div class="min-w-0">', 1)[1].split())
+
+    assert column.startswith('<label class="text-sm')
+    assert 'aria-describedby="id_reuse_helptext' in html
+    assert (
+        '<span class="ui-hint" id="id_reuse_helptext">What ticking it does.</span>'
+        in column
+    )
+    assert '<span class="ui-error">This field is required.</span>' in column
+    assert html.count("ui-hint") == 1
+
+
 def test_a_draft_promises_what_submitting_will_demand():
     form = DraftEvidenceForm()
     assert 'class="ui-required"' in render_field(form["name"])
