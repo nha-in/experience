@@ -12,7 +12,9 @@
     </div>
   {% endif %}
   {% if entry.approved %}
-    <ul class="flex flex-wrap gap-1" aria-label="Approved requests" data-queue-done>
+    <ul class="flex flex-wrap gap-1"
+        aria-label="Approved requests"
+        data-queue-done>
       {% for item in entry.approved %}
         {% include 'experiences/partials/reviewer_queue_chip.html' %}
       {% endfor %}
