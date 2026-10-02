@@ -128,7 +128,7 @@
                  aria-labelledby="reviewer-load-title">
           <div class="ui-card-header">
             <h2 class="ui-card-title" id="reviewer-load-title">Ready for review, by assignee</h2>
-            <p class="ui-card-description">Requests not assigned to a reviewer are shown as Unassigned.</p>
+            <p class="ui-card-description">Requests nobody has taken show as Unassigned.</p>
           </div><div class="ui-card-content"><dl class="flex flex-col text-sm">{% for row in by_assignee %}<div class="flex items-center gap-3 border-t border-soft-border py-2.5 first:border-t-0 first:pt-0 last:pb-0"><dt class="min-w-0 flex-1 break-words {% if not row.assignee__email %}text-soft-foreground{% endif %}">{{ row.assignee__name|default:row.assignee__email|default:'Unassigned' }}</dt><dd class="font-bold tabular-nums">{{ row.count }}</dd></div>{% empty %}<div><dt class="text-muted-foreground">No pending reviews.</dt><dd class="sr-only">0</dd></div>{% endfor %}</dl></div></section>
         </div>
       </div>
