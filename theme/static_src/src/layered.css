@@ -177,6 +177,28 @@
     @apply bg-primary-500;
   }
 
+  /* Forced colours repaint every background, which would empty the meters.
+     Their fills take the text colour instead, inside an outlined track. */
+  @media (forced-colors: active) {
+    .ui-meter,
+    .ui-meter-fill {
+      forced-color-adjust: none;
+    }
+
+    .ui-meter {
+      background-color: Canvas;
+      box-shadow: inset 0 0 0 1px GrayText;
+    }
+
+    .ui-meter--split {
+      box-shadow: none;
+    }
+
+    .ui-meter-fill {
+      background-color: CanvasText;
+    }
+  }
+
   /* ── Feed rows: activity, history ───────────────────────────────────── */
 
   .ui-feed {
