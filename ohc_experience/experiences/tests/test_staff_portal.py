@@ -482,12 +482,23 @@ def test_portal_only_event_staff_can_create_edit_and_publish_separately(staff, c
     )
 
 
-#: What a duplicate carries over: everything the form asks but the dates.
-COPIED = ("title", "kind", "category", "summary", "description", "location", "join_url")
+#: What a duplicate carries over: everything the form asks, dates and times too.
+COPIED = (
+    "title",
+    "kind",
+    "category",
+    "summary",
+    "description",
+    "starts_at",
+    "ends_at",
+    "location",
+    "join_url",
+)
 
 
-def test_an_event_is_duplicated_into_a_new_event_without_its_dates(staff, client):
-    """Nothing is saved until the new event is, and it starts unpublished."""
+def test_an_event_is_duplicated_into_a_new_unsaved_event(staff, client):
+    """Every answer is filled in. Nothing is saved until the new event is, and
+    it starts unpublished, with its own slug and author."""
     AccessGrant.objects.create(
         user=staff,
         program="abdm",
@@ -496,7 +507,7 @@ def test_an_event_is_duplicated_into_a_new_event_without_its_dates(staff, client
         can_write=True,
     )
     author = UserFactory(is_nha_team=True)
-    starts_at = timezone.now() + timedelta(days=3)
+    starts_at = (timezone.now() + timedelta(days=3)).replace(second=0, microsecond=0)
     source = Event.objects.create(
         title="UHI hands-on workshop",
         kind="workshop",
@@ -520,21 +531,20 @@ def test_an_event_is_duplicated_into_a_new_event_without_its_dates(staff, client
     page = client.get(duplicate)
 
     form = page.context["form"]
-    assert {name: form[name].value() for name in COPIED} == {
+    assert {name: form.initial[name] for name in COPIED} == {
         name: getattr(source, name) for name in COPIED
     }
-    assert form["starts_at"].value() is None
-    assert form["ends_at"].value() is None
-    assertContains(page, "Filled in from UHI hands-on workshop.")
+    # In IST and to the minute, as the edit form shows an event's dates.
+    for name in ("starts_at", "ends_at"):
+        local = timezone.localtime(getattr(source, name)).strftime("%Y-%m-%dT%H:%M")
+        assertContains(page, f'value="{local}"')
+    assertContains(
+        page,
+        "Filled in from UHI hands-on workshop, dates and times included.",
+    )
     assert Event.objects.count() == 1
 
-    response = client.post(
-        duplicate,
-        {
-            **{name: form[name].value() for name in COPIED},
-            "starts_at": "2027-02-02T10:00",
-        },
-    )
+    response = client.post(duplicate, {name: form[name].value() for name in COPIED})
 
     copy = Event.objects.exclude(pk=source.pk).get()
     assert response.url == reverse("experiences:event-detail", args=[copy.pk])
@@ -544,11 +554,9 @@ def test_an_event_is_duplicated_into_a_new_event_without_its_dates(staff, client
     assert copy.slug != source.slug
     assert copy.created_by == staff
     assert not copy.is_published
-    assert copy.ends_at is None
     source.refresh_from_db()
     assert source.is_published
     assert source.created_by == author
-    assert source.starts_at == starts_at
 
 
 def test_only_event_creators_are_offered_a_duplicate(staff, client):

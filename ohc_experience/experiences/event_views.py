@@ -93,16 +93,12 @@ def duplicate_source(request):
 
 
 def duplicate_initial(source):
-    """The form's answers taken from `source`, all but its dates and times.
+    """Every answer on the form, dates and times included, taken from `source`.
 
-    A duplicate needs dates of its own. Publication, the slug and the author are
-    not on the form, so a duplicate starts unpublished and gets its own.
+    Publication, the slug and the author are not on the form, so a duplicate
+    starts unpublished and gets its own.
     """
-    return {
-        name: getattr(source, name)
-        for name in EventForm.Meta.fields
-        if name not in {"starts_at", "ends_at"}
-    }
+    return {name: getattr(source, name) for name in EventForm.Meta.fields}
 
 
 def event_log(actor, event, action, *, flag=CHANGE):
