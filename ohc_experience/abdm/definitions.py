@@ -337,7 +337,6 @@ class ABDM(ProgramDefinition):
     brand_line_1 = "Developer"
     brand_line_2 = "Sandbox"
     header_name = "ABDM Sandbox"
-    review_heading = "NHA assessment"
     reviewer_name = "NHA reviewer"
     environment_name = "Sandbox environment"
     footer_note = "Synthetic data only"

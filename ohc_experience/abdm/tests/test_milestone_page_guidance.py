@@ -290,8 +290,7 @@ def test_the_dashboard_says_what_each_chart_counts(environment, client):  # noqa
 
 
 def test_the_dashboard_is_named_for_who_reads_it(environment, client):  # noqa: F811
-    """An administrator's dashboard is not a reviewer's, and neither page says
-    "NHA assessment" above its title."""
+    """An administrator's dashboard is not a reviewer's."""
     url = reverse("experiences:assess-dashboard")
 
     def names(user):
@@ -314,5 +313,24 @@ def test_the_dashboard_is_named_for_who_reads_it(environment, client):  # noqa: 
         "Reviewer dashboard",
         False,
     )
-    # The eyebrow goes from the dashboard alone.
-    assert "NHA assessment" in client.get(reverse("experiences:queue")).content.decode()
+
+
+def test_no_staff_page_says_nha_assessment_above_its_title(environment, client):  # noqa: F811
+    client.force_login(environment["admin"])
+
+    for name in (
+        "assess-dashboard",
+        "queue",
+        "organizations",
+        "products",
+        "production-list",
+        "pending-queries",
+    ):
+        html = client.get(reverse(f"experiences:{name}")).content.decode()
+        assert "NHA assessment" not in html, name
+        assert 'class="ui-hero-eyebrow"' not in html, name
+
+    # An integrator's pending queries still say what they are for.
+    client.force_login(environment["applicant"])
+    html = client.get(reverse("experiences:pending-queries")).content.decode()
+    assert '<p class="ui-hero-eyebrow">Action needed</p>' in html

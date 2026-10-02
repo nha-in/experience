@@ -640,7 +640,6 @@ class ProgramDefinition:
     brand_line_1 = "Experience"
     brand_line_2 = "Manager"
     header_name = "Experiences"
-    review_heading = "Assessment"
     reviewer_name = "Reviewer"
     environment_name = "Application environment"
     footer_note = ""
