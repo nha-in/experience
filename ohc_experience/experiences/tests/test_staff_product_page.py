@@ -9,6 +9,7 @@ from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.experiences import production
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.integrations.local import fail_next
@@ -182,6 +183,46 @@ def test_only_a_super_admin_is_offered_the_revoke_button(environment, client):
 
     assert response.context["can_revoke_credentials"]
     assert b"revoke_credentials" in response.content
+
+
+def connection_card(html):
+    start = html.index('id="connection"')
+    return html[start : html.index("</section>", start)]
+
+
+def test_the_connection_card_shows_each_value_whole_with_a_copy_button(
+    environment,
+    client,
+):
+    """Long values wrap instead of being cut off, and each one copies."""
+    approve(environment)
+    production.record(
+        environment["product"],
+        environment["admin"],
+        client_id="DEMO-PROD-MEDIBASE-HMIS-0001",
+        expected="",
+    )
+    credential = ProductCredential.objects.get(product=environment["product"])
+    client.force_login(environment["admin"])
+
+    card = connection_card(client.get(product_url(environment)).content.decode())
+
+    assert "truncate" not in card
+    for value, label in (
+        (credential.client_id, "client ID"),
+        (credential.callback_url, "callback URL"),
+        ("DEMO-PROD-MEDIBASE-HMIS-0001", "production client ID"),
+    ):
+        assert f'<span class="min-w-0 break-all font-mono">{value}</span>' in card
+        assert f'data-copy="{value}"' in card
+        assert f'aria-label="Copy {label}"' in card
+
+    ProductCredential.objects.filter(pk=credential.pk).update(callback_url="")
+    card = connection_card(client.get(product_url(environment)).content.decode())
+
+    assert "Not configured" in card
+    assert "Copy callback URL" not in card
+    assert "Copy client ID" in card
 
 
 def test_a_super_admin_revokes_the_credentials_from_the_product(

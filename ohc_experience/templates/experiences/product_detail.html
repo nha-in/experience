@@ -191,13 +191,18 @@
             <h2 class="mb-3 text-base font-bold" id="connection-title">Integration connection</h2>
             {% if credential %}
               <dl class="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2.5 text-sm">
+                {# A long value wraps rather than hiding its end; the copy button sits on its first line. #}
                 <dt class="text-soft-foreground">Client ID</dt>
-                <dd class="min-w-0 truncate font-mono">
-                  {{ credential.client_id }}
+                <dd class="flex min-w-0 items-start gap-0.5 [&>button]:-my-1.5">
+                  <span class="min-w-0 break-all font-mono">{{ credential.client_id }}</span>
+                  {% include 'components/copy_button.html' with value=credential.client_id label='client ID' %}
                 </dd>
                 <dt class="text-soft-foreground">Callback</dt>
-                <dd class="min-w-0 truncate font-mono">
-                  {{ credential.callback_url|default:'Not configured' }}
+                <dd class="flex min-w-0 items-start gap-0.5 [&>button]:-my-1.5">
+                  <span class="min-w-0 break-all font-mono">{{ credential.callback_url|default:'Not configured' }}</span>
+                  {% if credential.callback_url %}
+                    {% include 'components/copy_button.html' with value=credential.callback_url label='callback URL' %}
+                  {% endif %}
                 </dd>
                 <dt class="text-soft-foreground">Status</dt>
                 <dd class="min-w-0">
@@ -272,8 +277,9 @@
             {% if production.client_id %}
               <dl class="mt-2.5 grid grid-cols-[72px_1fr] gap-x-3 border-t border-soft-border pt-2.5 text-sm">
                 <dt class="text-soft-foreground">Production</dt>
-                <dd class="min-w-0 truncate font-mono">
-                  {{ production.client_id }}
+                <dd class="flex min-w-0 items-start gap-0.5 [&>button]:-my-1.5">
+                  <span class="min-w-0 break-all font-mono">{{ production.client_id }}</span>
+                  {% include 'components/copy_button.html' with value=production.client_id label='production client ID' %}
                 </dd>
               </dl>
             {% endif %}
