@@ -1,5 +1,7 @@
 {% extends 'experiences/base.html' %}
 
+{% load experience_ui %}
+
 {% block portal_hero %}
   <div class="ui-hero"><div class="ui-hero-inner"><div class="ui-rise min-w-0"><p class="ui-hero-eyebrow">{% if reviewer %}{{ experience_program.review_heading }}{% else %}Action needed{% endif %}</p><h1 class="ui-hero-title">Pending queries</h1>
     <p class="ui-hero-lede">{% if reviewer %}Follow up on questions, review incoming replies and keep requests moving.{% else %}Review and answer the questions waiting on your {{ current_organisation.noun }}.{% endif %}</p></div><div class="ui-rise flex items-baseline gap-2 [animation-delay:.05s]"><span class="ui-figure">{{ items.paginator.count }}</span><span class="ui-figure-unit">request{{ items.paginator.count|pluralize }} with queries</span></div></div></div>
@@ -7,19 +9,62 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0">
-    {% for item in items %}
-      <a class="group flex flex-wrap items-center justify-between gap-4 border-t border-soft-border px-6 py-5 transition-colors first:border-t-0 hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary" href="{{ item.portal_url }}{% if reviewer %}{% if item.unresolved_query_count %}#queries{% else %}#decision{% endif %}{% endif %}">
-        <div class="min-w-0">
-          <h2 class="text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ item.title }}</h2>
-          <p class="mt-1 text-xs text-soft-foreground">{{ item.get_kind_display }} · <span class="font-mono">{{ item.reference }}</span>{% if reviewer %} · {{ item.organisation.display_name }}{% endif %}</p></div><span class="ui-badge ui-badge--size-sm {% if item.awaiting_reply_count %}ui-badge--warning{% else %}ui-badge--info{% endif %}">{% if reviewer %}{% if item.awaiting_reply_count %}Awaiting reply{% elif item.unresolved_query_count %}Replies received{% else %}Ready for decision{% endif %}{% elif item.awaiting_reply_count %}Action required from applicant{% else %}With reviewer{% endif %} <span aria-hidden="true">→</span></span></a>
-    {% empty %}
+    {% if items %}
+      <div class="flex flex-wrap items-center justify-end gap-2 border-b border-soft-border px-6 py-3 md:border-b-0">
+        {% include "components/export_download.html" %}
+      </div>
+      <div class="hidden overflow-x-auto md:block">
+        <table class="ui-grid-table {% if reviewer %}min-w-[860px]{% else %}min-w-[640px]{% endif %}">
+          <caption class="sr-only">Requests with queries</caption>
+          <thead hx-boost="true"
+                 hx-target="#main-content"
+                 hx-select="#main-content"
+                 hx-swap="outerHTML"
+                 hx-push-url="true">
+            <tr>
+              {% sort_header "Request" "request" %}
+              {% sort_header "Type" "type" %}
+              {% if reviewer %}
+                {% sort_header "Organisation" "organisation" %}
+              {% endif %}
+              {% sort_header "Submitted" "submitted" %}
+              {% sort_header "Status" "status" %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+              <tr class="group">
+                <td class="min-w-[240px]">
+                  <a class="font-semibold text-foreground no-underline group-hover:text-primary" href="{{ item.portal_url }}{% if reviewer %}{% if item.unresolved_query_count %}#queries{% else %}#decision{% endif %}{% endif %}" data-row-link>{{ item.title }}</a>
+                  <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ item.reference }}</span>
+                </td>
+                <td class="text-muted-foreground">{{ item.get_kind_display }}</td>
+                {% if reviewer %}<td class="max-w-[220px] text-muted-foreground">{{ item.organisation.display_name }}</td>{% endif %}
+                <td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'d/m/Y'|default:'—' }}</td>
+                <td>
+                  <span class="ui-badge ui-badge--size-sm {% if item.awaiting_reply_count %}ui-badge--warning{% else %}ui-badge--info{% endif %}">{{ item.query_state }}</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="md:hidden">
+        {% for item in items %}
+          <a class="group flex flex-wrap items-center justify-between gap-4 border-t border-soft-border px-6 py-5 transition-colors first:border-t-0 hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary" href="{{ item.portal_url }}{% if reviewer %}{% if item.unresolved_query_count %}#queries{% else %}#decision{% endif %}{% endif %}">
+            <div class="min-w-0">
+              <h2 class="text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ item.title }}</h2>
+              <p class="mt-1 text-xs text-soft-foreground">{{ item.get_kind_display }} · <span class="font-mono">{{ item.reference }}</span>{% if reviewer %} · {{ item.organisation.display_name }}{% endif %}</p></div><span class="ui-badge ui-badge--size-sm {% if item.awaiting_reply_count %}ui-badge--warning{% else %}ui-badge--info{% endif %}">{{ item.query_state }} <span aria-hidden="true">→</span></span></a>
+        {% endfor %}
+      </div>
+    {% else %}
       <div class="px-6 py-14 text-center">
         <span class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary-50 text-xl text-primary"
               aria-hidden="true">✓</span>
         <h2 class="text-lg font-semibold">All caught up</h2>
         <p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">No requests are waiting for a query response.</p><a class="ui-btn ui-btn--outline ui-btn--size-sm mt-5 min-h-11"
    href="{% url 'experiences:home' %}">Back to dashboard</a></div>
-    {% endfor %}
+    {% endif %}
     {% include 'components/pagination.html' with page=items label='Pending queries pagination' %}
   </div>
 {% endblock portal_content %}

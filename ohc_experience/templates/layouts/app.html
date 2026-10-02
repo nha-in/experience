@@ -222,14 +222,16 @@
         if (event.target.closest("a")) close();
       });
     })();
-    // The product switcher is a native <details>, which only ever closes
-    // from its own summary: close an open one on a click anywhere else or on
-    // Escape, the way a menu is expected to behave.
+    // The product switcher and the download menus are native <details>, which
+    // only ever close from their own summary: close an open one on a click
+    // anywhere else, on a choice in it, or on Escape, the way a menu is
+    // expected to behave. A download leaves the page where it is, so without
+    // the second rule its menu would stay open over the table.
     (() => {
       const openSwitchers = () => document.querySelectorAll("details[data-popover][open]");
       document.addEventListener("click", (event) => {
         openSwitchers().forEach((popover) => {
-          if (!popover.contains(event.target)) popover.removeAttribute("open");
+          if (!popover.contains(event.target) || event.target.closest("ul a")) popover.removeAttribute("open");
         });
       });
       document.addEventListener("keydown", (event) => {

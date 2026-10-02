@@ -13,9 +13,20 @@ from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import Case
+from django.db.models import CharField
 from django.db.models import Count
+from django.db.models import Exists
 from django.db.models import F
+from django.db.models import IntegerField
+from django.db.models import OuterRef
 from django.db.models import Q
+from django.db.models import Value
+from django.db.models import When
+from django.db.models.fields.json import KT
+from django.db.models.functions import Coalesce
+from django.db.models.functions import Lower
+from django.db.models.functions import NullIf
 from django.db.models.functions import Upper
 from django.http import FileResponse
 from django.http import Http404
@@ -56,6 +67,7 @@ from ohc_experience.support.models import post_reply
 from . import credentials as credential_services
 from . import permissions
 from . import production as production_services
+from . import tables
 from . import workflows as services
 from .context_processors import navigation_context
 from .context_processors import product_scope
@@ -78,6 +90,7 @@ from .presentation import overview_progress
 from .presentation import recommended_step
 from .presentation import track_documents
 from .presentation import track_progress
+from .queue_presentation import QUEUE_SORTS
 from .queue_presentation import grouped_requests
 from .queue_presentation import populate_queue_page
 from .queue_presentation import queue_requests
@@ -297,7 +310,7 @@ def _lock_tiles(product, tracks):
 
 
 def _page(request, items):
-    return Paginator(items, 10).get_page(request.GET.get("page"))
+    return tables.paginate(request, items, 10)
 
 
 def _context(request, product=None, **kwargs):
@@ -404,11 +417,69 @@ def dashboard(request):
     )
 
 
+def _product_columns(*, reviewer=False):
+    """The products table's sortable headings; staff see two more.
+
+    A product applied as several solution types sorts by its first.
+    """
+    columns = {
+        "product": Lower("name"),
+        "solution": Lower(
+            tables.labelled(
+                KT("solution_type__0"),
+                get_program().solution_types.items(),
+            ),
+        ),
+        "registered": "registered_at",
+    }
+    if reviewer:
+        columns |= {
+            "organisation": Lower(tables.organisation_name("organisation__")),
+            "open": "open_count",
+        }
+    return columns
+
+
+PRODUCT_EXPORT_HEADER = (
+    "Reference",
+    "Product",
+    "Organisation",
+    "Solution type",
+    "Registered on",
+)
+REVIEWER_PRODUCT_EXPORT_HEADER = (
+    *PRODUCT_EXPORT_HEADER[:-1],
+    "Open requests",
+    "Registered on",
+)
+
+
+def _product_export_rows(products, *, open_counts=False):
+    for product in products:
+        yield (
+            product.reference,
+            product.name,
+            product.organisation.display_name,
+            product.get_solution_type_display(),
+            *((product.open_count,) if open_counts else ()),
+            tables.day(product.registered_at),
+        )
+
+
 @login_required
 def products(request):
     permissions.require_area(request.user, "review")
     if permissions.reviewer(request.user):
         return _reviewer_products(request)
+    sort, order = tables.sorting(request, _product_columns(), "product")
+    rows = _products(request.user).order_by(*order)
+    if export := tables.export_format(request):
+        return tables.export_response(
+            export,
+            "products",
+            PRODUCT_EXPORT_HEADER,
+            _product_export_rows(rows),
+        )
     return render(
         request,
         "experiences/products.html",
@@ -416,7 +487,8 @@ def products(request):
             request,
             page_title="Products",
             nav="products",
-            products=_page(request, _products(request.user)),
+            products=_page(request, rows),
+            table_sort=sort,
         ),
     )
 
@@ -486,6 +558,64 @@ def _organization_filter_choices(organizations):
     )
 
 
+def _organisation_columns():
+    """The organisations table's sortable headings."""
+    return {
+        "name": Lower(tables.organisation_name()),
+        "type": Lower(
+            tables.labelled("entity_type", get_program().signup_organisation_choices),
+        ),
+        "state": Lower(NullIf("state", Value(""))),
+        "products": "visible_product_count",
+        "open": "open_count",
+        "status": tables.ranked(
+            "verification_status",
+            Organisation.VerificationStatus.values,
+        ),
+        "registered": "created_at",
+    }
+
+
+ORGANISATION_EXPORT_HEADER = (
+    "Organisation",
+    "Type of entity",
+    "State",
+    "District",
+    "Verification",
+    "Products",
+    "Open requests",
+    "Registered on",
+    "Verified on",
+)
+
+
+def _with_labels(organisations):
+    """Each organisation with its type of entity and state as the table reads."""
+    entity_types = dict(get_program().signup_organisation_choices)
+    for organisation in organisations:
+        organisation.entity_type_label = entity_types.get(
+            organisation.entity_type,
+            organisation.entity_type,
+        )
+        organisation.state_label = _state_label(organisation.state)
+        yield organisation
+
+
+def _organisation_export_rows(organisations):
+    for organisation in _with_labels(organisations):
+        yield (
+            organisation.display_name,
+            organisation.entity_type_label,
+            organisation.state_label,
+            organisation.city,
+            organisation.get_verification_status_display(),
+            organisation.visible_product_count,
+            organisation.open_count,
+            tables.day(organisation.created_at),
+            tables.day(organisation.verified_at),
+        )
+
+
 @login_required
 def organizations(request):
     _require_reviewer_area(request.user)
@@ -521,7 +651,18 @@ def organizations(request):
             filter=Q(review_items__in=_open_requests(request.user)),
             distinct=True,
         ),
-    ).order_by("name", "pk")
+    )
+    sort, order = tables.sorting(request, _organisation_columns(), "name")
+    rows = rows.order_by(*order)
+    if export := tables.export_format(request):
+        return tables.export_response(
+            export,
+            "organisations",
+            ORGANISATION_EXPORT_HEADER,
+            _organisation_export_rows(rows),
+        )
+    page = _page(request, rows)
+    page.object_list = list(_with_labels(page))
     return render(
         request,
         "experiences/organizations.html",
@@ -529,7 +670,8 @@ def organizations(request):
             request,
             page_title="Organisations",
             nav="organizations",
-            organizations=_page(request, rows),
+            organizations=page,
+            table_sort=sort,
             search=search,
             status_choices=Organisation.VerificationStatus.choices,
             selected_status=status,
@@ -565,6 +707,15 @@ def _reviewer_products(request):
         rows = rows.filter(
             Q(name__icontains=search) | Q(reference__icontains=search),
         )
+    sort, order = tables.sorting(request, _product_columns(reviewer=True), "product")
+    rows = rows.order_by(*order)
+    if export := tables.export_format(request):
+        return tables.export_response(
+            export,
+            "products",
+            REVIEWER_PRODUCT_EXPORT_HEADER,
+            _product_export_rows(rows, open_counts=True),
+        )
     return render(
         request,
         "experiences/reviewer_products.html",
@@ -573,6 +724,7 @@ def _reviewer_products(request):
             page_title="Products",
             nav="organizations",
             products=_page(request, rows),
+            table_sort=sort,
             organization_choices=organization_choices,
             selected_organization=organization,
             solution_type_choices=solution_type_choices,
@@ -580,6 +732,56 @@ def _reviewer_products(request):
             search=search,
         ),
     )
+
+
+# ReviewItem.title, in the database: an application's own title, else the
+# product's name, else the organisation's.
+REQUEST_TITLE = Lower(
+    Coalesce(
+        "application__title",
+        "product__name",
+        tables.organisation_name("organisation__"),
+    ),
+)
+REQUEST_EXPORT_HEADER = (
+    "Reference",
+    "Type",
+    "Request",
+    "Product",
+    "Status",
+    "Assignee",
+    "Submitted on",
+    "Age (days)",
+)
+
+
+def _request_export_rows(items):
+    for item in items:
+        yield (
+            item.reference,
+            item.get_kind_display(),
+            item.title,
+            item.product.name if item.product_id else "",
+            item.get_status_display(),
+            item.assignee.display_name if item.assignee_id else "Unassigned",
+            tables.day(item.submitted_at),
+            item.age,
+        )
+
+
+REQUEST_COLUMNS = {
+    "request": REQUEST_TITLE,
+    "product": Lower("product__name"),
+    "status": tables.ranked("status", ReviewItem.Status.values),
+    "assignee": Lower(
+        Coalesce(
+            NullIf("assignee__name", Value("")),
+            "assignee__email",
+            output_field=CharField(),
+        ),
+    ),
+    "submitted": "submitted_at",
+}
 
 
 @login_required
@@ -600,11 +802,34 @@ def organization_detail(request, slug):
         )
         .order_by("-submitted_at", "-pk")
     )
+    sort, order = tables.sorting(request, REQUEST_COLUMNS, "-submitted")
+    # A draft is the integrator's unsent work, not yet a request.
+    requests = visible_reviews.exclude(status="draft").order_by(*order)
+    product_sort, product_order = tables.sorting(
+        request,
+        _product_columns(reviewer=True),
+        "-open",
+        param="product_sort",
+    )
     products = (
         _product_rows(request.user)
         .filter(organisation=organization)
-        .order_by("-open_count", "name")
+        .order_by(*product_order)
     )
+    if export := tables.export_format(request):
+        if request.GET.get("table") == "products":
+            return tables.export_response(
+                export,
+                f"products-{organization.slug}",
+                REVIEWER_PRODUCT_EXPORT_HEADER,
+                _product_export_rows(products, open_counts=True),
+            )
+        return tables.export_response(
+            export,
+            f"review-requests-{organization.slug}",
+            REQUEST_EXPORT_HEADER,
+            _request_export_rows(requests),
+        )
     verification = visible_reviews.filter(kind=ReviewItem.Kind.ORGANISATION).first()
     withdrawn = (
         verification
@@ -627,8 +852,9 @@ def organization_detail(request, slug):
             withdrawn_verification=verification if withdrawn else None,
             withdrawn_at=services.withdrawn_at(verification) if withdrawn else None,
             products=products,
-            # A draft is the integrator's unsent work, not yet a request.
-            review_requests=_page(request, visible_reviews.exclude(status="draft")),
+            product_sort=product_sort,
+            review_requests=_page(request, requests),
+            table_sort=sort,
         ),
     )
 
@@ -1678,6 +1904,58 @@ def query_action(request, pk):
     )
 
 
+PENDING_COLUMNS = {
+    "request": REQUEST_TITLE,
+    "type": Lower(tables.labelled("kind", ReviewItem.Kind.choices)),
+    "organisation": Lower(tables.organisation_name("organisation__")),
+    "submitted": "submitted_at",
+    # As _query_state reads it: a reply awaited first, then replies to read.
+    "status": Case(
+        When(awaiting_reply_count__gt=0, then=Value(0)),
+        When(unresolved_query_count__gt=0, then=Value(1)),
+        default=Value(2),
+        output_field=IntegerField(),
+    ),
+}
+PENDING_EXPORT_HEADER = (
+    "Reference",
+    "Type",
+    "Request",
+    "Product",
+    "Organisation",
+    "Status",
+    "Open queries",
+    "Submitted on",
+)
+
+
+def _query_state(item, *, reviewer):
+    """Where a request's queries stand, as its badge in the list reads."""
+    if not reviewer:
+        if item.awaiting_reply_count:
+            return "Action required from applicant"
+        return "With reviewer"
+    if item.awaiting_reply_count:
+        return "Awaiting reply"
+    if item.unresolved_query_count:
+        return "Replies received"
+    return "Ready for decision"
+
+
+def _pending_export_rows(items, *, reviewer):
+    for item in items:
+        yield (
+            item.reference,
+            item.get_kind_display(),
+            item.title,
+            item.product.name if item.product_id else "",
+            item.organisation.display_name,
+            _query_state(item, reviewer=reviewer),
+            item.unresolved_query_count,
+            tables.day(item.submitted_at),
+        )
+
+
 @login_required
 def pending_queries(request):
     query = (
@@ -1702,7 +1980,8 @@ def pending_queries(request):
             ),
         )
     )
-    if permissions.reviewer(request.user):
+    reviewer = permissions.reviewer(request.user)
+    if reviewer:
         query = query.filter(unresolved_query_count__gt=0)
     else:
         query = query.filter(
@@ -1710,24 +1989,36 @@ def pending_queries(request):
             status="query_raised",
             organisation__memberships__user=request.user,
         )
-    items = _page(
-        request,
-        query.select_related(
-            "product",
-            "application",
-            "organisation",
-        ).order_by("submitted_at", "pk"),
-    )
+    sort, order = tables.sorting(request, PENDING_COLUMNS, "submitted")
+    query = query.select_related(
+        "product",
+        "application",
+        "organisation",
+        "assignee",
+    ).order_by(*order)
+    if export := tables.export_format(request):
+        return tables.export_response(
+            export,
+            "pending-queries",
+            PENDING_EXPORT_HEADER,
+            _pending_export_rows(query, reviewer=reviewer),
+        )
+    items = _page(request, query)
     for item in items:
         item.portal_url = (
-            item.get_absolute_url()
-            if permissions.reviewer(request.user)
-            else _integrator_item_url(item)
+            item.get_absolute_url() if reviewer else _integrator_item_url(item)
         )
+        item.query_state = _query_state(item, reviewer=reviewer)
     return render(
         request,
         "experiences/pending.html",
-        _context(request, items=items, page_title="Pending queries", nav="queries"),
+        _context(
+            request,
+            items=items,
+            page_title="Pending queries",
+            nav="queries",
+            table_sort=sort,
+        ),
     )
 
 
@@ -2128,15 +2419,14 @@ def assess_dashboard(request):
     return render(request, "experiences/assess_dashboard.html", context)
 
 
-QUEUE_ORDER = {
-    "newest": ("-submitted_at", "-pk"),
-    "oldest": ("submitted_at", "pk"),
-}
+# The queue's sort once took these names, which saved links still carry.
+QUEUE_SORT_ALIASES = {"newest": "-submitted", "oldest": "submitted"}
 
 
 def _queue_sort(request):
-    sort = request.GET.get("sort")
-    return sort if sort in QUEUE_ORDER else "newest"
+    sort = request.GET.get("sort", "")
+    sort = QUEUE_SORT_ALIASES.get(sort, sort)
+    return sort if sort in QUEUE_SORTS else "-submitted"
 
 
 REVIEW_REFERENCE = re.compile(r"REV-?(\d{1,9})", re.IGNORECASE)
@@ -2205,6 +2495,57 @@ def _queue_rows(page, user, matching):
     return page
 
 
+QUEUE_EXPORT_HEADER = (
+    "Reference",
+    "Product / request",
+    "Organisation",
+    "Requests",
+    "Approved",
+    "Submitted on",
+    "Age (days)",
+    "Assignees",
+)
+
+
+def _queue_request_label(item):
+    """A request as its chip reads: "M2 Under review, waiting on M1"."""
+    if item.queue_milestone:
+        name = item.queue_milestone.code
+    elif item.product:
+        name = item.application.reference
+    else:
+        name = "Organisation verification"
+    label = f"{name} {item.queue_label}"
+    if item.waiting_on:
+        label += ", waiting on " + ", ".join(
+            prerequisite for prerequisite, _status in item.waiting_on
+        )
+    return label
+
+
+def _queue_export_rows(groups, user, matching):
+    """Every entry the filters match, built as one page of the queue."""
+    entries = _queue_rows(
+        Paginator(groups, max(groups.count(), 1)).page(1),
+        user,
+        matching,
+    )
+    for entry in entries:
+        yield (
+            entry.reference,
+            entry.title,
+            entry.organisation.display_name,
+            "; ".join(_queue_request_label(item) for item in entry.matching_reviews),
+            f"{len(entry.approved)} of {len(entry.reviews)}",
+            tables.day(entry.submitted_at),
+            entry.age,
+            ", ".join(
+                assignee.display_name if assignee else "Unassigned"
+                for assignee in entry.assignees
+            ),
+        )
+
+
 @login_required
 def queue(request):
     _reviewer_required(request)
@@ -2253,6 +2594,13 @@ def queue(request):
     else:
         status = ""
     sort = _queue_sort(request)
+    if export := tables.export_format(request):
+        return tables.export_response(
+            export,
+            "review-queue",
+            QUEUE_EXPORT_HEADER,
+            _queue_export_rows(grouped_requests(query, sort), request.user, query),
+        )
     params = request.GET.copy()
     params.pop("page", None)
     params["scope"] = scope
@@ -2273,6 +2621,7 @@ def queue(request):
             stage_counts=stage_counts,
             queue_scope=scope,
             queue_sort=sort,
+            table_sort=sort,
             statuses=statuses,
             reviewers=get_user_model().objects.filter(
                 Q(is_nha_team=True) | Q(is_superuser=True),
@@ -2617,6 +2966,42 @@ def submission(request, pk, submission_id):
     )
 
 
+def _event_columns(user):
+    """The events table's sortable headings; Registration is the viewer's own."""
+    return {
+        "event": Lower("title"),
+        "type": Lower(tables.labelled("kind", Event.Kind.choices)),
+        "date": "starts_at",
+        "location": Lower(Coalesce(NullIf("location", Value("")), Value("Online"))),
+        "registration": Exists(
+            EventRegistration.objects.filter(event=OuterRef("pk"), user=user),
+        ),
+    }
+
+
+EVENT_EXPORT_HEADER = ("Title", "Type", "Starts", "Ends", "Location", "Status")
+
+
+def _event_export_rows(events, *, registered, manage):
+    """Each event, with its registrations for its team, or "Yes" for a guest."""
+    if manage:
+        events = events.annotate(registration_count=Count("registrations"))
+    for event in events:
+        yield (
+            event.title,
+            event.get_kind_display(),
+            f"{timezone.localtime(event.starts_at):%d/%m/%Y %H:%M}",
+            f"{timezone.localtime(event.ends_at):%d/%m/%Y %H:%M}"
+            if event.ends_at
+            else "",
+            event.location or "Online",
+            "Published" if event.is_published else "Draft",
+            event.registration_count
+            if manage
+            else ("Yes" if event.pk in registered else "No"),
+        )
+
+
 @login_required
 @require_safe
 def events(request):
@@ -2652,6 +3037,21 @@ def events(request):
             flat=True,
         ),
     )
+    # Upcoming and draft sessions read soonest first; past ones, latest first.
+    sort, order = tables.sorting(
+        request,
+        _event_columns(request.user),
+        "-date" if period == "past" else "date",
+    )
+    shown = listed[period].order_by(*order)
+    if export := tables.export_format(request):
+        manage = permissions.has_area(request.user, "events")
+        return tables.export_response(
+            export,
+            f"events-{period}",
+            (*EVENT_EXPORT_HEADER, "Registrations" if manage else "Registered"),
+            _event_export_rows(shown, registered=registered, manage=manage),
+        )
     return render(
         request,
         "experiences/events.html",
@@ -2660,7 +3060,7 @@ def events(request):
             product,
             page_title="Events and Activities",
             nav="events",
-            events=_page(request, listed[period]),
+            events=_page(request, shown),
             upcoming_count=upcoming.count(),
             past_count=past.count(),
             draft_count=drafts.count(),
@@ -2674,8 +3074,48 @@ def events(request):
             registered=registered,
             kinds=Event.Kind.choices,
             period=period,
+            table_sort=sort,
         ),
     )
+
+
+TICKET_COLUMNS = {
+    "subject": Lower("subject"),
+    "category": "category",
+    "subcategory": Lower("issue_type"),
+    "priority": tables.ranked("priority", ("high", "medium", "low")),
+    "status": tables.ranked("status", ("open", "awaiting_integrator", "closed")),
+    "updated": "updated_at",
+}
+
+
+def _ticket_export_header(*, reviewer):
+    return (
+        "Ticket ID",
+        "Subject",
+        *(("Product",) if reviewer else ()),
+        "Category",
+        "Sub-category",
+        "Priority",
+        "Status",
+        "Opened on",
+        "Updated on",
+    )
+
+
+def _ticket_export_rows(tickets, *, reviewer):
+    for ticket in tickets:
+        yield (
+            ticket.reference,
+            ticket.subject,
+            *((ticket.product.name if ticket.product else "",) if reviewer else ()),
+            ticket.category_label,
+            ticket.issue_type,
+            ticket.get_priority_display(),
+            ticket.queue_status_label if reviewer else ticket.get_status_display(),
+            tables.day(ticket.created_at),
+            tables.day(ticket.updated_at),
+        )
 
 
 @login_required
@@ -2708,7 +3148,17 @@ def support(request):
         form,
         reviewer=permissions.reviewer(request.user),
     )
-    inbox["tickets"] = _page(request, inbox["tickets"])
+    reviewer = permissions.reviewer(request.user)
+    inbox["table_sort"], order = tables.sorting(request, TICKET_COLUMNS, "-updated")
+    tickets = inbox["tickets"].order_by(*order)
+    if request.method == "GET" and (export := tables.export_format(request)):
+        return tables.export_response(
+            export,
+            "support-tickets",
+            _ticket_export_header(reviewer=reviewer),
+            _ticket_export_rows(tickets, reviewer=reviewer),
+        )
+    inbox["tickets"] = _page(request, tickets)
     can_open_ticket = bool(
         product
         and not permissions.reviewer(request.user)

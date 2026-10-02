@@ -1,5 +1,7 @@
 {% extends "experiences/base.html" %}
 
+{% load experience_ui %}
+
 {% block hero %}
   <div class="ui-hero">
     <div class="ui-hero-inner">
@@ -44,13 +46,64 @@
              {% if period == 'drafts' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ draft_count|default:0 }}</span><span class="ui-kicker">Drafts</span></a>
         {% endif %}
       </nav>
-      <div class="mb-2 flex flex-wrap gap-2">
+      <div class="mb-2 flex flex-wrap items-center gap-2">
+        {% if events %}
+          {% include "components/export_download.html" with wrap_left=True %}
+        {% endif %}
         {% if can_create_events %}<a class="ui-btn ui-btn--default ui-btn--size-sm"
    href="{% url 'experiences:event-create' %}">{% include 'components/nav_icon.html' with icon='add' %}New event</a>{% endif %}
       </div>
     </div>
     {% if events %}
-      <ul class="flex flex-col">
+      <div class="mt-2 hidden overflow-x-auto md:block">
+        <table class="ui-grid-table min-w-[760px]">
+          <caption class="sr-only">{% if period == 'past' %}Past events{% elif period == 'drafts' %}Draft events{% else %}Upcoming events{% endif %}</caption>
+          <thead hx-boost="true"
+                 hx-target="#main-content"
+                 hx-select="#main-content"
+                 hx-swap="outerHTML"
+                 hx-push-url="true">
+            <tr>
+              {% sort_header "Event" "event" %}
+              {% sort_header "Type" "type" %}
+              {# Past sessions read latest first; the rest, soonest first. #}
+              {% if period == 'past' %}
+                {% sort_header "Date" "date" descending_first=True %}
+              {% else %}
+                {% sort_header "Date" "date" %}
+              {% endif %}
+              {% sort_header "Location" "location" %}
+              {% sort_header "Registration" "registration" descending_first=True %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in events %}
+              <tr class="group">
+                <td class="min-w-[240px]">
+                  <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                     href="{{ event.get_absolute_url }}"
+                     data-row-link>{{ event.title }}</a>
+                  {% if not event.is_published %}<span class="ui-badge ui-badge--neutral ui-badge--size-xs ml-1.5">Draft</span>{% endif %}
+                </td>
+                <td class="text-muted-foreground">{{ event.get_kind_display }}</td>
+                <td class="whitespace-nowrap tabular-nums">
+                  {{ event.starts_at|date:'D, d/m/Y' }}
+                  <span class="mt-0.5 block text-xs text-soft-foreground">{{ event.starts_at|date:'H:i' }}{% if event.ends_at %}–{{ event.ends_at|date:'H:i' }}{% endif %} IST</span>
+                </td>
+                <td class="max-w-[220px] text-muted-foreground">{{ event.location|default:'Online' }}</td>
+                <td>
+                  {% if event.pk in registered %}
+                    <span class="ui-badge ui-badge--size-sm {% if period == 'past' %}ui-badge--neutral{% else %}ui-badge--success{% endif %}">✓ Registered</span>
+                  {% else %}
+                    <span class="text-soft-foreground">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <ul class="flex flex-col md:hidden">
         {% for event in events %}
           {% include "experiences/partials/event_card.html" %}
         {% endfor %}

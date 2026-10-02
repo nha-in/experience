@@ -1,13 +1,11 @@
-import csv
 from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
+from django.db.models.functions import Lower
 from django.http import Http404
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -18,12 +16,24 @@ from django.views.decorators.http import require_safe
 
 from . import permissions
 from . import production
+from . import tables
 from .forms import ProductionAccessForm
 from .models import Product
 from .models import ProductCredential
 from .registry import get_program
 
 PAGE_SIZE = 20
+
+COLUMNS = {
+    "product": Lower("name"),
+    "organisation": Lower(tables.organisation_name("organisation__")),
+    "approved": "first_exit_at",
+    "client_id": "production_client_id",
+    "issued": "production_issued_on",
+}
+
+# Each stage opens on what NHA is most overdue on, or most recently did.
+DEFAULT_SORT = {"pending": "approved", "approved": "-issued"}
 
 
 def _program(user):
@@ -61,7 +71,8 @@ def production_list(request):
     program = _program(request.user)
     stage, q = _filters(request)
     products, counts = production.listing(program, stage=stage, q=q)
-    page = Paginator(products, PAGE_SIZE).get_page(request.GET.get("page"))
+    sort, order = tables.sorting(request, COLUMNS, DEFAULT_SORT[stage])
+    page = tables.paginate(request, products.order_by(*order), PAGE_SIZE)
     return render(
         request,
         "experiences/production_list.html",
@@ -78,7 +89,8 @@ def production_list(request):
                 ("pending", "Pending", counts["pending"]),
                 ("approved", "Approved", counts["approved"]),
             ],
-            "filter_query": urlencode({"tab": stage, "q": q}),
+            "table_sort": sort,
+            "filter_query": urlencode({"tab": stage, "q": q, "sort": sort}),
         },
     )
 
@@ -91,13 +103,14 @@ def production_export(request):
     program = _program(request.user)
     _stage, q = _filters(request)
     query, _counts = production.listing(program, q=q)
-    response = HttpResponse(content_type="text/csv; charset=utf-8")
-    filename = f"production-approved-{timezone.localdate():%Y-%m-%d}.csv"
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    # Lets spreadsheet software pick UTF-8 for organisation names.
-    response.write("﻿")
-    csv.writer(response).writerows(production.csv_rows(query))
-    return response
+    if "sort" in request.GET:
+        query = query.order_by(*tables.sorting(request, COLUMNS, "-approved")[1])
+    return tables.export_response(
+        tables.export_format(request) or "csv",
+        "production-approved",
+        production.CSV_HEADER,
+        production.export_rows(query),
+    )
 
 
 @login_required

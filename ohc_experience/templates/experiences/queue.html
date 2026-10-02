@@ -26,6 +26,7 @@
           hx-swap="outerHTML"
           hx-trigger="change, submit, change from:#queue-sort"
           hx-push-url="true">
+      {% include "components/table_state.html" with skip_sort=True %}
       <div class="ui-card-content flex flex-col gap-3.5">
         <nav class="ui-switch hidden self-start sm:inline-flex"
              aria-label="Review stage"

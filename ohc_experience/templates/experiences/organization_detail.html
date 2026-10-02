@@ -1,5 +1,7 @@
 {% extends 'experiences/base.html' %}
 
+{% load experience_ui %}
+
 {% block crumb_root %}
   {% include 'components/crumb.html' with label='Organisations' %}
 {% endblock crumb_root %}
@@ -24,31 +26,125 @@
     <div class="flex min-w-0 flex-col gap-6">
       <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.08s]"
                aria-labelledby="organization-products-title">
-        <div class="ui-card-header px-6 pt-5 pb-4">
-          <h2 class="ui-card-title" id="organization-products-title">Products</h2>
-          <p class="ui-card-description">Products represented in review requests you can access.</p>
+        <div class="flex flex-wrap items-start justify-between gap-3 px-6 pt-5 pb-4">
+          <div class="grid min-w-0 gap-1">
+            <h2 class="ui-card-title" id="organization-products-title">Products</h2>
+            <p class="ui-card-description">Products represented in review requests you can access.</p>
+          </div>
+          {% if products %}
+            {% include "components/export_download.html" with table="products" wrap_left=True %}
+          {% endif %}
         </div>
-        <ul class="divide-y divide-soft-border border-t border-soft-border">
-          {% for product in products %}
-            {% include 'experiences/partials/organization_product.html' with padding='px-6 py-4' %}
-          {% empty %}
-            <li class="px-6 py-6 text-sm text-muted-foreground">No products are visible with your review permissions.</li>
-          {% endfor %}
-        </ul>
+        {% if products %}
+          <div class="hidden overflow-x-auto md:block">
+            <table class="ui-grid-table min-w-[620px]">
+              <caption class="sr-only">Products of {{ organization.display_name }}</caption>
+              <thead hx-boost="true"
+                     hx-target="#main-content"
+                     hx-select="#main-content"
+                     hx-swap="outerHTML"
+                     hx-push-url="true">
+                <tr>
+                  {% sort_header "Product" "product" param="product_sort" current=product_sort %}
+                  {% sort_header "Solution type" "solution" param="product_sort" current=product_sort %}
+                  {% sort_header "Open requests" "open" "text-right" descending_first=True param="product_sort" current=product_sort %}
+                  {% sort_header "Registered on" "registered" descending_first=True param="product_sort" current=product_sort %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for product in products %}
+                  <tr class="group">
+                    <td class="min-w-[200px]">
+                      <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                         href="{% url 'experiences:product-detail' product.reference %}"
+                         data-row-link>{{ product.name }}</a>
+                      <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
+                    </td>
+                    <td class="text-muted-foreground">{{ product.get_solution_type_display|default:'—' }}</td>
+                    <td class="text-right tabular-nums">{{ product.open_count }}</td>
+                    <td class="whitespace-nowrap tabular-nums">{{ product.registered_at|date:'d/m/Y'|default:'—' }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <ul class="divide-y divide-soft-border border-t border-soft-border md:hidden">
+            {% for product in products %}
+              {% include 'experiences/partials/organization_product.html' with padding='px-6 py-4' %}
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="border-t border-soft-border px-6 py-6 text-sm text-muted-foreground">No products are visible with your review permissions.</p>
+        {% endif %}
       </section>
       <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.14s]"
                aria-labelledby="organization-reviews-title">
-        <div class="ui-card-header px-6 pt-5 pb-4">
-          <h2 class="ui-card-title" id="organization-reviews-title">Review requests</h2>
-          <p class="ui-card-description">Organisation and application reviews within your permission scope.</p>
+        <div class="flex flex-wrap items-start justify-between gap-3 px-6 pt-5 pb-4">
+          <div class="grid min-w-0 gap-1">
+            <h2 class="ui-card-title" id="organization-reviews-title">Review requests</h2>
+            <p class="ui-card-description">Organisation and application reviews within your permission scope.</p>
+          </div>
+          {% if review_requests %}
+            {% include "components/export_download.html" with wrap_left=True %}
+          {% endif %}
         </div>
-        <ul class="divide-y divide-soft-border border-t border-soft-border">
-          {% for item in review_requests %}
-            {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
-          {% empty %}
-            <li class="px-6 py-6 text-sm text-muted-foreground">No review requests are visible.</li>
-          {% endfor %}
-        </ul>
+        {% if review_requests %}
+          <div class="hidden overflow-x-auto md:block">
+            <table class="ui-grid-table min-w-[680px]">
+              <caption class="sr-only">Review requests for {{ organization.display_name }}</caption>
+              <thead hx-boost="true"
+                     hx-target="#main-content"
+                     hx-select="#main-content"
+                     hx-swap="outerHTML"
+                     hx-push-url="true">
+                <tr>
+                  {% sort_header "Request" "request" %}
+                  {% sort_header "Product" "product" %}
+                  {% sort_header "Status" "status" %}
+                  {% sort_header "Assignee" "assignee" %}
+                  {% sort_header "Submitted" "submitted" descending_first=True %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in review_requests %}
+                  <tr class="group">
+                    <td class="min-w-[240px] align-top">
+                      <span class="mb-1 flex flex-wrap items-center gap-2">
+                        {% include 'experiences/partials/reviewer_type.html' %}
+                        <span class="font-mono text-xs text-soft-foreground">{{ item.reference }}</span>
+                      </span>
+                      <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                         href="{{ item.get_absolute_url }}"
+                         data-row-link>{{ item.title }}</a>
+                      {% if item.application.milestone %}
+                        <span class="mt-0.5 block">{% include 'experiences/partials/reviewer_milestone.html' %}</span>
+                      {% endif %}
+                      {% include 'experiences/partials/reviewer_waiting.html' %}
+                    </td>
+                    <td class="align-top text-muted-foreground">{{ item.product.name|default:'—' }}</td>
+                    <td class="align-top">
+                      {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+                    </td>
+                    <td class="align-top text-muted-foreground">{{ item.assignee.display_name|default:'Unassigned' }}</td>
+                    <td class="align-top whitespace-nowrap tabular-nums">
+                      {{ item.submitted_at|date:'d/m/Y'|default:'—' }}
+                      {% if item.submitted_at %}
+                        <span class="mt-0.5 block text-xs {% if item.pending and item.age > 7 %}font-semibold text-red-700{% else %}text-soft-foreground{% endif %}">{{ item.age }} day{{ item.age|pluralize }} old</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <ul class="divide-y divide-soft-border border-t border-soft-border md:hidden">
+            {% for item in review_requests %}
+              {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="border-t border-soft-border px-6 py-6 text-sm text-muted-foreground">No review requests are visible.</p>
+        {% endif %}
         {% include 'components/pagination.html' with page=review_requests label='Review requests pagination' %}
       </section>
     </div>

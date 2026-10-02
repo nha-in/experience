@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
+from django.db.models.functions import Lower
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
@@ -19,12 +20,14 @@ from django.views import View
 from django.views.generic import FormView
 
 from ohc_experience.core.mail import apply_gateway_template
+from ohc_experience.experiences import tables
 from ohc_experience.users.permissions import is_nha_team
 
 from .forms import InvitationForm
 from .forms import MembershipRoleForm
 from .lgd import LGDLookupError
 from .lgd import lookup_pincode
+from .models import ROLE_ORDER
 from .models import Invitation
 from .models import Membership
 from .models import Role
@@ -36,6 +39,19 @@ if TYPE_CHECKING:
 
 # Where an invite token waits while an invited person signs up or signs in.
 INVITATION_SESSION_KEY = "pending_invitation_token"
+
+# The roster's sortable headings. By role, as the model orders it: the owner
+# first, then admins, developers and support, by name within each.
+TEAM_COLUMNS = {
+    "member": (Lower("user__name"), Lower("user__email")),
+    "role": (
+        tables.ranked("role", ROLE_ORDER),
+        Lower("user__name"),
+        Lower("user__email"),
+    ),
+    "joined": "joined_at",
+}
+TEAM_EXPORT_HEADER = ("Name", "Email", "Role", "Joined on")
 
 
 class PincodeLookupView(LoginRequiredMixin, View):
@@ -142,6 +158,31 @@ class TeamView(OrganisationMixin, TeamFragmentMixin, FormView):
         kwargs["organisation"] = self.organisation
         return kwargs
 
+    def members(self):
+        """The roster in the order its headings ask for, and that order's name."""
+        sort, order = tables.sorting(self.request, TEAM_COLUMNS, "role")
+        members = self.organisation.memberships.select_related("user")
+        return members.order_by(*order), sort
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if export := tables.export_format(request):
+            members, _sort = self.members()
+            return tables.export_response(
+                export,
+                f"team-{self.organisation.slug}",
+                TEAM_EXPORT_HEADER,
+                (
+                    (
+                        member.user.name,
+                        member.user.email,
+                        member.get_role_display(),
+                        tables.day(member.joined_at),
+                    )
+                    for member in members
+                ),
+            )
+        return super().get(request, *args, **kwargs)
+
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         if not self.membership.can_manage:
             msg = _("Only the owner and admins can invite teammates.")
@@ -150,13 +191,15 @@ class TeamView(OrganisationMixin, TeamFragmentMixin, FormView):
 
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
-        memberships = list(self.organisation.memberships.select_related("user").all())
+        members, sort = self.members()
+        memberships = list(members)
         context.update(
             {
                 "nav_section": "settings",
                 "settings_section": "team",
                 "memberships": memberships,
                 "member_count": len(memberships),
+                "table_sort": sort,
                 "invitations": list(self.organisation.invitations.pending()),
                 "assignable_roles": Role.assignable(),
             },

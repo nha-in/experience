@@ -1,6 +1,6 @@
 {% extends "experiences/base.html" %}
 
-{% load careui %}
+{% load careui experience_ui %}
 
 {% block hero %}
   {% if not creating %}
@@ -103,6 +103,7 @@
         {% if product %}<input type="hidden" name="product" value="{{ product.reference }}" />{% endif %}
         {# Sent even when blank: that is All tickets, and no status opens the default tab. #}
         <input type="hidden" name="status" value="{{ ticket_filters.status }}" />
+        {% include "components/table_state.html" %}
         <div class="w-[calc(50%_-_0.3125rem)] sm:w-[170px]">
           <label class="ui-label mb-1.5 block text-xs" for="ticket-category">Category</label>
           <div class="ui-select-wrapper"><select class="ui-select" name="category" id="ticket-category"><option value="">All categories</option>{% for category in form.categories %}<option value="{{ category.code }}"
@@ -123,6 +124,9 @@
                  placeholder="Subject or ticket ID" />
         </div>
         <button class="ui-btn ui-btn--outline ui-btn--size-default" type="submit">Apply filters</button>
+        {% if tickets %}
+          {% include "components/export_download.html" with size="default" wrap_left=True %}
+        {% endif %}
         {% if has_ticket_filters %}
           <div class="flex w-full flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground">
             <p role="status">Showing {{ tickets.paginator.count }} of {{ ticket_total }} ticket{{ ticket_total|pluralize }}</p>
@@ -137,14 +141,18 @@
           <div class="hidden md:block">
             <table class="ui-grid-table">
               <caption class="sr-only">Your support tickets</caption>
-              <thead>
+              <thead hx-boost="true"
+                     hx-target="#main-content"
+                     hx-select="#main-content"
+                     hx-swap="outerHTML"
+                     hx-push-url="true">
                 <tr>
-                  <th scope="col">Subject</th>
-                  <th scope="col">Category</th>
-                  <th scope="col">Sub-category</th>
-                  <th scope="col">Priority</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" class="text-right">Updated</th>
+                  {% sort_header "Subject" "subject" %}
+                  {% sort_header "Category" "category" %}
+                  {% sort_header "Sub-category" "subcategory" %}
+                  {% sort_header "Priority" "priority" %}
+                  {% sort_header "Status" "status" %}
+                  {% sort_header "Updated" "updated" "text-right" descending_first=True %}
                 </tr>
               </thead>
               <tbody>
@@ -159,7 +167,7 @@
               {% include "experiences/partials/support_ticket_row.html" with mobile=True %}
             {% endfor %}
           </ul>
-          {% if tickets.has_other_pages %}
+          {% if tickets.paginator.count > tickets.per_page_options.0 %}
             {% include "components/pagination.html" with page=tickets label="Tickets pagination" %}
           {% else %}
             <div class="border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">{{ tickets.paginator.count }} ticket{{ tickets.paginator.count|pluralize }}</div>

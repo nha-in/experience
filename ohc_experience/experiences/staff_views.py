@@ -4,9 +4,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
+from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -14,11 +14,51 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
+from . import tables
 from .staff_forms import StaffForm
 from .staff_forms import staff_revision
 from .staff_services import require_superadmin
 from .staff_services import save_staff
 from .staff_services import set_staff_active
+
+STAFF_COLUMNS = {
+    "member": (Lower("name"), Lower("email")),
+    "status": "is_active",
+    "last_login": "last_login",
+}
+
+STAFF_EXPORT_HEADER = ("Name", "Email", "Portal access", "Status", "Last sign-in")
+
+
+def _with_grants(members):
+    for member in members:
+        member.portal_grants = [
+            grant for grant in member.experience_access.all() if grant.can_read
+        ]
+        yield member
+
+
+def _grant_label(grant):
+    if grant.category == "*":
+        category = "All categories"
+    else:
+        category = grant.category or "General / onboarding"
+    return f"{grant.get_area_display()} · {category} · {grant.program.upper()}"
+
+
+def _staff_export_rows(staff):
+    for member in _with_grants(staff):
+        if member.is_superuser:
+            access = "Superadmin, full portal access"
+        else:
+            access = "; ".join(_grant_label(grant) for grant in member.portal_grants)
+        yield (
+            member.display_name,
+            member.email,
+            access or "No portal access assigned",
+            "Active" if member.is_active else "Archived",
+            tables.day(member.last_login) or "Not yet",
+        )
 
 
 @login_required
@@ -39,17 +79,20 @@ def staff_list(request):
     }
     if status != "all":
         staff = staff.filter(is_active=status == "active")
-    page = Paginator(
-        staff.prefetch_related("experience_access").order_by("name", "email", "pk"),
-        20,
-    ).get_page(request.GET.get("page"))
-    for member in page:
+    sort, order = tables.sorting(request, STAFF_COLUMNS, "member")
+    staff = staff.prefetch_related("experience_access").order_by(*order)
+    if export := tables.export_format(request):
+        return tables.export_response(
+            export,
+            "staff",
+            STAFF_EXPORT_HEADER,
+            _staff_export_rows(staff),
+        )
+    page = tables.paginate(request, staff, 20)
+    for member in _with_grants(page):
         member.staff_initials = "".join(
             part[0] for part in member.display_name.split()[:2]
         ).upper()
-        member.portal_grants = [
-            grant for grant in member.experience_access.all() if grant.can_read
-        ]
     return render(
         request,
         "experiences/staff_list.html",
@@ -60,6 +103,7 @@ def staff_list(request):
             "search": search,
             "status": status,
             "counts": counts,
+            "table_sort": sort,
         },
     )
 

@@ -22,6 +22,7 @@ from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import production
+from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
@@ -139,10 +140,11 @@ def test_event_rows_open_the_event(client):
     client.force_login(staff)
     # Editing a published event is a superadmin's call, but its details and its
     # registrations are readable, so every row opens the one page it always has.
+    # The table row, and the card that replaces it on a narrow screen.
     upcoming = client.get(reverse("experiences:events"))
-    assert row_links(upcoming) == [published.get_absolute_url()]
+    assert row_links(upcoming) == [published.get_absolute_url()] * 2
     drafts = client.get(reverse("experiences:events"), {"period": "drafts"})
-    assert row_links(drafts) == [draft.get_absolute_url()]
+    assert row_links(drafts) == [draft.get_absolute_url()] * 2
 
 
 def test_review_rows_open_approvals_prerequisites_and_tickets(environment, client):
@@ -221,3 +223,36 @@ def test_upcoming_event_rows_open_the_event(environment, client):
     )
     assert "Launch webinar" in response.content.decode()
     assert row_links(response) == [event.get_absolute_url()]
+
+
+def test_organisation_product_and_query_rows_open_their_pages(environment, client):
+    item = submit(environment)
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+    services.decide(
+        item,
+        environment["reviewer"],
+        action="query",
+        note="Which cases cover consent expiry?",
+        field_key="functional_report",
+    )
+    client.force_login(environment["reviewer"])
+    organisation = reverse(
+        "experiences:organization-detail",
+        args=[environment["org"].slug],
+    )
+    product = reverse(
+        "experiences:product-detail",
+        args=[environment["product"].reference],
+    )
+    # A card on a narrow screen is one link from edge to edge, so only the
+    # table rows carry the marker.
+    assert row_links(client.get(reverse("experiences:organizations"))) == [
+        organisation,
+    ]
+    assert row_links(client.get(reverse("experiences:products"))) == [product]
+    queries = client.get(reverse("experiences:pending-queries"))
+    assert row_links(queries) == [f"{item.get_absolute_url()}#queries"]
+    page = client.get(organisation)
+    requests = [review.get_absolute_url() for review in page.context["review_requests"]]
+    assert item.get_absolute_url() in requests
+    assert row_links(page) == [product, *requests]

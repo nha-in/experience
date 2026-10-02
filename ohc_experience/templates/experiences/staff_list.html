@@ -1,5 +1,7 @@
 {% extends 'experiences/base.html' %}
 
+{% load experience_ui %}
+
 {% block portal_content %}
   <section id="staff-directory"
            class="staff-directory"
@@ -14,10 +16,15 @@
         <h1 class="ui-page-title">Staff &amp; permissions</h1>
         <p class="staff-description">Manage your team and the areas they can access in the sandbox.</p>
       </div>
-      <a class="ui-btn ui-btn--default ui-btn--size-sm staff-create-button"
-         href="{% url 'experiences:staff-create' %}">
-        {% include 'components/nav_icon.html' with icon='add' %} New staff member
-      </a>
+      <div class="flex flex-wrap items-center gap-2">
+        {% if page %}
+          {% include "components/export_download.html" with wrap_left=True %}
+        {% endif %}
+        <a class="ui-btn ui-btn--default ui-btn--size-sm staff-create-button"
+           href="{% url 'experiences:staff-create' %}">
+          {% include 'components/nav_icon.html' with icon='add' %} New staff member
+        </a>
+      </div>
     </header>
     <div class="staff-directory-panel">
       <div class="staff-directory-toolbar">
@@ -34,6 +41,7 @@
               role="search"
               aria-label="Staff directory">
           <input type="hidden" name="status" value="{{ status }}" />
+          {% include "components/table_state.html" %}
           <label class="sr-only" for="staff-search">Search staff</label>
           <div class="staff-search-field">
             <svg viewBox="0 0 24 24"
@@ -65,10 +73,10 @@
             <caption class="sr-only">Staff accounts and portal access</caption>
             <thead>
               <tr>
-                <th scope="col" class="staff-col-member">Staff member</th>
+                {% sort_header "Staff member" "member" "staff-col-member" %}
                 <th scope="col" class="staff-col-access">Portal access</th>
-                <th scope="col" class="staff-col-status">Status</th>
-                <th scope="col" class="staff-col-login">Last sign-in</th>
+                {% sort_header "Status" "status" "staff-col-status" descending_first=True %}
+                {% sort_header "Last sign-in" "last_login" "staff-col-login" descending_first=True %}
                 <th scope="col" class="staff-col-action"><span class="sr-only">Manage account</span></th>
               </tr>
             </thead>

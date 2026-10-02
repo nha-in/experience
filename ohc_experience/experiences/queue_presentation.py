@@ -5,14 +5,20 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.db.models import Case
+from django.db.models import CharField
+from django.db.models import Count
 from django.db.models import F
 from django.db.models import FilteredRelation
 from django.db.models import Max
 from django.db.models import Min
+from django.db.models import OuterRef
 from django.db.models import Q
 from django.db.models import Subquery
+from django.db.models import Value
 from django.db.models import When
 from django.db.models.functions import Coalesce
+from django.db.models.functions import Lower
+from django.db.models.functions import NullIf
 from django.urls import reverse
 from django.utils import timezone
 
@@ -51,25 +57,69 @@ def queue_requests(user):
     )
 
 
-def grouped_requests(query, sort="newest"):
-    """Group merged requests before counting or paginating."""
-    aggregate = Min if sort == "oldest" else Max
-    direction = "" if sort == "oldest" else "-"
-    return (
-        query.order_by()
-        .annotate(
-            standalone_id=Case(When(queue_product_id__isnull=True, then=F("pk"))),
+QUEUE_SORTS = tuple(
+    f"{direction}{key}"
+    for key in ("submitted", "age", "title", "requests", "assignee")
+    for direction in ("-", "")
+)
+
+
+def grouped_requests(query, sort="-submitted"):
+    """Group merged requests before counting or paginating.
+
+    A group dates from its newest request, or its oldest when the oldest come
+    first; its age is the same date read the other way. By title it sorts on
+    its product's name, or the organisation's for a request with no product;
+    by requests on how many of its requests match; and by assignee on the
+    first name among them, the unassigned last. Ties go newest first.
+    """
+    key = sort.removeprefix("-")
+    descending = sort.startswith("-")
+    if key == "age":
+        key, descending = "submitted", not descending
+    aggregate = Min if key == "submitted" and not descending else Max
+    query = query.order_by().annotate(
+        standalone_id=Case(When(queue_product_id__isnull=True, then=F("pk"))),
+    )
+    if key == "title":
+        names = Product.objects.filter(pk=OuterRef("queue_product_id")).values("name")
+        query = query.annotate(
+            queue_title=Lower(Coalesce(Subquery(names[:1]), F("organisation__name"))),
         )
-        .values("queue_product_id", "standalone_id")
-        .annotate(
-            submitted_at=aggregate("submitted_at"),
-            sort_id=aggregate("pk"),
+    elif key == "assignee":
+        query = query.annotate(
+            queue_assignee=Lower(
+                Coalesce(
+                    NullIf("assignee__name", Value("")),
+                    "assignee__email",
+                    output_field=CharField(),
+                ),
+            ),
         )
-        .order_by(
+    groups = query.values("queue_product_id", "standalone_id").annotate(
+        submitted_at=aggregate("submitted_at"),
+        sort_id=aggregate("pk"),
+    )
+    if key == "submitted":
+        direction = "-" if descending else ""
+        return groups.order_by(
             f"{direction}submitted_at",
             f"{direction}sort_id",
             "queue_product_id",
         )
+    groups = groups.annotate(
+        sort_key={
+            "title": Min("queue_title"),
+            "requests": Count("pk"),
+            "assignee": Min("queue_assignee"),
+        }[key],
+    )
+    sort_key = F("sort_key")
+    return groups.order_by(
+        sort_key.desc(nulls_last=True) if descending else sort_key.asc(nulls_last=True),
+        "-submitted_at",
+        "-sort_id",
+        "queue_product_id",
     )
 
 

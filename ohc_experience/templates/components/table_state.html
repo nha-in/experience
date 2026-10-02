@@ -1,0 +1,5 @@
+{% comment %}
+  Keeps a table's sort and page size when its filter form is submitted.
+{% endcomment %}
+{% if table_sort and not skip_sort %}<input type="hidden" name="sort" value="{{ table_sort }}" />{% endif %}
+{% if request.GET.per_page %}<input type="hidden" name="per_page" value="{{ request.GET.per_page }}" />{% endif %}

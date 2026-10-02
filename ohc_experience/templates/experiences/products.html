@@ -1,5 +1,7 @@
 {% extends 'experiences/base.html' %}
 
+{% load experience_ui %}
+
 {% block portal_hero %}
   <div class="ui-hero">
     <div class="ui-hero-inner">
@@ -22,32 +24,67 @@
 {% block canvas_padding %}pt-0{% endblock %}
 {% block portal_content %}
   <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
-    <div class="divide-y divide-soft-border">
-      {% for product in products %}
-        <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-           href="{{ product.get_absolute_url }}">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary">{{ product.name|first }}</span>
-          <div class="min-w-0 flex-1">
-            <h2 class="text-base font-bold group-hover:text-primary">{{ product.name }}</h2>
-            <p class="mt-1 text-xs text-soft-foreground">
-              <span class="font-mono">{{ product.reference }}</span> · {{ product.organisation.display_name }}
-            </p>
-          </div>
-          {% if product.registered_at %}<span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>{% endif %}
-          <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
-                aria-hidden="true">→</span>
-        </a>
-      {% empty %}
-        <div class="px-5 py-12 text-center">
-          <h2 class="text-base font-semibold">No products yet</h2>
-          <p class="mt-2 text-sm text-soft-foreground">Register your first product to start its applications.</p>
-          {% if can_integrate %}
-            <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-4 no-underline"
-               href="{% url 'experiences:product-create' %}">Register a product</a>
-          {% endif %}
-        </div>
-      {% endfor %}
-    </div>
+    {% if products %}
+      <div class="flex flex-wrap items-center justify-end gap-2 border-b border-soft-border px-5 py-3 md:border-b-0 md:px-6">
+        {% include "components/export_download.html" %}
+      </div>
+      <div class="hidden overflow-x-auto md:block">
+        <table class="ui-grid-table min-w-[640px]">
+          <caption class="sr-only">Your products</caption>
+          <thead hx-boost="true"
+                 hx-target="#main-content"
+                 hx-select="#main-content"
+                 hx-swap="outerHTML"
+                 hx-push-url="true">
+            <tr>
+              {% sort_header "Product" "product" %}
+              {% sort_header "Solution type" "solution" %}
+              {% sort_header "Registered on" "registered" descending_first=True %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+              <tr class="group">
+                <td class="min-w-[220px]">
+                  <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                     href="{{ product.get_absolute_url }}"
+                     data-row-link>{{ product.name }}</a>
+                  <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
+                </td>
+                <td class="text-muted-foreground">{{ product.get_solution_type_display|default:'—' }}</td>
+                <td class="whitespace-nowrap tabular-nums">{{ product.registered_at|date:'d/m/Y'|default:'—' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="divide-y divide-soft-border md:hidden">
+        {% for product in products %}
+          <a class="group flex flex-wrap items-center gap-5 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+             href="{{ product.get_absolute_url }}">
+            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary">{{ product.name|first }}</span>
+            <div class="min-w-0 flex-1">
+              <h2 class="text-base font-bold group-hover:text-primary">{{ product.name }}</h2>
+              <p class="mt-1 text-xs text-soft-foreground">
+                <span class="font-mono">{{ product.reference }}</span> · {{ product.organisation.display_name }}
+              </p>
+            </div>
+            {% if product.registered_at %}<span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>{% endif %}
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
+                  aria-hidden="true">→</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="px-5 py-12 text-center">
+        <h2 class="text-base font-semibold">No products yet</h2>
+        <p class="mt-2 text-sm text-soft-foreground">Register your first product to start its applications.</p>
+        {% if can_integrate %}
+          <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-4 no-underline"
+             href="{% url 'experiences:product-create' %}">Register a product</a>
+        {% endif %}
+      </div>
+    {% endif %}
     {% include 'components/pagination.html' with page=products label='Products pagination' %}
   </div>
 {% endblock %}

@@ -1,5 +1,7 @@
 {% extends 'experiences/base.html' %}
 
+{% load experience_ui %}
+
 {% block crumb_root %}
   {% include 'components/crumb.html' with label='Events' %}
 {% endblock crumb_root %}
@@ -111,6 +113,7 @@
               role="search"
               aria-label="Participants">
           <div class="min-w-[200px] flex-1">
+            {% include "components/table_state.html" %}
             <label class="ui-label" for="participant-search">Search participants</label>
             <input class="ui-input"
                    id="participant-search"
@@ -127,18 +130,21 @@
         </form>
       {% endif %}
       {% if page %}
-        <p class="mt-5 text-sm font-semibold" aria-live="polite">
-          {{ page.paginator.count }} participant{{ page.paginator.count|pluralize }}{% if search %} found{% endif %}
-        </p>
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm font-semibold" aria-live="polite">
+            {{ page.paginator.count }} participant{{ page.paginator.count|pluralize }}{% if search %} found{% endif %}
+          </p>
+          {% include "components/export_download.html" %}
+        </div>
         <div class="mt-3 overflow-x-auto border-t border-border">
           <table class="ui-grid-table min-w-[640px]">
             <caption class="sr-only">People registered for {{ event.title }}</caption>
             <thead>
               <tr>
-                <th scope="col">Participant</th>
-                <th scope="col">Organisation</th>
-                <th scope="col">Mobile</th>
-                <th scope="col">Registered on</th>
+                {% sort_header "Participant" "name" %}
+                {% sort_header "Organisation" "organisation" %}
+                {% sort_header "Mobile" "mobile" %}
+                {% sort_header "Registered on" "registered" descending_first=True %}
               </tr>
             </thead>
             <tbody>

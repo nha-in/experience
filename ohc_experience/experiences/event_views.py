@@ -7,9 +7,11 @@ from django.contrib.admin.models import LogEntry
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import OuterRef
 from django.db.models import Q
+from django.db.models import Subquery
+from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -19,8 +21,10 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
 from ohc_experience.events_and_activities.models import Event
+from ohc_experience.organisations.models import Membership
 
 from . import permissions
+from . import tables
 from .models import EventRegistration
 from .models import Notification
 from .registry import get_program
@@ -112,12 +116,33 @@ def event_log(actor, event, action, *, flag=CHANGE):
     )
 
 
-def participant_page(request, event, search):
-    """Registrations for the team that runs the event, newest first."""
+PARTICIPANT_COLUMNS = {
+    "name": (Lower("user__name"), Lower("user__email")),
+    "organisation": Lower("organisation_name"),
+    "mobile": "user__phone_number",
+    "registered": "created_at",
+}
+
+PARTICIPANT_EXPORT_HEADER = (
+    "Name",
+    "Email",
+    "Organisation",
+    "Role",
+    "Mobile",
+    "Registered on",
+)
+
+
+def participants(event, search):
+    """Registrations for the team that runs the event, with each organisation's name."""
+    # One organisation per account today, as get_membership_for assumes.
+    organisation = Membership.objects.filter(user=OuterRef("user")).values(
+        name=tables.organisation_name("organisation__"),
+    )
     query = (
         event.registrations.select_related("user")
         .prefetch_related("user__memberships__organisation")
-        .order_by("-created_at", "-pk")
+        .annotate(organisation_name=Subquery(organisation[:1]))
     )
     if search:
         query = query.filter(
@@ -126,14 +151,29 @@ def participant_page(request, event, search):
             | Q(user__memberships__organisation__name__icontains=search)
             | Q(user__memberships__organisation__legal_name__icontains=search),
         ).distinct()
-    page = Paginator(query, 25).get_page(request.GET.get("page"))
-    for registration in page:
-        # One organisation per account today, as get_membership_for assumes.
+    return query
+
+
+def with_memberships(registrations):
+    for registration in registrations:
         registration.membership = next(
             iter(registration.user.memberships.all()),
             None,
         )
-    return page
+    return registrations
+
+
+def participant_export_rows(registrations):
+    for registration in with_memberships(registrations):
+        membership = registration.membership
+        yield (
+            registration.user.display_name,
+            registration.user.email,
+            membership.organisation.display_name if membership else "",
+            membership.get_role_display() if membership else "",
+            registration.user.phone_number,
+            f"{timezone.localtime(registration.created_at):%d/%m/%Y %H:%M}",
+        )
 
 
 def update_registration(request, event):
@@ -181,6 +221,19 @@ def event_detail(request, pk):
         return update_registration(request, event)
     can_manage = permissions.has_area(request.user, "events")
     search = request.GET.get("q", "").strip()
+    sort, page = "", None
+    if can_manage:
+        sort, order = tables.sorting(request, PARTICIPANT_COLUMNS, "-registered")
+        registrations = participants(event, search).order_by(*order)
+        if export := tables.export_format(request):
+            return tables.export_response(
+                export,
+                f"participants-{event.pk}",
+                PARTICIPANT_EXPORT_HEADER,
+                participant_export_rows(registrations),
+            )
+        page = tables.paginate(request, registrations, 25)
+        with_memberships(page)
     return render(
         request,
         "experiences/event_detail.html",
@@ -200,8 +253,9 @@ def event_detail(request, pk):
             "can_register": event.is_published and not event.is_past,
             "registered": event.registrations.filter(user=request.user).exists(),
             "registration_count": event.registrations.count(),
-            "page": participant_page(request, event, search) if can_manage else None,
+            "page": page,
             "search": search,
+            "table_sort": sort,
         },
     )
 

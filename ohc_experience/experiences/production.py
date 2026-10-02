@@ -64,8 +64,6 @@ IN_USE = "This client ID is already in use."
 NOT_ELIGIBLE = "Production details follow an approved milestone exit."
 FUTURE_DATE = "The production issue date cannot be in the future."
 
-_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-
 
 def enabled(program):
     """Whether this program records production client IDs at all."""
@@ -399,12 +397,6 @@ CSV_HEADER = (
 )
 
 
-def _cell(value):
-    """Spreadsheets run a cell that starts with a formula character."""
-    text = "" if value is None else str(value)
-    return f"'{text}" if text.startswith(_FORMULA_PREFIXES) else text
-
-
 def _date(value):
     """An ISO day, from either a stored timestamp or a date staff entered."""
     if not value:
@@ -414,7 +406,7 @@ def _date(value):
     return value.isoformat()
 
 
-def csv_rows(query):
+def export_rows(query):
     products = with_codes(
         query.prefetch_related(
             Prefetch(
@@ -426,28 +418,24 @@ def csv_rows(query):
             ),
         ),
     )
-    yield CSV_HEADER
     for product in products:
         organisation = product.organisation
         owners = organisation.owner_memberships
         owner = owners[0].user if owners else None
-        yield tuple(
-            _cell(value)
-            for value in (
-                product.reference,
-                product.name,
-                organisation.display_name,
-                organisation.state,
-                organisation.city,
-                owner.name if owner else "",
-                owner.email if owner else "",
-                owner.phone_number if owner else "",
-                ", ".join(product.approved_codes),
-                _date(product.first_exit_at),
-                product.sandbox_client_id,
-                product.production_client_id,
-                _date(product.production_issued_on),
-                _date(product.production_recorded_at),
-                product.recorded_by_email,
-            )
+        yield (
+            product.reference,
+            product.name,
+            organisation.display_name,
+            organisation.state,
+            organisation.city,
+            owner.name if owner else "",
+            owner.email if owner else "",
+            owner.phone_number if owner else "",
+            ", ".join(product.approved_codes),
+            _date(product.first_exit_at),
+            product.sandbox_client_id,
+            product.production_client_id,
+            _date(product.production_issued_on),
+            _date(product.production_recorded_at),
+            product.recorded_by_email,
         )

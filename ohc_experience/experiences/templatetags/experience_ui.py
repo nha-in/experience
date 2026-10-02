@@ -173,3 +173,80 @@ def page_numbers(page):
 def _window(number, num_pages, size):
     start = max(1, min(number - size // 2, num_pages - size + 1))
     return range(start, min(num_pages, start + size - 1) + 1)
+
+
+def _table_query(request, **changes):
+    """The current query string with `changes` applied; None drops a key."""
+    query = request.GET.copy()
+    for key in ("page", "export", "table"):
+        query.pop(key, None)
+    for key, value in changes.items():
+        if value is None:
+            query.pop(key, None)
+        else:
+            query[key] = value
+    return f"?{query.urlencode()}"
+
+
+@register.inclusion_tag("components/sort_header.html", takes_context=True)
+def sort_header(  # noqa: PLR0913
+    context,
+    label,
+    key,
+    css="",
+    *,
+    note="",
+    descending_first=False,
+    param="sort",
+    current=None,
+):
+    """A column heading that sorts its table, toggling between directions.
+
+    Dates read best newest first, so their first click sorts descending. A
+    second table on a page names its own query `param` and the `current` sort
+    it is in, where the page's main table reads `table_sort`.
+    """
+    if current is None:
+        current = context.get("table_sort", "")
+    if current == key:
+        state, target = "ascending", f"-{key}"
+    elif current == f"-{key}":
+        state, target = "descending", key
+    else:
+        state, target = "", f"-{key}" if descending_first else key
+    return {
+        "label": label,
+        "note": note,
+        "css": css,
+        "state": state,
+        "href": _table_query(context["request"], **{param: target}),
+    }
+
+
+@register.simple_tag(takes_context=True)
+def reload_url(context, key):
+    """This page without its page number or `key`, for a dropdown that sends
+    `key` back itself, as the page-size one does.
+
+    A bare "?" would come back as "?&per_page=" once htmx adds the value.
+    """
+    request = context["request"]
+    query = request.GET.copy()
+    for name in ("page", "export", key):
+        query.pop(name, None)
+    encoded = query.urlencode()
+    return f"{request.path}?{encoded}" if encoded else request.path
+
+
+@register.simple_tag(takes_context=True)
+def export_url(context, export, table=None):
+    """This table's rows as a CSV or Excel file, filtered and sorted as on screen.
+
+    `table` names which one, on a page with two.
+    """
+    return _table_query(
+        context["request"],
+        export=export,
+        per_page=None,
+        table=table or None,
+    )

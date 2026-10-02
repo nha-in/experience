@@ -1,5 +1,7 @@
 {% extends 'experiences/base.html' %}
 
+{% load experience_ui %}
+
 {% block portal_hero %}
   <div class="ui-hero pb-[72px]">
     <div class="ui-hero-inner">
@@ -48,6 +50,7 @@
           role="search"
           aria-label="Production Approval">
       <input type="hidden" name="tab" value="{{ stage }}" />
+      {% include "components/table_state.html" %}
       <div class="ui-card-content flex flex-wrap items-end gap-3">
         <div class="min-w-0 flex-1">
           <label class="ui-label" for="production-search">Search products</label>
@@ -70,10 +73,8 @@
         <p class="text-sm font-semibold" aria-live="polite">
           {{ page.paginator.count }} product{{ page.paginator.count|pluralize }}{% if q %} found{% endif %}
         </p>
-        <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-           href="{% url 'experiences:production-export' %}?{{ filter_query }}"
-           hx-boost="false"
-           download>Export CSV</a>
+        {% url 'experiences:production-export' as export_page %}
+        {% include "components/export_download.html" with url=export_page|add:"?"|add:filter_query %}
       </div>
       {% if rows %}
         <div class="overflow-x-auto">
@@ -87,12 +88,12 @@
             </caption>
             <thead>
               <tr>
-                <th scope="col">Product</th>
-                <th scope="col">Organisation</th>
-                <th scope="col">Approved milestones</th>
+                {% sort_header "Product" "product" %}
+                {% sort_header "Organisation" "organisation" %}
+                {% sort_header "Approved milestones" "approved" %}
                 {% if stage == 'approved' %}
-                  <th scope="col">Production client ID</th>
-                  <th scope="col">Issued on</th>
+                  {% sort_header "Production client ID" "client_id" %}
+                  {% sort_header "Issued on" "issued" descending_first=True %}
                 {% endif %}
                 <th scope="col">Production details</th>
               </tr>
@@ -160,27 +161,7 @@
           </p>
         </div>
       {% endif %}
-      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-soft-border px-6 py-3 text-xs text-soft-foreground">
-        <span>
-          {% if page.paginator.count %}
-            Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}
-          {% else %}
-            Showing 0 products
-          {% endif %}
-        </span>
-        <nav class="flex flex-wrap items-center gap-2"
-             aria-label="Products pagination">
-          {% if page.has_previous %}
-            <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-               href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>
-          {% endif %}
-          <span class="px-1">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
-          {% if page.has_next %}
-            <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-               href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>
-          {% endif %}
-        </nav>
-      </div>
+      {% include "components/pagination.html" with page=page label="Products pagination" %}
     </div>
   </div>
 {% endblock portal_content %}

@@ -336,6 +336,28 @@
     @apply transition-colors hover:bg-secondary/40;
   }
 
+  /* A sortable heading: the arrow shows the direction, or both while unsorted. */
+  .ui-sort {
+    @apply -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 whitespace-nowrap text-inherit no-underline hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary;
+  }
+
+  .ui-sort-icon {
+    @apply size-3 shrink-0 opacity-40;
+  }
+
+  .ui-sort:hover .ui-sort-icon,
+  [aria-sort] > .ui-sort .ui-sort-icon {
+    @apply opacity-100;
+  }
+
+  [aria-sort] > .ui-sort {
+    @apply text-foreground;
+  }
+
+  th.text-right > .ui-sort {
+    @apply flex-row-reverse;
+  }
+
   /* ── Queue chips: one request, tinted by its review state ───────────── */
 
   .ui-queue-chip {

@@ -1,0 +1,28 @@
+{% comment %}
+  A sortable column heading; render it with {% sort_header label key %} from
+  experience_ui, which reads the table's current `table_sort`.
+{% endcomment %}
+<th scope="col"
+    {% if css %}class="{{ css }}"{% endif %}
+    {% if state %}aria-sort="{{ state }}"{% endif %}>
+  <a class="ui-sort" href="{{ href }}">
+    {{ label }}
+    {% if note %}<span class="font-normal tracking-normal normal-case text-soft-foreground">({{ note }})</span>{% endif %}
+    <svg class="ui-sort-icon"
+         viewBox="0 0 24 24"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="2"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         aria-hidden="true">
+      {% if state == 'ascending' %}
+        <path d="M12 19V5m-6 6 6-6 6 6" />
+      {% elif state == 'descending' %}
+        <path d="M12 5v14m6-6-6 6-6-6" />
+      {% else %}
+        <path d="m7 9 5-5 5 5M7 15l5 5 5-5" />
+      {% endif %}
+    </svg>
+  </a>
+</th>

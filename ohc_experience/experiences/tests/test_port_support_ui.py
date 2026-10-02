@@ -462,8 +462,8 @@ def test_ticket_list_shows_category_and_sub_category_columns(
     response = portal_client.get(reverse("experiences:support"))
     assert response.status_code == HTTPStatus.OK
     body = response.content.decode()
-    assert ">Category</th>" in body
-    assert ">Sub-category</th>" in body
+    assert 'href="?sort=category"' in body
+    assert 'href="?sort=subcategory"' in body
     assert "ABDM - Milestone 2" in body
     assert "Bridge Service" in body
 

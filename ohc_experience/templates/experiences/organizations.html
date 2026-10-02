@@ -1,5 +1,7 @@
 {% extends 'experiences/base.html' %}
 
+{% load experience_ui %}
+
 {% block portal_hero %}
   <div class="ui-hero">
     <div class="ui-hero-inner">
@@ -24,6 +26,7 @@
           hx-swap="outerHTML"
           hx-trigger="change, submit"
           hx-push-url="true">
+      {% include "components/table_state.html" %}
       <div class="min-w-0">
         <label class="ui-label" for="organization-search">Search organisations</label>
         <input class="ui-input"
@@ -77,34 +80,83 @@
         {% endif %}
       </div>
     </form>
-    <div class="divide-y divide-soft-border">
-      {% for organization in organizations %}
-        <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-           href="{% url 'experiences:organization-detail' organization.slug %}">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
-                aria-hidden="true">{{ organization.initials }}</span>
-          <div class="min-w-0 flex-[1_1_12rem]">
-            <h2 class="text-base font-bold break-words group-hover:text-primary">{{ organization.display_name }}</h2>
-            <p class="mt-1 text-xs text-soft-foreground">
-              {{ organization.visible_product_count }} product{{ organization.visible_product_count|pluralize }} · {{ organization.open_count }} open request{{ organization.open_count|pluralize }}
-            </p>
-          </div>
-          {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
-          <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
-                aria-hidden="true">→</span>
-        </a>
-      {% empty %}
-        <div class="px-5 py-12 text-center">
-          {% if filtered %}
-            <h2 class="text-base font-semibold">No organisations match these filters</h2>
-            <p class="mt-2 text-sm text-soft-foreground">Try another name, or widen the verification, type or state filters.</p>
-          {% else %}
-            <h2 class="text-base font-semibold">No organisations available</h2>
-            <p class="mt-2 text-sm text-soft-foreground">Organisations will appear when a review request matches your permissions.</p>
-          {% endif %}
-        </div>
-      {% endfor %}
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-soft-border px-5 py-3 md:border-b-0 md:px-6">
+      <p class="text-sm font-semibold" aria-live="polite">
+        {{ organizations.paginator.count }} organisation{{ organizations.paginator.count|pluralize }}{% if filtered %} found{% endif %}
+      </p>
+      {% if organizations %}
+        {% include "components/export_download.html" %}
+      {% endif %}
     </div>
+    {% if organizations %}
+      <div class="hidden overflow-x-auto md:block">
+        <table class="ui-grid-table min-w-[900px]">
+          <caption class="sr-only">Organisations</caption>
+          <thead hx-boost="true"
+                 hx-target="#main-content"
+                 hx-select="#main-content"
+                 hx-swap="outerHTML"
+                 hx-push-url="true">
+            <tr>
+              {% sort_header "Organisation" "name" %}
+              {% sort_header "Type of entity" "type" %}
+              {% sort_header "State" "state" %}
+              {% sort_header "Products" "products" "text-right" descending_first=True %}
+              {% sort_header "Open requests" "open" "text-right" descending_first=True %}
+              {% sort_header "Verification" "status" %}
+              {% sort_header "Registered on" "registered" descending_first=True %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for organization in organizations %}
+              <tr class="group">
+                <td class="min-w-[220px]">
+                  <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                     href="{% url 'experiences:organization-detail' organization.slug %}"
+                     data-row-link>{{ organization.display_name }}</a>
+                </td>
+                <td class="text-muted-foreground">{{ organization.entity_type_label|default:'—' }}</td>
+                <td class="text-muted-foreground">{{ organization.state_label|default:'—' }}</td>
+                <td class="text-right tabular-nums">{{ organization.visible_product_count }}</td>
+                <td class="text-right tabular-nums">{{ organization.open_count }}</td>
+                <td>
+                  {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
+                </td>
+                <td class="whitespace-nowrap tabular-nums">{{ organization.created_at|date:'d/m/Y' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="divide-y divide-soft-border md:hidden">
+        {% for organization in organizations %}
+          <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+             href="{% url 'experiences:organization-detail' organization.slug %}">
+            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
+                  aria-hidden="true">{{ organization.initials }}</span>
+            <div class="min-w-0 flex-[1_1_12rem]">
+              <h2 class="text-base font-bold break-words group-hover:text-primary">{{ organization.display_name }}</h2>
+              <p class="mt-1 text-xs text-soft-foreground">
+                {{ organization.visible_product_count }} product{{ organization.visible_product_count|pluralize }} · {{ organization.open_count }} open request{{ organization.open_count|pluralize }}
+              </p>
+            </div>
+            {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
+                  aria-hidden="true">→</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="px-5 py-12 text-center">
+        {% if filtered %}
+          <h2 class="text-base font-semibold">No organisations match these filters</h2>
+          <p class="mt-2 text-sm text-soft-foreground">Try another name, or widen the verification, type or state filters.</p>
+        {% else %}
+          <h2 class="text-base font-semibold">No organisations available</h2>
+          <p class="mt-2 text-sm text-soft-foreground">Organisations will appear when a review request matches your permissions.</p>
+        {% endif %}
+      </div>
+    {% endif %}
     {% include 'components/pagination.html' with page=organizations label='Organisations pagination' %}
   </div>
 {% endblock portal_content %}

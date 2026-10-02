@@ -1,0 +1,52 @@
+{% comment %}
+  One Export button whose menu offers every row the table's filters match,
+  in its current order, as a CSV file or an Excel workbook. A native <details>
+  like the product switcher: layouts/app.html closes it on a click elsewhere,
+  on a choice or on Escape. Context: optional size (ui-btn size, sm by
+  default); url, a page of its own that takes ?export=, in place of this one;
+  table, which of a page's two tables to export; and wrap_left, for a button
+  that wraps to the left edge on a phone, whose menu would otherwise open off
+  the screen.
+{% endcomment %}
+{% load experience_ui %}
+
+<details class="group relative shrink-0" data-popover>
+  <summary class="ui-btn ui-btn--outline ui-btn--size-{{ size|default:"sm" }} list-none [&::-webkit-details-marker]:hidden">
+    <svg class="size-4 shrink-0"
+         viewBox="0 0 24 24"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="1.8"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         aria-hidden="true">
+      <path d="M12 15V4m-4.5 4.5L12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+    </svg>
+    Export
+    <svg class="size-3.5 shrink-0 text-soft-foreground transition-transform group-open:rotate-180"
+         viewBox="0 0 24 24"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="2"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         aria-hidden="true">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  </summary>
+  <ul class="absolute top-full z-40 {% if wrap_left %}left-0 md:right-0 md:left-auto{% else %}right-0{% endif %} mt-1.5 flex w-36 flex-col gap-px rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
+      aria-label="Export format">
+    <li>
+      <a class="ui-nav-link block py-2 text-sm no-underline"
+         href="{% if url %}{{ url }}&amp;export=csv{% else %}{% export_url 'csv' table %}{% endif %}"
+         hx-boost="false"
+         download>CSV</a>
+    </li>
+    <li>
+      <a class="ui-nav-link block py-2 text-sm no-underline"
+         href="{% if url %}{{ url }}&amp;export=xlsx{% else %}{% export_url 'xlsx' table %}{% endif %}"
+         hx-boost="false"
+         download>Excel</a>
+    </li>
+  </ul>
+</details>

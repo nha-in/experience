@@ -1,5 +1,7 @@
 {% extends 'experiences/base.html' %}
 
+{% load experience_ui %}
+
 {% block crumb_root %}
   {% include 'components/crumb.html' with label='Organisations' %}
 {% endblock crumb_root %}
@@ -27,6 +29,7 @@
           hx-swap="outerHTML"
           hx-trigger="change, submit"
           hx-push-url="true">
+      {% include "components/table_state.html" %}
       <div class="min-w-0">
         <label class="ui-label" for="product-search">Search products</label>
         <input class="ui-input"
@@ -68,39 +71,83 @@
         {% endif %}
       </div>
     </form>
-    <div class="divide-y divide-soft-border">
-      {% for product in products %}
-        <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-           href="{% url 'experiences:product-detail' product.reference %}">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
-                aria-hidden="true">{{ product.name|first }}</span>
-          <div class="min-w-0 flex-[1_1_12rem]">
-            <h2 class="text-base font-bold break-words group-hover:text-primary">{{ product.name }}</h2>
-            <p class="mt-1 text-xs text-soft-foreground">
-              <span class="font-mono">{{ product.reference }}</span>{% if product.solution_type %} · {{ product.get_solution_type_display }}{% endif %} · {{ product.organisation.display_name }}
-            </p>
-          </div>
-          {% if product.open_count %}
-            <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>
-          {% endif %}
-          {% if product.registered_at %}
-            <span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>
-          {% endif %}
-          <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
-                aria-hidden="true">→</span>
-        </a>
-      {% empty %}
-        <div class="px-5 py-12 text-center">
-          {% if search or selected_organization or selected_solution_type %}
-            <h2 class="text-base font-semibold">No products match these filters</h2>
-            <p class="mt-2 text-sm text-soft-foreground">Try another name or reference, or widen the organisation or solution type.</p>
-          {% else %}
-            <h2 class="text-base font-semibold">No products available</h2>
-            <p class="mt-2 text-sm text-soft-foreground">Products will appear when a review request matches your permissions.</p>
-          {% endif %}
-        </div>
-      {% endfor %}
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-soft-border px-5 py-3 md:border-b-0 md:px-6">
+      <p class="text-sm font-semibold" aria-live="polite">
+        {{ products.paginator.count }} product{{ products.paginator.count|pluralize }}{% if search or selected_organization or selected_solution_type %} found{% endif %}
+      </p>
+      {% if products %}
+        {% include "components/export_download.html" %}
+      {% endif %}
     </div>
+    {% if products %}
+      <div class="hidden overflow-x-auto md:block">
+        <table class="ui-grid-table min-w-[860px]">
+          <caption class="sr-only">Products</caption>
+          <thead hx-boost="true"
+                 hx-target="#main-content"
+                 hx-select="#main-content"
+                 hx-swap="outerHTML"
+                 hx-push-url="true">
+            <tr>
+              {% sort_header "Product" "product" %}
+              {% sort_header "Organisation" "organisation" %}
+              {% sort_header "Solution type" "solution" %}
+              {% sort_header "Open requests" "open" "text-right" descending_first=True %}
+              {% sort_header "Registered on" "registered" descending_first=True %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+              <tr class="group">
+                <td class="min-w-[200px]">
+                  <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                     href="{% url 'experiences:product-detail' product.reference %}"
+                     data-row-link>{{ product.name }}</a>
+                  <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
+                </td>
+                <td class="max-w-[240px] text-muted-foreground">{{ product.organisation.display_name }}</td>
+                <td class="text-muted-foreground">{{ product.get_solution_type_display|default:'—' }}</td>
+                <td class="text-right tabular-nums">{{ product.open_count }}</td>
+                <td class="whitespace-nowrap tabular-nums">{{ product.registered_at|date:'d/m/Y'|default:'—' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="divide-y divide-soft-border md:hidden">
+        {% for product in products %}
+          <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+             href="{% url 'experiences:product-detail' product.reference %}">
+            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
+                  aria-hidden="true">{{ product.name|first }}</span>
+            <div class="min-w-0 flex-[1_1_12rem]">
+              <h2 class="text-base font-bold break-words group-hover:text-primary">{{ product.name }}</h2>
+              <p class="mt-1 text-xs text-soft-foreground">
+                <span class="font-mono">{{ product.reference }}</span>{% if product.solution_type %} · {{ product.get_solution_type_display }}{% endif %} · {{ product.organisation.display_name }}
+              </p>
+            </div>
+            {% if product.open_count %}
+              <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>
+            {% endif %}
+            {% if product.registered_at %}
+              <span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>
+            {% endif %}
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
+                  aria-hidden="true">→</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="px-5 py-12 text-center">
+        {% if search or selected_organization or selected_solution_type %}
+          <h2 class="text-base font-semibold">No products match these filters</h2>
+          <p class="mt-2 text-sm text-soft-foreground">Try another name or reference, or widen the organisation or solution type.</p>
+        {% else %}
+          <h2 class="text-base font-semibold">No products available</h2>
+          <p class="mt-2 text-sm text-soft-foreground">Products will appear when a review request matches your permissions.</p>
+        {% endif %}
+      </div>
+    {% endif %}
     {% include 'components/pagination.html' with page=products label='Products pagination' %}
   </div>
 {% endblock portal_content %}
