@@ -197,6 +197,25 @@ def test_a_checkbox_s_hint_and_error_run_under_its_label():
     assert html.count("ui-hint") == 1
 
 
+def test_a_checkbox_explains_itself_behind_an_i_beside_its_label():
+    """As any field in `field_info` does, outside the label so a click on the
+    (i) leaves the box as it was."""
+
+    class ReuseForm(forms.Form):
+        field_info = {"reuse": "What ticking it does."}
+        reuse = forms.BooleanField(required=False, label="Reuse")
+
+    html = " ".join(render_field(ReuseForm()["reuse"]).split())
+
+    assert (
+        '<label class="text-sm leading-snug text-muted-foreground select-none" '
+        'for="id_reuse">Reuse</label> <button class="ui-info-button'
+    ) in html
+    assert 'aria-label="About Reuse"' in html
+    assert "What ticking it does." in html.split('id="info-field-id_reuse"', 1)[1]
+    assert "ui-hint" not in html
+
+
 def test_a_draft_promises_what_submitting_will_demand():
     form = DraftEvidenceForm()
     assert 'class="ui-required"' in render_field(form["name"])

@@ -210,26 +210,27 @@ def test_reusing_the_approved_certificate_says_what_it_does(environment, client)
 
     html = page(client, environment, "m2")
 
-    checkbox = re.search(r'<input type="checkbox" name="use_product_wasa"[^>]*>', html)
-    assert 'aria-describedby="id_use_product_wasa_helptext"' in checkbox.group(0)
-    # The explanation runs under the label it explains.
+    # Behind the (i) beside the checkbox's label, not printed under it.
     assert re.search(
         r'<div class="min-w-0">\s*<label [^>]*for="id_use_product_wasa">'
         r"Reuse Previously Approved Certificate</label>\s*"
-        r'<span class="ui-hint" id="id_use_product_wasa_helptext">',
+        r'<button class="ui-info-button[^"]*"\s+type="button"\s+'
+        r'popovertarget="info-field-id_use_product_wasa"\s+'
+        r'aria-label="About Reuse Previously Approved Certificate"',
         html,
     )
-    hint = re.search(
-        r'<span class="ui-hint" id="id_use_product_wasa_helptext">(.*?)</span>',
+    panel = re.search(
+        r'<div class="ui-info-panel"\s+id="info-field-id_use_product_wasa".*?</div>',
         html,
         re.S,
     )
-    assert text(hint.group(1)) == (
+    assert text(panel.group(0)) == (
         "Uses the WASA certificate already approved for this product instead of "
         "uploading it again. An approved certificate stays available to every "
         "milestone of the product until it expires. Untick to upload a new "
         "certificate, which NHA reviews with this milestone."
     )
+    assert "id_use_product_wasa_helptext" not in html
 
 
 def test_functional_testing_comes_before_the_wasa_audit(environment, client):  # noqa: F811
