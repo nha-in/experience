@@ -1,0 +1,30 @@
+{% comment %}
+  The page's toasts, stacked at the foot of the viewport: the Django messages
+  an action left (components/messages.html) and the notice for an htmx
+  request that failed.
+
+  Include it once per page, inside whatever a boosted navigation swaps — in
+  the signed-in shell that is #main-content — so the messages a page brings
+  arrive with it. It is fixed to the viewport, so where it sits in the markup
+  does not move it on screen.
+
+  #request-feedback belongs to static/js/portal-ux.js, which fills it in and
+  shows it when a request fails and hides it again on the next one. It sits
+  beside #flash-messages rather than inside it: an out-of-band flash replaces
+  everything in that region, and an alert nested in a polite live region can
+  be read out twice.
+{% endcomment %}
+{% load i18n %}
+
+<div class="ui-toaster">
+  {% include "components/messages.html" %}
+  <div id="request-feedback"
+       class="ui-alert ui-alert--destructive ui-toast"
+       hidden>
+    <p class="flex-1" role="alert" data-request-error></p>
+    <button type="button"
+            class="ui-toast-close"
+            aria-label="{% translate 'Dismiss notification' %}"
+            data-dismiss-request>×</button>
+  </div>
+</div>

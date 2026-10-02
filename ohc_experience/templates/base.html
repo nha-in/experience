@@ -123,15 +123,6 @@
         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <a class="skip-link" href="#main-content">{% translate "Skip to content" %}</a>
     <div id="nav-progress" class="htmx-indicator" aria-hidden="true"></div>
-    <div id="request-feedback" class="request-feedback" hidden>
-      <div class="ui-alert ui-alert--destructive shadow-lg">
-        <p class="flex-1" role="alert" data-request-error></p>
-        <button type="button"
-                class="ui-btn ui-btn--ghost size-11 shrink-0 p-0"
-                aria-label="{% translate 'Dismiss notification' %}"
-                data-dismiss-request>×</button>
-      </div>
-    </div>
     <div id="interaction-status"
          class="sr-only"
          role="status"
@@ -143,17 +134,23 @@
     {% block inline_javascript %}
     {% endblock inline_javascript %}
     {% comment %}
-      One delegated listener for the whole site rather than a copy per shell.
-      An alert is not only ever present at load: it can be swapped in with a
+      Delegated listeners for the whole site rather than a copy per shell.
+      A toast is not only ever present at load: it can be swapped in with a
       boosted navigation, or arrive out of band from a partial (see
-      components/messages.html), and a handler bound to the buttons that
-      happened to exist at load would never see those. It sits outside the
-      block above so a page that overrides inline_javascript cannot drop it.
+      components/messages.html), and a handler bound to the elements that
+      happened to exist at load would never see those. They sit outside the
+      block above so a page that overrides inline_javascript cannot drop them.
+
+      A success or info toast fades out on its own (careui.css); the second
+      listener takes it out of the page once the fade has finished.
     {% endcomment %}
     <script>
       document.addEventListener("click", (event) => {
         const dismiss = event.target.closest("[data-dismiss-alert]");
         if (dismiss) dismiss.closest(".ui-alert")?.remove();
+      });
+      document.addEventListener("animationend", (event) => {
+        if (event.animationName === "ui-toast-out") event.target.remove();
       });
     </script>
   </body>

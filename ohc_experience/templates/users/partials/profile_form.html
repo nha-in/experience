@@ -8,11 +8,10 @@
 
   Context:
     oob_flash — True on the htmx response that saved, so the success message
-                rides along out of band into #flash-messages.
+                rides along out of band into #flash-messages, a toast.
 
-  `show:window:top` on the swap keeps the flash and any errors in view: every
-  pre-htmx response left the browser at the top of the page, and the swap has
-  to do the same or a save made from a scrolled position says nothing back.
+  The swap leaves the page where it was: the toast is in view wherever the
+  reader has scrolled, and portal-ux.js brings an error summary into view.
 
   No-JS contract: method/action are real and {% csrf_token %} is present, so
   submitting without htmx POSTs the page and the view redirects as it always
@@ -28,7 +27,7 @@
       action="{{ form_action }}"
       hx-post="{{ form_action }}"
       hx-target="this"
-      hx-swap="outerHTML show:window:top"
+      hx-swap="outerHTML"
       hx-disabled-elt="find button[type=submit]">
   {% csrf_token %}
   <div class="ui-card-content flex flex-col gap-4">

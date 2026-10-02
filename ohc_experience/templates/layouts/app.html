@@ -21,19 +21,21 @@
   to keep just that element out of an ordinary whole-page response and swap it
   in (components/app_nav.html spells the contract out). So the id has to stay,
   and everything that changes from page to page has to live inside it — which
-  is also why #flash-messages and the breadcrumb sit here rather than outside
+  is also why the toaster and the breadcrumb sit here rather than outside
   the main column. The views know none of this; they keep returning whole
   pages — including the pages that are not this shell, which the script at the
   bottom hands back to the browser rather than swapping into a sidebar they do
   not belong in.
 
-  Dismissing an alert is wired once for every shell in base.html.
+  The toaster is fixed to the viewport all the same. --toaster-left on #portal
+  centres its toasts on the content column rather than across the sidebar.
+  Dismissing a toast is wired once for every shell in base.html.
 {% endcomment %}
 {% load i18n %}
 
 {% block body %}
   <div id="portal"
-       class="flex min-h-screen flex-col md:flex-row"
+       class="flex min-h-screen flex-col md:flex-row md:[--toaster-left:calc(248px+1rem)]"
        hx-history="false">
     <input type="checkbox"
            id="app-drawer"
@@ -143,7 +145,7 @@
         {% endblock hero %}
         <div class="flex-1 px-4 pb-12 sm:px-7 lg:px-8 {% block canvas_padding %}pt-6 lg:pt-8{% endblock canvas_padding %}">
           <div class="mx-auto w-full max-w-(--page-max)">
-            {% include "components/messages.html" %}
+            {% include "components/toaster.html" %}
             {% block page_header %}
             {% endblock page_header %}
             {% block content %}

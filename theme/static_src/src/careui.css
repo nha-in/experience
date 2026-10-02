@@ -448,6 +448,49 @@
     color: var(--status-danger-text);
   }
 
+  /* ── Toast ─────────────────────────────────────────────────────────────── */
+
+  /* An alert that floats over the page, stacked by components/toaster.html at
+     the foot of the viewport. The stack centres between --toaster-left and
+     the right edge (the signed-in shell moves it past its sidebar), sits
+     above sticky page furniture but under the mobile drawer, and takes no
+     clicks itself, so the page around the toasts stays usable. */
+  .ui-toaster {
+    @apply pointer-events-none fixed right-4 z-25 mx-auto flex flex-col gap-2;
+    left: var(--toaster-left, 1rem);
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    width: min(28rem, calc(100% - var(--toaster-left, 1rem) - 1rem));
+  }
+
+  .ui-toast {
+    @apply pointer-events-auto shadow-lg;
+    animation: ui-toast-in 0.2s ease-out both;
+  }
+
+  /* Success and info confirm what just happened, then fade out on their own;
+     base.html takes a toast out of the page once its fade ends. Pointing at
+     one or focusing its button holds it. An error or a warning stays until
+     it is dismissed. */
+  .ui-toast--fleeting {
+    animation:
+      ui-toast-in 0.2s ease-out both,
+      ui-toast-out 0.3s ease-in 6s forwards;
+  }
+
+  .ui-toast:is(:hover, :focus-within) {
+    animation-play-state: paused;
+  }
+
+  .ui-toast-close {
+    @apply -my-1.5 -mr-2 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-lg leading-none opacity-70 transition hover:bg-current/10 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-toast {
+      --toast-rise: 0;
+    }
+  }
+
   /* ── Table ─────────────────────────────────────────────────────────────── */
 
   .ui-table {
@@ -580,5 +623,22 @@
   0%,
   40% {
     background-color: --theme(--color-amber-100);
+  }
+}
+
+/* A toast rises into place; with reduced motion it only fades in. */
+@keyframes ui-toast-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--toast-rise, 0.5rem);
+  }
+}
+
+/* Hidden at the end, so a toast that outlives its fade (scripts off) cannot
+   catch a click meant for the page underneath. */
+@keyframes ui-toast-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
   }
 }

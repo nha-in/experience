@@ -17,3 +17,10 @@
 
 - A row that opens a page opens it on a click anywhere in the row, not only on its name. `ohc_experience/static/js/row-link.js` does this for every table row or list item holding a link marked `data-row-link`, and the row gets a pointer cursor. Mark the link to the row's page, usually the name, and keep it a real `<a href>`: keyboard and screen reader users reach the page through it, and htmx boosts it. Give the row `group` and the link `group-hover:text-primary` so the name lights up with the row, or `group-hover:underline` when the link is already primary. A table row with nowhere to go, like a team member or a permission, stays as it is.
 - A card that is one `<a>` from edge to edge, like the queue's cards on a phone, already opens from anywhere and needs no marker.
+
+# Toasts
+
+- What an action did, or why it was refused, is a Django message (`messages.success`, `messages.error`, …), and every shell shows its messages as toasts at the foot of the screen through `components/toaster.html`. Never put an action's result in an inline alert, and never build another toast or add a toast library.
+- Success and info toasts fade after six seconds, held while pointed at or focused. Errors and warnings stay until dismissed.
+- An htmx response raises a toast by ending with `{% include "components/messages.html" with oob=True %}`; `components/messages.html` explains the contract.
+- An alert about the state of the page, such as "No callback URL saved", "Under review" or a form's error summary, is not a toast. It stays an inline `ui-alert` next to what it describes.

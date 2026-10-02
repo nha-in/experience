@@ -57,14 +57,6 @@
   outline-offset: 3px;
 }
 
-.request-feedback {
-  position: fixed;
-  z-index: 60;
-  inset: auto 1rem max(1rem, env(safe-area-inset-bottom));
-  width: min(36rem, calc(100% - 2rem));
-  margin-inline: auto;
-}
-
 [data-request-pending] {
   cursor: wait;
   opacity: 0.65;

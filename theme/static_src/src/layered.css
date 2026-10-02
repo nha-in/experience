@@ -62,18 +62,9 @@
     @apply text-[11px] font-bold tracking-[0.06em] text-soft-foreground uppercase;
   }
 
-  /* The first block under a hero pulls up into the band. A flash message
-     between the two pushes it back down so the alert stays readable. */
+  /* The first block under a hero pulls up into the band. */
   .ui-float {
     @apply relative -mt-11;
-  }
-
-  #main-content:has(.ui-hero) #flash-messages:has(.ui-alert) {
-    @apply pt-6;
-  }
-
-  #flash-messages:has(.ui-alert) ~ .ui-float {
-    @apply mt-0;
   }
 
   /* ── Layered card and tiles ─────────────────────────────────────────── */

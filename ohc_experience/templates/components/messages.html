@@ -1,5 +1,7 @@
 {% comment %}
-  Django messages as careui alerts — the page's one flash region.
+  Django messages as careui toasts — the page's one flash region. Pages get
+  it through components/toaster.html, which pins it to the foot of the
+  viewport; the only direct include is the out-of-band one below.
 
   The #flash-messages wrapper always renders, even with nothing to say, for two
   reasons: an out-of-band swap needs a live element to aim at, and a permanent
@@ -13,10 +15,13 @@
 
   to the end of the fragment it returns — never with `only`, which would cut
   the include off from `messages` and quietly swap the region empty. That
-  marks the wrapper hx-swap-oob, so htmx drops the alerts into the live
+  marks the wrapper hx-swap-oob, so htmx drops the toasts into the live
   #flash-messages wherever it sits on the page. The swap style is innerHTML on
   purpose: the wrapper itself — id, role, aria-live — stays put and only the
-  alerts inside it change, which is what makes the announcement work.
+  toasts inside it change, which is what makes the announcement work.
+
+  A success or info message fades out after a few seconds; an error or a
+  warning stays until it is dismissed (.ui-toast--fleeting in careui.css).
 
   Include this partial at most once per page; a second copy would give the OOB
   swap two targets and Django's message store is consumed on first render.
@@ -24,20 +29,17 @@
 {% load i18n %}
 
 <div id="flash-messages"
+     class="flex flex-col gap-2"
      {% if oob %}hx-swap-oob="innerHTML"{% endif %}
      role="status"
      aria-live="polite">
-  {% if messages %}
-    <div class="mb-6 space-y-3">
-      {% for message in messages %}
-        <div class="ui-alert {% if message.level_tag == 'success' %}ui-alert--success{% elif message.level_tag == 'error' %}ui-alert--destructive{% elif message.level_tag == 'warning' %}ui-alert--warning{% else %}ui-alert--info{% endif %}">
-          <p class="flex-1">{{ message }}</p>
-          <button type="button"
-                  class="-my-1 -mr-1 shrink-0 rounded-md p-1 leading-none opacity-60 transition hover:bg-black/5 hover:opacity-100"
-                  data-dismiss-alert
-                  aria-label="{% translate 'Dismiss' %}">×</button>
-        </div>
-      {% endfor %}
+  {% for message in messages %}
+    <div class="ui-alert ui-toast {% if message.level_tag == 'success' %}ui-alert--success ui-toast--fleeting{% elif message.level_tag == 'error' %}ui-alert--destructive{% elif message.level_tag == 'warning' %}ui-alert--warning{% else %}ui-alert--info ui-toast--fleeting{% endif %}">
+      <p class="flex-1">{{ message }}</p>
+      <button type="button"
+              class="ui-toast-close"
+              data-dismiss-alert
+              aria-label="{% translate 'Dismiss' %}">×</button>
     </div>
-  {% endif %}
+  {% endfor %}
 </div>
