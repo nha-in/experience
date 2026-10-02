@@ -199,3 +199,43 @@ def test_documentation_says_it_opens_in_a_new_tab(environment):  # noqa: F811
         'Documentation <span aria-hidden="true">↗&#xFE0E;</span>'
         '<span class="sr-only"> (opens in a new tab)</span>',
     )
+
+
+def test_the_profile_sits_with_the_account_and_staff_under_administration(
+    environment,  # noqa: F811
+):
+    client = Client()
+    client.force_login(environment["admin"])
+
+    nav = app_nav(client, reverse("experiences:assess-dashboard"))
+
+    links, rest = nav.split('class="mt-auto', 1)
+    bottom, account = rest.split("</ul>", 1)
+    heading = (
+        '<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] '
+        'text-soft-foreground uppercase">Administration</li>'
+    )
+    assert heading in links
+    assert links.index(heading) < links.index('id="nav-staff"')
+    assert links.index("Programme</li>") < links.index(heading)
+    assert 'id="nav-staff"' not in bottom
+    assert 'id="nav-docs"' in bottom
+    assert 'id="nav-profile"' not in links + bottom
+    profile = account[account.index('<a id="nav-profile"') :].split("</a>", 1)[0]
+    assert f'href="{reverse("users:profile")}"' in profile
+    assert 'title="Your profile"' in profile
+    assert '<span class="sr-only">Your profile: </span>' in profile
+    assert environment["admin"].display_name in profile
+    assert environment["admin"].email in profile
+
+    # A reviewer has nothing to administer; an integrator's team stays put.
+    client.force_login(environment["reviewer"])
+    nav = app_nav(client, reverse("experiences:assess-dashboard"))
+    assert "Administration" not in nav
+    assert 'id="nav-staff"' not in nav
+    client.force_login(environment["applicant"])
+    nav = app_nav(client, environment["product"].get_absolute_url())
+    bottom = nav.split('class="mt-auto', 1)[1].split("</ul>", 1)[0]
+    assert 'id="nav-settings"' in bottom
+    assert "Administration" not in nav
+    assert 'id="nav-profile"' in nav.split("</ul>")[-1]

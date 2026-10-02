@@ -99,16 +99,18 @@
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'organisation' %}ui-nav-link--active{% endif %}"
    href="{% url 'experiences:organisation' %}">{% include "components/nav_icon.html" with icon="organisation" %}{{ current_organisation.noun|capfirst }}</a></li>
   {% endif %}
+  {% if request.user.is_superuser %}
+    <li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Administration</li>
+    <li><a id="nav-staff"
+   class="ui-nav-link {% if nav == 'staff' %}ui-nav-link--active{% endif %}"
+   href="{% url 'experiences:staff-list' %}"
+   {% if nav == 'staff' %}aria-current="page"{% endif %}>{% include 'components/nav_icon.html' with icon='team' %}Staff &amp; permissions</a></li>
+  {% endif %}
 </ul>
 <ul class="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3 text-sm">
   {% if current_organisation and not reviewer %}<li><a id="nav-settings"
    class="ui-nav-link"
    href="{% url 'organisations:team' %}">{% include "components/nav_icon.html" with icon="team" %}Team &amp; invitations</a></li>{% endif %}
-  <li><a id="nav-profile" class="ui-nav-link" href="{% url 'users:profile' %}">{% include "components/nav_icon.html" with icon="profile" %}Your profile</a></li>
-  {% if request.user.is_superuser %}<li><a id="nav-staff"
-   class="ui-nav-link {% if nav == 'staff' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:staff-list' %}"
-   {% if nav == 'staff' %}aria-current="page"{% endif %}>{% include 'components/nav_icon.html' with icon='team' %}Staff &amp; permissions</a></li>{% endif %}
   <li><a id="nav-docs"
    class="ui-nav-link"
    href="{{ experience_program.docs_url }}"
@@ -117,10 +119,16 @@
    hx-boost="false">{% include "components/nav_icon.html" with icon="docs" %}Documentation <span aria-hidden="true">↗&#xFE0E;</span><span class="sr-only"> (opens in a new tab)</span></a></li>
 </ul>
 </div>
-<div class="mt-2.5 flex items-center gap-2 border-t border-sidebar-border px-2 pt-3">
-  <span class="ui-avatar ui-avatar--primary size-9 text-xs"
-        aria-hidden="true">{{ request.user.display_name|slice:":2"|upper }}</span>
-  <span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold">{{ request.user.display_name }}</span><span class="block truncate text-xs text-soft-foreground">{{ request.user.email }}</span></span>
+{# The account: who is signed in, which opens their profile, and signing out. #}
+<div class="mt-2.5 flex items-center gap-1 border-t border-sidebar-border pt-1.5">
+  <a id="nav-profile"
+     class="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-ring"
+     href="{% url 'users:profile' %}"
+     title="Your profile">
+    <span class="ui-avatar ui-avatar--primary size-9 text-xs"
+          aria-hidden="true">{{ request.user.display_name|slice:":2"|upper }}</span>
+    <span class="min-w-0 flex-1"><span class="sr-only">Your profile: </span><span class="block truncate text-sm font-semibold">{{ request.user.display_name }}</span><span class="block truncate text-xs text-soft-foreground">{{ request.user.email }}</span></span>
+  </a>
   <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
     {% csrf_token %}
     <button class="ui-btn ui-btn--ghost ui-btn--size-icon-xs"
