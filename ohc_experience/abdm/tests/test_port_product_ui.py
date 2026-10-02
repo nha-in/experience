@@ -881,6 +881,16 @@ def test_the_m2_page_says_when_no_callback_url_is_saved(environment, client):
     html = client.get(_track_url(environment["product"], "m2")).content.decode()
 
     assert "No callback URL saved" in html
+    # Underlined, as a link in an alert is, so it does not read as plain text.
+    credentials = reverse(
+        "experiences:credentials",
+        args=[environment["product"].reference],
+    )
+    assert re.search(
+        r'<a class="font-semibold underline underline-offset-4"\s+'
+        rf'href="{credentials}">Add a callback URL</a>',
+        html,
+    )
 
 
 @pytest.mark.django_db

@@ -338,8 +338,10 @@ def test_withdrawing_names_the_requests_to_withdraw_first(environment, client):
 
     assert "data-withdraw-hold" in m1
     assert "Withdraw request</button>" not in m1
+    # Underlined, as a link in an alert is, so it does not read as plain text.
     assert re.search(
-        rf'first withdraw <a [^>]*href="{track_url(environment)}\?milestone=m2">'
+        r'first withdraw <a class="font-semibold underline underline-offset-4"\s+'
+        rf'href="{track_url(environment)}\?milestone=m2">'
         r"M2 - Health Information Provider Services</a>\. It builds on this request\.",
         m1,
     )
