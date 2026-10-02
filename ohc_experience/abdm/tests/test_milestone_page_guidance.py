@@ -287,3 +287,32 @@ def test_the_dashboard_says_what_each_chart_counts(environment, client):  # noqa
         "Ready for review, by assignee",
     ):
         assert title in html
+
+
+def test_the_dashboard_is_named_for_who_reads_it(environment, client):  # noqa: F811
+    """An administrator's dashboard is not a reviewer's, and neither page says
+    "NHA assessment" above its title."""
+    url = reverse("experiences:assess-dashboard")
+
+    def names(user):
+        client.force_login(user)
+        html = client.get(url).content.decode()
+        title = text(re.search(r"<title>(.*?)</title>", html, re.S).group(1))
+        crumb = re.search(
+            r'<span class="truncate font-medium text-foreground">\s*([^<]+?)\s*<',
+            html,
+        ).group(1)
+        return title.split(" | ")[0], crumb, "NHA assessment" in html
+
+    assert names(environment["admin"]) == (
+        "Administrator dashboard",
+        "Administrator dashboard",
+        False,
+    )
+    assert names(environment["reviewer"]) == (
+        "Reviewer dashboard",
+        "Reviewer dashboard",
+        False,
+    )
+    # The eyebrow goes from the dashboard alone.
+    assert "NHA assessment" in client.get(reverse("experiences:queue")).content.decode()

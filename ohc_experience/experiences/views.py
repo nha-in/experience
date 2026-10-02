@@ -2061,7 +2061,10 @@ def assess_dashboard(request):
         week["rejected_height"] = round(week["rejected"] / maximum * 110)
     context = _context(
         request,
-        page_title="Reviewer dashboard",
+        # Superusers administer the portal; Staff & permissions is theirs alone.
+        page_title="Administrator dashboard"
+        if request.user.is_superuser
+        else "Reviewer dashboard",
         nav="assess-dashboard",
         my_open=ready.filter(assignee=request.user).count(),
         approved_by_milestone=[
