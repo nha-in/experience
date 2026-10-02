@@ -177,11 +177,12 @@
                 {% if reject_reasons %}
                   <div data-reject-controls
                        {% if decision_action != 'reject' %}hidden{% endif %}>
-                    <label class="ui-label" for="decision-reason-{{ item.pk }}">Reason</label>
+                    <label class="ui-label" for="decision-reason-{{ item.pk }}">Reason <span class="ui-required" aria-hidden="true">*</span></label>
                     <div class="ui-select-wrapper">
                       <select class="ui-select"
                               id="decision-reason-{{ item.pk }}"
                               name="reason"
+                              aria-required="true"
                               data-reason-select>
                         <option value="">Choose a reason</option>
                         {% for reason in reject_reasons %}
@@ -195,9 +196,13 @@
                   </div>
                 {% endif %}
                 <div>
-                  <label class="ui-label"
-                         for="decision-note-{{ item.pk }}"
-                         data-decision-label>{% if decision_action == 'query' %}Question{% elif decision_action == 'reject' %}Note for the integrator{% else %}Decision note{% endif %}</label>
+                  <label class="ui-label" for="decision-note-{{ item.pk }}">
+                    <span data-decision-label>{% if decision_action == 'query' %}Question{% elif decision_action == 'reject' %}Note for the integrator{% else %}Decision note{% endif %}</span>
+                    <span class="ui-required"
+                          aria-hidden="true"
+                          data-note-marker
+                          {% if decision_action == 'reject' and reject_reasons %}hidden{% endif %}>*</span>
+                  </label>
                   <textarea class="ui-textarea min-h-20"
                             id="decision-note-{{ item.pk }}"
                             name="note"
@@ -225,7 +230,7 @@
                 <input type="hidden" name="action" value="approve" />
                 <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">{{ waiting_on|capfirst }} not yet approved. Approving now records this request anyway.</p>
                 <div>
-                  <label class="ui-label" for="decision-note-{{ item.pk }}">Override note</label>
+                  <label class="ui-label" for="decision-note-{{ item.pk }}">Override note <span class="ui-required" aria-hidden="true">*</span></label>
                   <textarea class="ui-textarea min-h-20"
                             id="decision-note-{{ item.pk }}"
                             name="note"

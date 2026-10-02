@@ -496,6 +496,9 @@
       // The floor guards a required note. Zero is the unconstrained default,
       // for the aside beside a listed reason.
       note.minLength = note.required ? Number(note.dataset.noteMinlength) : 0;
+      // The asterisk beside the note's label shows only while the note is required.
+      const marker = form.querySelector('[data-note-marker]');
+      if (marker) marker.hidden = !note.required;
     }
     form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
     form.querySelectorAll('[data-approval-controls]').forEach(el => { el.hidden = action !== 'approve'; });

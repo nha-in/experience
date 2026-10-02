@@ -23,7 +23,7 @@
             <p class="mt-1">{{ waiting_on|capfirst }} not yet approved. Approving now records this request anyway.</p>
           </div>
           <div>
-            <label class="ui-label" for="decision-note">Override note</label>
+            <label class="ui-label" for="decision-note">Override note <span class="ui-required" aria-hidden="true">*</span></label>
             <textarea class="ui-textarea min-h-32"
                       id="decision-note"
                       name="note"
@@ -113,11 +113,12 @@
         </div>
         {% if reject_reasons %}
           <div data-reject-controls>
-            <label class="ui-label" for="decision-reason">Reason</label>
+            <label class="ui-label" for="decision-reason">Reason <span class="ui-required" aria-hidden="true">*</span></label>
             <div class="ui-select-wrapper">
               <select class="ui-select"
                       id="decision-reason"
                       name="reason"
+                      aria-required="true"
                       data-reason-select>
                 <option value="">Choose a reason</option>
                 {% for reason in reject_reasons %}
@@ -147,7 +148,13 @@
           </dl>
         </div>
         <div>
-          <label class="ui-label" for="decision-note" data-decision-label>Decision note</label>
+          <label class="ui-label" for="decision-note">
+            <span data-decision-label>Decision note</span>
+            <span class="ui-required"
+                  aria-hidden="true"
+                  data-note-marker
+                  {% if decision_action == 'reject' and reject_reasons %}hidden{% endif %}>*</span>
+          </label>
           <textarea class="ui-textarea min-h-32"
                     id="decision-note"
                     name="note"

@@ -9,6 +9,7 @@ function createDecision({ decisionBlocked = false, approvalBlocked = false } = {
   const button = { disabled: false, textContent: '' };
   const label = { textContent: '' };
   const note = { required: false, dataset: { noteMinlength: '10' } };
+  const marker = { hidden: true };
   const actions = ['approve', 'reject', 'query'].map(value => ({ value, checked: false }));
   const dataset = {};
   if (decisionBlocked) dataset.decisionBlocked = 'true';
@@ -21,6 +22,7 @@ function createDecision({ decisionBlocked = false, approvalBlocked = false } = {
         '[data-decision-label]': label,
         '[data-decision-submit]': button,
         '[name="note"]': note,
+        '[data-note-marker]': marker,
       }[selector] || null;
     },
     querySelectorAll() { return []; },
@@ -48,7 +50,7 @@ function createDecision({ decisionBlocked = false, approvalBlocked = false } = {
     for (const callback of listeners.get(name) || []) callback(event);
   }
   return {
-    button,
+    button, label, marker,
     initialize: () => fire('DOMContentLoaded'),
     choose(value) {
       for (const action of actions) action.checked = action.value === value;
@@ -94,6 +96,7 @@ function createReasons() {
   const button = { disabled: false, textContent: '' };
   const label = { textContent: '' };
   const note = { required: false, dataset: { noteMinlength: '10' } };
+  const marker = { hidden: true };
   const hint = { textContent: '' };
   const actions = ['approve', 'reject', 'query'].map(value => ({ value, checked: false }));
   const options = ['', 'Website unreachable or not working', 'Wrong website address', 'Other'].map(value => ({
@@ -115,6 +118,7 @@ function createReasons() {
         '[name="note"]': note,
         '[data-reason-hint]': hint,
         '[data-reason-select]': select,
+        '[data-note-marker]': marker,
       })[selector] || null;
     },
     querySelectorAll() { return []; },
@@ -142,7 +146,7 @@ function createReasons() {
     for (const callback of listeners.get(name) || []) callback({ target });
   }
   return {
-    button, note, hint,
+    button, note, hint, marker,
     choose(value) {
       for (const action of actions) action.checked = action.value === value;
       fire('change');
@@ -178,4 +182,33 @@ test('a form with no list to choose from takes the note alone', () => {
   const page = createDecision();
   page.choose('reject');
   assert.equal(page.button.disabled, false);
+  assert.equal(page.marker.hidden, false);
+});
+
+test('the note is marked required for as long as it is', () => {
+  const page = createReasons();
+  page.choose('approve');
+  assert.equal(page.marker.hidden, false);
+
+  page.choose('reject');
+  assert.equal(page.note.required, false);
+  assert.equal(page.marker.hidden, true);
+  page.pick('Wrong website address');
+  assert.equal(page.marker.hidden, true);
+  page.pick('Other');
+  assert.equal(page.marker.hidden, false);
+  page.pick('Wrong website address');
+  assert.equal(page.marker.hidden, true);
+
+  page.choose('query');
+  assert.equal(page.marker.hidden, false);
+});
+
+test('the note is named for the action and stays marked as required', () => {
+  const page = createDecision();
+  page.choose('query');
+  assert.equal(page.label.textContent, 'Question');
+  page.choose('reject');
+  assert.equal(page.label.textContent, 'Note for the integrator');
+  assert.equal(page.marker.hidden, false);
 });
