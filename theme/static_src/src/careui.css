@@ -386,13 +386,38 @@
     @apply fixed inset-auto z-50 m-0 w-72 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover p-3 text-left text-popover-foreground shadow-md;
   }
 
-  /* A few words on what a badge or an icon means, shown at once when its
-     `group/tip` host is hovered or focused from the keyboard; a title
-     attribute waits about a second. The host carries the same words for
-     screen readers, so the tooltip itself is aria-hidden. */
+  /* A few words on what a badge or an icon means (components/tooltip.html).
+     It shows at once when its host is hovered, where a title attribute waits
+     about a second, and when the host, or the link or button around it, has
+     keyboard focus. The host carries the same words for screen readers, so
+     the tooltip itself is aria-hidden. */
+  .ui-tooltip-host {
+    @apply relative;
+  }
+
   .ui-tooltip {
     @apply pointer-events-none invisible absolute z-20 w-max rounded-md border border-border bg-popover px-2 py-1 font-sans text-xs font-medium whitespace-nowrap text-popover-foreground opacity-0 shadow-md transition-opacity duration-100;
-    @apply group-hover/tip:visible group-hover/tip:opacity-100 group-focus-visible/tip:visible group-focus-visible/tip:opacity-100;
+  }
+
+  /* Above the host, right edges aligned: the host usually ends a line, and a
+     tooltip that ran past the page's edge would widen it even while hidden. */
+  .ui-tooltip--top {
+    @apply right-0 bottom-full mb-1.5;
+  }
+
+  .ui-tooltip--left {
+    @apply top-1/2 right-full mr-2 -translate-y-1/2;
+  }
+
+  .ui-tooltip-host:focus-visible > .ui-tooltip,
+  :is(a, button):focus-visible .ui-tooltip-host > .ui-tooltip {
+    @apply visible opacity-100;
+  }
+
+  @media (hover: hover) {
+    .ui-tooltip-host:hover > .ui-tooltip {
+      @apply visible opacity-100;
+    }
   }
 
   .ui-checkbox {

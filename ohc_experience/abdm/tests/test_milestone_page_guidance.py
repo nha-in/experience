@@ -5,6 +5,7 @@ approved."""
 import re
 
 import pytest
+from django.template.loader import render_to_string
 from django.urls import reverse
 
 from ohc_experience.abdm.catalog import TRACK_MAP
@@ -42,6 +43,31 @@ def test_the_track_offers_its_documentation_as_a_button(environment, client):  #
         rf'<a class="ui-btn ui-btn--outline [^"]*"\s+href="{re.escape(docs)}"',
         html,
     )
+
+
+def test_every_documentation_link_says_it_opens_a_new_tab(environment, client):  # noqa: F811
+    """The same mark ends each one: an external-link icon sized to the text,
+    the words for screen readers, and a tooltip on hover or keyboard focus."""
+    mark = " ".join(render_to_string("components/new_tab_mark.html").split())
+    product = environment["product"]
+    client.force_login(environment["applicant"])
+
+    def compact(url):
+        return " ".join(client.get(url).content.decode().split())
+
+    track = compact(reverse("experiences:track", args=[product.reference, "ABDM"]))
+    assert f"Milestone documentation {mark}" in track
+    # The (i) beside each milestone links to its documentation too.
+    assert f"Open documentation {mark}" in track
+    unapplied = compact(reverse("experiences:track", args=[product.reference, "NHCX"]))
+    assert f"Track documentation {mark}" in unapplied
+    for url in (
+        product.get_absolute_url(),
+        reverse("experiences:reference-environment", args=[product.reference]),
+    ):
+        assert f"Milestone documentation {mark}" in compact(url)
+    for html in (track, unapplied):
+        assert "documentation ↗" not in html
 
 
 def test_saved_evidence_names_its_version_and_says_when_nothing_is_uploaded(

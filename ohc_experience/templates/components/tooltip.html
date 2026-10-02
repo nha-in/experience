@@ -1,0 +1,12 @@
+{% comment %}
+  A few words on what the element around it means, such as a count or an icon:
+
+  <span class="ui-tooltip-host">3<span class="sr-only"> open tickets</span>{% include "components/tooltip.html" with text="3 open tickets" side="left" %}</span>
+
+  It shows at once when that `ui-tooltip-host` element is hovered, and when it,
+  or the link or button around it, has keyboard focus. `side` is where it
+  opens: "top" (the default), above with right edges aligned, or "left". It is
+  aria-hidden, so the host has to say the same to screen readers.
+{% endcomment %}
+<span class="ui-tooltip ui-tooltip--{{ side|default:'top' }}"
+      aria-hidden="true">{{ text }}</span>

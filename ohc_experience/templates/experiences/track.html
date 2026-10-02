@@ -40,7 +40,7 @@
            href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
            target="_blank"
            rel="noopener noreferrer"
-           hx-boost="false">{% include "components/nav_icon.html" with icon="docs" icon_size="size-4" %}Milestone documentation <span aria-hidden="true">↗&#xFE0E;</span><span class="sr-only"> (opens in a new tab)</span></a>
+           hx-boost="false">{% include "components/nav_icon.html" with icon="docs" icon_size="size-4" %}Milestone documentation{% include "components/new_tab_mark.html" %}</a>
         {# The track's two views: its milestones, one at a time, or every file saved across them. #}
         <div class="ui-rise w-full [animation-delay:.05s]">
           <nav class="ui-switch" aria-label="Track view">
@@ -192,7 +192,7 @@
            href="{{ track.definition.docs_url|default:experience_program.docs_url }}"
            target="_blank"
            rel="noopener noreferrer"
-           hx-boost="false">Track documentation ↗&#xFE0E;</a>
+           hx-boost="false">Track documentation{% include "components/new_tab_mark.html" %}</a>
       </div>
     </div>
   {% endif %}

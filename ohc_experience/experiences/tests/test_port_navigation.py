@@ -1,5 +1,6 @@
 # ruff: noqa: PLR2004
 import pytest
+from django.template.loader import render_to_string
 from django.test import Client
 from django.urls import reverse
 
@@ -159,6 +160,10 @@ def test_the_product_step_goes_once_the_organisation_has_a_product(environment):
     assert "Continue to product" not in response.content.decode()
 
 
+#: How a link that opens a new tab ends: components/new_tab_mark.html.
+NEW_TAB_MARK = " ".join(render_to_string("components/new_tab_mark.html").split())
+
+
 def app_nav(client, url):
     """The sidebar of the page at `url`, its whitespace collapsed."""
     html = client.get(url).content.decode()
@@ -180,15 +185,16 @@ def test_the_support_count_says_what_it_counts(environment):  # noqa: F811
 
     nav = app_nav(client, reverse("experiences:assess-dashboard"))
 
-    # Screen readers hear it with the link; a tooltip shows it at once on hover
-    # or keyboard focus, where a title attribute would wait about a second.
+    # Screen readers hear it with the link. Hovering the number itself, or
+    # focusing the link from the keyboard, shows it at once; a title attribute
+    # would wait about a second.
     support = nav[nav.index('<a id="nav-support"') :].split("</a>", 1)[0]
-    assert "group/tip" in support
     assert "title=" not in support
     assert (
-        '2<span class="sr-only"> open tickets</span>'
-        '<span class="ui-tooltip top-1/2 right-full mr-2 -translate-y-1/2" '
-        'aria-hidden="true">2 open tickets</span>'
+        '<span class="ui-tooltip-host -mx-1.5 -my-1 px-1.5 py-1 font-mono '
+        'text-[11px] text-soft-foreground">2<span class="sr-only"> open tickets</span> '
+        '<span class="ui-tooltip ui-tooltip--left" aria-hidden="true">2 open tickets'
+        "</span> </span>"
     ) in support
     Ticket.objects.filter(status="open").update(status="closed")
     client.force_login(environment["applicant"])
@@ -205,19 +211,8 @@ def test_documentation_says_it_opens_in_a_new_tab(environment):  # noqa: F811
 
     docs = nav[nav.index('<a id="nav-docs"') :].split("</a>", 1)[0]
     assert 'target="_blank"' in docs
-    assert "group/tip" in docs
-    # An external-link icon the size of the other icons, not a small arrow.
     assert "↗" not in docs
-    assert (
-        '<svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" '
-        'stroke="currentColor"'
-    ) in docs
-    assert 'd="M15 3h6v6M10 14 21 3' in docs
-    assert docs.endswith(
-        '<span class="sr-only"> (opens in a new tab)</span>'
-        '<span class="ui-tooltip bottom-full left-3 mb-1" aria-hidden="true">'
-        "Opens in a new tab</span>",
-    )
+    assert NEW_TAB_MARK in docs
 
 
 def test_the_profile_sits_with_the_account_and_staff_under_administration(

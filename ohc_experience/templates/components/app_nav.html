@@ -78,9 +78,8 @@
    href="{% url 'experiences:events' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Events and Activities</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
       {% endif %}
       {% if can_read_support %}<li><a id="nav-support"
-   class="ui-nav-link group/tip flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:support' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}<span class="relative font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}<span class="sr-only"> open ticket{{ nav_ticket_count|pluralize }}</span><span class="ui-tooltip top-1/2 right-full mr-2 -translate-y-1/2"
-      aria-hidden="true">{{ nav_ticket_count }} open ticket{{ nav_ticket_count|pluralize }}</span></span>{% endif %}</a></li>
+   class="ui-nav-link flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"
+   href="{% url 'experiences:support' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}{% blocktranslate count tickets=nav_ticket_count asvar open_tickets %}{{ tickets }} open ticket{% plural %}{{ tickets }} open tickets{% endblocktranslate %}<span class="ui-tooltip-host -mx-1.5 -my-1 px-1.5 py-1 font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}<span class="sr-only"> open ticket{{ nav_ticket_count|pluralize }}</span>{% include "components/tooltip.html" with text=open_tickets side="left" %}</span>{% endif %}</a></li>
     {% endif %}
   {% endif %}
   {% if can_integrate %}
@@ -112,11 +111,11 @@
    class="ui-nav-link"
    href="{% url 'organisations:team' %}">{% include "components/nav_icon.html" with icon="team" %}Team &amp; invitations</a></li>{% endif %}
   <li><a id="nav-docs"
-   class="ui-nav-link group/tip relative"
+   class="ui-nav-link"
    href="{{ experience_program.docs_url }}"
    target="_blank"
    rel="noopener noreferrer"
-   hx-boost="false">{% include "components/nav_icon.html" with icon="docs" %}Documentation{% include "components/nav_icon.html" with icon="external" icon_size="size-4" %}<span class="sr-only"> (opens in a new tab)</span><span class="ui-tooltip bottom-full left-3 mb-1" aria-hidden="true">Opens in a new tab</span></a></li>
+   hx-boost="false">{% include "components/nav_icon.html" with icon="docs" %}Documentation{% include "components/new_tab_mark.html" %}</a></li>
 </ul>
 </div>
 {# The account: who is signed in, which opens their profile, and signing out. #}

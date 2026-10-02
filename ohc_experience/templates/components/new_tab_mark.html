@@ -1,0 +1,8 @@
+{% comment %}
+  Ends the text of a link that opens in a new tab: an external-link icon sized
+  to that text, "(opens in a new tab)" for screen readers, and the same words
+  in a tooltip when the icon is hovered or the link is focused from the keyboard.
+
+  <a href="…" target="_blank" rel="noopener noreferrer">Milestone documentation {% include "components/new_tab_mark.html" %}</a>
+{% endcomment %}
+<span class="ui-tooltip-host inline-flex align-middle">{% include "components/nav_icon.html" with icon="external" icon_size="size-[1.15em]" %}<span class="sr-only"> (opens in a new tab)</span>{% include "components/tooltip.html" with text="Opens in a new tab" %}</span>
