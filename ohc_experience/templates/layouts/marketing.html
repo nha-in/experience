@@ -6,7 +6,6 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'fonts/marketing/fonts.css' %}" />
   <link rel="stylesheet" href="{% static 'css/marketing.css' %}" />
-  <link rel="stylesheet" href="{% static 'css/marketing-light.css' %}" />
   <link rel="stylesheet" href="{% static 'css/marketing-auth.css' %}" />
   <link rel="stylesheet" href="{% static 'css/marketing-partners.css' %}" />
 {% endblock css %}
@@ -14,11 +13,37 @@
   {{ block.super }}
   <script defer src="{% static 'js/marketing.js' %}"></script>
 {% endblock javascript %}
-{% block bodyclass %}marketing-body marketing-light{% endblock bodyclass %}
+{% block bodyclass %}marketing-body{% endblock bodyclass %}
 {% block body %}
+  {% block floating_navigation %}
+  {% endblock floating_navigation %}
   {# Ordinary navigation preserves authentication session and CSRF redirects. #}
   <div class="marketing-shell">
     <header class="marketing-header">
+      <div class="marketing-utility">
+        <div class="marketing-container marketing-utility-inner">
+          <a href="tel:14477"><span aria-hidden="true">☎</span> {% translate "Toll Free Number : 14477" %}</a>
+          <div class="marketing-utility-actions">
+            <a href="#main-content">{% translate "Skip to Main Content" %}</a>
+            <div class="marketing-text-controls"
+                 aria-label="{% translate 'Text size' %}">
+              <button type="button"
+                      data-text-size="increase"
+                      aria-label="{% translate 'Increase text size' %}">+A</button>
+              <button type="button"
+                      data-text-size="reset"
+                      aria-label="{% translate 'Reset text size' %}">A</button>
+              <button type="button"
+                      data-text-size="decrease"
+                      aria-label="{% translate 'Decrease text size' %}">−A</button>
+            </div>
+            <button type="button"
+                    data-contrast-toggle
+                    aria-pressed="false"
+                    aria-label="{% translate 'Toggle high contrast' %}">◐</button>
+          </div>
+        </div>
+      </div>
       <div class="marketing-container marketing-header-inner">
         <a class="marketing-brand"
            href="{% url 'home' %}"
@@ -32,11 +57,65 @@
                alt="{% translate 'Ayushman Bharat Digital Mission' %}"
                width="48"
                height="45" />
-          <span>ABDM <span class="marketing-brand-long">Developer </span>Sandbox</span>
+          <span class="marketing-brand-copy"><strong>{% translate "Ayushman Bharat" %}</strong><strong>{% translate "Digital Mission" %}</strong><small>{% translate "Building Digital Health Ecosystem" %}</small></span>
         </a>
+        <div class="marketing-search"
+             role="search"
+             aria-label="{% translate 'Sandbox resources' %}">
+          <label class="sr-only" for="marketing-search-input">{% translate "Search sandbox resources" %}</label>
+          <span aria-hidden="true">⌕</span>
+          <input id="marketing-search-input"
+                 type="search"
+                 placeholder="{% translate 'Search resources' %}"
+                 autocomplete="off"
+                 aria-controls="marketing-search-results" />
+          <button type="button"
+                  data-search-toggle
+                  aria-label="{% translate 'Show resource results' %}">
+            <span aria-hidden="true">›</span>
+          </button>
+          <div id="marketing-search-results" class="marketing-search-results" hidden>
+            <p class="marketing-search-empty" hidden>{% translate "No matching resources. Browse the documentation to learn more." %}</p>
+            <a href="{{ experience_program.docs_site }}/docs/hiecm/v3"
+               data-search-resource>HIE-CM · {% translate "Documentation" %}</a>
+            <a href="{{ experience_program.docs_site }}/docs/uhi/v1"
+               data-search-resource>UHI · {% translate "Unified Health Interface" %}</a>
+            <a href="{{ experience_program.docs_site }}/docs/nhcx/v1"
+               data-search-resource>NHCX · {% translate "Health Claims Exchange" %}</a>
+            <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/api"
+               data-search-resource>{% translate "API reference" %}</a>
+            <a href="{% url 'home' %}#ai" data-search-resource>{% translate "Build with AI · Integration artefacts" %}</a>
+            <a href="{% url 'home' %}#milestones" data-search-resource>{% translate "Milestones M1–M4" %}</a>
+            <a href="{% url 'home' %}#how" data-search-resource>{% translate "Integration journey" %}</a>
+            <a href="{{ experience_program.docs_site }}/docs/support"
+               data-search-resource>{% translate "Support" %}</a>
+            <a class="marketing-search-all"
+               href="{{ experience_program.docs_site }}/docs/hiecm/v3">{% translate "View all documentation" %} <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+        <details class="marketing-mobile-menu">
+          <summary aria-label="{% translate 'Navigation menu' %}"><span aria-hidden="true">☰</span></summary>
+          <nav aria-label="{% translate 'Mobile navigation' %}">
+            <a href="{% url 'home' %}">{% translate "Home" %}</a>
+            <a href="{{ experience_program.docs_site }}/docs/hiecm/v3">{% translate "Documentation" %}</a>
+            <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/api">{% translate "API reference" %}</a>
+            <a href="{% url 'home' %}#ai">{% translate "Build with AI" %}</a>
+            <a href="{{ experience_program.docs_site }}/docs/support">{% translate "Support" %}</a>
+            {% if request.user.is_authenticated %}
+              <a href="{% url 'dashboard' %}">{% translate "Open dashboard" %}</a>
+            {% else %}
+              <a href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+              <a href="{% url 'account_signup' %}">{% translate "Create account" %}</a>
+            {% endif %}
+          </nav>
+        </details>
+      </div>
+      <div class="marketing-container marketing-nav-row">
         <nav class="marketing-desktop-nav"
-             aria-label="{% translate 'Resources' %}">
-          <a href="{{ experience_program.docs_site }}/docs/hiecm/v3">{% translate "Docs" %}</a>
+             aria-label="{% translate 'Primary navigation' %}">
+          <a href="{% url 'home' %}"
+             {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>{% translate "Home" %}</a>
+          <a href="{{ experience_program.docs_site }}/docs/hiecm/v3">{% translate "Documentation" %}</a>
           <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/api">API</a>
           <a href="{% url 'home' %}#ai">{% translate "Build with AI" %}</a>
           <a href="{{ experience_program.docs_site }}/docs/support">{% translate "Support" %}</a>
@@ -45,31 +124,14 @@
           {% block header_action %}
             {% if request.user.is_authenticated %}
               <a class="marketing-button marketing-button--primary marketing-button--small"
-                 href="{% url 'dashboard' %}">{% translate "Open dashboard" %}</a>
+                 href="{% url 'dashboard' %}">{% translate "Open dashboard" %} <span aria-hidden="true">→</span></a>
             {% else %}
-              <a class="marketing-button marketing-button--small marketing-signin"
-                 href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
+              <a class="marketing-signin" href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
               <a class="marketing-button marketing-button--primary marketing-button--small"
-                 href="{% url 'account_signup' %}">{% translate "Create account" %}</a>
+                 href="{% url 'account_signup' %}">{% translate "Register for Sandbox" %} <span aria-hidden="true">›</span></a>
             {% endif %}
           {% endblock header_action %}
         </div>
-        <details class="marketing-mobile-menu">
-          <summary aria-label="{% translate 'Navigation menu' %}"><span aria-hidden="true">☰</span></summary>
-          <nav aria-label="{% translate 'Mobile navigation' %}">
-            <a href="{{ experience_program.docs_site }}/docs/hiecm/v3">{% translate "Documentation" %} <span aria-hidden="true">↗&#xFE0E;</span></a>
-            <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/api">{% translate "API reference" %} <span aria-hidden="true">↗&#xFE0E;</span></a>
-            <a href="{% url 'home' %}#how">{% translate "How it works" %}</a>
-            <a href="{% url 'home' %}#ai">{% translate "Build with AI" %}</a>
-            <a href="{{ experience_program.docs_site }}/docs/support">{% translate "Support" %} <span aria-hidden="true">↗&#xFE0E;</span></a>
-            {% if request.user.is_authenticated %}
-              <a href="{% url 'dashboard' %}">{% translate "Open dashboard" %} <span aria-hidden="true">→</span></a>
-            {% else %}
-              <a href="{% url 'account_login' %}">{% translate "Sign in" %}</a>
-              <a href="{% url 'account_signup' %}">{% translate "Create account" %} <span aria-hidden="true">→</span></a>
-            {% endif %}
-          </nav>
-        </details>
       </div>
     </header>
     <main id="main-content" tabindex="-1">

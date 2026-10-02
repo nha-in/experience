@@ -1,0 +1,15 @@
+<div class="sbx-stat">
+  <dt>{{ label }}</dt>
+  <dd>
+    <span class="sr-only">{{ value }}</span>
+    <span class="sbx-stat-value" aria-hidden="true">
+      {% for digit in value %}
+        {% if digit == "," %}
+          <span class="sbx-digit-separator"></span>
+        {% else %}
+          <span class="sbx-digit">{{ digit }}</span>
+        {% endif %}
+      {% endfor %}
+    </span>
+  </dd>
+</div>

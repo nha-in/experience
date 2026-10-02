@@ -77,6 +77,8 @@
 {% block entrance_lede %}
   {% if invitation %}
     {% translate "Create an account with your invited email address to join the team." %}
+  {% else %}
+    {% translate "Your first step towards building with ABDM." %}
   {% endif %}
 {% endblock entrance_lede %}
 {% block entrance_body %}

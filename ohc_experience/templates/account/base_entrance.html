@@ -18,17 +18,17 @@
         <p class="marketing-auth-eyebrow">
           <span aria-hidden="true"></span>
           {% block entrance_eyebrow %}
-            {% translate "ABDM developer sandbox" %}
+            {% translate "ABDM · Agentic AI Sandbox" %}
           {% endblock entrance_eyebrow %}
         </p>
         <h2 id="auth-story-title" class="marketing-auth-story-title">
           {% block entrance_story_title %}
-            {% translate "Build on India's" %} <span>{% translate "interoperable digital health infrastructure." %}</span>
+            {% translate "Build on India's interoperable" %} <span>{% translate "digital health infrastructure." %}</span>
           {% endblock entrance_story_title %}
         </h2>
         <p class="marketing-auth-story-lede">
           {% block entrance_story_lede %}
-            {% translate "Your organisation's shared view of every test, submission and review, with AI agents supporting each step to production." %}
+            {% translate "One shared workspace for your team to build, test and validate ABDM integrations, with AI agents supporting every step to production." %}
           {% endblock entrance_story_lede %}
         </p>
         {% block entrance_story_body %}
@@ -72,13 +72,3 @@
     </div>
   </div>
 {% endblock content %}
-{% block marketing_footer %}
-  <footer class="marketing-auth-footer">
-    <div>
-      <span>{{ experience_program.name|default:"ABDM Developer Sandbox" }}</span>
-    </div>
-    <a href="{{ experience_program.docs_url }}"
-       target="_blank"
-       rel="noopener noreferrer">{% translate "Documentation" %} <span aria-hidden="true">↗&#xFE0E;</span></a>
-  </footer>
-{% endblock marketing_footer %}

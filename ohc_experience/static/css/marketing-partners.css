@@ -61,8 +61,8 @@
   padding: 0;
   border: 1px solid #7484a2;
   border-radius: 7px;
-  background: #fff;
-  color: var(--primary-800);
+  background: transparent;
+  color: #d6dcec;
   text-decoration: none;
   transition:
     background-color 0.15s ease,
@@ -71,14 +71,17 @@
 }
 
 .marketing-shell .marketing-footer .marketing-footer-social-links > a:hover {
-  border-color: var(--primary-800);
-  background: var(--primary-800);
+  border-color: #fff;
+  background: #ffffff20;
   color: #fff;
   text-decoration: none;
 }
 
-.marketing-shell .marketing-footer .marketing-footer-social-links > a:focus-visible {
-  outline: 3px solid var(--primary-800);
+.marketing-shell
+  .marketing-footer
+  .marketing-footer-social-links
+  > a:focus-visible {
+  outline: 3px solid #e8791f;
   outline-offset: 3px;
 }
 
@@ -145,7 +148,10 @@
     color: HighlightText;
   }
 
-  .marketing-shell .marketing-footer .marketing-footer-social-links > a:focus-visible {
+  .marketing-shell
+    .marketing-footer
+    .marketing-footer-social-links
+    > a:focus-visible {
     outline-color: Highlight;
   }
 }

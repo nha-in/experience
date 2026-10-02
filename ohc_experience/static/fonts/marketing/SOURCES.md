@@ -1,5 +1,39 @@
 # Marketing fonts
 
+## ABDM team design reference — 2026-10-02
+
+The current landing page and account pages use unmodified Latin WOFF2 assets extracted from the user-provided `ABDM Agentic Sandbox, Reimagined V4.html` bundle. The CSS uses local URLs only, so the pages require no third-party font requests. All three faces use normal style and `font-display: swap`.
+
+The variable axes below were verified from each binary’s `fvar` table with fontTools. Newsreader includes an optical-size axis of 6–72 (default 18), used with normal browser optical sizing.
+
+### public-sans-latin.woff2
+
+- Family: Public Sans
+- Variable weight range: 100–900
+- Reference bundle asset: `90841f19-d37d-45a8-a730-9909f8bcd5e2`
+- SHA-256: `c1b6da516e0062e9c2f341b3a51dd2d621d946da72f06c6cfe05fd9d2dd8622d`
+- License: [OFL-Public-Sans.txt](./OFL-Public-Sans.txt), copied from the [official Google Fonts repository](https://github.com/google/fonts/blob/main/ofl/publicsans/OFL.txt) on 2026-10-02.
+
+### newsreader-latin.woff2
+
+- Family: Newsreader
+- Variable weight range: 200–800
+- Reference bundle asset: `764be329-ec33-4ee9-bcf6-96a210981331`
+- SHA-256: `01817351be3edfc1714fe6d60ddea6a22a169a5ebd033b50c7f9495e5d9c386a`
+- License: [OFL-Newsreader.txt](./OFL-Newsreader.txt), copied from the [official Google Fonts repository](https://github.com/google/fonts/blob/main/ofl/newsreader/OFL.txt) on 2026-10-02.
+
+### jetbrains-mono-latin.woff2
+
+- Family: JetBrains Mono
+- Variable weight range: 400–800
+- Reference bundle asset: `926bd499-e3cb-4eaa-be92-b4d9befbcb60`
+- SHA-256: `2c32b9b3ee358c119e210f6f5195f9bd34894d78a785ff2e95d60e718e400af4`
+- License: [OFL-JetBrains-Mono.txt](./OFL-JetBrains-Mono.txt), copied from the [official Google Fonts repository](https://github.com/google/fonts/blob/main/ofl/jetbrainsmono/OFL.txt) on 2026-10-02.
+
+## Earlier marketing fonts
+
+The following previously used font files remain available for existing assets. They are no longer loaded by `fonts.css`.
+
 Downloaded from the official Google Fonts CSS API on 2026-09-09. Font binaries are unmodified WOFF2 Latin subsets; only the CSS source URLs are local.
 
 The request matches Landing v4, including the Bricolage Grotesque optical-size range 12–96.

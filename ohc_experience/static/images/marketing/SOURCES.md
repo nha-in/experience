@@ -24,3 +24,7 @@ The English badges are unchanged official assets, retrieved on 2026-09-17:
 
 - `app-store-badge.svg`: [Apple's official App Store badge](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg), vector artwork with a 119.66407 × 40 viewBox.
 - `google-play-badge.png`: [Google's official Google Play badge](https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png), 646 × 250 PNG. The visible badge is 564 × 168; CSS accounts for the built-in transparent padding to match the App Store badge's visual height.
+
+## Decorative chakra
+
+`chakra.svg` reproduces the inline 24-spoke wheel geometry in the user-provided `ABDM Agentic Sandbox, Reimagined V4.html` reference (2026-10-02). It is a local static SVG with a 200 × 200 viewBox, three concentric circles, and the reference’s pale-blue stroke at 11% opacity. Animation and external scripts are not embedded in the asset.

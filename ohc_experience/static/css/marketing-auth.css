@@ -1,27 +1,45 @@
-/* Public account screens, using the shared light blue palette. */
+/* Public account screens share the ABDM landing page's editorial design. */
 .marketing-shell .marketing-auth {
-  padding: clamp(44px, 7vw, 96px) clamp(20px, 4vw, 40px) 88px;
-  color: var(--marketing-text);
-  background:
-    radial-gradient(ellipse at 0% 100%, #dbe5f7 0, transparent 55%),
-    radial-gradient(ellipse at 100% 15%, #e4edfc 0, transparent 50%),
-    linear-gradient(180deg, var(--primary-50) 0%, #eef3fc 100%);
+  padding: 48px clamp(20px, 4vw, 40px) 64px;
+  color: #1c2333;
+  background: #f4f6fa;
+  font-family: var(--marketing-font-sans, "Public Sans", sans-serif);
 }
 
 .marketing-shell .marketing-auth-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
-  gap: clamp(48px, 7vw, 104px);
-  max-width: 1120px;
+  gap: clamp(32px, 4.5vw, 64px);
+  max-width: 1160px;
   margin: 0 auto;
 }
 
 .marketing-shell .marketing-auth-story {
   position: sticky;
-  top: 112px;
+  top: 28px;
   min-width: 0;
-  padding-top: 34px;
+  overflow: hidden;
+  padding: clamp(32px, 4vw, 48px);
+  border-bottom: 3px solid #e8791f;
+  background: #112044;
+  color: #fff;
+}
+
+/* Use the same chakra artwork as the landing page hero. */
+.marketing-shell .marketing-auth-story::before {
+  content: "";
+  position: absolute;
+  top: -132px;
+  right: -132px;
+  width: 300px;
+  height: 300px;
+  background: url("../images/marketing/chakra.svg") center / contain no-repeat;
+  pointer-events: none;
+}
+
+.marketing-shell .marketing-auth-story > * {
+  position: relative;
 }
 
 .marketing-shell .marketing-auth-eyebrow,
@@ -31,67 +49,66 @@
   align-items: center;
   gap: 10px;
   margin: 0;
-  font-family: "DM Mono", monospace;
-  font-size: 11px;
+  font-family: var(--marketing-font-mono, "JetBrains Mono", monospace);
+  font-size: 0.625rem;
   font-weight: 500;
-  line-height: 1.5;
-  letter-spacing: .09em;
+  line-height: 1.6;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .marketing-shell .marketing-auth-eyebrow {
-  color: var(--sbx-link);
+  color: #c9d4ee;
 }
 
 .marketing-shell .marketing-auth-eyebrow > span {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   flex: none;
   border-radius: 50%;
-  background: var(--sbx-link);
-  box-shadow: 0 0 0 5px var(--primary-100);
+  background: #7fcfa0;
 }
 
 .marketing-shell .marketing-auth-story-title {
-  max-width: 11ch;
-  margin: 26px 0 0;
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: clamp(44px, 5.3vw, 72px);
-  font-weight: 500;
-  line-height: 1.08;
-  letter-spacing: -.04em;
+  max-width: 15ch;
+  margin: 30px 0 0;
+  color: #fff;
+  font-family: var(--marketing-font-display, "Newsreader", serif);
+  font-size: clamp(2.5rem, calc(1rem + 2.7vw), 3.5625rem);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.012em;
   text-wrap: balance;
 }
 
 .marketing-shell .marketing-auth-story-title > span {
-  color: var(--sbx-link);
+  color: #e8791f;
 }
 
 .marketing-shell .marketing-auth-story-lede {
-  max-width: 40ch;
-  margin: 28px 0 0;
-  color: var(--marketing-muted);
-  font-size: 18px;
-  line-height: 1.6;
+  max-width: 41ch;
+  margin: 26px 0 0;
+  color: #c9d4ee;
+  font-size: 0.9375rem;
+  line-height: 1.75;
 }
 
 .marketing-shell .marketing-auth-context {
-  max-width: 390px;
-  margin-top: 44px;
-  padding-top: 24px;
-  border-top: 1px solid var(--marketing-line);
+  margin-top: 40px;
+  padding-top: 25px;
+  border-top: 1px solid rgba(201, 212, 238, 0.25);
 }
 
 .marketing-shell .marketing-auth-context-label {
-  color: var(--sbx-link);
-  font-size: 10px;
+  color: #e9cf7a;
+  font-size: 0.625rem;
 }
 
 .marketing-shell .marketing-auth-context p {
   margin: 13px 0 0;
-  color: var(--marketing-muted);
-  font-size: 15px;
-  line-height: 1.65;
+  color: #c9d4ee;
+  font-size: 0.875rem;
+  line-height: 1.7;
 }
 
 .marketing-shell .marketing-auth-context a {
@@ -99,15 +116,23 @@
   min-height: 44px;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
-  color: var(--sbx-link);
-  font-size: 14px;
+  margin-top: 10px;
+  color: #fff;
+  font-size: 0.8125rem;
   font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(201, 212, 238, 0.5);
+  text-underline-offset: 5px;
+}
+
+.marketing-shell .marketing-auth-context a:hover {
+  color: #e8791f;
+  text-decoration-color: currentColor;
 }
 
 .marketing-shell .marketing-auth-form-column {
   width: 100%;
-  max-width: 510px;
+  max-width: 540px;
   min-width: 0;
   margin-left: auto;
 }
@@ -115,27 +140,27 @@
 .marketing-shell .marketing-auth-panel,
 .marketing-shell .marketing-auth-feedback {
   --background: #fff;
-  --foreground: var(--marketing-text);
+  --foreground: #1c2333;
   --card: #fff;
-  --card-foreground: var(--marketing-text);
-  --muted-background: var(--sbx-soft);
-  --muted-foreground: var(--marketing-muted);
-  --soft-foreground: var(--sbx-secondary);
-  --soft-border: var(--marketing-line);
-  --input: var(--sbx-control-border);
-  --primary: var(--sbx-link);
+  --card-foreground: #1c2333;
+  --muted-background: #f4f6fa;
+  --muted-foreground: #596579;
+  --soft-foreground: #596579;
+  --soft-border: #dde2ee;
+  --input: #7382a0;
+  --primary: #264488;
   --primary-foreground: #fff;
-  --ring: var(--sbx-accent);
+  --ring: #e8791f;
   --destructive: #b42318;
-  color: var(--marketing-text);
+  color: #1c2333;
 }
 
 .marketing-shell .marketing-auth-panel {
-  padding: clamp(28px, 3vw, 40px);
-  border: 1px solid var(--marketing-line);
-  border-radius: 14px;
+  padding: clamp(28px, 3.2vw, 40px);
+  border: 1px solid #dde2ee;
+  border-radius: 2px;
   background: #fff;
-  box-shadow: 0 16px 48px -24px #26448830;
+  box-shadow: none;
 }
 
 .marketing-shell .marketing-auth-panel-heading {
@@ -143,27 +168,34 @@
 }
 
 .marketing-shell .marketing-auth-panel .marketing-auth-panel-eyebrow {
-  margin: 0 0 12px;
-  color: var(--sbx-secondary);
-  font-size: 10px;
+  margin: 0 0 14px;
+  color: #b4530f;
+  font-size: 0.625rem;
 }
 
 .marketing-shell .marketing-auth-panel-heading h1 {
   margin: 0;
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: clamp(28px, 2.8vw, 36px);
-  font-weight: 500;
+  color: #112044;
+  font-family: var(--marketing-font-display, "Newsreader", serif);
+  font-size: clamp(2.125rem, calc(1rem + 1.9vw), 2.625rem);
+  font-weight: 400;
   line-height: 1.08;
-  letter-spacing: -.035em;
+  letter-spacing: -0.015em;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
 
-.marketing-shell .marketing-auth-panel-heading > p:not(.marketing-auth-panel-eyebrow) {
+.marketing-shell
+  .marketing-auth-panel-heading
+  > p:not(.marketing-auth-panel-eyebrow) {
   margin: 13px 0 0;
-  color: var(--sbx-secondary);
-  font-size: 15px;
-  line-height: 1.6;
+  color: #596579;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.marketing-shell .marketing-auth-panel-heading > p:empty {
+  display: none;
 }
 
 .marketing-shell .marketing-auth-panel-body,
@@ -171,29 +203,31 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 
 .marketing-shell .marketing-auth-panel .ui-label {
   margin-bottom: 8px;
-  color: var(--marketing-text);
-  font-family: "DM Mono", monospace;
-  font-size: 12px;
-  font-weight: 500;
+  color: #1c2333;
+  font-family: var(--marketing-font-sans, "Public Sans", sans-serif);
+  font-size: 0.8125rem;
+  font-weight: 600;
   line-height: 1.5;
 }
 
-.marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea) {
+.marketing-shell
+  .marketing-auth-panel
+  :is(.ui-input, .ui-select, .ui-textarea) {
   min-height: 48px;
-  border: 1px solid var(--sbx-control-border);
-  border-radius: 8px;
+  border: 1px solid #7382a0;
+  border-radius: 2px;
   background: #fff;
-  color: var(--marketing-text);
+  color: #1c2333;
   padding-right: 13px;
   padding-left: 13px;
-  font-family: "Albert Sans", sans-serif;
-  font-size: 16px;
-  box-shadow: 0 1px 2px rgba(13, 27, 52, .03);
+  font-family: var(--marketing-font-sans, "Public Sans", sans-serif);
+  font-size: 1rem;
+  box-shadow: none;
 }
 
 .marketing-shell .marketing-auth-panel .ui-select {
@@ -204,36 +238,40 @@
   padding-right: 44px;
 }
 
-.marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea):focus-visible {
-  outline: 2px solid var(--sbx-accent);
-  outline-offset: 2px;
-  border-color: var(--sbx-accent);
-  box-shadow: 0 0 0 4px var(--primary-100);
+.marketing-shell
+  .marketing-auth-panel
+  :is(.ui-input, .ui-select, .ui-textarea):focus-visible {
+  outline: 2px solid #e8791f;
+  outline-offset: 3px;
+  border-color: #264488;
+  box-shadow: none;
 }
 
-.marketing-shell .marketing-auth-panel :is(.ui-input, .ui-select, .ui-textarea)[aria-invalid="true"] {
+.marketing-shell
+  .marketing-auth-panel
+  :is(.ui-input, .ui-select, .ui-textarea)[aria-invalid="true"] {
   border-color: #b42318;
 }
 
 .marketing-shell .marketing-auth-panel .ui-hint {
-  color: var(--sbx-secondary);
-  font-size: 12px;
-  line-height: 1.6;
+  color: #596579;
+  font-size: 0.75rem;
+  line-height: 1.65;
 }
 
 .marketing-shell .marketing-auth-panel a:not(.ui-btn) {
-  color: var(--sbx-link);
+  color: #264488;
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: var(--primary-300);
+  text-decoration-color: #7382a0;
   text-underline-offset: 3px;
 }
 
 .marketing-shell .marketing-auth-panel a:not(.ui-btn):hover {
+  color: #b4530f;
   text-decoration-color: currentColor;
 }
 
-/* Error summary lines read as alert text; only the field name is underlined. */
 .marketing-shell .marketing-auth-panel [data-error-summary] a:not(.ui-btn) {
   color: inherit;
   font-weight: inherit;
@@ -249,91 +287,93 @@
 .marketing-shell .marketing-auth-panel .ui-checkbox {
   width: 18px;
   height: 18px;
-  accent-color: var(--sbx-link);
+  border-radius: 2px;
+  accent-color: #264488;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn {
   min-height: 48px;
-  padding: 10px 22px;
-  border-radius: 8px;
-  font-family: "Albert Sans", sans-serif;
-  font-size: 15px;
+  padding: 12px 20px;
+  border-radius: 2px;
+  font-family: var(--marketing-font-sans, "Public Sans", sans-serif);
+  font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.5;
   text-decoration: none;
   white-space: normal;
   box-shadow: none;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--default {
-  border: 1px solid var(--sbx-link);
+  gap: 12px;
+  border: 1px solid #264488;
   color: #fff;
-  background: linear-gradient(140deg, var(--primary-700), var(--primary-900));
-  box-shadow: 0 5px 14px #26448820;
+  background: #264488;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--default:hover {
-  background: var(--primary-950);
-  border-color: var(--primary-950);
+  background: #112044;
+  border-color: #112044;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--outline {
-  color: var(--sbx-link);
-  border-color: var(--sbx-control-border);
-  background: transparent;
+  color: #264488;
+  border: 1px solid #7382a0;
+  background: #fff;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn--outline:hover {
-  background: var(--sbx-soft);
+  background: #f4f6fa;
+  border-color: #264488;
 }
 
 .marketing-shell .marketing-auth-panel .ui-btn:focus-visible,
-.marketing-shell .marketing-auth a:focus-visible,
-.marketing-shell .marketing-auth-footer a:focus-visible {
-  outline: 2px solid var(--sbx-accent);
+.marketing-shell .marketing-auth a:focus-visible {
+  outline: 2px solid #e8791f;
   outline-offset: 4px;
-}
-
-.marketing-shell .marketing-auth-story a:focus-visible,
-.marketing-shell .marketing-auth-after a:focus-visible,
-.marketing-shell .marketing-auth-footer a:focus-visible {
-  outline-color: var(--sbx-accent);
 }
 
 .marketing-shell .marketing-auth-alternatives {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-top: 1px solid var(--marketing-line);
+  border-top: 1px solid #dde2ee;
   padding-top: 20px;
 }
 
 .marketing-shell .marketing-auth-after {
-  padding-top: 22px;
+  padding-top: 16px;
   text-align: center;
-  color: var(--marketing-muted);
-  font-size: 14px;
-  line-height: 1.6;
+  color: #596579;
+  font-size: 0.8125rem;
+  line-height: 1.7;
 }
 
 .marketing-shell .marketing-auth-after p {
   margin: 0;
-  color: var(--marketing-muted);
+  color: #596579;
 }
 
 .marketing-shell .marketing-auth-after a:not(.ui-btn) {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  color: var(--sbx-link);
+  color: #264488;
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: var(--primary-300);
+  text-decoration-color: #7382a0;
   text-underline-offset: 4px;
 }
 
+.marketing-shell .marketing-auth-after a:hover {
+  color: #b4530f;
+}
+
 .marketing-shell .marketing-auth--signup .marketing-auth-layout {
-  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
-  gap: clamp(48px, 6vw, 80px);
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
 }
 
 .marketing-shell .marketing-auth--signup .marketing-auth-form-column {
@@ -342,10 +382,9 @@
 
 .marketing-shell .marketing-auth-steps {
   display: flex;
-  max-width: 400px;
   flex-direction: column;
-  gap: 26px;
-  margin: 38px 0 0;
+  gap: 0;
+  margin: 34px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -355,72 +394,83 @@
   min-width: 0;
   gap: 16px;
   align-items: flex-start;
+  padding: 20px 0;
+  border-top: 1px solid rgba(201, 212, 238, 0.25);
+}
+
+.marketing-shell .marketing-auth-steps li:last-child {
+  padding-bottom: 0;
 }
 
 .marketing-shell .marketing-auth-step-number {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex: none;
-  border: 1px solid var(--marketing-line);
-  border-radius: 8px;
-  background: var(--primary-50);
-  color: var(--marketing-muted);
-  font: 12px "DM Mono", monospace;
+  border: 1px solid rgba(201, 212, 238, 0.4);
+  border-radius: 2px;
+  background: transparent;
+  color: #c9d4ee;
+  font: 0.6875rem var(--marketing-font-mono, "JetBrains Mono", monospace);
 }
 
-.marketing-shell .marketing-auth-steps [aria-current="step"] .marketing-auth-step-number {
-  border-color: var(--sbx-link);
-  background: var(--sbx-link);
-  color: #fff;
+.marketing-shell
+  .marketing-auth-steps
+  [aria-current="step"]
+  .marketing-auth-step-number {
+  border-color: #e8791f;
+  background: #e8791f;
+  color: #112044;
 }
 
 .marketing-shell .marketing-auth-steps strong {
   display: block;
   margin: 2px 0 5px;
-  font-size: 16px;
+  color: #fff;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: var(--marketing-text);
 }
 
 .marketing-shell .marketing-auth-steps li div > span {
   display: block;
-  color: var(--marketing-muted);
-  font-size: 14px;
-  line-height: 1.6;
+  color: #c9d4ee;
+  font-size: 0.8125rem;
+  line-height: 1.65;
 }
 
 .marketing-shell .marketing-auth-invitation {
   padding: 14px 16px;
-  border: 1px solid var(--marketing-line);
-  border-radius: 12px;
-  background: var(--sbx-soft);
-  color: var(--marketing-text);
-  font-size: 14px;
-  line-height: 1.6;
+  border: 1px solid #dde2ee;
+  border-left: 3px solid #e8791f;
+  border-radius: 2px;
+  background: #f4f6fa;
+  color: #1c2333;
+  font-size: 0.875rem;
+  line-height: 1.65;
 }
 
 .marketing-shell .marketing-auth-fieldset {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   margin: 0;
-  padding: 0 0 24px;
+  padding: 0 0 22px;
   border: 0;
-  border-bottom: 1px solid var(--marketing-line);
+  border-bottom: 1px solid #dde2ee;
 }
 
 .marketing-shell .marketing-auth-fieldset legend {
   margin: 0 0 18px;
   padding: 0;
-  color: var(--marketing-text);
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: -.02em;
+  color: #264488;
+  font-family: var(--marketing-font-mono, "JetBrains Mono", monospace);
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .marketing-shell .marketing-auth-field-grid {
@@ -435,101 +485,80 @@
 
 .marketing-shell .marketing-auth-submit p {
   margin: 14px 0 0;
-  color: var(--sbx-secondary);
+  color: #596579;
   text-align: center;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 0.75rem;
+  line-height: 1.65;
 }
 
 .marketing-shell .marketing-auth-headerhint {
-  color: var(--marketing-muted);
-  font-size: 13px;
-}
-
-.marketing-shell .marketing-auth-footer {
-  display: flex;
-  max-width: 1200px;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 0 auto;
-  padding: 24px clamp(20px, 4vw, 40px);
-  border-top: 1px solid var(--marketing-line);
-  color: var(--marketing-muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.marketing-shell .marketing-auth-footer > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 18px;
-}
-
-.marketing-shell .marketing-auth-footer a {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  flex: none;
-  gap: 7px;
-  color: var(--sbx-link);
-  font-size: 13px;
+  color: #596579;
+  font-size: 0.8125rem;
 }
 
 @media (max-width: 900px) {
   .marketing-shell .marketing-auth {
-    padding-top: 40px;
-    padding-bottom: 56px;
+    padding-top: 32px;
+    padding-bottom: 40px;
   }
+
   .marketing-shell .marketing-auth-layout,
   .marketing-shell .marketing-auth--signup .marketing-auth-layout {
     max-width: 620px;
     grid-template-columns: minmax(0, 1fr);
-    gap: 32px;
+    gap: 24px;
   }
+
   .marketing-shell .marketing-auth-story {
-    position: static;
-    padding-top: 0;
+    position: relative;
+    top: auto;
+    padding: 30px;
   }
+
   .marketing-shell .marketing-auth-story-title {
-    max-width: 18ch;
-    margin-top: 16px;
-    font-size: 42px;
+    max-width: 24ch;
+    margin-top: 20px;
+    font-size: 2.5rem;
   }
+
   .marketing-shell .marketing-auth-story-lede {
     max-width: none;
     margin-top: 16px;
-    font-size: 16px;
-    line-height: 1.55;
+    font-size: 0.875rem;
   }
+
   .marketing-shell .marketing-auth-context {
     display: none;
   }
+
   .marketing-shell .marketing-auth-form-column,
   .marketing-shell .marketing-auth--signup .marketing-auth-form-column {
     max-width: none;
   }
+
   .marketing-shell .marketing-auth-steps {
-    max-width: none;
     flex-direction: row;
-    gap: 14px;
-    margin-top: 26px;
+    gap: 16px;
+    margin-top: 24px;
   }
+
   .marketing-shell .marketing-auth-steps li {
     flex: 1;
     flex-direction: column;
     gap: 8px;
-    border-top: 1px solid var(--marketing-line);
-    padding-top: 16px;
+    padding: 15px 0 0;
   }
+
   .marketing-shell .marketing-auth-steps li:nth-child(2) {
     flex-grow: 1.5;
   }
+
   .marketing-shell .marketing-auth-steps strong {
     margin: 0;
-    font-size: 13px;
+    font-size: 0.75rem;
+    line-height: 1.6;
   }
+
   .marketing-shell .marketing-auth-steps li div > span {
     display: none;
   }
@@ -537,132 +566,45 @@
 
 @media (max-width: 540px) {
   .marketing-shell .marketing-auth {
-    padding-right: 16px;
-    padding-left: 16px;
+    padding: 20px 16px 32px;
   }
-  .marketing-shell .marketing-auth-story-title {
-    max-width: 14ch;
-    font-size: 38px;
-  }
-  .marketing-shell .marketing-auth-panel {
+
+  .marketing-shell .marketing-auth-story {
     padding: 26px 22px;
-    border-radius: 14px;
   }
+
+  .marketing-shell .marketing-auth-story-title {
+    margin-top: 16px;
+    font-size: 2rem;
+  }
+
+  .marketing-shell .marketing-auth-story-lede {
+    display: none;
+  }
+
+  .marketing-shell .marketing-auth-panel {
+    padding: 28px 22px;
+  }
+
   .marketing-shell .marketing-auth-panel-heading h1 {
-    font-size: 29px;
+    font-size: 2.125rem;
   }
+
   .marketing-shell .marketing-auth-field-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+
   .marketing-shell .marketing-auth-headerhint {
     display: none;
   }
-  .marketing-shell .marketing-auth-footer {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
-    padding-top: 20px;
-    padding-bottom: 20px;
+
+  .marketing-shell .marketing-auth-steps {
+    gap: 10px;
   }
 }
 
-/* Registration has more fields than the other account screens. */
-.marketing-shell .marketing-auth--signup {
-  padding-top: 28px;
-  padding-bottom: 24px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-story {
-  padding-top: 16px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-panel {
-  padding: 24px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-panel-heading {
-  margin-bottom: 16px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-panel-eyebrow {
-  margin-bottom: 8px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-panel-heading h1 {
-  font-size: 30px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-panel-heading > p:not(.marketing-auth-panel-eyebrow) {
-  margin-top: 8px;
-  line-height: 1.5;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-form {
-  gap: 12px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-fieldset {
-  gap: 12px;
-  padding-bottom: 14px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-fieldset legend {
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-field-grid {
-  gap: 12px;
-}
-
-.marketing-shell .marketing-auth--signup .ui-label {
-  margin-bottom: 4px;
-}
-
-.marketing-shell .marketing-auth--signup :is(.ui-input, .ui-select) {
-  height: 44px;
-  min-height: 44px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-submit p {
-  margin-top: 8px;
-}
-
-.marketing-shell .marketing-auth--signup .marketing-auth-after {
-  padding-top: 8px;
-}
-
-@media (max-width: 900px) {
-  .marketing-shell .marketing-auth--signup {
-    padding-top: 24px;
-  }
-  .marketing-shell .marketing-auth--signup .marketing-auth-layout {
-    gap: 24px;
-  }
-  .marketing-shell .marketing-auth--signup .marketing-auth-story {
-    padding-top: 0;
-  }
-  .marketing-shell .marketing-auth--signup .marketing-auth-story-title {
-    margin-top: 12px;
-    font-size: 36px;
-  }
-  .marketing-shell .marketing-auth--signup .marketing-auth-story-lede {
-    margin-top: 12px;
-  }
-  .marketing-shell .marketing-auth--signup .marketing-auth-steps {
-    margin-top: 16px;
-  }
-  .marketing-shell .marketing-auth--signup .marketing-auth-steps li {
-    gap: 6px;
-    padding-top: 10px;
-  }
-}
-
-@media (max-width: 540px) {
-  .marketing-shell .marketing-auth--signup .marketing-auth-panel {
-    padding: 22px 20px;
-  }
-  .marketing-shell .marketing-auth--signup .marketing-auth-panel-heading h1 {
-    font-size: 28px;
+@media (prefers-reduced-motion: reduce) {
+  .marketing-shell .marketing-auth-panel .ui-btn {
+    transition: none;
   }
 }

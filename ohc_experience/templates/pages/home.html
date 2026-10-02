@@ -12,24 +12,47 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/landing.css' %}" />
 {% endblock css %}
+{% block javascript %}
+  {{ block.super }}
+  <script defer src="{% static 'js/landing-stats.js' %}"></script>
+  <script defer src="{% static 'js/landing-motion.js' %}"></script>
+{% endblock javascript %}
 {% block bodyclass %}{{ block.super }} marketing-landing{% endblock bodyclass %}
+{% block floating_navigation %}
+  <nav class="sbx-quick-nav"
+       aria-label="{% translate 'Quick navigation' %}"
+       aria-hidden="true"
+       inert>
+    <a href="#top">{% translate "Home" %}</a>
+    <a href="{{ experience_program.docs_site }}/docs/hiecm/v3">{% translate "Documentation" %}</a>
+    <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/api">API</a>
+    <a href="#ai">{% translate "Build with AI" %}</a>
+    <a href="{{ experience_program.docs_site }}/docs/support">{% translate "Support" %}</a>
+    {% if request.user.is_authenticated %}
+      <a class="sbx-quick-nav-action" href="{% url 'dashboard' %}">{% translate "Open dashboard" %} <span aria-hidden="true">›</span></a>
+    {% else %}
+      <a class="sbx-quick-nav-action" href="{% url 'account_signup' %}">{% translate "Register" %} <span aria-hidden="true">›</span></a>
+    {% endif %}
+  </nav>
+{% endblock floating_navigation %}
 {% block content %}
   <section id="top"
            class="sbx-hero"
            aria-labelledby="landing-title"
            tabindex="-1">
+    <div class="sbx-hero-wheel" aria-hidden="true">{% include "components/marketing_chakra.html" %}</div>
     <div class="marketing-container sbx-hero-content">
       <div class="sbx-hero-copy">
         <p class="sbx-eyebrow sbx-hero-eyebrow">
           <span aria-hidden="true"></span>{% translate "Ayushman Bharat Digital Mission · Agentic AI Sandbox" %}
         </p>
         <h1 id="landing-title">
-          {% translate "Build on India’s" %} <em>{% translate "interoperable" %}</em> {% translate "digital health infrastructure" %}
+          {% translate "Build on India’s interoperable" %} <span>{% translate "digital health infrastructure" %}</span>
         </h1>
-        <p class="sbx-hero-lede">{% translate "Integrate with ABDM Ecosystem faster with Agentic AI" %}</p>
-        <p class="sbx-hero-description">{% translate "A controlled, self-service sandbox where integrators build and validate their solutions with India’s National Digital Health Ecosystem. Purpose-built Agentic AI artefacts, skills, assistants, code generators, test agents and validators, guide you through every ABDM integration, from HIE-CM and UHI to NHCX, so you are production-ready faster and with fewer errors." %}</p>
+        <p class="sbx-hero-lede"><span aria-hidden="true">✦</span> {% translate "Integrate with ABDM Ecosystem faster with Agentic AI" %}</p>
+        <p class="sbx-hero-description">{% translate "A controlled, self-service sandbox where integrators build and validate their solutions with India’s National Digital Health Ecosystem. Purpose-built Agentic AI artefacts guide you through every ABDM integration, from HIE-CM and UHI to NHCX, so you are production-ready faster and with fewer errors." %}</p>
         <div class="marketing-actions">
-          <a class="marketing-button marketing-button--primary"
+          <a class="marketing-button marketing-button--primary sbx-magnetic"
              href="{% url 'account_signup' %}">{% translate "Register for the Sandbox" %}
             <span aria-hidden="true">→</span>
           </a>
@@ -38,27 +61,20 @@
           </a>
         </div>
       </div>
-    </div>
-    <div class="marketing-container">
-      <nav class="sbx-section-nav"
-           aria-label="{% translate 'Explore the sandbox' %}">
-        <a href="#gateways">
-          <strong>3 <span aria-hidden="true">↗&#xFE0E;</span></strong>
-          <span>{% translate "national gateways" %}</span>
-        </a>
-        <a href="#milestones">
-          <strong>M1–M4 <span aria-hidden="true">↗&#xFE0E;</span></strong>
-          <span>{% translate "milestone certification" %}</span>
-        </a>
-        <a href="#ai">
-          <strong>{% translate "Agentic AI" %} <span aria-hidden="true">↗&#xFE0E;</span></strong>
-          <span>{% translate "assistants for every flow" %}</span>
-        </a>
-        <a href="{{ experience_program.docs_site }}/docs/hiecm/v3/concepts/fhir">
-          <strong>FHIR R4 <span aria-hidden="true">↗&#xFE0E;</span></strong>
-          <span>{% translate "compliant" %}</span>
-        </a>
-      </nav>
+      <aside class="sbx-stats" aria-labelledby="sandbox-glance-title">
+        <h2 id="sandbox-glance-title">{% translate "ABDM at a glance" %}</h2>
+        {# Dummy figures from the supplied design; replace with API values when available. #}
+        <dl>
+          {% translate "ABHA Linked Health Record Created" as records_label %}
+          {% include "components/marketing_stat.html" with label=records_label value="1,22,30,76,704" only %}
+          {% translate "Healthcare Professionals Registered" as professionals_label %}
+          {% include "components/marketing_stat.html" with label=professionals_label value="12,01,600" only %}
+          {% translate "Facilities using ABDM enabled software" as facilities_label %}
+          {% include "components/marketing_stat.html" with label=facilities_label value="2,86,280" only %}
+          {% translate "Successful Integrators" as integrators_label %}
+          {% include "components/marketing_stat.html" with label=integrators_label value="604" only %}
+        </dl>
+      </aside>
     </div>
   </section>
   <section id="gateways"
@@ -66,26 +82,15 @@
            tabindex="-1"
            aria-labelledby="gateways-title">
     <div class="marketing-container">
-      <h2 id="gateways-title" class="sr-only">{% translate "National gateways" %}</h2>
+      <div class="sbx-gateway-heading">
+        <h2 id="gateways-title">{% translate "ABDM Gateways" %}</h2>
+        <span class="sbx-eyebrow">{% translate "One connected ecosystem" %}</span>
+      </div>
       <div class="sbx-gateway-grid">
         <a class="sbx-gateway sbx-gateway--records"
            href="{{ experience_program.docs_site }}/docs/hiecm/v3">
           <div class="sbx-gateway-top">
-            <span class="sbx-gateway-symbol" aria-hidden="true">
-              <svg viewBox="0 0 32 32"
-                   fill="none"
-                   stroke="currentColor"
-                   stroke-width="1.5">
-                <rect x="11" y="11" width="10" height="10" rx="2" />
-                <path d="M16 3v8M16 21v8M3 16h8M21 16h8" />
-                <circle cx="16" cy="3" r="2" fill="currentColor" />
-                <circle cx="16" cy="29" r="2" fill="currentColor" />
-                <circle cx="3" cy="16" r="2" fill="currentColor" />
-                <circle cx="29" cy="16" r="2" fill="currentColor" />
-              </svg>
-            </span>
             <span class="sbx-gateway-number">01</span>
-            <span class="sbx-card-arrow" aria-hidden="true">↗&#xFE0E;</span>
           </div>
           <h3>HIE-CM</h3>
           <p class="sbx-gateway-full">{% translate "Health Information Exchange & Consent Manager" %}</p>
@@ -99,17 +104,7 @@
         <a class="sbx-gateway sbx-gateway--services"
            href="{{ experience_program.docs_site }}/docs/uhi/v1">
           <div class="sbx-gateway-top">
-            <span class="sbx-gateway-symbol" aria-hidden="true">
-              <svg viewBox="0 0 32 32"
-                   fill="none"
-                   stroke="currentColor"
-                   stroke-width="1.5">
-                <rect x="5" y="7" width="22" height="22" rx="4" />
-                <path d="M10 3v8M22 3v8M5 15h22M16 19v6M13 22h6" />
-              </svg>
-            </span>
             <span class="sbx-gateway-number">02</span>
-            <span class="sbx-card-arrow" aria-hidden="true">↗&#xFE0E;</span>
           </div>
           <h3>UHI</h3>
           <p class="sbx-gateway-full">{% translate "Unified Health Interface" %}</p>
@@ -123,17 +118,7 @@
         <a class="sbx-gateway sbx-gateway--claims"
            href="{{ experience_program.docs_site }}/docs/nhcx/v1">
           <div class="sbx-gateway-top">
-            <span class="sbx-gateway-symbol" aria-hidden="true">
-              <svg viewBox="0 0 32 32"
-                   fill="none"
-                   stroke="currentColor"
-                   stroke-width="1.5">
-                <path d="m16 3 11 4v9c0 7-11 13-11 13S5 23 5 16V7l11-4Z" />
-                <path d="m11 16 4 4 7-8" />
-              </svg>
-            </span>
             <span class="sbx-gateway-number">03</span>
-            <span class="sbx-card-arrow" aria-hidden="true">↗&#xFE0E;</span>
           </div>
           <h3>NHCX</h3>
           <p class="sbx-gateway-full">{% translate "National Health Claims Exchange" %}</p>
@@ -157,7 +142,16 @@
           <p class="sbx-eyebrow">{% translate "Agentic AI Artefacts" %}</p>
           <h2 id="ai-title">{% translate "AI assistants that do the groundwork of integration" %}</h2>
         </div>
-        <p class="sbx-section-description">{% translate "Sandbox has now AI artefacts for each gateway integration. Instead of reading specifications end-to-end, integrators describe what they want to build and the agents generate, wire up, test and validate the flows for HIE-CM, UHI and NHCX, compressing weeks of trial-and-error into guided, verifiable steps that take just days." %}</p>
+        <ul class="sbx-ai-intro" role="list">
+          <li>{% translate "AI artefacts for each gateway integration." %}</li>
+          <li>{% translate "Describe what you want to build instead of reading specifications end to end." %}</li>
+          <li>{% translate "Generate, wire up, test and validate flows for HIE-CM, UHI and NHCX." %}</li>
+          <li>{% translate "Move from trial and error to guided, verifiable steps." %}</li>
+        </ul>
+      </div>
+      <div class="sbx-ai-timescale">
+        <div><span>{% translate "Weeks" %}</span><span aria-hidden="true">⟶</span><strong>{% translate "Days" %}</strong></div>
+        <p>{% translate "Move from weeks of trial and error to guided, verifiable steps across" %} <strong>{% translate "3 gateways" %}</strong> {% translate "and" %} <strong>{% translate "6 AI artefacts." %}</strong></p>
       </div>
       <div class="sbx-ai-features">
         <div>
@@ -213,13 +207,14 @@
       <div class="sbx-section-heading">
         <div>
           <p class="sbx-eyebrow">{% translate "Progression" %}</p>
-          <h2 id="milestones-title">{% translate "Four milestones" %}</h2>
+          <h2 id="milestones-title">{% translate "Four milestones, M1 to M4" %}</h2>
         </div>
         <p class="sbx-section-description">{% translate "ABDM integration is divided into milestones. These cover creation and verification of ABHA, linking of health records with an ABHA Address, consent-based exchange of health records, and native registration through the National Healthcare Professionals Registry. Integrators should implement the milestones applicable to their solutions." %}</p>
       </div>
       <div class="sbx-milestone-grid">
         <a class="sbx-milestone"
            href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m1">
+          <span class="sbx-milestone-tail" aria-hidden="true"></span>
           <div class="sbx-milestone-marker">
             <span>M1</span>
             <span aria-hidden="true">↗&#xFE0E;</span>
@@ -233,6 +228,7 @@
         </a>
         <a class="sbx-milestone"
            href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m2">
+          <span class="sbx-milestone-tail" aria-hidden="true"></span>
           <div class="sbx-milestone-marker">
             <span>M2</span>
             <span aria-hidden="true">↗&#xFE0E;</span>
@@ -246,6 +242,7 @@
         </a>
         <a class="sbx-milestone"
            href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m3">
+          <span class="sbx-milestone-tail" aria-hidden="true"></span>
           <div class="sbx-milestone-marker">
             <span>M3</span>
             <span aria-hidden="true">↗&#xFE0E;</span>
@@ -259,6 +256,7 @@
         </a>
         <a class="sbx-milestone"
            href="{{ experience_program.docs_site }}/docs/hiecm/v3/milestones/m4">
+          <span class="sbx-milestone-tail" aria-hidden="true"></span>
           <div class="sbx-milestone-marker">
             <span>M4</span>
             <span aria-hidden="true">↗&#xFE0E;</span>
@@ -289,70 +287,64 @@
       </div>
       <ol class="sbx-journey-steps" role="list">
         <li>
-          <span class="sbx-step-number">01</span>
-          <div>
-            <span class="sbx-step-phase">{% translate "Onboard" %}</span>
-            <h3>{% translate "Register & create your sandbox account" %}</h3>
-            <p>{% translate "Sign up as an eligible entity (HIP, HIU, service provider, payer or health-tech), verify your organisation details, and accept the sandbox terms of use." %}</p>
-            <p class="sbx-step-ai">
-              <span aria-hidden="true">✦</span>{% translate "Once confirmed, access guided journeys and APIs across HIE-CM, UHI and NHCX as needed." %}
-            </p>
-          </div>
+          <details class="sbx-journey-step" name="integration-journey" open>
+            <summary>
+              <span class="sbx-step-phase">{% translate "Onboard" %}</span>
+              <h3>{% translate "Register & create your sandbox account" %}</h3>
+              <span class="sbx-step-count">{% translate "Step" %} 1 {% translate "of 6" %}</span><span class="sbx-step-toggle" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="sbx-step-body"><p>{% translate "Sign up as an eligible entity (HIP, HIU, service provider, payer or health-tech), verify your organisation details, and accept the sandbox terms of use." %}</p><p class="sbx-step-ai"><span aria-hidden="true">»</span>{% translate "Once confirmed, access guided journeys and APIs across HIE-CM, UHI and NHCX as needed." %}</p></div>
+          </details>
         </li>
         <li>
-          <span class="sbx-step-number">02</span>
-          <div>
-            <span class="sbx-step-phase">{% translate "Access" %}</span>
-            <h3>{% translate "Get Credentials and Connect" %}</h3>
-            <p>{% translate "Receive client IDs, keys and session tokens, then establish your first authenticated connection to the chosen gateway." %}</p>
-            <p class="sbx-step-ai">
-              <span aria-hidden="true">✦</span>{% translate "Code & Config Generator produces working auth code and your first request." %}
-            </p>
-          </div>
+          <details class="sbx-journey-step" name="integration-journey">
+            <summary>
+              <span class="sbx-step-phase">{% translate "Access" %}</span>
+              <h3>{% translate "Get Credentials and Connect" %}</h3>
+              <span class="sbx-step-count">{% translate "Step" %} 2 {% translate "of 6" %}</span><span class="sbx-step-toggle" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="sbx-step-body"><p>{% translate "Receive client IDs, keys and session tokens, then establish your first authenticated connection to the chosen gateway." %}</p><p class="sbx-step-ai"><span aria-hidden="true">»</span>{% translate "Code & Config Generator produces working auth code and your first request." %}</p></div>
+          </details>
         </li>
         <li>
-          <span class="sbx-step-number">03</span>
-          <div>
-            <span class="sbx-step-phase">{% translate "Build" %}</span>
-            <h3>{% translate "Implement the core integration flows" %}</h3>
-            <p>{% translate "Integrate with APIs across all milestones, UHI and NHCX as per requirements of the solution." %}</p>
-            <p class="sbx-step-ai">
-              <span aria-hidden="true">✦</span>{% translate "Integration Assistant generates milestone-based integration journeys, code payloads, skill files, and error scenarios." %}
-            </p>
-          </div>
+          <details class="sbx-journey-step" name="integration-journey">
+            <summary>
+              <span class="sbx-step-phase">{% translate "Build" %}</span>
+              <h3>{% translate "Implement the core integration flows" %}</h3>
+              <span class="sbx-step-count">{% translate "Step" %} 3 {% translate "of 6" %}</span><span class="sbx-step-toggle" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="sbx-step-body"><p>{% translate "Integrate with APIs across all milestones, UHI and NHCX as per requirements of the solution." %}</p><p class="sbx-step-ai"><span aria-hidden="true">»</span>{% translate "Integration Assistant generates milestone-based integration journeys, code payloads, skill files, and error scenarios." %}</p></div>
+          </details>
         </li>
         <li>
-          <span class="sbx-step-number">04</span>
-          <div>
-            <span class="sbx-step-phase">{% translate "Test" %}</span>
-            <h3>{% translate "Simulate & validate end to end" %}</h3>
-            <p>{% translate "Complete functional testing for the developed workflows, cover error paths, and ensure compliance against FHIR R4 checks." %}</p>
-            <p class="sbx-step-ai">
-              <span aria-hidden="true">✦</span>{% translate "Simulated workflows for end-to-end testing." %}
-            </p>
-          </div>
+          <details class="sbx-journey-step" name="integration-journey">
+            <summary>
+              <span class="sbx-step-phase">{% translate "Test" %}</span>
+              <h3>{% translate "Simulate & validate end to end" %}</h3>
+              <span class="sbx-step-count">{% translate "Step" %} 4 {% translate "of 6" %}</span><span class="sbx-step-toggle" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="sbx-step-body"><p>{% translate "Complete functional testing for the developed workflows, cover error paths, and ensure compliance against FHIR R4 checks." %}</p><p class="sbx-step-ai"><span aria-hidden="true">»</span>{% translate "Simulated workflows for end-to-end testing." %}</p></div>
+          </details>
         </li>
         <li>
-          <span class="sbx-step-number">05</span>
-          <div>
-            <span class="sbx-step-phase">{% translate "Certify · Go-Live" %}</span>
-            <h3>{% translate "Certify and go live" %}</h3>
-            <p>{% translate "Package and submit evidence of gateway integration completion for review, then receive production access upon approval." %}</p>
-            <p class="sbx-step-ai">
-              <span aria-hidden="true">✦</span>{% translate "Milestone Guide assembles the evidence pack and readiness checklist; Assistant outlines the differences between sandbox and production." %}
-            </p>
-          </div>
+          <details class="sbx-journey-step" name="integration-journey">
+            <summary>
+              <span class="sbx-step-phase">{% translate "Certify · Go-Live" %}</span>
+              <h3>{% translate "Certify and go live" %}</h3>
+              <span class="sbx-step-count">{% translate "Step" %} 5 {% translate "of 6" %}</span><span class="sbx-step-toggle" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="sbx-step-body"><p>{% translate "Package and submit evidence of gateway integration completion for review, then receive production access upon approval." %}</p><p class="sbx-step-ai"><span aria-hidden="true">»</span>{% translate "Milestone Guide assembles the evidence pack and readiness checklist; Assistant outlines the differences between sandbox and production." %}</p></div>
+          </details>
         </li>
         <li>
-          <span class="sbx-step-number">06</span>
-          <div>
-            <span class="sbx-step-phase">{% translate "Explore" %}</span>
-            <h3>{% translate "Continue using the sandbox" %}</h3>
-            <p>{% translate "Keep using the sandbox after going live to test new workflows, join events, and explore new use cases." %}</p>
-            <p class="sbx-step-ai">
-              <span aria-hidden="true">✦</span>{% translate "Assistant surfaces new workflows, upcoming events and use cases you can explore in the sandbox." %}
-            </p>
-          </div>
+          <details class="sbx-journey-step" name="integration-journey">
+            <summary>
+              <span class="sbx-step-phase">{% translate "Explore" %}</span>
+              <h3>{% translate "Continue using the sandbox" %}</h3>
+              <span class="sbx-step-count">{% translate "Step" %} 6 {% translate "of 6" %}</span><span class="sbx-step-toggle" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="sbx-step-body"><p>{% translate "Keep using the sandbox after going live to test new workflows, join events, and explore new use cases." %}</p><p class="sbx-step-ai"><span aria-hidden="true">»</span>{% translate "Assistant surfaces new workflows, upcoming events and use cases you can explore in the sandbox." %}</p></div>
+          </details>
         </li>
       </ol>
     </div>
@@ -389,16 +381,18 @@
   <section class="sbx-final" aria-labelledby="start-title">
     <div class="marketing-container">
       <div class="sbx-final-panel">
+        <img class="sbx-final-wheel"
+             src="{% static 'images/marketing/chakra.svg' %}"
+             width="280"
+             height="280"
+             alt=""
+             aria-hidden="true" />
         <div>
-          <h2 id="start-title">
-            {% translate "Ready to start" %}
-            <br />
-            {% translate "integrating?" %}
-          </h2>
+          <h2 id="start-title">{% translate "Ready to start integrating?" %}</h2>
           <p>{% translate "Register for the Agentic AI Sandbox and let the AI artefacts guide you from M1 to go-live." %}</p>
         </div>
         <div class="sbx-final-actions">
-          <a class="marketing-button marketing-button--primary"
+          <a class="marketing-button marketing-button--primary sbx-magnetic"
              href="{% url 'account_signup' %}">{% translate "Register for Sandbox" %}
             <span aria-hidden="true">→</span>
           </a>

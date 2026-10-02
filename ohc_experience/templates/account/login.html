@@ -21,6 +21,9 @@
   {% endif %}
 {% endblock header_action %}
 {% block entrance_layout_class %}marketing-auth--login{% endblock entrance_layout_class %}
+{% block entrance_panel_eyebrow %}
+  <p class="marketing-auth-panel-eyebrow">{% translate "Welcome back" %}</p>
+{% endblock entrance_panel_eyebrow %}
 {% block entrance_title %}
   {% translate "Sign in to your sandbox." %}
 {% endblock entrance_title %}
@@ -43,7 +46,7 @@
       {% endif %}
       {{ redirect_field }}
       <button type="submit"
-              class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">{% translate "Sign in" %}</button>
+              class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">{% translate "Sign in" %}<span aria-hidden="true">→</span></button>
     </form>
   {% endif %}
   {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
