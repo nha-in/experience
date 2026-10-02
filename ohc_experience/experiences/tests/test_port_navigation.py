@@ -180,14 +180,21 @@ def test_the_support_count_says_what_it_counts(environment):  # noqa: F811
 
     nav = app_nav(client, reverse("experiences:assess-dashboard"))
 
+    # Screen readers hear it with the link; a tooltip shows it at once on hover
+    # or keyboard focus, where a title attribute would wait about a second.
+    support = nav[nav.index('<a id="nav-support"') :].split("</a>", 1)[0]
+    assert "group/tip" in support
+    assert "title=" not in support
     assert (
-        '<span class="font-mono text-[11px] text-soft-foreground" '
-        'title="2 open tickets">2<span class="sr-only"> open tickets</span></span>'
-    ) in nav
+        '2<span class="sr-only"> open tickets</span>'
+        '<span class="ui-tooltip top-1/2 right-full mr-2 -translate-y-1/2" '
+        'aria-hidden="true">2 open tickets</span>'
+    ) in support
     Ticket.objects.filter(status="open").update(status="closed")
     client.force_login(environment["applicant"])
     nav = app_nav(client, environment["product"].get_absolute_url())
-    assert 'title="1 open ticket">1<span class="sr-only"> open ticket</span>' in nav
+    assert '1<span class="sr-only"> open ticket</span>' in nav
+    assert 'aria-hidden="true">1 open ticket</span>' in nav
 
 
 def test_documentation_says_it_opens_in_a_new_tab(environment):  # noqa: F811
