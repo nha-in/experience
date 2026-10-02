@@ -335,8 +335,8 @@ SUPPORT_CATEGORIES = (
 SUPPORT_CATEGORY_MAP = {category.code: category for category in SUPPORT_CATEGORIES}
 
 #: Milestones each solution type requires, from NHA's intent-for-request matrix.
-#: Registration preselects them and warns when one is left unchecked, but still
-#: saves. Types not listed require none.
+#: A listed type fixes the product's ABDM or PHR milestones to exactly these.
+#: Other leaves them to the integrator.
 REQUIRED_MILESTONES = {
     "hmis": ("m1", "m2", "m3", "m4"),
     "clinical_hmis": ("m1", "m2", "m3", "m4"),
@@ -347,6 +347,7 @@ REQUIRED_MILESTONES = {
     "healthtech": ("m1", "m2", "m3", "m4"),
     "insurance": ("m1", "m3"),
     "telemedicine": ("m1", "m2", "m3", "m4"),
+    "govt_program": ("m1", "m2", "m3"),
 }
 MILESTONE_CHOICES = [
     (
@@ -359,6 +360,26 @@ MILESTONE_CHOICES = [
     for track in TRACKS
     if track.keys
 ]
+
+
+def fixed_selections(solution_types):
+    """The ABDM or PHR selections these solution types fix, or None if they fix none."""
+    if "other" in solution_types:
+        return None
+    keys = {
+        key
+        for solution in solution_types
+        for key in REQUIRED_MILESTONES.get(solution, ())
+    }
+    if not keys:
+        return None
+    return [
+        f"{track.code}:{key}"
+        for track in TRACKS
+        if track.code in EXCLUSIVE_TRACKS
+        for key in track.keys
+        if key in keys
+    ]
 
 
 def canonical_keys(selections):

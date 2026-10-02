@@ -14,6 +14,7 @@ from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.skills import ABDMAgentSkills
 from ohc_experience.abdm.tests.test_reference_environment import CommandText
 from ohc_experience.abdm.tests.test_reference_environment import main_nav
+from ohc_experience.abdm.tests.test_workflow import OTHER_TYPE
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.experiences import workflows
@@ -129,6 +130,7 @@ def abdm_only(environment, name="ABDM only"):
         environment["org"],
         environment["applicant"],
         data=product_data(name)
+        | OTHER_TYPE
         | {"applied_milestones": ["ABDM:m1", "ABDM:m2", "ABDM:m3"]},
     )
     assert product, form.errors

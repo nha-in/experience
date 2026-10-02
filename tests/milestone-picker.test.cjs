@@ -89,8 +89,9 @@ const TRACKS = [
   { code: 'UHI', milestones: { uhi1: 'm1 p1' }, standsAlone: true },
   { code: 'NHCX', milestones: { nhcx1: 'm1 p1' } },
 ];
-// A few solution types, with the milestones each one requires.
+// A few solution types, with the milestones each one requires. Other requires none.
 const SOLUTION_TYPES = {
+  other: ['Other', []],
   hmis: ['HMIS', ['m1', 'm2', 'm3', 'm4']],
   phr: ['PHR', ['p1', 'p2', 'p3']],
   health_locker: ['Health Locker', ['p1', 'p2', 'p3', 'p4']],
@@ -111,7 +112,7 @@ function createPage({ selected = [] } = {}) {
   form.append(status);
   const boxes = {};
   const notes = {};
-  const warnings = {};
+  const fixedNotes = {};
   // The server greys out the track the saved selection rules out.
   const chosen = TRACKS.find(track => Object.keys(track.milestones).some(key => selected.includes(key)));
   for (const track of TRACKS) {
@@ -120,6 +121,10 @@ function createPage({ selected = [] } = {}) {
     notes[track.code] = new Element('span', { 'data-track-blocked': '' });
     notes[track.code].hidden = !(chosen?.excludes === track.code);
     row.append(notes[track.code]);
+    if (track.excludes) {
+      fixedNotes[track.code] = new Element('span', { 'data-track-fixed': '', hidden: '' });
+      row.append(fixedNotes[track.code]);
+    }
     for (const [key, requires] of Object.entries(track.milestones)) {
       const id = `milestone-${track.code.toLowerCase()}${key}`;
       const box = new Element('input', {
@@ -131,11 +136,7 @@ function createPage({ selected = [] } = {}) {
       box.checked = selected.includes(key);
       const requiredFor = Object.keys(SOLUTION_TYPES).filter(value => SOLUTION_TYPES[value][1].includes(key));
       row.append(box);
-      if (requiredFor.length) {
-        box.setAttribute('data-required-for', requiredFor.join(' '));
-        warnings[key] = new Element('p', { id: `${id}-required`, 'data-milestone-code': key.toUpperCase(), hidden: '' });
-        row.append(warnings[key]);
-      }
+      if (requiredFor.length) box.setAttribute('data-required-for', requiredFor.join(' '));
       boxes[key] = box;
     }
     form.append(row);
@@ -175,7 +176,7 @@ function createPage({ selected = [] } = {}) {
     }
     fire('change', input);
   };
-  return { boxes, types, notes, warnings, status, click, initialize: () => fire('DOMContentLoaded', document) };
+  return { boxes, types, notes, fixedNotes, status, click, initialize: () => fire('DOMContentLoaded', document) };
 }
 
 const enabled = (page, ...keys) => keys.filter(key => !page.boxes[key].disabled);
@@ -242,62 +243,59 @@ test('a saved track keeps the other one out as the page loads', () => {
   assert.equal(page.notes.ABDM.hidden, true);
 });
 
-test('a solution type ticks what it requires, and the next takes back what only it needed', () => {
+test('a solution type fixes the ABDM or PHR milestones it requires', () => {
   const page = createPage();
   page.initialize();
 
   page.click(page.types.hmis);
   assert.deepEqual(checked(page, ...ALL), ['m1', 'm2', 'm3', 'm4']);
+  assert.deepEqual(enabled(page, ...ALL), ['uhi1', 'nhcx1']);
+  assert.equal(page.fixedNotes.ABDM.hidden, false);
+  assert.equal(page.fixedNotes.ABDM.textContent, '· Set by the HMIS solution type.');
+  assert.equal(page.fixedNotes.PHR.hidden, true);
+  assert.equal(page.status.textContent, 'M1, M2, M3 and M4 set by the HMIS solution type.');
 
-  // Insurance requires M1 and M3 as well, so only M2 and M4 go.
+  // Insurance requires only M1 and M3; M2 and M4 cannot be added back.
   page.click(page.types.insurance);
-  assert.equal(page.types.hmis.checked, false);
   assert.deepEqual(checked(page, ...ALL), ['m1', 'm3']);
+  assert.deepEqual(enabled(page, 'm2', 'm4'), []);
 
   // PHR is on the other track: ABDM clears, so PHR can open.
   page.click(page.types.phr);
   assert.deepEqual(checked(page, ...ALL), ['p1', 'p2', 'p3']);
+  assert.deepEqual(enabled(page, ...ALL), ['uhi1', 'nhcx1']);
   assert.equal(page.notes.ABDM.hidden, false);
-  assert.equal(page.notes.PHR.hidden, true);
+  assert.equal(page.fixedNotes.PHR.textContent, '· Set by the PHR solution type.');
+  assert.equal(page.fixedNotes.ABDM.hidden, true);
 });
 
-test('a milestone the integrator changed stays when the solution type changes', () => {
+test('Other hands the milestones back, ticked as they were', () => {
   const page = createPage();
   page.initialize();
-  page.click(page.types.hmis);
-  // The integrator unticks M4 and ticks it again: it is theirs now.
-  page.click(page.boxes.m4);
-  page.click(page.boxes.m4);
+  page.click(page.types.health_locker);
+  page.click(page.boxes.uhi1);
 
-  // M4 is the integrator's, and keeps the M1 it builds on.
-  page.click(page.types.insurance);
-  assert.deepEqual(checked(page, ...ALL), ['m1', 'm3', 'm4']);
+  page.click(page.types.other);
+  assert.deepEqual(checked(page, ...ALL), ['uhi1', 'p1', 'p2', 'p3', 'p4']);
+  assert.deepEqual(enabled(page, 'p1', 'p2', 'p3', 'p4', 'm1'), ['p1', 'p2', 'p3', 'p4']);
+  assert.equal(page.fixedNotes.PHR.hidden, true);
+  assert.equal(page.status.textContent, '');
+
+  page.click(page.boxes.p4);
+  page.click(page.boxes.p1);
+  assert.deepEqual(checked(page, ...ALL), ['uhi1']);
+  assert.deepEqual(enabled(page, 'm1', 'p1'), ['m1', 'p1']);
 });
 
-test('a required milestone left unticked names the solution type that needs it', () => {
-  const page = createPage();
+test('a box the server locked stays locked as the page loads', () => {
+  const page = createPage({ selected: ['m1', 'm3'] });
+  for (const key of ['m1', 'm2', 'm3', 'm4', 'p1', 'p2', 'p3', 'p4']) {
+    page.boxes[key].setAttribute('data-milestone-locked', '');
+  }
   page.initialize();
-  page.click(page.types.hmis);
-  assert.deepEqual(Object.values(page.warnings).filter(warning => !warning.hidden), []);
 
-  page.click(page.boxes.m3);
-  assert.equal(page.warnings.m3.hidden, false);
-  assert.equal(page.warnings.m3.textContent, 'Required for the HMIS solution type.');
-  assert.equal(page.status.textContent, 'M3: Required for the HMIS solution type.');
-
-  // Closing M2 and M4 with M1 says so for each, once.
-  page.click(page.boxes.m1);
-  assert.equal(page.warnings.m2.textContent, 'Required for the HMIS solution type.');
-  assert.equal(
-    page.status.textContent,
-    'M1: Required for the HMIS solution type. M2: Required for the HMIS solution type. '
-      + 'M4: Required for the HMIS solution type.',
-  );
-
-  // Insurance ticks the M1 and M3 it requires, and nothing asks for M2 or M4.
-  page.click(page.types.insurance);
   assert.deepEqual(checked(page, ...ALL), ['m1', 'm3']);
-  assert.deepEqual(Object.values(page.warnings).filter(warning => !warning.hidden), []);
+  assert.deepEqual(enabled(page, ...ALL), ['uhi1', 'nhcx1']);
 });
 
 test('P4 opens only once P1, P2 and P3 are all ticked, and closes with any of them', () => {
@@ -315,19 +313,4 @@ test('P4 opens only once P1, P2 and P3 are all ticked, and closes with any of th
   page.click(page.boxes.p2);
   assert.deepEqual(checked(page, 'p1', 'p2', 'p3', 'p4'), ['p1', 'p3']);
   assert.deepEqual(enabled(page, 'p4'), []);
-});
-
-test('Health Locker ticks P1 to P4, and P4 the integrator kept keeps P1 to P3', () => {
-  const page = createPage();
-  page.initialize();
-
-  page.click(page.types.health_locker);
-  assert.deepEqual(checked(page, ...ALL), ['p1', 'p2', 'p3', 'p4']);
-
-  // P4 is the integrator's now, so PHR, which needs only P1 to P3, keeps it
-  // along with all three it builds on.
-  page.click(page.boxes.p4);
-  page.click(page.boxes.p4);
-  page.click(page.types.phr);
-  assert.deepEqual(checked(page, ...ALL), ['p1', 'p2', 'p3', 'p4']);
 });

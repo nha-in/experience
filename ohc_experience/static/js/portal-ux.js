@@ -103,7 +103,6 @@
     document.querySelectorAll('[data-password-toggle][hidden]').forEach(button => { button.hidden = false; });
     document.querySelectorAll('form:has([data-milestone-key])').forEach(form => {
       refreshMilestones(form);
-      refreshRequirements(form);
     });
     document.querySelectorAll('[data-permission-toggle]').forEach(button => {
       button.hidden = false;
@@ -309,72 +308,38 @@
           input.checked = false;
           cleared = true;
         }
-        input.disabled = !open;
+        input.disabled = !open || 'milestoneLocked' in input.dataset;
       }
     }
   }
 
-  // Choosing a solution type ticks the milestones it requires, with the ones
-  // those build on. It clears what the type before it ticked, unless the new
-  // type requires it too or the integrator has changed it since: only the new
-  // radio says it changed, never the one it replaced. A required milestone left
-  // unchecked says which type requires it; the form still saves.
-  const preselected = new WeakMap();
-  const milestoneFor = (form, key) => key && form.querySelector(`[data-milestone-key="${CSS.escape(key)}"]`);
-  // What a milestone builds on: every one for P4, the only one otherwise. A
-  // choice between several, like UHI's, is left to the integrator.
-  const buildsOn = (form, input) => {
-    const keys = (input.dataset.milestoneRequires || '').split(' ').filter(Boolean);
-    if (keys.length > 1 && !('milestoneRequiresAll' in input.dataset)) return [];
-    return keys.map(key => milestoneFor(form, key)).filter(Boolean);
-  };
+  // A solution type in NHA's matrix fixes the ABDM or PHR milestones to the
+  // ones it requires. Other lets the integrator choose. The form applies the
+  // same rule on submit.
+  const requiredBy = (input, type) => (input.dataset.requiredFor || '').split(' ').includes(type.value);
   const readableList = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join('');
-  const requiringTypes = (form, input) => [...form.querySelectorAll('[data-solution-type]:checked')].filter(type =>
-    (input.dataset.requiredFor || '').split(' ').includes(type.value));
 
   function applySolutionType(type) {
     const form = type.form;
-    if (!preselected.has(form)) preselected.set(form, new Set());
-    const added = preselected.get(form);
-    const kept = new Set();
-    const keep = input => {
-      if (kept.has(input)) return;
-      kept.add(input);
-      buildsOn(form, input).forEach(keep);
-    };
-    form.querySelectorAll('[data-milestone-key]').forEach(input => {
-      if (!input.checked || (added.has(input) && !requiringTypes(form, input).length)) return;
-      keep(input);
-    });
-    added.forEach(input => {
-      if (kept.has(input)) return;
-      input.checked = false;
-      added.delete(input);
-    });
-    const tick = input => {
-      if (input.checked) return;
-      input.checked = true;
-      added.add(input);
-      buildsOn(form, input).forEach(tick);
-    };
-    form.querySelectorAll('[data-required-for]').forEach(input => {
-      if (input.dataset.requiredFor.split(' ').includes(type.value)) tick(input);
-    });
-  }
-
-  function refreshRequirements(form, announce = false) {
-    const appeared = [];
-    form.querySelectorAll('[data-required-for]').forEach(input => {
-      const warning = document.getElementById(`${input.id}-required`);
-      if (!warning) return;
-      const types = input.checked ? [] : requiringTypes(form, input).map(type => type.labels[0]?.textContent.trim() || type.value);
-      const message = types.length ? `Required for the ${readableList(types)} solution type${types.length > 1 ? 's' : ''}.` : '';
-      if (message && warning.hidden) appeared.push(`${warning.dataset.milestoneCode}: ${message}`);
-      warning.textContent = message;
-      warning.hidden = !message;
-    });
+    const groups = [...form.querySelectorAll('[data-track-excludes]')];
+    const boxes = groups.flatMap(changeable);
+    const fixes = boxes.some(input => requiredBy(input, type));
+    const label = type.labels[0]?.textContent.trim() || type.value;
+    for (const input of boxes) {
+      if (fixes) input.checked = requiredBy(input, type);
+      input.toggleAttribute('data-milestone-locked', fixes);
+    }
+    for (const group of groups) {
+      const note = group.querySelector('[data-track-fixed]');
+      if (!note) continue;
+      const owns = fixes && changeable(group).some(input => input.checked);
+      note.textContent = owns ? `· Set by the ${label} solution type.` : '';
+      note.hidden = !owns;
+    }
     const status = form.querySelector('[data-milestone-status]');
-    if (announce && status) status.textContent = appeared.join(' ');
+    if (!status) return;
+    const codes = boxes.filter(input => fixes && input.checked).map(input => input.dataset.milestoneKey.toUpperCase());
+    status.textContent = codes.length ? `${readableList(codes)} set by the ${label} solution type.` : '';
   }
 
   document.addEventListener('change', event => {
@@ -383,12 +348,8 @@
     const form = (type || input)?.form;
     if (!form) return;
     if (type) applySolutionType(type);
-    else {
-      preselected.get(form)?.delete(input);
-      applyExclusivity(input);
-    }
+    else applyExclusivity(input);
     refreshMilestones(form);
-    refreshRequirements(form, true);
   });
   ['input', 'change'].forEach(type => document.addEventListener(type, event => {
     const form = event.target.closest('form');

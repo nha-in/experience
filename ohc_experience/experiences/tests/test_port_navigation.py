@@ -4,6 +4,7 @@ from django.test import Client
 from django.urls import reverse
 
 from ohc_experience.abdm.demo import product_data
+from ohc_experience.abdm.tests.test_workflow import OTHER_TYPE
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.context_processors import navigation_context
@@ -20,6 +21,7 @@ def test_selected_product_follows_integrator_into_account_pages(environment):  #
     user = environment["applicant"]
     data = {
         **product_data(),
+        **OTHER_TYPE,
         "name": "Second product",
         "applied_milestones": ["PHR:p1", "PHR:p2", "PHR:p3", "PHR:p4"],
     }
@@ -100,6 +102,7 @@ def test_a_track_counts_only_the_milestones_the_product_applied_for(environment,
         environment["applicant"],
         data={
             **product_data("M1 and UHI only"),
+            **OTHER_TYPE,
             "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
         },
     )

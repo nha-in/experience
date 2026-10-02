@@ -11,7 +11,7 @@
     <input type="hidden" name="{{ field.html_name }}" value="{{ value }}" />
   {% endfor %}
   <p id="milestone-picker-hint"
-     class="mb-4 text-xs leading-relaxed text-soft-foreground">Grouped by track. Each milestone you select becomes its own exit request, and milestones open in order within a track. Approved milestones cannot be removed. To remove one that is under review, withdraw its request first.</p>
+     class="mb-4 text-xs leading-relaxed text-soft-foreground">Grouped by track. Each milestone you select becomes its own exit request, and milestones open in order within a track.</p>
   {% for error in field.errors %}
     <p class="ui-error mb-2"
        id="{{ field.auto_id }}-error-{{ forloop.counter }}"
@@ -33,6 +33,9 @@
             {% if row.related %}
               <span class="text-xs text-soft-foreground">· {{ row.related }} suggested</span>
             {% endif %}
+            <span class="text-xs text-soft-foreground"
+                  data-track-fixed
+                  {% if not row.fixed_note %}hidden{% endif %}>· {{ row.fixed_note }}</span>
             <span class="text-xs font-medium text-amber-800"
                   data-track-blocked
                   {% if not row.blocked %}hidden{% endif %}>{{ row.exclusion }}</span>
@@ -45,7 +48,7 @@
           <div class="flex flex-col">
             {% for milestone in row.milestones %}
               <div class="-mx-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border-t border-soft-border px-2.5 py-2.5 transition-colors has-[input:enabled]:hover:bg-primary-50/60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40">
-                <input class="ui-checkbox peer shrink-0" type="checkbox" id="milestone-{{ milestone.value|slugify }}" data-milestone-key="{{ milestone.definition.key }}" {% if milestone.value in approved_selections or milestone.value in under_review_selections %}checked disabled aria-describedby="milestone-{{ milestone.value|slugify }}-why"{% else %}name="{{ field.html_name }}" value="{{ milestone.value }}" data-milestone-requires="{{ milestone.requires }}"{% if milestone.stands_alone %} data-milestone-stands-alone{% endif %}{% if milestone.requires_all %} data-milestone-requires-all{% endif %}{% if row.blocked %} disabled{% endif %} {% if milestone.required_for %}data-required-for="{{ milestone.required_for }}" aria-describedby="milestone-{{ milestone.value|slugify }}-required"{% endif %} {% if milestone.selected %}checked{% endif %}{% endif %} />
+                <input class="ui-checkbox peer shrink-0" type="checkbox" id="milestone-{{ milestone.value|slugify }}" data-milestone-key="{{ milestone.definition.key }}" {% if milestone.value in approved_selections or milestone.value in under_review_selections %}checked disabled aria-describedby="milestone-{{ milestone.value|slugify }}-why"{% else %}name="{{ field.html_name }}" value="{{ milestone.value }}" data-milestone-requires="{{ milestone.requires }}"{% if milestone.stands_alone %} data-milestone-stands-alone{% endif %}{% if milestone.requires_all %} data-milestone-requires-all{% endif %}{% if row.blocked or row.locked %} disabled{% endif %}{% if row.locked %} data-milestone-locked{% endif %} {% if milestone.required_for %}data-required-for="{{ milestone.required_for }}"{% endif %} {% if milestone.selected %}checked{% endif %}{% endif %} />
                 {# The label ends after the name so the (i) can sit beside it: a button inside a label would toggle the checkbox. #}
                 <label class="flex min-w-0 items-center gap-x-3 text-sm select-none peer-enabled:cursor-pointer peer-disabled:text-soft-foreground"
                        for="milestone-{{ milestone.value|slugify }}">
@@ -59,12 +62,6 @@
                 {% elif milestone.value in under_review_selections %}
                   <span class="ui-badge ui-badge--info ui-badge--size-xs ml-auto"
                         id="milestone-{{ milestone.value|slugify }}-why">Under review · withdraw to remove</span>
-                {% endif %}
-                {% if milestone.required_for and milestone.value not in approved_selections and milestone.value not in under_review_selections %}
-                  <p class="basis-full pl-7 text-xs font-medium text-amber-800 sm:pl-21"
-                     id="milestone-{{ milestone.value|slugify }}-required"
-                     data-milestone-code="{{ milestone.definition.code }}"
-                     {% if not milestone.warning %}hidden{% endif %}>{{ milestone.warning }}</p>
                 {% endif %}
               </div>
             {% endfor %}

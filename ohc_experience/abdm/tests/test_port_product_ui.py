@@ -22,10 +22,12 @@ from ohc_experience.abdm.demo import uhi_data
 from ohc_experience.abdm.forms import ProductRegistrationForm
 from ohc_experience.abdm.forms import UhiParticipationForm
 from ohc_experience.abdm.tests import test_workflow as workflow_fixtures
+from ohc_experience.abdm.tests.test_workflow import OTHER_TYPE
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import registered_as_other
 from ohc_experience.abdm.tests.test_workflow import stored_secret
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
@@ -56,7 +58,6 @@ def test_nothing_is_ticked_until_the_integrator_chooses():
     new = ProductRegistrationForm()
     assert not new["solution_type"].value()
     assert not new["applied_milestones"].value()
-    assert not any(row["warning"] for row in milestone_rows(new).values())
     assert not any(row["selected"] for row in milestone_rows(new).values())
     assert not ProductRegistrationForm(initial={})["applied_milestones"].value()
     saved = ProductRegistrationForm(
@@ -153,25 +154,131 @@ def test_solution_types_require_the_intent_matrix_milestones():
         "HealthTech": ["M1", "M2", "M3", "M4"],
         "Insurance": ["M1", "M3"],
         "Telemedicine": ["M1", "M2", "M3", "M4"],
+        "Government Programme": ["M1", "M2", "M3"],
     }
 
 
-def test_an_unchecked_required_milestone_warns_but_still_saves():
+def test_a_solution_type_fixes_its_abdm_or_phr_milestones():
+    """Whatever is posted, the type's milestones are what is saved."""
+
+    def saved(solution, *selections):
+        form = ProductRegistrationForm(
+            data={
+                **product_data(),
+                "solution_type": [solution],
+                "applied_milestones": list(selections),
+            },
+        )
+        assert form.is_valid(), form.errors
+        return form.cleaned_data["applied_milestones"]
+
+    assert saved("hmis", "ABDM:m1", "UHI:uhi1") == [
+        "UHI:uhi1",
+        "ABDM:m1",
+        "ABDM:m2",
+        "ABDM:m3",
+        "ABDM:m4",
+    ]
+    assert saved("insurance", "ABDM:m1", "ABDM:m2", "ABDM:m4", "NHCX:nhcx1") == [
+        "NHCX:nhcx1",
+        "ABDM:m1",
+        "ABDM:m3",
+    ]
+    assert saved("health_locker", "ABDM:m1") == [
+        "PHR:p1",
+        "PHR:p2",
+        "PHR:p3",
+        "PHR:p4",
+    ]
+
+
+def test_a_fixed_type_needs_nothing_posted():
+    """Locked boxes are disabled, so the browser posts none of them."""
     form = ProductRegistrationForm(
-        data={
-            **product_data(),
-            "solution_type": ["hmis", "insurance", "pharmacy"],
-            "applied_milestones": ["ABDM:m1", "ABDM:m2"],
-        },
+        data={**product_data(), "solution_type": ["phr"], "applied_milestones": []},
     )
 
     assert form.is_valid(), form.errors
-    rows = milestone_rows(form)
-    assert rows["M3"]["warning"] == (
-        "Required for the HMIS, Pharmacy and Insurance solution types."
+    assert form.cleaned_data["applied_milestones"] == ["PHR:p1", "PHR:p2", "PHR:p3"]
+    other = ProductRegistrationForm(
+        data={**product_data(), **OTHER_TYPE, "applied_milestones": []},
     )
-    assert rows["M4"]["warning"] == "Required for the HMIS and Pharmacy solution types."
-    assert not any(rows[code]["warning"] for code in ("M1", "M2", "UHI"))
+    assert other.errors["applied_milestones"] == ["This field is required."]
+
+
+@pytest.mark.django_db
+def test_registering_with_only_a_fixed_type_ticked_saves_its_milestones(
+    environment,
+    client,
+):
+    """Picking HMIS and nothing else posts no milestones at all."""
+    client.force_login(environment["applicant"])
+    data = product_data("Ward system")
+    data.pop("applied_milestones")
+
+    response = client.post(
+        reverse("experiences:product-create"),
+        {**data, "solution_type": "hmis"},
+    )
+
+    assert response.status_code == 302
+    product = Product.objects.get(name="Ward system")
+    assert product.applied_milestones == ["ABDM:m1", "ABDM:m2", "ABDM:m3", "ABDM:m4"]
+
+
+@pytest.mark.django_db
+def test_unticking_the_last_open_milestone_on_edit_keeps_the_fixed_ones(
+    environment,
+    client,
+):
+    """A PHR product drops NHCX: P1 to P3 are locked, so nothing is posted."""
+    product, form = workflows.register_product(
+        environment["org"],
+        environment["applicant"],
+        data={
+            **product_data("Health app"),
+            "solution_type": ["phr"],
+            "applied_milestones": ["PHR:p1", "PHR:p2", "PHR:p3", "NHCX:nhcx1"],
+        },
+    )
+    assert product, form.errors
+    item = product.review_items.get(kind="product_registration")
+    client.force_login(environment["applicant"])
+    data = product_data("Health app")
+    data.pop("applied_milestones")
+
+    response = client.post(
+        reverse("experiences:product-edit", args=[product.reference]),
+        {
+            **data,
+            "revision": str(item.selected_submission_id or ""),
+            "intent": "submit",
+        },
+    )
+
+    assert response.status_code == 302
+    product.refresh_from_db()
+    assert product.applied_milestones == ["PHR:p1", "PHR:p2", "PHR:p3"]
+
+
+def test_the_picker_locks_the_milestones_a_solution_type_fixes():
+    form = ProductRegistrationForm(
+        data={**product_data(), "solution_type": ["insurance"]},
+    )
+    tracks = {track["definition"].code: track for track in form.milestone_tracks}
+    rows = milestone_rows(form)
+
+    assert tracks["ABDM"]["locked"]
+    assert tracks["PHR"]["locked"]
+    assert not tracks["UHI"]["locked"]
+    assert not tracks["NHCX"]["locked"]
+    assert tracks["ABDM"]["fixed_note"] == "Set by the Insurance solution type."
+    assert tracks["PHR"]["fixed_note"] == ""
+    assert [code for code, row in rows.items() if row["selected"]] == [
+        "M1",
+        "M3",
+        "UHI",
+    ]
 
 
 def test_m4_needs_m1_unless_the_entity_is_a_government_body():
@@ -179,7 +286,7 @@ def test_m4_needs_m1_unless_the_entity_is_a_government_body():
 
     def form(organisation=None):
         return ProductRegistrationForm(
-            data={**product_data(), "applied_milestones": ["ABDM:m4"]},
+            data={**product_data(), **OTHER_TYPE, "applied_milestones": ["ABDM:m4"]},
             organisation=organisation,
         )
 
@@ -203,7 +310,7 @@ def test_p4_needs_p1_p2_and_p3_not_just_one_of_them():
         return ProductRegistrationForm(
             data={
                 **product_data(),
-                "solution_type": ["health_locker"],
+                **OTHER_TYPE,
                 "applied_milestones": [f"PHR:{key}" for key in keys],
             },
         )
@@ -223,25 +330,27 @@ def test_p4_needs_p1_p2_and_p3_not_just_one_of_them():
     assert REQUIRED_MILESTONES["health_locker"] == ("p1", "p2", "p3", "p4")
 
 
-def test_a_warning_names_only_the_chosen_types_that_require_it():
+def test_other_leaves_abdm_and_phr_to_the_integrator():
     form = ProductRegistrationForm(
         data={
             **product_data(),
             "solution_type": ["insurance", "other"],
+            "solution_type_other": "Claims desk",
             "applied_milestones": ["ABDM:m1"],
         },
     )
 
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["applied_milestones"] == ["ABDM:m1"]
+    assert not any(track["locked"] for track in form.milestone_tracks)
     rows = milestone_rows(form)
-    assert rows["M3"]["warning"] == "Required for the Insurance solution type."
-    assert not rows["M2"]["warning"]
     assert "insurance" in rows["M3"]["required_for"].split()
     assert "insurance" not in rows["M2"]["required_for"].split()
     assert not rows["UHI"]["required_for"]
 
 
 @pytest.mark.django_db
-def test_the_picker_shows_why_a_saved_product_lacks_a_required_milestone(
+def test_editing_keeps_the_solution_type_and_locks_its_milestones(
     environment,
     client,
 ):
@@ -255,18 +364,41 @@ def test_the_picker_shows_why_a_saved_product_lacks_a_required_milestone(
         },
     )
     assert product, form.errors
+    assert product.applied_milestones == ["ABDM:m1", "ABDM:m3"]
     client.force_login(environment["applicant"])
+    url = reverse("experiences:product-edit", args=[product.reference])
 
-    html = client.get(
-        reverse("experiences:product-edit", args=[product.reference]),
-    ).content.decode()
+    html = client.get(url).content.decode()
 
     inputs = {field.get("id"): field for field in Inputs(html).fields}
-    assert "data-solution-type" in inputs["id_solution_type_0"]
-    m3 = inputs["milestone-abdmm3"]
-    assert "insurance" in m3["data-required-for"].split()
-    assert m3["aria-describedby"] == "milestone-abdmm3-required"
-    assert html.count("Required for the Insurance solution type.") == 1
+    radios = [
+        field for field in inputs.values() if field.get("name") == "solution_type"
+    ]
+    assert radios
+    assert all("disabled" in field for field in radios)
+    for key, ticked in (("m1", True), ("m2", False), ("m3", True), ("m4", False)):
+        box = inputs[f"milestone-abdm{key}"]
+        assert "disabled" in box
+        assert "data-milestone-locked" in box
+        assert ("checked" in box) is ticked
+    assert "disabled" not in inputs["milestone-uhiuhi1"]
+    assert "Set by the Insurance solution type." in html
+
+    item = product.review_items.get(kind="product_registration")
+    response = client.post(
+        url,
+        {
+            **product_data("Claims desk"),
+            "solution_type": ["hmis"],
+            "applied_milestones": ["ABDM:m1", "ABDM:m2", "UHI:uhi1"],
+            "revision": str(item.selected_submission_id or ""),
+            "intent": "submit",
+        },
+    )
+    assert response.status_code == 302
+    product.refresh_from_db()
+    assert product.solution_type == ["insurance"]
+    assert sorted(product.applied_milestones) == ["ABDM:m1", "ABDM:m3", "UHI:uhi1"]
 
 
 def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
@@ -293,7 +425,11 @@ def test_both_exclusive_tracks_carry_the_sentence_that_greys_them_out():
 
     def rows(*selections):
         form = ProductRegistrationForm(
-            data={**product_data(), "applied_milestones": list(selections)},
+            data={
+                **product_data(),
+                **OTHER_TYPE,
+                "applied_milestones": list(selections),
+            },
         )
         return {track["definition"].code: track for track in form.milestone_tracks}
 
@@ -314,7 +450,11 @@ def test_both_exclusive_tracks_carry_the_sentence_that_greys_them_out():
 def test_abdm_and_phr_are_refused_together():
     """The script only greys the other track out; saving still refuses the pair."""
     form = ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["PHR:p1", "ABDM:m1"]},
+        data={
+            **product_data(),
+            **OTHER_TYPE,
+            "applied_milestones": ["PHR:p1", "ABDM:m1"],
+        },
     )
 
     assert not form.is_valid()
@@ -435,31 +575,11 @@ def test_other_description_starts_hidden_and_opens_with_other():
     assert opened["active"] is True
 
 
-@pytest.mark.django_db
-def test_editing_a_product_persists_several_solution_types(environment, client):
-    client.force_login(environment["applicant"])
-    product = environment["product"]
-    item = product.review_items.get(kind="product_registration")
-    payload = dict(item.selected_submission.data)
-    payload["solution_type"] = ["clinical_hmis", "pharmacy"]
-    payload["revision"] = str(item.selected_submission_id or "")
-    payload["intent"] = "submit"
-    response = client.post(
-        reverse("experiences:product-edit", args=[product.reference]),
-        payload,
-        follow=True,
-    )
-    assert response.status_code == 200
-    product.refresh_from_db()
-    assert product.solution_type == ["clinical_hmis", "pharmacy"]
-    assert product.get_solution_type_display() == "Clinic HMIS, Pharmacy"
-
-
 def uhi_payload(**overrides):
     return {
         "name": "Discovery app",
         "description": "Finds and books consultations.",
-        "solution_type": ["telemedicine"],
+        **OTHER_TYPE,
         "applied_milestones": ["ABDM:m1", "ABDM:m2", "UHI:uhi1"],
         **overrides,
     }
@@ -486,7 +606,7 @@ def test_uhi_may_be_chosen_alone_but_nhcx_may_not():
     """UHI alone is applied for and assessed; NHCX always rides on a track."""
     uhi = ProductRegistrationForm(data=uhi_payload(applied_milestones=["UHI:uhi1"]))
     nhcx = ProductRegistrationForm(
-        data={**product_data(), "applied_milestones": ["NHCX:nhcx1"]},
+        data={**product_data(), **OTHER_TYPE, "applied_milestones": ["NHCX:nhcx1"]},
     )
 
     assert uhi.is_valid(), uhi.errors
@@ -536,6 +656,7 @@ def test_picker_locks_a_milestone_under_review_until_it_is_withdrawn(
     client,
 ):
     approve(environment)
+    registered_as_other(environment["product"])
     item = submit(environment, "m2")
     client.force_login(environment["applicant"])
     url = reverse("experiences:product-edit", args=[environment["product"].reference])
@@ -724,7 +845,9 @@ def test_an_m1_only_product_is_never_asked_for_a_callback_url(environment, clien
     product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
-        data=product_data("Identity only") | {"applied_milestones": ["ABDM:m1"]},
+        data=product_data("Identity only")
+        | OTHER_TYPE
+        | {"applied_milestones": ["ABDM:m1"]},
     )
     assert product, form.errors
     provision_inline(product)

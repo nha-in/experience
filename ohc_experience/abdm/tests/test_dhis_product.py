@@ -53,21 +53,19 @@ def workspace_of(environment, keys):
     return product_for(environment, keys[0])
 
 
-def change_solutions(environment, solution_types, *, product=None, submit=True):
-    """Re-declare the solutions, keeping the milestones the product applied for."""
+def change_solutions(environment, solution_types, *, product=None):
+    """Record other solutions on the registration DHIS reads.
+
+    The edit form keeps the solution type a product was registered with, so
+    this writes the recorded answers directly.
+    """
     product = product or environment["product"]
     item = product.review_items.get(kind="product_registration")
-    item, form, saved = workflows.save_review_form(
-        item,
-        environment["applicant"],
-        data={
-            **product_data(product.name),
-            "solution_type": solution_types,
-            "applied_milestones": product.applied_milestones,
-        },
-        submit=submit,
-    )
-    assert saved, form.errors
+    submission = item.selected_submission
+    submission.data = {**submission.data, "solution_type": solution_types}
+    submission.save(update_fields=["data"])
+    product.solution_type = solution_types
+    product.save(update_fields=["solution_type"])
     return item
 
 
@@ -204,8 +202,14 @@ def test_a_solution_draft_cannot_replace_the_recorded_selections(
     eligible_hmis,
     encoder,
 ):
+    product = eligible_hmis["product"]
     with pytest.raises(ValidationError, match="Submit your updated answers"):
-        change_solutions(eligible_hmis, ["lmis"], submit=False)
+        workflows.save_review_form(
+            product.review_items.get(kind="product_registration"),
+            eligible_hmis["applicant"],
+            data={**product_data(product.name), "solution_type": ["lmis"]},
+            submit=False,
+        )
 
     assert handoff(eligible_hmis) == HANDOFF_URL
     with pytest.raises(ValidationError):

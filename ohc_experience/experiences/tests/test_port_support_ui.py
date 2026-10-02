@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ohc_experience.abdm.demo import product_data
+from ohc_experience.abdm.tests.test_workflow import OTHER_TYPE
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.definitions import SupportCategoryDefinition
@@ -34,7 +35,7 @@ def portal_products(owner_membership):
         ("Alpha HMIS", ["ABDM:m1"]),
         ("Zeta Locker", ["PHR:p1", "PHR:p2", "PHR:p3", "PHR:p4"]),
     ):
-        data = product_data(name)
+        data = product_data(name) | OTHER_TYPE
         data["applied_milestones"] = milestones
         product, form = workflows.register_product(
             owner_membership.organisation,

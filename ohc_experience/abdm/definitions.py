@@ -251,7 +251,8 @@ class ProductRegistration(ApplicationFormDefinition):
     @classmethod
     def form_kwargs(cls, item):
         # M4 opens without M1 for a government body, so the picker needs the org.
-        return {"organisation": item.organisation}
+        # The product locks its solution type and keeps its held milestones.
+        return {"organisation": item.organisation, "product": item.product}
 
     @classmethod
     def on_submit(cls, item, data, actor):

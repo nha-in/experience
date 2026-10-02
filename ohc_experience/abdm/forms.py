@@ -23,6 +23,7 @@ from .catalog import REQUIRED_MILESTONES
 from .catalog import TRACKS
 from .catalog import canonical_keys
 from .catalog import excluded_track
+from .catalog import fixed_selections
 from .catalog import milestone_predecessors
 from .docs import docs_page
 from .wasa import WASA_FIELDS
@@ -281,14 +282,6 @@ class OrganisationForm(ReviewForm):
         return cleaned
 
 
-def required_warning(labels):
-    """Why an unchecked milestone is required. The picker script says the same."""
-    if not labels:
-        return ""
-    noun = "solution types" if len(labels) > 1 else "solution type"
-    return f"Required for the {readable_list(labels)} {noun}."
-
-
 class ProductRegistrationForm(ReviewForm):
     full_width_fields = ("applied_milestones", "solution_type")
     conditional_fields = {"solution_type_other": ("solution_type", "other")}
@@ -379,17 +372,34 @@ class ProductRegistrationForm(ReviewForm):
         widget=forms.CheckboxSelectMultiple,
     )
 
-    def __init__(self, *args, organisation=None, **kwargs):
+    def __init__(self, *args, organisation=None, product=None, **kwargs):
         self.organisation = organisation
+        self.product = product
         super().__init__(*args, **kwargs)
+        # A registered product keeps the solution type it was registered as.
+        if product and product.solution_type:
+            self.initial["solution_type"] = product.solution_type
+            self.fields["solution_type"].disabled = True
         if self.is_bound and "other" not in (self["solution_type"].value() or []):
             self.fields["solution_type_other"].required = False
+        # Locked boxes are disabled, so a fixed type may arrive with none posted.
+        if self.is_bound and fixed_selections(self["solution_type"].value() or []):
+            self.fields["applied_milestones"].required = False
 
     @property
     def milestone_tracks(self):
-        selected = self["applied_milestones"].value() or []
         solutions = self["solution_type"].value() or []
+        fixed = fixed_selections(solutions)
+        selected = self._apply_solution_type(
+            self["applied_milestones"].value() or [],
+            solutions,
+        )
         blocked = excluded_track({value.split(":", 1)[0] for value in selected})
+        fixed_by = readable_list(
+            label
+            for solution, label in self.fields["solution_type"].choices
+            if solution in solutions
+        )
         rows = []
         for track in TRACKS:
             hard = track.prerequisites(MILESTONES)
@@ -402,6 +412,10 @@ class ProductRegistrationForm(ReviewForm):
             exclusion = ""
             if other:
                 exclusion = f"Not available with {other}."
+            locked = fixed is not None and track.code in EXCLUSIVE_TRACKS
+            owns_fixed = locked and any(
+                value.startswith(f"{track.code}:") for value in fixed
+            )
             rows.append(
                 {
                     "definition": track,
@@ -410,8 +424,12 @@ class ProductRegistrationForm(ReviewForm):
                     "excludes": other,
                     "exclusion": exclusion,
                     "blocked": track.code == blocked,
+                    "locked": locked,
+                    "fixed_note": (
+                        f"Set by the {fixed_by} solution type." if owns_fixed else ""
+                    ),
                     "milestones": [
-                        self._milestone_row(f"{track.code}:{key}", selected, solutions)
+                        self._milestone_row(f"{track.code}:{key}", selected)
                         for key in track.keys
                     ],
                 },
@@ -432,19 +450,14 @@ class ProductRegistrationForm(ReviewForm):
                 alternatives = True
         return readable_list(codes, conjunction="or" if alternatives else "and")
 
-    def _milestone_row(self, value, selected, solutions):
+    def _milestone_row(self, value, selected):
         key = value.split(":", 1)[1]
         definition = MILESTONES[key]
         required_for = [
-            (solution, label)
-            for solution, label in self.fields["solution_type"].choices
+            solution
+            for solution, _ in self.fields["solution_type"].choices
             if key in REQUIRED_MILESTONES.get(solution, ())
         ]
-        missing_for = (
-            []
-            if value in selected
-            else [label for solution, label in required_for if solution in solutions]
-        )
         return {
             "definition": definition,
             "value": value,
@@ -452,9 +465,24 @@ class ProductRegistrationForm(ReviewForm):
             "requires": " ".join(milestone_predecessors(key, self.organisation)),
             "stands_alone": definition.stands_alone,
             "requires_all": definition.requires_all,
-            "required_for": " ".join(solution for solution, _ in required_for),
-            "warning": required_warning(missing_for),
+            "required_for": " ".join(required_for),
         }
+
+    def _apply_solution_type(self, selections, solutions, saved=()):
+        """Swap the ABDM and PHR selections for the ones the solution type fixes.
+
+        Posted ones in `saved` stay: approved and under-review milestones arrive
+        as hidden fields, and the save refuses to drop them.
+        """
+        fixed = fixed_selections(solutions)
+        if fixed is None:
+            return list(selections)
+        kept = [
+            value
+            for value in selections
+            if value.split(":", 1)[0] not in EXCLUSIVE_TRACKS or value in saved
+        ]
+        return kept + [value for value in fixed if value not in kept]
 
     def clean(self):
         cleaned = super().clean()
@@ -463,7 +491,11 @@ class ProductRegistrationForm(ReviewForm):
         return cleaned
 
     def clean_applied_milestones(self):
-        selections = self.cleaned_data["applied_milestones"]
+        selections = self._apply_solution_type(
+            self.cleaned_data["applied_milestones"],
+            self.cleaned_data.get("solution_type") or [],
+            self.product.applied_milestones if self.product else (),
+        )
         chosen = {value.split(":", 1)[0] for value in selections}
         blocked = excluded_track(chosen)
         if blocked in chosen:

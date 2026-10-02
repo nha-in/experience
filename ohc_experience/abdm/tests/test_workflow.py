@@ -31,6 +31,7 @@ from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.definitions import TrackDefinition
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import AuditEvent
+from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.registry import get_program
@@ -132,6 +133,17 @@ def ready(product):
     product.refresh_from_db()
 
 
+#: A solution type of Other leaves the ABDM and PHR milestones to the
+#: integrator; every other type fixes them.
+OTHER_TYPE = {"solution_type": ["other"], "solution_type_other": "Test fixture"}
+
+
+def registered_as_other(product):
+    """Re-register the product as Other, so an edit may change ABDM and PHR."""
+    Product.objects.filter(pk=product.pk).update(solution_type=["other"])
+    product.refresh_from_db()
+
+
 def phr_product(environment):
     """The PHR product, registered the first time a test asks for a PHR phase.
 
@@ -166,7 +178,7 @@ def nhcx_product(environment):
             environment["applicant"],
             data={
                 **product_data("Test claims application"),
-                "solution_type": ["insurance"],
+                "solution_type": ["hmis"],
                 "applied_milestones": [
                     "ABDM:m1",
                     "ABDM:m2",
@@ -435,6 +447,7 @@ def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client
         environment["applicant"],
         data={
             **product_data("M1 and UHI only"),
+            **OTHER_TYPE,
             "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
         },
     )
@@ -755,6 +768,7 @@ def test_a_product_edit_applies_at_once_without_a_review(environment):
 
 def test_a_milestone_under_review_is_named_when_an_edit_removes_it(environment):
     product = phr_product(environment)
+    registered_as_other(product)
     submit(environment, "p1")
     registration = product.review_items.get(kind="product_registration")
 
@@ -763,7 +777,7 @@ def test_a_milestone_under_review_is_named_when_an_edit_removes_it(environment):
         services.save_review_form(
             registration,
             environment["applicant"],
-            data={**product_data(), "applied_milestones": ["UHI:uhi1"]},
+            data={**product_data(), **OTHER_TYPE, "applied_milestones": ["UHI:uhi1"]},
             submit=True,
         )
 
@@ -932,6 +946,7 @@ def test_stale_form_cannot_overwrite_teammate(environment):
 
 def test_approved_track_selection_cannot_be_removed(environment):
     approve(environment)
+    registered_as_other(environment["product"])
     registration = environment["product"].review_items.get(
         kind="product_registration",
     )
@@ -939,7 +954,7 @@ def test_approved_track_selection_cannot_be_removed(environment):
         services.save_review_form(
             registration,
             environment["applicant"],
-            data={**product_data(), "applied_milestones": ["UHI:uhi1"]},
+            data={**product_data(), **OTHER_TYPE, "applied_milestones": ["UHI:uhi1"]},
             submit=True,
         )
 
@@ -972,7 +987,11 @@ def test_date_and_pdf_validation_and_required_documents():
 def test_hiecm_and_phr_are_alternatives_and_the_locker_closes_phr():
     def form(*selections):
         return ProductRegistrationForm(
-            data={**product_data(), "applied_milestones": list(selections)},
+            data={
+                **product_data(),
+                **OTHER_TYPE,
+                "applied_milestones": list(selections),
+            },
         )
 
     # P1 is the PHR track's own identity milestone; it no longer needs M1.

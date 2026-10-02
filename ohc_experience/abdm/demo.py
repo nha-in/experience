@@ -390,7 +390,8 @@ class DemoBuilder:
             data={
                 **product_data("Medibase Teleconsult"),
                 "description": "Teleconsultation and appointment booking over UHI.",
-                "solution_type": ["govt_program"],
+                "solution_type": ["other"],
+                "solution_type_other": "UHI teleconsultation app",
                 "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
             },
         )

@@ -92,7 +92,8 @@ def test_m4_waits_for_m1_unless_the_entity_is_a_government_body(environment, cli
         environment["applicant"],
         data={
             **product_data("State facility registry"),
-            "solution_type": ["govt_program"],
+            "solution_type": ["other"],
+            "solution_type_other": "Facility registry",
             "applied_milestones": ["ABDM:m4"],
         },
     )
