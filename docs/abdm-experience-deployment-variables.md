@@ -112,6 +112,7 @@ For **email delivery**, production uses the Global Email API through a durable n
 | `GLOBAL_EMAIL_ORIGIN` | Default: `abha`. |
 | `GLOBAL_EMAIL_SENDER` | Default: `NHASMS`. |
 | `DJANGO_EMAIL_BACKEND` | Production default: `ohc_experience.core.mail.queue.QueuedGlobalEmailBackend`. |
+| `DJANGO_DISABLE_EMAIL_NOTIFICATIONS` | Default: `false`. When `true`, every email is dropped, direct or queued; queued rows are marked sent. Mobile and email verification codes still go through the notification gateway. |
 | `DJANGO_EMAIL_TIMEOUT` | Default: `5` seconds. |
 | `DJANGO_DEFAULT_FROM_EMAIL` | Default: `OHC Experience <noreply@experience.ohc.network>`. |
 | `DJANGO_SERVER_EMAIL` | Defaults to `DJANGO_DEFAULT_FROM_EMAIL`. |

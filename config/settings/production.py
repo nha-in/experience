@@ -9,6 +9,7 @@ from sentry_sdk.integrations.redis import RedisIntegration
 
 from .base import *  # noqa: F403
 from .base import DATABASES
+from .base import DISABLE_EMAIL_NOTIFICATIONS
 from .base import INSTALLED_APPS
 from .base import INTEGRATION_PORTS
 from .base import REDIS_AUTH_TOKEN
@@ -160,6 +161,8 @@ EMAIL_BACKEND = env(
     "DJANGO_EMAIL_BACKEND",
     default="ohc_experience.core.mail.queue.QueuedGlobalEmailBackend",
 )
+if DISABLE_EMAIL_NOTIFICATIONS:
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 # Verification codes block signup, so production never falls back to the local
 # stand-in, which delivers nothing.
 INTEGRATION_PORTS = {

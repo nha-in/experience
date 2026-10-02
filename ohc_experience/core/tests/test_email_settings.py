@@ -8,6 +8,8 @@ from config.settings import base
 from ohc_experience.core.mail import QUEUED_GLOBAL_EMAIL_BACKEND
 from ohc_experience.core.mail.templates import APPROVED_TEMPLATE_IDS
 
+DUMMY_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
+
 
 @pytest.fixture
 def production_environment(monkeypatch):
@@ -48,6 +50,34 @@ def test_production_allows_explicit_backend_override(monkeypatch):
     monkeypatch.setenv("DJANGO_EMAIL_BACKEND", backend)
     result = runpy.run_module("config.settings.production")
     assert result["EMAIL_BACKEND"] == backend
+
+
+@pytest.mark.usefixtures("production_environment")
+def test_production_can_disable_every_email(monkeypatch):
+    monkeypatch.setenv("DJANGO_EMAIL_BACKEND", QUEUED_GLOBAL_EMAIL_BACKEND)
+    monkeypatch.setattr(base, "DISABLE_EMAIL_NOTIFICATIONS", True)
+    result = runpy.run_module("config.settings.production")
+    assert result["EMAIL_BACKEND"] == DUMMY_BACKEND
+
+
+def test_shell_development_can_disable_every_email(monkeypatch):
+    monkeypatch.setenv("USE_DOCKER", "no")
+    monkeypatch.setattr(base, "DISABLE_EMAIL_NOTIFICATIONS", True)
+    monkeypatch.setattr(base, "DATABASES", copy.deepcopy(base.DATABASES))
+    monkeypatch.setattr(base, "INSTALLED_APPS", list(base.INSTALLED_APPS))
+    monkeypatch.setattr(base, "MIDDLEWARE", list(base.MIDDLEWARE))
+    result = runpy.run_module("config.settings.local")
+    assert result["EMAIL_BACKEND"] == DUMMY_BACKEND
+
+
+def test_email_stays_on_unless_disabled(load_base):
+    _, settings = load_base("http://notification-app.internal:9102")
+    assert settings["DISABLE_EMAIL_NOTIFICATIONS"] is False
+    _, settings = load_base(
+        "http://notification-app.internal:9102",
+        DJANGO_DISABLE_EMAIL_NOTIFICATIONS="true",
+    )
+    assert settings["DISABLE_EMAIL_NOTIFICATIONS"] is True
 
 
 def test_shell_development_retains_console_mail(monkeypatch):

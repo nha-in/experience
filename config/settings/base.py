@@ -390,6 +390,11 @@ EMAIL_BACKEND = env(
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = env.float("DJANGO_EMAIL_TIMEOUT", default=5)
+# Drops every email, direct or queued; verification codes still go out.
+DISABLE_EMAIL_NOTIFICATIONS = env.bool(
+    "DJANGO_DISABLE_EMAIL_NOTIFICATIONS",
+    default=False,
+)
 
 # Internal Global Email API, on the shared notification-app host.
 # An empty template default prevents accidental use of an unapproved template.

@@ -1,4 +1,5 @@
 from .base import *  # noqa: F403
+from .base import DISABLE_EMAIL_NOTIFICATIONS
 from .base import INSTALLED_APPS
 from .base import MIDDLEWARE
 from .base import REDIS_AUTH_TOKEN
@@ -144,6 +145,8 @@ if env.bool("DJANGO_USE_LOCAL_MEDIA", default=env("USE_DOCKER", default="no") !=
     }
 if env("USE_DOCKER", default="no") != "yes":
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+if DISABLE_EMAIL_NOTIFICATIONS:
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 
 # INTEGRATIONS
 # ------------------------------------------------------------------------------

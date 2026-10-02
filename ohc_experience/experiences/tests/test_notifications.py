@@ -352,3 +352,12 @@ def test_migration_assigns_distinct_ids_and_preserves_existing_delivery_state():
         assert failed.failed_at is None
     finally:
         MigrationExecutor(connection).migrate(target)
+
+
+def test_disabled_email_drops_queued_mail(notification, settings, mailoutbox):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
+    tasks.deliver_notifications()
+    notification.refresh_from_db()
+    assert notification.sent_at is not None
+    assert notification.failed_at is None
+    assert mailoutbox == []
