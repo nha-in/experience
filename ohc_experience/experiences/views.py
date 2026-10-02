@@ -688,6 +688,28 @@ def _posted_assignee(request):
     )
 
 
+def _review_label(item):
+    """A request as its section on the product page is headed."""
+    if item.kind == ReviewItem.Kind.ORGANISATION:
+        return "Organisation verification"
+    return item.title
+
+
+def _decision_notice(item, action):
+    """What a reviewer's decision did, in the words of the button they pressed."""
+    if action == "query":
+        return f"Query raised on {_review_label(item)}."
+    outcome = "approved" if action == "approve" else "rejected"
+    return f"{_review_label(item)} {outcome}."
+
+
+def _assign_notice(item, assignee, actor):
+    if assignee is None:
+        return f"{_review_label(item)} unassigned."
+    name = "you" if assignee == actor else assignee.display_name
+    return f"{_review_label(item)} assigned to {name}."
+
+
 def _product_review_post(request, product):
     if request.POST.get("intent") == "bulk_decision":
         decided = services.decide_product(
@@ -706,21 +728,23 @@ def _product_review_post(request, product):
         anchor = "decisions"
     elif request.POST.get("intent") == "decision":
         item = _posted_product_review(request, product)
+        action = request.POST.get("action")
         services.decide(
             item,
             request.user,
-            action=request.POST.get("action"),
+            action=action,
             note=request.POST.get("note", ""),
             reason=request.POST.get("reason", ""),
             field_key=request.POST.get("field_key", "form"),
             expected_revision=request.POST.get("revision", ""),
         )
-        messages.success(request, "Review updated.")
+        messages.success(request, _decision_notice(item, action))
         anchor = f"review-{item.pk}"
     elif request.POST.get("intent") == "assign":
         item = _posted_product_review(request, product)
-        services.assign_review(item, request.user, _posted_assignee(request))
-        messages.success(request, "Review updated.")
+        assignee = _posted_assignee(request)
+        services.assign_review(item, request.user, assignee)
+        messages.success(request, _assign_notice(item, assignee, request.user))
         anchor = f"review-{item.pk}"
     else:
         msg = "Choose a review action."
@@ -1620,9 +1644,10 @@ def query_action(request, pk):
     try:
         if request.POST.get("intent") == "resolve":
             services.resolve_query(query, request.user)
+            messages.success(request, "Query resolved.")
         else:
             services.reply_query(query, request.user, request.POST.get("body", ""))
-        messages.success(request, "Query updated.")
+            messages.success(request, "Reply sent.")
     except ValidationError as error:
         _error(request, error)
     return_reference = request.POST.get("return_to_product")
@@ -2385,22 +2410,26 @@ def review(request, pk):
     if request.method == "POST":
         try:
             if request.POST.get("intent") == "assign":
-                services.assign_review(item, request.user, _posted_assignee(request))
+                assignee = _posted_assignee(request)
+                services.assign_review(item, request.user, assignee)
+                notice = _assign_notice(item, assignee, request.user)
             elif request.POST.get("intent") == "retry_provisioning":
                 if not _can_retry_provisioning(request.user, item):
                     raise PermissionDenied
                 _provision(request, item.product)
                 return redirect(item)
             else:
+                action = request.POST.get("action")
                 services.decide(
                     item,
                     request.user,
-                    action=request.POST.get("action"),
+                    action=action,
                     note=request.POST.get("note", ""),
                     reason=request.POST.get("reason", ""),
                     field_key=request.POST.get("field_key", "form"),
                 )
-            messages.success(request, "Review updated.")
+                notice = _decision_notice(item, action)
+            messages.success(request, notice)
             return redirect(item)
         except ValidationError as error:
             _error(request, error)

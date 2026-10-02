@@ -2,6 +2,7 @@ from html.parser import HTMLParser
 from http import HTTPStatus
 
 import pytest
+from django.contrib.messages import get_messages
 from django.template.loader import render_to_string
 from django.urls import reverse
 
@@ -13,6 +14,12 @@ from ohc_experience.users.tests.factories import ReviewerFactory
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
+
+
+def last_flash(response):
+    """The newest message; the test client follows no redirect, so older ones
+    are still queued."""
+    return [str(message) for message in get_messages(response.wsgi_request)][-1]
 
 
 @pytest.fixture
@@ -244,7 +251,7 @@ def test_a_required_note_is_refused_until_it_runs_to_ten_characters(
     assert not review_item.queries.exists()
 
 
-def test_query_validation_reply_resolution_and_approval_through_portal(
+def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa: PLR0915
     review_item,
     owner_membership,
     client,
@@ -267,6 +274,7 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
         {"action": "query", "field_key": "score", "note": "Confirm this score."},
     )
     assert response.status_code == HTTPStatus.FOUND
+    assert last_flash(response) == f"Query raised on {review_item.title}."
     query = review_item.queries.get()
     response = client.get(url)
     assert response.context["unresolved_query_count"] == 1
@@ -283,6 +291,7 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
         {"body": "Confirmed against the inspection report."},
     )
     assert response.status_code == HTTPStatus.FOUND
+    assert last_flash(response) == "Reply sent."
     client.force_login(reviewer)
     response = client.get(url)
     assert response.context["unresolved_query_count"] == 1
@@ -299,8 +308,10 @@ def test_query_validation_reply_resolution_and_approval_through_portal(
         {"intent": "resolve"},
     )
     assert response.status_code == HTTPStatus.FOUND
+    assert last_flash(response) == "Query resolved."
     response = client.post(url, {"action": "approve", "note": "Evidence verified."})
     assert response.status_code == HTTPStatus.FOUND
+    assert last_flash(response) == f"{review_item.title} approved."
     review_item.refresh_from_db()
     assert review_item.status == "approved"
     response = client.get(url)

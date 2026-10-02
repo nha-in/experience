@@ -2,6 +2,7 @@
 from http import HTTPStatus
 
 import pytest
+from django.contrib.messages import get_messages
 from django.urls import reverse
 
 from ohc_experience.abdm.demo import evidence_data
@@ -34,6 +35,12 @@ def batch_data(items, action="approve", note="Reviewed against the evidence."):
         "reviews": [f"{item.pk}:{item.selected_submission_id}" for item in items],
         "note": note,
     }
+
+
+def last_flash(response):
+    """The newest message; the test client follows no redirect, so older ones
+    are still queued."""
+    return [str(message) for message in get_messages(response.wsgi_request)][-1]
 
 
 def assign_data(item, assignee):
@@ -288,13 +295,21 @@ def test_approvers_assign_a_request_from_its_panel(environment, client):
 
     assert response.status_code == HTTPStatus.FOUND
     assert response.url == product_url(environment) + f"#review-{item.pk}"
+    assert last_flash(response) == f"{item.title} assigned to you."
     item.refresh_from_db()
     assert item.assignee == environment["reviewer"]
     assert item.status == "in_review"
 
     client.force_login(environment["admin"])
+    response = client.post(
+        product_url(environment),
+        assign_data(item, environment["reviewer"]),
+    )
+    reviewer = environment["reviewer"].display_name
+    assert last_flash(response) == f"{item.title} assigned to {reviewer}."
     response = client.post(product_url(environment), assign_data(item, None))
     assert response.status_code == HTTPStatus.FOUND
+    assert last_flash(response) == f"{item.title} unassigned."
     item.refresh_from_db()
     assert item.assignee is None
 
@@ -391,6 +406,7 @@ def test_organisation_verification_is_reviewed_in_the_product(environment, clien
         },
     )
     assert response.url == product_url(environment) + f"#review-{verification.pk}"
+    assert last_flash(response) == "Organisation verification approved."
     environment["org"].refresh_from_db()
     assert environment["org"].is_verified
     for item in (m1, m2):
@@ -547,6 +563,7 @@ def test_queries_can_be_raised_and_resolved_from_the_product(environment, client
         },
     )
     assert response.url == product_url(environment) + f"#review-{item.pk}"
+    assert last_flash(response) == f"Query raised on {item.title}."
     query = item.queries.get()
     workflows.reply_query(query, environment["applicant"], "All required APIs.")
 
@@ -558,6 +575,7 @@ def test_queries_can_be_raised_and_resolved_from_the_product(environment, client
         {"intent": "resolve", "return_to_product": "1"},
     )
     assert response.url == product_url(environment) + f"#review-{item.pk}"
+    assert last_flash(response) == "Query resolved."
     query.refresh_from_db()
     assert query.status == "resolved"
 
