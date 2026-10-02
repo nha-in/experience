@@ -148,9 +148,9 @@
   align-items: flex-start;
   gap: 10px;
   margin-top: 28px;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 500;
-  line-height: 1.55;
+  line-height: 1.17;
 }
 .sbx-hero-lede > span {
   color: #e9cf7a;
@@ -158,8 +158,8 @@
 .sbx-hero-description {
   margin-top: 14px;
   color: #c9d4ee;
-  font-size: 0.9375rem;
-  line-height: 1.75;
+  font-size: 1rem;
+  line-height: 1.65;
 }
 .sbx-hero .marketing-button {
   color: #fff;
