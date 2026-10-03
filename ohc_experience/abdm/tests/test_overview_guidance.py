@@ -9,7 +9,9 @@ from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.experiences import legacy
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.models import ReviewItem
 
 pytestmark = pytest.mark.django_db
 
@@ -168,3 +170,38 @@ def test_review_guidance_skips_approved_milestones(client, environment):  # noqa
     next_step = response.context["next_step"]
     assert next_step["action"] == "View current request"
     assert next_step["url"].endswith("/tracks/ABDM/?milestone=m2")
+
+
+def test_the_overview_asks_first_for_what_the_import_left_to_confirm(
+    client,
+    environment,  # noqa: F811
+):
+    product = environment["product"]
+    product.metadata = {legacy.LEGACY_GAPS: [legacy.SOLUTION_TYPE, legacy.TRACKS]}
+    product.save(update_fields=["metadata"])
+    client.force_login(environment["applicant"])
+    response = client.get(product.get_absolute_url())
+    assert response.status_code == HTTPStatus.OK
+    next_step = response.context["next_step"]
+    assert next_step["title"] == "Confirm your product details"
+    assert next_step["tone"] == "warning"
+    assert "left 2 details to confirm" in next_step["detail"]
+    assert next_step["url"].endswith("/edit/")
+
+
+def test_a_rejected_registration_is_not_asked_to_confirm_its_gaps(
+    client,
+    environment,  # noqa: F811
+):
+    product = environment["product"]
+    product.metadata = {legacy.LEGACY_GAPS: [legacy.SOLUTION_TYPE]}
+    product.save(update_fields=["metadata"])
+    registration = product.registration
+    registration.status = ReviewItem.Status.REJECTED
+    registration.save(update_fields=["status"])
+    client.force_login(environment["applicant"])
+
+    html = client.get(product.get_absolute_url()).content.decode()
+
+    assert "left 1 detail to confirm" not in html
+    assert "Product registration was rejected" in html

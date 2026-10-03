@@ -50,6 +50,9 @@
                  name="revision"
                  value="{{ item.selected_submission_id|default:'' }}" />
           <div class="ui-card-content">
+            {% for notice in gap_notices %}
+              <div class="ui-alert ui-alert--warning mb-4" role="status">{{ notice }}</div>
+            {% endfor %}
             {% include 'experiences/partials/form.html' %}
             <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
               {% if item %}
@@ -66,6 +69,9 @@
           </div>
         </form>
       {% else %}
+        {% if edit_blocked %}
+          <div class="ui-alert ui-alert--warning mb-5" role="status">{{ edit_blocked }}</div>
+        {% endif %}
         {% include 'experiences/partials/snapshot.html' with snapshot=item.selected_submission %}
       {% endif %}
     </div>

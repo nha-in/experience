@@ -202,6 +202,11 @@ class Product(models.Model):
         return ", ".join(labels.get(key, key) for key in self.solution_type)
 
     @property
+    def registration(self):
+        """The review item this product was registered through."""
+        return self.review_items.filter(kind=ReviewItem.Kind.PRODUCT).first()
+
+    @property
     def needs_callback(self):
         """Whether any milestone this product is doing has the gateway call back."""
         return any(

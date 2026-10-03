@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db.models import BigIntegerField
+from django.db.models import Exists
+from django.db.models import OuterRef
 from django.db.models import Q
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
@@ -147,6 +149,26 @@ def visible_reviews(user, action="read"):
         if grant.program in programs:
             scope |= review_scope(programs[grant.program], grant.category)
     return query.filter(scope)
+
+
+#: Requests under a product whose registration was rejected.
+ON_A_REJECTED_PRODUCT = Exists(
+    ReviewItem.objects.filter(
+        product_id=OuterRef("product_id"),
+        kind=ReviewItem.Kind.PRODUCT,
+        status=ReviewItem.Status.REJECTED,
+    ),
+)
+
+
+def review_requests(user, action="read"):
+    """The reviews that are requests for a decision.
+    """
+    return (
+        visible_reviews(user, action)
+        .exclude(kind=ReviewItem.Kind.PRODUCT)
+        .exclude(ON_A_REJECTED_PRODUCT)
+    )
 
 
 def visible_products(user, action="read"):

@@ -66,6 +66,7 @@ from ohc_experience.support.models import change_priority
 from ohc_experience.support.models import post_reply
 
 from . import credentials as credential_services
+from . import legacy
 from . import permissions
 from . import production as production_services
 from . import tables
@@ -88,6 +89,7 @@ from .presentation import agent_skill_groups
 from .presentation import default_agent_skill
 from .presentation import overview_next_step
 from .presentation import overview_progress
+from .presentation import product_hold_step
 from .presentation import recommended_step
 from .presentation import track_documents
 from .presentation import track_progress
@@ -503,7 +505,9 @@ def _require_reviewer_area(user):
 
 
 def _open_requests(user):
-    return _review_requests(user).filter(status__in=services.PENDING_STATUSES)
+    return permissions.review_requests(user).filter(
+        status__in=services.PENDING_STATUSES,
+    )
 
 
 def _product_rows(user):
@@ -794,7 +798,7 @@ def organization_detail(request, slug):
         slug=slug,
     )
     visible_reviews = (
-        _review_requests(request.user)
+        permissions.review_requests(request.user)
         .filter(organisation=organization)
         .select_related(
             "assignee",
@@ -1393,6 +1397,8 @@ def product_edit(request, reference):
             page_title="Edit product",
             nav="edit",
             can_edit=services.can_edit_review(item),
+            edit_blocked=services.edit_blocked_reason(item),
+            gap_notices=legacy.notices(product),
             approved_selections=approved_selections,
             under_review_selections=under_review_selections,
         ),
@@ -1447,6 +1453,10 @@ def overview(request, reference):
         certification=certification,
     )
     _lock_tiles(product, context["tracks"])
+    registration = product.registration
+    context["edit_blocked"] = (
+        services.edit_blocked_reason(registration) if registration else ""
+    )
     context["progress"] = overview_progress(context["tracks"])
     context["next_step"] = (
         overview_next_step(product, context["tracks"], organisation_review)
@@ -1790,8 +1800,8 @@ def track(request, reference, track_code):
                 return redirect(request.get_full_path())
         except ValidationError as error:
             _error(request, error)
-    next_step = None
-    if item and item.status == ReviewItem.Status.APPROVED:
+    next_step = product_hold_step(product)
+    if not next_step and item and item.status == ReviewItem.Status.APPROVED:
         # Once this milestone is done, point at the work left on this track. The
         # overview is where the rest of the product's work is recommended.
         next_step = recommended_step([track_data])
@@ -2253,11 +2263,6 @@ def _reviewer_required(request):
     if not permissions.has_area(request.user, "review"):
         msg = "This area is for reviewers."
         raise PermissionDenied(msg)
-
-
-def _review_requests(user):
-    """Reviews that are requests. A product registration is only a record."""
-    return permissions.visible_reviews(user).exclude(kind=ReviewItem.Kind.PRODUCT)
 
 
 def _track_filter(code):

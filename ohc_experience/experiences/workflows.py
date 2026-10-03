@@ -546,7 +546,26 @@ def withdrawn_at(item):
     )
 
 
+def rejected_for_good(item):
+    """Whether this request was rejected and editing cannot put it right."""
+    return item.status == ReviewItem.Status.REJECTED and not (
+        item.definition.allow_rejected_updates
+    )
+
+
+def edit_blocked_reason(item):
+    """Why this request cannot be edited, in the words its screens show."""
+    if rejected_for_good(item):
+        return (
+            f"{item.definition.name} was rejected and cannot be edited. "
+            "Raise a support ticket to have it looked at again."
+        )
+    return ""
+
+
 def can_edit_review(item):
+    if item.status == ReviewItem.Status.REJECTED:
+        return item.definition.allow_rejected_updates
     return item.editable or (
         item.status == ReviewItem.Status.APPROVED
         and item.definition.allow_approved_updates

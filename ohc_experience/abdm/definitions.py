@@ -1,6 +1,7 @@
 from django.db.models import Q
 from django.utils import timezone
 
+from ohc_experience.experiences import legacy
 from ohc_experience.experiences.definitions import ApplicationDefinition
 from ohc_experience.experiences.definitions import ApplicationFormDefinition
 from ohc_experience.experiences.definitions import ApplicationSet
@@ -11,11 +12,13 @@ from ohc_experience.experiences.models import FormReuseScope
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.workflows import callback_missing
+from ohc_experience.experiences.workflows import edit_blocked_reason
 from ohc_experience.experiences.workflows import project_product
 from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import Organisation
 
+from .catalog import EXCLUSIVE_TRACKS
 from .catalog import MILESTONES
 from .catalog import NHCX_ROLE_TRACKS
 from .catalog import SUPPORT_CATEGORIES
@@ -50,6 +53,25 @@ def read_wasa_certificate(field_key, upload, *, refresh=False):
     return extract_certificate(upload, refresh=refresh)
 
 
+def answered_gaps(product, solution_note):
+    """The import's gaps this product has answered for itself since.
+
+    Saving the registration is the integrator reading the picker, so a role they
+    leave selected is their own answer, not the one the import read into it. A
+    product that really is Other answers by describing itself in the Other box,
+    over the note the import put there.
+    """
+    answered = []
+    picked = [key for key in product.solution_type if key != "other"]
+    if picked or solution_note not in legacy.IMPORTED_SOLUTION_NOTES:
+        answered.append(legacy.SOLUTION_TYPE)
+    tracks = {value.split(":", 1)[0] for value in product.applied_milestones}
+    if len(tracks & set(EXCLUSIVE_TRACKS)) < len(EXCLUSIVE_TRACKS):
+        answered.append(legacy.TRACKS)
+    answered.append(legacy.NHCX_ROLE)
+    return answered
+
+
 def organisation_prerequisite(item):
     """Milestones are submitted at any time but decided once verification is done."""
     if item.organisation.is_verified:
@@ -69,6 +91,19 @@ def organisation_prerequisite(item):
 UNVERIFIED_ORGANISATION = ~Q(
     organisation__verification_status=Organisation.VerificationStatus.VERIFIED,
 )
+
+
+def gap_block_reason(item):
+    """Milestones wait until the integrator confirms what the import could not read.
+
+    A rejected registration cannot be edited, so it is support who answers its
+    gaps, and the button says so rather than asking the integrator.
+    """
+    if not item.product_id or not legacy.gaps(item.product):
+        return ""
+    registration = item.product.registration
+    blocked = edit_blocked_reason(registration) if registration else ""
+    return blocked or "Confirm your product details before submitting."
 
 
 def callback_block_reason(item):
@@ -169,7 +204,7 @@ class ExitEvidence(ApplicationFormDefinition):
 
     @classmethod
     def submission_block_reason(cls, item):
-        return callback_block_reason(item)
+        return gap_block_reason(item) or callback_block_reason(item)
 
     @classmethod
     def approval_block_reason(cls, item):
@@ -248,6 +283,8 @@ class ProductRegistration(ApplicationFormDefinition):
     name = "Product registration"
     form_class = ProductRegistrationForm
     allow_approved_updates = True
+    # Editing applies at once, so a rejected registration would approve itself.
+    allow_rejected_updates = False
     auto_approve = True
 
     @classmethod
@@ -264,6 +301,10 @@ class ProductRegistration(ApplicationFormDefinition):
             product_values=ABDM.product_values(data),
             solution_type=data["solution_type"],
             selections=data["applied_milestones"],
+        )
+        legacy.forget_gaps(
+            item.product,
+            answered_gaps(item.product, data["solution_type_other"]),
         )
 
     @classmethod
@@ -291,7 +332,7 @@ class UhiParticipation(ApplicationFormDefinition):
 
     @classmethod
     def submission_block_reason(cls, item):
-        return callback_block_reason(item)
+        return gap_block_reason(item) or callback_block_reason(item)
 
     @classmethod
     def pending_prerequisites(cls, item):

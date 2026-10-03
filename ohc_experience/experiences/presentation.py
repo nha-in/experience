@@ -1,6 +1,11 @@
 """Read-only presentation helpers for the workflow portal."""
 
+from django.template.defaultfilters import pluralize
 from django.urls import reverse
+
+from . import legacy
+from .workflows import can_edit_review
+from .workflows import rejected_for_good
 
 
 def overview_progress(tracks):
@@ -144,10 +149,39 @@ def _review_attention(requests):
     return None
 
 
+def product_hold_step(product):
+    """What the product itself leaves to do before any milestone is submitted.
+    """
+    registration = product.registration
+    if registration and rejected_for_good(registration):
+        return _step(
+            "Your product registration was rejected",
+            "Its details cannot be edited and its milestones cannot be "
+            "submitted while that stands.",
+            "Raise a support ticket",
+            f"{reverse('experiences:support')}?product={product.reference}",
+            tone="warning",
+        )
+    held = len(legacy.gaps(product))
+    if not held or not registration or not can_edit_review(registration):
+        return None
+    return _step(
+        "Confirm your product details",
+        f"Your legacy registration left {held} detail{pluralize(held)} to confirm "
+        "before you can submit milestones.",
+        "Review product details",
+        reverse("experiences:product-edit", args=[product.reference]),
+        tone="warning",
+    )
+
+
 def overview_next_step(product, tracks, organisation_review):
     """Prioritise an actionable current request, then the next available form."""
     organisation_url = reverse("experiences:organisation")
     product_url = reverse("experiences:product-edit", args=[product.reference])
+    step = product_hold_step(product)
+    if step:
+        return step
     tiles = [tile for track in tracks for tile in track["tiles"]]
     requests = [
         (organisation_review, organisation_url),

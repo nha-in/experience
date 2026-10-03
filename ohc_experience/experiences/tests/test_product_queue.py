@@ -34,6 +34,30 @@ def submit_release(inspection, owner):
     return release
 
 
+def test_a_rejected_product_takes_its_requests_out_of_the_queue(
+    environment,
+    client,
+):
+    """Nobody decides work on a product whose registration was turned down."""
+    m1 = submit(environment, "m1")
+    client.force_login(environment["reviewer"])
+    assert m1 in [
+        review
+        for entry in client.get(reverse("experiences:queue")).context["page"]
+        for review in entry.reviews
+    ]
+
+    registration = environment["product"].registration
+    registration.status = ReviewItem.Status.REJECTED
+    registration.save(update_fields=["status"])
+
+    response = client.get(reverse("experiences:queue"))
+
+    assert [
+        review for entry in response.context["page"] for review in entry.reviews
+    ] == []
+
+
 def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
     environment,
     client,

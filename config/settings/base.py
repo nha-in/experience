@@ -128,6 +128,7 @@ LOCAL_APPS = [
     "ohc_experience.events_and_activities",
     "ohc_experience.experiences",
     "ohc_experience.integrations",
+    "ohc_experience.legacy_import",
     # Your stuff: custom apps go here
 ]
 

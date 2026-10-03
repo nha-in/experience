@@ -18,6 +18,7 @@ from django.utils.datastructures import MultiValueDict
 
 from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
+from ohc_experience.abdm.definitions import answered_gaps
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
@@ -26,6 +27,7 @@ from ohc_experience.abdm.forms import ExitEvidenceForm
 from ohc_experience.abdm.forms import OrganisationForm
 from ohc_experience.abdm.forms import ProductRegistrationForm
 from ohc_experience.experiences import credentials
+from ohc_experience.experiences import legacy
 from ohc_experience.experiences import uploads
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.definitions import TrackDefinition
@@ -1878,3 +1880,40 @@ def test_oversized_document_is_rejected():
     document.size = uploads.MAX_UPLOAD_BYTES + 1
     with pytest.raises(ValidationError, match="10 MB"):
         uploads.validate_pdf(document)
+
+
+def test_the_registration_forgets_the_gaps_its_own_answers_fill():
+    product = Product(
+        solution_type=["other"],
+        applied_milestones=["ABDM:m1", "PHR:p1", "NHCX:nhcx_provider"],
+        metadata={
+            legacy.LEGACY_GAPS: [
+                legacy.NHCX_ROLE,
+                legacy.SOLUTION_TYPE,
+                legacy.TRACKS,
+            ],
+        },
+    )
+
+    # The role it holds is the integrator's own once they save the picker.
+    note = legacy.UNRECORDED_SOLUTION_TYPE
+    assert answered_gaps(product, note) == [legacy.NHCX_ROLE]
+
+    product.solution_type = ["hmis"]
+    product.applied_milestones = ["ABDM:m1", "ABDM:m2", "ABDM:m3"]
+
+    assert answered_gaps(product, "") == [
+        legacy.SOLUTION_TYPE,
+        legacy.TRACKS,
+        legacy.NHCX_ROLE,
+    ]
+
+
+def test_a_product_that_really_is_other_answers_in_the_other_box():
+    product = Product(solution_type=["other"], applied_milestones=["ABDM:m1"])
+
+    assert legacy.SOLUTION_TYPE not in answered_gaps(
+        product,
+        legacy.EVERY_OPTION_SOLUTION_TYPE,
+    )
+    assert legacy.SOLUTION_TYPE in answered_gaps(product, "Front desk queue system")

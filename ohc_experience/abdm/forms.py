@@ -2,6 +2,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from ohc_experience.experiences import legacy
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.fields import MultipleFileField
 from ohc_experience.experiences.forms import ReviewForm
@@ -380,15 +381,28 @@ class ProductRegistrationForm(ReviewForm):
         self.organisation = organisation
         self.product = product
         super().__init__(*args, **kwargs)
-        # A registered product keeps the solution type it was registered as.
+        # A registered product keeps the solution type it was registered as,
+        # unless the import had none to read and still owes us the real one.
         if product and product.solution_type:
             self.initial["solution_type"] = product.solution_type
-            self.fields["solution_type"].disabled = True
+            self.fields["solution_type"].disabled = not legacy.has_gap(
+                product,
+                legacy.SOLUTION_TYPE,
+            )
         if self.is_bound and "other" not in (self["solution_type"].value() or []):
             self.fields["solution_type_other"].required = False
         # Locked boxes are disabled, so a fixed type may arrive with none posted.
         if self.is_bound and fixed_selections(self["solution_type"].value() or []):
             self.fields["applied_milestones"].required = False
+
+    @property
+    def holds_both_tracks(self):
+        """Whether this product came from a registration that declared both.
+
+        Legacy let one registration claim ABDM and PHR, so an imported product
+        can hold both and keeps them; a new one still has to choose.
+        """
+        return bool(self.product) and legacy.has_gap(self.product, legacy.TRACKS)
 
     @property
     def milestone_tracks(self):
@@ -397,6 +411,7 @@ class ProductRegistrationForm(ReviewForm):
         selected = self._apply_solution_type(
             self["applied_milestones"].value() or [],
             solutions,
+            self.product.applied_milestones if self.product else (),
         )
         blocked = excluded_track({value.split(":", 1)[0] for value in selected})
         fixed_by = readable_list(
@@ -528,7 +543,7 @@ class ProductRegistrationForm(ReviewForm):
         )
         chosen = {value.split(":", 1)[0] for value in selections}
         blocked = excluded_track(chosen)
-        if blocked in chosen:
+        if blocked in chosen and not self.holds_both_tracks:
             names = readable_list(EXCLUSIVE_TRACKS)
             msg = f"{names} cannot be applied for together. Choose one of them."
             raise ValidationError(msg)

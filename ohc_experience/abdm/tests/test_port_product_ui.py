@@ -30,9 +30,11 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import registered_as_other
 from ohc_experience.abdm.tests.test_workflow import stored_secret
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.experiences import legacy
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
+from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.ports import ExternalSystem
 from ohc_experience.integrations.services import provision_inline
@@ -1106,7 +1108,7 @@ def test_the_m2_page_disables_submit_until_a_callback_url_is_saved(
 
     assert "disabled" in submit_button(html)
     assert 'data-submit-blocked="true"' in html
-    assert "Add a callback URL to submit M2." in html
+    assert "No callback URL saved" in html
 
     ProductCredential.objects.filter(product=environment["product"]).update(
         callback_url="https://integrator.example/callback",
@@ -1347,3 +1349,129 @@ def test_an_edit_adds_and_drops_m4_under_a_fixed_type(environment, client):
     assert edit() == ["ABDM:m1", "ABDM:m2", "ABDM:m3"]
     assert not product.milestones.get(key="m4").enabled
     assert not product.milestones.get(key="nhcx_provider").enabled
+
+
+def solution_type_box(html, value):
+    """The radio for one solution type, as the edit page rendered it."""
+    return next(
+        field
+        for field in Inputs(html).fields
+        if field.get("name") == "solution_type" and field.get("value") == value
+    )
+
+
+@pytest.mark.django_db
+def test_an_imported_gap_is_shown_and_opens_the_solution_type_again(
+    environment,
+    client,
+):
+    """A product the import registered as Other can still be given its real type."""
+    product = environment["product"]
+    registered_as_other(product)
+    product.metadata = {legacy.LEGACY_GAPS: [legacy.SOLUTION_TYPE, legacy.NHCX_ROLE]}
+    product.save(update_fields=["metadata"])
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:product-edit", args=[product.reference])
+
+    html = client.get(url).content.decode()
+    assert legacy.GAP_NOTICES[legacy.SOLUTION_TYPE] in html
+    assert legacy.GAP_NOTICES[legacy.NHCX_ROLE] in html
+    assert legacy.GAP_NOTICES[legacy.TRACKS] not in html
+    assert "disabled" not in solution_type_box(html, "hmis")
+
+    legacy.forget_gaps(product, [legacy.SOLUTION_TYPE, legacy.NHCX_ROLE])
+    html = client.get(url).content.decode()
+    assert legacy.GAP_NOTICES[legacy.SOLUTION_TYPE] not in html
+    assert "disabled" in solution_type_box(html, "hmis")
+
+
+@pytest.mark.django_db
+def test_the_other_box_answers_the_gap_in_the_integrators_own_words(
+    environment,
+    client,
+):
+    """The note the import left is not an answer; what is written over it is."""
+    product = environment["product"]
+    registered_as_other(product)
+    product.metadata = {legacy.LEGACY_GAPS: [legacy.SOLUTION_TYPE]}
+    product.save(update_fields=["metadata"])
+    client.force_login(environment["applicant"])
+    url = reverse("experiences:product-edit", args=[product.reference])
+
+    def save(note):
+        item = product.review_items.get(kind="product_registration")
+        response = client.post(
+            url,
+            {
+                **product_data(product.name),
+                "solution_type": ["other"],
+                "applied_milestones": product.applied_milestones,
+                "revision": str(item.selected_submission_id or ""),
+                "intent": "submit",
+                "solution_type_other": note,
+            },
+        )
+        assert response.status_code == 302, response.context["form"].errors
+        product.refresh_from_db()
+
+    save(legacy.UNRECORDED_SOLUTION_TYPE)
+
+    assert legacy.has_gap(product, legacy.SOLUTION_TYPE)
+
+    save("Front desk queue system")
+
+    assert not legacy.gaps(product)
+    assert "disabled" in solution_type_box(client.get(url).content.decode(), "hmis")
+
+
+def reject_registration(product):
+    """Put the product's registration in the state the import gives a rejection."""
+    registration = product.registration
+    registration.status = ReviewItem.Status.REJECTED
+    registration.save(update_fields=["status"])
+
+
+@pytest.mark.django_db
+def test_an_unanswered_gap_holds_every_milestone_submission(environment, client):
+    """What the product is comes before any evidence about it."""
+    product = environment["product"]
+    product.metadata = {legacy.LEGACY_GAPS: [legacy.SOLUTION_TYPE]}
+    product.save(update_fields=["metadata"])
+    client.force_login(environment["applicant"])
+    url = _track_url(product, "m1")
+
+    html = client.get(url).content.decode()
+
+    assert "disabled" in submit_button(html)
+    assert "Confirm your product details before submitting." in html
+
+    with pytest.raises(
+        ValidationError,
+        match=r"Confirm your product details before submitting\.",
+    ):
+        submit(environment, "m1")
+
+    legacy.forget_gaps(product, [legacy.SOLUTION_TYPE])
+    html = client.get(url).content.decode()
+
+    assert "disabled" not in submit_button(html)
+    assert "Confirm your product details" not in html
+
+
+@pytest.mark.django_db
+def test_a_gap_on_a_rejected_registration_asks_for_a_support_ticket(
+    environment,
+    client,
+):
+    """Nobody can confirm details on a registration that cannot be edited."""
+    product = environment["product"]
+    product.metadata = {legacy.LEGACY_GAPS: [legacy.SOLUTION_TYPE]}
+    product.save(update_fields=["metadata"])
+    reject_registration(product)
+    client.force_login(environment["applicant"])
+
+    html = client.get(_track_url(product, "m1")).content.decode()
+
+    assert "disabled" in submit_button(html)
+    assert "Your product registration was rejected" in html
+    assert "Raise a support ticket" in html

@@ -66,6 +66,17 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
+# psql and pg_dump, from the repository that carries the server's own major
+# version: restoring the legacy dump needs a client no older than the dump, and
+# pg_dump refuses to read a server newer than itself.
+RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    -o /etc/apt/keyrings/pgdg.asc \
+  && echo "deb [signed-by=/etc/apt/keyrings/pgdg.asc] \
+http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list \
+  && apt-get update && apt-get install --no-install-recommends -y postgresql-client-18 \
+  && rm -rf /var/lib/apt/lists/*
+
 
 COPY --chown=django:django ./compose/production/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint

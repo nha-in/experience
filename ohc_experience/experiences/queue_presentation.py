@@ -31,12 +31,12 @@ if TYPE_CHECKING:
 
 
 def submitted_requests(user):
-    """Every request the queue shows, once. A registration is only a record."""
-    return (
-        permissions.visible_reviews(user)
-        .exclude(kind=ReviewItem.Kind.PRODUCT)
-        .exclude(status=ReviewItem.Status.DRAFT)
-    )
+    """Every request the queue shows, once: a reviewer's work, less the drafts.
+
+    `permissions.review_requests` leaves out what nobody decides; a draft is
+    the integrator's unsent work, which the queue does not show either.
+    """
+    return permissions.review_requests(user).exclude(status=ReviewItem.Status.DRAFT)
 
 
 def queue_requests(user):
@@ -247,10 +247,8 @@ def populate_queue_page(page, user, matching):
         )
     )
     visible = (
-        permissions.visible_reviews(user)
+        submitted_requests(user)
         .filter(subjects)
-        .exclude(kind=ReviewItem.Kind.PRODUCT)
-        .exclude(status=ReviewItem.Status.DRAFT)
         .select_related(
             "product",
             "organisation",

@@ -58,6 +58,7 @@ class ApplicationFormDefinition:
     schema_version: ClassVar[int] = 1
     form_class: ClassVar[type]
     allow_approved_updates: ClassVar[bool] = False
+    allow_rejected_updates: ClassVar[bool] = True
     allow_reuse: ClassVar[bool] = False
     #: Submitting is the whole process — no reviewer decides it. It is recorded
     #: as soon as its prerequisites are approved, and until then it waits in
