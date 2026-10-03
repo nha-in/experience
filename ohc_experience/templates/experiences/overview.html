@@ -20,7 +20,9 @@
         {% if can_integrate %}
           {% if edit_blocked %}
             <span class="ui-tooltip-host inline-flex">
-              <button class="ui-btn ui-btn--outline ui-btn--size-sm shadow-md" type="button" disabled>Edit product</button>
+              <button class="ui-btn ui-btn--outline ui-btn--size-sm shadow-md"
+                      type="button"
+                      disabled>Edit product</button>
               <span class="sr-only">{{ edit_blocked }}</span>
               {% include "components/tooltip.html" with text=edit_blocked %}
             </span>

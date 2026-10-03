@@ -150,8 +150,7 @@ def _review_attention(requests):
 
 
 def product_hold_step(product):
-    """What the product itself leaves to do before any milestone is submitted.
-    """
+    """What the product itself leaves to do before any milestone is submitted."""
     registration = product.registration
     if registration and rejected_for_good(registration):
         return _step(

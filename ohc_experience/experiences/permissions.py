@@ -162,8 +162,7 @@ ON_A_REJECTED_PRODUCT = Exists(
 
 
 def review_requests(user, action="read"):
-    """The reviews that are requests for a decision.
-    """
+    """The reviews that are requests for a decision."""
     return (
         visible_reviews(user, action)
         .exclude(kind=ReviewItem.Kind.PRODUCT)

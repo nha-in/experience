@@ -3,7 +3,7 @@
 <div id="queue-results"
      class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0 [animation-delay:.1s]">
   <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
-    <p class="text-sm font-semibold" aria-live="polite">{{ page.paginator.count }} review entr{{ page.paginator.count|pluralize:'y,ies' }}{% if filter_query %} found{% endif %}</p>
+    <p class="text-sm font-semibold" aria-live="polite">{{ page.paginator.count }} product{{ page.paginator.count|pluralize }}{% if filter_query %} found{% endif %}</p>
     <div class="flex flex-wrap items-center justify-end gap-2">
       <span class="flex items-center gap-2">
         <label class="text-xs text-soft-foreground" for="queue-sort">Sort</label>
