@@ -59,14 +59,14 @@ def test_the_type_select_lists_milestones_without_a_heading(client, review_item)
     assert '<option value="milestones" selected>All milestones</option>' in compact
 
 
-def test_stage_counts_ignore_a_status_filter(client, review_item):
+def test_stage_counts_follow_a_status_filter(client, review_item):
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(
         reverse("experiences:queue"),
         {"scope": "all", "status": "query_raised"},
     )
     assert list(response.context["page"]) == []
-    assert response.context["stage_counts"]["ready"] == 1
+    assert response.context["stage_counts"] == {"ready": 0, "decided": 0, "all": 0}
 
 
 def test_queue_scope_tracks_a_real_decision(client, review_item):

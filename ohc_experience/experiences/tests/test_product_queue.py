@@ -180,6 +180,33 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     assert not client.get(reverse("experiences:queue"), filters).context["page"]
 
 
+def test_a_status_filters_every_tab_count_as_the_assignee_filter_does(
+    environment,
+    client,
+):
+    """A status narrows the requests before the tabs split them, so each tab
+    counts what it lists, and All stays Pending plus Done."""
+    approve(environment, "m1")
+    submit(environment, "m2")
+    client.force_login(environment["reviewer"])
+    url = reverse("experiences:queue")
+
+    unfiltered = client.get(url, {"scope": "all"}).context["stage_counts"]
+    assert unfiltered == {"ready": 1, "decided": 0, "all": 1}
+    # M2 can be decided, but the approved M1 cannot: under Approved the
+    # product is done, and listed there.
+    for scope in ("all", "decided"):
+        response = client.get(url, {"scope": scope, "status": "approved"})
+        assert response.context["stage_counts"] == {"ready": 0, "decided": 1, "all": 1}
+        assert response.context["page"].paginator.count == 1
+        entry = response.context["page"][0]
+        assert [item.queue_state for item in entry.matching_reviews] == ["approved"]
+    # Pending has no Status filter, so it drops one and counts without it.
+    response = client.get(url, {"scope": "ready", "status": "approved"})
+    assert "status" not in response.context["filters"]
+    assert response.context["stage_counts"] == unfiltered
+
+
 def test_a_query_moves_a_request_to_done_until_the_integrator_answers(
     environment,
     client,

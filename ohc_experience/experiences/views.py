@@ -2773,8 +2773,11 @@ QUEUE_KINDS = {
 def _queue_list(kind, user, params):
     """A list's requests under every filter but its tabs', and each tab's filter.
 
-    Search and assignee hold in both lists; the Type filter is the Products
-    list's alone.
+    Search, assignee and status hold in both lists; the Type filter is the
+    Products list's alone. Each narrows the requests before the tabs split
+    them, so every tab counts what the filters match, and All stays Pending
+    plus Done: a product is pending when a request the filters keep can be
+    decided now.
     """
     if kind == "organisations":
         query = verification_requests(user)
@@ -2787,6 +2790,8 @@ def _queue_list(kind, user, params):
         query = query.filter(assignee=None)
     elif assignee.isdigit():
         query = query.filter(assignee_id=assignee)
+    if params.get("status"):
+        query = query.filter(_queue_status_filter(params["status"]))
     search = params.get("q", "").strip()
     if kind == "organisations":
         if search:
@@ -2842,22 +2847,22 @@ def queue(request):
     else:
         kind = "products"
         params.pop("kind", None)
+    scope = params.get("scope", "")
+    if scope not in ("ready", "decided", "all"):
+        scope = "ready"
+    params["scope"] = scope
+    # A tab drops a status it has no chip for, as Pending does every status.
+    statuses = _queue_statuses(scope, kind)
+    if params.get("status", "") not in dict(statuses):
+        params.pop("status", None)
     query, scopes = _queue_list(kind, request.user, params)
     stage_counts = {
         stage: _queue_count(kind, query.filter(stage_filter))
         for stage, stage_filter in scopes.items()
     }
     stage_counts["all"] = _queue_count(kind, query)
-    scope = params.get("scope", "")
     if scope != "all":
-        scope = scope if scope in scopes else "ready"
         query = query.filter(scopes[scope])
-    params["scope"] = scope
-    statuses = _queue_statuses(scope, kind)
-    if params.get("status", "") in dict(statuses):
-        query = query.filter(_queue_status_filter(params["status"]))
-    else:
-        params.pop("status", None)
     sort = _queue_sort(request, kind)
     if export := tables.export_format(request):
         if kind == "organisations":
