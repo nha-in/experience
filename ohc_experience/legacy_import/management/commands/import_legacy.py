@@ -13,6 +13,7 @@ from django.db import connection
 from django.utils import timezone
 
 from ohc_experience.experiences.models import Product
+from ohc_experience.experiences.secrets import cipher
 from ohc_experience.legacy_import.checks import run_checks
 from ohc_experience.legacy_import.checks import target_drift
 from ohc_experience.legacy_import.clean import IST
@@ -118,11 +119,32 @@ def upload_report(directory, folder):
     return saved
 
 
+def unusable_key():
+    """Why the credential key cannot be used, or "" when it can.
+
+    Every approved registration writes a client secret under it, so a key that
+    is merely set fails once per organisation, thousands of times over, after
+    the import has already run for half an hour.
+    """
+    if not settings.EXPERIENCE_CREDENTIAL_KEY:
+        return "Set EXPERIENCE_CREDENTIAL_KEY; the final run needs production's key."
+    try:
+        cipher().encrypt(b"probe")
+    except Exception as error:  # noqa: BLE001 - any failure here is the same answer
+        return (
+            f"EXPERIENCE_CREDENTIAL_KEY is not a usable Fernet key: {error} "
+            "Generate one with Fernet.generate_key(), and keep it: every stored "
+            "secret is encrypted under it."
+        )
+    return ""
+
+
 def refusal(options):  # noqa: PLR0911
     if not options["legacy_dsn"]:
         return "Pass --legacy-dsn or set LEGACY_DATABASE_URL."
-    if not settings.EXPERIENCE_CREDENTIAL_KEY:
-        return "Set EXPERIENCE_CREDENTIAL_KEY; the final run needs production's key."
+    key = unusable_key()
+    if key:
+        return key
     drift = target_drift()
     if drift:
         moved = "\n  ".join(drift)
