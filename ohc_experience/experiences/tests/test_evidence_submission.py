@@ -162,7 +162,7 @@ def test_group_submits_chain_with_independent_snapshots_and_one_upload_set(
     snapshots, attachment_ids, paths = [], [], []
     for item in (m1, m2, m3):
         item.refresh_from_db()
-        assert item.status == ReviewItem.Status.NEW
+        assert item.status == ReviewItem.Status.IN_REVIEW
         assert item.application.status == "under_review"
         snapshot = item.selected_submission
         assert snapshot.origin_application_id == item.application_id
@@ -400,7 +400,7 @@ def test_an_nhcx_role_joins_the_batch_of_what_it_builds_on(environment):
 
     for item in (current, m3, payer):
         item.refresh_from_db()
-        assert item.status == ReviewItem.Status.NEW
+        assert item.status == ReviewItem.Status.IN_REVIEW
 
 
 def test_an_nhcx_role_cannot_join_without_what_it_builds_on(environment):

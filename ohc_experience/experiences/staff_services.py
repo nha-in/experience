@@ -147,7 +147,7 @@ def set_staff_active(actor, pk, *, active, revision):
         revoke_sessions(user)
         for item in ReviewItem.objects.filter(
             assignee=user,
-            status__in=["new", "in_review", "query_raised"],
+            status__in=["in_review", "query_raised"],
         ):
             assign_review(item, actor, None)
         Ticket.objects.filter(

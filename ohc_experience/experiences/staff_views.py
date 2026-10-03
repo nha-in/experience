@@ -170,7 +170,7 @@ def staff_edit(request, pk=None):
             "history": history,
             "account_revision": staff_revision(user) if user else "",
             "pending_reviews": user.assigned_review_items.filter(
-                status__in=["new", "in_review", "query_raised"],
+                status__in=["in_review", "query_raised"],
             ).count()
             if user
             else 0,

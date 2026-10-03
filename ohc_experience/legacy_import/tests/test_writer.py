@@ -185,7 +185,7 @@ def test_a_verification_waits_only_when_legacy_had_it_in_hand():
     )
 
     assert loader.verification_decision(pending, integrator_of(7), None) == (
-        "new",
+        "in_review",
         None,
         "",
     )

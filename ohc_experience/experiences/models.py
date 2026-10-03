@@ -749,7 +749,8 @@ class ReviewItem(models.Model):
 
     class Status(models.TextChoices):
         DRAFT = "draft", "In progress"
-        NEW = "new", "New"
+        # Submitting puts a request under review. Whether a reviewer has picked
+        # it up is its assignee, not a status of its own.
         IN_REVIEW = "in_review", "Under review"
         QUERY = "query_raised", "Query raised"
         APPROVED = "approved", "Approved"
@@ -881,11 +882,7 @@ class ReviewItem(models.Model):
 
     @property
     def pending(self):
-        return self.status in {
-            self.Status.NEW,
-            self.Status.IN_REVIEW,
-            self.Status.QUERY,
-        }
+        return self.status in {self.Status.IN_REVIEW, self.Status.QUERY}
 
     @property
     def age(self):

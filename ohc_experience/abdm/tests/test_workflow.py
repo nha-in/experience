@@ -497,7 +497,7 @@ def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client
         submit=True,
     )
     assert saved, form.errors
-    assert item.status == ReviewItem.Status.NEW
+    assert item.status == ReviewItem.Status.IN_REVIEW
 
 
 def test_uhi_submitted_before_m1_is_approved_is_recorded_when_it_is(
@@ -506,7 +506,7 @@ def test_uhi_submitted_before_m1_is_approved_is_recorded_when_it_is(
     submit(environment)
     submit(environment, "m2")
     uhi = submit(environment, "uhi1")
-    assert uhi.status == ReviewItem.Status.NEW
+    assert uhi.status == ReviewItem.Status.IN_REVIEW
     assert uhi.application.status == "under_review"
     services.assign_review(uhi, environment["admin"], environment["reviewer"])
     for action in ("reject", "query"):
@@ -602,7 +602,7 @@ def test_a_waiting_uhi_application_is_recorded_once_verification_is_approved(
     approve(environment, "m2")
     verification = reverify(environment)
     uhi = submit(environment, "uhi1")
-    assert uhi.status == ReviewItem.Status.NEW
+    assert uhi.status == ReviewItem.Status.IN_REVIEW
     services.assign_review(verification, environment["admin"], environment["reviewer"])
 
     services.decide(
@@ -625,7 +625,7 @@ def test_milestones_are_submitted_in_order_and_decided_in_order(environment):
         submit(environment, "m2")
     submit(environment)
     m2 = submit(environment, "m2")
-    assert m2.status == ReviewItem.Status.NEW
+    assert m2.status == ReviewItem.Status.IN_REVIEW
     services.assign_review(m2, environment["admin"], environment["reviewer"])
     for action in ("approve", "reject"):
         with pytest.raises(

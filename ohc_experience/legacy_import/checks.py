@@ -35,7 +35,6 @@ from . import clean
 APPLICATION_STATUS = {
     ReviewItem.Status.APPROVED: {"approved"},
     ReviewItem.Status.REJECTED: {"draft"},
-    ReviewItem.Status.NEW: {"under_review"},
     ReviewItem.Status.IN_REVIEW: {"under_review"},
     ReviewItem.Status.QUERY: {"query_raised"},
     ReviewItem.Status.DRAFT: {"draft"},

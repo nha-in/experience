@@ -18,8 +18,7 @@ def overview_progress(tracks):
         "approved": sum(tile["status"] == "approved" for tile in tiles.values()),
         "active_tracks": sum(bool(track["tiles"]) for track in tracks),
         "awaiting_review": sum(
-            tile["status"] in {"new", "in_review", "query_raised"}
-            for tile in tiles.values()
+            tile["status"] in {"in_review", "query_raised"} for tile in tiles.values()
         ),
     }
 
@@ -254,11 +253,7 @@ def _milestone_next_step(tiles, product_url):
             product_url,
         )
     current = next(
-        (
-            tile
-            for tile in tiles
-            if tile["status"] in {"new", "in_review", "query_raised"}
-        ),
+        (tile for tile in tiles if tile["status"] in {"in_review", "query_raised"}),
         tiles[0],
     )
     return _step(

@@ -255,13 +255,13 @@ def staff_grants(role_name):
 REVIEW_STATUS = {
     "approved": ReviewItem.Status.APPROVED,
     "rejected": ReviewItem.Status.REJECTED,
-    "new": ReviewItem.Status.NEW,
+    "in_review": ReviewItem.Status.IN_REVIEW,
     "draft": ReviewItem.Status.DRAFT,
 }
 APPLICATION_STATUS = {
     "approved": "approved",
     "rejected": "draft",
-    "new": "under_review",
+    "in_review": "under_review",
     "draft": "draft",
 }
 
@@ -794,7 +794,7 @@ class Importer:
                 clean.paragraph(status.get("admin_comment")),
             )
         waiting = any(row["sd_id"] in self.statuses for row in integrator.rows)
-        return ("new" if waiting else "draft"), None, ""
+        return ("in_review" if waiting else "draft"), None, ""
 
     def verification_answers(self, organisation, integrator, lead, integrator_exits):
         """The organisation form, as the registration and its exits answer it."""
@@ -1679,7 +1679,7 @@ class Importer:
                 reason=reason,
             )
         if exit_row["final_status"] == EXIT_PENDING:
-            return Decision(submission=submission, status="new")
+            return Decision(submission=submission, status="in_review")
         return Decision(submission=submission)
 
     def exit_decided(self, exit_row, submission):

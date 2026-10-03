@@ -108,7 +108,10 @@ def test_queue_chips_put_open_requests_first_and_approved_ones_below(
     for scope in ("all", "ready"):
         response = client.get(url, {"scope": scope})
         entry = response.context["page"][0]
-        assert [item.queue_state for item in entry.open_reviews] == ["new", "blocked"]
+        assert [item.queue_state for item in entry.open_reviews] == [
+            "in_review",
+            "blocked",
+        ]
         assert [item.queue_state for item in entry.approved] == ["approved"]
         open_row, done_row = rows(response)
         assert "M2 waiting on M1" in open_row

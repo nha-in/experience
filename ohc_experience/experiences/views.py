@@ -1190,7 +1190,7 @@ def product_detail(request, reference):
         visible_items.filter(
             product_scope(product),
             organisation=product.organisation,
-            status__in=["new", "in_review", "query_raised"],
+            status__in=["in_review", "query_raised"],
         ).select_related(
             "application__milestone__product",
             "assignee",
@@ -2516,7 +2516,7 @@ def _queue_search(search):
 
 
 def _prerequisite_label(program, prerequisite):
-    """("M1", "under review"), or ("organisation verification", "new")."""
+    """("M1", "under review"), or ("organisation verification", "query raised")."""
     review = prerequisite.review
     milestone = getattr(review.application, "milestone", None) if review else None
     name = program.milestones[milestone.key].code if milestone else prerequisite.name

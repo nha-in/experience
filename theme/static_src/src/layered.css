@@ -439,10 +439,6 @@
     @apply border-primary-300 bg-primary-100 text-primary-900;
   }
 
-  .ui-queue-chip--new {
-    @apply border-border bg-card text-muted-foreground;
-  }
-
   .ui-queue-chip--query_raised,
   .ui-queue-chip--rejected {
     border-color: var(--status-warning-border);

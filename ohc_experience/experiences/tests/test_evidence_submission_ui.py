@@ -236,7 +236,7 @@ def test_batch_submit_m1_m2_m3_creates_three_pending_reviews(environment, client
     assert response.status_code == HTTPStatus.FOUND
     for item in items:
         item.refresh_from_db()
-        assert item.status == ReviewItem.Status.NEW
+        assert item.status == ReviewItem.Status.IN_REVIEW
         assert item.application.status == "under_review"
         assert item.submitted_at
         assert item.selected_submission.status == "completed"
@@ -388,7 +388,7 @@ def test_batch_takes_an_nhcx_role_with_the_milestones_it_builds_on(
     assert response.status_code == HTTPStatus.FOUND
     for item in (current, m3, payer):
         item.refresh_from_db()
-        assert item.status == ReviewItem.Status.NEW
+        assert item.status == ReviewItem.Status.IN_REVIEW
 
 
 def test_save_draft_ignores_additional_milestone_choices(environment, client):

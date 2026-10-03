@@ -675,12 +675,12 @@ def test_client_response_alert_is_not_shown_to_reviewer(review_item):
 @pytest.mark.parametrize(
     ("scope", "incompatible_status", "expected_statuses"),
     [
-        ("ready", "approved", {"new", "in_review", "query_raised"}),
+        ("ready", "approved", {"in_review", "query_raised"}),
         ("decided", "in_review", {"approved", "rejected"}),
         (
             "all",
             "draft",
-            {"new", "in_review", "query_raised", "approved", "rejected"},
+            {"in_review", "query_raised", "approved", "rejected"},
         ),
     ],
 )

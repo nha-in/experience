@@ -69,8 +69,8 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
 
     submit(environment)
 
-    assert submit(environment, "m2").status == ReviewItem.Status.NEW
-    assert submit(environment, "uhi1").status == ReviewItem.Status.NEW
+    assert submit(environment, "m2").status == ReviewItem.Status.IN_REVIEW
+    assert submit(environment, "uhi1").status == ReviewItem.Status.IN_REVIEW
 
 
 def test_m4_waits_for_m1_unless_the_entity_is_a_government_body(environment, client):
@@ -142,7 +142,7 @@ def test_a_rejected_milestone_locks_the_next_one_until_it_is_resubmitted(
 
     submit(environment)
 
-    assert submit(environment, "m2").status == ReviewItem.Status.NEW
+    assert submit(environment, "m2").status == ReviewItem.Status.IN_REVIEW
 
 
 def test_the_track_page_asks_for_a_rejected_milestone_to_be_resubmitted(
@@ -360,7 +360,7 @@ def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
     assert set(queue(client)) == {m1, m2, uhi, locker}
     assert client.get(reverse("experiences:queue")).context["queue_scope"] == "ready"
     assert "2 waiting on this" in queue_text(client)
-    assert "Waiting on M1 · new" in queue_text(client)
+    assert "Waiting on M1 · under review" in queue_text(client)
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
     pending = {
         card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]

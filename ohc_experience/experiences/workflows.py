@@ -60,7 +60,6 @@ SHORT_NOTE = f"Use at least {MIN_REVIEW_TEXT} characters."
 OTHER_REASON = "Other"
 REQUEST_WITHDRAWN = "Request withdrawn"
 PENDING_STATUSES = (
-    ReviewItem.Status.NEW,
     ReviewItem.Status.IN_REVIEW,
     ReviewItem.Status.QUERY,
 )
@@ -246,21 +245,13 @@ def _complete_submission(item, actor, *, defer_notifications=False):
         _auto_approve(item, actor, defer_notifications=defer_notifications)
         action = "Record updated" if updating else "Recorded"
     else:
-        _request_review(
-            item,
-            resubmitting=resubmitting,
-            defer_notifications=defer_notifications,
-        )
+        _request_review(item, defer_notifications=defer_notifications)
         action = "Resubmitted for review" if resubmitting else "Requested review"
     audit(actor=actor, action=action, item=item)
 
 
-def _request_review(item, *, resubmitting, defer_notifications=False):
-    item.status = (
-        ReviewItem.Status.IN_REVIEW
-        if resubmitting or item.assignee_id
-        else ReviewItem.Status.NEW
-    )
+def _request_review(item, *, defer_notifications=False):
+    item.status = ReviewItem.Status.IN_REVIEW
     item.decided_at = None
     item.decided_by = None
     item.decision_note = ""
@@ -615,7 +606,7 @@ def project_product(item, actor, *, product_values, solution_type, selections):
     removed_under_review = [
         program.milestones[key].code
         for key in product.milestones.filter(
-            application__review_item__status__in=["new", "in_review", "query_raised"],
+            application__review_item__status__in=PENDING_STATUSES,
         )
         .exclude(key__in=new_keys)
         .values_list("key", flat=True)
@@ -1125,9 +1116,7 @@ def assign_review(item, actor, assignee):
         raise ValidationError(msg)
     before = item.assignee_id
     item.assignee = assignee
-    if item.status == ReviewItem.Status.NEW and assignee:
-        item.status = ReviewItem.Status.IN_REVIEW
-    item.save(update_fields=["assignee", "status"])
+    item.save(update_fields=["assignee"])
     audit(
         actor=actor,
         action="Reviewer assigned" if assignee else "Reviewer unassigned",
@@ -1184,11 +1173,7 @@ def _record_released(organisation, *, defer_notifications=False):
         recorded = False
         waiting = ReviewItem.objects.filter(
             organisation=organisation,
-            status__in=[
-                ReviewItem.Status.NEW,
-                ReviewItem.Status.IN_REVIEW,
-                ReviewItem.Status.QUERY,
-            ],
+            status__in=PENDING_STATUSES,
         ).select_related("selected_submission", "form", "product", "application")
         for item in waiting:
             if item.definition.auto_approve and not pending_prerequisites(item):
