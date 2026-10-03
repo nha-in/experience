@@ -487,10 +487,13 @@ class Importer:
             default=self.now,
         )
         user_model = get_user_model()
+        number = clean.mobile(newest["mobile"])
         user = user_model(
             email=clean.email(newest["email"]),
             name=clean.text(newest["name"])[:255],
-            phone_number=clean.mobile(newest["mobile"]),
+            phone_number=number,
+            # Legacy signed the account up on this number as it did on the email
+            phone_verified=bool(number),
             password=self.password_for(newest),
             is_active=clean.text(newest["status"]) == ACTIVE_LOGIN,
             date_joined=joined,

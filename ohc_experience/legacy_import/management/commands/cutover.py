@@ -130,6 +130,11 @@ class Command(BaseCommand):
             help="Drop the legacy database and the roles this run created.",
         )
         parser.add_argument(
+            "--check",
+            action="store_true",
+            help="Prove the image and the environment, change nothing, and stop.",
+        )
+        parser.add_argument(
             "--site-domain",
             default="",
             help="The portal's own domain, which flush resets to example.com.",
@@ -148,6 +153,9 @@ class Command(BaseCommand):
     def handle(self, **options):
         libpq_environment()
         self.preflight(options)
+        if options["check"]:
+            self.report(options)
+            return
         dump = self.fetch(options["dump_key"])
         if options["reset"]:
             self.reset(options)
@@ -174,12 +182,84 @@ class Command(BaseCommand):
         key = unusable_key()
         if key:
             problems.append(key)
+        database = self.unusable_database(options)
+        if database:
+            problems.append(database)
         if not options["reset"] and self.held_files():
             problems.append(
                 f"Storage already holds files under {LEGACY_FOLDER}; pass --reset.",
             )
         if problems:
             raise CommandError("\n  ".join(["", *problems]))
+
+    def unusable_database(self, options):
+        """Why the restore's own connection cannot work, or "" when it can.
+
+        One connection answers all three: that it can be made at all, that this
+        user may create a database, and that no earlier attempt left one behind.
+        """
+        try:
+            with psycopg.connect(options["admin_dsn"]) as connection:
+                allowed = connection.execute(
+                    "select rolcreatedb or rolsuper from pg_roles "
+                    "where rolname = current_user",
+                ).fetchone()
+                held = connection.execute(
+                    "select 1 from pg_database where datname = %s",
+                    [options["legacy_db"]],
+                ).fetchone()
+        except Exception as error:  # noqa: BLE001 - every failure is the same answer
+            return (
+                f"{options['admin_dsn']} cannot be reached: "
+                f"{type(error).__name__}: {error}"
+            )
+        if not (allowed and allowed[0]):
+            return (
+                "This database user cannot create a database, which the restore needs."
+            )
+        if held and not options["reset"]:
+            return (
+                f'The database "{options["legacy_db"]}" is left from an earlier run; '
+                "pass --reset, or --legacy-db for another name."
+            )
+        return ""
+
+    def report(self, options):
+        """What the run would use, for a last look before half an hour starts."""
+        try:
+            client = default_storage.bucket.meta.client
+            size = client.head_object(
+                Bucket=default_storage.bucket_name,
+                Key=options["dump_key"],
+            )["ContentLength"]
+        except Exception as error:
+            msg = (
+                f"{options['dump_key']} cannot be read from "
+                f"{default_storage.bucket_name}: {type(error).__name__}: {error}"
+            )
+            raise CommandError(msg) from error
+        version = subprocess.run(
+            ["psql", "--version"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        site = Site.objects.filter(pk=settings.SITE_ID).first()
+        lines = (
+            f"Dump: {options['dump_key']}, {size} bytes",
+            f"Free in /tmp: {shutil.disk_usage('/tmp').free} bytes",  # noqa: S108
+            f"Client: {version}",
+            f"Email backend: {settings.EMAIL_BACKEND}",
+            (
+                f"Site domain: {site.domain if site else 'no site row'}"
+                f" -> {options['site_domain'] or 'left as it is'}"
+            ),
+            f"WASA agencies held: {CertificationAgency.objects.count()}",
+            f"One shared password: {'yes' if options['password'] else 'no'}",
+        )
+        for line in lines:
+            self.say(line)
+        self.say("Nothing was changed. The run has everything it needs.")
 
     def held_files(self):
         """The imported files storage still holds, by the path the import checks.
@@ -249,10 +329,13 @@ class Command(BaseCommand):
         self.say(f"Site domain: {site.domain if site else 'no site row'}")
 
     def prepare_roles(self, dump, admin_dsn):
-        """Create the roles the dump names, and join them so it can grant.
+        """Create the roles the dump names, and join those that will have us.
 
         A role that does not exist stops the restore. A role the restoring user
-        is not a member of stops it later, at the default privileges.
+        is not a member of stops it later, at the default privileges. RDS keeps
+        `rdsadmin` to itself, and no one can be made a member of it: the grant
+        is what the dump may need, not what it must have, so a refusal is said
+        out loud and the restore is left to answer for itself.
         """
         self.say("Reading the roles the dump expects")
         wanted = roles_named(dump)
@@ -264,11 +347,12 @@ class Command(BaseCommand):
         self.say(f"Roles named: {', '.join(wanted) or 'none'}")
         if missing:
             self.say(f"Creating: {', '.join(missing)}")
-        run_sql(
-            admin_dsn,
-            [f'create role "{name}" nologin' for name in missing]
-            + [f'grant "{name}" to current_user' for name in wanted],
-        )
+        run_sql(admin_dsn, [f'create role "{name}" nologin' for name in missing])
+        for name in wanted:
+            try:
+                run_sql(admin_dsn, [f'grant "{name}" to current_user'])
+            except psycopg.Error as error:
+                self.say(f"Not joined: {name}: {str(error).strip()}")
         return missing
 
     def restore(self, dump, options):

@@ -242,3 +242,24 @@ def test_one_track_alone_leaves_no_gap():
 
     assert keys == {"m1", "m2"}
     assert gaps == []
+
+
+@pytest.mark.django_db
+def test_a_user_keeps_the_number_legacy_signed_them_up_on():
+    """An unverified number sends an SMS code at the first sign-in."""
+    user = importer().create_user(
+        [
+            {
+                "sd_id": 7,
+                "name": "Asha Rao",
+                "email": "asha@acme.in",
+                "mobile": "+91 98765 43210",
+                "password": "",
+                "status": "1",
+                "created_at": None,
+            },
+        ],
+    )
+
+    assert user.phone_number == "9876543210"
+    assert user.phone_verified is True

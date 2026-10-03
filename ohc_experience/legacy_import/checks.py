@@ -15,6 +15,7 @@ from ohc_experience.abdm.reject_reasons import EXIT_REJECT_REASONS
 from ohc_experience.experiences import legacy
 from ohc_experience.experiences.models import ApplicationFormUse
 from ohc_experience.experiences.models import AuditEvent
+from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.experiences.models import FormRecord
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import Milestone
@@ -31,6 +32,7 @@ from ohc_experience.organisations.models import Organisation
 from ohc_experience.users.models import User
 
 from . import clean
+from . import writer
 
 APPLICATION_STATUS = {
     ReviewItem.Status.APPROVED: {"approved"},
@@ -39,9 +41,43 @@ APPLICATION_STATUS = {
     ReviewItem.Status.QUERY: {"query_raised"},
     ReviewItem.Status.DRAFT: {"draft"},
 }
-WASA_CERTIFICATE = (
-    "source_application__originated_form_submissions__attachments__field_key"
-)
+
+
+def _wasa_outcomes_without_a_certificate():
+    """WASA approvals whose certificate cannot be reached from the outcome.
+
+    Legacy held no file for some of them, and the outcome says so itself. The
+    rest name the submission they were read from, and its own entry holds the
+    attachment: a certificate carried forward from an earlier milestone belongs
+    to that earlier submission, not to the application this outcome sits under.
+    """
+    outcomes = list(
+        ProductOutcome.objects.filter(outcome_type="wasa_approval").values_list(
+            "pk",
+            "data",
+            "metadata",
+        ),
+    )
+    named = {data.get("submission_id") for _, data, _ in outcomes}
+    carried = {
+        pk: (data.get("wasa_certificate") or {}).get("attachment_id")
+        for pk, data in FormSubmission.objects.filter(pk__in=named).values_list(
+            "pk",
+            "data",
+        )
+    }
+    held = set(
+        FormAttachment.objects.filter(
+            pk__in={value for value in carried.values() if value},
+            field_key="wasa_certificate",
+        ).values_list("pk", flat=True),
+    )
+    return [
+        pk
+        for pk, data, metadata in outcomes
+        if metadata.get("legacy_note") != writer.WASA_NONE
+        and carried.get(data.get("submission_id")) not in held
+    ]
 
 
 def _status_mismatches():
@@ -217,12 +253,15 @@ def _checks():
             emailaddress__verified=True,
             emailaddress__primary=True,
         ),
+        # An unverified number is an SMS code at the first sign-in, for everyone
+        # legacy had a number for.
+        "users whose mobile number is unverified": User.objects.exclude(
+            phone_number="",
+        ).filter(phone_verified=False),
         "email addresses that differ from their user": EmailAddress.objects.exclude(
             email=F("user__email"),
         ),
-        "WASA outcomes without a certificate": ProductOutcome.objects.filter(
-            outcome_type="wasa_approval",
-        ).exclude(**{WASA_CERTIFICATE: "wasa_certificate"}),
+        "WASA outcomes without a certificate": (_wasa_outcomes_without_a_certificate()),
         # A registration that declared both keeps both, marked as a gap the
         # portal reads; anything else holding two tracks is a mistake.
         "products holding two exclusive tracks without the gap": Product.objects.filter(

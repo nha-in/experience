@@ -6,6 +6,7 @@ from cryptography.fernet import Fernet
 from django.contrib.sites.models import Site
 
 from ohc_experience.experiences.models import CertificationAgency
+from ohc_experience.legacy_import.management.commands import cutover
 from ohc_experience.legacy_import.management.commands.cutover import WASA_SEED
 from ohc_experience.legacy_import.management.commands.cutover import Command
 from ohc_experience.legacy_import.management.commands.cutover import roles_named
@@ -108,3 +109,96 @@ def test_the_site_keeps_the_domain_it_is_given(settings):
     Command().reseed("sandbox.abdm.gov.in")
 
     assert Site.objects.get(pk=settings.SITE_ID).domain == "sandbox.abdm.gov.in"
+
+
+#: What RDS answers when asked to make anyone a member of its own role.
+PROTECTED = 'cannot alter members of "rdsadmin"'
+
+
+class Answer:
+    """One statement's result, as `execute` hands it back."""
+
+    def __init__(self, row):
+        self.row = row
+
+    def fetchone(self):
+        return self.row
+
+    def __iter__(self):
+        """A cursor read row by row, as the role query reads it."""
+        return iter([self.row] if self.row else [])
+
+
+class FakeConnection:
+    def __init__(self, *rows):
+        self.answers = [Answer(row) for row in rows]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def execute(self, *_args, **_kwargs):
+        return self.answers.pop(0)
+
+
+def answering(monkeypatch, *rows):
+    monkeypatch.setattr(cutover.psycopg, "connect", lambda _dsn: FakeConnection(*rows))
+    return {
+        "admin_dsn": "dbname=postgres",
+        "legacy_db": "sandbox_legacy",
+        "reset": False,
+    }
+
+
+def test_a_database_that_cannot_be_reached_is_named_before_the_run():
+    """The first production attempt died here, after the download."""
+    options = {
+        "admin_dsn": "host=127.0.0.1 port=1 dbname=postgres connect_timeout=1",
+        "legacy_db": "sandbox_legacy",
+        "reset": False,
+    }
+
+    assert "cannot be reached" in Command().unusable_database(options)
+
+
+def test_a_user_who_cannot_create_a_database_is_refused(monkeypatch):
+    options = answering(monkeypatch, (False,), None)
+
+    assert "cannot create a database" in Command().unusable_database(options)
+
+
+def test_a_legacy_database_left_from_an_earlier_run_is_refused(monkeypatch):
+    options = answering(monkeypatch, (True,), (1,))
+
+    assert "--reset" in Command().unusable_database(options)
+
+
+def test_the_same_database_is_fine_when_the_run_will_drop_it(monkeypatch):
+    options = answering(monkeypatch, (True,), (1,))
+    options["reset"] = True
+
+    assert Command().unusable_database(options) == ""
+
+
+def test_a_role_that_will_not_have_us_does_not_stop_the_run(monkeypatch, tmp_path):
+    """RDS keeps `rdsadmin` to itself, and the dump names it like any other."""
+    dump = dump_file(tmp_path, 'ALTER TABLE public.sd_login OWNER TO "rdsadmin";\n')
+    refused = []
+
+    def connect(_dsn):
+        return FakeConnection(("rdsadmin",))
+
+    def run_sql(_dsn, statements):
+        for statement in statements:
+            if "rdsadmin" in statement and statement.startswith("grant"):
+                refused.append(statement)
+                raise cutover.psycopg.errors.InsufficientPrivilege(PROTECTED)
+
+    monkeypatch.setattr(cutover.psycopg, "connect", connect)
+    monkeypatch.setattr(cutover, "run_sql", run_sql)
+    command = Command()
+
+    assert command.prepare_roles(dump, "dbname=postgres") == []
+    assert refused == ['grant "rdsadmin" to current_user']
