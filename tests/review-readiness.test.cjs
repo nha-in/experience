@@ -15,6 +15,7 @@ function createPage({
   const groups = [];
   const readinessLists = [];
   const fieldsets = new Map();
+  const queries = new Map();
   const choices = [];
   const testingDates = [];
   const steps = [];
@@ -37,7 +38,7 @@ function createPage({
     getElementById(id) {
       if (id === form.id) return form;
       if (id === actions.id) return actions;
-      return fieldsets.get(id) || controls.find(input => input.id === id) || null;
+      return fieldsets.get(id) || queries.get(id) || controls.find(input => input.id === id) || null;
     },
   };
   document.body = document;
@@ -205,6 +206,22 @@ function createPage({
       querySelectorAll: selector => (selector === '[data-readiness-item]' ? [row] : []),
     });
   }
+  // A query in the queries card, where a queried field's Reply link leads. One
+  // the viewer cannot answer is folded, with no reply box.
+  function query(id, { folded = false } = {}) {
+    const reply = folded ? null : element({
+      id: id.replace('query', 'reply'),
+      matches: selector => selector.includes('textarea'),
+    });
+    const item = element({
+      id,
+      tagName: folded ? 'DETAILS' : 'ARTICLE',
+      open: false,
+      querySelector: selector => (selector === 'textarea' ? reply : null),
+    });
+    queries.set(id, item);
+    return { query: item, reply };
+  }
   const window = { addEventListener() {}, location: { hash: '' } };
   // Replacing the URL moves its hash without the jump that setting one makes.
   const history = {
@@ -233,7 +250,7 @@ function createPage({
     while (tasks.length) tasks.shift()();
   }
   return {
-    form, button, reason, jump, actions, group, date, nextStep, readiness, document, window, milestone, milestoneDates,
+    form, button, reason, jump, actions, group, date, nextStep, readiness, document, window, milestone, milestoneDates, query,
     submitLabel, selectionSummary,
     initialize: () => fire('DOMContentLoaded'),
     change: input => fire('change', input),
@@ -246,6 +263,16 @@ function createPage({
       let prevented = false;
       const link = { hash: `#${fieldId}` };
       fire('click', { closest: selector => (selector === '[data-readiness-label]' ? link : null) }, {
+        preventDefault() { prevented = true; },
+      });
+      return prevented;
+    },
+    // A queried field's Reply link. Reports whether the page kept the browser
+    // from following it.
+    clickQuery(queryId) {
+      let prevented = false;
+      const link = { hash: `#${queryId}` };
+      fire('click', { closest: selector => (selector === '[data-query-link]' ? link : null) }, {
         preventDefault() { prevented = true; },
       });
       return prevented;
@@ -899,4 +926,30 @@ test('typing a date never rewrites the earliest date of the field being typed', 
     assert.equal(field.min, min);
     assert.equal(writes, 0, `${field.name} had its minimum rewritten while it was typed`);
   }
+});
+
+
+test('a field\'s Reply lands in its query\'s reply box and flashes the query, as Continue does', () => {
+  const page = createPage();
+  const { query, reply } = page.query('query-7');
+
+  assert.equal(page.clickQuery('query-7'), true);
+  assert.equal(page.document.activeElement, reply);
+  assert.deepEqual(reply.scrolled, { block: 'center', behavior: 'smooth' });
+  assert.equal(page.window.location.hash, '#reply-7');
+  assert.equal(query.hasAttribute('data-flash'), true);
+
+  page.endAnimation(query, 'ui-flash');
+  assert.equal(query.hasAttribute('data-flash'), false);
+});
+
+test('a query the viewer cannot answer opens where it is folded', () => {
+  const page = createPage({ reducedMotion: true });
+  const { query } = page.query('query-8', { folded: true });
+
+  page.clickQuery('query-8');
+  assert.equal(query.open, true);
+  assert.equal(page.document.activeElement, query);
+  assert.deepEqual(query.scrolled, { block: 'center', behavior: 'instant' });
+  assert.equal(query.hasAttribute('data-flash'), true);
 });

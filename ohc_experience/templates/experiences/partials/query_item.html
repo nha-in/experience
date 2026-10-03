@@ -6,7 +6,8 @@ opens in place.
 {% endcomment %}
 {% if not collapsed %}
   <article class="flex flex-col gap-3 border-t border-soft-border {{ pad }} pt-4 pb-[18px]"
-           id="query-{{ query.pk }}">
+           id="query-{{ query.pk }}"
+           data-query-item>
     <div class="flex min-h-9 flex-wrap items-center justify-between gap-x-3 gap-y-2">
       <p class="text-sm font-semibold">{{ query.field_label }}</p>
       {% if query.status == 'answered' %}
@@ -33,14 +34,16 @@ opens in place.
         <label class="ui-label" for="reply-{{ query.pk }}">
           Your reply <span class="ui-required" aria-hidden="true">*</span>
         </label>
-        <textarea class="ui-textarea mt-1 mb-2 min-h-36" id="reply-{{ query.pk }}" name="body" rows="4" required maxlength="10000">
+        <textarea class="ui-textarea mt-1 mb-2 min-h-20" id="reply-{{ query.pk }}" name="body" rows="2" required maxlength="10000">
 </textarea>
         <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Send reply</button>
       </form>
     {% endif %}
   </article>
 {% else %}
-  <details class="group/q border-t border-soft-border" id="query-{{ query.pk }}">
+  <details class="group/q border-t border-soft-border"
+           id="query-{{ query.pk }}"
+           data-query-item>
     <summary class="grid min-h-11 cursor-pointer list-none grid-cols-[1rem_minmax(0,1fr)_auto_1rem] items-center gap-3 {{ pad }} py-2 text-sm transition-colors hover:bg-soft-background focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:grid-cols-[1rem_minmax(0,11rem)_minmax(0,1fr)_auto_1rem] [&::-webkit-details-marker]:hidden">
       {% if query.status == 'resolved' %}
         <svg viewBox="0 0 24 24"

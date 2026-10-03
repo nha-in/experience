@@ -9,6 +9,8 @@ from django.urls import reverse
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.registry import registry
+from ohc_experience.experiences.templatetags.experience_ui import open_queries
+from ohc_experience.experiences.templatetags.experience_ui import snapshot_rows
 from ohc_experience.experiences.tests.example_program import SupplierQuality
 from ohc_experience.users.tests.factories import ReviewerFactory
 from ohc_experience.users.tests.factories import UserFactory
@@ -448,6 +450,105 @@ def test_the_product_page_names_who_submitted_each_request(review_item, client):
 
     assert "Meera Krishnan" in row
     assert 'href="mailto:meera@sunrise.in"' in row
+
+
+def test_each_queried_field_leads_the_integrator_to_its_query(
+    review_item,
+    client,
+    owner_membership,
+):
+    integrator = owner_membership.user
+    reviewer = ReviewerFactory(is_nha_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+    for key, note in [
+        ("score", "Confirm this score against the report."),
+        ("form", "Attach the signed release note."),
+        ("score", "Say which page of the report carries it."),
+    ]:
+        workflows.decide(
+            review_item,
+            reviewer,
+            action="query",
+            field_key=key,
+            note=note,
+        )
+        review_item.refresh_from_db()
+    first_score, form, second_score = review_item.queries.all()
+    track = reverse(
+        "experiences:track",
+        args=[review_item.product.reference, "Quality"],
+    )
+    client.force_login(integrator)
+
+    def page():
+        html = client.get(f"{track}?milestone=inspection").content.decode()
+        alert = html[html.index("Your response is needed") :]
+        alert = alert[: alert.index("Withdraw request")]
+        submitted = html[
+            html.index(">Submitted form</h2>") : html.index('id="queries"')
+        ]
+        return " ".join(alert.split()), submitted
+
+    alert, submitted = page()
+    # The alert names each field queried, once.
+    assert (
+        'The reviewer raised queries on <span class="font-semibold">Score</span> and '
+        '<span class="font-semibold">the whole form</span>.'
+    ) in alert
+    # It leads to the first of them, as Continue leads to the first gap.
+    assert (
+        f'href="#query-{first_score.pk}" data-query-link>Reply to the queries</a>'
+    ) in alert
+    # The form marks what was queried and links to it: the whole form above
+    # the fields, a field in its own label. The questions stay in the queries
+    # card, so a long one cannot stretch the grid.
+    for query in (first_score, form, second_score):
+        assert query.question not in submitted
+    assert (
+        submitted.index(f'href="#query-{form.pk}"')
+        < submitted.index(">Report Reference")
+        < submitted.index(">Score")
+        < submitted.index(f'href="#query-{first_score.pk}"')
+    )
+
+    # Answering both of a field's queries clears its mark.
+    workflows.reply_query(first_score, integrator, "It matches the report.")
+    workflows.reply_query(second_score, integrator, "Page three.")
+    alert, submitted = page()
+    assert "Score" not in alert
+    assert f'href="#query-{form.pk}" data-query-link>Reply to the query</a>' in alert
+    assert f'href="#query-{first_score.pk}"' not in submitted
+    assert f'href="#query-{form.pk}"' in submitted
+
+
+def test_a_withdrawn_request_marks_no_field_as_queried(review_item, owner_membership):
+    reviewer = ReviewerFactory(is_nha_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+    workflows.decide(
+        review_item,
+        reviewer,
+        action="query",
+        field_key="score",
+        note="Confirm this score.",
+    )
+    review_item.refresh_from_db()
+
+    def rows():
+        return {
+            row["key"]: row
+            for row in snapshot_rows(review_item.selected_submission, review_item)
+        }
+
+    assert rows()["score"]["query_open"]
+    assert [query.question for query in rows()["score"]["queries"]] == [
+        "Confirm this score.",
+    ]
+
+    # The queries card files it as settled, and the form agrees.
+    workflows.withdraw(review_item, owner_membership.user)
+    review_item.refresh_from_db()
+    assert not rows()["score"]["query_open"]
+    assert open_queries(review_item) == []
 
 
 def test_client_response_alert_is_not_shown_to_reviewer(review_item):

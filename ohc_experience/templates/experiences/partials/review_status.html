@@ -1,3 +1,5 @@
+{% load experience_ui %}
+
 {% if item.status == 'approved' %}
   <div class="ui-alert ui-alert--success mb-5" role="status">
     <div class="flex-1">
@@ -30,6 +32,17 @@
     <div class="flex-1">
       <strong>{% if item.status == 'query_raised' %}Your response is needed{% elif item.definition.auto_approve %}Waiting to be recorded{% else %}Under review{% endif %}</strong>
       <p class="mt-1 text-xs">Submitted {{ item.submitted_at|date:'d/m/Y, H:i' }} IST. Withdraw the request to edit its form.</p>
+      {% if item.status == 'query_raised' %}
+        {% open_queries item as asked %}
+        {% if asked %}
+          <p class="mt-2" data-open-queries>
+            The reviewer raised {{ asked|length|pluralize:'a query,queries' }} on {% for query in asked|one_per_field %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<span class="font-semibold">{% if query.field_key == 'form' %}the whole form{% else %}{{ query.field_label }}{% endif %}</span>{% endfor %}.
+            <a class="font-semibold text-primary no-underline hover:underline"
+               href="#query-{{ asked.0.pk }}"
+               data-query-link>{% if can_integrate %}Reply to the{% else %}View the{% endif %} {{ asked|length|pluralize:'query,queries' }}</a>
+          </p>
+        {% endif %}
+      {% endif %}
       {% if waiting_on %}
         <p class="mt-2" data-prerequisite-wait>
           {% if item.definition.auto_approve %}It is recorded once {{ waiting_on }} approved.{% else %}It can be approved once {{ waiting_on }} approved.{% endif %}

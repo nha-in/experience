@@ -653,6 +653,16 @@
     animation: ui-flash 1.6s ease-out;
   }
 
+  [data-query-item][data-flash] {
+    @apply relative isolate;
+  }
+
+  [data-query-item][data-flash]::before {
+    content: "";
+    @apply pointer-events-none absolute inset-x-2 inset-y-1.5 -z-10 rounded-xl;
+    animation: ui-flash 1.6s ease-out;
+  }
+
   .ui-prose-link {
     @apply font-semibold text-primary-700 underline-offset-2 hover:text-primary-800 hover:underline;
   }

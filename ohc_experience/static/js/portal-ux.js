@@ -506,6 +506,17 @@
       event.preventDefault();
       jumpTo(firstIncomplete(document.getElementById(continueForm.dataset.continueForm)) ?? document.getElementById('evidence-actions'));
     }
+    // A queried field, or the alert naming it, leads to the query: into its
+    // reply box when the viewer can answer, with the query flashed as Continue
+    // flashes the section it lands in.
+    const queryLink = event.target.closest('[data-query-link]');
+    const query = queryLink && document.getElementById(queryLink.hash.slice(1));
+    if (query) {
+      event.preventDefault();
+      if (query.tagName === 'DETAILS') query.open = true;
+      jumpTo(query.querySelector('textarea') || query);
+      query.setAttribute('data-flash', '');
+    }
     const readinessLink = event.target.closest('[data-readiness-label]');
     if (readinessLink) {
       event.preventDefault();

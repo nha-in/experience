@@ -10,11 +10,21 @@
           {% include 'experiences/partials/submission_version.html' with submission=snapshot only %}
         </span>
       </div>
+      {% open_queries item snapshot as asked %}
+      {% for query in asked|one_per_field %}
+        {% if query.field_key == 'form' %}
+          <p class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-soft-foreground">
+            Whole form <span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>
+            {% include 'experiences/partials/query_link.html' %}
+          </p>
+        {% endif %}
+      {% endfor %}
       <dl class="grid gap-4 sm:grid-cols-2">
         {% for row in rows %}
           <div class="min-w-0 rounded-lg border p-4 {% if row.query_open %}border-amber-300 bg-amber-50{% else %}border-soft-border{% endif %}">
             <dt class="mb-1.5 flex flex-wrap items-center gap-2 text-xs text-soft-foreground">{{ row.label }}{% if row.query_open %}
               <span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>
+              {% include 'experiences/partials/query_link.html' with query=row.queries.0 %}
         {% endif %}
       </dt>
       <dd class="break-words text-sm leading-relaxed">

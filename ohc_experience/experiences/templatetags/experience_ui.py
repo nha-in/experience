@@ -73,6 +73,54 @@ def show_when(form, name):
     return _rule(form, getattr(form, "conditional_fields", {}).get(name))
 
 
+def _label_query(query, labels):
+    """Name the field a query asks about as the form it was asked of labels it."""
+    if query.submission_id not in labels:
+        labels[query.submission_id] = {
+            field["key"]: field["label"] for field in query.submission.field_schema
+        }
+    query.field_label = (
+        "Whole form"
+        if query.field_key == "form"
+        else labels[query.submission_id].get(
+            query.field_key,
+            readable(query.field_key),
+        )
+    )
+    return query
+
+
+@register.simple_tag
+def open_queries(item, snapshot=None):
+    """Questions on this submission still waiting for the integrator's reply.
+
+    Only a request under review takes replies, and only on the submission they
+    were asked of, so these are the open queries the queries card keeps in play.
+    """
+    if not item or not item.pending:
+        return []
+    snapshot_id = snapshot.pk if snapshot else item.selected_submission_id
+    if not snapshot_id or snapshot_id != item.selected_submission_id:
+        return []
+    labels = {}
+    return [
+        _label_query(query, labels)
+        for query in item.queries.filter(
+            submission_id=snapshot_id,
+            status="open",
+        ).select_related("submission", "raised_by")
+    ]
+
+
+@register.filter
+def one_per_field(queries):
+    """The first of these queries on each field, in the order they were raised."""
+    first = {}
+    for query in queries:
+        first.setdefault(query.field_key, query)
+    return list(first.values())
+
+
 @register.simple_tag
 def snapshot_rows(snapshot, item=None):
     if not snapshot:
@@ -80,16 +128,9 @@ def snapshot_rows(snapshot, item=None):
     attachments = {}
     for attachment in snapshot.attachments.filter(is_current=True):
         attachments.setdefault(attachment.field_key, []).append(attachment)
-    open_fields = (
-        set(
-            item.queries.filter(submission=snapshot, status="open").values_list(
-                "field_key",
-                flat=True,
-            ),
-        )
-        if item
-        else set()
-    )
+    asked = {}
+    for query in open_queries(item, snapshot):
+        asked.setdefault(query.field_key, []).append(query)
     rows = []
     for field in snapshot.field_schema:
         key = field["key"]
@@ -108,7 +149,8 @@ def snapshot_rows(snapshot, item=None):
                 "value": value,
                 "files": attachments.get(key, []),
                 "file_field": "File" in field["type"] or "Image" in field["type"],
-                "query_open": key in open_fields,
+                "queries": asked.get(key, []),
+                "query_open": key in asked,
             },
         )
     return rows
@@ -128,18 +170,7 @@ def query_groups(item, *, can_resolve=False, can_reply=False):
     groups = {"actionable": [], "waiting": [], "settled": [], "answered": 0, "open": 0}
     labels = {}
     for query in item.queries.select_related("submission", "raised_by", "replied_by"):
-        if query.submission_id not in labels:
-            labels[query.submission_id] = {
-                field["key"]: field["label"] for field in query.submission.field_schema
-            }
-        query.field_label = (
-            "Whole form"
-            if query.field_key == "form"
-            else labels[query.submission_id].get(
-                query.field_key,
-                readable(query.field_key),
-            )
-        )
+        _label_query(query, labels)
         query.earlier_submission = query.submission_id != item.selected_submission_id
         query.live = (
             item.pending and not query.earlier_submission and query.status != "resolved"

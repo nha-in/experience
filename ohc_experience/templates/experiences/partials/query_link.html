@@ -1,0 +1,4 @@
+{# The way from a queried field to its open query in the queries card, which holds the question and the reply form. #}
+<a class="-my-1 ml-auto py-1 font-semibold text-primary no-underline hover:underline"
+   href="#query-{{ query.pk }}"
+   data-query-link>{% if can_integrate %}Reply<span class="sr-only"> to the query on {{ query.field_label }}</span>{% else %}View query<span class="sr-only"> on {{ query.field_label }}</span>{% endif %}</a>
