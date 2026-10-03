@@ -7,7 +7,8 @@
              id="queries"
              aria-labelledby="queries-title">
       <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-5 pb-3.5">
-        <h2 class="text-base font-bold" id="queries-title">Queries</h2>
+        <h2 class="flex items-center gap-2 text-base font-bold"
+            id="queries-title">{% include "components/nav_icon.html" with icon="query" icon_size="size-[18px] text-soft-foreground" %}Queries</h2>
         {% if groups.answered or groups.open %}
           <p class="text-xs text-soft-foreground">
             {% if groups.open %}

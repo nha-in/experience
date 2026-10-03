@@ -28,7 +28,7 @@
               {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
             {% endif %}
           </div>
-          <p class="ui-card-description">{% if item.pending %}Your submission is with the review team. Follow any questions below.{% else %}Add the audit details, expiry date and certificate for review.{% endif %}</p>
+          <p class="ui-card-description">{% if item.pending %}Your submission is with the review team. Follow any queries below.{% else %}Add the audit details, expiry date and certificate for review.{% endif %}</p>
           {% if item %}<p class="mt-2 font-mono text-xs text-soft-foreground">{{ item.application.reference }}</p>{% endif %}
         </div>
         <div class="ui-card-content">

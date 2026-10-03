@@ -9,9 +9,11 @@
              aria-labelledby="review-queries-title{% if return_to_product %}-{{ item.pk }}{% endif %}">
       <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 {{ pad }} {% if return_to_product %}pt-3.5{% endif %} pb-3.5">
         {% if return_to_product %}
-          <h3 class="ui-card-title" id="review-queries-title-{{ item.pk }}">Queries</h3>
+          <h3 class="ui-card-title flex items-center gap-2"
+              id="review-queries-title-{{ item.pk }}">{% include "components/nav_icon.html" with icon="query" icon_size="size-[18px] text-soft-foreground" %}Queries</h3>
         {% else %}
-          <h2 class="ui-card-title" id="review-queries-title">Queries</h2>
+          <h2 class="ui-card-title flex items-center gap-2"
+              id="review-queries-title">{% include "components/nav_icon.html" with icon="query" icon_size="size-[18px] text-soft-foreground" %}Queries</h2>
         {% endif %}
         {% if groups.answered or groups.open %}
           <p class="text-xs text-soft-foreground">
