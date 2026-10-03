@@ -30,6 +30,15 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 
+def submitted_requests(user):
+    """Every request the queue shows, once. A registration is only a record."""
+    return (
+        permissions.visible_reviews(user)
+        .exclude(kind=ReviewItem.Kind.PRODUCT)
+        .exclude(status=ReviewItem.Status.DRAFT)
+    )
+
+
 def queue_requests(user):
     """Represent an organisation review on each product the reviewer can open.
 
@@ -39,9 +48,7 @@ def queue_requests(user):
     """
     products = permissions.visible_products(user)
     return (
-        permissions.visible_reviews(user)
-        .exclude(kind=ReviewItem.Kind.PRODUCT)
-        .exclude(status=ReviewItem.Status.DRAFT)
+        submitted_requests(user)
         .annotate(
             organisation_product=FilteredRelation(
                 "organisation__products",

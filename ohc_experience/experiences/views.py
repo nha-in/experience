@@ -96,6 +96,7 @@ from .queue_presentation import grouped_requests
 from .queue_presentation import populate_queue_page
 from .queue_presentation import queue_requests
 from .queue_presentation import review_order
+from .queue_presentation import submitted_requests
 from .registry import get_program
 from .support_presentation import support_inbox
 
@@ -2346,9 +2347,22 @@ def _bar_height(count, busiest):
 
 
 def _status_card(user, item, title, caption, months):
-    """The queue's rows for one Type filter, and its decisions in each month."""
+    """The queue's rows for one Type filter, and its decisions in each month.
+
+    An organisation holds a single verification, which the queue repeats on
+    every product it owns; counted that way an organisation would be counted
+    once per product. A milestone request belongs to one product, so a track
+    counts the queue's own rows.
+    """
     item_filter = _item_filter(get_program(), item)
-    requests = queue_requests(user).filter(item_filter)
+    verifications = item == ReviewItem.Kind.ORGANISATION.value
+    requests = (
+        submitted_requests(user) if verifications else queue_requests(user)
+    ).filter(item_filter)
+
+    def rows(query):
+        return query.count() if verifications else grouped_requests(query).count()
+
     decisions = _decisions_by_month(
         permissions.visible_reviews(user).filter(item_filter),
         months,
@@ -2360,31 +2374,25 @@ def _status_card(user, item, title, caption, months):
     return {
         "title": title,
         "caption": caption,
-        "total": grouped_requests(requests).count(),
+        "total": rows(requests),
         "url": _queue_url(scope="all", item=item),
         "tiles": [
             {
                 "label": "Pending",
                 "variant": "info",
-                "count": grouped_requests(
-                    requests.filter(status__in=services.PENDING_STATUSES),
-                ).count(),
+                "count": rows(requests.filter(status__in=services.PENDING_STATUSES)),
                 "url": _queue_url(scope="ready", item=item),
             },
             {
                 "label": "Rejected",
                 "variant": "warning",
-                "count": grouped_requests(
-                    requests.filter(status=ReviewItem.Status.REJECTED),
-                ).count(),
+                "count": rows(requests.filter(status=ReviewItem.Status.REJECTED)),
                 "url": _queue_url(scope="all", status="rejected", item=item),
             },
             {
                 "label": "Approved",
                 "variant": "success",
-                "count": grouped_requests(
-                    requests.filter(status=ReviewItem.Status.APPROVED),
-                ).count(),
+                "count": rows(requests.filter(status=ReviewItem.Status.APPROVED)),
                 "url": _queue_url(scope="all", status="approved", item=item),
             },
         ],
