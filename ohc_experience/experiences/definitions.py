@@ -49,6 +49,13 @@ class DocumentReadError(Exception):
         super().__init__(message)
 
 
+class AnswerWarning(NamedTuple):
+    """A saved answer the form accepted that a reader should look at twice."""
+
+    label: str
+    detail: str = ""
+
+
 class ApplicationFormDefinition:
     """Form identity, validation class and application-specific lifecycle hooks."""
 
@@ -110,6 +117,16 @@ class ApplicationFormDefinition:
     @classmethod
     def snapshot_valid_until(cls, form):
         """Optional validity date for this exact submission revision."""
+
+    @classmethod
+    def answer_warnings(cls, data):
+        """What in a saved submission's answers deserves a second look.
+
+        Return `{field key: AnswerWarning}`. A warning blocks nothing: it is
+        shown beside the answer wherever the submitted form is, to the
+        reviewer deciding it as much as to the integrator who sent it.
+        """
+        return {}
 
     @classmethod
     def read_document(cls, field_key, upload, *, refresh=False):

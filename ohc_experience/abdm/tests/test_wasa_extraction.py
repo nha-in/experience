@@ -22,7 +22,6 @@ from ohc_experience.abdm.forms import WasaReviewForm
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.wasa import WASA_FIELDS
-from ohc_experience.abdm.wasa import validity_limit
 from ohc_experience.abdm.wasa_extraction import WasaExtractionError
 from ohc_experience.abdm.wasa_extraction import extract_certificate
 from ohc_experience.experiences.models import CertificationAgency
@@ -59,7 +58,6 @@ def stated(**overrides) -> str:
             "is_certificate": True,
             "agency": AGENCY,
             "audit_date": (today - timedelta(days=20)).isoformat(),
-            "valid_until": (today + timedelta(days=345)).isoformat(),
         }
         | overrides,
     )
@@ -87,7 +85,6 @@ def test_stated_fields_are_returned(reader):
     assert extract_certificate(certificate()) == {
         "wasa_agency": AGENCY,
         "wasa_date": (today - timedelta(days=20)).isoformat(),
-        "wasa_valid_until": (today + timedelta(days=345)).isoformat(),
     }
 
 
@@ -168,7 +165,6 @@ def test_a_document_that_is_not_a_certificate_is_refused(reader, denial):
         is_certificate=denial,
         agency="",
         audit_date="",
-        valid_until="",
     )
 
     with pytest.raises(WasaExtractionError) as failure:
@@ -184,7 +180,6 @@ def test_a_refusal_does_not_override_the_certificate_it_was_asked_about(reader):
         {
             "agency": AGENCY,
             "audit_date": timezone.localdate().isoformat(),
-            "valid_until": "",
         },
     )
 
@@ -201,6 +196,8 @@ def test_the_model_is_asked_to_check_the_document_first(sent):
     assert "Safe to Host" in instruction
     # An audit runs over days; the certificate is dated by the day it ended.
     assert "give the last day of that range" in instruction
+    # The form works the expiry out from the audit date, so it is not asked for.
+    assert "valid_until" not in instruction
 
 
 @pytest.mark.parametrize(
@@ -219,13 +216,13 @@ def test_an_audit_spanning_days_is_dated_by_the_day_it_ended(reader):
     assert extract_certificate(certificate())["wasa_date"] == "2026-04-03"
 
 
-def test_a_certificate_that_states_no_expiry_leaves_it_for_the_form(reader):
-    """The form derives a year from the audit date; an empty reply lets it."""
-    reader["reply"] = stated(valid_until="")
+def test_an_expiry_in_the_reply_is_never_proposed(reader):
+    """The form works the expiry out from the audit date; only people change it."""
+    reader["reply"] = stated(valid_until="2027-01-31")
 
     details = extract_certificate(certificate())
 
-    assert details["wasa_valid_until"] == ""
+    assert "wasa_valid_until" not in details
     assert details["wasa_date"]
 
 
@@ -233,42 +230,6 @@ def test_a_future_audit_date_is_dropped(reader):
     tomorrow = timezone.localdate() + timedelta(days=1)
     reader["reply"] = stated(audit_date=tomorrow.isoformat())
     assert extract_certificate(certificate())["wasa_date"] == ""
-
-
-def test_an_expiry_before_the_audit_is_dropped(reader):
-    today = timezone.localdate()
-    reader["reply"] = stated(
-        audit_date=(today - timedelta(days=20)).isoformat(),
-        valid_until=(today - timedelta(days=40)).isoformat(),
-    )
-    details = extract_certificate(certificate())
-    assert details["wasa_valid_until"] == ""
-    assert details["wasa_date"] == (today - timedelta(days=20)).isoformat()
-
-
-def test_an_expiry_beyond_the_year_the_audit_buys_is_dropped(reader):
-    """The field it fills is read-only, so clean() must not refuse what lands."""
-    audit = timezone.localdate() - timedelta(days=20)
-    reader["reply"] = stated(
-        audit_date=audit.isoformat(),
-        valid_until=(validity_limit(audit) + timedelta(days=1)).isoformat(),
-    )
-    details = extract_certificate(certificate())
-    assert details["wasa_valid_until"] == ""
-    assert details["wasa_date"] == audit.isoformat()
-
-
-def test_an_expiry_exactly_a_year_after_the_audit_is_kept(reader):
-    audit = timezone.localdate() - timedelta(days=20)
-    reader["reply"] = stated(
-        audit_date=audit.isoformat(),
-        valid_until=validity_limit(audit).isoformat(),
-    )
-
-    assert (
-        extract_certificate(certificate())["wasa_valid_until"]
-        == validity_limit(audit).isoformat()
-    )
 
 
 @pytest.mark.parametrize("reply", ["not json at all", "[]", '{"agency": ', '"text"'])
@@ -287,7 +248,7 @@ def test_the_same_file_is_only_read_once(reader):
 
 def test_a_reading_that_proposed_nothing_is_not_kept(reader):
     """Nothing useful was learned, so the next attempt deserves its own look."""
-    reader["reply"] = stated(agency="Unlisted", audit_date="", valid_until="")
+    reader["reply"] = stated(agency="Unlisted", audit_date="")
     assert not any(extract_certificate(certificate()).values())
 
     reader["reply"] = stated()
@@ -462,7 +423,6 @@ def test_the_certification_page_reads_a_chosen_certificate(
         "fields": {
             "wasa_agency": AGENCY,
             "wasa_date": (today - timedelta(days=20)).isoformat(),
-            "wasa_valid_until": (today + timedelta(days=345)).isoformat(),
         },
     }
 

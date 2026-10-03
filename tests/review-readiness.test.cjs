@@ -32,6 +32,8 @@ function createPage({
       if (selector === '[data-review-form]') return [form];
       if (selector === '[data-next-step]') return steps;
       if (selector === '[data-readiness-form]') return readinessLists;
+      // The page derives each expiry from its audit date as it loads.
+      if (selector === '[data-autofill-target]') return form.querySelectorAll(selector);
       return [];
     },
     querySelector() { return null; },
@@ -492,7 +494,9 @@ test('sandbox end date follows the start date while retaining its latest allowed
 });
 
 const EXPIRED = 'This certificate has expired. Submit a renewed WASA certificate.';
-const OVER_VALIDITY = 'A WASA certificate runs for at most a year. The expiry date cannot be more than a year after the audit date.';
+// What the form renders for project.js to fill with the date a year would end.
+const PERIOD = "This isn't one year from the audit date, which would run to {date}. Keep it only if the certificate states it: the reviewer will see this note.";
+const noted = date => PERIOD.replace('{date}', date);
 
 // The expiry's field, as far as the flag reaches into it: the error box the
 // server prints after a refused submission, and the spans inside it.
@@ -525,8 +529,8 @@ function expiryField(page, expiry, { printed = false } = {}) {
   Object.assign(expiry, {
     id: 'id_wasa_valid_until',
     // What the form renders: the wording clean() refuses an expired date with,
-    // and one that outruns the year its audit buys.
-    dataset: { ...expiry.dataset, expiredMessage: EXPIRED, overValidityMessage: OVER_VALIDITY },
+    // and the note for a period other than the year its audit opens.
+    dataset: { ...expiry.dataset, expiredMessage: EXPIRED, periodMessage: PERIOD },
     closest: selector => (selector === '.ui-field' ? field : closest(selector)),
     getAttribute: name => (attributes.has(name) ? attributes.get(name) : null),
     setAttribute: (name, value) => attributes.set(name, String(value)),
@@ -546,7 +550,16 @@ function expiryField(page, expiry, { printed = false } = {}) {
     expiry.setAttribute('aria-invalid', 'true');
     expiry.setAttribute('aria-describedby', box.id);
   }
-  return { errors: () => field.querySelectorAll('.ui-error').map(error => error.textContent) };
+  const said = className => {
+    const found = [];
+    const walk = parent => parent.children.forEach(child => {
+      if (child.className === className) found.push(child.textContent);
+      walk(child);
+    });
+    walk(field);
+    return found;
+  };
+  return { errors: () => said('ui-error'), notes: () => said('ui-warning') };
 }
 
 test('an expired WASA certificate is refused beside its field, however the date arrived', () => {
@@ -627,59 +640,114 @@ test('a certificate taken from the product is never flagged', () => {
   assert.deepEqual(field.errors(), []);
 });
 
-test('an expiry more than a year after the audit date is refused beside its field', () => {
+test('the expiry follows the audit date until it is changed by hand, and is then noted, not refused', () => {
   const today = '2026-09-18';
   const page = createPage();
   const audit = page.date('wasa_date', {
     value: '2026-09-16', max: today, dataset: { autofillTarget: 'wasa_valid_until', autofillYears: '1' },
   });
-  // Read off the certificate, so no audit date rewrites it.
-  const expiry = page.date('wasa_valid_until', {
-    value: '2027-09-15', min: today, required: true, dataset: { documentRead: 'true' },
-  });
+  // Saved with a draft as the audit date gave it: a year, ending the day before
+  // the anniversary. Nothing to say, and it is still the audit date's.
+  const expiry = page.date('wasa_valid_until', { value: '2027-09-15', min: today, required: true });
   const field = expiryField(page, expiry);
   page.initialize();
+  assert.deepEqual(field.notes(), []);
 
-  // The ceiling is the audit's anniversary.
-  assert.equal(expiry.max, '2027-09-16');
-  assert.deepEqual(field.errors(), []);
-  assert.equal(page.button.disabled, false);
-
-  // An earlier audit brings the ceiling below the certificate's own expiry.
+  // So a corrected audit date moves it.
   audit.value = '2026-09-10';
   page.change(audit);
-  assert.equal(expiry.value, '2027-09-15');
-  assert.equal(expiry.max, '2027-09-10');
-  assert.deepEqual(field.errors(), [OVER_VALIDITY]);
-  assert.equal(expiry.getAttribute('aria-invalid'), 'true');
-  assert.equal(page.button.disabled, true);
+  assert.equal(expiry.value, '2027-09-09');
+  assert.deepEqual(field.notes(), []);
 
-  // Said once, however many times the field changes.
-  page.change(audit);
-  page.input(expiry);
-  assert.deepEqual(field.errors(), [OVER_VALIDITY]);
-
-  // A lapsed expiry says why in the other sentence, never both.
-  expiry.value = '2026-01-01';
+  // The integrator changes it to what the certificate states.
+  expiry.value = '2027-09-15';
   page.change(expiry);
-  assert.deepEqual(field.errors(), [EXPIRED]);
-
-  expiry.value = '2027-09-10';
-  page.change(expiry);
+  assert.deepEqual(field.notes(), [noted('09/09/2027')]);
+  assert.equal(expiry.getAttribute('aria-describedby'), 'id_wasa_valid_until_period_note');
+  // A note, not an error: nothing caps the field and nothing holds the request.
+  assert.equal(expiry.max, '');
   assert.deepEqual(field.errors(), []);
   assert.equal(expiry.getAttribute('aria-invalid'), null);
   assert.equal(page.button.disabled, false);
+  assert.equal(page.reason.textContent, '');
 
-  // A 29 February audit ends its year on the 28th.
-  audit.value = '2024-02-29';
+  // Said once, however many times the field changes.
+  page.change(expiry);
+  page.input(expiry);
+  assert.deepEqual(field.notes(), [noted('09/09/2027')]);
+
+  // Their date is theirs: a corrected audit date leaves it and moves the note.
+  audit.value = '2026-09-12';
   page.change(audit);
-  assert.equal(expiry.max, '2025-02-28');
+  assert.equal(expiry.value, '2027-09-15');
+  assert.deepEqual(field.notes(), [noted('11/09/2027')]);
 
-  // With no audit date there is no ceiling to outrun.
+  // A shorter period is noted the same way.
+  expiry.value = '2027-03-09';
+  page.change(expiry);
+  assert.deepEqual(field.notes(), [noted('11/09/2027')]);
+  assert.equal(page.button.disabled, false);
+
+  // A lapsed expiry is refused instead, never both.
+  expiry.value = '2026-01-01';
+  page.change(expiry);
+  assert.deepEqual(field.errors(), [EXPIRED]);
+  assert.deepEqual(field.notes(), []);
+  assert.equal(page.button.disabled, true);
+
+  // Setting it back to the year the audit opens clears both, and hands the
+  // expiry back to the audit date.
+  expiry.value = '2027-09-11';
+  page.change(expiry);
+  assert.deepEqual(field.errors(), []);
+  assert.deepEqual(field.notes(), []);
+  assert.equal(expiry.getAttribute('aria-describedby'), '');
+  assert.equal(page.button.disabled, false);
+  audit.value = '2026-09-14';
+  page.change(audit);
+  assert.equal(expiry.value, '2027-09-13');
+
+  // With no audit date there is no year to measure against.
+  expiry.value = '2027-03-09';
+  page.change(expiry);
   audit.value = '';
   page.change(audit);
-  assert.equal(expiry.max, '');
-  assert.deepEqual(field.errors(), []);
+  assert.equal(expiry.value, '2027-03-09');
+  assert.deepEqual(field.notes(), []);
+});
+
+test('a 29 February audit runs its year to the 28th', () => {
+  const page = createPage();
+  const audit = page.date('wasa_date', {
+    value: '2024-02-29', dataset: { autofillTarget: 'wasa_valid_until', autofillYears: '1' },
+  });
+  const expiry = page.date('wasa_valid_until', { min: '2024-03-01' });
+  const field = expiryField(page, expiry);
+  page.initialize();
+  assert.equal(expiry.value, '2025-02-28');
+  assert.deepEqual(field.notes(), []);
+
+  expiry.value = '2025-03-01';
+  page.change(expiry);
+  assert.deepEqual(field.notes(), [noted('28/02/2025')]);
+  assert.equal(audit.value, '2024-02-29');
+});
+
+test('a certificate taken from the product is never noted', () => {
+  const page = createPage();
+  page.date('wasa_date', {
+    value: '2026-09-10', dataset: { autofillTarget: 'wasa_valid_until', autofillYears: '1' },
+  });
+  const expiry = page.date('wasa_valid_until', { value: '2027-03-09', min: '2026-09-18' });
+  const field = expiryField(page, expiry);
+  page.initialize();
+  assert.deepEqual(field.notes(), [noted('09/09/2027')]);
+
+  // Choosing the product's certificate disables and hides the upload's own
+  // fields: nothing there is the integrator's to correct.
+  expiry.disabled = true;
+  page.change(expiry);
+  assert.deepEqual(field.notes(), []);
 });
 
 test('milestone selection includes prerequisites and names exactly what will be submitted', () => {

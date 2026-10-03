@@ -4,11 +4,11 @@ const { join } = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 
-// The WASA audit date and the read-only expiry it derives, as the form renders
-// them: the expiry is found through the form, and the page finds the audit
-// date the moment it loads.
-function audit({ expiry = '', readOnly = true, dataset = {} } = {}) {
-  const target = { value: expiry, readOnly, dataset };
+// The WASA audit date and the expiry it derives, as the form renders them: the
+// expiry is found through the form, and the page finds the audit date the
+// moment it loads.
+function audit({ expiry = '', dataset = {} } = {}) {
+  const target = { value: expiry, dataset };
   const form = { querySelectorAll: () => [target] };
   const source = {
     value: '',
@@ -61,15 +61,6 @@ test('an audit date derives the expiry a year on, ending the day before', () => 
   assert.equal(target.dataset.autofilled, 'true');
 });
 
-test('a correction to the audit date moves an expiry saved earlier', () => {
-  // The field is read-only, so a saved expiry is not a value of the
-  // integrator's to keep: leaving it would strand a date nobody can reach.
-  const { source, target } = audit({ expiry: '2027-03-13' });
-  source.value = '2026-05-10';
-  page(source).change();
-  assert.equal(target.value, '2027-05-09');
-});
-
 test('an expiry saved earlier survives the page it is drawn on', () => {
   // A certificate may run for less than the year the arithmetic assumes, and
   // drawing the form again must not quietly extend what it states.
@@ -86,25 +77,37 @@ test('an empty expiry is filled as soon as the page is drawn', () => {
   assert.equal(target.value, '2027-09-01');
 });
 
-test('the expiry a document reader found off the certificate stays put', () => {
-  const { source, target } = audit({
-    expiry: '2027-01-31',
-    dataset: { documentRead: 'true' },
-  });
-  source.value = '2026-05-10';
-  page(source).change();
-  assert.equal(target.value, '2027-01-31');
+test('an expiry saved as its audit date gave it still follows a corrected audit date', () => {
+  // A draft saves the derived expiry like any other answer, so only its value
+  // says nobody set it by hand.
+  const { source, target } = audit({ expiry: '2027-09-01' });
+  source.value = '2026-09-02';
+  const drawn = page(source);
+  drawn.load();
+  source.value = '2026-09-10';
+  drawn.change();
+  assert.equal(target.value, '2027-09-09');
+  assert.equal(target.dataset.autofilled, 'true');
 });
 
-test('a field the integrator can edit keeps the date they gave it', () => {
-  const { source, target } = audit({ expiry: '2027-03-13', readOnly: false });
+test('a correction to the audit date keeps the expiry the integrator gave', () => {
+  // The certificate may state another period; the page notes the difference
+  // beside the field rather than moving their date.
+  const { source, target } = audit({ expiry: '2027-03-13' });
   source.value = '2026-05-10';
   page(source).change();
   assert.equal(target.value, '2027-03-13');
 });
 
+test('a correction to the audit date moves an expiry it derived', () => {
+  const { source, target } = audit({ expiry: '2027-03-13', dataset: { autofilled: 'true' } });
+  source.value = '2026-05-10';
+  page(source).change();
+  assert.equal(target.value, '2027-05-09');
+});
+
 test('clearing the audit date clears the expiry that followed it', () => {
-  const { source, target } = audit({ expiry: '2027-05-09' });
+  const { source, target } = audit({ expiry: '2027-05-09', dataset: { autofilled: 'true' } });
   page(source).change();
   assert.equal(target.value, '');
   assert.equal(target.dataset.autofilled, 'false');

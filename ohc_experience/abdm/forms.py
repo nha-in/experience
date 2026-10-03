@@ -34,10 +34,8 @@ from .docs import docs_page
 from .wasa import WASA_FIELDS
 from .wasa import WASA_VALIDITY_YEARS
 from .wasa import approved_wasa_submission
-from .wasa import as_date
 from .wasa import certificate_context
 from .wasa import current_wasa
-from .wasa import validity_limit
 from .widgets import ListRadioSelect
 from .widgets import WasaCertificateInput
 
@@ -612,9 +610,10 @@ class UhiParticipationForm(ReviewForm):
 
 
 EXPIRED_CERTIFICATE = "This certificate has expired. Submit a renewed WASA certificate."
-OVER_VALIDITY = (
-    "A WASA certificate runs for at most a year. The expiry date cannot be "
-    "more than a year after the audit date."
+# project.js fills in the last day a year from the audit would run to.
+NOT_ONE_YEAR_NOTE = (
+    "This isn't one year from the audit date, which would run to {date}. Keep "
+    "it only if the certificate states it: the reviewer will see this note."
 )
 
 
@@ -651,18 +650,17 @@ class WasaReviewForm(ReviewForm):
             },
         ),
     )
-    # The expiry is not the integrator's to set: it follows the audit date, or
-    # the date the certificate itself states where its reader finds one. The
-    # field still posts, so clean() validates what arrives either way.
+    # The expiry is worked out as a year from the audit date, ending the day
+    # before its anniversary, and follows the audit date until the integrator
+    # changes it to what the certificate states. Any period is accepted: one
+    # that is not that year is noted beside the field, and for the reviewer.
     wasa_valid_until = forms.DateField(
         label="WASA valid until",
         help_text=(
-            "Filled in to cover one year from the audit date, or the expiry "
-            "printed on the certificate."
+            "Filled in to cover one year from the audit date. Change it if the "
+            "certificate states a different expiry date."
         ),
-        widget=forms.DateInput(
-            attrs={"type": "date", "autocomplete": "off", "readonly": True},
-        ),
+        widget=forms.DateInput(attrs={"type": "date", "autocomplete": "off"}),
     )
     wasa_certificate = forms.FileField(
         label="WASA certificate",
@@ -679,29 +677,17 @@ class WasaReviewForm(ReviewForm):
         today = timezone.localdate().isoformat()
         self.fields["wasa_date"].widget.attrs["max"] = today
         # The floor is what project.js measures an expired date against, so it
-        # can say why beside the field the moment one lands there, derived or
-        # read off the certificate, in the words clean() refuses it with. A
-        # draft still keeps one: it posts without the browser's validation, and
-        # records migrated with an expired certificate still open.
+        # can say why beside the field the moment one lands there, typed or
+        # derived, in the words clean() refuses it with. A draft still keeps
+        # one: it posts without the browser's validation, and records migrated
+        # with an expired certificate still open.
         expiry = self.fields["wasa_valid_until"].widget.attrs
         expiry["min"] = today
         expiry["data-expired-message"] = EXPIRED_CERTIFICATE
-        # The ceiling is the other bound project.js measures against: a
-        # certificate runs for a year at most from the audit it records, and a
-        # date read off the certificate can outrun it. project.js moves the
-        # ceiling as the audit date changes; this is the one the field is first
-        # drawn with.
-        expiry["data-over-validity-message"] = OVER_VALIDITY
-        audited = as_date(self._audit_date())
-        if audited:
-            expiry["max"] = validity_limit(audited).isoformat()
+        # There is no ceiling: a certificate states its own period. project.js
+        # notes one that is not a year from the audit date, in these words.
+        expiry["data-period-message"] = NOT_ONE_YEAR_NOTE
         self._agency_choices()
-
-    def _audit_date(self):
-        """The audit date the form is rendering with, posted or saved."""
-        if self.is_bound:
-            return self.data.get(self.add_prefix("wasa_date"))
-        return self.initial.get("wasa_date")
 
     def _agency_choices(self):
         # Earlier submissions accepted free text. Only their own saved value is
@@ -734,15 +720,6 @@ class WasaReviewForm(ReviewForm):
             )
         elif expiry and expiry < timezone.localdate() and not self.draft:
             self.add_error("wasa_valid_until", EXPIRED_CERTIFICATE)
-        elif (
-            audit_date
-            and expiry
-            and expiry > validity_limit(audit_date)
-            and not self.draft
-        ):
-            # Held to submission, like the expiry itself: a migrated record can
-            # carry a longer span and must still save as a draft.
-            self.add_error("wasa_valid_until", OVER_VALIDITY)
         return cleaned
 
 

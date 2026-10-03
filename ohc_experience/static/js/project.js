@@ -205,40 +205,67 @@
     return new Date(Date.UTC(year + years, month - 1, day - 1)).toISOString().slice(0, 10);
   }
 
-  // One year from the audit date: the latest expiry a certificate can carry.
-  // A 29 February anniversary rolls into March; pull it back to the 28th, as
-  // the server does.
-  function anniversary(value, years) {
-    const [year, month, day] = value.split('-').map(Number);
-    if (!year || !month || !day) return '';
-    const target = new Date(Date.UTC(year + years, month - 1, day));
-    if (target.getUTCMonth() !== month - 1) target.setUTCDate(0);
-    return target.toISOString().slice(0, 10);
+  // Day first, as every date a person reads is written.
+  function dayFirst(value) {
+    const [year, month, day] = value.split('-');
+    return `${day}/${month}/${year}`;
   }
 
-  // Whether the derived date may take the field. A field the integrator can
-  // edit keeps whatever they put in it, and on the page as it arrives nothing
-  // is rewritten: an expiry saved earlier is what a certificate stated, which
-  // no arithmetic here may quietly extend. Editing the date it follows is
-  // different, because that expiry now describes an audit that no longer
-  // exists, and a read-only field holds nothing of the integrator's to keep:
-  // leaving it would strand a date nobody can reach. What a document reader
-  // filled stays either way, being the expiry the certificate itself prints.
-  function derivable(target, edited) {
-    if (target.dataset.documentRead === 'true') return false;
-    if (target.readOnly && edited) return true;
-    return !target.value || target.dataset.autofilled === 'true';
+  // Whether the derived date may take the field: one that is empty, or still
+  // holds what the date it follows gave it, whoever saved it there. Anything
+  // else the integrator set by hand, and it stays; a date the audit date does
+  // not explain is noted beside the field instead.
+  function derivable(target, derived = '') {
+    return !target.value || target.dataset.autofilled === 'true' || target.value === derived;
   }
 
-  function autofillFromDate(source, edited = false) {
+  function autofillFromDate(source) {
     const form = source.closest('form');
     const years = Number.parseInt(source.dataset.autofillYears, 10);
     if (!form || !Number.isFinite(years)) return;
+    // What the date gave its target before this change. A draft saves the
+    // derived expiry like any other answer, so only its value says it was
+    // derived; on the page as it arrives, that is what the date gives now.
+    const before = source.dataset.autofillFrom ?? source.value;
+    const derived = before ? periodEnd(before, years) : '';
     form.querySelectorAll(`[name="${source.dataset.autofillTarget}"]`).forEach(target => {
-      if (!derivable(target, edited)) return;
+      if (!derivable(target, derived)) return;
       target.value = source.value ? periodEnd(source.value, years) : '';
       target.dataset.autofilled = target.value ? 'true' : 'false';
     });
+    source.dataset.autofillFrom = source.value;
+  }
+
+  // A date set by hand to other than the end of the period its source opens,
+  // for a certificate stating another period. The form accepts it, so this is
+  // a note in the warning colour, never an error, and the field stays valid;
+  // the reviewer is shown the same difference. A lapsed date is left to the
+  // error that refuses it.
+  function notePeriod(target, expected) {
+    const message = target.dataset.periodMessage;
+    if (!message) return;
+    const lapsed = Boolean(target.min) && target.value < target.min;
+    const text = !target.disabled && target.value && expected && target.value !== expected && !lapsed
+      ? message.replace('{date}', dayFirst(expected))
+      : '';
+    const id = `${target.id}_period_note`;
+    let note = document.getElementById(id);
+    if ((note?.textContent || '') === text) return;
+    if (text) {
+      if (!note) {
+        note = document.createElement('p');
+        note.id = id;
+        note.className = 'ui-warning';
+        (target.closest('.ui-field') || target.parentElement).append(note);
+      }
+      note.textContent = text;
+    } else {
+      note.remove();
+    }
+    const described = new Set((target.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+    if (text) described.add(id);
+    else described.delete(id);
+    target.setAttribute('aria-describedby', [...described].join(' '));
   }
 
   function updateWasaFields(form) {
@@ -275,10 +302,6 @@
     if (input.min !== value) input.min = value;
   }
 
-  function setMax(input, value) {
-    if (input.max !== value) input.max = value;
-  }
-
   // A milestone submitted alongside this one was usually tested over the same
   // days, so its dates start as this milestone's own and follow them until the
   // integrator changes them. The field being typed in is left alone: a date
@@ -312,38 +335,32 @@
     // even when testing ended in the past or its end date is cleared.
     if (end && demo) setMin(demo, end.value > end.max ? end.value : end.max);
     // The server floors a certificate's expiry at today, which no audit date
-    // can undercut: the audit itself is capped at today. The ceiling does move:
-    // a certificate runs for at most a year from the audit it records.
+    // can undercut: the audit itself is capped at today. There is no ceiling:
+    // a certificate states its own period, and one other than the year its
+    // audit opens is noted beside the field.
     form.querySelectorAll('[data-autofill-target]').forEach(source => {
       const years = Number.parseInt(source.dataset.autofillYears, 10);
       if (!Number.isFinite(years)) return;
       form.querySelectorAll(`[name="${source.dataset.autofillTarget}"]`).forEach(target => {
-        setMax(target, source.value ? anniversary(source.value, years) : '');
+        notePeriod(target, source.value ? periodEnd(source.value, years) : '');
       });
     });
     flagExpiredCertificate(form);
   }
 
-  // An expiry that has lapsed, or that outruns the year the audit buys, is
-  // refused on submission. Say so beside the field as soon as a date lands
-  // there, however it came: derived from the audit date, or read off the
-  // certificate, whose reader announces its values with a change event. The
-  // field is read-only, so this is the only warning before the server's.
+  // An expiry that has lapsed is refused on submission. Say so beside the
+  // field as soon as a date lands there, however it came: typed, or derived
+  // from an audit date, including one the certificate reader filled in and
+  // announced with a change event.
   function flagExpiredCertificate(form) {
     const expiry = form.querySelector('[name="wasa_valid_until"]');
-    const ours = [expiry?.dataset?.expiredMessage, expiry?.dataset?.overValidityMessage].filter(Boolean);
-    if (!ours.length) return;
+    const message = expiry?.dataset?.expiredMessage;
+    if (!message) return;
     const field = expiry.closest('.ui-field') || expiry.parentElement;
-    const live = expiry.disabled || !expiry.value
-      ? ''
-      : expiry.value < expiry.min
-        ? expiry.dataset.expiredMessage || ''
-        : expiry.max && expiry.value > expiry.max
-          ? expiry.dataset.overValidityMessage || ''
-          : '';
-    // A refused submission prints the same sentences; take that copy as ours.
-    const said = [...field.querySelectorAll('.ui-error')].filter(error => ours.includes(error.textContent.trim()));
-    if (said.length === (live ? 1 : 0) && (!live || said[0].textContent.trim() === live)) return;
+    const live = !expiry.disabled && expiry.value && expiry.value < expiry.min ? message : '';
+    // A refused submission prints the same sentence; take that copy as ours.
+    const said = [...field.querySelectorAll('.ui-error')].filter(error => error.textContent.trim() === message);
+    if (said.length === (live ? 1 : 0)) return;
     const id = `${expiry.id}_errors`;
     said.forEach(error => {
       const box = error.parentElement;
@@ -637,7 +654,7 @@
     const decision = event.target.closest('[data-decision-form]');
     if (decision) updateDecision(decision);
     const source = event.target.closest('[data-autofill-target]');
-    if (source) autofillFromDate(source, true);
+    if (source) autofillFromDate(source);
     const edited = event.target.closest('[data-autofilled]');
     if (edited && edited !== source) edited.dataset.autofilled = 'false';
     const form = event.target.closest('[data-review-form]');

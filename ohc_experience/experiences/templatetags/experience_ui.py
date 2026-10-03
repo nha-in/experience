@@ -5,6 +5,8 @@ import re
 from django import template
 from django.utils.formats import date_format
 
+from ohc_experience.experiences.registry import registry
+
 register = template.Library()
 
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -136,6 +138,7 @@ def snapshot_rows(snapshot, item=None, drafts=None):
     asked = {}
     for query in open_queries(item, snapshot):
         asked.setdefault(query.field_key, []).append(query)
+    warnings = registry.get_form(snapshot.form_key).answer_warnings(snapshot.data)
     rows = []
     for field in snapshot.field_schema:
         key = field["key"]
@@ -157,6 +160,7 @@ def snapshot_rows(snapshot, item=None, drafts=None):
                 "queries": asked.get(key, []),
                 "query_open": key in asked,
                 "draft": (drafts or {}).get(key),
+                "warning": warnings.get(key),
             },
         )
     return rows

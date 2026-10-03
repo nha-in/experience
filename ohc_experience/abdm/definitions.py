@@ -38,6 +38,7 @@ from .reference import ABDMReferenceEnvironment
 from .reject_reasons import EXIT_REJECT_REASONS
 from .reject_reasons import ORGANISATION_REJECT_REASONS
 from .skills import ABDMAgentSkills
+from .wasa import expiry_warnings
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
@@ -199,6 +200,10 @@ class ExitEvidence(ApplicationFormDefinition):
         return form.cleaned_data.get("wasa_valid_until")
 
     @classmethod
+    def answer_warnings(cls, data):
+        return expiry_warnings(data)
+
+    @classmethod
     def read_document(cls, field_key, upload, *, refresh=False):
         return read_wasa_certificate(field_key, upload, refresh=refresh)
 
@@ -262,6 +267,10 @@ class WasaReview(ApplicationFormDefinition):
     @classmethod
     def snapshot_valid_until(cls, form):
         return form.cleaned_data.get("wasa_valid_until")
+
+    @classmethod
+    def answer_warnings(cls, data):
+        return expiry_warnings(data)
 
     @classmethod
     def read_document(cls, field_key, upload, *, refresh=False):

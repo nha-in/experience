@@ -445,6 +445,13 @@
     @apply mt-1.5 block text-xs font-medium text-destructive;
   }
 
+  /* Beside a value the form accepts but someone should look at twice. It still
+     submits, so it reads as a caution, never in the error palette. */
+  .ui-warning {
+    @apply mt-1.5 block text-xs font-medium;
+    color: var(--status-warning-text);
+  }
+
   /* ── Progress ──────────────────────────────────────────────────────────── */
 
   .ui-progress-track {

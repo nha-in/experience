@@ -1,9 +1,11 @@
 """Product WASA projections backed by immutable, reviewed form submissions."""
 
 from datetime import date
+from datetime import timedelta
 
 from django.utils import timezone
 
+from ohc_experience.experiences.definitions import AnswerWarning
 from ohc_experience.experiences.definitions import OutcomeDefinition
 from ohc_experience.experiences.models import FormSubmission
 from ohc_experience.experiences.models import ProductOutcomeStatus
@@ -16,6 +18,8 @@ WASA_FIELDS = ("wasa_agency", "wasa_date", "wasa_valid_until")
 # field offers as a default; the date printed on the certificate still wins.
 # `valid_until` is inclusive, so that year ends the day before the anniversary.
 WASA_VALIDITY_YEARS = 1
+NOT_ONE_YEAR = "Not one year"
+ONE_YEAR_RUNS_TO = "A year from the audit date would run to {date}."
 
 
 def as_date(value):
@@ -27,13 +31,38 @@ def as_date(value):
         return None
 
 
-def validity_limit(audit_date, years=WASA_VALIDITY_YEARS):
-    """The latest expiry a certificate audited on this date can carry."""
+def one_year_expiry(audit_date, years=WASA_VALIDITY_YEARS):
+    """The expiry of a certificate that runs a year from this audit.
+
+    The audit day is the year's first, so the year ends the day before the
+    anniversary, as project.js derives it for the form.
+    """
     try:
-        return audit_date.replace(year=audit_date.year + years)
+        return audit_date.replace(year=audit_date.year + years) - timedelta(days=1)
     except ValueError:
         # A 29 February audit has no anniversary in a common year.
         return audit_date.replace(year=audit_date.year + years, day=28)
+
+
+def expiry_warnings(data):
+    """Note an expiry that is not a year from the audit, beside the answer.
+
+    A certificate may state another period, so the form accepts one; whoever
+    reads the saved answers is told rather than the integrator being refused.
+    """
+    audit = as_date(data.get("wasa_date"))
+    expiry = as_date(data.get("wasa_valid_until"))
+    if not audit or not expiry:
+        return {}
+    year_end = one_year_expiry(audit)
+    if expiry == year_end:
+        return {}
+    return {
+        "wasa_valid_until": AnswerWarning(
+            NOT_ONE_YEAR,
+            ONE_YEAR_RUNS_TO.format(date=f"{year_end:%d/%m/%Y}"),
+        ),
+    }
 
 
 def approved_wasa_outcomes(product):

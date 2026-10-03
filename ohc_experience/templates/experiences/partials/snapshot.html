@@ -26,6 +26,7 @@
               <span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>
               {% include 'experiences/partials/query_link.html' with query=row.queries.0 %}
         {% endif %}
+        {% if row.warning %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ row.warning.label }}</span>{% endif %}
       </dt>
       <dd class="break-words text-sm leading-relaxed">
         {% if row.files %}
@@ -47,6 +48,7 @@
         {% elif row.file_field %}
           <span class="text-soft-foreground">No file attached</span>
 {% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}
+{% if row.warning.detail %}<span class="mt-1 block text-xs text-soft-foreground">{{ row.warning.detail }}</span>{% endif %}
   </dd>
   </div>
 {% endfor %}

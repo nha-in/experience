@@ -99,6 +99,8 @@
             {% elif row.file_field %}<span class="font-normal text-soft-foreground">No file attached</span>
       {% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}
       {% if row.query_open %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>{% endif %}
+      {% if row.warning %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ row.warning.label }}</span>{% endif %}
+      {% if row.warning.detail %}<span class="basis-full text-xs font-normal text-soft-foreground">{{ row.warning.detail }}</span>{% endif %}
         </dd>
         {% if can_raise_query %}
           <dd data-query-button {% if row.draft is not None %}hidden{% endif %}>
