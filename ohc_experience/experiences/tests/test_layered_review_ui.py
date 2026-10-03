@@ -88,18 +88,13 @@ def test_queue_scope_tracks_a_real_decision(client, review_item):
     )
 
 
-def test_dashboard_counts_open_requests_and_this_months_decisions(
-    client,
-    review_item,
-):
+def test_dashboard_counts_this_months_decisions(client, review_item):
     reviewer = ReviewerFactory(is_nha_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
     url = reverse("experiences:assess-dashboard")
-    response = client.get(url)
-    assert response.context["my_open"] == 1
+    assert b"assigned to you" not in client.get(url).content
     workflows.decide(review_item, reviewer, action="approve", note="Evidence checked.")
     response = client.get(url)
-    assert response.context["my_open"] == 0
     [card] = response.context["track_cards"]
     assert (card["title"], card["this_month"]["approved"]) == ("Quality", 1)

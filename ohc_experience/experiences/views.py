@@ -2457,10 +2457,6 @@ def assess_dashboard(request):
     _reviewer_required(request)
     program = get_program()
     months = _last_twelve_months(timezone.localdate())
-    ready = permissions.visible_reviews(request.user).filter(
-        ~services.waiting_reviews(),
-        status__in=services.PENDING_STATUSES,
-    )
     context = _context(
         request,
         # Superusers administer the portal; Staff & permissions is theirs alone.
@@ -2468,7 +2464,6 @@ def assess_dashboard(request):
         if request.user.is_superuser
         else "Reviewer dashboard",
         nav="assess-dashboard",
-        my_open=ready.filter(assignee=request.user).count(),
         sandbox_card=_status_card(
             request.user,
             ReviewItem.Kind.ORGANISATION.value,
