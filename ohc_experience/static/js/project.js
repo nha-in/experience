@@ -469,7 +469,7 @@
   function updateDecision(form) {
     const action = form.querySelector('[name="action"]:checked')?.value || 'approve';
     const note = form.querySelector('[name="note"]');
-    const labels = { approve: ['Decision note', 'Record approval'], reject: ['Note for the integrator', 'Reject request'], query: ['Question', 'Send query'] };
+    const labels = { approve: ['Decision note', 'Record approval'], reject: ['Note for the integrator', 'Reject request'], query: ['Query', 'Send queries'] };
     const label = form.querySelector('[data-decision-label]');
     if (label) label.textContent = labels[action][0];
     // Forms that list reasons ask for one; the rest take the note alone.
@@ -479,20 +479,25 @@
     if (hint) hint.textContent = reason && !reason.value
       ? 'Choose a reason before rejecting.'
       : 'The integrator sees this reason above your note.';
+    const queued = updateQueries(form, action);
     const button = form.querySelector('[data-decision-submit]');
     if (button) {
-      button.textContent = labels[action][1];
-      // Prerequisites hold every decision but a query; open queries hold approval.
+      button.textContent = action === 'query'
+        ? (queued ? `Send ${queued} ${queued === 1 ? 'query' : 'queries'}` : 'Send queries')
+        : labels[action][1];
+      // Prerequisites hold every decision but a query; open queries hold approval;
+      // a query needs something to send.
       button.disabled = (action !== 'query' && form.dataset.decisionBlocked === 'true')
         || (action === 'approve' && form.dataset.approvalBlocked === 'true')
-        || (action === 'reject' && Boolean(reason) && !reason.value);
+        || (action === 'reject' && Boolean(reason) && !reason.value)
+        || (action === 'query' && !queued);
     }
     // Every decision needs the reviewer's own words, except a rejection a listed
     // reason already explains. Other, and a form with no list to choose from,
-    // leave the note carrying the reason.
+    // leave the note carrying the reason. A query's words are in its boxes.
     if (note) {
-      note.required = action !== 'reject'
-        || !reason || 'noteRequired' in (chosen?.dataset || {});
+      note.required = action !== 'query' && (action !== 'reject'
+        || !reason || 'noteRequired' in (chosen?.dataset || {}));
       // The floor guards a required note. Zero is the unconstrained default,
       // for the aside beside a listed reason.
       note.minLength = note.required ? Number(note.dataset.noteMinlength) : 0;
@@ -501,8 +506,97 @@
       if (marker) marker.hidden = !note.required;
     }
     form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
+    form.querySelectorAll('[data-note-controls]').forEach(el => { el.hidden = action === 'query'; });
     form.querySelectorAll('[data-approval-controls]').forEach(el => { el.hidden = action !== 'approve'; });
     form.querySelectorAll('[data-reject-controls]').forEach(el => { el.hidden = action !== 'reject'; });
+  }
+
+  // The query boxes beside a review's submitted form, each joined to its
+  // decision form by the form's id: Query opens one under its field, Remove
+  // closes and clears it.
+  function queryBoxes(form) {
+    return form.id ? [...document.querySelectorAll(`[data-query-for="${form.id}"] [data-query-draft]`)] : [];
+  }
+
+  function queryButton(form, box) {
+    return document.querySelector(`[data-query-form="${form.id}"][data-query-field="${box.dataset.queryDraft}"]`);
+  }
+
+  // Lists the open queries in the decision form, and says how many go in one
+  // send. A query goes only when Query is chosen: under another decision it is set
+  // aside, neither sent nor holding the form back.
+  function updateQueries(form, action) {
+    const querying = action === 'query';
+    const open = queryBoxes(form).filter(box => {
+      const question = box.querySelector('textarea');
+      if (question) question.disabled = box.hidden || !querying;
+      box.closest('[data-query-row]')?.toggleAttribute('data-query-selected', querying && !box.hidden);
+      // A field with its box open needs no Query beside it.
+      const button = queryButton(form, box)?.closest('[data-query-button]');
+      if (button) button.hidden = !box.hidden;
+      return !box.hidden;
+    });
+    const queries = `${open.length} ${open.length === 1 ? 'query' : 'queries'}`;
+    const count = form.querySelector('[data-query-count]');
+    if (count) {
+      count.textContent = `${queries} to send`;
+      count.hidden = !open.length;
+    }
+    const list = form.querySelector('[data-query-list]');
+    const template = form.querySelector('template[data-query-list-item]');
+    if (list && template) {
+      list.replaceChildren(...open.map(box => {
+        const entry = template.content.firstElementChild.cloneNode(true);
+        const about = box.dataset.queryDraft === 'form' ? 'the whole form' : box.dataset.queryLabel;
+        const link = entry.querySelector('[data-query-link]');
+        link.textContent = box.dataset.queryLabel;
+        link.href = `#${box.id}`;
+        entry.querySelector('[data-query-excerpt]').textContent = box.querySelector('textarea')?.value.trim() || 'Nothing written yet.';
+        const remove = entry.querySelector('[data-query-remove]');
+        remove.dataset.queryBox = box.id;
+        remove.querySelector('[data-query-remove-label]').textContent = `Remove the query about ${about}`;
+        return entry;
+      }));
+      list.hidden = !open.length;
+    }
+    const aside = form.querySelector('[data-query-aside]');
+    if (aside) {
+      aside.textContent = open.length === 1
+        ? 'Your query is not sent with this decision. Choose Query to send it.'
+        : `Your ${queries} are not sent with this decision. Choose Query to send them.`;
+      aside.hidden = querying || !open.length;
+    }
+    return open.length;
+  }
+
+  // Query beside a field opens its query box and chooses Query in the decision
+  // form, without the page load its link falls back to.
+  function openQuery(link) {
+    const form = document.getElementById(link.dataset.queryForm);
+    const query = form?.querySelector('[name="action"][value="query"]');
+    const box = queryBoxes(form || {}).find(candidate => candidate.dataset.queryDraft === link.dataset.queryField);
+    if (!query || query.disabled || !box) return false;
+    query.checked = true;
+    box.hidden = false;
+    updateDecision(form);
+    box.querySelector('textarea')?.focus();
+    return true;
+  }
+
+  // Remove clears a query and closes its box. Focus stays where the
+  // reviewer was: on the field's Query, or in the decision form's list.
+  function removeQuery(button) {
+    const box = button.dataset.queryBox ? document.getElementById(button.dataset.queryBox) : button.closest('[data-query-draft]');
+    const question = box?.querySelector('textarea');
+    const form = question?.form;
+    if (!form) return;
+    question.value = '';
+    box.hidden = true;
+    updateDecision(form);
+    const next = button.dataset.queryBox
+      ? form.querySelector('[data-query-list] [data-query-remove]') || form.querySelector('[name="action"][value="query"]')
+      : queryButton(form, box);
+    next?.focus();
   }
 
   function initialize(scope = document) {
@@ -554,12 +648,19 @@
   document.addEventListener('input', event => {
     const form = event.target.closest('[data-review-form]');
     if (form) updateSubmission(form);
+    // A query box belongs to its decision form only through the form attribute.
+    const decision = event.target.form;
+    if (decision?.matches?.('[data-decision-form]') && event.target.closest('[data-query-draft]')) updateDecision(decision);
   });
   document.addEventListener('drop', event => {
     const form = event.target.closest('[data-review-form]');
     if (form) setTimeout(() => updateSubmission(form), 0);
   });
   document.addEventListener('click', event => {
+    const open = event.target.closest('[data-query-field]');
+    if (open && openQuery(open)) event.preventDefault();
+    const remove = event.target.closest('[data-query-remove]');
+    if (remove) removeQuery(remove);
     const hide = event.target.closest('[data-hide-secret]');
     if (hide) hideSecret(hide.closest('[data-secret-container], #secret-value'), true);
     const form = event.target.closest('[data-review-form]');

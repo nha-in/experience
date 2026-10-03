@@ -10,7 +10,10 @@
 {% endif %}{% if reason %}{% translate "Reason" %}: {{ reason }}
 {% endif %}
 {% if note %}{{ note }}
-{% endif %}
+{% endif %}{% for label, question in questions %}{{ label }}:
+{{ question }}
+{% if not forloop.last %}
+{% endif %}{% endfor %}
 —
 {% blocktranslate with url=url %}Open the record in the portal: {{ url }}{% endblocktranslate %}
 {% translate "Please do not reply to this email." %}

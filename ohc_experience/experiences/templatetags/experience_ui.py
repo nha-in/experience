@@ -122,7 +122,12 @@ def one_per_field(queries):
 
 
 @register.simple_tag
-def snapshot_rows(snapshot, item=None):
+def snapshot_rows(snapshot, item=None, drafts=None):
+    """The submitted answers, one row per field.
+
+    `drafts` holds the reviewer's open question boxes by field key, so a row's
+    `draft` is its question so far, or None while its box is closed.
+    """
     if not snapshot:
         return []
     attachments = {}
@@ -151,9 +156,23 @@ def snapshot_rows(snapshot, item=None):
                 "file_field": "File" in field["type"] or "Image" in field["type"],
                 "queries": asked.get(key, []),
                 "query_open": key in asked,
+                "draft": (drafts or {}).get(key),
             },
         )
     return rows
+
+
+@register.simple_tag
+def decision_form_id(item, *, embedded=False):
+    """The id of the form that decides this review: the review page has one,
+    the product page one per request."""
+    return f"decision-form-{item.pk}" if embedded else "decision-form"
+
+
+@register.simple_tag
+def draft_for(drafts, key):
+    """A question box's text so far, or None while it is closed."""
+    return (drafts or {}).get(key)
 
 
 @register.simple_tag

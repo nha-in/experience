@@ -663,6 +663,11 @@
     animation: ui-flash 1.6s ease-out;
   }
 
+  /* A field's query box has no padding of its own, so its flash reaches past it. */
+  dd[data-query-item][data-flash]::before {
+    @apply -inset-x-3 -inset-y-1;
+  }
+
   .ui-prose-link {
     @apply font-semibold text-primary-700 underline-offset-2 hover:text-primary-800 hover:underline;
   }

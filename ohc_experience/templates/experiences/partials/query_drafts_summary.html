@@ -1,0 +1,39 @@
+{% comment %}
+The queries waiting to be sent, listed in the decision form. The
+script fills the list from the open question boxes, each item a link back to
+its box; the hint stays to say how to add one.
+{% endcomment %}
+<div data-query-controls
+     {% if decision_action != 'query' %}hidden{% endif %}>
+  <p class="text-sm font-semibold" data-query-count hidden></p>
+  <ul class="mt-1 mb-2.5 divide-y divide-soft-border border-y border-soft-border"
+      data-query-list
+      hidden>
+  </ul>
+  <p class="ui-hint">Choose Query beside a field, or Query the whole form, to write one. The integrator gets every query together, in one email.</p>
+  <template data-query-list-item>
+    <li class="flex items-start gap-2 py-2.5">
+      <div class="min-w-0 flex-1">
+        <a class="text-sm font-semibold text-primary no-underline hover:underline"
+           href="#"
+           data-query-link></a>
+        <p class="mt-0.5 line-clamp-1 text-xs leading-[18px] text-soft-foreground"
+           data-query-excerpt></p>
+      </div>
+      <button type="button"
+              class="ui-btn ui-btn--ghost ui-btn--size-icon-xs shrink-0"
+              data-query-remove>
+        <svg viewBox="0 0 24 24"
+             class="size-3.5"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+        <span class="sr-only" data-query-remove-label></span>
+      </button>
+    </li>
+  </template>
+</div>

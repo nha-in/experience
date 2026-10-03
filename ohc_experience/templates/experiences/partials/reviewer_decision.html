@@ -61,6 +61,7 @@
         <div class="mb-5">{% include 'experiences/partials/reviewer_dependants.html' %}</div>
       {% endif %}
       <form method="post"
+            id="decision-form"
             class="flex flex-col gap-5"
             data-decision-form
             data-unsaved-form
@@ -96,21 +97,11 @@
                      name="action"
                      value="query"
                      {% if decision_action == 'query' %}checked{% endif %} />
-              <span>Raise query</span>
+              <span class="flex items-center gap-1.5">{% include "components/nav_icon.html" with icon="query" icon_size="size-4" %}Query</span>
             </label>
           {% endif %}
         </fieldset>
-        <div data-query-controls>
-          <label class="ui-label" for="field-key">Against</label>
-          <div class="ui-select-wrapper">
-            <select class="ui-select" id="field-key" name="field_key">
-              <option value="form">Whole form</option>
-              {% for field in item.selected_submission.field_schema %}<option value="{{ field.key }}"
-        {% if query_field == field.key %}selected{% endif %}>{{ field.label }}</option>{% endfor %}
-            </select>
-          </div>
-          <p class="ui-hint">Choose the part of the submission that needs clarification.</p>
-        </div>
+        {% include 'experiences/partials/query_drafts_summary.html' %}
         {% if reject_reasons %}
           <div data-reject-controls>
             <label class="ui-label" for="decision-reason">Reason <span class="ui-required" aria-hidden="true">*</span></label>
@@ -147,7 +138,8 @@
             </div>
           </dl>
         </div>
-        <div>
+        <div data-note-controls
+             {% if decision_action == 'query' %}hidden{% endif %}>
           <label class="ui-label" for="decision-note">
             <span data-decision-label>Decision note</span>
             <span class="ui-required"
@@ -161,13 +153,16 @@
                     rows="5"
                     maxlength="10000"
                     data-note-minlength="{{ min_note_length }}"
-                    {% if decision_action != 'reject' or not reject_reasons %}required minlength="{{ min_note_length }}"{% endif %}
+                    {% if decision_action == 'approve' or decision_action == 'reject' and not reject_reasons %}required minlength="{{ min_note_length }}"{% endif %}
                     aria-describedby="decision-help">{{ decision_note }}</textarea>
           <p class="ui-hint" id="decision-help">Shared with the integrator and saved in this request's history. At least {{ min_note_length }} characters{% if reject_reasons %}, unless a listed reason already explains the rejection{% endif %}.</p>
         </div>
+        <p class="-mt-2 text-xs leading-relaxed text-soft-foreground"
+           data-query-aside
+           hidden></p>
         <button class="ui-btn ui-btn--default ui-btn--size-sm ui-btn--block min-h-12"
                 type="submit"
-                data-decision-submit>Record decision</button>
+                data-decision-submit>{% if decision_action == 'query' %}Send queries{% else %}Record decision{% endif %}</button>
       </form>
     {% elif item.pending %}
       <div class="mt-4 rounded-xl border border-border bg-soft-background p-4 text-sm leading-relaxed text-soft-foreground">

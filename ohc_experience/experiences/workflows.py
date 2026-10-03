@@ -66,29 +66,33 @@ PENDING_STATUSES = (
 )
 
 
-def _notice(item, event, *, note="", reason="", after_commit=False):
+def _notice(item, event, *, note="", reason="", questions=(), after_commit=False):  # noqa: PLR0913
     if after_commit:
-        transaction.on_commit(partial(_notice, item, event, note=note, reason=reason))
+        transaction.on_commit(
+            partial(
+                _notice,
+                item,
+                event,
+                note=note,
+                reason=reason,
+                questions=questions,
+            ),
+        )
         return
     try:
-        notify_review(item, event, note=note, reason=reason)
+        notify_review(item, event, note=note, reason=reason, questions=questions)
     except Exception:
         # Email must never break a workflow transition.
         logger.exception("Failed to email the %s notice for %s", event, item.reference)
 
 
 def _announce(item, action, note, reason="", *, after_commit=False):
-    """Only an approval leaves the review thread; the rest keep its subject."""
+    """Only an approval leaves the review thread; a rejection keeps its subject."""
     if after_commit:
         transaction.on_commit(partial(_announce, item, action, note, reason))
         return
     if action != "approve":
-        _notice(
-            item,
-            "query_raised" if action == "query" else "rejected",
-            note=note,
-            reason=reason,
-        )
+        _notice(item, "rejected", note=note, reason=reason)
         return
     try:
         notify_decision(item, note)
@@ -1271,11 +1275,7 @@ def decide(  # noqa: PLR0913
     expected_revision=None,
 ):
     item = _lock_review(item.pk)
-    if expected_revision is not None and str(item.selected_submission_id or "") != str(
-        expected_revision,
-    ):
-        msg = "A submission changed. Reload the product page before deciding."
-        raise ValidationError(msg)
+    _require_decision_revision(item, expected_revision)
     return _decide(
         item,
         actor,
@@ -1284,6 +1284,82 @@ def decide(  # noqa: PLR0913
         reason=reason,
         field_key=field_key,
     )
+
+
+def _require_decision_revision(item, expected_revision):
+    if expected_revision is not None and str(item.selected_submission_id or "") != str(
+        expected_revision,
+    ):
+        msg = "A submission changed. Reload the product page before deciding."
+        raise ValidationError(msg)
+
+
+@transaction.atomic
+def raise_queries(item, actor, questions, *, expected_revision=None):
+    """Ask the integrator about several fields at once.
+
+    `questions` pairs a field key, or "form" for the whole form, with the
+    question asked about it.
+    """
+    item = _lock_review(item.pk)
+    _require_decision_revision(item, expected_revision)
+    require_decider(actor, item, "write")
+    _require_decidable(item, "query")
+    return _raise_queries(item, actor, questions)
+
+
+def _raise_queries(item, actor, questions, *, defer_notifications=False):
+    """Record each question and send them to the integrator in one notice."""
+    labels = {
+        "form": "Whole form",
+        **{
+            field["key"]: field["label"]
+            for field in item.selected_submission.field_schema
+        },
+    }
+    asked = []
+    for field_key, text in questions:
+        if field_key not in labels:
+            msg = "Choose a field from the submitted form."
+            raise ValidationError(msg)
+        question = text.strip()
+        if len(question) < MIN_REVIEW_TEXT:
+            msg = (
+                f"Use at least {MIN_REVIEW_TEXT} characters for the query "
+                f"about {labels[field_key]}."
+            )
+            raise ValidationError(msg)
+        if len(question) > MAX_REVIEW_TEXT:
+            msg = "Use no more than 10,000 characters."
+            raise ValidationError(msg)
+        asked.append((field_key, question))
+    if not asked:
+        msg = "Write a query before sending."
+        raise ValidationError(msg)
+    for field_key, question in asked:
+        query = ReviewQuery.objects.create(
+            item=item,
+            submission=item.selected_submission,
+            field_key=field_key,
+            question=question,
+            raised_by=actor,
+        )
+        audit(
+            actor=actor,
+            action="Query raised",
+            item=item,
+            detail={"query_id": query.pk, "field": field_key, "question": question},
+        )
+    item.status = ReviewItem.Status.QUERY
+    _set_application_status(item, "query_raised")
+    item.save()
+    _notice(
+        item,
+        "query_raised",
+        questions=[(labels[field_key], question) for field_key, question in asked],
+        after_commit=defer_notifications,
+    )
+    return item
 
 
 def _decide(  # noqa: PLR0913
@@ -1332,70 +1408,53 @@ def _decide(  # noqa: PLR0913
         msg = "Use no more than 10,000 characters."
         raise ValidationError(msg)
     if action == "query":
-        valid_keys = {
-            "form",
-            *(field["key"] for field in item.selected_submission.field_schema),
-        }
-        if field_key not in valid_keys:
-            msg = "Choose a field from the submitted form."
-            raise ValidationError(msg)
-        query = ReviewQuery.objects.create(
-            item=item,
-            submission=item.selected_submission,
-            field_key=field_key,
-            question=note,
-            raised_by=actor,
-        )
-        item.status = ReviewItem.Status.QUERY
-        _set_application_status(item, "query_raised")
-        audit(
-            actor=actor,
-            action="Query raised",
-            item=item,
-            detail={"query_id": query.pk, "field": field_key, "question": note},
-        )
-    else:
-        item.status = (
-            ReviewItem.Status.APPROVED
-            if action == "approve"
-            else ReviewItem.Status.REJECTED
-        )
-        item.decided_at, item.decided_by, item.decision_note = (
-            timezone.now(),
+        return _raise_queries(
+            item,
             actor,
-            note,
+            [(field_key, note)],
+            defer_notifications=defer_notifications,
         )
-        item.decision_reason = reason
-        _set_application_status(item, "approved" if action == "approve" else "draft")
-        if action == "approve":
-            _approve_subject(item, actor)
-        else:
-            item.definition.on_reject(item, actor)
-        audit(
-            actor=actor,
-            action=(
-                "Approved (prerequisites overridden)"
+    item.status = (
+        ReviewItem.Status.APPROVED
+        if action == "approve"
+        else ReviewItem.Status.REJECTED
+    )
+    item.decided_at, item.decided_by, item.decision_note = (
+        timezone.now(),
+        actor,
+        note,
+    )
+    item.decision_reason = reason
+    _set_application_status(item, "approved" if action == "approve" else "draft")
+    if action == "approve":
+        _approve_subject(item, actor)
+    else:
+        item.definition.on_reject(item, actor)
+    audit(
+        actor=actor,
+        action=(
+            "Approved (prerequisites overridden)"
+            if overriding
+            else "Approved"
+            if action == "approve"
+            else "Rejected"
+        ),
+        item=item,
+        detail={
+            "note": note,
+            "submission_id": item.selected_submission_id,
+            **({"reason": reason} if reason else {}),
+            **(
+                {
+                    "overridden_prerequisites": [
+                        prerequisite.name for prerequisite in overridden
+                    ],
+                }
                 if overriding
-                else "Approved"
-                if action == "approve"
-                else "Rejected"
+                else {}
             ),
-            item=item,
-            detail={
-                "note": note,
-                "submission_id": item.selected_submission_id,
-                **({"reason": reason} if reason else {}),
-                **(
-                    {
-                        "overridden_prerequisites": [
-                            prerequisite.name for prerequisite in overridden
-                        ],
-                    }
-                    if overriding
-                    else {}
-                ),
-            },
-        )
+        },
+    )
     item.save()
     if action == "approve":
         _record_released(item.organisation, defer_notifications=defer_notifications)

@@ -471,7 +471,7 @@ def test_organisation_queries_return_to_the_product(environment, client):
             "review_id": verification.pk,
             "revision": verification.selected_submission_id,
             "action": "query",
-            "note": "Please explain the organisation document.",
+            "question_form": "Please explain the organisation document.",
         },
     )
     assert response.url == product_url(environment) + f"#review-{verification.pk}"
@@ -558,8 +558,7 @@ def test_queries_can_be_raised_and_resolved_from_the_product(environment, client
             "review_id": item.pk,
             "revision": item.selected_submission_id,
             "action": "query",
-            "field_key": "form",
-            "note": "Please explain the testing scope.",
+            "question_form": "Please explain the testing scope.",
         },
     )
     assert response.url == product_url(environment) + f"#review-{item.pk}"

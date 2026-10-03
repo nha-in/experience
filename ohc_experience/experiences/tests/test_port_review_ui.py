@@ -3,6 +3,8 @@ from http import HTTPStatus
 
 import pytest
 from django.contrib.messages import get_messages
+from django.core import mail
+from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.urls import reverse
 
@@ -193,7 +195,9 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     response = client.get(review_item.get_absolute_url())
     assert b"data-decision-form" in response.content
     assert b"field=form#decision" in response.content
-    assert b"field=score#decision" not in response.content
+    # Each submitted field picks itself for a query, falling back to a link.
+    assert b'data-query-field="score"' in response.content
+    assert b"field=score#decision" in response.content
     # Approving a request includes choosing its reviewer.
     assert b'name="assignee"' in response.content
 
@@ -207,6 +211,7 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     client.force_login(read_only)
     response = client.get(review_item.get_absolute_url())
     assert b"data-decision-form" not in response.content
+    assert b"data-query-field" not in response.content
     assert b"does not include queries or decisions" in response.content
     assert b'name="assignee"' not in response.content
 
@@ -245,12 +250,14 @@ def test_a_required_note_is_refused_until_it_runs_to_ten_characters(
 
     response = client.post(
         review_item.get_absolute_url(),
-        {"action": "query", "field_key": "score", "note": "Too short"},
+        {"action": "query", "question_score": "Too short"},
     )
 
     assert response.status_code == HTTPStatus.OK
-    assert b"at least 10 characters" in response.content
+    assert b"at least 10 characters for the query about Score" in response.content
     assert not review_item.queries.exists()
+    # The question comes back in its box, to be finished rather than retyped.
+    assert response.context["query_drafts"] == {"score": "Too short"}
 
 
 def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa: PLR0915
@@ -264,16 +271,15 @@ def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa:
     url = review_item.get_absolute_url()
     response = client.post(
         url,
-        {"action": "query", "field_key": "score", "note": ""},
+        {"action": "query"},
     )
     assert response.status_code == HTTPStatus.OK
     assert response.context["decision_action"] == "query"
-    assert response.context["query_field"] == "score"
-    assert b"Enter a reason or question" in response.content
+    assert b"Write a query before sending." in response.content
 
     response = client.post(
         url,
-        {"action": "query", "field_key": "score", "note": "Confirm this score."},
+        {"action": "query", "question_score": "Confirm this score."},
     )
     assert response.status_code == HTTPStatus.FOUND
     assert last_flash(response) == f"Query raised on {review_item.title}."
@@ -450,6 +456,104 @@ def test_the_product_page_names_who_submitted_each_request(review_item, client):
 
     assert "Meera Krishnan" in row
     assert 'href="mailto:meera@sunrise.in"' in row
+
+
+def test_the_product_page_asks_within_that_requests_decision(review_item, client):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+
+    html = client.get(
+        reverse(
+            "experiences:product-detail",
+            args=[review_item.product.reference],
+        ),
+    ).content.decode()
+
+    form = f"decision-form-{review_item.pk}"
+    assert f'id="{form}"' in html
+    assert f'data-query-for="{form}"' in html
+    assert 'data-query-field="score"' in html
+    assert f'data-query-form="{form}"' in html
+    # Each request's questions belong to its own form.
+    assert f'name="question_score"\n          form="{form}"' in html
+    assert "Query the whole form</a>" in html
+
+
+def test_ask_opens_a_closed_question_box_under_its_field(review_item, client):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    url = review_item.get_absolute_url()
+
+    html = client.get(url).content.decode()
+    box = html[html.index('id="draft-decision-form-score"') :]
+    box = box[: box.index("</dd>")]
+    # Closed: hidden, and its question neither sends nor blocks a send.
+    assert "hidden" in box.split(">", 1)[0]
+    assert "disabled" in box
+    assert 'name="question_score"' in box
+    assert 'form="decision-form"' in box
+    assert 'Query<span class="sr-only"> Score</span></a>' in html
+    assert "Against" not in html
+
+    # Without scripts, Ask is a link that reloads with its box open.
+    html = client.get(f"{url}?action=query&field=score").content.decode()
+    box = html[html.index('id="draft-decision-form-score"') :]
+    box = box[: box.index("</dd>")]
+    assert "hidden" not in box.split(">", 1)[0]
+    assert "disabled" not in box
+
+
+def test_several_questions_go_to_the_integrator_in_one_send(review_item, client):
+    reviewer = ReviewerFactory(is_nha_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+    client.force_login(reviewer)
+    mail.outbox.clear()
+
+    response = client.post(
+        review_item.get_absolute_url(),
+        {
+            "action": "query",
+            "question_form": "Attach the signed release note.",
+            "question_score": "Confirm this score against the report.",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    review_item.refresh_from_db()
+    assert review_item.status == "query_raised"
+    assert [
+        (query.field_key, query.question) for query in review_item.queries.all()
+    ] == [
+        ("form", "Attach the signed release note."),
+        ("score", "Confirm this score against the report."),
+    ]
+    assert sorted(
+        event.detail["field"]
+        for event in review_item.history.filter(action="Query raised")
+    ) == ["form", "score"]
+    # One email names every question under the field it asks about.
+    [email] = mail.outbox
+    assert "Whole form:\nAttach the signed release note." in email.body
+    assert "Score:\nConfirm this score against the report." in email.body
+
+
+def test_a_batch_of_questions_is_sent_whole_or_not_at_all(review_item):
+    reviewer = ReviewerFactory(is_nha_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+
+    with pytest.raises(ValidationError, match="query about Score"):
+        workflows.raise_queries(
+            review_item,
+            reviewer,
+            [("form", "Attach the signed release note."), ("score", "Too short")],
+        )
+    with pytest.raises(ValidationError, match="Choose a field"):
+        workflows.raise_queries(
+            review_item,
+            reviewer,
+            [("retired", "Which one is it?")],
+        )
+    with pytest.raises(ValidationError, match="Write a query"):
+        workflows.raise_queries(review_item, reviewer, [])
+    assert not review_item.queries.exists()
 
 
 def test_each_queried_field_leads_the_integrator_to_its_query(

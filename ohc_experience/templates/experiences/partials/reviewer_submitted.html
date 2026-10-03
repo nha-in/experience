@@ -1,13 +1,22 @@
 {% load experience_ui %}
 
-{% snapshot_rows snapshot item as rows %}
+{% snapshot_rows snapshot item query_drafts as rows %}
+{% decision_form_id item embedded=embedded_review as form_id %}
+{% draft_for query_drafts 'form' as form_draft %}
 <section class="{% if embedded_review %}flex flex-col{% else %}ui-card ui-card--layered gap-3.5 pb-2.5{% endif %}"
-         aria-labelledby="submitted-form-title{% if embedded_review %}-{{ item.pk }}{% endif %}">
+         aria-labelledby="submitted-form-title{% if embedded_review %}-{{ item.pk }}{% endif %}"
+         {% if can_raise_query %}data-query-for="{{ form_id }}"{% endif %}>
   {% if embedded_review %}
     <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
       <h3 class="text-sm font-bold" id="submitted-form-title-{{ item.pk }}">Submitted evidence</h3>
-      <span class="text-xs text-soft-foreground">
+      <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-soft-foreground">
         {% include 'experiences/partials/submission_version.html' with submission=snapshot only %}
+        {% if can_raise_query %}
+          <a class="ui-btn ui-btn--ghost ui-btn--size-xs -mr-2.5"
+             href="{{ item.get_absolute_url }}?action=query&amp;field=form#decision"
+             data-query-field="form"
+             data-query-form="{{ form_id }}">{% include "components/nav_icon.html" with icon="query" icon_size="size-3.5" %}Query the whole form</a>
+        {% endif %}
       </span>
     </div>
   {% else %}
@@ -16,8 +25,10 @@
         <h2 class="ui-card-title" id="submitted-form-title">Submitted form</h2>
         <p class="ui-card-description">{% if can_query and item.pending %}What the integrator sent.{% else %}The evidence provided in this saved submission.{% endif %}</p>
       </div>
-      {% if can_query and item.pending %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-9 shrink-0"
-   href="{{ item.get_absolute_url }}?action=query&amp;field=form#decision">Query whole form</a>{% endif %}
+      {% if can_raise_query %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-9 shrink-0"
+   href="{{ item.get_absolute_url }}?action=query&amp;field=form#decision"
+   data-query-field="form"
+   data-query-form="{{ form_id }}">{% include "components/nav_icon.html" with icon="query" icon_size="size-4" %}Query the whole form</a>{% endif %}
     </div>
   {% endif %}
   {% if snapshot %}
@@ -27,6 +38,17 @@
         <span class="text-xs text-soft-foreground">
           {% include 'experiences/partials/submission_version.html' with submission=snapshot only %}
         </span>
+      </div>
+    {% endif %}
+    {% if can_raise_query %}
+      <div class="border-t border-soft-border py-2.5 {% if embedded_review %}px-4{% else %}px-6{% endif %} data-query-selected:bg-primary-50"
+           id="draft-{{ form_id }}-form"
+           data-query-row="form"
+           data-query-draft="form"
+           data-query-label="Whole form"
+           data-query-item
+           {% if form_draft is None %}hidden{% else %}data-query-selected{% endif %}>
+        {% include 'experiences/partials/query_draft.html' with key='form' draft=form_draft %}
       </div>
     {% endif %}
     <dl{% if not embedded_review %} class="-mt-3.5"{% endif %}>
@@ -46,7 +68,7 @@
         </div>
       {% endif %}
       {% for row in rows %}
-        <div class="grid items-start gap-x-4 gap-y-1.5 border-t border-soft-border py-2.5 transition-colors {% if embedded_review %}px-4 sm:grid-cols-[148px_minmax(0,1fr)]{% else %}px-6 sm:grid-cols-[196px_minmax(0,1fr)_auto]{% endif %} {% if row.query_open %}bg-orange-50/60{% else %}hover:bg-soft-background{% endif %}">
+        <div class="grid items-start gap-x-4 gap-y-1.5 border-t border-soft-border py-2.5 transition-colors {% if embedded_review %}px-4 {% if can_raise_query %}sm:grid-cols-[148px_minmax(0,1fr)_auto]{% else %}sm:grid-cols-[148px_minmax(0,1fr)]{% endif %}{% else %}px-6 sm:grid-cols-[196px_minmax(0,1fr)_auto]{% endif %} {% if row.query_open %}bg-orange-50/60{% else %}hover:bg-soft-background{% endif %} data-query-selected:bg-primary-50" {% if can_raise_query %}data-query-row="{{ row.key }}"{% if row.draft is not None %} data-query-selected{% endif %}{% endif %}>
           <dt class="ui-kicker pt-1 tracking-[0.04em]">{{ row.label }}</dt>
           <dd class="flex min-w-0 flex-wrap items-center gap-2.5 text-sm font-medium leading-relaxed break-words">
             {% if row.files %}
@@ -78,6 +100,22 @@
       {% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}
       {% if row.query_open %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>{% endif %}
         </dd>
+        {% if can_raise_query %}
+          <dd data-query-button {% if row.draft is not None %}hidden{% endif %}>
+            <a class="ui-btn ui-btn--ghost ui-btn--size-xs max-sm:-ml-2.5"
+               href="{{ item.get_absolute_url }}?action=query&amp;field={{ row.key|urlencode }}#decision"
+               data-query-field="{{ row.key }}"
+               data-query-form="{{ form_id }}">{% include "components/nav_icon.html" with icon="query" icon_size="size-3.5" %}Query<span class="sr-only"> {{ row.label }}</span></a>
+          </dd>
+          <dd class="col-span-full pt-1 pb-1.5 sm:col-start-2"
+              id="draft-{{ form_id }}-{{ row.key }}"
+              data-query-draft="{{ row.key }}"
+              data-query-label="{{ row.label }}"
+              data-query-item
+              {% if row.draft is None %}hidden{% endif %}>
+            {% include 'experiences/partials/query_draft.html' with key=row.key label=row.label draft=row.draft %}
+          </dd>
+        {% endif %}
         </div>
       {% endfor %}
     </dl>

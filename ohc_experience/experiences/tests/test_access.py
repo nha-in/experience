@@ -173,7 +173,7 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
     assert (
         client.post(
             item.get_absolute_url(),
-            {"action": "query", "note": "Clarify scope"},
+            {"action": "query", "question_form": "Clarify the scope."},
         ).status_code
         == 302
     )
@@ -190,7 +190,7 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
     assert (
         client.post(
             item.get_absolute_url(),
-            {"action": "query", "note": "Clarify"},
+            {"action": "query", "question_form": "Clarify the scope."},
         ).status_code
         == 403
     )

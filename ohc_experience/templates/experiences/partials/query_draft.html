@@ -1,0 +1,28 @@
+{% comment %}
+The inside of a query box that Query opens beside the submitted form. Its
+textarea belongs to the decision form through `form_id`, and stays disabled
+while the box is closed, so a closed box neither sends nor blocks a send.
+{% endcomment %}
+<label class="ui-label" for="question-{{ form_id }}-{{ key }}">
+  {% if key == 'form' %}
+    Your query about the whole form
+  {% else %}
+    Your query<span class="sr-only"> about {{ label }}</span>
+  {% endif %}
+</label>
+<textarea class="ui-textarea mt-1 min-h-20 bg-card"
+          id="question-{{ form_id }}-{{ key }}"
+          name="question_{{ key }}"
+          form="{{ form_id }}"
+          rows="2"
+          required
+          minlength="{{ min_note_length|default:10 }}"
+          maxlength="10000"
+          {% if draft is None %}disabled{% endif %}>{{ draft|default_if_none:'' }}</textarea>
+<div class="mt-1 flex justify-end">
+  <button type="button"
+          class="ui-btn ui-btn--ghost ui-btn--size-xs -mr-2.5"
+          data-query-remove>
+    Remove<span class="sr-only"> the query about {% if key == 'form' %}the whole form{% else %}{{ label }}{% endif %}</span>
+  </button>
+</div>

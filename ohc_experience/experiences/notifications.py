@@ -95,8 +95,11 @@ def notify_review(
     *,
     note: str = "",
     reason: str = "",
+    questions=(),
 ) -> None:
     """One running thread per review: stable subject, the body reports the change.
+
+    A query notice carries each question under the field it asks about.
 
     Support is the recipient; the applicant and the assigned decision maker are
     copied so an assignment or status update reaches them without a new subject.
@@ -109,6 +112,7 @@ def notify_review(
         "registered": _is_registration(item, event),
         "reason": reason,
         "note": note.strip(),
+        "questions": questions,
         "url": _portal_url(item),
     }
     subject = render_to_string(

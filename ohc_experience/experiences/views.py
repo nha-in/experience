@@ -927,10 +927,11 @@ def _review_label(item):
     return item.title
 
 
-def _decision_notice(item, action):
+def _decision_notice(item, action, *, queries=1):
     """What a reviewer's decision did, in the words of the button they pressed."""
     if action == "query":
-        return f"Query raised on {_review_label(item)}."
+        raised = "Query" if queries == 1 else f"{queries} queries"
+        return f"{raised} raised on {_review_label(item)}."
     outcome = "approved" if action == "approve" else "rejected"
     return f"{_review_label(item)} {outcome}."
 
@@ -961,16 +962,26 @@ def _product_review_post(request, product):
     elif request.POST.get("intent") == "decision":
         item = _posted_product_review(request, product)
         action = request.POST.get("action")
-        services.decide(
-            item,
-            request.user,
-            action=action,
-            note=request.POST.get("note", ""),
-            reason=request.POST.get("reason", ""),
-            field_key=request.POST.get("field_key", "form"),
-            expected_revision=request.POST.get("revision", ""),
-        )
-        messages.success(request, _decision_notice(item, action))
+        if action == "query":
+            questions = _posted_questions(request, item)
+            services.raise_queries(
+                item,
+                request.user,
+                questions,
+                expected_revision=request.POST.get("revision", ""),
+            )
+            notice = _decision_notice(item, action, queries=len(questions))
+        else:
+            services.decide(
+                item,
+                request.user,
+                action=action,
+                note=request.POST.get("note", ""),
+                reason=request.POST.get("reason", ""),
+                expected_revision=request.POST.get("revision", ""),
+            )
+            notice = _decision_notice(item, action)
+        messages.success(request, notice)
         anchor = f"review-{item.pk}"
     elif request.POST.get("intent") == "assign":
         item = _posted_product_review(request, product)
@@ -984,6 +995,33 @@ def _product_review_post(request, product):
     return redirect(
         reverse("experiences:product-detail", args=[product.reference]) + f"#{anchor}",
     )
+
+
+def _posted_questions(request, item):
+    """The questions a decision form sends, one per field it asks about.
+
+    Each is posted as `question_<field key>`, with "form" for the whole form.
+    """
+    keys = ["form"]
+    if item.selected_submission_id:
+        keys += [field["key"] for field in item.selected_submission.field_schema]
+    return [
+        (key, request.POST[f"question_{key}"])
+        for key in keys
+        if f"question_{key}" in request.POST
+    ]
+
+
+def _query_drafts(request, item, action):
+    """The question boxes the review page opens.
+
+    Those sent back by a failed send keep their text; without scripts, an Ask
+    link reloads the page with its field's box open.
+    """
+    if request.method == "POST":
+        return dict(_posted_questions(request, item))
+    field = request.GET.get("field")
+    return {field: ""} if action == "query" and field else {}
 
 
 def _product_review_sections(request, items):
@@ -1052,9 +1090,9 @@ def _product_review_sections(request, items):
                 "decision_action": action
                 if action in available
                 else next(iter(available), ""),
-                "query_field": request.POST.get("field_key", "form")
+                "query_drafts": dict(_posted_questions(request, item))
                 if posted
-                else "form",
+                else {},
                 "can_assign": item.pk in assignable,
                 "reviewers": reviewers.get(item.pk, []),
             },
@@ -2805,6 +2843,10 @@ def review(request, pk):
                     raise PermissionDenied
                 _provision(request, item.product)
                 return redirect(item)
+            elif request.POST.get("action") == "query":
+                questions = _posted_questions(request, item)
+                services.raise_queries(item, request.user, questions)
+                notice = _decision_notice(item, "query", queries=len(questions))
             else:
                 action = request.POST.get("action")
                 services.decide(
@@ -2813,7 +2855,6 @@ def review(request, pk):
                     action=action,
                     note=request.POST.get("note", ""),
                     reason=request.POST.get("reason", ""),
-                    field_key=request.POST.get("field_key", "form"),
                 )
                 notice = _decision_notice(item, action)
             messages.success(request, notice)
@@ -2835,6 +2876,7 @@ def review(request, pk):
             off_domain_website=_off_domain_website(item, submitter),
             can_decide=permissions.can_decide(request.user, item),
             can_query=permissions.can_review(request.user, item, "write"),
+            can_raise_query="query" in actions,
             can_approve=permissions.can_review(request.user, item, "approve"),
             can_override=can_override,
             can_assign=can_assign,
@@ -2860,7 +2902,7 @@ def review(request, pk):
             other_reason=services.OTHER_REASON,
             min_note_length=services.MIN_REVIEW_TEXT,
             decision_reason=request.POST.get("reason", ""),
-            query_field=request.POST.get("field_key", request.GET.get("field", "form")),
+            query_drafts=_query_drafts(request, item, selected_action),
             awaiting_reply_count=item.queries.filter(
                 submission_id=item.selected_submission_id,
                 status="open",
