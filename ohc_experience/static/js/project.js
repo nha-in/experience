@@ -268,6 +268,10 @@
     target.setAttribute('aria-describedby', [...described].join(' '));
   }
 
+  // The audit details a certificate gives, filled from the approved one while
+  // it is reused.
+  const WASA_DETAILS = ['wasa_agency', 'wasa_date', 'wasa_valid_until'];
+
   function updateWasaFields(form) {
     const choice = form.querySelector('[name="use_product_wasa"]');
     if (!choice) return;
@@ -278,7 +282,7 @@
       field.hidden = choice.checked;
       field.querySelectorAll('input, select, textarea').forEach(input => {
         input.disabled = choice.checked;
-        if (['wasa_agency', 'wasa_date', 'wasa_valid_until'].includes(input.name)) {
+        if (WASA_DETAILS.includes(input.name)) {
           input.required = !choice.checked;
         }
       });
@@ -291,6 +295,20 @@
         });
         const summary = field.querySelector('[data-file-summary]');
         if (summary) summary.textContent = 'Upload a new certificate';
+        // The details are the approved certificate's, not the new one's. They
+        // are cleared the first time the integrator turns to uploading, so a
+        // reading of the new certificate can fill them and the expiry is
+        // worked out from its audit date. Whatever goes in after that is
+        // theirs, however often the choice is toggled.
+        if (!choice.checked && field.dataset.wasaCleared !== 'true') {
+          field.dataset.wasaCleared = 'true';
+          field.querySelectorAll('input, select').forEach(input => {
+            if (!WASA_DETAILS.includes(input.name)) return;
+            input.value = '';
+            // The agency's search box shows a new choice only once told.
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        }
       }
     });
   }

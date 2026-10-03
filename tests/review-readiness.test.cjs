@@ -75,6 +75,7 @@ function createPage({
       if (selector === '[name="additional_reviews"]') return choices;
       if (selector === '[data-testing-dates]' || selector === '[data-milestone-dates]') return testingDates;
       if (selector === '[data-autofill-target]') return controls.filter(input => input.dataset?.autofillTarget);
+      if (selector === '[data-wasa-upload]') return wasaFields;
       const name = selector.match(/^\[name="([^"]+)"\]$/)?.[1];
       if (name) return controls.filter(input => input.name === name);
       return [];
@@ -158,6 +159,10 @@ function createPage({
   } = {}) {
     const input = {
       name, value, min, max, required, disabled, parentElement: parent, dataset: { ...dataset },
+      dispatchEvent(event) {
+        dispatch(event.type, this);
+        return true;
+      },
       get validity() {
         return { valid: this.disabled || ((!this.required || Boolean(this.value))
           && (!this.value || ((!this.min || this.value >= this.min) && (!this.max || this.value <= this.max)))) };
@@ -174,6 +179,21 @@ function createPage({
     };
     controls.push(input);
     return input;
+  }
+  // A WASA detail as the exit form draws it when a certificate can be reused:
+  // wrapped, so that choosing the approved certificate hides and locks it, and
+  // marked as the approved certificate's when the form was drawn reusing it.
+  const wasaFields = [];
+  function wasaDetail(name, options = {}, { fromProduct = true } = {}) {
+    const wrapper = {
+      hidden: false,
+      dataset: fromProduct ? { wasaUpload: '', wasaFromProduct: 'true' } : { wasaUpload: '' },
+      querySelector: () => null,
+      querySelectorAll: selector => (selector.startsWith('input') ? [field] : []),
+    };
+    const field = date(name, { ...options, parent: wrapper });
+    wasaFields.push(wrapper);
+    return field;
   }
   function milestoneDates(id, { startValue = '', endValue = '', max = '2026-09-18' } = {}) {
     const fields = {
@@ -240,6 +260,7 @@ function createPage({
     matchMedia: query => ({ matches: reducedMotion && query === '(prefers-reduced-motion: reduce)' }),
     navigator: {},
     Element: class {},
+    Event,
     Node: { DOCUMENT_POSITION_PRECEDING: 2 },
     queueMicrotask(callback) { tasks.push(callback); },
     setTimeout(callback) { tasks.push(callback); },
@@ -247,12 +268,17 @@ function createPage({
   for (const filename of ['project.js', 'portal-ux.js']) {
     vm.runInContext(readFileSync(join(__dirname, '../ohc_experience/static/js', filename), 'utf8'), context);
   }
+  // What dispatchEvent does in a browser: the listeners run at once, and what
+  // they queue waits until the event being handled is done.
+  function dispatch(type, target) {
+    for (const callback of listeners.get(type) || []) callback({ target });
+  }
   function fire(name, target = document, event = {}) {
     for (const callback of listeners.get(name) || []) callback({ ...event, target });
     while (tasks.length) tasks.shift()();
   }
   return {
-    form, button, reason, jump, actions, group, date, nextStep, readiness, document, window, milestone, milestoneDates, query,
+    form, button, reason, jump, actions, group, date, wasaDetail, nextStep, readiness, document, window, milestone, milestoneDates, query,
     submitLabel, selectionSummary,
     initialize: () => fire('DOMContentLoaded'),
     change: input => fire('change', input),
@@ -731,6 +757,73 @@ test('a 29 February audit runs its year to the 28th', () => {
   page.change(expiry);
   assert.deepEqual(field.notes(), [noted('28/02/2025')]);
   assert.equal(audit.value, '2024-02-29');
+});
+
+test('turning from the approved certificate to a new one clears its details, once', () => {
+  const page = createPage();
+  const reuse = page.date('use_product_wasa');
+  reuse.checked = true;
+  // Drawn reusing the approved certificate, whose details fill the fields.
+  const agency = page.wasaDetail('wasa_agency', { value: 'Army Cyber Group', disabled: true });
+  const audit = page.wasaDetail('wasa_date', {
+    value: '2026-09-02', disabled: true, dataset: { autofillTarget: 'wasa_valid_until', autofillYears: '1' },
+  });
+  const expiry = page.wasaDetail('wasa_valid_until', { value: '2027-03-13', min: '2026-09-18', disabled: true });
+  const told = [];
+  const tell = agency.dispatchEvent;
+  agency.dispatchEvent = event => {
+    told.push(event.type);
+    return tell.call(agency, event);
+  };
+  page.initialize();
+  assert.deepEqual([agency.value, audit.value, expiry.value], ['Army Cyber Group', '2026-09-02', '2027-03-13']);
+  assert.equal(expiry.disabled, true);
+
+  // Uploading a new certificate starts from empty fields, for its reading to
+  // fill, and the agency's search box is told.
+  reuse.checked = false;
+  page.change(reuse);
+  assert.deepEqual([agency.value, audit.value, expiry.value], ['', '', '']);
+  assert.deepEqual(told, ['change']);
+  assert.equal(expiry.disabled, false);
+  assert.equal(expiry.required, true);
+
+  // The new audit date gives the expiry a year on.
+  audit.value = '2026-08-31';
+  page.change(audit);
+  agency.value = 'M/s AVASURE Technologies Pvt. Ltd.';
+  page.change(agency);
+  assert.equal(expiry.value, '2027-08-30');
+
+  // What went in since is the integrator's, however often they change their mind.
+  reuse.checked = true;
+  page.change(reuse);
+  reuse.checked = false;
+  page.change(reuse);
+  assert.deepEqual(
+    [agency.value, audit.value, expiry.value],
+    ['M/s AVASURE Technologies Pvt. Ltd.', '2026-08-31', '2027-08-30'],
+  );
+});
+
+test('details saved with a newly uploaded certificate are never cleared', () => {
+  // A form drawn with the upload chosen marks nothing as the approved one's.
+  const page = createPage();
+  const reuse = page.date('use_product_wasa');
+  const options = { fromProduct: false };
+  const agency = page.wasaDetail('wasa_agency', { value: 'M/s AVASURE Technologies Pvt. Ltd.' }, options);
+  const audit = page.wasaDetail('wasa_date', { value: '2026-08-31' }, options);
+  const expiry = page.wasaDetail('wasa_valid_until', { value: '2027-08-30' }, options);
+  page.initialize();
+
+  reuse.checked = true;
+  page.change(reuse);
+  reuse.checked = false;
+  page.change(reuse);
+  assert.deepEqual(
+    [agency.value, audit.value, expiry.value],
+    ['M/s AVASURE Technologies Pvt. Ltd.', '2026-08-31', '2027-08-30'],
+  );
 });
 
 test('a certificate taken from the product is never noted', () => {
