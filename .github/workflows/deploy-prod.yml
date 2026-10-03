@@ -231,6 +231,7 @@ jobs:
             EXPERIENCE_CREDENTIAL_KEY_OVERRIDE=${{ secrets.EXPERIENCE_CREDENTIAL_KEY_OVERRIDE }}
             LITELLM_LOCAL_MODEL_COST_MAP=true
             SANDBOX_SIGNUP_CAPTCHA=${{ vars.SANDBOX_SIGNUP_CAPTCHA }}
+            DJANGO_DISABLE_EMAIL_NOTIFICATIONS=${{ vars.DJANGO_DISABLE_EMAIL_NOTIFICATIONS }}
 
       - name: Deploy task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
