@@ -134,25 +134,6 @@ def test_event_rows_open_the_event(client):
     assert row_links(drafts) == [draft.get_absolute_url()] * 2
 
 
-def test_review_rows_open_approvals_prerequisites_and_tickets(environment, client):
-    m1 = submit(environment, "m1")
-    m3 = submit(environment, "m3")
-    ticket = reverse("experiences:ticket", args=[open_ticket(environment).reference])
-    client.force_login(environment["reviewer"])
-    response = client.get(reverse("experiences:review", args=[m3.pk]))
-    approvals = [
-        approval.get_absolute_url() for approval in response.context["prior_approvals"]
-    ]
-    assert approvals
-    # M3 builds on M1, so its page lists M1 among what it waits on...
-    assert sorted(row_links(response)) == sorted(
-        [*approvals, ticket, m1.get_absolute_url()],
-    )
-    # ...and M1's page lists M3 among the requests waiting on it.
-    response = client.get(reverse("experiences:review", args=[m1.pk]))
-    assert m3.get_absolute_url() in row_links(response)
-
-
 def test_production_exit_rows_open_their_review(environment, client):
     approve(environment)
     client.force_login(environment["reviewer"])
@@ -238,7 +219,9 @@ def test_organisation_product_and_query_rows_open_their_pages(environment, clien
     ]
     assert row_links(client.get(reverse("experiences:products"))) == [product]
     queries = client.get(reverse("experiences:pending-queries"))
-    assert row_links(queries) == [f"{item.get_absolute_url()}#queries"]
+    assert row_links(queries) == [
+        f"{item.get_absolute_url().split('#')[0]}#queries-{item.pk}",
+    ]
     page = client.get(organisation)
     requests = [review.get_absolute_url() for review in page.context["review_requests"]]
     assert item.get_absolute_url() in requests

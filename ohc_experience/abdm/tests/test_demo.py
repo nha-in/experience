@@ -55,6 +55,23 @@ def test_demo_seeds_a_uhi_request_waiting_on_an_undecided_m1(settings):
     ]
 
 
+def test_demo_seeds_pending_verifications_with_and_without_a_product(settings):
+    settings.DEBUG = True
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+    }
+    call_command("seed_experience_demo", stdout=StringIO())
+
+    productless = Organisation.objects.get(name="HealthBridge Digital")
+    submitting = Organisation.objects.get(name="Arogya Cloud Solutions")
+    for organisation in (productless, submitting):
+        assert organisation.verification_status == "pending"
+    assert not productless.products.exists()
+    m1 = submitting.products.get().milestones.get(key="m1").application.review_item
+    assert m1.status == ReviewItem.Status.NEW
+
+
 def test_engine_demo_command_is_disabled_in_production(settings):
     settings.DEBUG = False
     with pytest.raises(CommandError, match="DEBUG"):

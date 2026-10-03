@@ -14,6 +14,7 @@ from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import pdf
+from ohc_experience.abdm.tests.test_workflow import review_section
 from ohc_experience.abdm.wasa import approved_wasa_submission
 from ohc_experience.abdm.wasa import current_wasa
 from ohc_experience.abdm.wasa import wasa_context
@@ -655,6 +656,13 @@ def test_expired_certificate_cannot_be_reused_even_with_forged_future_date(envir
     assert form.errors
 
 
+def product_page(environment):
+    return reverse(
+        "experiences:product-detail",
+        args=[environment["product"].reference],
+    )
+
+
 def test_renewal_review_permission_is_general_and_keeps_track_boundaries(
     environment,
     client,
@@ -683,8 +691,10 @@ def test_renewal_review_permission_is_general_and_keeps_track_boundaries(
         workflows.assign_review(renewal, environment["admin"], track_reviewer)
     workflows.assign_review(renewal, environment["admin"], general_reviewer)
     client.force_login(general_reviewer)
-    assert client.get(renewal.get_absolute_url()).status_code == 200
-    assert client.get(first.get_absolute_url()).status_code == 404
+    page = client.get(product_page(environment))
+    assert page.status_code == 200
+    assert f'id="review-{renewal.pk}"'.encode() in page.content
+    assert f'id="review-{first.pk}"'.encode() not in page.content
     workflows.decide(
         renewal,
         general_reviewer,
@@ -739,12 +749,11 @@ def test_milestone_review_shows_its_own_certificate_not_a_later_renewal(
     renewed = renewal.selected_submission.attachments.get(field_key="wasa_certificate")
     client.force_login(environment["admin"])
 
-    page = client.get(first.get_absolute_url())
+    page = client.get(product_page(environment))
 
-    assert page.context["certification"] == {}
-    assert preview_url(submitted) in page.content
-    assert preview_url(renewed) not in page.content
-    page = client.get(renewal.get_absolute_url())
+    section = review_section(page.content.decode(), first).encode()
+    assert preview_url(submitted) in section
+    assert preview_url(renewed) not in section
     assert page.context["certification"]["current"].source_application == (
         renewal.application
     )

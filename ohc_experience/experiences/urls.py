@@ -86,7 +86,6 @@ urlpatterns = [
     ),
     path("assess/dashboard/", views.assess_dashboard, name="assess-dashboard"),
     path("assess/queue/", views.queue, name="queue"),
-    path("assess/review/<int:pk>/", views.review, name="review"),
     path(
         "assess/production/",
         production_views.production_list,

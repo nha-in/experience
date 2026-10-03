@@ -39,17 +39,26 @@ def test_each_list_is_short_distinct_and_ends_with_other():
                 assert not form.reject_reasons, form.key
 
 
+def product_page(environment):
+    return reverse(
+        "experiences:product-detail",
+        args=[environment["product"].reference],
+    )
+
+
 def test_the_reason_reaches_the_integrator_beside_the_note(environment, client):
     item = submit(environment)
     client.force_login(environment["reviewer"])
-    url = item.get_absolute_url()
-    page = client.get(url)
+    page = client.get(product_page(environment))
     for reason in services.reject_reasons(ExitEvidence):
         assert f'value="{reason}"'.encode() in page.content
 
     response = client.post(
-        url,
+        product_page(environment),
         {
+            "intent": "decision",
+            "review_id": item.pk,
+            "revision": item.selected_submission_id,
             "action": "reject",
             "reason": DOCUMENTS,
             "note": "The FT certificate covers M1 only.",
@@ -135,64 +144,6 @@ def test_the_reason_is_cleared_when_the_integrator_resubmits(environment):
 REQUIRED = '<span class="ui-required" aria-hidden="true">*</span>'
 
 
-def note_marked(html):
-    """Whether the decision note's label shows its asterisk."""
-    found = re.search(
-        r"<span data-decision-label>Decision note</span>\s*"
-        r'<span class="ui-required"\s+aria-hidden="true"\s+data-note-marker\s*'
-        r"(hidden)?>\*</span>",
-        html,
-    )
-    assert found, "The note's label carries an asterisk to show or hide."
-    return not found.group(1)
-
-
-def test_the_decision_card_marks_what_a_decision_requires(environment, client):
-    """The asterisks start where the action does; the card's script then keeps
-    the note's in step with the action and the reason chosen."""
-    item = submit(environment)
-    client.force_login(environment["reviewer"])
-    url = item.get_absolute_url()
-
-    html = client.get(url).content.decode()
-
-    assert (
-        f'<label class="ui-label" for="decision-reason">Reason {REQUIRED}</label>'
-        in html
-    )
-    assert re.search(
-        r'<select class="ui-select"\s+id="decision-reason"[^>]*aria-required="true"',
-        html,
-    )
-    # The card opens on Approve, whose note is required, as a query's is.
-    assert note_marked(html)
-    assert note_marked(client.get(url, {"action": "query"}).content.decode())
-    # A listed reason can carry a rejection alone.
-    assert not note_marked(client.get(url, {"action": "reject"}).content.decode())
-
-
-def test_an_override_marks_its_note_as_required(environment, client):
-    submit(environment)
-    uhi = submit(environment, "uhi1")
-    services.assign_review(uhi, environment["admin"], environment["reviewer"])
-    client.force_login(environment["reviewer"])
-
-    html = client.get(uhi.get_absolute_url()).content.decode()
-
-    assert "Approve and override prerequisites" in html
-    assert (
-        f'<label class="ui-label" for="decision-note">Override note {REQUIRED}</label>'
-        in html
-    )
-
-
-def product_page(environment):
-    return reverse(
-        "experiences:product-detail",
-        args=[environment["product"].reference],
-    )
-
-
 def test_the_product_page_rejects_one_request_with_a_reason(environment, client):
     item = submit(environment)
     client.force_login(environment["reviewer"])
@@ -229,7 +180,8 @@ def product_note_marked(html, item):
 
 
 def test_the_product_page_marks_what_a_decision_requires(environment, client):
-    """Each request's Decision box marks what the review page's card does."""
+    """The asterisks start where the action does; the box's script then keeps
+    the note's in step with the action and the reason chosen."""
     item = submit(environment)
     client.force_login(environment["reviewer"])
 
@@ -259,6 +211,18 @@ def test_the_product_page_marks_what_a_decision_requires(environment, client):
     )
     assert response.status_code == HTTPStatus.OK
     assert not product_note_marked(response.content.decode(), item)
+    # A query's note is required, as an approval's is.
+    response = client.post(
+        product_page(environment),
+        {
+            "intent": "decision",
+            "review_id": item.pk,
+            "revision": item.selected_submission_id,
+            "action": "query",
+        },
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert product_note_marked(response.content.decode(), item)
 
 
 def test_the_product_page_marks_an_override_note_as_required(environment, client):
@@ -269,6 +233,7 @@ def test_the_product_page_marks_an_override_note_as_required(environment, client
 
     html = client.get(product_page(environment)).content.decode()
 
+    assert "Approve and override prerequisites" in html
     assert (
         f'<label class="ui-label" for="decision-note-{uhi.pk}">Override note '
         f"{REQUIRED}</label>"

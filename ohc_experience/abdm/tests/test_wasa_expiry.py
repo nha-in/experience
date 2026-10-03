@@ -15,6 +15,7 @@ from ohc_experience.abdm.forms import WasaReviewForm
 from ohc_experience.abdm.tests.test_wasa_lifecycle import certificate_data
 from ohc_experience.abdm.tests.test_wasa_lifecycle import request_renewal
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
+from ohc_experience.abdm.tests.test_workflow import review_section
 from ohc_experience.abdm.wasa import WASA_VALIDITY_YEARS
 from ohc_experience.abdm.wasa import expiry_warnings
 from ohc_experience.abdm.wasa import one_year_expiry
@@ -176,11 +177,17 @@ def _not_one_year(environment):
     return request_renewal(environment, certificate=certificate), audit
 
 
+def review_card(client, item):
+    """The request's card on the staff product page."""
+    url = reverse("experiences:product-detail", args=[item.product.reference])
+    return review_section(client.get(url).content.decode(), item)
+
+
 def test_the_reviewer_is_shown_an_expiry_that_is_not_one_year(environment, client):
     item, audit = _not_one_year(environment)
     client.force_login(environment["reviewer"])
 
-    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
+    html = review_card(client, item)
 
     assert "Not one year</span>" in html
     assert (
@@ -200,7 +207,7 @@ def test_a_one_year_certificate_is_shown_to_the_reviewer_without_a_note(
     )
     client.force_login(environment["reviewer"])
 
-    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
+    html = review_card(client, item)
 
     assert "Not one year" not in html
     assert "A year from the audit date would run to" not in html

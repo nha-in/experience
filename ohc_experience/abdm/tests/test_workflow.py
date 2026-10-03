@@ -243,6 +243,26 @@ def approve_submitted(environment, key="m1"):
     )
 
 
+def review_page(environment, key="m1"):
+    """The staff product page where a request is reviewed."""
+    return reverse(
+        "experiences:product-detail",
+        args=[product_for(environment, key).reference],
+    )
+
+
+def review_section(html, item):
+    """One request's card on the staff product page, nested details and all."""
+    start = html.index(f'id="review-{item.pk}"')
+    depth = 1
+    for tag in re.finditer(r"<(/?)details\b", html[start:]):
+        depth += -1 if tag.group(1) else 1
+        if not depth:
+            return html[start : start + tag.end()]
+    msg = f"Request {item.pk}'s card is not closed."
+    raise AssertionError(msg)
+
+
 def waiting_on(environment, key):
     item = milestone(environment, key)
     return [prerequisite.name for prerequisite in services.pending_prerequisites(item)]
@@ -1299,13 +1319,14 @@ def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
     [row] = [review for review in rows if review == nhcx_payer]
     assert [name for name, _status in row.waiting_on] == ["M1", "M3"]
 
-    assert client.get(m1.get_absolute_url()).status_code == 404
-    page = client.get(nhcx_payer.get_absolute_url())
-    assert page.status_code == 200
-    assert (
-        b"once M1 - ABHA Creation and Verification and "
-        b"M3 - Health Information User Services are approved"
-    ) in page.content
+    html = client.get(
+        reverse("experiences:product-detail", args=[nhcx_payer.product.reference]),
+    ).content.decode()
+    assert f'id="review-{m1.pk}"' not in html
+    section = review_section(html, nhcx_payer)
+    assert "Waiting on prerequisites" in section
+    assert "M1 - ABHA Creation and Verification" in section
+    assert "M3 - Health Information User Services" in section
     with pytest.raises(ValidationError):
         services.assign_review(m1, environment["admin"], staff)
 
@@ -1394,36 +1415,28 @@ def test_the_type_filter_gathers_the_milestones_of_every_track(environment, clie
     assert locker not in listed("ABDM")
 
 
-def test_the_review_page_holds_decisions_until_prerequisites_are_approved(
+def test_the_product_page_holds_decisions_until_prerequisites_are_approved(
     environment,
     client,
 ):
-    m1 = submit(environment)
+    submit(environment)
     m2 = submit(environment, "m2")
     client.force_login(environment["reviewer"])
 
-    response = client.get(m2.get_absolute_url())
-    html = response.content.decode()
+    section = review_section(client.get(review_page(environment)).content.decode(), m2)
 
-    assert response.context["decision_action"] == "query"
-    assert (
-        "Approve or reject this request once M1 - ABHA Creation and Verification"
-        in html
-    )
-    assert 'data-decision-blocked="true"' in html
-    assert re.search(r'value="approve"\s+disabled', html)
-    assert re.search(r'value="reject"\s+disabled', html)
-    assert (
-        f'href="{m1.get_absolute_url()}">M1 - ABHA Creation and Verification</a>'
-        in html
-    )
-    assert "waiting on prerequisites" in html
+    assert "Waiting on prerequisites" in section
+    assert "M1 - ABHA Creation and Verification" in section
+    assert 'data-decision-blocked="true"' in section
+    assert re.search(r'value="approve"\s+disabled', section)
+    assert re.search(r'value="reject"\s+disabled', section)
+    assert re.search(r'value="query"\s+checked', section)
 
     approve_submitted(environment)
-    html = client.get(m2.get_absolute_url()).content.decode()
+    section = review_section(client.get(review_page(environment)).content.decode(), m2)
 
-    assert 'id="decision-hold"' not in html
-    assert not re.search(r'value="approve"\s+disabled', html)
+    assert f'id="decision-hold-{m2.pk}"' not in section
+    assert not re.search(r'value="approve"\s+disabled', section)
 
 
 def test_a_waiting_recorded_request_offers_a_reviewer_an_override(
@@ -1435,19 +1448,21 @@ def test_a_waiting_recorded_request_offers_a_reviewer_an_override(
     uhi = submit(environment, "uhi1")
     client.force_login(environment["reviewer"])
 
-    html = client.get(uhi.get_absolute_url()).content.decode()
+    section = review_section(
+        client.get(review_page(environment)).content.decode(),
+        uhi,
+    )
 
-    assert 'id="recording-hold"' in html
+    assert f'id="decision-hold-{uhi.pk}"' in section
     assert (
-        "recorded automatically once M1 - ABHA Creation and Verification is approved. "
-        "You can approve it now instead and override that wait."
-    ) in html
-    assert "data-decision-form" not in html
-    assert "Approve and override prerequisites" in html
+        "recorded automatically once its prerequisites are approved, "
+        "or you can approve it now and override that wait."
+    ) in section
+    assert "data-decision-form" not in section
+    assert "Approve and override prerequisites" in section
 
 
-def test_the_product_page_offers_the_same_override(environment, client):
-    """The override is on each request's decision block, not only its own page."""
+def test_the_product_page_records_an_override(environment, client):
     submit(environment)
     uhi = submit(environment, "uhi1")
     url = reverse(
@@ -1648,114 +1663,38 @@ def test_reverifying_leaves_running_products_alone(environment):
     assert second.provisioning_runs.count() == runs_before
 
 
-def test_a_reviewer_can_start_a_product_that_was_never_provisioned(
-    environment,
-    client,
-):
-    product = _second_product(environment)
-    ProvisioningRun.objects.filter(product=product).delete()
-    item = product.review_items.get(kind="product_registration")
-    client.force_login(environment["reviewer"])
-
-    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
-    response = client.post(
-        reverse("experiences:review", args=[item.pk]),
-        {"intent": "retry_provisioning"},
-        follow=True,
-    )
-
-    assert "Start provisioning</button>" in html
-    assert "Provisioning started." in response.content.decode()
-    assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
-
-
 def test_a_reviewer_cannot_start_a_product_before_verification(environment, client):
     _org, product = _pending_organisation(environment)
-    item = product.review_items.get(kind="product_registration")
+    url = reverse("experiences:product-detail", args=[product.reference])
     client.force_login(environment["reviewer"])
 
-    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
-    response = client.post(
-        reverse("experiences:review", args=[item.pk]),
-        {"intent": "retry_provisioning"},
-    )
+    html = client.get(url).content.decode()
+    response = client.post(url, {"intent": "retry_provisioning"})
 
     assert "retry_provisioning" not in html
     assert response.status_code == 403
     assert awaiting_provisioning(product)
 
 
-def _failed_registration(environment):
-    """A product whose chain died, and the review item a reviewer sees it on."""
+def test_an_integrator_cannot_restart_a_chain(environment, client):
     fail_next(ExternalSystem.KEYCLOAK, "create_client", retryable=False)
     product = _second_product(environment)
     provision_inline(product)
-    return product, product.review_items.get(kind="product_registration")
-
-
-def test_a_reviewer_can_restart_a_failed_chain(environment, client):
-    product, item = _failed_registration(environment)
-    assert provisioning_can_be_retried(product)
-    client.force_login(environment["reviewer"])
-
-    response = client.post(
-        reverse("experiences:review", args=[item.pk]),
-        {"intent": "retry_provisioning"},
-        follow=True,
-    )
-
-    assert response.status_code == 200
-    assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
-
-
-def test_the_retry_is_not_offered_once_there_is_nothing_to_retry(environment, client):
-    registration = environment["product"].review_items.get(
-        kind="product_registration",
-    )
-    client.force_login(environment["reviewer"])
-
-    html = client.get(
-        reverse("experiences:review", args=[registration.pk]),
-    ).content.decode()
-
-    assert "retry_provisioning" not in html
-
-
-def test_a_reviewer_cannot_force_a_retry_the_ledger_does_not_want(
-    environment,
-    client,
-):
-    """The button is hidden on a healthy product; posting the intent anyway fails."""
-    registration = environment["product"].review_items.get(
-        kind="product_registration",
-    )
-    client.force_login(environment["reviewer"])
-
-    response = client.post(
-        reverse("experiences:review", args=[registration.pk]),
-        {"intent": "retry_provisioning"},
-    )
-
-    assert response.status_code == 403
-
-
-def test_an_integrator_cannot_restart_a_chain(environment, client):
-    _product, item = _failed_registration(environment)
     client.force_login(environment["applicant"])
 
     response = client.post(
-        reverse("experiences:review", args=[item.pk]),
+        reverse("experiences:product-detail", args=[product.reference]),
         {"intent": "retry_provisioning"},
     )
 
     assert response.status_code == 403
 
 
-def test_the_product_page_offers_the_retry_too(environment, client):
-    """The page an operator reaches a broken product from, not only its request."""
+def test_a_reviewer_can_restart_a_failed_chain(environment, client):
     fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
     product = _second_product(environment)
     provision_inline(product)
+    assert provisioning_can_be_retried(product)
     url = reverse("experiences:product-detail", args=[product.reference])
     client.force_login(environment["reviewer"])
 
@@ -1768,7 +1707,7 @@ def test_the_product_page_offers_the_retry_too(environment, client):
     assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
 
 
-def test_the_product_page_starts_a_product_that_was_never_provisioned(
+def test_a_reviewer_can_start_a_product_that_was_never_provisioned(
     environment,
     client,
 ):
@@ -1785,7 +1724,7 @@ def test_the_product_page_starts_a_product_that_was_never_provisioned(
     assert product.provisioning_runs.filter(started_by=environment["reviewer"]).exists()
 
 
-def test_the_product_page_hides_the_retry_a_healthy_ledger_does_not_want(
+def test_a_reviewer_cannot_force_a_retry_the_ledger_does_not_want(
     environment,
     client,
 ):

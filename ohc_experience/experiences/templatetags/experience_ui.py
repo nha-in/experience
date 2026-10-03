@@ -1,8 +1,10 @@
 import datetime
 import json
 import re
+from urllib.parse import urlencode
 
 from django import template
+from django.urls import reverse
 from django.utils.formats import date_format
 
 from ohc_experience.experiences.registry import registry
@@ -167,10 +169,17 @@ def snapshot_rows(snapshot, item=None, drafts=None):
 
 
 @register.simple_tag
-def decision_form_id(item, *, embedded=False):
-    """The id of the form that decides this review: the review page has one,
-    the product page one per request."""
-    return f"decision-form-{item.pk}" if embedded else "decision-form"
+def decision_form_id(item):
+    """The id of the form that decides this request on the product page."""
+    return f"decision-form-{item.pk}"
+
+
+@register.simple_tag
+def query_url(item, field_key):
+    """Without scripts, a Query link reloads the product page with the box open."""
+    path = reverse("experiences:product-detail", args=[item.review_product.reference])
+    query = urlencode({"review": item.pk, "action": "query", "field": field_key})
+    return f"{path}?{query}#review-{item.pk}"
 
 
 @register.simple_tag

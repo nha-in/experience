@@ -15,6 +15,7 @@ from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import nhcx_product
+from ohc_experience.abdm.tests.test_workflow import review_section
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.events_and_activities.models import Event
@@ -152,55 +153,58 @@ def test_nhcx_grant_does_not_allow_uhi_or_hicm(environment, staff, client):
         workflows.decide(uhi, staff, action="approve")
 
 
+def review_card(client, item):
+    url = reverse("experiences:product-detail", args=[item.product.reference])
+    return review_section(client.get(url).content.decode(), item)
+
+
+def offers(client, item, action):
+    """Whether the request's card lets this reviewer choose the action."""
+    return bool(
+        re.search(rf'value="{action}"(?!\s+disabled)', review_card(client, item)),
+    )
+
+
+def decide(client, item, action, note):
+    item.refresh_from_db()
+    text = {"question_form": note} if action == "query" else {"note": note}
+    return client.post(
+        reverse("experiences:product-detail", args=[item.product.reference]),
+        {
+            "intent": "decision",
+            "review_id": item.pk,
+            "revision": item.selected_submission_id,
+            "action": action,
+            **text,
+        },
+    )
+
+
 def test_review_write_and_approve_are_independent(environment, staff, client):
     approve(environment)
     item = submit(environment, "p1")
     access = grant(staff, category="PHR", write=True)
     workflows.assign_review(item, environment["admin"], staff)
     client.force_login(staff)
-    page = client.get(item.get_absolute_url())
-    assert b'value="query"' in page.content
-    assert b'value="approve"' not in page.content
-    assert b'value="reject"' not in page.content
+    assert offers(client, item, "query")
+    assert not offers(client, item, "approve")
+    assert not offers(client, item, "reject")
     for action in ["approve", "reject"]:
-        assert (
-            client.post(
-                item.get_absolute_url(),
-                {"action": action, "note": "No"},
-            ).status_code
-            == 403
-        )
-    assert (
-        client.post(
-            item.get_absolute_url(),
-            {"action": "query", "question_form": "Clarify the scope."},
-        ).status_code
-        == 302
-    )
+        assert decide(client, item, action, "No").status_code == 403
+    assert decide(client, item, "query", "Clarify the scope.").status_code == 302
     query = item.queries.get()
     workflows.reply_query(query, environment["applicant"], "Confirmed")
     workflows.resolve_query(query, staff)
     access.can_write = False
     access.can_approve = True
     access.save()
-    page = client.get(item.get_absolute_url())
-    assert b'value="approve"' in page.content
-    assert b'value="query"' not in page.content
-    assert b"field=scope#decision" not in page.content
-    assert (
-        client.post(
-            item.get_absolute_url(),
-            {"action": "query", "question_form": "Clarify the scope."},
-        ).status_code
-        == 403
-    )
-    assert (
-        client.post(
-            item.get_absolute_url(),
-            {"action": "approve", "note": "Evidence accepted."},
-        ).status_code
-        == 302
-    )
+    assert offers(client, item, "approve")
+    assert not offers(client, item, "query")
+    assert "field=scope" not in review_card(client, item)
+    assert decide(client, item, "query", "Clarify the scope.").status_code == 403
+    assert decide(client, item, "approve", "Evidence accepted.").status_code == 302
+    item.refresh_from_db()
+    assert item.status == "approved"
 
 
 def test_an_override_needs_approve_rights_not_write(environment, staff, client):
@@ -209,18 +213,16 @@ def test_an_override_needs_approve_rights_not_write(environment, staff, client):
     uhi = submit(environment, "uhi1")
     access = grant(staff, category="UHI", write=True)
     client.force_login(staff)
-    override = {"action": "approve", "note": "Approving ahead of M1 for a pilot."}
+    override = "Approving ahead of M1 for a pilot."
 
-    page = client.get(uhi.get_absolute_url())
-    assert b"Approve and override prerequisites" not in page.content
-    assert client.post(uhi.get_absolute_url(), override).status_code == 403
+    assert "Approve and override prerequisites" not in review_card(client, uhi)
+    assert decide(client, uhi, "approve", override).status_code == 403
 
     access.can_write, access.can_approve = False, True
     access.save()
 
-    page = client.get(uhi.get_absolute_url())
-    assert b"Approve and override prerequisites" in page.content
-    assert client.post(uhi.get_absolute_url(), override).status_code == 302
+    assert "Approve and override prerequisites" in review_card(client, uhi)
+    assert decide(client, uhi, "approve", override).status_code == 302
     uhi.refresh_from_db()
     assert uhi.decided_by == staff
 

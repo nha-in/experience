@@ -14,7 +14,6 @@ from django.utils import timezone
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
-from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.experiences import production
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.forms import ProductionAccessForm
@@ -358,12 +357,6 @@ def test_integrator_and_reviewer_pages(environment, client):
     assert "/assess/production/" not in content
     client.force_login(environment["reviewer"])
     detail_url = reverse("experiences:production-detail", args=[reference])
-    content = client.get(
-        reverse("experiences:review", args=[milestone(environment).pk]),
-    ).content.decode()
-    assert "Production client ID" in content
-    assert "PROD-1" in content
-    assert detail_url in content
     content = client.get(
         reverse("experiences:product-detail", args=[reference]),
     ).content.decode()

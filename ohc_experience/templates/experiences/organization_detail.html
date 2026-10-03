@@ -113,9 +113,14 @@
                         {% include 'experiences/partials/reviewer_type.html' %}
                         <span class="font-mono text-xs text-soft-foreground">{{ item.reference }}</span>
                       </span>
-                      <a class="font-semibold text-foreground no-underline group-hover:text-primary"
-                         href="{{ item.get_absolute_url }}"
-                         data-row-link>{{ item.title }}</a>
+                      {% if item.awaits_product %}
+                        <span class="font-semibold">{{ item.title }}</span>
+                        <span class="mt-1 block text-xs text-soft-foreground">Reviewed on the product page once a product is registered</span>
+                      {% else %}
+                        <a class="font-semibold text-foreground no-underline group-hover:text-primary"
+                           href="{{ item.get_absolute_url }}"
+                           data-row-link>{{ item.title }}</a>
+                      {% endif %}
                       {% if item.application.milestone %}
                         <span class="mt-0.5 block">{% include 'experiences/partials/reviewer_milestone.html' %}</span>
                       {% endif %}
@@ -139,7 +144,20 @@
           </div>
           <ul class="divide-y divide-soft-border border-t border-soft-border md:hidden">
             {% for item in review_requests %}
-              {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
+              {% if item.awaits_product %}
+                <li class="px-5 py-4">
+                  <div class="mb-2 flex flex-wrap items-center gap-2">
+                    {% include 'experiences/partials/reviewer_type.html' %}<span class="font-mono text-xs text-soft-foreground">{{ item.reference }}</span>
+                  </div>
+                  <p class="text-sm font-semibold leading-relaxed break-words">{{ item.title }}</p>
+                  <div class="mt-2.5">
+                    {% include 'experiences/partials/status.html' with status=item.status label=item.get_status_display %}
+                  </div>
+                  <p class="mt-3 text-xs text-soft-foreground">Reviewed on the product page once a product is registered</p>
+                </li>
+              {% else %}
+                {% include 'experiences/partials/reviewer_request_card.html' with show_status=True %}
+              {% endif %}
             {% endfor %}
           </ul>
         {% else %}
@@ -197,8 +215,10 @@
                 {% if withdrawn_verification %}
                   <p class="mt-1.5 text-xs leading-relaxed text-soft-foreground">
                     Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'d/m/Y' }}{% endif %}. It returns for review when they resubmit.
-                    <a class="font-semibold text-primary hover:underline"
-                       href="{{ withdrawn_verification.get_absolute_url }}">View history</a>
+                    {% if not verification_awaits_product %}
+                      <a class="font-semibold text-primary hover:underline"
+                         href="{{ withdrawn_verification.get_absolute_url }}">View history</a>
+                    {% endif %}
                   </p>
                 {% endif %}
               </dd>

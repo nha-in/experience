@@ -1,7 +1,7 @@
 {% load experience_ui %}
 
 {% snapshot_rows snapshot item query_drafts as rows %}
-{% decision_form_id item embedded=embedded_review as form_id %}
+{% decision_form_id item as form_id %}
 {% draft_for query_drafts 'form' as form_draft %}
 <section class="{% if embedded_review %}flex flex-col{% else %}ui-card ui-card--layered gap-3.5 pb-2.5{% endif %}"
          aria-labelledby="submitted-form-title{% if embedded_review %}-{{ item.pk }}{% endif %}"
@@ -13,22 +13,16 @@
         {% include 'experiences/partials/submission_version.html' with submission=snapshot only %}
         {% if can_raise_query %}
           <a class="ui-btn ui-btn--ghost ui-btn--size-xs -mr-2.5"
-             href="{{ item.get_absolute_url }}?action=query&amp;field=form#decision"
+             href="{% query_url item 'form' %}"
              data-query-field="form"
              data-query-form="{{ form_id }}">{% include "components/nav_icon.html" with icon="query" icon_size="size-3.5" %}Query the whole form</a>
         {% endif %}
       </span>
     </div>
   {% else %}
-    <div class="ui-card-header flex flex-wrap items-start justify-between gap-3">
-      <div class="min-w-0">
-        <h2 class="ui-card-title" id="submitted-form-title">Submitted form</h2>
-        <p class="ui-card-description">{% if can_query and item.pending %}What the integrator sent.{% else %}The evidence provided in this saved submission.{% endif %}</p>
-      </div>
-      {% if can_raise_query %}<a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-9 shrink-0"
-   href="{{ item.get_absolute_url }}?action=query&amp;field=form#decision"
-   data-query-field="form"
-   data-query-form="{{ form_id }}">{% include "components/nav_icon.html" with icon="query" icon_size="size-4" %}Query the whole form</a>{% endif %}
+    <div class="ui-card-header">
+      <h2 class="ui-card-title" id="submitted-form-title">Submitted form</h2>
+      <p class="ui-card-description">The evidence provided in this saved submission.</p>
     </div>
   {% endif %}
   {% if snapshot %}
@@ -105,7 +99,7 @@
         {% if can_raise_query %}
           <dd data-query-button {% if row.draft is not None %}hidden{% endif %}>
             <a class="ui-btn ui-btn--ghost ui-btn--size-xs max-sm:-ml-2.5"
-               href="{{ item.get_absolute_url }}?action=query&amp;field={{ row.key|urlencode }}#decision"
+               href="{% query_url item row.key %}"
                data-query-field="{{ row.key }}"
                data-query-form="{{ form_id }}">{% include "components/nav_icon.html" with icon="query" icon_size="size-3.5" %}Query<span class="sr-only"> {{ row.label }}</span></a>
           </dd>

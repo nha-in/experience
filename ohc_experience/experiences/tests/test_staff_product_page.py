@@ -55,7 +55,7 @@ def test_admin_reaches_each_open_request_from_the_product(environment, client):
     assert response.status_code == HTTPStatus.OK
     assert response.context["pending"] == [pending]
     assert response.context["decidable"] == {pending.pk}
-    assert pending.get_absolute_url().encode() in response.content
+    assert f'id="review-{pending.pk}"'.encode() in response.content
     assert b'id="product-switcher' not in response.content
     assert response.context["registration"].kind == "product_registration"
     tiles = [tile for row in response.context["tracks"] for tile in row["tiles"]]
@@ -154,15 +154,17 @@ def test_staff_pages_never_offer_the_product_switcher(environment, client):
         reverse("experiences:ticket", args=[ticket.reference]),
         reverse("experiences:submission", args=[item.pk, item.selected_submission_id]),
         reverse("experiences:products"),
-        item.get_absolute_url(),
+        product_url(environment),
     ]
     client.force_login(environment["admin"])
     for url in staff_pages:
         response = client.get(url)
         assert response.status_code == HTTPStatus.OK, url
         assert b'id="product-switcher' not in response.content, url
-    for url in (reverse("experiences:products"), item.get_absolute_url()):
-        assert product_url(environment).encode() in client.get(url).content, url
+    assert (
+        product_url(environment).encode()
+        in client.get(reverse("experiences:products")).content
+    )
 
     client.force_login(environment["applicant"])
     response = client.get(reverse("experiences:ticket", args=[ticket.reference]))

@@ -405,24 +405,32 @@ class DemoBuilder:
         self.exit(waiting, "m1", applicant, admin, reviewer, "review")
         waiting_uhi = waiting.milestones.get(key="uhi1").application.review_item
         services.save_review_form(waiting_uhi, applicant, data=uhi_data(), submit=True)
-        pending_user = self.user("new-integrator@abdm-demo.in", "Nisha Patel", password)
-        pending_org = Organisation.objects.create(name="HealthBridge Digital")
-        Membership.objects.create(
-            organisation=pending_org,
-            user=pending_user,
-            role="owner",
+        # Verification pending with no product: off the queue until one exists.
+        self.pending_organisation(
+            "new-integrator@abdm-demo.in",
+            "Nisha Patel",
+            "HealthBridge Digital",
+            password,
         )
-        pending_item = services.organisation_review(pending_org, pending_user)
+        # Verification pending beside a submitted M1, both on one product page.
+        submitter, submitting_org = self.pending_organisation(
+            "pending-org-submitted@abdm-demo.in",
+            "Meera Krishnan",
+            "Arogya Cloud Solutions",
+            password,
+        )
+        arogya, form = services.register_product(
+            submitting_org,
+            submitter,
+            data=product_data("Arogya HMIS 3.1"),
+        )
+        if not arogya:
+            raise CommandError(str(form.errors))
         services.save_review_form(
-            pending_item,
-            pending_user,
-            data=organisation_data(pending_org.name),
-            files={
-                "supporting_document": demo_pdf(
-                    "identity-document.pdf",
-                    "Entity identity document",
-                ),
-            },
+            arogya.milestones.get(key="m1").application.review_item,
+            submitter,
+            data=evidence_data(),
+            files=evidence_files(),
             submit=True,
         )
         self.events(admin)
@@ -494,6 +502,27 @@ class DemoBuilder:
             provision_inline(product)
         return product, form
 
+    def pending_organisation(self, email, name, org_name, password):
+        """An integrator whose organisation verification awaits review."""
+        user = self.user(email, name, password)
+        org = Organisation.objects.create(name=org_name)
+        Membership.objects.create(organisation=org, user=user, role="owner")
+        _item, form, saved = services.save_review_form(
+            services.organisation_review(org, user),
+            user,
+            data=organisation_data(org_name),
+            files={
+                "supporting_document": demo_pdf(
+                    "identity-document.pdf",
+                    "Entity identity document",
+                ),
+            },
+            submit=True,
+        )
+        if not saved:
+            raise CommandError(str(form.errors))
+        return user, org
+
     def user(self, email, name, password, *, reviewer=False, admin=False):
         user, _ = get_user_model().objects.get_or_create(email=email)
         user.name, user.is_active = name, True
@@ -513,7 +542,7 @@ class DemoBuilder:
 
     def exit(self, product, key, applicant, admin, reviewer, state, *, note=""):  # noqa: PLR0913, PLR0917
         item = product.milestones.get(key=key).application.review_item
-        item, form, saved = services.save_review_form(
+        _item, form, saved = services.save_review_form(
             item,
             applicant,
             data=evidence_data(),

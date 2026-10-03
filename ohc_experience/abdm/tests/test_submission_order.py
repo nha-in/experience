@@ -430,28 +430,6 @@ def test_the_waiting_filter_agrees_with_pending_prerequisites(environment):
     assert agree()
 
 
-def test_the_review_page_lists_the_requests_waiting_on_it(environment, client):
-    m1 = submit(environment)
-    m2 = submit(environment, "m2")
-    uhi = submit(environment, "uhi1")
-    client.force_login(environment["reviewer"])
-
-    html = client.get(m1.get_absolute_url()).content.decode()
-
-    assert "2 requests wait on this one" in html
-    assert 'aria-label="Waiting on this request"' in html
-    assert (
-        f'href="{m2.get_absolute_url()}">'
-        "M2 - Health Information Provider Services</a>" in html
-    )
-    assert f'href="{uhi.get_absolute_url()}">UHI - UHI participation</a>' in html
-
-    approve_submitted(environment)
-
-    html = client.get(m1.get_absolute_url()).content.decode()
-    assert "wait on this one" not in html
-
-
 def test_p4_waits_on_p1_p2_and_p3_together(environment, client):
     """The locker builds on the whole PHR sequence, not just its first step."""
     product = phr_product(environment)

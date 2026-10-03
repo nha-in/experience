@@ -28,6 +28,7 @@ from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import registered_as_other
+from ohc_experience.abdm.tests.test_workflow import review_section
 from ohc_experience.abdm.tests.test_workflow import stored_secret
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import legacy
@@ -1125,28 +1126,6 @@ def submit_button(html):
 
 
 @pytest.mark.django_db
-def test_a_reviewer_sees_the_m2_review_lacks_a_callback_url(environment, client):
-    clear_callback_url(environment)
-    item = milestone(environment, "m2")
-    client.force_login(environment["reviewer"])
-
-    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
-
-    assert "No callback URL saved" in html
-
-
-@pytest.mark.django_db
-def test_a_reviewer_does_not_see_it_on_the_m1_review(environment, client):
-    clear_callback_url(environment)
-    item = milestone(environment, "m1")
-    client.force_login(environment["reviewer"])
-
-    html = client.get(reverse("experiences:review", args=[item.pk])).content.decode()
-
-    assert "No callback URL saved" not in html
-
-
-@pytest.mark.django_db
 def test_the_product_page_flags_a_missing_callback_url(environment, client):
     submit(environment, "m1")
     submit(environment, "m2")
@@ -1159,7 +1138,11 @@ def test_the_product_page_flags_a_missing_callback_url(environment, client):
 
     html = client.get(url).content.decode()
 
-    assert "No callback URL saved" in html
+    assert "No callback URL saved" in review_section(html, milestone(environment, "m2"))
+    assert "No callback URL saved" not in review_section(
+        html,
+        milestone(environment, "m1"),
+    )
 
 
 @pytest.mark.django_db

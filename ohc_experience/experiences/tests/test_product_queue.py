@@ -328,8 +328,11 @@ def test_organisation_verification_is_listed_under_organisations_not_on_its_prod
     [verification] = response.context["page"]
     assert verification.review == organisation
     assert verification.products == [review_item.product]
-    # The row opens the verification's own review, not a product's.
-    assert verification.url == organisation.get_absolute_url()
+    # The row opens the verification's card on its product's page.
+    assert verification.url == (
+        reverse("experiences:product-detail", args=[review_item.product.reference])
+        + f"#review-{organisation.pk}"
+    )
     assert f'href="{verification.url}"'.encode() in response.content
     assert b"Review organisation" in response.content
     # A verification waits on nothing, so its list has no such status.
@@ -438,7 +441,9 @@ def test_organisations_sort_by_their_verifications(
     owner_membership,
 ):
     older = submit_organisation(owner_membership)
-    newer = submit_organisation(MembershipFactory(role="owner"))
+    other = MembershipFactory(role="owner")
+    newer = submit_organisation(other)
+    submit_compressor(other)
     ReviewItem.objects.filter(pk=older.pk).update(
         submitted_at=timezone.now() - timedelta(days=2),
     )
@@ -503,22 +508,26 @@ def submit_compressor(membership):
     return compressor
 
 
-def test_an_organisation_with_no_products_is_listed_under_organisations(
-    client,
-    review_item,
-):
-    organisation = submit_organisation(MembershipFactory(role="owner"))
+def test_an_organisation_with_no_products_waits_off_the_queue(client, review_item):
+    """Its verification is reviewed on a product page, so it waits for one."""
+    membership = MembershipFactory(role="owner")
+    organisation = submit_organisation(membership)
     client.force_login(ReviewerFactory(is_nha_team=True))
     url = reverse("experiences:queue")
 
     products = client.get(url, {"scope": "all"}).context["page"]
     assert [entry.product for entry in products] == [review_item.product]
     response = client.get(url, {"kind": "organisations", "scope": "all"})
-    [entry] = response.context["page"]
+    assert response.context["page"].paginator.count == 0
+
+    compressor = submit_compressor(membership)
+    [entry] = client.get(url, {"kind": "organisations"}).context["page"]
     assert entry.review == organisation
-    assert entry.products == []
-    assert entry.url == organisation.get_absolute_url()
-    assert b"No products yet" in response.content
+    assert entry.products == [compressor]
+    assert entry.url == (
+        reverse("experiences:product-detail", args=[compressor.reference])
+        + f"#review-{organisation.pk}"
+    )
 
 
 def test_a_product_with_only_its_organisation_submitted_has_no_row(
@@ -609,7 +618,9 @@ def test_search_finds_what_the_queue_shows(client, review_item, owner_membership
     Organisation.objects.filter(pk=owner_membership.organisation_id).update(
         legal_name="Sunrise Medical Devices Private Limited",
     )
-    standalone = submit_organisation(MembershipFactory(role="owner"))
+    other = MembershipFactory(role="owner")
+    standalone = submit_organisation(other)
+    submit_compressor(other)
     client.force_login(ReviewerFactory(is_nha_team=True))
     url = reverse("experiences:queue")
 

@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.urls import reverse
 
+from ohc_experience.abdm.tests.test_workflow import review_section
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.registry import registry
@@ -24,6 +25,29 @@ def last_flash(response):
     """The newest message; the test client follows no redirect, so older ones
     are still queued."""
     return [str(message) for message in get_messages(response.wsgi_request)][-1]
+
+
+def product_page(item):
+    return reverse("experiences:product-detail", args=[item.product.reference])
+
+
+def decision(item, action, note="", **fields):
+    """A request's own Decision form on the product page."""
+    return {
+        "intent": "decision",
+        "review_id": item.pk,
+        "revision": item.selected_submission_id,
+        "action": action,
+        "note": note,
+        **fields,
+    }
+
+
+def section(response, item):
+    """The context a request's card on the product page renders from."""
+    return next(
+        row for row in response.context["review_sections"] if row["item"] == item
+    )
 
 
 @pytest.fixture
@@ -159,7 +183,7 @@ def test_queue_searches_by_product_reference_and_preserves_it_in_navigation(
     assert b'href="?scope=ready"' in response.content
 
 
-def test_staff_product_page_links_open_requests_to_their_reviews(
+def test_staff_product_page_links_open_requests_to_their_cards(
     review_item,
     owner_membership,
     client,
@@ -173,7 +197,7 @@ def test_staff_product_page_links_open_requests_to_their_reviews(
     assert response.status_code == HTTPStatus.OK
     assert review_item in response.context["pending"]
     assert review_item.pk in response.context["decidable"]
-    assert review_item.get_absolute_url().encode() in response.content
+    assert f'href="#review-{review_item.pk}"'.encode() in response.content
     assert b"Supplier Quality Portal" in response.content
     assert b'id="product-switcher' not in response.content
     assert (
@@ -190,16 +214,17 @@ def test_staff_product_page_links_open_requests_to_their_reviews(
 
 
 def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, client):
+    url = product_page(review_item)
     reviewer = ReviewerFactory(is_nha_team=True)
     client.force_login(reviewer)
-    response = client.get(review_item.get_absolute_url())
-    assert b"data-decision-form" in response.content
-    assert b"field=form#decision" in response.content
+    card = review_section(client.get(url).content.decode(), review_item)
+    assert "data-decision-form" in card
+    assert "field=form#review-" in card
     # Each submitted field picks itself for a query, falling back to a link.
-    assert b'data-query-field="score"' in response.content
-    assert b"field=score#decision" in response.content
+    assert 'data-query-field="score"' in card
+    assert "field=score#review-" in card
     # Approving a request includes choosing its reviewer.
-    assert b'name="assignee"' in response.content
+    assert 'name="assignee"' in card
 
     read_only = UserFactory(is_nha_team=True)
     AccessGrant.objects.create(
@@ -209,30 +234,30 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
         category="*",
     )
     client.force_login(read_only)
-    response = client.get(review_item.get_absolute_url())
-    assert b"data-decision-form" not in response.content
-    assert b"data-query-field" not in response.content
-    assert b"does not include queries or decisions" in response.content
-    assert b'name="assignee"' not in response.content
+    card = review_section(client.get(url).content.decode(), review_item)
+    assert "data-decision-form" not in card
+    assert "data-query-field" not in card
+    assert "You have read-only access to this request." in card
+    assert 'name="assignee"' not in card
 
     client.force_login(UserFactory(is_superuser=True))
-    response = client.get(review_item.get_absolute_url())
-    assert b'name="assignee"' in response.content
-    assert b"Reassign" not in response.content
+    card = review_section(client.get(url).content.decode(), review_item)
+    assert 'name="assignee"' in card
+    assert "Reassign" not in card
     response = client.post(
-        review_item.get_absolute_url(),
-        {"intent": "assign", "assignee": reviewer.pk},
+        url,
+        {"intent": "assign", "review_id": review_item.pk, "assignee": reviewer.pk},
     )
     assert response.status_code == HTTPStatus.FOUND
     review_item.refresh_from_db()
     assert review_item.assignee == reviewer
-    assert b"Reassign" in client.get(review_item.get_absolute_url()).content
+    assert "Reassign" in review_section(client.get(url).content.decode(), review_item)
 
     # Someone other than the assignee can still record the decision.
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.post(
-        review_item.get_absolute_url(),
-        {"action": "approve", "note": "Evidence accepted."},
+        url,
+        decision(review_item, "approve", "Evidence accepted."),
     )
     assert response.status_code == HTTPStatus.FOUND
     review_item.refresh_from_db()
@@ -249,15 +274,15 @@ def test_a_required_note_is_refused_until_it_runs_to_ten_characters(
     client.force_login(reviewer)
 
     response = client.post(
-        review_item.get_absolute_url(),
-        {"action": "query", "question_score": "Too short"},
+        product_page(review_item),
+        decision(review_item, "query", question_score="Too short"),
     )
 
     assert response.status_code == HTTPStatus.OK
     assert b"at least 10 characters for the query about Score" in response.content
     assert not review_item.queries.exists()
     # The question comes back in its box, to be finished rather than retyped.
-    assert response.context["query_drafts"] == {"score": "Too short"}
+    assert section(response, review_item)["query_drafts"] == {"score": "Too short"}
 
 
 def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa: PLR0915
@@ -268,28 +293,26 @@ def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa:
     reviewer = ReviewerFactory(is_nha_team=True)
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
-    url = review_item.get_absolute_url()
-    response = client.post(
-        url,
-        {"action": "query"},
-    )
+    url = product_page(review_item)
+    response = client.post(url, decision(review_item, "query"))
     assert response.status_code == HTTPStatus.OK
-    assert response.context["decision_action"] == "query"
+    assert section(response, review_item)["decision_action"] == "query"
     assert b"Write a query before sending." in response.content
 
     response = client.post(
         url,
-        {"action": "query", "question_score": "Confirm this score."},
+        decision(review_item, "query", question_score="Confirm this score."),
     )
     assert response.status_code == HTTPStatus.FOUND
     assert last_flash(response) == f"Query raised on {review_item.title}."
     query = review_item.queries.get()
     response = client.get(url)
-    assert response.context["unresolved_query_count"] == 1
-    assert response.context["awaiting_reply_count"] == 1
+    assert section(response, review_item)["unresolved_query_count"] == 1
     assert b'data-approval-blocked="true"' in response.content
-    assert b"Confirm this score." in response.content
-    assert b"waiting for the integrator" in response.content
+    card = " ".join(review_section(response.content.decode(), review_item).split())
+    assert "Confirm this score." in card
+    assert "Resolve 1 outstanding query before approval." in card
+    assert "1 awaiting reply" in card
 
     client.force_login(owner_membership.user)
     response = client.get(reverse("experiences:pending-queries"))
@@ -302,29 +325,30 @@ def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa:
     assert last_flash(response) == "Reply sent."
     client.force_login(reviewer)
     response = client.get(url)
-    assert response.context["unresolved_query_count"] == 1
-    assert response.context["awaiting_reply_count"] == 0
-    assert b"Mark resolved" in response.content
-    assert b"Review replies" in response.content
-    assert b"ready for your review" in response.content
+    assert section(response, review_item)["unresolved_query_count"] == 1
+    card = " ".join(review_section(response.content.decode(), review_item).split())
+    assert "Mark resolved" in card
+    assert "1 to review" in card
+    assert "awaiting reply" not in card
     pending = client.get(reverse("experiences:pending-queries"))
     assert b"Replies received" in pending.content
     assert b"Awaiting reply" not in pending.content
-    assert f"{url}#queries".encode() in pending.content
+    assert f'href="{url}#queries-{review_item.pk}"'.encode() in pending.content
     response = client.post(
         reverse("experiences:query-action", args=[query.pk]),
         {"intent": "resolve"},
     )
     assert response.status_code == HTTPStatus.FOUND
     assert last_flash(response) == "Query resolved."
-    response = client.post(url, {"action": "approve", "note": "Evidence verified."})
+    response = client.post(url, decision(review_item, "approve", "Evidence verified."))
     assert response.status_code == HTTPStatus.FOUND
     assert last_flash(response) == f"{review_item.title} approved."
     review_item.refresh_from_db()
     assert review_item.status == "approved"
     response = client.get(url)
-    assert b"Evidence verified." in response.content
-    assert b"data-decision-form" not in response.content
+    card = review_section(response.content.decode(), review_item)
+    assert "Evidence verified." in card
+    assert "data-decision-form" not in card
     snapshot_url = reverse(
         "experiences:submission",
         args=[review_item.pk, review_item.selected_submission_id],
@@ -378,17 +402,17 @@ def test_queries_open_in_full_only_for_whoever_can_act_on_them(
     workflows.reply_query(asked["form"], integrator, "The release note is attached.")
     workflows.resolve_query(asked["form"], reviewer)
 
-    def queries_card(user, url):
+    def queries_card(user, url, anchor='id="queries"'):
         client.force_login(user)
         page = client.get(url).content.decode()
-        return page[page.index('id="queries"') :]
+        return page[page.index(anchor) :]
 
     folded = '<details class="group/q'
     settled = '<details class="group/settled'
 
     # The reviewer can resolve the reply, so it opens in full, although it was
     # asked after the question still waiting on the integrator, which folds.
-    card = queries_card(reviewer, item.get_absolute_url())
+    card = queries_card(reviewer, product_page(item), f'id="queries-{item.pk}"')
     assert "1 to review · 1 awaiting reply" in " ".join(card.split())
     assert (
         card.index("Mark resolved")
@@ -420,7 +444,7 @@ def test_queries_open_in_full_only_for_whoever_can_act_on_them(
     assert "Mark resolved" not in card[: card.index(settled)]
 
 
-def test_the_review_page_names_who_submitted_and_how_to_reach_them(
+def test_the_product_page_names_who_submitted_each_request(
     review_item,
     owner_membership,
     client,
@@ -434,28 +458,14 @@ def test_the_review_page_names_who_submitted_and_how_to_reach_them(
     organisation.save()
     client.force_login(ReviewerFactory(is_nha_team=True))
 
-    html = client.get(review_item.get_absolute_url()).content.decode()
-    row = html.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]
+    html = client.get(product_page(review_item)).content.decode()
+    card = review_section(html, review_item)
+    row = card.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]
 
     assert "Meera Krishnan" in row
     assert 'href="mailto:meera@sunrise.in"' in row
     assert "+919876543210" in row
     assert "Not on the website's domain" not in row
-
-
-def test_the_product_page_names_who_submitted_each_request(review_item, client):
-    client.force_login(ReviewerFactory(is_nha_team=True))
-
-    html = client.get(
-        reverse(
-            "experiences:product-detail",
-            args=[review_item.product.reference],
-        ),
-    ).content.decode()
-    row = html.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]
-
-    assert "Meera Krishnan" in row
-    assert 'href="mailto:meera@sunrise.in"' in row
 
 
 def test_the_product_page_asks_within_that_requests_decision(review_item, client):
@@ -480,25 +490,32 @@ def test_the_product_page_asks_within_that_requests_decision(review_item, client
 
 def test_ask_opens_a_closed_question_box_under_its_field(review_item, client):
     client.force_login(ReviewerFactory(is_nha_team=True))
-    url = review_item.get_absolute_url()
+    url = product_page(review_item)
+    form = f"decision-form-{review_item.pk}"
+
+    def score_box(html):
+        box = html[html.index(f'id="draft-{form}-score"') :]
+        return box[: box.index("</dd>")]
 
     html = client.get(url).content.decode()
-    box = html[html.index('id="draft-decision-form-score"') :]
-    box = box[: box.index("</dd>")]
+    box = score_box(html)
     # Closed: hidden, and its question neither sends nor blocks a send.
     assert "hidden" in box.split(">", 1)[0]
     assert "disabled" in box
     assert 'name="question_score"' in box
-    assert 'form="decision-form"' in box
+    assert f'form="{form}"' in box
     assert 'Query<span class="sr-only"> Score</span></a>' in html
     assert "Against" not in html
 
-    # Without scripts, Ask is a link that reloads with its box open.
-    html = client.get(f"{url}?action=query&field=score").content.decode()
-    box = html[html.index('id="draft-decision-form-score"') :]
-    box = box[: box.index("</dd>")]
+    # Without scripts, Ask is a link that reloads with the card and box open.
+    link = f"{url}?review={review_item.pk}&amp;action=query&amp;field=score"
+    assert f'href="{link}#review-{review_item.pk}"' in html
+    html = client.get(link.replace("&amp;", "&")).content.decode()
+    box = score_box(html)
     assert "hidden" not in box.split(">", 1)[0]
     assert "disabled" not in box
+    panel = html[html.index(f'id="review-{review_item.pk}"') :]
+    assert panel[: panel.index(">")].split()[-1] == "open"
 
 
 def test_several_questions_go_to_the_integrator_in_one_send(review_item, client):
@@ -508,12 +525,13 @@ def test_several_questions_go_to_the_integrator_in_one_send(review_item, client)
     mail.outbox.clear()
 
     response = client.post(
-        review_item.get_absolute_url(),
-        {
-            "action": "query",
-            "question_form": "Attach the signed release note.",
-            "question_score": "Confirm this score against the report.",
-        },
+        product_page(review_item),
+        decision(
+            review_item,
+            "query",
+            question_form="Attach the signed release note.",
+            question_score="Confirm this score against the report.",
+        ),
     )
 
     assert response.status_code == HTTPStatus.FOUND
@@ -698,8 +716,8 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
     client.force_login(reviewer)
     if scope == "decided":
         response = client.post(
-            review_item.get_absolute_url(),
-            {"action": "approve", "note": "Evidence accepted."},
+            product_page(review_item),
+            decision(review_item, "approve", "Evidence accepted."),
         )
         assert response.status_code == HTTPStatus.FOUND
 

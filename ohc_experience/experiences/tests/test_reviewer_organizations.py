@@ -351,6 +351,40 @@ def test_an_unsent_verification_does_not_list_its_organization(environment, clie
         assert response.status_code == status
 
 
+def test_a_verification_waits_on_the_organisation_page_for_a_product(
+    environment,
+    client,
+):
+    """With no product page to review it on, the verification is not a link."""
+    organization = OrganisationFactory(name="Productless Labs")
+    owner = UserFactory()
+    Membership.objects.create(organisation=organization, user=owner, role="owner")
+    verification, form, saved = services.save_review_form(
+        services.organisation_review(organization, owner),
+        owner,
+        data=organisation_data("Productless Labs"),
+        files={"supporting_document": pdf()},
+        submit=True,
+    )
+    assert saved, form.errors
+    page = reverse("experiences:organization-detail", args=[organization.slug])
+    waiting = b"Reviewed on the product page once a product is registered"
+
+    client.force_login(environment["admin"])
+    response = client.get(page)
+    assert waiting in response.content
+    assert verification.get_absolute_url() == page
+
+    product = register_locker(organization, owner, "Productless Locker")
+    response = client.get(page)
+    assert waiting not in response.content
+    assert verification.get_absolute_url() == (
+        reverse("experiences:product-detail", args=[product.reference])
+        + f"#review-{verification.pk}"
+    )
+    assert f'href="{verification.get_absolute_url()}"'.encode() in response.content
+
+
 def test_pages_never_repeat_or_skip_rows_that_share_a_name(environment, client):
     for _index in range(23):
         organization = OrganisationFactory(name="Care Plus", onboarded=True)

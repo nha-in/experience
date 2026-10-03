@@ -54,8 +54,15 @@ def queue_requests(user):
 
 
 def verification_requests(user):
-    """The Organisations list's requests: each organisation's one verification."""
-    return submitted_requests(user).filter(kind=ReviewItem.Kind.ORGANISATION)
+    """The Organisations list's requests: each organisation's one verification.
+
+    A verification is reviewed on a product page, so it waits off the queue
+    until its organisation registers a product.
+    """
+    return submitted_requests(user).filter(
+        kind=ReviewItem.Kind.ORGANISATION,
+        organisation__in=Product.objects.values("organisation"),
+    )
 
 
 QUEUE_SORTS = tuple(

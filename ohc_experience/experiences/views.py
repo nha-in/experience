@@ -47,7 +47,6 @@ from django.views.decorators.http import require_safe
 
 from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences.definitions import DocumentReadError
-from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
 from ohc_experience.integrations.selectors import awaiting_provisioning
@@ -846,6 +845,13 @@ def organization_detail(request, slug):
         and organization.verification_status
         == Organisation.VerificationStatus.WITHDRAWN
     )
+    review_requests = _page(request, requests)
+    # Verification is reviewed on a product page, so it waits for the first product.
+    awaits_product = not organization.products.exists()
+    for item in review_requests:
+        item.awaits_product = (
+            awaits_product and item.kind == ReviewItem.Kind.ORGANISATION
+        )
     return render(
         request,
         "experiences/organization_detail.html",
@@ -861,9 +867,10 @@ def organization_detail(request, slug):
             ),
             withdrawn_verification=verification if withdrawn else None,
             withdrawn_at=services.withdrawn_at(verification) if withdrawn else None,
+            verification_awaits_product=awaits_product,
             products=products,
             product_sort=product_sort,
-            review_requests=_page(request, requests),
+            review_requests=review_requests,
             table_sort=sort,
         ),
     )
@@ -1017,7 +1024,7 @@ def _posted_questions(request, item):
 
 
 def _query_drafts(request, item, action):
-    """The question boxes the review page opens.
+    """The question boxes a request's card on the product page opens.
 
     Those sent back by a failed send keep their text; without scripts, an Ask
     link reloads the page with its field's box open.
@@ -1065,7 +1072,10 @@ def _product_review_sections(request, items):
             if allowed
         ]
         posted = request.POST.get("review_id") == str(item.pk)
+        asked = request.method == "GET" and request.GET.get("review") == str(item.pk)
         action = request.POST.get("action") if posted else None
+        if asked:
+            action = request.GET.get("action")
         submitter = snapshot.submitted_by if snapshot else None
         sections.append(
             {
@@ -1094,9 +1104,10 @@ def _product_review_sections(request, items):
                 "decision_action": action
                 if action in available
                 else next(iter(available), ""),
-                "query_drafts": dict(_posted_questions(request, item))
-                if posted
+                "query_drafts": _query_drafts(request, item, action)
+                if posted or asked
                 else {},
+                "opened": posted or asked,
                 "can_assign": item.pk in assignable,
                 "reviewers": reviewers.get(item.pk, []),
             },
@@ -2062,6 +2073,11 @@ def pending_queries(request):
         item.portal_url = (
             item.get_absolute_url() if reviewer else _integrator_item_url(item)
         )
+        if reviewer and item.unresolved_query_count:
+            item.portal_url = item.portal_url.replace(
+                f"#review-{item.pk}",
+                f"#queries-{item.pk}",
+            )
         item.query_state = _query_state(item, reviewer=reviewer)
     return render(
         request,
@@ -2984,14 +3000,6 @@ def _can_reprovision(user, product, credential):
     )
 
 
-def _can_retry_provisioning(user, item):
-    return _can_provision(
-        user,
-        item.product if item.product_id else None,
-        item.program.key,
-    )
-
-
 def _provision(request, product):
     """Start or re-run the chain, and say which of the two it was."""
     started = awaiting_provisioning(product)
@@ -3003,149 +3011,11 @@ def _provision(request, product):
 
 
 @login_required
-@require_http_methods(["GET", "POST"])
-def review(request, pk):
-    _reviewer_required(request)
-    item = _item(request, pk)
-    prerequisites = services.pending_prerequisites(item) if item.pending else []
-    dependants = (
-        [
-            Prerequisite(review.title, review)
-            for review in services.pending_dependants(item)
-        ]
-        if item.status != ReviewItem.Status.APPROVED
-        else []
-    )
-    can_override = (
-        item.pending
-        and bool(services.overridden_prerequisites(item))
-        and permissions.can_review(request.user, item, "approve")
-    )
-    actions = [
-        action
-        for action in permissions.available_review_actions(request.user, item)
-        if action == "query" or not prerequisites or can_override
-    ]
-    can_assign = permissions.can_assign(request.user, item)
-    selected_action = request.POST.get("action", request.GET.get("action"))
-    if selected_action not in actions:
-        selected_action = next(iter(actions), "")
-    if request.method == "POST":
-        try:
-            if request.POST.get("intent") == "assign":
-                assignee = _posted_assignee(request)
-                services.assign_review(item, request.user, assignee)
-                notice = _assign_notice(item, assignee, request.user)
-            elif request.POST.get("intent") == "retry_provisioning":
-                if not _can_retry_provisioning(request.user, item):
-                    raise PermissionDenied
-                _provision(request, item.product)
-                return redirect(item)
-            elif request.POST.get("action") == "query":
-                questions = _posted_questions(request, item)
-                services.raise_queries(item, request.user, questions)
-                notice = _decision_notice(item, "query", queries=len(questions))
-            else:
-                action = request.POST.get("action")
-                services.decide(
-                    item,
-                    request.user,
-                    action=action,
-                    note=request.POST.get("note", ""),
-                    reason=request.POST.get("reason", ""),
-                )
-                notice = _decision_notice(item, action)
-            messages.success(request, notice)
-            return redirect(item)
-        except ValidationError as error:
-            _error(request, error)
-    submitter = (
-        item.selected_submission.submitted_by if item.selected_submission else None
-    )
-    return render(
-        request,
-        "experiences/review.html",
-        _context(
-            request,
-            page_title=item.reference,
-            nav="queue",
-            item=item,
-            submitter=submitter,
-            off_domain_website=_off_domain_website(item, submitter),
-            can_decide=permissions.can_decide(request.user, item),
-            can_query=permissions.can_review(request.user, item, "write"),
-            can_raise_query="query" in actions,
-            can_approve=permissions.can_review(request.user, item, "approve"),
-            can_override=can_override,
-            can_assign=can_assign,
-            reviewers=permissions.eligible_reviewers([item])[item.pk]
-            if can_assign
-            else [],
-            available_actions=actions,
-            prerequisites=prerequisites,
-            linked_prerequisites=set(
-                permissions.visible_reviews(request.user)
-                .filter(pk__in=[row.review.pk for row in prerequisites if row.review])
-                .values_list("pk", flat=True),
-            ),
-            dependants=dependants,
-            linked_dependants=set(
-                permissions.visible_reviews(request.user)
-                .filter(pk__in=[row.review.pk for row in dependants])
-                .values_list("pk", flat=True),
-            ),
-            decision_action=selected_action,
-            decision_note=request.POST.get("note", ""),
-            reject_reasons=services.reject_reasons(item.definition),
-            other_reason=services.OTHER_REASON,
-            min_note_length=services.MIN_REVIEW_TEXT,
-            decision_reason=request.POST.get("reason", ""),
-            query_drafts=_query_drafts(request, item, selected_action),
-            awaiting_reply_count=item.queries.filter(
-                submission_id=item.selected_submission_id,
-                status="open",
-            ).count(),
-            unresolved_query_count=item.queries.filter(
-                submission=item.selected_submission,
-            )
-            .exclude(status="resolved")
-            .count(),
-            prior_approvals=permissions.visible_reviews(request.user)
-            .filter(
-                organisation=item.organisation,
-                status="approved",
-            )
-            .exclude(pk=item.pk)[:10],
-            credential=ProductCredential.objects.filter(product=item.product).first()
-            if item.product_id
-            and permissions.has_access(request.user, "review", program=item.program.key)
-            else None,
-            production=production_services.state(item.product)
-            if item.product_id
-            and production_services.can_view(request.user, item.program)
-            else None,
-            progress=provisioning_progress(item.product) if item.product_id else [],
-            can_retry_provisioning=_can_retry_provisioning(request.user, item),
-            provisioning_never_started=bool(
-                item.product_id and awaiting_provisioning(item.product),
-            ),
-            certification=_certification_context(request, item.product)
-            if item.product_id and not getattr(item.application, "milestone", None)
-            else {},
-            open_tickets=permissions.visible_tickets(request.user).filter(
-                organisation=item.organisation,
-                status__in=["open", "awaiting_integrator"],
-            )[:5],
-        ),
-    )
-
-
-@login_required
 def open_record(request, pk):
     """One link for an email: each reader lands on the page their role can open."""
     item = _item(request, pk)
     if permissions.reviewer(request.user):
-        return redirect("experiences:review", pk=item.pk)
+        return redirect(item.get_absolute_url())
     return redirect(item.product if item.product_id else "experiences:organisation")
 
 

@@ -850,7 +850,27 @@ class ReviewItem(models.Model):
         return f"{self.reference} - {self.title}"
 
     def get_absolute_url(self):
-        return reverse("experiences:review", args=[self.pk])
+        """This request's section on the staff product page."""
+        product = self.review_product
+        if product is None:
+            return reverse(
+                "experiences:organization-detail",
+                args=[self.organisation.slug],
+            )
+        return (
+            reverse("experiences:product-detail", args=[product.reference])
+            + f"#review-{self.pk}"
+        )
+
+    @property
+    def review_product(self):
+        """The product whose page reviews this request.
+
+        An organisation verification waits for the organisation's first product.
+        """
+        if self.product_id:
+            return self.product
+        return self.organisation.products.order_by("pk").first()
 
     @property
     def definition(self):

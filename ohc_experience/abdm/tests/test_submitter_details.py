@@ -43,8 +43,17 @@ def submitted_verification(email, entity_type="private_company", **data):
 
 
 def submitted_by(client, item):
+    """The Submitted by row on the product page, where verification is reviewed."""
+    product, form = workflows.register_product(
+        item.organisation,
+        item.selected_submission.submitted_by,
+        data=product_data(),
+    )
+    assert product, form.errors
     client.force_login(ReviewerFactory())
-    html = client.get(item.get_absolute_url()).content.decode()
+    html = client.get(
+        reverse("experiences:product-detail", args=[product.reference]),
+    ).content.decode()
     return html.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]
 
 
@@ -68,25 +77,6 @@ def test_an_address_off_the_website_domain_is_flagged(client):
 
     assert FLAG in row
     assert "The website's domain is example.org." in row
-
-
-def test_the_product_page_shows_who_sent_the_verification_and_flags_it(client):
-    item = submitted_verification("priya@gmail.com")
-    product, form = workflows.register_product(
-        item.organisation,
-        item.selected_submission.submitted_by,
-        data=product_data(),
-    )
-    assert product, form.errors
-    client.force_login(ReviewerFactory())
-
-    html = client.get(
-        reverse("experiences:product-detail", args=[product.reference]),
-    ).content.decode()
-    row = html.split("Submitted by</dt>", 1)[1].split("</dd>", 1)[0]
-
-    assert 'href="mailto:priya@gmail.com"' in row
-    assert FLAG in row
 
 
 def test_a_sole_proprietorship_is_not_flagged_for_a_personal_address(client):

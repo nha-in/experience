@@ -95,7 +95,9 @@ def test_a_refusal_marks_its_reason_for_the_notice(client):
 
 def test_a_missing_page_marks_its_words_for_the_notice(client):
     client.force_login(administrator())
-    response = client.get(reverse("experiences:review", args=[999999]))
+    response = client.get(
+        reverse("experiences:product-detail", args=["APP-1999-99999"]),
+    )
     found = marked(
         response.content.decode(),
         "data-error-heading",
