@@ -69,7 +69,7 @@ def test_demo_seeds_pending_verifications_with_and_without_a_product(settings):
         assert organisation.verification_status == "pending"
     assert not productless.products.exists()
     m1 = submitting.products.get().milestones.get(key="m1").application.review_item
-    assert m1.status == ReviewItem.Status.NEW
+    assert m1.status == ReviewItem.Status.IN_REVIEW
 
 
 def test_engine_demo_command_is_disabled_in_production(settings):
