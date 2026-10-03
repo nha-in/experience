@@ -349,23 +349,30 @@ def test_withdrawing_names_the_requests_to_withdraw_first(environment, client):
 
 
 def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
-    """A milestone submitted after the one it builds on shows under Pending too,
-    marked as waiting, so a product's submissions are never split across tabs."""
+    """A milestone submitted after the one it builds on stays on its product's
+    entry, but only All shows it, marked as waiting: Pending lists only what can
+    be decided now, and what is already decided."""
     m1 = submit(environment)
     m2 = submit(environment, "m2")
     uhi = submit(environment, "uhi1")
     locker = submit(environment, "p1")
     client.force_login(environment["reviewer"])
 
-    assert set(queue(client)) == {m1, m2, uhi, locker}
-    assert client.get(reverse("experiences:queue")).context["queue_scope"] == "ready"
+    assert set(queue(client)) == {m1, locker}
+    response = client.get(reverse("experiences:queue"))
+    assert response.context["queue_scope"] == "ready"
+    assert {m2, uhi} <= {
+        item for entry in response.context["page"] for item in entry.reviews
+    }
     assert "2 waiting on this" in queue_text(client)
-    assert "Waiting on M1 · under review" in queue_text(client)
+    assert "Waiting on M1 · under review" not in queue_text(client)
+    assert "Waiting on M1 · under review" in queue_text(client, scope="all")
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
     pending = {
         card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
     }
-    assert pending == {"ABDM": 1, "PHR": 1, "UHI": 1, "NHCX": 0}
+    # UHI waits on M1, so nothing in it can be decided yet.
+    assert pending == {"ABDM": 1, "PHR": 1, "UHI": 0, "NHCX": 0}
 
     approve_submitted(environment)
 
@@ -384,9 +391,15 @@ def test_requests_wait_on_organisation_verification_too(environment, client):
     client.force_login(environment["reviewer"])
 
     # The organisation review rides along with each of its products' entries,
-    # and the PHR phases live on a second product, so compare as sets.
-    assert set(queue(client)) == {verification, locker}
-    assert "Waiting on organisation verification · under review" in queue_text(client)
+    # and the PHR phases live on a second product, so compare as sets. P1 waits
+    # on the verification, so only the verification can be decided now.
+    assert set(queue(client)) == {verification}
+    page = client.get(reverse("experiences:queue")).context["page"]
+    assert locker in {item for entry in page for item in entry.reviews}
+    assert "Waiting on organisation verification · under review" in queue_text(
+        client,
+        scope="all",
+    )
 
 
 def test_the_waiting_filter_agrees_with_pending_prerequisites(environment):

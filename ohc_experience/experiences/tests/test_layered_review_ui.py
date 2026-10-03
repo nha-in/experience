@@ -63,7 +63,7 @@ def test_stage_counts_ignore_a_status_filter(client, review_item):
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(
         reverse("experiences:queue"),
-        {"scope": "ready", "status": "query_raised"},
+        {"scope": "all", "status": "query_raised"},
     )
     assert list(response.context["page"]) == []
     assert response.context["stage_counts"]["ready"] == 1

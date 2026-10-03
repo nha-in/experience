@@ -1,8 +1,15 @@
 <div class="grid gap-1.5">
-  {% if entry.open_reviews %}
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-1" data-queue-open>
-      <ul class="flex flex-wrap gap-1" aria-label="Open requests">
-        {% for item in entry.open_reviews %}
+  {% if entry.pending_reviews %}
+    <ul class="flex flex-wrap gap-1" aria-label="Pending" data-queue-pending>
+      {% for item in entry.pending_reviews %}
+        {% include 'experiences/partials/reviewer_queue_chip.html' %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% if entry.done_reviews %}
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1" data-queue-done>
+      <ul class="flex flex-wrap gap-1" aria-label="Done">
+        {% for item in entry.done_reviews %}
           {% include 'experiences/partials/reviewer_queue_chip.html' %}
         {% endfor %}
       </ul>
@@ -10,14 +17,5 @@
         <span class="text-xs text-soft-foreground">{% for item in entry.blocked %}{% if item.queue_milestone %}{{ item.queue_milestone.code }}{% elif item.product %}{{ item.application.reference }}{% else %}Org{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %} waiting on {{ entry.blocked_on|join:', ' }}</span>
       {% endif %}
     </div>
-  {% endif %}
-  {% if entry.approved %}
-    <ul class="flex flex-wrap gap-1"
-        aria-label="Approved requests"
-        data-queue-done>
-      {% for item in entry.approved %}
-        {% include 'experiences/partials/reviewer_queue_chip.html' %}
-      {% endfor %}
-    </ul>
   {% endif %}
 </div>

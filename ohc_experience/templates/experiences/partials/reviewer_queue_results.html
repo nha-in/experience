@@ -34,21 +34,26 @@
     </div>
   </div>
   {% if page %}
+    {# The states this tab's chips can show, in the order a request moves through them: Pending lists what can be decided and what is decided, Done everything else. #}
     <ul class="flex flex-wrap gap-1.5 px-5 pb-3" aria-hidden="true">
-      <li class="ui-queue-chip ui-queue-chip--approved font-medium">
-        {% include 'experiences/partials/queue_state_icon.html' with state='approved' %}Approved
-      </li>
-      <li class="ui-queue-chip ui-queue-chip--in_review font-medium">
-        {% include 'experiences/partials/queue_state_icon.html' with state='in_review' %}Under review
-      </li>
-      <li class="ui-queue-chip ui-queue-chip--query_raised font-medium">
-        {% include 'experiences/partials/queue_state_icon.html' with state='query_raised' %}Query raised
-      </li>
+      {% if queue_scope != 'decided' %}
+        <li class="ui-queue-chip ui-queue-chip--in_review font-medium">
+          {% include 'experiences/partials/queue_state_icon.html' with state='in_review' %}Under review
+        </li>
+      {% endif %}
+      {% if queue_scope != 'ready' %}
+        <li class="ui-queue-chip ui-queue-chip--blocked font-medium">
+          {% include 'experiences/partials/queue_state_icon.html' with state='blocked' %}Waiting on prerequisites
+        </li>
+        <li class="ui-queue-chip ui-queue-chip--query_raised font-medium">
+          {% include 'experiences/partials/queue_state_icon.html' with state='query_raised' %}Query raised
+        </li>
+      {% endif %}
       <li class="ui-queue-chip ui-queue-chip--rejected font-medium">
         {% include 'experiences/partials/queue_state_icon.html' with state='rejected' %}Rejected
       </li>
-      <li class="ui-queue-chip ui-queue-chip--blocked font-medium">
-        {% include 'experiences/partials/queue_state_icon.html' with state='blocked' %}Waiting
+      <li class="ui-queue-chip ui-queue-chip--approved font-medium">
+        {% include 'experiences/partials/queue_state_icon.html' with state='approved' %}Approved
       </li>
     </ul>
     <div class="hidden overflow-x-auto md:block">

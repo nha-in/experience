@@ -39,6 +39,14 @@ def submitted_requests(user):
     return permissions.review_requests(user).exclude(status=ReviewItem.Status.DRAFT)
 
 
+#: What a reviewer has acted on: raised a query about, rejected or approved.
+ACTED_ON = (
+    ReviewItem.Status.QUERY,
+    ReviewItem.Status.REJECTED,
+    ReviewItem.Status.APPROVED,
+)
+
+
 def queue_requests(user):
     """Represent an organisation review on each product the reviewer can open.
 
@@ -136,6 +144,8 @@ class QueueEntry:
     reviews: list
     matching_reviews: list
     submitted_at: datetime | None
+    #: The tab the row is listed under: "ready", "decided" or "all".
+    tab: str = "all"
 
     @property
     def product_id(self):
@@ -167,15 +177,42 @@ class QueueEntry:
 
     @property
     def pending(self):
-        return any(review.pending for review in self.matching_reviews)
+        return bool(self.pending_reviews)
 
     @property
-    def open_reviews(self):
-        """The tab's requests still to decide; approved ones get a row of their own."""
+    def queried(self):
+        """Whether one of the product's requests has an open query, which sets
+        the whole product aside until the integrator replies."""
+        return any(review.status == ReviewItem.Status.QUERY for review in self.reviews)
+
+    @property
+    def pending_reviews(self):
+        """The matching requests a reviewer can decide now."""
+        if self.queried:
+            return []
         return [
             review
             for review in self.matching_reviews
-            if review.status != ReviewItem.Status.APPROVED
+            if review.queue_state == ReviewItem.Status.IN_REVIEW
+        ]
+
+    @property
+    def done_reviews(self):
+        """Every request a reviewer cannot decide now, whatever the filters
+        match, so a row shows how far its product has got.
+
+        Each tab shows only what its name says. Pending lists what can be
+        decided, with what is decided beside it: a request waiting on an
+        earlier one is no reviewer's yet. Done leaves out the requests an open
+        query sets aside, though a reviewer could decide them. All shows both.
+        """
+        if self.queried and self.tab == "all":
+            return self.reviews
+        return [
+            review
+            for review in self.reviews
+            if review.queue_state != ReviewItem.Status.IN_REVIEW
+            and not (self.tab == "ready" and review.queue_state == "blocked")
         ]
 
     @property
@@ -188,7 +225,9 @@ class QueueEntry:
 
     @property
     def blocked(self):
-        return [review for review in self.matching_reviews if review.waiting_on]
+        return [
+            review for review in self.done_reviews if review.queue_state == "blocked"
+        ]
 
     @property
     def blocked_on(self):

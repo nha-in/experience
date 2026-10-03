@@ -497,6 +497,11 @@ def waiting_reviews():
     return Q(status__in=PENDING_STATUSES) & held
 
 
+def actionable_reviews():
+    """Reviews a reviewer can decide now: under review, and held by nothing."""
+    return Q(status=ReviewItem.Status.IN_REVIEW) & ~waiting_reviews()
+
+
 def prerequisite_names(prerequisites):
     """ "M1 is" / "M1 and organisation verification are"."""
     verb = "is" if len(prerequisites) == 1 else "are"

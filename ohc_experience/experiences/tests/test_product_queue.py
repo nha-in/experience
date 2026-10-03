@@ -5,9 +5,11 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ReviewItem
@@ -77,7 +79,8 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
         item.queue_milestone.code for item in entry.reviews if item.queue_milestone
     ]
     assert codes == ["M1", "M2"]
-    assert entry.matching_reviews == [m1, m2]
+    # Only M1 can be decided now; M2 waits on it and rides along on its row.
+    assert entry.matching_reviews == [m1]
     assert entry.url == reverse(
         "experiences:product-detail",
         args=[environment["product"].reference],
@@ -90,7 +93,7 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
     assert "waiting" not in response.context["stage_counts"]
 
 
-def test_queue_chips_put_open_requests_first_and_approved_ones_below(
+def test_queue_chips_put_what_can_be_decided_first_and_the_rest_below(
     environment,
     client,
 ):
@@ -101,21 +104,20 @@ def test_queue_chips_put_open_requests_first_and_approved_ones_below(
 
     def rows(response):
         html = response.content.decode()
-        open_row = html[html.index("data-queue-open") : html.index("data-queue-done")]
-        done_row = html[html.index("data-queue-done") :].split("</ul>", 1)[0]
-        return " ".join(open_row.split()), " ".join(done_row.split())
+        pending = html[html.index("data-queue-pending") : html.index("data-queue-done")]
+        done = html[html.index("data-queue-done") :].split("</div>", 1)[0]
+        return " ".join(pending.split()), " ".join(done.split())
 
-    for scope in ("all", "ready"):
+    # M2 waits on M1, so only All shows it beside M1; Pending leaves it out.
+    for scope, done in (("all", ["approved", "blocked"]), ("ready", ["approved"])):
         response = client.get(url, {"scope": scope})
         entry = response.context["page"][0]
-        assert [item.queue_state for item in entry.open_reviews] == [
-            "in_review",
-            "blocked",
-        ]
-        assert [item.queue_state for item in entry.approved] == ["approved"]
-        open_row, done_row = rows(response)
-        assert "M2 waiting on M1" in open_row
-        assert "ui-queue-chip--approved" not in open_row
+        assert [item.queue_state for item in entry.pending_reviews] == ["in_review"]
+        assert [item.queue_state for item in entry.done_reviews] == done
+        pending_row, done_row = rows(response)
+        assert ("M2 waiting on M1" in done_row) == (scope == "all")
+        assert "ui-queue-chip--blocked" not in pending_row
+        assert "ui-queue-chip--approved" not in pending_row
         assert "ui-queue-chip--approved" in done_row
         assert "of 3 approved" not in done_row
 
@@ -149,15 +151,18 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     reviewer = ReviewerFactory(is_nha_team=True)
     workflows.assign_review(release, UserFactory(is_superuser=True), reviewer)
     client.force_login(reviewer)
+    # Under review, but held by INS: nothing of this reviewer's can be decided
+    # now, so it is done for them, and its chip and the filter say it waits.
+    filters = {
+        "scope": "decided",
+        "item": "Quality",
+        "status": "waiting",
+        "assignee": "me",
+        "q": release.application.reference,
+    }
     response = client.get(
         reverse("experiences:queue"),
-        {
-            "scope": "ready",
-            "item": "Quality",
-            "status": "in_review",
-            "assignee": "me",
-            "q": release.application.reference,
-        },
+        filters,
         HTTP_HX_REQUEST="true",
     )
 
@@ -167,8 +172,8 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     assert entry.matching_reviews == [release]
     assert entry.assignees == [reviewer]
     assert response.context["stage_counts"] == {
-        "ready": 1,
-        "decided": 0,
+        "ready": 0,
+        "decided": 1,
         "all": 1,
     }
     assert b"Waiting on INS" in response.content
@@ -176,7 +181,139 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     assert 'title="REL Release · Under review · waiting on INS"' in compact
     assert 'title="INS Inspection' not in compact
     assert "REL waiting on INS" in compact
-    assert "data-queue-done" not in compact
+    assert "data-queue-pending" not in compact
+    # Its own status no longer finds it: no chip on the row would say so.
+    filters.update(scope="all", status="in_review")
+    assert not client.get(reverse("experiences:queue"), filters).context["page"]
+
+
+def test_a_query_moves_a_request_to_done_until_the_integrator_answers(
+    environment,
+    client,
+):
+    """Pending is what a reviewer can decide now, and Done is everything else."""
+    m1 = submit(environment, "m1")
+    reviewer = environment["reviewer"]
+    client.force_login(reviewer)
+    url = reverse("experiences:queue")
+
+    def rows(scope):
+        response = client.get(url, {"scope": scope})
+        return [
+            (
+                [item.queue_state for item in entry.pending_reviews],
+                [item.queue_state for item in entry.done_reviews],
+            )
+            for entry in response.context["page"]
+        ]
+
+    assert client.get(url).context["statuses"] == []
+    assert b'id="queue-status"' not in client.get(url).content
+    assert client.get(url, {"scope": "decided"}).context["statuses"] == [
+        ("waiting", "Waiting on prerequisites"),
+        ("query_raised", "Query raised"),
+        ("rejected", "Rejected"),
+        ("approved", "Approved"),
+    ]
+    assert rows("ready") == [(["in_review"], ["approved"])]
+    assert rows("decided") == []
+
+    workflows.decide(
+        m1,
+        reviewer,
+        action="query",
+        note="Which test cases cover consent expiry?",
+    )
+    assert rows("ready") == []
+    assert rows("decided") == [([], ["approved", "query_raised"])]
+
+    workflows.reply_query(
+        m1.queries.get(),
+        environment["applicant"],
+        "Test cases 4 and 7 cover consent expiry.",
+    )
+    assert rows("ready") == [(["in_review"], ["approved"])]
+    assert rows("decided") == []
+
+
+def test_an_open_query_sets_the_whole_product_aside(environment, client):
+    """M2 and M3 each build on M1 alone, so either can be decided. A query on
+    M2 still moves the product to Done until the integrator replies."""
+    approve(environment, "m1")
+    m2 = submit(environment, "m2")
+    m3 = submit(environment, "m3")
+    reviewer = environment["reviewer"]
+    client.force_login(reviewer)
+    url = reverse("experiences:queue")
+
+    def rows(scope):
+        response = client.get(url, {"scope": scope})
+        return [
+            (
+                [item.queue_state for item in entry.pending_reviews],
+                [item.queue_state for item in entry.done_reviews],
+            )
+            for entry in response.context["page"]
+        ]
+
+    assert rows("ready") == [(["in_review", "in_review"], ["approved", "approved"])]
+
+    workflows.decide(
+        m2,
+        reviewer,
+        action="query",
+        note="Which test cases cover the HIP data push?",
+    )
+    assert rows("ready") == []
+    # Done leaves out M3, which the query sets aside; All shows it.
+    assert rows("decided") == [([], ["approved", "approved", "query_raised"])]
+    assert rows("all") == [
+        ([], ["approved", "approved", "query_raised", "in_review"]),
+    ]
+    entry = client.get(url, {"scope": "all", "status": "in_review"}).context["page"][0]
+    assert entry.matching_reviews == [m3]
+    # A search that finds M3 alone still lists the product under Done, though
+    # the query that sets it aside falls outside the search.
+    response = client.get(url, {"scope": "decided", "q": m3.application.reference})
+    assert response.context["stage_counts"] == {"ready": 0, "decided": 1, "all": 1}
+    assert [row.matching_reviews for row in response.context["page"]] == [[m3]]
+    dashboard = client.get(reverse("experiences:assess-dashboard")).context
+    abdm = next(card for card in dashboard["track_cards"] if card["title"] == "ABDM")
+    assert abdm["tiles"][0]["count"] == 0
+
+    workflows.reply_query(
+        m2.queries.get(),
+        environment["applicant"],
+        "Test cases 2 and 5 cover the HIP data push.",
+    )
+    assert rows("ready") == [(["in_review", "in_review"], ["approved", "approved"])]
+
+
+def test_the_legend_names_only_the_states_a_tab_can_show(environment, client):
+    """Each tab's legend names only what its chips can show: Pending what can
+    be decided and what is decided, Done everything else, and All the lot."""
+    submit(environment, "m1")
+    claims = submit_claims(environment, "m1")
+    reviewer = environment["reviewer"]
+    workflows.decide(
+        claims,
+        reviewer,
+        action="query",
+        note="Which test cases cover the claims flow?",
+    )
+    client.force_login(reviewer)
+    url = reverse("experiences:queue")
+    states = ("in_review", "blocked", "query_raised", "rejected", "approved")
+
+    def legend(scope):
+        html = client.get(url, {"scope": scope}).content.decode()
+        return [
+            state for state in states if f"ui-queue-chip--{state} font-medium" in html
+        ]
+
+    assert legend("ready") == ["in_review", "rejected", "approved"]
+    assert legend("decided") == ["blocked", "query_raised", "rejected", "approved"]
+    assert legend("all") == list(states)
 
 
 def test_organisation_verification_merges_into_its_product_entry(

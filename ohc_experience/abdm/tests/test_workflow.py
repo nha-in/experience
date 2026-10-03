@@ -1280,7 +1280,8 @@ def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client
     pending = {
         card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
     }
-    assert (pending["ABDM"], pending["NHCX"]) == (1, 1)
+    # NHCX waits on M1 and M3, so nothing in it can be decided yet.
+    assert (pending["ABDM"], pending["NHCX"]) == (1, 0)
 
 
 def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(

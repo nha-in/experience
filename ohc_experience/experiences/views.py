@@ -93,6 +93,7 @@ from .presentation import product_hold_step
 from .presentation import recommended_step
 from .presentation import track_documents
 from .presentation import track_progress
+from .queue_presentation import ACTED_ON
 from .queue_presentation import QUEUE_SORTS
 from .queue_presentation import grouped_requests
 from .queue_presentation import populate_queue_page
@@ -2406,6 +2407,12 @@ def _status_card(user, item, title, caption, months):
     def rows(query):
         return query.count() if verifications else grouped_requests(query).count()
 
+    pending = (
+        services.actionable_reviews()
+        if verifications
+        else _queue_scopes(requests, queue_requests(user))["ready"]
+    )
+
     decisions = _decisions_by_month(
         permissions.visible_reviews(user).filter(item_filter),
         months,
@@ -2423,7 +2430,7 @@ def _status_card(user, item, title, caption, months):
             {
                 "label": "Pending",
                 "variant": "info",
-                "count": rows(requests.filter(status__in=services.PENDING_STATUSES)),
+                "count": rows(requests.filter(pending)),
                 "url": _queue_url(scope="ready", item=item),
             },
             {
@@ -2547,12 +2554,85 @@ def waiting_rows(items):
     return items
 
 
-def _queue_rows(page, user, matching):
+def _queue_rows(page, user, matching, tab="all"):
     """The page's entries, each request marked with what it waits on and its chip."""
     page = populate_queue_page(page, user, matching)
+    for entry in page:
+        entry.tab = tab
     for item in waiting_rows(item for entry in page for item in entry.reviews):
-        item.queue_state = "blocked" if item.waiting_on else item.status
+        held = item.waiting_on and item.status == ReviewItem.Status.IN_REVIEW
+        item.queue_state = "blocked" if held else item.status
     return page
+
+
+#: Not a stored status: a request under review shows as waiting for as long as
+#: a prerequisite holds it.
+QUEUE_WAITING = ("waiting", "Waiting on prerequisites")
+
+
+def _status_choice(status):
+    return status.value, status.label
+
+
+#: Every state a chip shows, in the order a request moves through them.
+QUEUE_STATUSES = [
+    _status_choice(ReviewItem.Status.IN_REVIEW),
+    QUEUE_WAITING,
+    *(_status_choice(status) for status in ACTED_ON),
+]
+
+
+def _queue_statuses(scope):
+    """The Status filter's choices: the states this tab's chips show.
+
+    Pending holds only what a reviewer can decide now, which is all under
+    review, so it has nothing to filter. Done holds everything else.
+    """
+    if scope == "ready":
+        return []
+    if scope == "decided":
+        return [
+            choice
+            for choice in QUEUE_STATUSES
+            if choice[0] != ReviewItem.Status.IN_REVIEW
+        ]
+    return QUEUE_STATUSES
+
+
+def _queue_scopes(query, visible):
+    """Each tab's requests among the queue's.
+
+    A product is pending while a reviewer can decide one of its requests now
+    and none of the requests the reviewer can see has an open query; filters
+    narrow what a tab lists, not whether a product waits on the integrator.
+    Every other product is done, so the two tabs add up to All.
+    """
+    actionable = services.actionable_reviews()
+    in_product = Q(queue_product_id__isnull=False)
+    standalone = Q(queue_product_id=None)
+    queried = visible.filter(in_product, status=ReviewItem.Status.QUERY)
+    pending_products = (
+        query.filter(actionable, in_product)
+        .exclude(queue_product_id__in=queried.values("queue_product_id"))
+        .values("queue_product_id")
+    )
+    pending = Q(queue_product_id__in=pending_products)
+    return {
+        "ready": actionable & (pending | standalone),
+        # Every request the filters keep, so a product an open query sets aside
+        # is still listed when its query falls outside them. Its row leaves out
+        # the requests the query sets aside.
+        "decided": (in_product & ~pending) | (standalone & ~actionable),
+    }
+
+
+def _queue_status_filter(status):
+    """The requests whose chip shows this state."""
+    if status == QUEUE_WAITING[0]:
+        return Q(status=ReviewItem.Status.IN_REVIEW) & services.waiting_reviews()
+    if status == ReviewItem.Status.IN_REVIEW:
+        return Q(status=status) & ~services.waiting_reviews()
+    return Q(status=status)
 
 
 QUEUE_EXPORT_HEADER = (
@@ -2609,7 +2689,7 @@ def _queue_export_rows(groups, user, matching):
 @login_required
 def queue(request):
     _reviewer_required(request)
-    query = queue_requests(request.user)
+    query = visible = queue_requests(request.user)
     assignee, item, search = (
         request.GET.get(key, "") for key in ("assignee", "item", "q")
     )
@@ -2625,40 +2705,20 @@ def queue(request):
         query = query.filter(item_filter)
     if search:
         query = query.filter(_queue_search(search))
-    # Pending holds every open request, one waiting on a prerequisite included,
-    # so a product's submissions show together; its row says what each waits on.
-    # Done holds only products with nothing open, so the two tabs add up to All.
-    open_products = query.filter(
-        status__in=services.PENDING_STATUSES,
-        queue_product_id__isnull=False,
-    ).values("queue_product_id")
-    scopes = {
-        "ready": (services.PENDING_STATUSES, Q()),
-        "decided": (
-            (ReviewItem.Status.APPROVED, ReviewItem.Status.REJECTED),
-            Q(queue_product_id=None) | ~Q(queue_product_id__in=open_products),
-        ),
-    }
+    scopes = _queue_scopes(query, visible)
     stage_counts = {
-        stage: grouped_requests(
-            query.filter(stage_filter, status__in=stage_statuses),
-        ).count()
-        for stage, (stage_statuses, stage_filter) in scopes.items()
+        stage: grouped_requests(query.filter(stage_filter)).count()
+        for stage, stage_filter in scopes.items()
     }
     stage_counts["all"] = grouped_requests(query).count()
     scope = request.GET.get("scope", "")
     if scope != "all":
         scope = scope if scope in scopes else "ready"
-        scope_statuses, scope_filter = scopes[scope]
-        query = query.filter(scope_filter, status__in=scope_statuses)
-    statuses = [
-        (value, label)
-        for value, label in ReviewItem.Status.choices
-        if value != "draft" and (scope == "all" or value in scopes[scope][0])
-    ]
+        query = query.filter(scopes[scope])
+    statuses = _queue_statuses(scope)
     status = request.GET.get("status", "")
     if status in dict(statuses):
-        query = query.filter(status=status)
+        query = query.filter(_queue_status_filter(status))
     else:
         status = ""
     sort = _queue_sort(request)
@@ -2685,6 +2745,7 @@ def queue(request):
                 _page(request, grouped_requests(query, sort)),
                 request.user,
                 query,
+                scope,
             ),
             stage_counts=stage_counts,
             queue_scope=scope,

@@ -5,8 +5,10 @@
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
         <h1 class="ui-hero-title">Review queue</h1>
-        {% if queue_scope == 'decided' %}
-          <p class="ui-hero-lede">Products with approved or rejected requests. Open a product to review its full progress.</p>
+        {% if queue_scope == 'ready' %}
+          <p class="ui-hero-lede">Products with a request a reviewer can decide now, and no open query.</p>
+        {% elif queue_scope == 'decided' %}
+          <p class="ui-hero-lede">Products waiting on the integrator's reply to a query, or with nothing a reviewer can decide now: their requests wait on an earlier request, or are approved or rejected.</p>
         {% endif %}
       </div>
     </div>
@@ -45,7 +47,8 @@
              href="?scope=all&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'all' %}aria-current="page"{% endif %}>All <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.all }}</span></a>
         </nav>
-        <div class="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+        {# Pending holds one state, so it has no Status filter and one column fewer. #}
+        <div class="grid items-end gap-3 sm:grid-cols-2 {% if statuses %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% endif %}">
           <div class="min-w-0 sm:hidden">
             <label class="ui-label" for="queue-scope">Review stage</label>
             <div class="ui-select-wrapper">
@@ -82,18 +85,20 @@
               </select>
             </div>
           </div>
-          <div class="min-w-0">
-            <label class="ui-label" for="queue-status">Status</label>
-            <div class="ui-select-wrapper">
-              <select class="ui-select" id="queue-status" name="status">
-                <option value="">{% if queue_scope == 'ready' %}All open statuses{% elif queue_scope == 'decided' %}All decided statuses{% else %}All statuses{% endif %}</option>
-                {% for value, label in statuses %}
-                  <option value="{{ value }}"
-                          {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
+          {% if statuses %}
+            <div class="min-w-0">
+              <label class="ui-label" for="queue-status">Status</label>
+              <div class="ui-select-wrapper">
+                <select class="ui-select" id="queue-status" name="status">
+                  <option value="">All statuses</option>
+                  {% for value, label in statuses %}
+                    <option value="{{ value }}"
+                            {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
             </div>
-          </div>
+          {% endif %}
           <div class="min-w-0">
             <label class="ui-label" for="queue-assignee">Assignee</label>
             <div class="ui-select-wrapper">

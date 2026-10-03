@@ -46,12 +46,13 @@ def test_every_track_figure_is_the_row_count_of_the_queue_it_opens(
 
     # Total, then Pending, Rejected and Approved. Sandbox access counts the
     # organisation's single verification, not the three products it reaches.
+    # NHCX waits on M1 and M3, so nothing in it can be decided yet.
     assert {card["title"]: figures(card) for card in cards} == {
         "Sandbox access": (1, [0, 0, 1]),
         "ABDM": (2, [2, 0, 1]),
         "PHR": (1, [0, 1, 0]),
         "UHI": (1, [0, 0, 1]),
-        "NHCX": (1, [1, 0, 0]),
+        "NHCX": (1, [0, 0, 0]),
     }
     # UHI is recorded without a reviewer, and that counts as an approval.
     assert {

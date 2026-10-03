@@ -675,12 +675,14 @@ def test_client_response_alert_is_not_shown_to_reviewer(review_item):
 @pytest.mark.parametrize(
     ("scope", "incompatible_status", "expected_statuses"),
     [
-        ("ready", "approved", {"in_review", "query_raised"}),
-        ("decided", "in_review", {"approved", "rejected"}),
+        ("ready", "approved", set()),
+        ("ready", "query_raised", set()),
+        # A saved link may still carry the status that is gone.
+        ("decided", "new", {"waiting", "query_raised", "rejected", "approved"}),
         (
             "all",
             "draft",
-            {"in_review", "query_raised", "approved", "rejected"},
+            {"in_review", "waiting", "query_raised", "rejected", "approved"},
         ),
     ],
 )
