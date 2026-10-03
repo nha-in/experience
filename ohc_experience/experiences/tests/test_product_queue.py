@@ -102,24 +102,17 @@ def test_queue_chips_put_what_can_be_decided_first_and_the_rest_below(
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
 
-    def rows(response):
-        html = response.content.decode()
-        pending = html[html.index("data-queue-pending") : html.index("data-queue-done")]
-        done = html[html.index("data-queue-done") :].split("</div>", 1)[0]
-        return " ".join(pending.split()), " ".join(done.split())
-
-    # M2 waits on M1, so only All shows it beside M1; Pending leaves it out.
-    for scope, done in (("all", ["approved", "blocked"]), ("ready", ["approved"])):
+    # M2 waits on M1, so only All shows it, below M1; Pending leaves it out.
+    for scope, done in (("all", ["blocked"]), ("ready", [])):
         response = client.get(url, {"scope": scope})
         entry = response.context["page"][0]
         assert [item.queue_state for item in entry.pending_reviews] == ["in_review"]
         assert [item.queue_state for item in entry.done_reviews] == done
-        pending_row, done_row = rows(response)
-        assert ("M2 waiting on M1" in done_row) == (scope == "all")
+        html = " ".join(response.content.decode().split())
+        pending_row = html[html.index("data-queue-pending") :].split("</ul>", 1)[0]
         assert "ui-queue-chip--blocked" not in pending_row
-        assert "ui-queue-chip--approved" not in pending_row
-        assert "ui-queue-chip--approved" in done_row
-        assert "of 3 approved" not in done_row
+        assert ("data-queue-done" in html) == (scope == "all")
+        assert ("M2 waiting on M1" in html) == (scope == "all")
 
 
 def test_product_with_an_open_request_is_pending_only_and_done_once_decided(
@@ -215,7 +208,7 @@ def test_a_query_moves_a_request_to_done_until_the_integrator_answers(
         ("rejected", "Rejected"),
         ("approved", "Approved"),
     ]
-    assert rows("ready") == [(["in_review"], ["approved"])]
+    assert rows("ready") == [(["in_review"], [])]
     assert rows("decided") == []
 
     workflows.decide(
@@ -225,14 +218,14 @@ def test_a_query_moves_a_request_to_done_until_the_integrator_answers(
         note="Which test cases cover consent expiry?",
     )
     assert rows("ready") == []
-    assert rows("decided") == [([], ["approved", "query_raised"])]
+    assert rows("decided") == [([], ["query_raised"])]
 
     workflows.reply_query(
         m1.queries.get(),
         environment["applicant"],
         "Test cases 4 and 7 cover consent expiry.",
     )
-    assert rows("ready") == [(["in_review"], ["approved"])]
+    assert rows("ready") == [(["in_review"], [])]
     assert rows("decided") == []
 
 
@@ -256,7 +249,7 @@ def test_an_open_query_sets_the_whole_product_aside(environment, client):
             for entry in response.context["page"]
         ]
 
-    assert rows("ready") == [(["in_review", "in_review"], ["approved", "approved"])]
+    assert rows("ready") == [(["in_review", "in_review"], ["approved"])]
 
     workflows.decide(
         m2,
@@ -266,10 +259,8 @@ def test_an_open_query_sets_the_whole_product_aside(environment, client):
     )
     assert rows("ready") == []
     # Done leaves out M3, which the query sets aside; All shows it.
-    assert rows("decided") == [([], ["approved", "approved", "query_raised"])]
-    assert rows("all") == [
-        ([], ["approved", "approved", "query_raised", "in_review"]),
-    ]
+    assert rows("decided") == [([], ["approved", "query_raised"])]
+    assert rows("all") == [([], ["approved", "query_raised", "in_review"])]
     entry = client.get(url, {"scope": "all", "status": "in_review"}).context["page"][0]
     assert entry.matching_reviews == [m3]
     # A search that finds M3 alone still lists the product under Done, though
@@ -286,7 +277,7 @@ def test_an_open_query_sets_the_whole_product_aside(environment, client):
         environment["applicant"],
         "Test cases 2 and 5 cover the HIP data push.",
     )
-    assert rows("ready") == [(["in_review", "in_review"], ["approved", "approved"])]
+    assert rows("ready") == [(["in_review", "in_review"], ["approved"])]
 
 
 def test_the_legend_names_only_the_states_a_tab_can_show(environment, client):
@@ -316,42 +307,49 @@ def test_the_legend_names_only_the_states_a_tab_can_show(environment, client):
     assert legend("all") == list(states)
 
 
-def test_organisation_verification_merges_into_its_product_entry(
+def test_organisation_verification_is_listed_under_organisations_not_on_its_products(
     client,
     review_item,
     owner_membership,
 ):
-    organisation = workflows.organisation_review(
-        owner_membership.organisation,
-        owner_membership.user,
-    )
-    organisation, form, saved = workflows.save_review_form(
-        organisation,
-        owner_membership.user,
-        data={"supplier_name": "Pump supplier"},
-        submit=True,
-    )
-    assert saved, form.errors
+    organisation = submit_organisation(owner_membership)
     client.force_login(ReviewerFactory(is_nha_team=True))
-    response = client.get(reverse("experiences:queue"), {"scope": "all"})
+    url = reverse("experiences:queue")
 
-    assert response.context["page"].paginator.count == 1
-    assert response.context["stage_counts"]["all"] == 1
-    entry = response.context["page"][0]
+    products = client.get(url, {"scope": "all"})
+    assert products.context["queue_kind"] == "products"
+    [entry] = products.context["page"]
     assert entry.product == review_item.product
-    assert entry.reviews[0] == organisation
-    assert set(entry.matching_reviews) == {organisation, review_item}
-    assert b"Organisation" in response.content
-    assert organisation.get_absolute_url().encode() not in response.content
+    assert entry.reviews == entry.matching_reviews == [review_item]
+    assert organisation.get_absolute_url().encode() not in products.content
 
-    # An organisation-only filter still opens the complete product review.
-    response = client.get(
-        reverse("experiences:queue"),
-        {"item": "organisation_verification", "q": entry.reference},
-    )
-    assert response.context["page"].paginator.count == 1
-    assert response.context["page"][0].matching_reviews == [organisation]
-    assert response.context["page"][0].url == entry.url
+    response = client.get(url, {"kind": "organisations", "scope": "all"})
+    assert response.context["stage_counts"] == {"ready": 1, "decided": 0, "all": 1}
+    [verification] = response.context["page"]
+    assert verification.review == organisation
+    assert verification.products == [review_item.product]
+    # The row opens the verification's own review, not a product's.
+    assert verification.url == organisation.get_absolute_url()
+    assert f'href="{verification.url}"'.encode() in response.content
+    assert b"Review organisation" in response.content
+    # A verification waits on nothing, so its list has no such status.
+    assert response.context["statuses"] == [
+        ("in_review", "Under review"),
+        ("query_raised", "Query raised"),
+        ("rejected", "Rejected"),
+        ("approved", "Approved"),
+    ]
+    # Products comes first, and is the list the queue opens on.
+    assert [option["kind"] for option in response.context["kind_switch"]] == [
+        "products",
+        "organisations",
+    ]
+    exported = client.get(
+        url,
+        {"kind": "organisations", "scope": "all", "export": "csv"},
+    ).content.decode("utf-8-sig")
+    assert exported.splitlines()[0].startswith("Reference,Organisation,Type of entity")
+    assert organisation.reference in exported
 
 
 def test_pagination_never_splits_products_or_merges_similar_product_names(
@@ -403,18 +401,15 @@ def test_pagination_never_splits_products_or_merges_similar_product_names(
         [entry.product_id for entry in second_page],
     )
     for entry in [*first_page, *second_page]:
-        assert len(entry.reviews) == len(entry.matching_reviews) == 3
-        assert entry.reviews[0] == organisation
-    organisations = client.get(
-        reverse("experiences:queue"),
-        {"item": "organisation_verification"},
-    )
-    assert organisations.context["page"].paginator.count == 11
-    assert organisations.context["stage_counts"]["ready"] == 11
-    assert all(
-        entry.matching_reviews == [organisation]
-        for entry in organisations.context["page"]
-    )
+        assert len(entry.reviews) == len(entry.matching_reviews) == 2
+        assert organisation not in entry.reviews
+    # The organisation's one verification is one row, however many products
+    # it owns.
+    organisations = client.get(reverse("experiences:queue"), {"kind": "organisations"})
+    assert organisations.context["page"].paginator.count == 1
+    assert organisations.context["stage_counts"]["ready"] == 1
+    assert len(organisations.context["page"][0].products) == 11
+    assert b"and 8 more" in organisations.content
     assert b'aria-label="Queue pagination"' in first.content
     assert b"scope=all" in first.content
 
@@ -424,7 +419,7 @@ def test_sort_uses_each_products_matching_request_dates(
     review_item,
     owner_membership,
 ):
-    submit_organisation(MembershipFactory(role="owner"))
+    compressor = submit_compressor(owner_membership)
     ReviewItem.objects.filter(pk=review_item.pk).update(
         submitted_at=timezone.now() - timedelta(days=2),
     )
@@ -433,8 +428,41 @@ def test_sort_uses_each_products_matching_request_dates(
 
     newest = client.get(url, {"scope": "all"}).context["page"]
     oldest = client.get(url, {"scope": "all", "sort": "oldest"}).context["page"]
-    assert [entry.product_id for entry in newest] == [None, review_item.product_id]
-    assert [entry.product_id for entry in oldest] == [review_item.product_id, None]
+    assert [entry.product for entry in newest] == [compressor, review_item.product]
+    assert [entry.product for entry in oldest] == [review_item.product, compressor]
+
+
+def test_organisations_sort_by_their_verifications(
+    client,
+    review_item,
+    owner_membership,
+):
+    older = submit_organisation(owner_membership)
+    newer = submit_organisation(MembershipFactory(role="owner"))
+    ReviewItem.objects.filter(pk=older.pk).update(
+        submitted_at=timezone.now() - timedelta(days=2),
+    )
+    Organisation.objects.filter(pk=newer.organisation_id).update(
+        legal_name="Aardvark Labs",
+    )
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    url = reverse("experiences:queue")
+
+    def listed(sort):
+        response = client.get(
+            url,
+            {"kind": "organisations", "scope": "all", "sort": sort},
+        )
+        return response.context["table_sort"], [
+            entry.review for entry in response.context["page"]
+        ]
+
+    assert listed("-submitted") == ("-submitted", [newer, older])
+    assert listed("submitted") == ("submitted", [older, newer])
+    assert listed("title") == ("title", [newer, older])
+    assert listed("-title") == ("-title", [older, newer])
+    # An organisation has one request, so there is no count of them to sort by.
+    assert listed("-requests") == ("-submitted", [newer, older])
 
 
 def submit_organisation(membership):
@@ -452,24 +480,48 @@ def submit_organisation(membership):
     return organisation
 
 
-def test_organisation_without_products_remains_a_standalone_entry(
+def submit_compressor(membership):
+    """A second product of the organisation, with its inspection submitted."""
+    compressor, form = workflows.register_product(
+        membership.organisation,
+        membership.user,
+        data={
+            "equipment_name": "Air compressor",
+            "summary": "A second product of the same organisation",
+            "checks": ["Quality:inspection", "Quality:release"],
+        },
+    )
+    assert compressor, form.errors
+    inspection = compressor.milestones.get(key="inspection").application.review_item
+    inspection, form, saved = workflows.save_review_form(
+        inspection,
+        membership.user,
+        data={"report_reference": compressor.reference, "score": 90},
+        submit=True,
+    )
+    assert saved, form.errors
+    return compressor
+
+
+def test_an_organisation_with_no_products_is_listed_under_organisations(
     client,
     review_item,
 ):
     organisation = submit_organisation(MembershipFactory(role="owner"))
     client.force_login(ReviewerFactory(is_nha_team=True))
-    response = client.get(
-        reverse("experiences:queue"),
-        {"item": "organisation_verification"},
-    )
-    assert response.context["page"].paginator.count == 1
-    entry = response.context["page"][0]
-    assert entry.product is None
-    assert entry.reviews == [organisation]
+    url = reverse("experiences:queue")
+
+    products = client.get(url, {"scope": "all"}).context["page"]
+    assert [entry.product for entry in products] == [review_item.product]
+    response = client.get(url, {"kind": "organisations", "scope": "all"})
+    [entry] = response.context["page"]
+    assert entry.review == organisation
+    assert entry.products == []
     assert entry.url == organisation.get_absolute_url()
+    assert b"No products yet" in response.content
 
 
-def test_organisation_only_submission_opens_a_product_with_draft_milestones(
+def test_a_product_with_only_its_organisation_submitted_has_no_row(
     client,
     review_item,
     owner_membership,
@@ -477,13 +529,14 @@ def test_organisation_only_submission_opens_a_product_with_draft_milestones(
     organisation = submit_organisation(owner_membership)
     workflows.withdraw(review_item, owner_membership.user)
     client.force_login(ReviewerFactory(is_nha_team=True))
-    response = client.get(reverse("experiences:queue"))
-    assert response.context["page"].paginator.count == 1
-    entry = response.context["page"][0]
-    assert entry.product == review_item.product
-    assert entry.matching_reviews == [organisation]
-    assert entry.reviews == [organisation]
+    url = reverse("experiences:queue")
+
+    response = client.get(url, {"scope": "all"})
+    assert response.context["page"].paginator.count == 0
     assert b"Not submitted" not in response.content
+    [entry] = client.get(url, {"kind": "organisations"}).context["page"]
+    assert entry.review == organisation
+    assert entry.products == [review_item.product]
 
 
 def test_category_reviewer_never_sees_organisation_verification(
@@ -504,6 +557,14 @@ def test_category_reviewer_never_sees_organisation_verification(
     assert response.context["page"].paginator.count == 1
     assert organisation not in response.context["page"][0].reviews
     assert organisation not in response.context["page"][0].matching_reviews
+    # They have no Organisations list, nor a switch to one.
+    assert response.context["kind_switch"] == []
+    assert b'aria-label="Organisations and products"' not in response.content
+    response = client.get(
+        reverse("experiences:queue"),
+        {"scope": "all", "kind": "organisations"},
+    )
+    assert response.context["queue_kind"] == "products"
     response = client.get(
         reverse("experiences:queue"),
         {"scope": "all", "item": "organisation_verification"},
@@ -511,7 +572,7 @@ def test_category_reviewer_never_sees_organisation_verification(
     assert response.context["page"].paginator.count == 0
 
 
-def test_search_for_one_product_leaves_out_its_organisations_other_products(
+def test_a_product_search_finds_its_organisation_under_organisations(
     client,
     review_item,
     owner_membership,
@@ -530,19 +591,21 @@ def test_search_for_one_product_leaves_out_its_organisations_other_products(
     client.force_login(ReviewerFactory(is_nha_team=True))
     url = reverse("experiences:queue")
 
-    # The organisation verification sits on both products. Searching for one
-    # must not bring in the other.
-    for search in ("Air compressor", compressor.reference):
-        page = client.get(url, {"q": search}).context["page"]
-        assert [entry.product for entry in page] == [compressor]
-        assert page[0].matching_reviews == [organisation]
+    # The verification belongs to no product, so a product search lists only
+    # that product's own requests.
     page = client.get(url, {"q": review_item.product.reference}).context["page"]
     assert [entry.product for entry in page] == [review_item.product]
-    assert page[0].matching_reviews == [organisation, review_item]
+    assert page[0].matching_reviews == [review_item]
+    # Nothing of the compressor's is submitted, so it has no row; its name
+    # still finds its organisation's verification.
+    for search in ("Air compressor", compressor.reference):
+        assert not client.get(url, {"q": search}).context["page"]
+        page = client.get(url, {"kind": "organisations", "q": search}).context["page"]
+        assert [entry.review for entry in page] == [organisation]
 
 
 def test_search_finds_what_the_queue_shows(client, review_item, owner_membership):
-    submit_organisation(owner_membership)
+    verification = submit_organisation(owner_membership)
     Organisation.objects.filter(pk=owner_membership.organisation_id).update(
         legal_name="Sunrise Medical Devices Private Limited",
     )
@@ -550,15 +613,17 @@ def test_search_finds_what_the_queue_shows(client, review_item, owner_membership
     client.force_login(ReviewerFactory(is_nha_team=True))
     url = reverse("experiences:queue")
 
-    def found(search):
-        page = client.get(url, {"q": search}).context["page"]
+    def found(search, kind="products"):
+        page = client.get(url, {"kind": kind, "q": search}).context["page"]
         return [entry.reference for entry in page]
 
     product = review_item.product.reference
     assert found(f"  {product} ") == [product]
     # The queue names an organisation by its legal name when it has one.
     assert found("medical devices") == [product]
-    # The reference on a standalone organisation verification, and a request's
-    # own reference as its review page shows it.
-    assert found(standalone.reference) == [standalone.reference]
+    assert found("medical devices", "organisations") == [verification.reference]
+    # A verification's reference finds it under Organisations, and a
+    # request's own reference finds its product, as its review page shows it.
+    assert found(standalone.reference, "organisations") == [standalone.reference]
+    assert found(standalone.reference) == []
     assert found(review_item.reference.lower()) == [product]

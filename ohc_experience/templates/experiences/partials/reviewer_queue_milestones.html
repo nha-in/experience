@@ -14,7 +14,7 @@
         {% endfor %}
       </ul>
       {% if entry.blocked %}
-        <span class="text-xs text-soft-foreground">{% for item in entry.blocked %}{% if item.queue_milestone %}{{ item.queue_milestone.code }}{% elif item.product %}{{ item.application.reference }}{% else %}Org{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %} waiting on {{ entry.blocked_on|join:', ' }}</span>
+        <span class="text-xs text-soft-foreground">{% for item in entry.blocked %}{% if item.queue_milestone %}{{ item.queue_milestone.code }}{% else %}{{ item.application.reference }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %} waiting on {{ entry.blocked_on|join:', ' }}</span>
       {% endif %}
     </div>
   {% endif %}

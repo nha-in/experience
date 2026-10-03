@@ -390,12 +390,15 @@ def test_requests_wait_on_organisation_verification_too(environment, client):
     locker = submit(environment, "p1")
     client.force_login(environment["reviewer"])
 
-    # The organisation review rides along with each of its products' entries,
-    # and the PHR phases live on a second product, so compare as sets. P1 waits
-    # on the verification, so only the verification can be decided now.
-    assert set(queue(client)) == {verification}
-    page = client.get(reverse("experiences:queue")).context["page"]
-    assert locker in {item for entry in page for item in entry.reviews}
+    # P1 waits on the verification, so only the verification can be decided
+    # now: it is pending under Organisations, and P1's product is done.
+    assert queue(client) == []
+    page = client.get(reverse("experiences:queue"), {"scope": "decided"})
+    assert locker in {item for entry in page.context["page"] for item in entry.reviews}
+    organisations = client.get(reverse("experiences:queue"), {"kind": "organisations"})
+    assert [entry.review for entry in organisations.context["page"]] == [verification]
+    assert [entry.held for entry in organisations.context["page"]] == [1]
+    assert b"1 request waiting on this verification" in organisations.content
     assert "Waiting on organisation verification · under review" in queue_text(
         client,
         scope="all",

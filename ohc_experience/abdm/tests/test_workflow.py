@@ -1331,25 +1331,24 @@ def test_the_queue_sorts_by_matching_submission_dates(environment, client):
     assert set(listed()[0].matching_reviews) == {older, newer}
 
 
-def test_the_item_filter_reaches_requests_outside_any_track(environment, client):
+def test_organisation_verification_has_a_list_of_its_own(environment, client):
+    """The Type filter once found verifications among products; its link now
+    leads to the Organisations list, which holds nothing else."""
     milestone_item = submit(environment)
     client.force_login(environment["reviewer"])
+    url = reverse("experiences:queue")
 
-    def listed(item):
-        return [
-            review
-            for entry in client.get(
-                reverse("experiences:queue"),
-                {"item": item, "scope": "all"},
-            ).context["page"]
-            for review in entry.matching_reviews
-        ]
-
-    assert {entry.kind for entry in listed("organisation_verification")} == {
-        ReviewItem.Kind.ORGANISATION,
-    }
-    assert milestone_item in listed("ABDM")
-    assert milestone_item not in listed("organisation_verification")
+    products = client.get(url, {"item": "ABDM", "scope": "all"}).context["page"]
+    assert milestone_item in [
+        review for entry in products for review in entry.matching_reviews
+    ]
+    response = client.get(url, {"item": "organisation_verification", "scope": "all"})
+    assert response.status_code == 302
+    assert response["Location"] == f"{url}?scope=all&kind=organisations"
+    organisations = client.get(response["Location"]).context["page"]
+    assert [entry.review for entry in organisations] == [
+        environment["org"].review_items.get(kind=ReviewItem.Kind.ORGANISATION),
+    ]
 
 
 def test_product_registrations_are_records_not_queue_requests(environment, client):

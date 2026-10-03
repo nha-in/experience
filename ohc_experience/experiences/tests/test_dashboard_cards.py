@@ -19,7 +19,9 @@ pytestmark = pytest.mark.django_db
 
 
 def queue_rows(client, url):
-    return client.get(url).context["page"].paginator.count
+    # Sandbox access asks the Type filter for verifications, which the queue
+    # sends on to its Organisations list.
+    return client.get(url, follow=True).context["page"].paginator.count
 
 
 def figures(card):
@@ -70,9 +72,9 @@ def test_every_track_figure_is_the_row_count_of_the_queue_it_opens(
         assert f'href="{escape(card["url"])}"' in html
         for tile in card["tiles"]:
             assert f'href="{escape(tile["url"])}"' in html
-    # A milestone request belongs to one product, so a track card counts the
-    # rows of the queue it opens.
-    for card in response.context["track_cards"]:
+    # Every card counts the rows of the queue it opens: a track the Products
+    # list's, and Sandbox access the Organisations list's.
+    for card in cards:
         assert queue_rows(client, card["url"]) == card["total"], card["title"]
         for tile in card["tiles"]:
             assert queue_rows(client, tile["url"]) == tile["count"], (
@@ -97,7 +99,7 @@ def test_a_decision_stays_in_the_month_it_was_made(environment):  # noqa: F811
     assert rejected_by_month(12) == [0] * 12
 
 
-def test_the_sandbox_card_counts_a_verification_once_for_every_product(
+def test_the_sandbox_card_counts_a_verification_once_as_its_queue_does(
     environment,  # noqa: F811
     client,
 ):
@@ -113,6 +115,6 @@ def test_the_sandbox_card_counts_a_verification_once_for_every_product(
     card = client.get(reverse("experiences:assess-dashboard")).context["sandbox_card"]
 
     assert figures(card) == (1, [0, 0, 1])
-    # The queue the card opens is unchanged: it shows the verification on each
-    # of the organisation's products, so its own rows still number two.
-    assert queue_rows(client, card["url"]) == 2  # noqa: PLR2004
+    # The queue the card opens lists the verification once too, under
+    # Organisations, not on each of the organisation's two products.
+    assert queue_rows(client, card["url"]) == 1

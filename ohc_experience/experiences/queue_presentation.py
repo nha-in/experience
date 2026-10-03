@@ -1,21 +1,20 @@
-"""Product-sized review queue entries, with permission-scoped status context."""
+"""The review queue's two lists, with permission-scoped status context.
 
+Products lists each product once with its requests. Organisations lists each
+organisation's verification, which belongs to no product.
+"""
+
+from collections import Counter
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from django.db.models import Case
 from django.db.models import CharField
 from django.db.models import Count
 from django.db.models import F
-from django.db.models import FilteredRelation
 from django.db.models import Max
 from django.db.models import Min
-from django.db.models import OuterRef
-from django.db.models import Q
-from django.db.models import Subquery
 from django.db.models import Value
-from django.db.models import When
 from django.db.models.functions import Coalesce
 from django.db.models.functions import Lower
 from django.db.models.functions import NullIf
@@ -23,6 +22,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import permissions
+from . import tables
 from .models import Product
 from .models import ReviewItem
 
@@ -48,28 +48,14 @@ ACTED_ON = (
 
 
 def queue_requests(user):
-    """Represent an organisation review on each product the reviewer can open.
+    """The Products list's requests: every one but the organisations' own
+    verifications, which the Organisations list holds."""
+    return submitted_requests(user).exclude(kind=ReviewItem.Kind.ORGANISATION)
 
-    Expand before filters: an organisation-only match must still lead to its
-    product page, including when no product request is currently submitted.
-    The filtered left join retains a standalone row when no product is visible.
-    """
-    products = permissions.visible_products(user)
-    return (
-        submitted_requests(user)
-        .annotate(
-            organisation_product=FilteredRelation(
-                "organisation__products",
-                condition=Q(
-                    product_id__isnull=True,
-                    organisation__products__pk__in=Subquery(products.values("pk")),
-                ),
-            ),
-        )
-        .annotate(
-            queue_product_id=Coalesce("product_id", "organisation_product__pk"),
-        )
-    )
+
+def verification_requests(user):
+    """The Organisations list's requests: each organisation's one verification."""
+    return submitted_requests(user).filter(kind=ReviewItem.Kind.ORGANISATION)
 
 
 QUEUE_SORTS = tuple(
@@ -78,40 +64,41 @@ QUEUE_SORTS = tuple(
     for direction in ("-", "")
 )
 
+#: An organisation has one request, so its list has no count of them to sort by.
+VERIFICATION_SORTS = tuple(sort for sort in QUEUE_SORTS if "requests" not in sort)
+
+
+def _assignee_name():
+    """A request's assignee as the queue sorts them: by name, else by email."""
+    return Lower(
+        Coalesce(
+            NullIf("assignee__name", Value("")),
+            "assignee__email",
+            output_field=CharField(),
+        ),
+    )
+
 
 def grouped_requests(query, sort="-submitted"):
-    """Group merged requests before counting or paginating.
+    """Group each product's requests into its row before counting or paginating.
 
-    A group dates from its newest request, or its oldest when the oldest come
+    A row dates from its newest request, or its oldest when the oldest come
     first; its age is the same date read the other way. By title it sorts on
-    its product's name, or the organisation's for a request with no product;
-    by requests on how many of its requests match; and by assignee on the
-    first name among them, the unassigned last. Ties go newest first.
+    its product's name; by requests on how many of its requests match; and by
+    assignee on the first name among them, the unassigned last. Ties go newest
+    first.
     """
     key = sort.removeprefix("-")
     descending = sort.startswith("-")
     if key == "age":
         key, descending = "submitted", not descending
     aggregate = Min if key == "submitted" and not descending else Max
-    query = query.order_by().annotate(
-        standalone_id=Case(When(queue_product_id__isnull=True, then=F("pk"))),
-    )
+    query = query.order_by()
     if key == "title":
-        names = Product.objects.filter(pk=OuterRef("queue_product_id")).values("name")
-        query = query.annotate(
-            queue_title=Lower(Coalesce(Subquery(names[:1]), F("organisation__name"))),
-        )
+        query = query.annotate(queue_title=Lower("product__name"))
     elif key == "assignee":
-        query = query.annotate(
-            queue_assignee=Lower(
-                Coalesce(
-                    NullIf("assignee__name", Value("")),
-                    "assignee__email",
-                    output_field=CharField(),
-                ),
-            ),
-        )
-    groups = query.values("queue_product_id", "standalone_id").annotate(
+        query = query.annotate(queue_assignee=_assignee_name())
+    groups = query.values("product_id").annotate(
         submitted_at=aggregate("submitted_at"),
         sort_id=aggregate("pk"),
     )
@@ -120,7 +107,7 @@ def grouped_requests(query, sort="-submitted"):
         return groups.order_by(
             f"{direction}submitted_at",
             f"{direction}sort_id",
-            "queue_product_id",
+            "product_id",
         )
     groups = groups.annotate(
         sort_key={
@@ -134,13 +121,35 @@ def grouped_requests(query, sort="-submitted"):
         sort_key.desc(nulls_last=True) if descending else sort_key.asc(nulls_last=True),
         "-submitted_at",
         "-sort_id",
-        "queue_product_id",
+        "product_id",
+    )
+
+
+def ordered_verifications(query, sort="-submitted"):
+    """Verifications in the order a sort asks for, as `grouped_requests` reads it.
+
+    By title they sort on the organisation's name, and by assignee on theirs,
+    the unassigned last. Ties go newest first.
+    """
+    key = sort.removeprefix("-")
+    descending = sort.startswith("-")
+    if key == "age":
+        key, descending = "submitted", not descending
+    field = {
+        "submitted": F("submitted_at"),
+        "title": Lower(tables.organisation_name("organisation__")),
+        "assignee": _assignee_name(),
+    }[key]
+    return query.select_related("organisation", "assignee").order_by(
+        field.desc(nulls_last=True) if descending else field.asc(nulls_last=True),
+        "-submitted_at",
+        "-pk",
     )
 
 
 @dataclass
 class QueueEntry:
-    product: Product | None
+    product: Product
     reviews: list
     matching_reviews: list
     submitted_at: datetime | None
@@ -149,27 +158,23 @@ class QueueEntry:
 
     @property
     def product_id(self):
-        return self.product.pk if self.product else None
+        return self.product.pk
 
     @property
     def organisation(self):
-        return self.reviews[0].organisation
+        return self.product.organisation
 
     @property
     def title(self):
-        return self.product.name if self.product else self.reviews[0].title
+        return self.product.name
 
     @property
     def reference(self):
-        if self.product:
-            return self.product.reference
-        return self.reviews[0].reference
+        return self.product.reference
 
     @property
     def url(self):
-        if self.product:
-            return reverse("experiences:product-detail", args=[self.reference])
-        return self.reviews[0].get_absolute_url()
+        return reverse("experiences:product-detail", args=[self.reference])
 
     @property
     def age(self):
@@ -249,6 +254,54 @@ class QueueEntry:
         )
 
 
+@dataclass
+class VerificationEntry:
+    """An organisation's verification, as the Organisations list shows it."""
+
+    review: ReviewItem
+    #: The organisation's products the reviewer can open, by name.
+    products: list
+    #: Requests under review that cannot be decided until the organisation is verified.
+    held: int = 0
+
+    @property
+    def organisation(self):
+        return self.review.organisation
+
+    @property
+    def reference(self):
+        return self.review.reference
+
+    @property
+    def url(self):
+        return self.review.get_absolute_url()
+
+    @property
+    def status(self):
+        return self.review.status
+
+    @property
+    def status_label(self):
+        return self.review.get_status_display()
+
+    @property
+    def submitted_at(self):
+        return self.review.submitted_at
+
+    @property
+    def age(self):
+        return self.review.age
+
+    @property
+    def pending(self):
+        """Whether a reviewer can decide it now, and so is late after a week."""
+        return self.review.status == ReviewItem.Status.IN_REVIEW
+
+    @property
+    def assignee(self):
+        return self.review.assignee
+
+
 def review_order(review):
     """Organisation first, then the program's catalog presentation order."""
     if review.kind == ReviewItem.Kind.ORGANISATION:
@@ -263,31 +316,17 @@ def review_order(review):
 def populate_queue_page(page, user, matching):
     """Load status context only for this page and the reviewer's visible scope."""
     groups = list(page.object_list)
-    products = {
-        product.pk: product
-        for product in Product.objects.filter(
-            pk__in=[row["queue_product_id"] for row in groups],
-        ).select_related("organisation")
-    }
-    standalone_ids = [row["standalone_id"] for row in groups if row["standalone_id"]]
+    products = Product.objects.select_related("organisation").in_bulk(
+        [row["product_id"] for row in groups],
+    )
     matches = defaultdict(set)
     for product_id, review_id in matching.filter(
-        Q(queue_product_id__in=products) | Q(pk__in=standalone_ids),
-    ).values_list("queue_product_id", "pk"):
-        matches[(product_id, None if product_id else review_id)].add(review_id)
-    subjects = (
-        Q(product_id__in=products)
-        | Q(pk__in=standalone_ids)
-        | Q(
-            kind=ReviewItem.Kind.ORGANISATION,
-            organisation_id__in={
-                product.organisation_id for product in products.values()
-            },
-        )
-    )
+        product_id__in=products,
+    ).values_list("product_id", "pk"):
+        matches[product_id].add(review_id)
     visible = (
-        submitted_requests(user)
-        .filter(subjects)
+        queue_requests(user)
+        .filter(product_id__in=products)
         .select_related(
             "product",
             "organisation",
@@ -303,29 +342,68 @@ def populate_queue_page(page, user, matching):
             review.program.milestones[milestone.key] if milestone else None
         )
         review.queue_label = review.get_status_display()
-        if review.product_id:
-            reviews[(review.product_id, None)].append(review)
-        else:
-            reviews[(None, review.pk)].append(review)
-            for product in products.values():
-                if product.organisation_id == review.organisation_id:
-                    reviews[(product.pk, None)].append(review)
+        reviews[review.product_id].append(review)
     for entry_reviews in reviews.values():
         entry_reviews.sort(key=review_order)
     page.object_list = [
         QueueEntry(
-            product=products.get(group["queue_product_id"]),
-            reviews=reviews[(group["queue_product_id"], group["standalone_id"])],
+            product=products[group["product_id"]],
+            reviews=reviews[group["product_id"]],
             matching_reviews=[
                 review
-                for review in reviews[
-                    (group["queue_product_id"], group["standalone_id"])
-                ]
-                if review.pk
-                in matches[(group["queue_product_id"], group["standalone_id"])]
+                for review in reviews[group["product_id"]]
+                if review.pk in matches[group["product_id"]]
             ],
             submitted_at=group["submitted_at"],
         )
         for group in groups
+    ]
+    return page
+
+
+def populate_verification_page(page, user):
+    """The page's verifications, each with its organisation's products and the
+    reviewer's requests under review that wait on it.
+
+    A form says what it waits on in `pending_prerequisites`; ABDM's milestones
+    wait on their organisation's verification, so an unverified organisation's
+    count is of the requests that name it there.
+    """
+    reviews = list(page.object_list)
+    organisations = {review.organisation_id for review in reviews}
+    products = defaultdict(list)
+    for product in (
+        permissions.visible_products(user)
+        .filter(organisation_id__in=organisations)
+        .order_by(Lower("name"))
+    ):
+        products[product.organisation_id].append(product)
+    unverified = {
+        review.organisation_id: review
+        for review in reviews
+        if not review.organisation.is_verified
+    }
+    held = Counter()
+    for request in (
+        queue_requests(user)
+        .filter(
+            organisation_id__in=unverified,
+            status=ReviewItem.Status.IN_REVIEW,
+        )
+        .select_related("organisation", "form")
+    ):
+        verification = unverified[request.organisation_id]
+        if any(
+            prerequisite.review == verification
+            for prerequisite in request.definition.pending_prerequisites(request)
+        ):
+            held[request.organisation_id] += 1
+    page.object_list = [
+        VerificationEntry(
+            review=review,
+            products=products[review.organisation_id],
+            held=held[review.organisation_id],
+        )
+        for review in reviews
     ]
     return page

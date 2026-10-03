@@ -79,7 +79,6 @@ from .forms import CallbackURLForm
 from .forms import SupportForm
 from .models import AuditEvent
 from .models import EventRegistration
-from .models import Product
 from .models import ProductCredential
 from .models import ReviewItem
 from .models import ReviewQuery
@@ -95,11 +94,15 @@ from .presentation import track_documents
 from .presentation import track_progress
 from .queue_presentation import ACTED_ON
 from .queue_presentation import QUEUE_SORTS
+from .queue_presentation import VERIFICATION_SORTS
 from .queue_presentation import grouped_requests
+from .queue_presentation import ordered_verifications
 from .queue_presentation import populate_queue_page
+from .queue_presentation import populate_verification_page
 from .queue_presentation import queue_requests
 from .queue_presentation import review_order
 from .queue_presentation import submitted_requests
+from .queue_presentation import verification_requests
 from .registry import get_program
 from .support_presentation import support_inbox
 
@@ -2327,10 +2330,15 @@ def _requests(program):
 
 
 def _request_choices(program, user):
-    """Requests offered in the Type filter, to reviewers who can see them."""
+    """Requests offered in the Products list's Type filter, to reviewers who can
+    see them. Organisation verification has a list of its own."""
     if not permissions.has_access(user, "review", program=program.key):
         return []
-    return [(value, label) for value, (label, _query) in _requests(program).items()]
+    return [
+        (value, label)
+        for value, (label, _query) in _requests(program).items()
+        if value != ReviewItem.Kind.ORGANISATION
+    ]
 
 
 def _item_filter(program, item):
@@ -2393,10 +2401,9 @@ def _bar_height(count, busiest):
 def _status_card(user, item, title, caption, months):
     """The queue's rows for one Type filter, and its decisions in each month.
 
-    An organisation holds a single verification, which the queue repeats on
-    every product it owns; counted that way an organisation would be counted
-    once per product. A milestone request belongs to one product, so a track
-    counts the queue's own rows.
+    An organisation holds a single verification, a row of the queue's
+    Organisations list. A milestone request belongs to one product, so a track
+    counts the Products list's rows.
     """
     item_filter = _item_filter(get_program(), item)
     verifications = item == ReviewItem.Kind.ORGANISATION.value
@@ -2485,31 +2492,44 @@ def assess_dashboard(request):
 QUEUE_SORT_ALIASES = {"newest": "-submitted", "oldest": "submitted"}
 
 
-def _queue_sort(request):
+def _queue_sort(request, kind="products"):
     sort = request.GET.get("sort", "")
     sort = QUEUE_SORT_ALIASES.get(sort, sort)
-    return sort if sort in QUEUE_SORTS else "-submitted"
+    sorts = VERIFICATION_SORTS if kind == "organisations" else QUEUE_SORTS
+    return sort if sort in sorts else "-submitted"
 
 
 REVIEW_REFERENCE = re.compile(r"REV-?(\d{1,9})", re.IGNORECASE)
 
 
 def _queue_search(search):
-    """Requests whose product, organisation or reference matches the search.
-
-    A product matches through the entry it belongs to, `queue_product_id`. A
-    filter on `organisation_product` would join the organisation's products a
-    second time, and so put its verification on every one of its products as
-    soon as any of them matched.
-    """
-    products = Product.objects.filter(
-        Q(name__icontains=search) | Q(reference__icontains=search),
-    )
+    """Requests whose product, organisation or reference matches the search."""
     matches = (
-        Q(queue_product_id__in=products.values("pk"))
+        Q(product__name__icontains=search)
+        | Q(product__reference__icontains=search)
         | Q(organisation__name__icontains=search)
         | Q(organisation__legal_name__icontains=search)
         | Q(application__reference__icontains=search)
+    )
+    reference = REVIEW_REFERENCE.fullmatch(search)
+    if reference:
+        matches |= Q(pk=int(reference[1]))
+    return matches
+
+
+def _verification_search(search, user):
+    """Verifications whose organisation, reference or one of its products matches.
+
+    A product's name finds its organisation, so a search carried over from the
+    Products list still leads to the verification its milestones wait on.
+    """
+    products = permissions.visible_products(user).filter(
+        Q(name__icontains=search) | Q(reference__icontains=search),
+    )
+    matches = (
+        Q(organisation__name__icontains=search)
+        | Q(organisation__legal_name__icontains=search)
+        | Q(organisation__in=products.values("organisation"))
     )
     reference = REVIEW_REFERENCE.fullmatch(search)
     if reference:
@@ -2577,25 +2597,26 @@ QUEUE_STATUSES = [
 ]
 
 
-def _queue_statuses(scope):
+def _queue_statuses(scope, kind="products"):
     """The Status filter's choices: the states this tab's chips show.
 
     Pending holds only what a reviewer can decide now, which is all under
-    review, so it has nothing to filter. Done holds everything else.
+    review, so it has nothing to filter. Done holds everything else. An
+    organisation's verification waits on nothing, so the Organisations list
+    has no Waiting on prerequisites.
     """
     if scope == "ready":
         return []
-    if scope == "decided":
-        return [
-            choice
-            for choice in QUEUE_STATUSES
-            if choice[0] != ReviewItem.Status.IN_REVIEW
-        ]
-    return QUEUE_STATUSES
+    return [
+        choice
+        for choice in QUEUE_STATUSES
+        if not (scope == "decided" and choice[0] == ReviewItem.Status.IN_REVIEW)
+        and not (kind == "organisations" and choice == QUEUE_WAITING)
+    ]
 
 
 def _queue_scopes(query, visible):
-    """Each tab's requests among the queue's.
+    """Each tab's requests among the Products list's.
 
     A product is pending while a reviewer can decide one of its requests now
     and none of the requests the reviewer can see has an open query; filters
@@ -2603,22 +2624,27 @@ def _queue_scopes(query, visible):
     Every other product is done, so the two tabs add up to All.
     """
     actionable = services.actionable_reviews()
-    in_product = Q(queue_product_id__isnull=False)
-    standalone = Q(queue_product_id=None)
-    queried = visible.filter(in_product, status=ReviewItem.Status.QUERY)
+    queried = visible.filter(status=ReviewItem.Status.QUERY)
     pending_products = (
-        query.filter(actionable, in_product)
-        .exclude(queue_product_id__in=queried.values("queue_product_id"))
-        .values("queue_product_id")
+        query.filter(actionable)
+        .exclude(product_id__in=queried.values("product_id"))
+        .values("product_id")
     )
-    pending = Q(queue_product_id__in=pending_products)
+    pending = Q(product_id__in=pending_products)
     return {
-        "ready": actionable & (pending | standalone),
+        "ready": actionable & pending,
         # Every request the filters keep, so a product an open query sets aside
         # is still listed when its query falls outside them. Its row leaves out
         # the requests the query sets aside.
-        "decided": (in_product & ~pending) | (standalone & ~actionable),
+        "decided": ~pending,
     }
+
+
+def _verification_scopes():
+    """Each tab's verifications: Pending what a reviewer can decide now, and Done
+    those waiting on the integrator's reply or already decided."""
+    actionable = services.actionable_reviews()
+    return {"ready": actionable, "decided": ~actionable}
 
 
 def _queue_status_filter(status):
@@ -2632,7 +2658,7 @@ def _queue_status_filter(status):
 
 QUEUE_EXPORT_HEADER = (
     "Reference",
-    "Product / request",
+    "Product",
     "Organisation",
     "Requests",
     "Approved",
@@ -2641,15 +2667,26 @@ QUEUE_EXPORT_HEADER = (
     "Assignees",
 )
 
+VERIFICATION_EXPORT_HEADER = (
+    "Reference",
+    "Organisation",
+    "Type of entity",
+    "State",
+    "Status",
+    "Products",
+    "Requests waiting",
+    "Submitted on",
+    "Age (days)",
+    "Assignee",
+)
+
 
 def _queue_request_label(item):
     """A request as its chip reads: "M2 Under review, waiting on M1"."""
     if item.queue_milestone:
         name = item.queue_milestone.code
-    elif item.product:
-        name = item.application.reference
     else:
-        name = "Organisation verification"
+        name = item.application.reference
     label = f"{name} {item.queue_label}"
     if item.waiting_on:
         label += ", waiting on " + ", ".join(
@@ -2681,54 +2718,160 @@ def _queue_export_rows(groups, user, matching):
         )
 
 
-@login_required
-def queue(request):
-    _reviewer_required(request)
-    query = visible = queue_requests(request.user)
-    assignee, item, search = (
-        request.GET.get(key, "") for key in ("assignee", "item", "q")
+def _verification_rows(page, user):
+    """The page's verifications, each organisation labelled as the table reads it."""
+    page = populate_verification_page(page, user)
+    list(_with_labels(entry.organisation for entry in page))
+    return page
+
+
+def _verification_export_rows(query, user):
+    """Every verification the filters match, built as one page of the list."""
+    entries = _verification_rows(
+        Paginator(query, max(query.count(), 1)).page(1),
+        user,
     )
-    search = search.strip()
+    for entry in entries:
+        yield (
+            entry.reference,
+            entry.organisation.display_name,
+            entry.organisation.entity_type_label,
+            entry.organisation.state_label,
+            entry.status_label,
+            ", ".join(product.name for product in entry.products),
+            entry.held,
+            tables.day(entry.submitted_at),
+            entry.age,
+            entry.assignee.display_name if entry.assignee else "Unassigned",
+        )
+
+
+#: The queue's two lists, behind one switch, each with its label and icon.
+#: Products comes first and is the default, so its links leave it unnamed.
+QUEUE_KINDS = {
+    "products": ("Products", "track"),
+    "organisations": ("Organisations", "organisation"),
+}
+
+
+def _queue_list(kind, user, params):
+    """A list's requests under every filter but its tabs', and each tab's filter.
+
+    Search and assignee hold in both lists; the Type filter is the Products
+    list's alone.
+    """
+    if kind == "organisations":
+        query = verification_requests(user)
+    else:
+        query = visible = queue_requests(user)
+    assignee = params.get("assignee", "")
     if assignee == "me":
-        query = query.filter(assignee=request.user)
+        query = query.filter(assignee=user)
     elif assignee == "unassigned":
         query = query.filter(assignee=None)
     elif assignee.isdigit():
         query = query.filter(assignee_id=assignee)
-    item_filter = _item_filter(get_program(), item)
+    search = params.get("q", "").strip()
+    if kind == "organisations":
+        if search:
+            query = query.filter(_verification_search(search, user))
+        return query, _verification_scopes()
+    item_filter = _item_filter(get_program(), params.get("item", ""))
     if item_filter is not None:
         query = query.filter(item_filter)
     if search:
         query = query.filter(_queue_search(search))
-    scopes = _queue_scopes(query, visible)
+    return query, _queue_scopes(query, visible)
+
+
+def _queue_count(kind, query):
+    """How many rows a list shows: one a verification, or one a product."""
+    if kind == "organisations":
+        return query.count()
+    return grouped_requests(query).count()
+
+
+def _kind_switch(params, kind):
+    """Both lists: this one as it is filtered, and the other on the same tab
+    with the same search and assignee, the filters both lists have."""
+    shared = {"scope": params["scope"]}
+    shared.update({key: params[key] for key in ("q", "assignee") if params.get(key)})
+    switch = []
+    for value, (label, icon) in QUEUE_KINDS.items():
+        if value == kind:
+            url = f"?{params.urlencode()}"
+        else:
+            link = shared if value == "products" else {"kind": value, **shared}
+            url = f"?{urlencode(link)}"
+        switch.append({"kind": value, "label": label, "icon": icon, "url": url})
+    return switch
+
+
+@login_required
+def queue(request):
+    _reviewer_required(request)
+    program = get_program()
+    verifies = permissions.has_access(request.user, "review", program=program.key)
+    params = request.GET.copy()
+    params.pop("page", None)
+    if verifies and params.get("item") == ReviewItem.Kind.ORGANISATION:
+        # The dashboard's Sandbox access card asks the Type filter for
+        # verifications, which have a list of their own.
+        params.pop("item")
+        params["kind"] = "organisations"
+        return redirect(f"{reverse('experiences:queue')}?{params.urlencode()}")
+    kind = params.get("kind", "")
+    if verifies and kind == "organisations":
+        params["kind"] = kind
+    else:
+        kind = "products"
+        params.pop("kind", None)
+    query, scopes = _queue_list(kind, request.user, params)
     stage_counts = {
-        stage: grouped_requests(query.filter(stage_filter)).count()
+        stage: _queue_count(kind, query.filter(stage_filter))
         for stage, stage_filter in scopes.items()
     }
-    stage_counts["all"] = grouped_requests(query).count()
-    scope = request.GET.get("scope", "")
+    stage_counts["all"] = _queue_count(kind, query)
+    scope = params.get("scope", "")
     if scope != "all":
         scope = scope if scope in scopes else "ready"
         query = query.filter(scopes[scope])
-    statuses = _queue_statuses(scope)
-    status = request.GET.get("status", "")
-    if status in dict(statuses):
-        query = query.filter(_queue_status_filter(status))
+    params["scope"] = scope
+    statuses = _queue_statuses(scope, kind)
+    if params.get("status", "") in dict(statuses):
+        query = query.filter(_queue_status_filter(params["status"]))
     else:
-        status = ""
-    sort = _queue_sort(request)
+        params.pop("status", None)
+    sort = _queue_sort(request, kind)
     if export := tables.export_format(request):
+        if kind == "organisations":
+            return tables.export_response(
+                export,
+                "review-queue-organisations",
+                VERIFICATION_EXPORT_HEADER,
+                _verification_export_rows(
+                    ordered_verifications(query, sort),
+                    request.user,
+                ),
+            )
         return tables.export_response(
             export,
             "review-queue",
             QUEUE_EXPORT_HEADER,
             _queue_export_rows(grouped_requests(query, sort), request.user, query),
         )
-    params = request.GET.copy()
-    params.pop("page", None)
-    params["scope"] = scope
-    if not status:
-        params.pop("status", None)
+    if kind == "organisations":
+        page = _verification_rows(
+            _page(request, ordered_verifications(query, sort)),
+            request.user,
+        )
+    else:
+        page = _queue_rows(
+            _page(request, grouped_requests(query, sort)),
+            request.user,
+            query,
+            scope,
+        )
     return render(
         request,
         "experiences/queue.html",
@@ -2736,12 +2879,11 @@ def queue(request):
             request,
             page_title="Review queue",
             nav="queue",
-            page=_queue_rows(
-                _page(request, grouped_requests(query, sort)),
-                request.user,
-                query,
-                scope,
-            ),
+            page=page,
+            queue_kind=kind,
+            # What the list's own links add to name it: nothing, for Products.
+            kind_query="kind=organisations&" if kind == "organisations" else "",
+            kind_switch=_kind_switch(params, kind) if verifies else [],
             stage_counts=stage_counts,
             queue_scope=scope,
             queue_sort=sort,
@@ -2753,7 +2895,7 @@ def queue(request):
             ),
             filters=params,
             filter_query=params.urlencode(),
-            request_choices=_request_choices(get_program(), request.user),
+            request_choices=_request_choices(program, request.user),
             track_choices=permissions.allowed_tracks(request.user),
         ),
     )

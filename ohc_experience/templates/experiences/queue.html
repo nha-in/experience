@@ -5,10 +5,36 @@
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
         <h1 class="ui-hero-title">Review queue</h1>
-        {% if queue_scope == 'ready' %}
+        {% if queue_kind == 'organisations' %}
+          {% if queue_scope == 'ready' %}
+            <p class="ui-hero-lede">Organisations whose verification a reviewer can decide now.</p>
+          {% elif queue_scope == 'decided' %}
+            <p class="ui-hero-lede">Organisations waiting on the integrator's reply to a query, or whose verification is approved or rejected.</p>
+          {% endif %}
+        {% elif queue_scope == 'ready' %}
           <p class="ui-hero-lede">Products with a request a reviewer can decide now, and no open query.</p>
         {% elif queue_scope == 'decided' %}
-          <p class="ui-hero-lede">Products waiting on the integrator's reply to a query, or with nothing a reviewer can decide now: their requests wait on an earlier request, or are approved or rejected.</p>
+          <p class="ui-hero-lede">Products waiting on the integrator's reply to a query, or with nothing a reviewer can decide now: their requests wait on an earlier request or on their organisation's verification, or are approved or rejected.</p>
+        {% endif %}
+        {# The Organisations screen's own switch, with Products, the default list, first. #}
+        {% if kind_switch %}
+          <nav class="ui-switch mt-4 flex w-full sm:inline-flex sm:w-auto"
+               aria-label="Organisations and products"
+               hx-boost="true"
+               hx-target="#review-queue"
+               hx-select="#review-queue"
+               hx-select-oob="#queue-hero"
+               hx-swap="outerHTML"
+               hx-push-url="true">
+            {% for option in kind_switch %}
+              <a class="ui-switch-option min-h-11 flex-1 justify-center gap-2 sm:min-h-9 sm:flex-none [&>svg]:size-4"
+                 href="{{ option.url }}"
+                 {% if option.kind == queue_kind %}aria-current="page"{% endif %}>
+                {% include 'components/nav_icon.html' with icon=option.icon %}
+                {{ option.label }}
+              </a>
+            {% endfor %}
+          </nav>
         {% endif %}
       </div>
     </div>
@@ -28,6 +54,7 @@
           hx-trigger="change, submit, change from:#queue-sort"
           hx-push-url="true">
       {% include "components/table_state.html" with skip_sort=True %}
+      {% if queue_kind == 'organisations' %}<input type="hidden" name="kind" value="organisations" />{% endif %}
       <div class="ui-card-content flex flex-col gap-3.5">
         <nav class="ui-switch hidden self-start sm:inline-flex"
              aria-label="Review stage"
@@ -38,17 +65,17 @@
              hx-swap="outerHTML"
              hx-push-url="true">
           <a class="ui-switch-option"
-             href="?scope=ready&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?{{ kind_query }}scope=ready&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'ready' %}aria-current="page"{% endif %}>Pending <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.ready }}</span></a>
           <a class="ui-switch-option"
-             href="?scope=decided&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?{{ kind_query }}scope=decided&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'decided' %}aria-current="page"{% endif %}>Done <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.decided }}</span></a>
           <a class="ui-switch-option"
-             href="?scope=all&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?{{ kind_query }}scope=all&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'all' %}aria-current="page"{% endif %}>All <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.all }}</span></a>
         </nav>
-        {# Pending holds one state, so it has no Status filter and one column fewer. #}
-        <div class="grid items-end gap-3 sm:grid-cols-2 {% if statuses %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% endif %}">
+        {# Pending holds one state, so it has no Status filter and one column fewer; Organisations has no Type filter. #}
+        <div class="grid items-end gap-3 sm:grid-cols-2 {% if queue_kind == 'organisations' %}{% if statuses %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto]{% endif %}{% elif statuses %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% endif %}">
           <div class="min-w-0 sm:hidden">
             <label class="ui-label" for="queue-scope">Review stage</label>
             <div class="ui-select-wrapper">
@@ -60,31 +87,43 @@
             </div>
           </div>
           <div class="min-w-0">
-            <label class="ui-label" for="queue-search">Search requests</label>
-            <input class="ui-input"
-                   id="queue-search"
-                   name="q"
-                   value="{{ filters.q }}"
-                   placeholder="Product, organisation or reference"
-                   type="search" />
+            {% if queue_kind == 'organisations' %}
+              <label class="ui-label" for="queue-search">Search organisations</label>
+              <input class="ui-input"
+                     id="queue-search"
+                     name="q"
+                     value="{{ filters.q }}"
+                     placeholder="Organisation, product or reference"
+                     type="search" />
+            {% else %}
+              <label class="ui-label" for="queue-search">Search requests</label>
+              <input class="ui-input"
+                     id="queue-search"
+                     name="q"
+                     value="{{ filters.q }}"
+                     placeholder="Product, organisation or reference"
+                     type="search" />
+            {% endif %}
           </div>
-          <div class="min-w-0">
-            <label class="ui-label" for="queue-item">Type</label>
-            <div class="ui-select-wrapper">
-              <select class="ui-select" id="queue-item" name="item">
-                <option value="">All types</option>
-                {% for value, label in request_choices %}
-                  <option value="{{ value }}" {% if filters.item == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-                <option value="milestones"
-                        {% if filters.item == 'milestones' %}selected{% endif %}>All milestones</option>
-                {% for track in track_choices %}
-                  <option value="{{ track.code }}"
-                          {% if filters.item == track.code %}selected{% endif %}>{{ track.code }}</option>
-                {% endfor %}
-              </select>
+          {% if queue_kind == 'products' %}
+            <div class="min-w-0">
+              <label class="ui-label" for="queue-item">Type</label>
+              <div class="ui-select-wrapper">
+                <select class="ui-select" id="queue-item" name="item">
+                  <option value="">All types</option>
+                  {% for value, label in request_choices %}
+                    <option value="{{ value }}" {% if filters.item == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                  <option value="milestones"
+                          {% if filters.item == 'milestones' %}selected{% endif %}>All milestones</option>
+                  {% for track in track_choices %}
+                    <option value="{{ track.code }}"
+                            {% if filters.item == track.code %}selected{% endif %}>{{ track.code }}</option>
+                  {% endfor %}
+                </select>
+              </div>
             </div>
-          </div>
+          {% endif %}
           {% if statuses %}
             <div class="min-w-0">
               <label class="ui-label" for="queue-status">Status</label>
@@ -116,10 +155,10 @@
           </div>
           <div class="flex items-center gap-4">
             <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Search</button>
-            {% if filters.q or filters.status or filters.item or filters.assignee %}
+            {% if filters.q or filters.status or filters.assignee or queue_kind == 'products' and filters.item %}
               <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
-                 href="?scope={{ queue_scope }}"
-                 hx-get="?scope={{ queue_scope }}"
+                 href="?{{ kind_query }}scope={{ queue_scope }}"
+                 hx-get="?{{ kind_query }}scope={{ queue_scope }}"
                  hx-boost="true">Clear filters</a>
             {% endif %}
           </div>

@@ -1,0 +1,92 @@
+{% load experience_ui %}
+
+{% comment %}
+  The review queue's Organisations list: one row per organisation verification,
+  which opens its review. Context: page, of VerificationEntry.
+{% endcomment %}
+<div class="hidden overflow-x-auto md:block">
+  <table class="ui-grid-table min-w-[860px]">
+    <thead hx-boost="true"
+           hx-target="#review-queue"
+           hx-select="#review-queue"
+           hx-select-oob="#queue-hero"
+           hx-swap="outerHTML"
+           hx-push-url="true">
+      <tr>
+        {% sort_header "Organisation" "title" %}
+        <th scope="col">Status</th>
+        <th scope="col">Products</th>
+        {% sort_header "Submitted" "submitted" descending_first=True %}
+        {% sort_header "Age" "age" descending_first=True %}
+        {% sort_header "Assignee" "assignee" note="optional" %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in page %}
+        <tr class="group" data-queue-entry="{{ entry.reference }}">
+          <td class="relative min-w-[220px] align-top">
+            <a class="font-semibold text-foreground group-hover:text-primary hover:underline"
+               href="{{ entry.url }}"
+               data-row-link>{{ entry.organisation.display_name }}</a>
+            <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ entry.reference }}</span>
+            {% if entry.organisation.entity_type_label or entry.organisation.state_label %}
+              <span class="mt-1 block text-xs text-muted-foreground">{{ entry.organisation.entity_type_label }}{% if entry.organisation.entity_type_label and entry.organisation.state_label %} · {% endif %}{{ entry.organisation.state_label }}</span>
+            {% endif %}
+            <a class="mt-1.5 inline-flex text-xs font-semibold text-primary hover:underline"
+               href="{{ entry.url }}">Review organisation <span class="ml-1" aria-hidden="true">→</span></a>
+          </td>
+          <td class="align-top">
+            <span class="ui-queue-chip ui-queue-chip--{{ entry.status }} font-medium">{% include 'experiences/partials/queue_state_icon.html' with state=entry.status %}{{ entry.status_label }}</span>
+          </td>
+          <td class="min-w-[220px] align-top">
+            {% if entry.products %}
+              <ul class="flex flex-col gap-0.5 text-xs">
+                {% for product in entry.products|slice:':3' %}<li>{{ product.name }}</li>{% endfor %}
+              </ul>
+              {% if entry.products|length > 3 %}
+                <span class="mt-0.5 block text-xs text-soft-foreground">and {{ entry.products|length|add:'-3' }} more</span>
+              {% endif %}
+            {% else %}
+              <span class="text-xs text-soft-foreground">No products yet</span>
+            {% endif %}
+            {% if entry.held %}
+              <span class="mt-1.5 block text-xs text-soft-foreground">{{ entry.held }} request{{ entry.held|pluralize }} waiting on this verification</span>
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap align-top tabular-nums">{{ entry.submitted_at|date:'d/m/Y' }}</td>
+          <td class="align-top">{% include 'experiences/partials/reviewer_age.html' with item=entry %}</td>
+          <td class="align-top">
+            <span class="text-xs {% if not entry.assignee %}text-soft-foreground{% endif %}">{{ entry.assignee.display_name|default:'Unassigned' }}</span>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<ul class="divide-y divide-soft-border border-t border-soft-border md:hidden">
+  {% for entry in page %}
+    <li data-queue-entry="{{ entry.reference }}">
+      <a class="group block px-5 py-4 transition-colors hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+         href="{{ entry.url }}">
+        <p class="font-mono text-xs text-soft-foreground">{{ entry.reference }}</p>
+        <p class="mt-1 text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ entry.organisation.display_name }}</p>
+        <p class="mt-0.5 text-xs text-muted-foreground">
+          {% if entry.products %}
+            {{ entry.products|length }} product{{ entry.products|length|pluralize }}
+          {% else %}
+            No products yet
+          {% endif %}
+          {% if entry.held %}· {{ entry.held }} request{{ entry.held|pluralize }} waiting on this verification{% endif %}
+        </p>
+        <div class="mt-3">
+          <span class="ui-queue-chip ui-queue-chip--{{ entry.status }} font-medium">{% include 'experiences/partials/queue_state_icon.html' with state=entry.status %}{{ entry.status_label }}</span>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-soft-foreground">
+          <span>{{ entry.age }} day{{ entry.age|pluralize }} old</span>
+          <span class="font-semibold text-primary">Review organisation <span aria-hidden="true">→</span></span>
+          <span class="sr-only">Submitted {{ entry.submitted_at|date:'d/m/Y' }}. Assigned to {{ entry.assignee.display_name|default:'Unassigned' }}.</span>
+        </div>
+      </a>
+    </li>
+  {% endfor %}
+</ul>

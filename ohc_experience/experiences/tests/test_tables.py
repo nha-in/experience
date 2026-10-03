@@ -141,7 +141,7 @@ def test_the_queue_sorts_by_product_and_downloads_every_entry(environment, clien
     assert response.context["table_sort"] == "title"
     assert 'aria-sort="ascending"' in response.content.decode()
     exported = rows(client.get(url, {"scope": "all", "sort": "title", "export": "csv"}))
-    assert exported[0][:3] == ["Reference", "Product / request", "Organisation"]
+    assert exported[0][:3] == ["Reference", "Product", "Organisation"]
     assert len(exported) - 1 == response.context["page"].paginator.count
     workbook_rows = rows(
         client.get(url, {"scope": "all", "sort": "title", "export": "xlsx"}),
