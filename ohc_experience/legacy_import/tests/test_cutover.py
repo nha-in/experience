@@ -1,7 +1,13 @@
 import gzip
+from importlib import import_module
 
+import pytest
 from cryptography.fernet import Fernet
+from django.contrib.sites.models import Site
 
+from ohc_experience.experiences.models import CertificationAgency
+from ohc_experience.legacy_import.management.commands.cutover import WASA_SEED
+from ohc_experience.legacy_import.management.commands.cutover import Command
 from ohc_experience.legacy_import.management.commands.cutover import roles_named
 from ohc_experience.legacy_import.management.commands.import_legacy import unusable_key
 
@@ -71,3 +77,34 @@ def test_no_key_at_all_says_so(settings):
     settings.EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = False
 
     assert "Set EXPERIENCE_CREDENTIAL_KEY" in unusable_key()
+
+
+@pytest.mark.django_db
+def test_the_agencies_flush_takes_away_are_seeded_again():
+    """Their rows are the M2 form's only agency choices."""
+    CertificationAgency.objects.all().delete()
+
+    Command().reseed("")
+
+    seeded = import_module(WASA_SEED).LEGACY_WASA_AGENCIES
+    assert CertificationAgency.objects.filter(program="abdm").count() == len(seeded)
+
+
+@pytest.mark.django_db
+def test_seeding_twice_leaves_one_of_each():
+    Command().reseed("")
+    before = CertificationAgency.objects.count()
+
+    Command().reseed("")
+
+    assert CertificationAgency.objects.count() == before
+
+
+@pytest.mark.django_db
+def test_the_site_keeps_the_domain_it_is_given(settings):
+    """flush puts example.com back, and every absolute URL reads it."""
+    Site.objects.filter(pk=settings.SITE_ID).update(domain="example.com")
+
+    Command().reseed("sandbox.abdm.gov.in")
+
+    assert Site.objects.get(pk=settings.SITE_ID).domain == "sandbox.abdm.gov.in"

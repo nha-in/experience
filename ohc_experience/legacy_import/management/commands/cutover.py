@@ -10,15 +10,18 @@ import os
 import re
 import shutil
 import subprocess
+from importlib import import_module
 from pathlib import Path
 
 import psycopg
 from django.conf import settings
+from django.contrib.sites.models import Site
 from django.core.files.storage import default_storage
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
 
+from ohc_experience.experiences.models import CertificationAgency
 from ohc_experience.legacy_import.files import LEGACY_FOLDER
 from ohc_experience.legacy_import.management.commands.import_legacy import unusable_key
 
@@ -36,6 +39,12 @@ LEGACY_TABLES = (
     "hcx",
     "nhcx_exit",
     "sd_uhi",
+)
+#: The only reference rows a migration seeded rather than derived, so the only
+#: ones `flush` takes away for good. M2 cannot be submitted without them: the
+#: form's agency choices are these rows.
+WASA_SEED = (
+    "ohc_experience.experiences.migrations.0008_seed_wasa_certification_agencies"
 )
 #: The role a statement expects, after the word that introduces it.
 NAMED_ROLE = re.compile(
@@ -119,6 +128,11 @@ class Command(BaseCommand):
             "--cleanup",
             action="store_true",
             help="Drop the legacy database and the roles this run created.",
+        )
+        parser.add_argument(
+            "--site-domain",
+            default="",
+            help="The portal's own domain, which flush resets to example.com.",
         )
         parser.add_argument("--password", default="")
         parser.add_argument("--no-files", action="store_true")
@@ -212,6 +226,27 @@ class Command(BaseCommand):
             options["admin_dsn"],
             [f'drop database if exists "{options["legacy_db"]}"'],
         )
+        self.reseed(options["site_domain"])
+
+    def reseed(self, domain):
+        """Put back what flush truncates and no later step writes again.
+
+        The agencies have to be here before the import reads them: it spells a
+        legacy agency name the portal's way, or leaves it as legacy wrote it.
+        """
+        seeded = import_module(WASA_SEED).LEGACY_WASA_AGENCIES
+        CertificationAgency.objects.bulk_create(
+            [
+                CertificationAgency(program="abdm", name=name, sort_order=order)
+                for order, name in enumerate(seeded)
+            ],
+            ignore_conflicts=True,
+        )
+        self.say(f"WASA agencies: {CertificationAgency.objects.count()}")
+        if domain:
+            Site.objects.filter(pk=settings.SITE_ID).update(domain=domain, name=domain)
+        site = Site.objects.filter(pk=settings.SITE_ID).first()
+        self.say(f"Site domain: {site.domain if site else 'no site row'}")
 
     def prepare_roles(self, dump, admin_dsn):
         """Create the roles the dump names, and join them so it can grant.
