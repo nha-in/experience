@@ -25,7 +25,7 @@ from datetime import date
 from io import BytesIO
 
 from django.conf import settings
-from django.core.cache.backends.locmem import LocMemCache
+from django.core.cache import cache
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
@@ -116,17 +116,16 @@ INSTRUCTION = (
     "them."
 )
 
-# What the model said about a file, kept per worker so a re-read of the same
-# file, which is common while a draft is edited, does not pay for it again.
+# What the model said about a file, kept in the shared cache so a re-read of the
+# same file, which is common while a draft is edited, does not pay for it again.
+# Shared rather than per-process because every worker and every instance serves
+# the same integrator, and a reading kept in one worker's memory is a reading
+# the next upload pays for again.
 # What is kept is the reply, not the conclusion drawn from it: the published
 # agencies and today's date are applied again on every read, so publishing a
 # missing agency corrects a reading that was already made. Neither a failure
 # nor a reading that proposed nothing is kept, because the next attempt is
 # better served by asking again than by being handed either one back.
-_extraction_cache = LocMemCache(
-    "abdm-wasa-extractions",
-    {"OPTIONS": {"MAX_ENTRIES": 128}},
-)
 
 
 class WasaExtractionError(DocumentReadError):
@@ -406,12 +405,12 @@ def extract_certificate(upload, *, refresh: bool = False) -> dict[str, str]:
         f"{hashlib.sha256(content).hexdigest()}"
     )
     if not refresh:
-        remembered = _extraction_cache.get(cache_key)
+        remembered = cache.get(cache_key)
         if remembered is not None:
             return _details(remembered)
     payload = _payload(_completion(model, content, timeout, max_tokens))
     details = _details(payload)
     # A reading that proposes nothing is worth nothing to the attempt after it.
     if any(details.values()):
-        _extraction_cache.set(cache_key, payload, timeout=cache_ttl)
+        cache.set(cache_key, payload, timeout=cache_ttl)
     return details
