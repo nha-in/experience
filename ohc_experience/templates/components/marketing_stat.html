@@ -5,7 +5,7 @@
     <span class="sbx-stat-value" aria-hidden="true">
       {% for digit in value %}
         {% if digit == "," %}
-          <span class="sbx-digit-separator"></span>
+          <span class="sbx-digit-separator">,</span>
         {% else %}
           <span class="sbx-digit">{{ digit }}</span>
         {% endif %}

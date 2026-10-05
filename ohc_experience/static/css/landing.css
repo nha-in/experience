@@ -253,9 +253,6 @@
     transform: perspective(120px) rotateX(-88deg);
   }
 }
-.sbx-digit-separator {
-  flex: 0 0 0.42em;
-}
 .sbx-section {
   padding-top: 72px;
 }
