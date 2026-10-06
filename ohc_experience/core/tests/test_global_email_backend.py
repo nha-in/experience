@@ -265,6 +265,15 @@ def test_http_failures_never_follow_redirects_or_expose_responses(
     transport.assert_called_once()
 
 
+@pytest.mark.parametrize("status", ["SENT", "sent", "SUCCESS", "success"])
+def test_the_gateway_is_taken_at_its_word_whatever_the_case(message, gateway, status):
+    """Production answers 202 with "sent"; its documentation says SENT."""
+    state, _ = gateway
+    state["body"] = {"status": status}
+
+    assert GlobalEmailBackend().send_messages([message]) == 1
+
+
 @pytest.mark.parametrize(
     ("body", "code"),
     [
@@ -272,7 +281,7 @@ def test_http_failures_never_follow_redirects_or_expose_responses(
         ([], "invalid_response"),
         ({"status": True}, "invalid_response"),
         ({"status": "FAILED", "remark": "123456"}, "gateway_rejected"),
-        ({"status": "success"}, "gateway_rejected"),
+        ({"status": "rejected"}, "gateway_rejected"),
         ({"status": "SUCCESS", "requestId": "wrong-id"}, "response_mismatch"),
         ({"status": "SUCCESS", "receiver": "wrong@example.test"}, "response_mismatch"),
         ({"status": "SUCCESS", "templateId": "wrong-id"}, "response_mismatch"),

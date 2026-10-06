@@ -241,7 +241,7 @@ class GlobalEmailBackend(AnymailRequestsBackend):
                 str,
             ):
                 raise GlobalEmailAPIError("invalid_response")
-            if result["status"] not in ACCEPTED_STATUSES:
+            if result["status"].upper() not in ACCEPTED_STATUSES:
                 raise GlobalEmailAPIError("gateway_rejected")
             self._validate_response_echoes(result, payload.data)
         message_id = result.get("gatewayTxnid")

@@ -515,9 +515,9 @@ CELERY_BEAT_SCHEDULE = {
         "task": "ohc_experience.experiences.tasks.remind_event_registrations",
         "schedule": 3600.0,
     },
-    "sandbox-outcome-expiry": {
+     "sandbox-outcome-expiry": {
         "task": "ohc_experience.experiences.tasks.remind_expiring_outcomes",
-        "schedule": 3600.0,
+        "schedule": crontab(hour=7, minute=0),
     },
     "landing-abdm-figures": {
         "task": "ohc_experience.pages.tasks.refresh_abdm_dashboard_figures",
