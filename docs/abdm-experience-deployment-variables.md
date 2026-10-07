@@ -68,7 +68,7 @@ For the **landing page's ABDM figures**, configure:
 | `PMJAY_CLIENT_SECRET` | **Required for the ABDM figures.** Client secret for the same service. Default: empty. |
 | `ABDM_DASHBOARD_KPI_URL` | Default: `https://dashboard.abdm.gov.in/abdmservice/api/dashboard/ABDM/KPI`. Must be `https`. |
 
-In production the deploy workflow writes both credentials into every task definition from the `production` environment, `PMJAY_CLIENT_ID` as a variable and `PMJAY_CLIENT_SECRET` as a secret, and stops before building if either is empty. Do not also set them on the task definitions: ECS rejects a name set both ways.
+In production the deploy workflow writes both credentials and `ABDM_DASHBOARD_KPI_URL` into every task definition from the `production` environment, `PMJAY_CLIENT_ID` and the URL as variables and `PMJAY_CLIENT_SECRET` as a secret, and stops before building if any is empty. Do not also set them on the task definitions: ECS rejects a name set both ways.
 
 Celery beat fetches health records linked, healthcare professionals and facilities from the KPI service every day at 06:00 IST, retrying a failure after 5 minutes, 30 minutes and 2 hours, and keeps them in the Redis cache without expiry. The landing page reads only the cache, so a failed fetch leaves the last good figures in place. Before the first successful fetch, as on a new deployment or after Redis loses its data, one landing-page visit fetches them, at most once every ten minutes; until then those three figures are left out. Successful Integrators is counted from the database on each visit: organisations with at least one approved milestone.
 
