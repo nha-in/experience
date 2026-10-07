@@ -30,7 +30,7 @@ MAX_RESPONSE_BYTES = 64 * 1024
 FIELDS = {
     "records_linked": "HRL Count",
     "professionals_registered": "HPR Count",
-    "facilities_registered": "HFR Count",
+    "facilities_registered": "ABDMEnabled Count",
 }
 
 

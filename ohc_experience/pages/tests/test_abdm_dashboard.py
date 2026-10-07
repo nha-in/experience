@@ -25,13 +25,15 @@ from ohc_experience.pages.abdm_dashboard import refresh_figures
 from ohc_experience.pages.tasks import RETRY_DELAYS
 from ohc_experience.pages.tasks import refresh_abdm_dashboard_figures
 
-# The service's reply on 2 October 2026.
+# The service's reply on 2 October 2026, plus the ABDMEnabled Count NHA added
+# later (made-up figure). HFR Count stays in the reply but is not shown.
 REPLY = {
     "lastUpdated": "02-10-2026 08:33 PM",
     "HPR Count": "12,20,798",
     "HRL Count": "1,22,47,14,978",
     "ABHA Count": "98,05,82,641",
     "HFR Count": "5,85,761",
+    "ABDMEnabled Count": "1,32,408",
 }
 # What the service sends for an unknown client, still with HTTP 200.
 REFUSAL = {
@@ -42,7 +44,7 @@ REFUSAL = {
 FIGURES = {
     "records_linked": 1224714978,
     "professionals_registered": 1220798,
-    "facilities_registered": 585761,
+    "facilities_registered": 132408,
 }
 
 
@@ -132,7 +134,7 @@ class TestFetchFigures:
             (HTTPStatus.BAD_GATEWAY, REPLY),
             (HTTPStatus.OK, b"<html>Under maintenance</html>"),
             (HTTPStatus.OK, [REPLY]),
-            (HTTPStatus.OK, {**REPLY, "HFR Count": "N/A"}),
+            (HTTPStatus.OK, {**REPLY, "ABDMEnabled Count": "N/A"}),
             (HTTPStatus.OK, {**REPLY, "HRL Count": "-5"}),
             (HTTPStatus.OK, {k: v for k, v in REPLY.items() if k != "HPR Count"}),
         ],
@@ -256,7 +258,7 @@ class TestDailyTask:
 def set_by_hand(
     records="1,22,47,14,978",
     professionals="12,20,798",
-    facilities="585761",
+    facilities="132408",
 ):
     out = StringIO()
     call_command(
