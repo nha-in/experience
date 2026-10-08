@@ -465,7 +465,7 @@ def test_a_milestone_page_reads_a_chosen_certificate(reader, environment, client
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["product"].reference, "ABDM"],
+        args=[environment["product"].reference, "HIE-CM"],
     )
 
     response = read_request(client, url, milestone="m1")

@@ -49,7 +49,7 @@ def approve_milestones(environment, keys):
 
 
 def workspace_of(environment, keys):
-    """The product these milestones sit on: ABDM and PHR never share one."""
+    """The product these milestones sit on: HIE-CM and PHR never share one."""
     return product_for(environment, keys[0])
 
 

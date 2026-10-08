@@ -113,7 +113,7 @@ def test_only_onboarding_approvers_record(environment):
     ]
     denied = [
         staff(),
-        staff("ABDM", approver=True),
+        staff("HIE-CM", approver=True),
         environment["applicant"],
         UserFactory(is_superuser=True, is_staff=True, is_active=False),
     ]
@@ -201,12 +201,12 @@ def test_staff_pages_need_general_review_access(environment, client):
     detail_url = reverse("experiences:production-detail", args=[reference])
     for url in [list_url, export_url, detail_url]:
         assert client.get(url).status_code == 302
-    for user in [environment["applicant"], staff("ABDM", approver=True)]:
+    for user in [environment["applicant"], staff("HIE-CM", approver=True)]:
         client.force_login(user)
         for url in [list_url, export_url, detail_url]:
             assert client.get(url).status_code == 403
         assert client.post(detail_url, {"intent": "save"}).status_code == 403
-    client.force_login(staff("ABDM", approver=True))
+    client.force_login(staff("HIE-CM", approver=True))
     assert (
         b'id="nav-production"' not in client.get(reverse("experiences:queue")).content
     )

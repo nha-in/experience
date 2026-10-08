@@ -11,7 +11,7 @@ LEGACY_GAPS = "legacy_gaps"
 SOLUTION_TYPE = "solution_type"
 #: Legacy's NHCX had no payer, provider or patient app role.
 NHCX_ROLE = "nhcx_role"
-#: The registration declared both ABDM and PHR, which cannot share a product.
+#: The registration declared both HIE-CM and PHR, which cannot share a product.
 TRACKS = "tracks"
 
 #: The Other box takes words, and legacy asked for a solution type only from
@@ -32,7 +32,7 @@ GAP_NOTICES = {
         "Other. Pick the one that matches it."
     ),
     TRACKS: (
-        "Your legacy registration applied for both ABDM and PHR. Pick one "
+        "Your legacy registration applied for both HIE-CM and PHR. Pick one "
         "solution type to narrow it."
     ),
     NHCX_ROLE: (

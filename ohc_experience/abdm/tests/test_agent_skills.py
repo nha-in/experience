@@ -125,14 +125,14 @@ def groups(response):
     return {group["code"]: group for group in response.context["skill_groups"]}
 
 
-def abdm_only(environment, name="ABDM only"):
+def abdm_only(environment, name="HIE-CM only"):
     """A product that applied for one track only."""
     product, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
         data=product_data(name)
         | OTHER_TYPE
-        | {"applied_milestones": ["ABDM:m1", "ABDM:m2", "ABDM:m3"]},
+        | {"applied_milestones": ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]},
     )
     assert product, form.errors
     return product
@@ -344,7 +344,7 @@ def test_skills_for_the_milestones_on_the_product_are_recommended(environment, c
     # The track the product applied for is read first, then the shared skills it
     # was recommended, then the tracks it left out.
     codes = [group["code"] for group in page.context["skill_groups"]]
-    assert codes == ["ABDM", "", "PHR"]
+    assert codes == ["HIE-CM", "", "PHR"]
 
 
 def test_skills_that_are_no_milestone_of_their_own_are_listed_apart(
@@ -358,8 +358,8 @@ def test_skills_that_are_no_milestone_of_their_own_are_listed_apart(
     def slugs(group):
         return [row["definition"]["slug"] for row in group["skills"]]
 
-    # ABDM is the four modules. The gateway is its front door, not one of them.
-    assert slugs(groups(page)["ABDM"]) == ["abdm-m1", "abdm-m2", "abdm-m3", "abdm-m4"]
+    # HIE-CM is the four modules. The gateway is its front door, not one of them.
+    assert slugs(groups(page)["HIE-CM"]) == ["abdm-m1", "abdm-m2", "abdm-m3", "abdm-m4"]
     shared = groups(page)[""]
     assert shared["title"] == "Shared Agent Skills"
     assert slugs(shared) == [
@@ -460,7 +460,7 @@ def test_a_track_with_no_skill_of_its_own_leaves_no_empty_group(
     page = client.get(skills_url(environment["product"]))
 
     # NHCX and UHI carry no skills yet, so neither gets a heading with nothing under it.
-    assert set(groups(page)) == {"ABDM", "PHR", ""}
+    assert set(groups(page)) == {"HIE-CM", "PHR", ""}
     assert all(group["skills"] for group in page.context["skill_groups"])
 
 

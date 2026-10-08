@@ -397,7 +397,7 @@ class ProductRegistrationForm(ReviewForm):
     def holds_both_tracks(self):
         """Whether this product came from a registration that declared both.
 
-        Legacy let one registration claim ABDM and PHR, so an imported product
+        Legacy let one registration claim HIE-CM and PHR, so an imported product
         can hold both and keeps them; a new one still has to choose.
         """
         return bool(self.product) and legacy.has_gap(self.product, legacy.TRACKS)
@@ -423,7 +423,7 @@ class ProductRegistrationForm(ReviewForm):
             related = [
                 key for key in track.related_milestones(MILESTONES) if key not in hard
             ]
-            # The code, not the name: ABDM's name is "Milestones", which says
+            # The code, not the name: HIE-CM's name is "Milestones", which says
             # nothing in this sentence, and the heading above leads with the code.
             other = excluded_track({track.code})
             exclusion = ""
@@ -475,7 +475,7 @@ class ProductRegistrationForm(ReviewForm):
         definition = MILESTONES[key]
         chosen = {value.split(":", 1)[0] for value in selected} & set(EXCLUSIVE_TRACKS)
         other = other_nhcx_role(key)
-        # Once ABDM or PHR is chosen, only that track's NHCX roles show.
+        # Once HIE-CM or PHR is chosen, only that track's NHCX roles show.
         hidden = (
             key in NHCX_ROLE_TRACKS
             and bool(chosen)
@@ -507,11 +507,11 @@ class ProductRegistrationForm(ReviewForm):
         }
 
     def _apply_solution_type(self, selections, solutions, saved=()):
-        """Swap the ABDM and PHR selections for the ones the solution type fixes.
+        """Swap the HIE-CM and PHR selections for the ones the solution type fixes.
 
         Posted ones in `saved` stay: approved and under-review milestones arrive
         as hidden fields, and the save refuses to drop them. So does an optional
-        milestone on the track the type fixes: M4 under an ABDM type.
+        milestone on the track the type fixes: M4 under an HIE-CM type.
         """
         fixed = fixed_selections(solutions)
         if fixed is None:

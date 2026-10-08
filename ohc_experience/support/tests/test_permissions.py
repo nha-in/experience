@@ -47,7 +47,7 @@ CATEGORIES = [
 ]
 #: A category the support menu does not answer to, as the tracks support used to
 #: be filed by leave behind on the tickets that were filed under them.
-RETIRED = "ABDM"
+RETIRED = "HIE-CM"
 
 
 def product_in(program_key, membership, name="Sandbox HMIS"):

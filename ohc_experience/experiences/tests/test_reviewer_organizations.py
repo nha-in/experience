@@ -72,7 +72,7 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
 
 def test_organization_pages_follow_category_review_scope(environment, client):
     visible_item = submit(environment, "p1")
-    # P1 sits on the organisation's PHR product, not on its ABDM one.
+    # P1 sits on the organisation's PHR product, not on its HIE-CM one.
     product = phr_product(environment)
     reviewer = UserFactory(is_nha_team=True, is_staff=True)
     AccessGrant.objects.create(

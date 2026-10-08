@@ -63,7 +63,7 @@ def test_admin_reaches_each_open_request_from_the_product(environment, client):
         f"#review-{approved.pk}",
         f"#review-{pending.pk}",
     }
-    assert track_url(environment, "ABDM").encode() not in response.content
+    assert track_url(environment, "HIE-CM").encode() not in response.content
 
 
 def test_category_reviewers_see_their_tracks_and_act_only_with_a_grant(
@@ -112,16 +112,16 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
     assert client.get(environment["product"].get_absolute_url()).url == (
         product_url(environment)
     )
-    response = client.get(track_url(environment, "ABDM"), {"milestone": "m1"})
+    response = client.get(track_url(environment, "HIE-CM"), {"milestone": "m1"})
     assert response.url == m1.get_absolute_url()
-    assert client.get(track_url(environment, "ABDM")).url == (
-        f"{product_url(environment)}#track-abdm"
+    assert client.get(track_url(environment, "HIE-CM")).url == (
+        f"{product_url(environment)}#track-hie-cm"
     )
     assert client.get(track_url(environment, "Unknown")).status_code == (
         HTTPStatus.NOT_FOUND
     )
 
-    # M1 belongs to ABDM, so a UHI reviewer lands on the track, not on M1.
+    # M1 belongs to HIE-CM, so a UHI reviewer lands on the track, not on M1.
     client.force_login(staff("UHI"))
     response = client.get(track_url(environment, "UHI"), {"milestone": "m1"})
     assert response.url == f"{product_url(environment)}#track-uhi"
@@ -133,12 +133,12 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
     assert response.url == (
         f"{product_url(environment, phr_product(environment))}#track-phr"
     )
-    assert client.get(track_url(environment, "ABDM")).status_code == (
+    assert client.get(track_url(environment, "HIE-CM")).status_code == (
         HTTPStatus.NOT_FOUND
     )
 
     client.force_login(environment["applicant"])
-    assert client.get(track_url(environment, "ABDM")).status_code == HTTPStatus.OK
+    assert client.get(track_url(environment, "HIE-CM")).status_code == HTTPStatus.OK
 
 
 def test_staff_pages_never_offer_the_product_switcher(environment, client):
@@ -148,7 +148,7 @@ def test_staff_pages_never_offer_the_product_switcher(environment, client):
         product=environment["product"],
         created_by=environment["applicant"],
         subject="Callback help",
-        category="ABDM",
+        category="HIE-CM",
     )
     staff_pages = [
         reverse("experiences:ticket", args=[ticket.reference]),

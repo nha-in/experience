@@ -135,13 +135,13 @@ def ready(product):
     product.refresh_from_db()
 
 
-#: A solution type of Other leaves the ABDM and PHR milestones to the
+#: A solution type of Other leaves the HIE-CM and PHR milestones to the
 #: integrator; every other type fixes them.
 OTHER_TYPE = {"solution_type": ["other"], "solution_type_other": "Test fixture"}
 
 
 def registered_as_other(product):
-    """Re-register the product as Other, so an edit may change ABDM and PHR."""
+    """Re-register the product as Other, so an edit may change HIE-CM and PHR."""
     Product.objects.filter(pk=product.pk).update(solution_type=["other"])
     product.refresh_from_db()
 
@@ -149,7 +149,7 @@ def registered_as_other(product):
 def phr_product(environment):
     """The PHR product, registered the first time a test asks for a PHR phase.
 
-    ABDM and PHR cannot be applied for together, so the two tracks need two
+    HIE-CM and PHR cannot be applied for together, so the two tracks need two
     products. Tests that never touch a PHR phase never pay for this one.
     """
     if "phr_product" not in environment:
@@ -169,10 +169,10 @@ def phr_product(environment):
 
 
 def nhcx_product(environment):
-    """A product on ABDM and NHCX, the two tracks that share one evidence form.
+    """A product on HIE-CM and NHCX, the two tracks that share one evidence form.
 
     Registered the first time a test needs two tracks on a single product, as
-    ABDM and PHR no longer can be.
+    HIE-CM and PHR no longer can be.
     """
     if "nhcx_product" not in environment:
         product, form = services.register_product(
@@ -182,10 +182,10 @@ def nhcx_product(environment):
                 **product_data("Test claims application"),
                 "solution_type": ["hmis"],
                 "applied_milestones": [
-                    "ABDM:m1",
-                    "ABDM:m2",
-                    "ABDM:m3",
-                    "ABDM:m4",
+                    "HIE-CM:m1",
+                    "HIE-CM:m2",
+                    "HIE-CM:m3",
+                    "HIE-CM:m4",
                     "NHCX:nhcx_payer",
                 ],
             },
@@ -351,11 +351,11 @@ def test_uhi_shows_m1_and_m2_as_prerequisites_it_does_not_offer(environment):
 
 
 def test_a_shared_milestone_names_the_other_tracks_not_an_owner(environment):
-    """M1 is offered by ABDM; every track that depends on it names the rest."""
+    """M1 is offered by HIE-CM; every track that depends on it names the rest."""
     program = get_program()
 
-    assert set(program.shared_with("m1", "ABDM")) == {"UHI", "NHCX"}
-    assert program.shared_with("m3", "ABDM") == ("NHCX",)
+    assert set(program.shared_with("m1", "HIE-CM")) == {"UHI", "NHCX"}
+    assert program.shared_with("m3", "HIE-CM") == ("NHCX",)
     assert program.shared_with("p1", "PHR") == ("UHI", "NHCX")
     assert program.shared_with("p4", "PHR") == ()
     assert MILESTONES["p4"].code == "P4"
@@ -365,13 +365,13 @@ def test_a_tracks_description_names_its_shared_milestones():
     """Each track names the identity milestone the others reach it through."""
     program = get_program()
     assert program.shared_note("PHR") == "P1 is shared with UHI and NHCX."
-    assert program.shared_note("ABDM") == (
+    assert program.shared_note("HIE-CM") == (
         "M1 is shared with UHI and NHCX. M2 is shared with UHI and NHCX. "
         "M3 is shared with NHCX."
     )
     assert program.shared_note("UHI") == (
-        "M1 is shared with ABDM and NHCX. P1 is shared with PHR and NHCX. "
-        "M2 is shared with ABDM and NHCX."
+        "M1 is shared with HIE-CM and NHCX. P1 is shared with PHR and NHCX. "
+        "M2 is shared with HIE-CM and NHCX."
     )
 
 
@@ -387,8 +387,8 @@ def test_a_predecessor_no_track_offers_can_never_unlock():
 @pytest.mark.parametrize(
     ("code", "expected"),
     [
-        ("UHI", "Shared with ABDM"),
-        ("ABDM", "Shared with UHI"),
+        ("UHI", "Shared with HIE-CM"),
+        ("HIE-CM", "Shared with UHI"),
     ],
 )
 def test_the_shared_m1_note_follows_the_catalogue_not_a_hardcoded_track(
@@ -475,7 +475,7 @@ def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client
         data={
             **product_data("M1 and UHI only"),
             **OTHER_TYPE,
-            "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
+            "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
         },
     )
     assert product, form.errors
@@ -699,7 +699,7 @@ def test_reviewers_with_grants_decide_whoever_is_assigned(environment):
         user=writer,
         program="abdm",
         area=AccessGrant.Area.REVIEW,
-        category="ABDM",
+        category="HIE-CM",
         can_read=True,
         can_write=True,
     )
@@ -856,7 +856,7 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["product"].reference, "ABDM"],
+        args=[environment["product"].reference, "HIE-CM"],
     )
 
     m3 = client.get(url, {"milestone": "m3"}).content.decode()
@@ -1045,7 +1045,7 @@ def test_hiecm_and_phr_are_alternatives_and_the_locker_closes_phr():
 
     # P1 is the PHR track's own identity milestone; it no longer needs M1.
     assert form("PHR:p1").is_valid()
-    assert form("ABDM:m1").is_valid()
+    assert form("HIE-CM:m1").is_valid()
     assert not form("HIE-CM:m1", "PHR:p1").is_valid()
     # The locker is the last PHR phase, so it arrives after P1 to P3.
     assert form("PHR:p1", "PHR:p2", "PHR:p3", "PHR:p4").is_valid()
@@ -1232,17 +1232,19 @@ def test_rejected_draft_retains_reason_and_decision_history(environment, client)
     client.force_login(environment["reviewer"])
     response = client.get(reverse("experiences:assess-dashboard"))
     abdm = response.context["track_cards"][0]
-    assert (abdm["title"], abdm["this_month"]["rejected"]) == ("ABDM", 1)
+    assert (abdm["title"], abdm["this_month"]["rejected"]) == ("HIE-CM", 1)
 
 
 def test_track_filter_keeps_shared_m1_on_its_own_track(environment, client):
     item = submit(environment)
     product = environment["product"]
-    product.applied_milestones = ["ABDM:m1"]
+    product.applied_milestones = ["HIE-CM:m1"]
     product.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
-    assert item in client.get(url, {"item": "ABDM"}).context["page"][0].matching_reviews
+    assert (
+        item in client.get(url, {"item": "HIE-CM"}).context["page"][0].matching_reviews
+    )
     assert not client.get(url, {"item": "UHI"}).context["page"]
     product.applied_milestones.append("UHI:uhi1")
     product.save()
@@ -1294,14 +1296,14 @@ def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client
         ]
 
     assert listed("NHCX") == [nhcx_payer]
-    assert m1 in listed("ABDM")
-    assert nhcx_payer not in listed("ABDM")
+    assert m1 in listed("HIE-CM")
+    assert nhcx_payer not in listed("HIE-CM")
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
     pending = {
         card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
     }
     # NHCX waits on M1 and M3, so nothing in it can be decided yet.
-    assert (pending["ABDM"], pending["NHCX"]) == (1, 0)
+    assert (pending["HIE-CM"], pending["NHCX"]) == (1, 0)
 
 
 def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
@@ -1359,7 +1361,7 @@ def test_organisation_verification_has_a_list_of_its_own(environment, client):
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
 
-    products = client.get(url, {"item": "ABDM", "scope": "all"}).context["page"]
+    products = client.get(url, {"item": "HIE-CM", "scope": "all"}).context["page"]
     assert milestone_item in [
         review for entry in products for review in entry.matching_reviews
     ]
@@ -1412,7 +1414,7 @@ def test_the_type_filter_gathers_the_milestones_of_every_track(environment, clie
     assert abdm in milestones
     assert locker in milestones
     assert organisation not in milestones
-    assert locker not in listed("ABDM")
+    assert locker not in listed("HIE-CM")
 
 
 def test_the_product_page_holds_decisions_until_prerequisites_are_approved(
@@ -1556,7 +1558,7 @@ def test_support_members_cannot_reply_or_withdraw(environment, client):
     response = client.get(
         reverse(
             "experiences:track",
-            args=[environment["product"].reference, "ABDM"],
+            args=[environment["product"].reference, "HIE-CM"],
         ),
     )
     assert response.status_code == 200
@@ -1824,7 +1826,7 @@ def test_oversized_document_is_rejected():
 def test_the_registration_forgets_the_gaps_its_own_answers_fill():
     product = Product(
         solution_type=["other"],
-        applied_milestones=["ABDM:m1", "PHR:p1", "NHCX:nhcx_provider"],
+        applied_milestones=["HIE-CM:m1", "PHR:p1", "NHCX:nhcx_provider"],
         metadata={
             legacy.LEGACY_GAPS: [
                 legacy.NHCX_ROLE,
@@ -1839,7 +1841,7 @@ def test_the_registration_forgets_the_gaps_its_own_answers_fill():
     assert answered_gaps(product, note) == [legacy.NHCX_ROLE]
 
     product.solution_type = ["hmis"]
-    product.applied_milestones = ["ABDM:m1", "ABDM:m2", "ABDM:m3"]
+    product.applied_milestones = ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
 
     assert answered_gaps(product, "") == [
         legacy.SOLUTION_TYPE,
@@ -1849,7 +1851,7 @@ def test_the_registration_forgets_the_gaps_its_own_answers_fill():
 
 
 def test_a_product_that_really_is_other_answers_in_the_other_box():
-    product = Product(solution_type=["other"], applied_milestones=["ABDM:m1"])
+    product = Product(solution_type=["other"], applied_milestones=["HIE-CM:m1"])
 
     assert legacy.SOLUTION_TYPE not in answered_gaps(
         product,

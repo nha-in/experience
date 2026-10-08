@@ -25,7 +25,7 @@ from ohc_experience.organisations.models import GOVERNMENT
 pytestmark = pytest.mark.django_db
 
 
-def track_url(environment, code="ABDM"):
+def track_url(environment, code="HIE-CM"):
     return reverse(
         "experiences:track",
         args=[environment["product"].reference, code],
@@ -94,7 +94,7 @@ def test_m4_waits_for_m1_unless_the_entity_is_a_government_body(environment, cli
             **product_data("State facility registry"),
             "solution_type": ["other"],
             "solution_type_other": "Facility registry",
-            "applied_milestones": ["ABDM:m4"],
+            "applied_milestones": ["HIE-CM:m4"],
         },
     )
     assert government, form.errors
@@ -270,14 +270,14 @@ def test_the_track_hero_groups_what_is_left_by_what_it_waits_on(environment, cli
 
 
 def test_only_the_abdm_track_page_leaves_out_its_description(environment, client):
-    """NHA asked for the line under the ABDM title to go; UHI keeps its own."""
+    """NHA asked for the line under the HIE-CM title to go; UHI keeps its own."""
     client.force_login(environment["applicant"])
 
     abdm = client.get(track_url(environment)).content.decode()
     uhi = client.get(track_url(environment, "UHI")).content.decode()
 
     assert 'class="ui-hero-lede"' not in abdm
-    assert TRACK_MAP["ABDM"].description not in abdm
+    assert TRACK_MAP["HIE-CM"].description not in abdm
     assert f'<p class="ui-hero-lede">{TRACK_MAP["UHI"].description}</p>' in uhi
 
 
@@ -372,7 +372,7 @@ def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
         card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
     }
     # UHI waits on M1, so nothing in it can be decided yet.
-    assert pending == {"ABDM": 1, "PHR": 1, "UHI": 0, "NHCX": 0}
+    assert pending == {"HIE-CM": 1, "PHR": 1, "UHI": 0, "NHCX": 0}
 
     approve_submitted(environment)
 

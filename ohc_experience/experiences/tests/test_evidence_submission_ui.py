@@ -26,7 +26,7 @@ from ohc_experience.organisations.tests.factories import MembershipFactory
 pytestmark = pytest.mark.django_db
 
 
-def track_url(environment, key="m1", code="ABDM"):
+def track_url(environment, key="m1", code="HIE-CM"):
     return (
         reverse(
             "experiences:track",
@@ -378,7 +378,7 @@ def test_batch_takes_an_nhcx_role_with_the_milestones_it_builds_on(
     assert current.form_id == payer.form_id
     client.force_login(environment["applicant"])
 
-    # The ABDM page does not show the role, so it cannot send it.
+    # The HIE-CM page does not show the role, so it cannot send it.
     before = review_state(current, payer)
     response = client.post(track_url(claims), submit_data(m3, payer))
     assert response.status_code == HTTPStatus.OK

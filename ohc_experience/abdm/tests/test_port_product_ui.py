@@ -95,7 +95,7 @@ def test_the_registration_page_preselects_nothing(environment, client):
     # Neither exclusive track is chosen yet, so both sentences sit on the page
     # hidden, ready for the script the moment one side is ticked.
     assert response.content.count(b"Not in implementation scope of") == 2
-    assert b"Not in implementation scope of ABDM." in response.content
+    assert b"Not in implementation scope of HIE-CM." in response.content
     assert b"Shared with" not in response.content
     assert b"About Clinic HMIS" in response.content
     assert b'popovertarget="info-solution-clinical_hmis"' in response.content
@@ -175,18 +175,18 @@ def test_a_solution_type_fixes_its_abdm_or_phr_milestones():
         assert form.is_valid(), form.errors
         return form.cleaned_data["applied_milestones"]
 
-    assert saved("hmis", "ABDM:m1", "UHI:uhi1") == [
+    assert saved("hmis", "HIE-CM:m1", "UHI:uhi1") == [
         "UHI:uhi1",
-        "ABDM:m1",
-        "ABDM:m2",
-        "ABDM:m3",
+        "HIE-CM:m1",
+        "HIE-CM:m2",
+        "HIE-CM:m3",
     ]
-    assert saved("insurance", "ABDM:m1", "ABDM:m2", "NHCX:nhcx_payer") == [
+    assert saved("insurance", "HIE-CM:m1", "HIE-CM:m2", "NHCX:nhcx_payer") == [
         "NHCX:nhcx_payer",
-        "ABDM:m1",
-        "ABDM:m3",
+        "HIE-CM:m1",
+        "HIE-CM:m3",
     ]
-    assert saved("health_locker", "ABDM:m1") == [
+    assert saved("health_locker", "HIE-CM:m1") == [
         "PHR:p1",
         "PHR:p2",
         "PHR:p3",
@@ -208,11 +208,16 @@ def test_m4_stays_the_integrators_choice_under_a_fixed_type():
         assert form.is_valid(), form.errors
         return form.cleaned_data["applied_milestones"]
 
-    assert saved("hmis", "ABDM:m4") == ["ABDM:m4", "ABDM:m1", "ABDM:m2", "ABDM:m3"]
-    assert saved("hmis") == ["ABDM:m1", "ABDM:m2", "ABDM:m3"]
-    assert saved("insurance", "ABDM:m4") == ["ABDM:m4", "ABDM:m1", "ABDM:m3"]
-    # A PHR type leaves no ABDM milestone behind, M4 included.
-    assert saved("phr", "ABDM:m4") == ["PHR:p1", "PHR:p2", "PHR:p3"]
+    assert saved("hmis", "HIE-CM:m4") == [
+        "HIE-CM:m4",
+        "HIE-CM:m1",
+        "HIE-CM:m2",
+        "HIE-CM:m3",
+    ]
+    assert saved("hmis") == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
+    assert saved("insurance", "HIE-CM:m4") == ["HIE-CM:m4", "HIE-CM:m1", "HIE-CM:m3"]
+    # A PHR type leaves no HIE-CM milestone behind, M4 included.
+    assert saved("phr", "HIE-CM:m4") == ["PHR:p1", "PHR:p2", "PHR:p3"]
     assert not any("m4" in keys for keys in REQUIRED_MILESTONES.values()), (
         "M4 is never fixed by a solution type"
     )
@@ -260,7 +265,7 @@ def test_registering_with_only_a_fixed_type_ticked_saves_its_milestones(
 
     assert response.status_code == 302
     product = Product.objects.get(name="Ward system")
-    assert product.applied_milestones == ["ABDM:m1", "ABDM:m2", "ABDM:m3"]
+    assert product.applied_milestones == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
 
 
 @pytest.mark.django_db
@@ -305,11 +310,11 @@ def test_the_picker_locks_the_milestones_a_solution_type_fixes():
     tracks = {track["definition"].code: track for track in form.milestone_tracks}
     rows = milestone_rows(form)
 
-    assert tracks["ABDM"]["locked"]
+    assert tracks["HIE-CM"]["locked"]
     assert tracks["PHR"]["locked"]
     assert not tracks["UHI"]["locked"]
     assert not tracks["NHCX"]["locked"]
-    assert tracks["ABDM"]["fixed_note"] == "Set by the Insurance solution type."
+    assert tracks["HIE-CM"]["fixed_note"] == "Set by the Insurance solution type."
     assert tracks["PHR"]["fixed_note"] == ""
     # M2 goes, but the posted M4 stays: it is never the type's to remove.
     assert [code for code, row in rows.items() if row["selected"]] == [
@@ -325,7 +330,7 @@ def test_m4_needs_m1_unless_the_entity_is_a_government_body():
 
     def form(organisation=None):
         return ProductRegistrationForm(
-            data={**product_data(), **OTHER_TYPE, "applied_milestones": ["ABDM:m4"]},
+            data={**product_data(), **OTHER_TYPE, "applied_milestones": ["HIE-CM:m4"]},
             organisation=organisation,
         )
 
@@ -375,12 +380,12 @@ def test_other_leaves_abdm_and_phr_to_the_integrator():
             **product_data(),
             "solution_type": ["insurance", "other"],
             "solution_type_other": "Claims desk",
-            "applied_milestones": ["ABDM:m1"],
+            "applied_milestones": ["HIE-CM:m1"],
         },
     )
 
     assert form.is_valid(), form.errors
-    assert form.cleaned_data["applied_milestones"] == ["ABDM:m1"]
+    assert form.cleaned_data["applied_milestones"] == ["HIE-CM:m1"]
     assert not any(track["locked"] for track in form.milestone_tracks)
     rows = milestone_rows(form)
     assert "insurance" in rows["M3"]["required_for"].split()
@@ -399,11 +404,11 @@ def test_editing_keeps_the_solution_type_and_locks_its_milestones(
         data={
             **product_data("Claims desk"),
             "solution_type": ["insurance"],
-            "applied_milestones": ["ABDM:m1"],
+            "applied_milestones": ["HIE-CM:m1"],
         },
     )
     assert product, form.errors
-    assert product.applied_milestones == ["ABDM:m1", "ABDM:m3"]
+    assert product.applied_milestones == ["HIE-CM:m1", "HIE-CM:m3"]
     client.force_login(environment["applicant"])
     url = reverse("experiences:product-edit", args=[product.reference])
 
@@ -416,12 +421,12 @@ def test_editing_keeps_the_solution_type_and_locks_its_milestones(
     assert radios
     assert all("disabled" in field for field in radios)
     for key, ticked in (("m1", True), ("m2", False), ("m3", True)):
-        box = inputs[f"milestone-abdm{key}"]
+        box = inputs[f"milestone-hie-cm{key}"]
         assert "disabled" in box
         assert "data-milestone-locked" in box
         assert ("checked" in box) is ticked
     # M4 is the integrator's choice under any type.
-    m4 = inputs["milestone-abdmm4"]
+    m4 = inputs["milestone-hie-cmm4"]
     assert "disabled" not in m4
     assert "data-milestone-locked" not in m4
     assert "data-milestone-optional" in m4
@@ -435,7 +440,7 @@ def test_editing_keeps_the_solution_type_and_locks_its_milestones(
         {
             **product_data("Claims desk"),
             "solution_type": ["hmis"],
-            "applied_milestones": ["ABDM:m1", "ABDM:m2", "UHI:uhi1"],
+            "applied_milestones": ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"],
             "revision": str(item.selected_submission_id or ""),
             "intent": "submit",
         },
@@ -443,7 +448,7 @@ def test_editing_keeps_the_solution_type_and_locks_its_milestones(
     assert response.status_code == 302
     product.refresh_from_db()
     assert product.solution_type == ["insurance"]
-    assert sorted(product.applied_milestones) == ["ABDM:m1", "ABDM:m3", "UHI:uhi1"]
+    assert sorted(product.applied_milestones) == ["HIE-CM:m1", "HIE-CM:m3", "UHI:uhi1"]
 
 
 def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
@@ -459,7 +464,7 @@ def test_each_track_offers_its_own_milestones_and_names_what_it_needs():
     }
 
     assert tracks == {
-        "ABDM": (["m1", "m2", "m3", "m4"], "", ""),
+        "HIE-CM": (["m1", "m2", "m3", "m4"], "", ""),
         "UHI": (["uhi1"], "M1 or P1", "M2"),
         "NHCX": (["nhcx_payer", "nhcx_provider", "nhcx_patient_app"], "", ""),
         "PHR": (["p1", "p2", "p3", "p4"], "", ""),
@@ -479,16 +484,16 @@ def test_both_exclusive_tracks_carry_the_sentence_that_greys_them_out():
         )
         return {track["definition"].code: track for track in form.milestone_tracks}
 
-    on_abdm = rows("ABDM:m1")
+    on_abdm = rows("HIE-CM:m1")
     on_phr = rows("PHR:p1")
 
-    for chosen, ruled_out in (("ABDM", "PHR"), ("PHR", "ABDM")):
-        picked = on_abdm if chosen == "ABDM" else on_phr
+    for chosen, ruled_out in (("HIE-CM", "PHR"), ("PHR", "HIE-CM")):
+        picked = on_abdm if chosen == "HIE-CM" else on_phr
         assert picked[ruled_out]["blocked"] is True
         assert picked[chosen]["blocked"] is False
         # Both sentences are rendered whichever track was chosen.
-        assert picked["ABDM"]["exclusion"] == "Not in implementation scope of PHR."
-        assert picked["PHR"]["exclusion"] == "Not in implementation scope of ABDM."
+        assert picked["HIE-CM"]["exclusion"] == "Not in implementation scope of PHR."
+        assert picked["PHR"]["exclusion"] == "Not in implementation scope of HIE-CM."
     assert on_abdm["UHI"]["exclusion"] == ""
     assert on_abdm["UHI"]["blocked"] is False
 
@@ -499,19 +504,19 @@ def test_abdm_and_phr_are_refused_together():
         data={
             **product_data(),
             **OTHER_TYPE,
-            "applied_milestones": ["PHR:p1", "ABDM:m1"],
+            "applied_milestones": ["PHR:p1", "HIE-CM:m1"],
         },
     )
 
     assert not form.is_valid()
     assert form.errors["applied_milestones"] == [
-        "ABDM and PHR cannot be applied for together. Choose one of them.",
+        "HIE-CM and PHR cannot be applied for together. Choose one of them.",
     ]
 
 
 def test_a_dependant_track_lists_its_prerequisite_once_chosen():
     """The product page shows M1 and M2 under UHI without UHI storing them."""
-    selections = ["ABDM:m1", "ABDM:m2", "UHI:uhi1"]
+    selections = ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"]
 
     assert ABDM.applied_keys(TRACK_MAP["UHI"], selections) == [
         "m1",
@@ -519,7 +524,7 @@ def test_a_dependant_track_lists_its_prerequisite_once_chosen():
         "m2",
         "uhi1",
     ]
-    assert ABDM.applied_keys(TRACK_MAP["ABDM"], selections) == ["m1", "m2"]
+    assert ABDM.applied_keys(TRACK_MAP["HIE-CM"], selections) == ["m1", "m2"]
     assert ABDM.applied_keys(TRACK_MAP["PHR"], selections) == []
 
 
@@ -565,7 +570,7 @@ def test_solution_type_accepts_several_values():
             "name": "Claims platform",
             "description": "Exchanges claims with payers.",
             "solution_type": ["insurance", "telemedicine"],
-            "applied_milestones": ["ABDM:m1"],
+            "applied_milestones": ["HIE-CM:m1"],
         },
     )
     assert form.is_valid(), form.errors
@@ -577,7 +582,7 @@ def other_payload(**overrides):
         "name": "Queue desk",
         "description": "Manages patient queues at the front desk.",
         "solution_type": ["other"],
-        "applied_milestones": ["ABDM:m1"],
+        "applied_milestones": ["HIE-CM:m1"],
         **overrides,
     }
 
@@ -626,7 +631,7 @@ def uhi_payload(**overrides):
         "name": "Discovery app",
         "description": "Finds and books consultations.",
         **OTHER_TYPE,
-        "applied_milestones": ["ABDM:m1", "ABDM:m2", "UHI:uhi1"],
+        "applied_milestones": ["HIE-CM:m1", "HIE-CM:m2", "UHI:uhi1"],
         **overrides,
     }
 
@@ -642,7 +647,7 @@ def test_registration_no_longer_asks_about_uhi():
 def test_uhi_can_be_chosen_with_only_m1():
     """UHI's hard prerequisite loosened to M1 alone; M2 is shown, not required."""
     form = ProductRegistrationForm(
-        data=uhi_payload(applied_milestones=["ABDM:m1", "UHI:uhi1"]),
+        data=uhi_payload(applied_milestones=["HIE-CM:m1", "UHI:uhi1"]),
     )
 
     assert form.is_valid(), form.errors
@@ -673,32 +678,32 @@ def nhcx_form(*selections):
 
 
 def test_an_nhcx_payer_needs_m1_and_m3():
-    for selections in (["ABDM:m1"], ["ABDM:m1", "ABDM:m2"], ["PHR:p1"]):
+    for selections in (["HIE-CM:m1"], ["HIE-CM:m1", "HIE-CM:m2"], ["PHR:p1"]):
         refused = nhcx_form(*selections, "NHCX:nhcx_payer")
         assert not refused.is_valid(), selections
         assert refused.errors["applied_milestones"] == [
             "Select M1 and M3 before Claims exchange as a payer.",
         ]
-    allowed = nhcx_form("ABDM:m1", "ABDM:m3", "NHCX:nhcx_payer")
+    allowed = nhcx_form("HIE-CM:m1", "HIE-CM:m3", "NHCX:nhcx_payer")
     assert allowed.is_valid(), allowed.errors
 
 
 def test_an_nhcx_provider_needs_m1_and_m2():
-    for selections in (["ABDM:m1"], ["ABDM:m1", "ABDM:m3"], ["PHR:p1"]):
+    for selections in (["HIE-CM:m1"], ["HIE-CM:m1", "HIE-CM:m3"], ["PHR:p1"]):
         refused = nhcx_form(*selections, "NHCX:nhcx_provider")
         assert not refused.is_valid(), selections
         assert refused.errors["applied_milestones"] == [
             "Select M1 and M2 before Claims exchange as a provider.",
         ]
-    allowed = nhcx_form("ABDM:m1", "ABDM:m2", "NHCX:nhcx_provider")
+    allowed = nhcx_form("HIE-CM:m1", "HIE-CM:m2", "NHCX:nhcx_provider")
     assert allowed.is_valid(), allowed.errors
 
 
 def test_a_product_joins_nhcx_in_one_role_only():
     form = nhcx_form(
-        "ABDM:m1",
-        "ABDM:m2",
-        "ABDM:m3",
+        "HIE-CM:m1",
+        "HIE-CM:m2",
+        "HIE-CM:m3",
         "NHCX:nhcx_payer",
         "NHCX:nhcx_provider",
     )
@@ -712,7 +717,7 @@ def test_a_product_joins_nhcx_in_one_role_only():
 def test_a_phr_product_joins_nhcx_as_a_patient_app_on_p1():
     """The docs' end-user application: a PHR app told how a claim moves."""
     allowed = nhcx_form("PHR:p1", "NHCX:nhcx_patient_app")
-    refused = nhcx_form("ABDM:m1", "NHCX:nhcx_patient_app")
+    refused = nhcx_form("HIE-CM:m1", "NHCX:nhcx_patient_app")
 
     assert allowed.is_valid(), allowed.errors
     assert not refused.is_valid()
@@ -735,7 +740,10 @@ def test_each_nhcx_role_names_what_it_needs_on_its_own_row():
 
 
 def test_nhcx_shows_the_roles_of_the_track_chosen():
-    """ABDM brings Payer and Provider, PHR the patient app; before either, all three."""
+    """HIE-CM brings Payer and Provider, PHR the patient app.
+
+    Before either track is chosen, all three show.
+    """
 
     def shown(*selections):
         rows = milestone_rows(nhcx_form(*selections))
@@ -746,7 +754,7 @@ def test_nhcx_shows_the_roles_of_the_track_chosen():
         ]
 
     assert shown() == ["Payer", "Provider", "Patient app"]
-    assert shown("ABDM:m1") == ["Payer", "Provider"]
+    assert shown("HIE-CM:m1") == ["Payer", "Provider"]
     assert shown("PHR:p1") == ["Patient app"]
     assert milestone_rows(nhcx_form())["Patient app"]["role_track"] == "PHR"
 
@@ -779,8 +787,8 @@ def test_approved_picker_carries_locked_selections(environment, client):
         for field in inputs
         if field.get("name") == "applied_milestones" and field.get("type") == "hidden"
     ]
-    assert "ABDM:m1" in carried
-    locked = next(field for field in inputs if field.get("id") == "milestone-abdmm1")
+    assert "HIE-CM:m1" in carried
+    locked = next(field for field in inputs if field.get("id") == "milestone-hie-cmm1")
     assert "disabled" in locked
     assert "data-required-for" not in locked
 
@@ -803,18 +811,20 @@ def test_picker_locks_a_milestone_under_review_until_it_is_withdrawn(
         for field in inputs
         if field.get("name") == "applied_milestones" and field.get("type") == "hidden"
     ]
-    assert carried == ["ABDM:m1", "ABDM:m2"]
-    locked = next(field for field in inputs if field.get("id") == "milestone-abdmm2")
+    assert carried == ["HIE-CM:m1", "HIE-CM:m2"]
+    locked = next(field for field in inputs if field.get("id") == "milestone-hie-cmm2")
     assert "disabled" in locked
-    assert locked["aria-describedby"] == "milestone-abdmm2-why"
-    assert 'id="milestone-abdmm2-why">Under review · withdraw to remove<' in html
+    assert locked["aria-describedby"] == "milestone-hie-cmm2-why"
+    assert 'id="milestone-hie-cmm2-why">Under review · withdraw to remove<' in html
     assert "1 approved · cannot be removed" in html
     assert "1 under review · withdraw to remove" in html
 
     workflows.withdraw(item, environment["applicant"])
     html = client.get(url).content.decode()
     inputs = Inputs(html).fields
-    unlocked = next(field for field in inputs if field.get("id") == "milestone-abdmm2")
+    unlocked = next(
+        field for field in inputs if field.get("id") == "milestone-hie-cmm2"
+    )
     assert "disabled" not in unlocked
     assert unlocked["name"] == "applied_milestones"
     assert "under review · withdraw to remove" not in html.lower()
@@ -842,9 +852,9 @@ def test_nhcx_roles_are_radios_and_one_under_review_locks_the_other(
     assert payer["type"] == provider["type"] == patient_app["type"] == "radio"
     assert payer["name"] == provider["name"] == "applied_milestones"
     assert "data-nhcx-clear" in html
-    # An ABDM product: the patient app is PHR's, so its row starts hidden.
+    # An HIE-CM product: the patient app is PHR's, so its row starts hidden.
     assert 'data-role-track="PHR" hidden' in html
-    assert 'data-role-track="ABDM" hidden' not in html
+    assert 'data-role-track="HIE-CM" hidden' not in html
 
     workflow_fixtures.submit_claims(environment, "m1")
     workflow_fixtures.submit_claims(environment, "m3")
@@ -864,7 +874,7 @@ def test_track_draft_uploads_and_withdrawn_snapshot_remain_editable(
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
-        args=[environment["product"].reference, "ABDM"],
+        args=[environment["product"].reference, "HIE-CM"],
     )
     uploads = {key: value[0] for key, value in files().lists()}
     response = client.post(
@@ -1005,7 +1015,7 @@ def test_a_pending_panel_shows_what_each_system_is_doing(environment, client):
 
 def _track_url(product, milestone):
     return (
-        reverse("experiences:track", args=[product.reference, "ABDM"])
+        reverse("experiences:track", args=[product.reference, "HIE-CM"])
         + f"?milestone={milestone}"
     )
 
@@ -1018,7 +1028,7 @@ def test_an_m1_only_product_is_never_asked_for_a_callback_url(environment, clien
         environment["applicant"],
         data=product_data("Identity only")
         | OTHER_TYPE
-        | {"applied_milestones": ["ABDM:m1"]},
+        | {"applied_milestones": ["HIE-CM:m1"]},
     )
     assert product, form.errors
     provision_inline(product)
@@ -1201,25 +1211,25 @@ def posted(solution, *selections):
     [
         (
             "insurance",
-            ["ABDM:m4", "NHCX:nhcx_payer"],
-            ["ABDM:m4", "NHCX:nhcx_payer", "ABDM:m1", "ABDM:m3"],
+            ["HIE-CM:m4", "NHCX:nhcx_payer"],
+            ["HIE-CM:m4", "NHCX:nhcx_payer", "HIE-CM:m1", "HIE-CM:m3"],
         ),
         (
             "hmis",
-            ["ABDM:m4", "UHI:uhi1", "NHCX:nhcx_provider"],
+            ["HIE-CM:m4", "UHI:uhi1", "NHCX:nhcx_provider"],
             [
-                "ABDM:m4",
+                "HIE-CM:m4",
                 "UHI:uhi1",
                 "NHCX:nhcx_provider",
-                "ABDM:m1",
-                "ABDM:m2",
-                "ABDM:m3",
+                "HIE-CM:m1",
+                "HIE-CM:m2",
+                "HIE-CM:m3",
             ],
         ),
         (
             "hmis",
             ["NHCX:nhcx_payer"],
-            ["NHCX:nhcx_payer", "ABDM:m1", "ABDM:m2", "ABDM:m3"],
+            ["NHCX:nhcx_payer", "HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"],
         ),
         (
             "phr",
@@ -1252,10 +1262,10 @@ def test_what_the_page_posts_after_a_switch_saves(solution, selections, saved):
         # A payer kept after switching to a PHR type.
         (
             "phr",
-            ["ABDM:m4", "NHCX:nhcx_payer"],
+            ["HIE-CM:m4", "NHCX:nhcx_payer"],
             "Select M1 and M3 before Claims exchange as a payer.",
         ),
-        # The patient app kept after switching to an ABDM type.
+        # The patient app kept after switching to an HIE-CM type.
         (
             "hmis",
             ["NHCX:nhcx_patient_app"],
@@ -1272,7 +1282,7 @@ def test_a_role_left_behind_by_a_switch_is_refused(solution, selections, error):
 
 def test_a_refused_switch_redraws_the_picker_as_the_type_leaves_it():
     """After the error, the page shows the PHR type's state, not the post's."""
-    form = posted("phr", "ABDM:m4", "NHCX:nhcx_payer")
+    form = posted("phr", "HIE-CM:m4", "NHCX:nhcx_payer")
     assert not form.is_valid()
 
     rows = milestone_rows(form)
@@ -1300,7 +1310,7 @@ def test_an_edit_adds_and_drops_m4_under_a_fixed_type(environment, client):
         },
     )
     assert product, form.errors
-    assert product.applied_milestones == ["ABDM:m1", "ABDM:m2", "ABDM:m3"]
+    assert product.applied_milestones == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
     client.force_login(environment["applicant"])
     url = reverse("experiences:product-edit", args=[product.reference])
     data = product_data("Ward system")
@@ -1321,15 +1331,15 @@ def test_an_edit_adds_and_drops_m4_under_a_fixed_type(environment, client):
         product.refresh_from_db()
         return product.applied_milestones
 
-    assert edit("ABDM:m4", "NHCX:nhcx_provider") == [
-        "ABDM:m4",
+    assert edit("HIE-CM:m4", "NHCX:nhcx_provider") == [
+        "HIE-CM:m4",
         "NHCX:nhcx_provider",
-        "ABDM:m1",
-        "ABDM:m2",
-        "ABDM:m3",
+        "HIE-CM:m1",
+        "HIE-CM:m2",
+        "HIE-CM:m3",
     ]
     assert product.milestones.get(key="m4").enabled
-    assert edit() == ["ABDM:m1", "ABDM:m2", "ABDM:m3"]
+    assert edit() == ["HIE-CM:m1", "HIE-CM:m2", "HIE-CM:m3"]
     assert not product.milestones.get(key="m4").enabled
     assert not product.milestones.get(key="nhcx_provider").enabled
 

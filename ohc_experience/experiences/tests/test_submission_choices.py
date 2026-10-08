@@ -17,7 +17,7 @@ from ohc_experience.experiences import workflows
 pytestmark = pytest.mark.django_db
 
 
-def offered(client, environment, key, code="ABDM"):
+def offered(client, environment, key, code="HIE-CM"):
     """Every milestone the page lists, mapped to the reason it cannot join."""
     response = client.get(
         reverse("experiences:track", args=[environment["product"].reference, code])
@@ -80,7 +80,7 @@ def test_nhcx_offers_its_role_with_the_milestones_it_builds_on(environment, clie
 
     assert offered(client, claims, "m1", "NHCX") == {"M3": "", "Payer": ""}
     assert offered(client, claims, "nhcx_payer", "NHCX") == {"M1": "", "M3": ""}
-    # The ABDM page shows no NHCX role, so it offers none.
+    # The HIE-CM page shows no NHCX role, so it offers none.
     assert offered(client, claims, "m1") == {"M2": "", "M3": "", "M4": ""}
     submit(claims, "m1")
     assert offered(client, claims, "m3", "NHCX") == {"Payer": ""}

@@ -148,10 +148,10 @@ def product_data(name="Medibase HMIS 4.2"):
         "description": "Hospital information management, patient records and connected health services.",
         "solution_type": ["clinical_hmis"],
         "applied_milestones": [
-            "ABDM:m1",
-            "ABDM:m2",
-            "ABDM:m3",
-            "ABDM:m4",
+            "HIE-CM:m1",
+            "HIE-CM:m2",
+            "HIE-CM:m3",
+            "HIE-CM:m4",
             "UHI:uhi1",
         ],
     }
@@ -392,7 +392,7 @@ class DemoBuilder:
                 "description": "Teleconsultation and appointment booking over UHI.",
                 "solution_type": ["other"],
                 "solution_type_other": "UHI teleconsultation app",
-                "applied_milestones": ["ABDM:m1", "UHI:uhi1"],
+                "applied_milestones": ["HIE-CM:m1", "UHI:uhi1"],
             },
         )
         if not waiting:
@@ -471,7 +471,7 @@ class DemoBuilder:
             ("reviewer", "Priya Sharma", "*", AccessGrant.Area.values),
             ("nhcx-reviewer", "NHCX Reviewer", "NHCX", ["review"]),
             ("uhi-reviewer", "UHI Reviewer", "UHI", ["review"]),
-            ("abdm-reviewer", "ABDM Reviewer", "ABDM", ["review"]),
+            ("abdm-reviewer", "HIE-CM Reviewer", "HIE-CM", ["review"]),
             # Support is granted by support category, which is finer than the
             # track the same program is reviewed by.
             ("nhcx-support", "NHCX Payload Support", "nhcx-data", ["support"]),
@@ -580,7 +580,7 @@ class DemoBuilder:
         """A PHR product on its own track, walking P1 to P4.
 
         The locker closes the PHR sequence, so this product carries the phases
-        the HMIS no longer can: ABDM and PHR cannot be applied for together.
+        the HMIS no longer can: HIE-CM and PHR cannot be applied for together.
         P1 is approved because P2 and P3 build on it; P4 waits on all three.
         """
         locker, form = self.register_product(
@@ -614,7 +614,7 @@ class DemoBuilder:
     def events(self, admin):
         for index, (title, kind, days) in enumerate(
             [
-                ("ABDM integration office hours", "event", 3),
+                ("HIE-CM integration office hours", "event", 3),
                 ("PHR application flows: developer workshop", "workshop", 7),
                 ("UHI participant integration clinic", "webinar", 14),
                 ("ABHA identity integration walkthrough", "webinar", -7),

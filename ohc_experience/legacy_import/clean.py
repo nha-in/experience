@@ -112,10 +112,10 @@ MILESTONE_ORDER = [
     *NHCX_ROLES,
 ]
 MILESTONE_TRACK = {
-    "m1": "ABDM",
-    "m2": "ABDM",
-    "m3": "ABDM",
-    "m4": "ABDM",
+    "m1": "HIE-CM",
+    "m2": "HIE-CM",
+    "m3": "HIE-CM",
+    "m4": "HIE-CM",
     "uhi1": "UHI",
     "nhcx_payer": "NHCX",
     "nhcx_provider": "NHCX",

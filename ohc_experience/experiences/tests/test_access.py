@@ -108,7 +108,7 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
         client.get(
             reverse(
                 "experiences:track",
-                args=[environment["product"].reference, "ABDM"],
+                args=[environment["product"].reference, "HIE-CM"],
             ),
         ).status_code
         == 404
@@ -248,7 +248,7 @@ def test_read_only_assignment_and_revocation(environment, staff, client):
 @pytest.fixture
 def tickets(environment):
     result = {}
-    for category in ["NHCX", "UHI", "ABDM", ""]:
+    for category in ["NHCX", "UHI", "HIE-CM", ""]:
         ticket = Ticket.objects.create(
             organisation=environment["org"],
             product=environment["product"],
@@ -275,7 +275,7 @@ def tickets(environment):
     return result
 
 
-@pytest.mark.parametrize("category", ["NHCX", "UHI", "ABDM"])
+@pytest.mark.parametrize("category", ["NHCX", "UHI", "HIE-CM"])
 def test_support_is_separate_and_category_scoped(tickets, category, staff, client):
     grant(staff, area="support", category=category)
     client.force_login(staff)
@@ -548,7 +548,7 @@ def test_general_and_all_categories_are_explicit(environment, staff):
 
 
 def test_reused_pins_remain_visible_without_exposing_source_history(environment, staff):
-    """NHCX shares ABDM's evidence form; M3's evidence shows once Payer pins it."""
+    """NHCX shares HIE-CM's evidence form; M3's evidence shows once Payer pins it."""
     submit_claims(environment, "m1")
     source = submit_claims(environment, "m3")
     original = source.selected_submission

@@ -5,7 +5,7 @@ from ohc_experience.organisations.models import GOVERNMENT
 
 from .docs import docs_page
 
-#: Where a product proves a person's identity: M1 on ABDM, P1 on PHR & Health
+#: Where a product proves a person's identity: M1 on HIE-CM, P1 on PHR & Health
 #: Locker. The two tracks cannot be applied for together, so a product has one.
 IDENTITY_MILESTONES = ("m1", "p1")
 
@@ -153,7 +153,7 @@ MILESTONES = {
 
 TRACKS = (
     TrackDefinition(
-        "ABDM",
+        "HIE-CM",
         "Milestones",
         "ABHA identity, consent-based sharing of health records, and registering "
         "facilities and professionals.",
@@ -183,7 +183,7 @@ TRACKS = (
         "NHCX",
         "National Health Claims Exchange",
         "Claims and pre-authorisation exchange between payers and providers. An "
-        "ABDM product joins as a payer, which needs M1 and M3, or as a provider, "
+        "HIE-CM product joins as a payer, which needs M1 and M3, or as a provider, "
         "which needs M1 and M2. A PHR app joins as a patient app on P1, to show "
         "people how their claims move.",
         ("nhcx_payer", "nhcx_provider", "nhcx_patient_app"),
@@ -194,21 +194,21 @@ TRACK_MAP = {track.code: track for track in TRACKS}
 
 #: A product holds health records either as a provider or as a citizen's own
 #: application, so it applies for one of these two tracks, never both.
-EXCLUSIVE_TRACKS = ("ABDM", "PHR")
+EXCLUSIVE_TRACKS = ("HIE-CM", "PHR")
 
 #: A product joins NHCX as a payer or as a provider, never both.
 NHCX_ROLES = ("nhcx_payer", "nhcx_provider", "nhcx_patient_app")
-#: The track each NHCX role is offered with: payers and providers build on ABDM,
+#: The track each NHCX role is offered with: payers and providers build on HIE-CM,
 #: a patient app on PHR.
 NHCX_ROLE_TRACKS = {
-    "nhcx_payer": "ABDM",
-    "nhcx_provider": "ABDM",
+    "nhcx_payer": "HIE-CM",
+    "nhcx_provider": "HIE-CM",
     "nhcx_patient_app": "PHR",
 }
 
 
 def other_nhcx_role(key):
-    """The ABDM role this one rules out: Payer for Provider and back, else ""."""
+    """The HIE-CM role this one rules out: Payer for Provider and back, else ""."""
     if key == "nhcx_payer":
         return "nhcx_provider"
     if key == "nhcx_provider":
@@ -229,10 +229,10 @@ def milestone_predecessors(key, organisation=None):
 
 def excluded_track(selected):
     """The track these selections rule out, or "" when they rule out neither."""
-    if "ABDM" in selected:
+    if "HIE-CM" in selected:
         return "PHR"
     if "PHR" in selected:
-        return "ABDM"
+        return "HIE-CM"
     return ""
 
 
@@ -245,7 +245,7 @@ SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-m1",
         "ABDM - Milestone 1",
-        "ABDM",
+        "HIE-CM",
         (
             "ABHA Creation",
             "ABHA Verification",
@@ -257,7 +257,7 @@ SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-m2",
         "ABDM - Milestone 2",
-        "ABDM",
+        "HIE-CM",
         (
             "Bridge Service",
             "HIP Initiated Linking",
@@ -269,13 +269,13 @@ SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-m3",
         "ABDM - Milestone 3",
-        "ABDM",
+        "HIE-CM",
         ("Consent Management (Request)", "Data Request", "FHIR Bundle Decryption"),
     ),
     SupportCategoryDefinition(
         "abdm-m4",
         "ABDM - Milestone 4",
-        "ABDM",
+        "HIE-CM",
         (
             "Creation - HPR",
             "Creation - HFR",
@@ -286,13 +286,13 @@ SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-review",
         "ABDM - Review (demo)",
-        "ABDM",
+        "HIE-CM",
         ("Review of ABDM Milestones (M1/M2/M3/M4)",),
     ),
     SupportCategoryDefinition(
         "abdm-scan-share",
         "ABDM - Scan & Share",
-        "ABDM",
+        "HIE-CM",
         ("Profile On Share",),
     ),
     SupportCategoryDefinition(
@@ -381,7 +381,7 @@ SUPPORT_CATEGORIES = (
 SUPPORT_CATEGORY_MAP = {category.code: category for category in SUPPORT_CATEGORIES}
 
 #: Milestones each solution type requires, from NHA's intent-for-request matrix.
-#: A listed type fixes the product's ABDM or PHR milestones to exactly these,
+#: A listed type fixes the product's HIE-CM or PHR milestones to exactly these,
 #: apart from the optional ones below. Other leaves them to the integrator.
 REQUIRED_MILESTONES = {
     "hmis": ("m1", "m2", "m3"),
@@ -395,7 +395,7 @@ REQUIRED_MILESTONES = {
     "telemedicine": ("m1", "m2", "m3"),
     "govt_program": ("m1", "m2", "m3"),
 }
-#: Never fixed by a solution type: on ABDM the integrator decides whether to
+#: Never fixed by a solution type: on HIE-CM the integrator decides whether to
 #: apply for M4.
 OPTIONAL_MILESTONES = ("m4",)
 MILESTONE_CHOICES = [
@@ -412,7 +412,7 @@ MILESTONE_CHOICES = [
 
 
 def fixed_selections(solution_types):
-    """The ABDM or PHR selections these solution types fix, or None if they fix none."""
+    """The HIE-CM or PHR selections these solution types fix, else None."""
     if "other" in solution_types:
         return None
     keys = {

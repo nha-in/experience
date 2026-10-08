@@ -31,7 +31,7 @@ def documented(response):
     }
 
 
-@pytest.mark.parametrize("key", TRACK_MAP["ABDM"].keys)
+@pytest.mark.parametrize("key", TRACK_MAP["HIE-CM"].keys)
 def test_milestone_header_describes_the_milestone_and_links_its_docs(
     client,
     environment,  # noqa: F811
@@ -41,7 +41,7 @@ def test_milestone_header_describes_the_milestone_and_links_its_docs(
     milestone = MILESTONES[key]
 
     response = client.get(
-        reverse("experiences:track", args=[environment["product"].reference, "ABDM"])
+        reverse("experiences:track", args=[environment["product"].reference, "HIE-CM"])
         + f"?milestone={key}",
     )
 
@@ -49,4 +49,4 @@ def test_milestone_header_describes_the_milestone_and_links_its_docs(
     assert escape(milestone.description).encode() in response.content
     # The milestone's own page, not the track's documentation on every milestone.
     assert documented(response)[milestone.name] == milestone.docs_url
-    assert milestone.docs_url != TRACK_MAP["ABDM"].docs_url
+    assert milestone.docs_url != TRACK_MAP["HIE-CM"].docs_url

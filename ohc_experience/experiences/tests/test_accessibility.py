@@ -63,7 +63,7 @@ def test_each_month_of_a_card_s_chart_is_read_out_and_reached_by_keyboard(
     environment,
     client,
 ):
-    """The M1 rejection lands in this month of the ABDM card."""
+    """The M1 rejection lands in this month of the HIE-CM card."""
     submit(environment)
     reject(environment)
     client.force_login(environment["admin"])

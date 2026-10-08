@@ -51,7 +51,7 @@ def test_every_track_figure_is_the_row_count_of_the_queue_it_opens(
     # NHCX waits on M1 and M3, so nothing in it can be decided yet.
     assert {card["title"]: figures(card) for card in cards} == {
         "Sandbox access": (1, [0, 0, 1]),
-        "ABDM": (2, [2, 0, 1]),
+        "HIE-CM": (2, [2, 0, 1]),
         "PHR": (1, [0, 1, 0]),
         "UHI": (1, [0, 0, 1]),
         "NHCX": (1, [0, 0, 0]),
@@ -62,7 +62,7 @@ def test_every_track_figure_is_the_row_count_of_the_queue_it_opens(
         for card in cards
     } == {
         "Sandbox access": (1, 0),
-        "ABDM": (1, 0),
+        "HIE-CM": (1, 0),
         "PHR": (0, 1),
         "UHI": (1, 0),
         "NHCX": (0, 0),

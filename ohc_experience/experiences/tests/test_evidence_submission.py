@@ -479,7 +479,7 @@ def test_invalid_additional_dates_prevent_every_submission(environment, invalid)
 
 
 def test_a_pin_from_an_nhcx_role_prefills_like_one_from_its_track(environment):
-    """A payer shares ABDM's evidence, so M4 inheriting it keeps its answers."""
+    """A payer shares HIE-CM's evidence, so M4 inheriting it keeps its answers."""
     claims = {**environment, "product": nhcx_product(environment)}
     submit(claims, "m1")
     submit(claims, "m3")

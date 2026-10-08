@@ -296,7 +296,7 @@ def test_an_open_query_sets_the_whole_product_aside(environment, client):
     assert response.context["stage_counts"] == {"ready": 0, "decided": 1, "all": 1}
     assert [row.matching_reviews for row in response.context["page"]] == [[m3]]
     dashboard = client.get(reverse("experiences:assess-dashboard")).context
-    abdm = next(card for card in dashboard["track_cards"] if card["title"] == "ABDM")
+    abdm = next(card for card in dashboard["track_cards"] if card["title"] == "HIE-CM")
     assert abdm["tiles"][0]["count"] == 0
 
     workflows.reply_query(

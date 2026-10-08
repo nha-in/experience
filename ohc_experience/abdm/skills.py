@@ -66,7 +66,7 @@ class ABDMAgentSkills(AgentSkillsDefinition):
             (DeepLink("Claude Code", "claude://code/new?q={prompt}"),),
         ),
     }
-    # Every ABDM and PHR call goes through the gateway. A use case carries its
+    # Every HIE-CM and PHR call goes through the gateway. A use case carries its
     # own milestone and the PHR one for the patient's side. FHIR belongs to M2,
     # where a bundle is first pushed to a requester.
     milestones_by_skill = {

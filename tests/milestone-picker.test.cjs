@@ -81,18 +81,18 @@ class Element {
 }
 
 // The ABDM program's tracks, each milestone with the milestones that open it,
-// any one of which will do unless it needs them all. ABDM and PHR rule each
+// any one of which will do unless it needs them all. HIE-CM and PHR rule each
 // other out, and so do NHCX's payer and provider.
 const TRACKS = [
-  { code: 'ABDM', excludes: 'PHR', milestones: { m1: '', m2: 'm1', m3: 'm1', m4: 'm1' }, optional: ['m4'] },
-  { code: 'PHR', excludes: 'ABDM', milestones: { p1: '', p2: 'p1', p3: 'p1', p4: 'p1 p2 p3' }, requiresAll: ['p4'] },
+  { code: 'HIE-CM', excludes: 'PHR', milestones: { m1: '', m2: 'm1', m3: 'm1', m4: 'm1' }, optional: ['m4'] },
+  { code: 'PHR', excludes: 'HIE-CM', milestones: { p1: '', p2: 'p1', p3: 'p1', p4: 'p1 p2 p3' }, requiresAll: ['p4'] },
   { code: 'UHI', milestones: { uhi1: 'm1 p1' }, standsAlone: true },
   {
     code: 'NHCX',
     milestones: { nhcx_payer: 'm1 m3', nhcx_provider: 'm1 m2', nhcx_patient_app: 'p1' },
     requiresAll: ['nhcx_payer', 'nhcx_provider', 'nhcx_patient_app'],
     radios: true,
-    roleTracks: { nhcx_payer: 'ABDM', nhcx_provider: 'ABDM', nhcx_patient_app: 'PHR' },
+    roleTracks: { nhcx_payer: 'HIE-CM', nhcx_provider: 'HIE-CM', nhcx_patient_app: 'PHR' },
   },
 ];
 // A few solution types, with the milestones each one requires. Other requires none.
@@ -107,7 +107,7 @@ const SOLUTION_TYPES = {
 // The registration form as product_solution_type_picker.html and
 // product_milestone_picker.html draw it, with `selected` already saved. A saved
 // `type` that fixes milestones is drawn as the server draws it: the type
-// ticked and every ABDM and PHR box locked but the optional ones.
+// ticked and every HIE-CM and PHR box locked but the optional ones.
 function createPage({ selected = [], locked = [], type = '' } = {}) {
   const form = new Element('form');
   const types = {};
@@ -299,10 +299,10 @@ test('a role stays locked while the other one is approved or under review', () =
   assert.deepEqual(enabled(page, 'nhcx_payer', 'nhcx_provider'), ['nhcx_payer']);
 });
 
-test('ticking ABDM or PHR rules the other track out until it is cleared again', () => {
-  for (const [ticked, ruledOut] of [['m1', 'PHR'], ['p1', 'ABDM']]) {
+test('ticking HIE-CM or PHR rules the other track out until it is cleared again', () => {
+  for (const [ticked, ruledOut] of [['m1', 'PHR'], ['p1', 'HIE-CM']]) {
     const page = createPage();
-    const own = ruledOut === 'PHR' ? 'ABDM' : 'PHR';
+    const own = ruledOut === 'PHR' ? 'HIE-CM' : 'PHR';
     const other = ruledOut === 'PHR' ? ['p1', 'p2', 'p3', 'p4'] : ['m1', 'm2', 'm3', 'm4'];
     page.initialize();
     assert.equal(page.notes[ruledOut].hidden, true);
@@ -322,27 +322,27 @@ test('a saved track keeps the other one out as the page loads', () => {
   const page = createPage({ selected: ['p1', 'p2'] });
   page.initialize();
   assert.deepEqual(enabled(page, 'm1', 'm2'), []);
-  assert.equal(page.notes.ABDM.hidden, false);
+  assert.equal(page.notes['HIE-CM'].hidden, false);
 
   page.click(page.boxes.p1);
   assert.deepEqual(checked(page, 'p1', 'p2'), []);
   assert.deepEqual(enabled(page, 'm1', 'p1'), ['m1', 'p1']);
-  assert.equal(page.notes.ABDM.hidden, true);
+  assert.equal(page.notes['HIE-CM'].hidden, true);
 });
 
-test('a solution type fixes the ABDM or PHR milestones it requires', () => {
+test('a solution type fixes the HIE-CM or PHR milestones it requires', () => {
   const page = createPage();
   page.initialize();
 
   page.click(page.types.hmis);
   assert.deepEqual(checked(page, ...ALL), ['m1', 'm2', 'm3']);
   assert.deepEqual(enabled(page, ...ALL), ['m4', 'uhi1', 'nhcx_payer', 'nhcx_provider']);
-  assert.equal(page.fixedNotes.ABDM.hidden, false);
-  assert.equal(page.fixedNotes.ABDM.textContent, '· Set by the HMIS solution type.');
+  assert.equal(page.fixedNotes['HIE-CM'].hidden, false);
+  assert.equal(page.fixedNotes['HIE-CM'].textContent, '· Set by the HMIS solution type.');
   assert.equal(page.fixedNotes.PHR.hidden, true);
   assert.equal(page.status.textContent, 'M1, M2 and M3 set by the HMIS solution type.');
 
-  // M4 is the integrator's to add, and an ABDM type keeps it.
+  // M4 is the integrator's to add, and an HIE-CM type keeps it.
   page.click(page.boxes.m4);
   // Insurance requires only M1 and M3; M2 cannot be added back.
   page.click(page.types.insurance);
@@ -350,13 +350,13 @@ test('a solution type fixes the ABDM or PHR milestones it requires', () => {
   assert.deepEqual(enabled(page, 'm2', 'm4'), ['m4']);
   assert.equal(page.status.textContent, 'M1 and M3 set by the Insurance solution type.');
 
-  // PHR is on the other track: ABDM clears, so PHR can open.
+  // PHR is on the other track: HIE-CM clears, so PHR can open.
   page.click(page.types.phr);
   assert.deepEqual(checked(page, ...ALL), ['p1', 'p2', 'p3']);
   assert.deepEqual(enabled(page, ...ALL), ['uhi1', 'nhcx_patient_app']);
-  assert.equal(page.notes.ABDM.hidden, false);
+  assert.equal(page.notes['HIE-CM'].hidden, false);
   assert.equal(page.fixedNotes.PHR.textContent, '· Set by the PHR solution type.');
-  assert.equal(page.fixedNotes.ABDM.hidden, true);
+  assert.equal(page.fixedNotes['HIE-CM'].hidden, true);
 });
 
 test('Other hands the milestones back, ticked as they were', () => {
@@ -436,7 +436,7 @@ test('switching Insurance to HMIS keeps a payer, whose M1 and M3 stay', () => {
   assert.equal(page.clear.disabled, false);
 });
 
-test('switching an ABDM type to a PHR type swaps the NHCX role for the patient app', () => {
+test('switching an HIE-CM type to a PHR type swaps the NHCX role for the patient app', () => {
   const page = createPage();
   page.initialize();
   page.click(page.types.hmis);
@@ -478,7 +478,7 @@ test('Other after a fixed type keeps every box as ticked and unlocks them', () =
   page.click(page.types.other);
   assert.deepEqual(checked(page, ...ALL), ['m1', 'm2', 'm3', 'm4', 'nhcx_provider']);
   assert.deepEqual(enabled(page, 'm1', 'm2', 'm3', 'm4'), ['m1', 'm2', 'm3', 'm4']);
-  assert.equal(page.fixedNotes.ABDM.hidden, true);
+  assert.equal(page.fixedNotes['HIE-CM'].hidden, true);
   assert.equal(page.status.textContent, '');
 
   // Unticking M2 takes the provider with it; unticking M1 takes everything.

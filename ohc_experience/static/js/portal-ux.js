@@ -328,7 +328,7 @@
     return [...group.querySelectorAll('[data-milestone-key]')].some(input => input.checked);
   }
 
-  // ABDM and PHR & Health Locker rule each other out. Ticking one clears the
+  // HIE-CM and PHR & Health Locker rule each other out. Ticking one clears the
   // other, so the track just acted on is the one that wins.
   function applyExclusivity(input) {
     const group = input.closest('[data-track-excludes]');
@@ -374,7 +374,7 @@
         input.disabled = !open || 'milestoneLocked' in input.dataset;
       }
     }
-    // NHCX shows the roles of whichever of ABDM or PHR is chosen, and all before either.
+    // NHCX shows the roles of whichever of HIE-CM or PHR is chosen, and all before either.
     const chosen = [...form.querySelectorAll('[data-track-excludes]')].find(hasSelection);
     form.querySelectorAll('[data-role-track]').forEach(row => {
       row.hidden = Boolean(chosen) && row.dataset.roleTrack !== chosen.dataset.track;
@@ -384,7 +384,7 @@
     if (clear) clear.disabled = ![...form.querySelectorAll('input[type="radio"][name][data-milestone-key]')].some(radio => radio.checked);
   }
 
-  // A solution type in NHA's matrix fixes the ABDM or PHR milestones to the
+  // A solution type in NHA's matrix fixes the HIE-CM or PHR milestones to the
   // ones it requires. Other lets the integrator choose. An optional one, M4, is
   // never fixed: it stays as ticked while the type fixes its track, and clears
   // when the type fixes the other one. The form applies the same rule on submit.

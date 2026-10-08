@@ -237,7 +237,7 @@ def test_read_only_reviewer_has_no_bulk_or_individual_decisions(environment, cli
         user=reader,
         program="abdm",
         area="review",
-        category="ABDM",
+        category="HIE-CM",
         can_read=True,
     )
     client.force_login(reader)
@@ -321,7 +321,7 @@ def test_reviewers_without_approve_access_cannot_assign(environment, client):
         user=writer,
         program="abdm",
         area="review",
-        category="ABDM",
+        category="HIE-CM",
         can_read=True,
         can_write=True,
     )

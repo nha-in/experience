@@ -24,7 +24,7 @@ pytestmark = pytest.mark.django_db
 def page(client, environment, key="m1"):  # noqa: F811
     url = reverse(
         "experiences:track",
-        args=[environment["product"].reference, "ABDM"],
+        args=[environment["product"].reference, "HIE-CM"],
     )
     return client.get(url, {"milestone": key}).content.decode()
 
@@ -38,7 +38,7 @@ def test_the_track_offers_its_documentation_as_a_button(environment, client):  #
 
     html = page(client, environment)
 
-    docs = str(TRACK_MAP["ABDM"].docs_url)
+    docs = str(TRACK_MAP["HIE-CM"].docs_url)
     assert re.search(
         rf'<a class="ui-btn ui-btn--outline [^"]*"\s+href="{re.escape(docs)}"',
         html,
@@ -55,7 +55,7 @@ def test_every_documentation_link_says_it_opens_a_new_tab(environment, client): 
     def compact(url):
         return " ".join(client.get(url).content.decode().split())
 
-    track = compact(reverse("experiences:track", args=[product.reference, "ABDM"]))
+    track = compact(reverse("experiences:track", args=[product.reference, "HIE-CM"]))
     assert f"Milestone documentation {mark}" in track
     # The (i) beside each milestone links to its documentation too.
     assert f"Open documentation {mark}" in track
@@ -199,7 +199,7 @@ def test_an_approved_milestone_recommends_what_to_do_next(environment, client): 
     assert text(banner).startswith("Recommended next step Continue with M2")
     track = reverse(
         "experiences:track",
-        args=[environment["product"].reference, "ABDM"],
+        args=[environment["product"].reference, "HIE-CM"],
     )
     assert f'href="{track}?milestone=m2"' in banner
 
@@ -210,7 +210,7 @@ def test_a_track_with_every_milestone_approved_recommends_nothing_else(
 ):
     """The next step stays on the track on screen; the overview has the rest.
 
-    UHI is done once M1, M2 and its own milestone are, though ABDM's M3 is not.
+    UHI is done once M1, M2 and its own milestone are, though HIE-CM's M3 is not.
     """
     approve(environment)
     approve(environment, "m2")

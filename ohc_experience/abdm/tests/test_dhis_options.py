@@ -57,7 +57,7 @@ def test_options_show_five_solutions_without_generating_tokens(
 
 
 def test_all_approved_solutions_can_be_offered_together(environment):
-    """ABDM and PHR sit on separate products, so each offers its own solutions."""
+    """HIE-CM and PHR sit on separate products, so each offers its own solutions."""
     change_solutions(environment, list(dhis.SOLUTION_MILESTONES))
     approve_milestones(environment, ("m1", "m2", "m3"))
     locker = phr_product(environment)
