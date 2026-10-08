@@ -2232,31 +2232,58 @@ def credentials(request, reference):  # noqa: C901
 
 
 @login_required
+@never_cache
+@require_http_methods(["GET", "POST"])
 def reference_environment(request, reference):
     product = _product(request, reference)
     environment = product.definition.reference_environment
     if environment is None:
         raise Http404
     permissions.require_integrator(request.user, product.organisation)
-    milestones = [
-        (
-            product.definition.milestones[key],
-            names,
-            environment.milestone_options.get(key, ""),
-            key in environment.in_progress,
-        )
-        for key, names in environment.flows.items()
-    ]
     credential = ProductCredential.objects.filter(product=product).first()
-    client_id = credential.client_id if credential else ""
-    shells = [
-        (key, shell, environment.command_segments(shell, client_id))
-        for key, shell in environment.shells.items()
-    ]
-    return render(
-        request,
-        "experiences/reference_environment.html",
-        _context(
+    client_secret = ""
+    if request.method == "POST":
+        if not credential:
+            raise Http404
+        # Fill in secret reveals the secret as Credentials does, so it is audited
+        # and rate limited the same way.
+        try:
+            client_secret = credential_services.reveal(credential, request.user)
+        except ValidationError as error:
+            _error(request, error)
+            # A credential revoked meanwhile no longer offers the button.
+            credential.refresh_from_db()
+            if not request.htmx:
+                return redirect(
+                    "experiences:reference-environment",
+                    reference=reference,
+                )
+        else:
+            messages.success(request, "Client secret filled in.")
+    if request.method == "POST" and request.htmx and not request.htmx.boosted:
+        template = "experiences/partials/reference_secret_swap.html"
+        context = {
+            "credential": credential,
+            "reference_environment": environment,
+            "reference_client_secret": client_secret,
+        }
+    else:
+        template = "experiences/reference_environment.html"
+        milestones = [
+            (
+                product.definition.milestones[key],
+                names,
+                environment.milestone_options.get(key, ""),
+                key in environment.in_progress,
+            )
+            for key, names in environment.flows.items()
+        ]
+        client_id = credential.client_id if credential else ""
+        shells = [
+            (key, shell, environment.command_segments(shell, client_id, client_secret))
+            for key, shell in environment.shells.items()
+        ]
+        context = _context(
             request,
             product,
             nav="reference",
@@ -2265,9 +2292,16 @@ def reference_environment(request, reference):
             reference_milestones=milestones,
             reference_shells=shells,
             reference_client_id=client_id,
+            reference_client_secret=client_secret,
+            credential=credential,
             has_credential=credential is not None,
-        ),
-    )
+        )
+    response = render(request, template, context)
+    if client_secret:
+        # A revealed secret leaves no copy in a cache or a shared proxy.
+        response["Cache-Control"] = "no-store, private"
+        response["Vary"] = "Cookie"
+    return response
 
 
 @login_required

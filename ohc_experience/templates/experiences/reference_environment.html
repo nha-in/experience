@@ -82,22 +82,12 @@
                          aria-describedby="reference-credentials-hint"
                          data-reference-credential="client_id" />
                 </div>
-                <div>
-                  <label class="ui-label text-xs text-muted-foreground"
-                         for="reference-client-secret">Client secret</label>
-                  <input class="ui-input font-mono"
-                         id="reference-client-secret"
-                         type="text"
-                         placeholder="{{ reference_environment.client_secret_placeholder }}"
-                         autocomplete="off"
-                         autocapitalize="off"
-                         spellcheck="false"
-                         aria-describedby="reference-credentials-hint"
-                         data-reference-credential="client_secret" />
-                </div>
+                {% include "experiences/partials/reference_secret.html" %}
               </div>
               <p class="ui-hint" id="reference-credentials-hint">
-                {% if has_credential %}
+                {% if credential.status == "active" %}
+                  Your client ID is filled in. Fill in your secret, or copy it from
+                {% elif has_credential %}
                   Your client ID is filled in, and the secret is in
                 {% else %}
                   Your client ID and secret appear in
@@ -194,6 +184,19 @@
           </div>
         </dl>
       </form>
+      {% if credential.status == "active" %}
+        {# Fill in secret submits this form from inside the run form, since forms do not nest. #}
+        <form id="reference-secret-form"
+              method="post"
+              action="{% url 'experiences:reference-environment' product.reference %}"
+              hx-post="{% url 'experiences:reference-environment' product.reference %}"
+              hx-target="#reference-secret"
+              hx-select="unset"
+              hx-swap="outerHTML"
+              hidden>
+          {% csrf_token %}
+        </form>
+      {% endif %}
     </section>
     <section class="ui-card ui-card--layered ui-rise [animation-delay:.12s]"
              aria-labelledby="reference-flows-title">

@@ -1,5 +1,6 @@
 # ruff: noqa: F811, PLR2004
 from html.parser import HTMLParser
+from types import SimpleNamespace
 
 import pytest
 from django.urls import reverse
@@ -8,11 +9,17 @@ from ohc_experience.abdm.definitions import ABDM
 from ohc_experience.abdm.reference import COMPOSE_FILE
 from ohc_experience.abdm.reference import ABDMReferenceEnvironment
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
+from ohc_experience.abdm.tests.test_workflow import stored_secret
+from ohc_experience.experiences import credentials
+from ohc_experience.experiences.models import AuditEvent
+from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Role
 from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
+
+HTMX = {"HTTP_HX_REQUEST": "true"}
 
 
 def reference_url(product):
@@ -172,6 +179,107 @@ def test_credential_fields_fill_every_command_and_are_never_submitted(
     assert "data-reference-run" in html
     assert html.count('data-credential-slot="client_id"') == 3
     assert html.count('data-credential-slot="client_secret"') == 3
+    assert stored_secret(product) not in html
+
+
+def test_fill_in_secret_is_offered_while_the_credential_is_active(
+    environment,
+    client,
+):
+    product = environment["product"]
+    client.force_login(environment["applicant"])
+
+    page = client.get(reference_url(product))
+
+    # Once filled in, the page holds the secret, so no cache keeps a copy.
+    assert "no-store" in page["Cache-Control"]
+    html = page.content.decode()
+    assert 'id="reference-secret-fill"' in html
+    assert 'form="reference-secret-form"' in html
+    assert 'id="reference-secret-form"' in html
+    assert "Fill in your secret, or copy it from" in html
+    ProductCredential.objects.filter(product=product).update(status="revoked")
+    html = client.get(reference_url(product)).content.decode()
+    assert 'id="reference-secret-fill"' not in html
+    assert 'id="reference-secret-form"' not in html
+    assert "the secret is in" in html
+
+
+def test_fill_in_secret_swaps_in_the_field_holding_the_secret(environment, client):
+    product = environment["product"]
+    client.force_login(environment["applicant"])
+
+    response = client.post(reference_url(product), **HTMX)
+
+    assert response.status_code == 200
+    fields = credential_fields(response)
+    assert set(fields) == {"client_secret"}
+    assert fields["client_secret"]["value"] == stored_secret(product)
+    assert "autofocus" in fields["client_secret"]
+    html = response.content.decode()
+    assert 'id="reference-secret-fill"' not in html
+    assert 'id="reference-command-macos"' not in html
+    assert 'hx-swap-oob="innerHTML"' in html
+    assert "Client secret filled in." in html
+    assert "no-store" in response["Cache-Control"]
+    assert AuditEvent.objects.filter(action="Client secret revealed").count() == 1
+
+
+def test_fill_in_secret_without_javascript_fills_every_command(environment, client):
+    product = environment["product"]
+    secret = stored_secret(product)
+    client.force_login(environment["applicant"])
+
+    page = client.post(reference_url(product))
+
+    assert page.status_code == 200
+    assert credential_fields(page)["client_secret"]["value"] == secret
+    assert f"ABDM_CLIENT_SECRET='{secret}' " in command(page, "macos")
+    assert f"ABDM_CLIENT_SECRET='{secret}' " in command(page, "linux")
+    assert f"$env:ABDM_CLIENT_SECRET='{secret}';" in command(page, "powershell")
+    assert "Client secret filled in." in page.content.decode()
+    assert "no-store" in page["Cache-Control"]
+
+
+def test_fills_count_against_the_reveal_limit_and_a_refusal_says_why(
+    environment,
+    client,
+    monkeypatch,
+):
+    # One rate-limit window throughout, so the count cannot reset mid-test.
+    monkeypatch.setattr(credentials, "time", SimpleNamespace(time=lambda: 1.8e9))
+    product = environment["product"]
+    client.force_login(environment["applicant"])
+    for _ in range(5):
+        filled = client.post(reference_url(product), **HTMX)
+        assert "value" in credential_fields(filled)["client_secret"]
+
+    response = client.post(reference_url(product), **HTMX)
+
+    assert response.status_code == 200
+    assert "value" not in credential_fields(response)["client_secret"]
+    html = response.content.decode()
+    assert 'id="reference-secret-fill"' in html
+    assert "Too many requests. Wait a minute and try again." in html
+    assert stored_secret(product) not in html
+    page = client.post(reference_url(product))
+    assert page.status_code == 302
+    assert page.url == reference_url(product)
+
+
+def test_a_credential_revoked_meanwhile_is_not_filled_in(environment, client):
+    product = environment["product"]
+    client.force_login(environment["applicant"])
+    ProductCredential.objects.filter(product=product).update(status="revoked")
+
+    response = client.post(reference_url(product), **HTMX)
+
+    assert response.status_code == 200
+    assert "value" not in credential_fields(response)["client_secret"]
+    html = response.content.decode()
+    assert 'id="reference-secret-fill"' not in html
+    assert "These credentials are no longer active." in html
+    assert not AuditEvent.objects.filter(action="Client secret revealed").exists()
 
 
 def test_the_command_waits_for_credentials_that_are_not_issued(environment, client):
@@ -185,19 +293,24 @@ def test_the_command_waits_for_credentials_that_are_not_issued(environment, clie
         "ABDM_CLIENT_ID='YOUR_CLIENT_ID' ABDM_CLIENT_SECRET='YOUR_CLIENT_SECRET' ",
     )
     assert credential_fields(page)["client_id"]["value"] == ""
-    assert "once they are issued" in page.content.decode()
+    html = page.content.decode()
+    assert "once they are issued" in html
+    assert 'id="reference-secret-fill"' not in html
+    assert client.post(reference_url(product), **HTMX).status_code == 404
 
 
-def test_single_quotes_in_a_client_id_are_escaped_for_each_shell():
+def test_single_quotes_in_credentials_are_escaped_for_each_shell():
     shells = ABDMReferenceEnvironment.shells
 
-    def client_id(shell):
-        segments = ABDMReferenceEnvironment.command_segments(shells[shell], "it's")
-        return dict(segments)["client_id"]
+    def escaped(shell):
+        segments = dict(
+            ABDMReferenceEnvironment.command_segments(shells[shell], "it's", "o'k"),
+        )
+        return segments["client_id"], segments["client_secret"]
 
-    assert client_id("macos") == "it'\\''s"
-    assert client_id("linux") == "it'\\''s"
-    assert client_id("powershell") == "it''s"
+    assert escaped("macos") == ("it'\\''s", "o'\\''k")
+    assert escaped("linux") == ("it'\\''s", "o'\\''k")
+    assert escaped("powershell") == ("it''s", "o''k")
 
 
 def test_support_members_have_no_reference_page(environment, client):
@@ -211,6 +324,8 @@ def test_support_members_have_no_reference_page(environment, client):
     client.force_login(support)
 
     assert client.get(reference_url(product)).status_code == 403
+    assert client.post(reference_url(product), **HTMX).status_code == 403
+    assert not AuditEvent.objects.filter(action="Client secret revealed").exists()
     overview = client.get(product.get_absolute_url())
     assert 'id="nav-reference"' not in main_nav(overview)
 
@@ -219,6 +334,7 @@ def test_other_organisations_cannot_find_the_page(environment, client):
     client.force_login(environment["outsider"])
 
     assert client.get(reference_url(environment["product"])).status_code == 404
+    assert client.post(reference_url(environment["product"])).status_code == 404
 
 
 def test_a_program_without_a_reference_environment_has_no_page(

@@ -443,7 +443,7 @@ class ReferenceEnvironmentDefinition:
     client_secret_placeholder = "YOUR_CLIENT_SECRET"  # noqa: S105
 
     @classmethod
-    def command_segments(cls, shell, client_id=""):
+    def command_segments(cls, shell, client_id="", client_secret=""):
         """A shell's command as (slot, text) pairs, in order.
 
         The slot is empty for plain text. A `client_id` or `client_secret` slot
@@ -453,7 +453,8 @@ class ReferenceEnvironmentDefinition:
         values = {
             "client_id": client_id.replace("'", shell.single_quote)
             or cls.client_id_placeholder,
-            "client_secret": cls.client_secret_placeholder,
+            "client_secret": client_secret.replace("'", shell.single_quote)
+            or cls.client_secret_placeholder,
             "options": "",
         }
         parts = re.split(r"\{(client_id|client_secret|options)\}", shell.command)
