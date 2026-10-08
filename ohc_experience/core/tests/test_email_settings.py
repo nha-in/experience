@@ -155,8 +155,8 @@ def test_an_override_changes_one_purpose_and_keeps_the_rest(load_base):
 
 
 def test_the_ses_path_is_one_variable_away(load_base):
-    """The SES endpoint 404s on the production gateway, so portal email takes
-    the multi-channel one until NHA deploys it."""
+    """Only mail with CC takes the SES endpoint by default; the variable sends
+    all of it there."""
     api_url, _ = load_base(
         "http://notification-app.internal:9102",
         GLOBAL_EMAIL_USE_MESSAGE_ENDPOINT="false",

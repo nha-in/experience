@@ -103,7 +103,7 @@ python manage.py fetch_agent_skills --check  # fail if the file is behind, write
 
 Source: `config/settings/base.py`, `ohc_experience/abdm/skills.py`, `ohc_experience/experiences/definitions.py`, `ohc_experience/experiences/skills_manifest.py`.
 
-For **email delivery**, production uses the Global Email API through a durable notification outbox. The send endpoint is `NOTIFICATION_APP_BASE_URL` + `/internal/v3/notification/email/send`, so the one host below carries both the verification codes and gateway email. Configure the gateway and template settings on both the web process and Celery worker:
+For **email delivery**, production uses the Global Email API through a durable notification outbox. Mail posts to `NOTIFICATION_APP_BASE_URL` + `/internal/v3/notification/message`, or + `/internal/v3/notification/email/send` when it has CC recipients, so the one host below carries both the verification codes and gateway email. Configure the gateway and template settings on both the web process and Celery worker:
 
 | Variable | Requirement / default |
 | --- | --- |

@@ -27,15 +27,20 @@ The caller does not need NIC SMTP credentials.
 
 ## Delivery contract
 
-The send endpoint is `/internal/v3/notification/email/send` on the notification
-service, derived from `NOTIFICATION_APP_BASE_URL` so it cannot drift from the
-host the verification codes already use. The backend performs one JSON `POST`
-per message, for one primary recipient and optional CC recipients.
+Gateway email posts to one of two endpoints on the notification service, both
+derived from `NOTIFICATION_APP_BASE_URL` so they cannot drift from the host the
+verification codes already use. Mail with CC recipients posts to
+`/internal/v3/notification/email/send`, the only one with a CC field, with the
+body below. All other mail posts to `/internal/v3/notification/message`, as the
+verification codes do: the same fields, with `type: ["email"]`, `receiver` as a
+single `emailId` entry, and the request ID, template ID, subject and content as
+`notification` entries. The backend performs one JSON `POST` per message, for
+one primary recipient and optional CC recipients.
 
 | Field | Source |
 | --- | --- |
 | `REQUEST-ID` header | Persisted outbox UUID, reused for retries |
-| `TIMESTAMP` header | Current UTC ISO 8601 time with milliseconds and `Z` |
+| `TIMESTAMP` header | Current UTC time as a `java.sql.Timestamp`, e.g. `2026-10-09 06:30:00.123456`; the message endpoint answers ISO 8601 with 400 |
 | `requestId` | Same UUID as the header |
 | `timestamp` | Same instant as the header, in integer epoch milliseconds |
 | `origin` | Configured logical origin, default `abha` |
@@ -52,7 +57,8 @@ define gateway enforcement of template/body matching. Obtain valid IDs and
 approved content before enabling delivery; the legacy OTP ID `100001` is not
 assumed to authorize all portal emails.
 
-The backend requires HTTP 200 and JSON `status: "SUCCESS"`. If the response
+The backend requires a 2xx answer, and a JSON body, when there is one, with
+`status` `SUCCESS` or `SENT` in any case. If the response
 includes request ID, receiver or template ID, those must match the request.
 Numeric response template IDs are accepted, as shown in the document. A gateway
 transaction ID is exposed through `message.anymail_status.message_id`, falling
@@ -76,9 +82,11 @@ DJANGO_EMAIL_TIMEOUT=5
 ```
 
 One host serves both purposes, as legacy's single `NotificationFClient` does:
-verification codes post to `/internal/v3/notification/message` and gateway email
-to `/internal/v3/notification/email/send`. Setting the base URL configures both,
-and there is no separate endpoint setting to leave unset or point elsewhere.
+verification codes and gateway email post to `/internal/v3/notification/message`,
+and gateway email with CC recipients to `/internal/v3/notification/email/send`.
+Setting the base URL configures both, and there is no separate endpoint setting
+to leave unset or point elsewhere. `GLOBAL_EMAIL_USE_MESSAGE_ENDPOINT=false`
+sends all gateway email to `/internal/v3/notification/email/send`.
 
 The host above is the document's EKS service address. It requires the appropriate
 cluster DNS/network access. Use the deployment team's approved address when

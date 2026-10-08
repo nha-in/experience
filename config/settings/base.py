@@ -364,18 +364,19 @@ X_FRAME_OPTIONS = "DENY"
 # ------------------------------------------------------------------------------
 # Reachable only from inside the ABDM VPC. One notification-app serves both
 # purposes, as legacy's single NotificationFClient does: verification codes post
-# to /notification/message and gateway email to /notification/email/send. The
-# email URL is derived here so the two can never be pointed at different hosts.
+# to /notification/message, and gateway email posts there or, when it has CC
+# recipients, to /notification/email/send. The email URL is derived here so the
+# two can never be pointed at different hosts.
 NOTIFICATION_APP_BASE_URL = env.str(
     "NOTIFICATION_APP_BASE_URL",
     default="https://notification-app.invalid",
 )
 GLOBAL_EMAIL_SEND_PATH = "/internal/v3/notification/email/send"
 GLOBAL_EMAIL_MESSAGE_PATH = "/internal/v3/notification/message"
-# The SES path is not deployed on the production gateway, which answers 404 for
-# it, so nothing the outbox sent ever arrived. Until it is, portal email takes
-# the multi-channel endpoint the verification codes already use. Set this false
-# to go back to the SES path.
+# Portal email takes the multi-channel endpoint the verification codes use,
+# which carried all of it while the SES path answered 404. Only the SES path has
+# a CC field, so the backend sends mail with CC there, on the same host. Set this
+# false to send all mail on the SES path.
 GLOBAL_EMAIL_PATH = (
     GLOBAL_EMAIL_MESSAGE_PATH
     if env.bool("GLOBAL_EMAIL_USE_MESSAGE_ENDPOINT", default=True)

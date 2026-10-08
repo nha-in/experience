@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import UTC
 from datetime import datetime
 from unittest.mock import Mock
 from uuid import UUID
@@ -26,6 +27,8 @@ from ohc_experience.core.mail.backends import GlobalEmailBackend
 API_URL = "http://global-notification.internal/internal/v3/notification/email/send"
 RECEIVER = "applicant@example.test"
 REQUEST_ID = "83dc87e5-b782-4f09-861a-ad371c1dc35a"
+# A java.sql.Timestamp, which is what the gateway binds; never ISO-8601.
+JAVA_TIMESTAMP = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}"
 
 
 @pytest.fixture(autouse=True)
@@ -114,10 +117,9 @@ def test_sends_documented_contract_and_reports_queued(message, gateway):
     }
     assert UUID(payload["requestId"]).version == 4
     timestamp = request.headers["TIMESTAMP"]
-    assert timestamp.endswith("Z")
-    assert len(timestamp.partition(".")[2]) == 4
+    assert re.fullmatch(JAVA_TIMESTAMP, timestamp)
     assert type(payload["timestamp"]) is int
-    header_time = datetime.fromisoformat(timestamp)
+    header_time = datetime.fromisoformat(timestamp).replace(tzinfo=UTC)
     assert payload["timestamp"] == (
         int(header_time.timestamp()) * 1000 + header_time.microsecond // 1000
     )
@@ -503,42 +505,63 @@ def test_operational_errors_are_anymail_errors():
 MESSAGE_URL = "http://global-notification.internal/internal/v3/notification/message"
 
 
-def test_the_message_endpoint_carries_the_same_fields(settings):
-    """The SES path 404s in production; this one takes email too, without CC."""
-    settings.ANYMAIL = {
-        "GLOBAL_EMAIL_API_URL": MESSAGE_URL,
-        "GLOBAL_EMAIL_TEMPLATE_ID": "approved-template-123",
-    }
+def test_the_message_endpoint_carries_the_same_fields(settings, gateway):
+    """Mail without CC takes the endpoint the verification codes use."""
+    state, transport = gateway
+    state["status"] = 202
+    state["body"] = {"status": "sent"}
+    settings.ANYMAIL["GLOBAL_EMAIL_API_URL"] = MESSAGE_URL
     message = EmailMessage(
         subject="Invitation",
         body="Accept the invite.",
         to=[RECEIVER],
-        cc=["reviewer@example.test"],
     )
-    backend = GlobalEmailBackend()
-    payload = backend.build_message_payload(message, backend.send_defaults)
-    body = json.loads(payload.serialize_data())
 
+    assert GlobalEmailBackend().send_messages([message]) == 1
+
+    request = transport.call_args.args[0]
+    assert request.url == MESSAGE_URL
+    body = json.loads(request.body)
     assert body["type"] == ["email"]
     assert body["origin"] == "abha"
     assert body["sender"] == "NHASMS"
-    # No CC field exists here, so a copied address becomes another receiver.
-    assert body["receiver"] == [
-        {"key": "emailId", "value": RECEIVER},
-        {"key": "emailId", "value": "reviewer@example.test"},
-    ]
+    assert body["receiver"] == [{"key": "emailId", "value": RECEIVER}]
     assert "ccRecipients" not in body
     assert {entry["key"]: entry["value"] for entry in body["notification"]} == {
-        "requestId": payload.data["requestId"],
+        "requestId": request.headers["REQUEST-ID"],
         "templateId": "approved-template-123",
         "subject": "Invitation",
         "content": "Accept the invite.",
     }
-    # A java.sql.Timestamp, which is what this service binds; never ISO-8601.
-    assert re.fullmatch(
-        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}",
-        payload.headers["TIMESTAMP"],
+    assert re.fullmatch(JAVA_TIMESTAMP, request.headers["TIMESTAMP"])
+
+
+def test_mail_with_cc_takes_the_ses_endpoint_on_the_same_host(settings, gateway):
+    """The message endpoint has no CC field: a copied address would become
+    another receiver there."""
+    _, transport = gateway
+    settings.ANYMAIL["GLOBAL_EMAIL_API_URL"] = MESSAGE_URL
+    message = EmailMessage(
+        subject="Ticket TKT-2001",
+        body="A reply on your ticket.",
+        to=[RECEIVER],
+        cc=["reviewer@example.test"],
     )
+
+    assert GlobalEmailBackend().send_messages([message]) == 1
+
+    request = transport.call_args.args[0]
+    assert request.url == API_URL
+    body = json.loads(request.body)
+    assert body["receiver"] == RECEIVER
+    assert body["ccRecipients"] == ["reviewer@example.test"]
+    assert body["templateId"] == "approved-template-123"
+    assert body["requestId"] == request.headers["REQUEST-ID"]
+    assert re.fullmatch(JAVA_TIMESTAMP, request.headers["TIMESTAMP"])
+    assert set(message.anymail_status.recipients) == {
+        RECEIVER,
+        "reviewer@example.test",
+    }
 
 
 def test_the_ses_path_keeps_its_own_shape():
@@ -549,7 +572,7 @@ def test_the_ses_path_keeps_its_own_shape():
 
     assert body["receiver"] == RECEIVER
     assert body["subject"] == "Invitation"
-    assert payload.headers["TIMESTAMP"].endswith("Z")
+    assert re.fullmatch(JAVA_TIMESTAMP, payload.headers["TIMESTAMP"])
 
 
 @pytest.mark.parametrize("status", [200, 201, 202, 204])

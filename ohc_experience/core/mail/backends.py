@@ -30,6 +30,7 @@ from anymail.utils import get_anymail_setting
 from django.conf import settings
 
 MESSAGE_PATH = "/internal/v3/notification/message"
+SEND_PATH = "/internal/v3/notification/email/send"
 # The gateway answers SENT on the multi-channel endpoint and SUCCESS on the SES
 # one, for the same accepted message.
 ACCEPTED_STATUSES = frozenset({"SUCCESS", "SENT"})
@@ -38,18 +39,15 @@ ACCEPTED_STATUSES = frozenset({"SUCCESS", "SENT"})
 def _as_message(data):
     """The multi-channel endpoint's shape, from the same validated fields.
 
-    `/internal/v3/notification/email/send` is not deployed on the production
-    gateway, which answers 404 for it. This endpoint carries email too: it is
-    the one the verification codes already go out on. It has no CC field, so
-    every copied address becomes another receiver.
+    This endpoint carries email too: it is the one the verification codes go out
+    on. It has no CC field, so mail with CC never takes it.
     """
-    addresses = [data["receiver"], *(data["ccRecipients"] or [])]
     return {
         "origin": data["origin"],
         "type": ["email"],
         "contentType": data["contentType"],
         "sender": data["sender"],
-        "receiver": [{"key": "emailId", "value": address} for address in addresses],
+        "receiver": [{"key": "emailId", "value": data["receiver"]}],
         "notification": [
             {"key": "requestId", "value": data["requestId"]},
             {"key": "templateId", "value": data["templateId"]},
@@ -312,15 +310,10 @@ class GlobalEmailPayload(RequestsPayload):
         }
         self.headers = {
             "Content-Type": "application/json",
-            # The multi-channel endpoint binds this to a java.sql.Timestamp and
-            # rejects an ISO-8601 value, as the verification codes' adapter has
-            # always known. The SES path's own binding is unverified: it has
-            # never answered anything but 404.
-            "TIMESTAMP": (
-                now.strftime("%Y-%m-%d %H:%M:%S.%f")
-                if self.backend.uses_message_endpoint
-                else now.isoformat(timespec="milliseconds").replace("+00:00", "Z")
-            ),
+            # Both endpoints take a java.sql.Timestamp, the form legacy's client
+            # sends. The multi-channel one answers an ISO-8601 value with 400,
+            # as the verification codes' adapter has always known.
+            "TIMESTAMP": now.strftime("%Y-%m-%d %H:%M:%S.%f"),
         }
 
     def validate(self):
@@ -336,9 +329,24 @@ class GlobalEmailPayload(RequestsPayload):
             self.unsupported_feature("non-text subjects")
         self.headers["REQUEST-ID"] = self.data["requestId"]
 
+    @property
+    def uses_message_endpoint(self):
+        """Only the SES endpoint has a CC field, so mail with CC goes there.
+
+        On the multi-channel endpoint each copied address would be another
+        receiver instead.
+        """
+        return self.backend.uses_message_endpoint and not self.data["ccRecipients"]
+
+    def get_api_endpoint(self):
+        # Anymail joins this onto the configured URL, so the host stays the same.
+        if self.backend.uses_message_endpoint and not self.uses_message_endpoint:
+            return SEND_PATH
+        return None
+
     def serialize_data(self):
         self.validate()
-        if self.backend.uses_message_endpoint:
+        if self.uses_message_endpoint:
             return self.serialize_json(_as_message(self.data))
         return self.serialize_json(self.data)
 
