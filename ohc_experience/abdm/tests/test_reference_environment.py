@@ -128,19 +128,25 @@ def test_integrators_get_run_commands_that_open_care_when_it_is_ready(
     assert 'aria-current="page"' in link
 
 
-def test_m1_always_runs_and_m2_adds_its_profile(environment, client):
+def test_m1_always_runs_and_m2_to_m4_share_one_choice(environment, client):
     client.force_login(environment["applicant"])
 
     page = client.get(reference_url(environment["product"]))
 
-    milestones = {
-        milestone.code: (option, in_progress)
-        for milestone, _, option, in_progress in page.context["reference_milestones"]
+    rows = {
+        tuple(milestone.code for milestone in milestones): (option, in_progress)
+        for milestones, option, in_progress in page.context["reference_milestones"]
     }
-    assert milestones == {"M1": ("", False), "M2": ("--profile m2", True)}
+    assert rows == {
+        ("M1",): ("", False),
+        ("M2", "M3", "M4"): ("--profile m2", False),
+    }
     html = page.content.decode()
+    assert html.count('name="milestones"') == 1
     assert 'name="milestones" value="m2"' in html
-    assert "In progress" in html
+    for key in ("m3", "m4"):
+        assert ABDM.milestones[key].name in html
+    assert "In progress" not in html
     for shell in ("macos", "linux", "powershell"):
         assert f"{COMPOSE_FILE} --profile m2 up --build --wait --yes" in command(
             page,
@@ -157,7 +163,10 @@ def test_the_flows_card_links_to_the_milestone_documentation(environment, client
     card = page.content.decode().split('id="reference-flows-title"', 1)[1]
     card = card.split("</section>", 1)[0]
     assert f'href="{ABDM.milestones_docs_url}"' in card
-    assert f'href="{ABDM.milestones["m1"].docs_url}"' in card
+    for key in ("m1", "m2", "m3", "m4"):
+        assert f'href="{ABDM.milestones[key].docs_url}"' in card
+    assert "Consent request by ABHA address" in card
+    assert "HPID creation and HPR registration" in card
 
 
 def test_credential_fields_fill_every_command_and_are_never_submitted(

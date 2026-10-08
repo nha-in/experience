@@ -437,10 +437,34 @@ class ReferenceEnvironmentDefinition:
     milestone_options: ClassVar[dict[str, str]] = {}
     #: Milestones whose flows are still being built.
     in_progress: ClassVar[tuple[str, ...]] = ()
+    #: Milestones chosen together with another, by that milestone's key. They
+    #: share its row among the choices, and its option.
+    chosen_with: ClassVar[dict[str, tuple[str, ...]]] = {}
     #: Stand-ins for credentials that are not entered yet. Plain words, so a shell
     #: reads them as text if they are run unchanged.
     client_id_placeholder = "YOUR_CLIENT_ID"
     client_secret_placeholder = "YOUR_CLIENT_SECRET"  # noqa: S105
+
+    @classmethod
+    def milestone_rows(cls, program):
+        """The milestone choices as (milestones, option, in progress) rows.
+
+        A milestone chosen with another sits on that milestone's row.
+        """
+        followers = {key for keys in cls.chosen_with.values() for key in keys}
+        rows = []
+        for lead in cls.flows:
+            if lead in followers:
+                continue
+            keys = (lead, *cls.chosen_with.get(lead, ()))
+            rows.append(
+                (
+                    [program.milestones[key] for key in keys],
+                    cls.milestone_options.get(lead, ""),
+                    any(key in cls.in_progress for key in keys),
+                ),
+            )
+        return rows
 
     @classmethod
     def command_segments(cls, shell, client_id="", client_secret=""):

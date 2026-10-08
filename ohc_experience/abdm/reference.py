@@ -43,8 +43,8 @@ class ABDMReferenceEnvironment(ReferenceEnvironmentDefinition):
         "Docker with Compose 2.37 or later. The first run takes about 10 minutes."
     )
     includes = (
-        "CARE with the care-abdm plug and demo data. CARE and care_fe are built from "
-        "their latest code on every run; care-abdm is pinned to its M1 version for now."
+        "CARE with the care-abdm plug and demo data, all built from their latest code "
+        "on every run."
     )
     # The superuser care's demo data creates, so every flow is open to it.
     sign_in = ("admin", "admin")
@@ -68,7 +68,20 @@ class ABDMReferenceEnvironment(ReferenceEnvironmentDefinition):
             "Discovery and link",
             "Health record request and data transfer",
         ),
+        "m3": (
+            "Consent request by ABHA address",
+            "Consent status and artefacts",
+            "Provider search",
+            "Health record fetch and decryption",
+        ),
+        "m4": (
+            "HFR facility search and link",
+            "Facility creation from an HFR record",
+            "HFR facility onboarding",
+            "HPID creation and HPR registration",
+        ),
     }
     # M2 opens a public tunnel for ABDM callbacks.
     milestone_options = {"m2": "--profile m2"}
-    in_progress = ("m2",)
+    # M3 and M4 are chosen with M2, on one row.
+    chosen_with = {"m2": ("m3", "m4")}

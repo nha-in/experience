@@ -2269,11 +2269,10 @@ def reference_environment(request, reference):
         }
     else:
         template = "experiences/reference_environment.html"
-        milestones = [
+        flows = [
             (
                 product.definition.milestones[key],
                 names,
-                environment.milestone_options.get(key, ""),
                 key in environment.in_progress,
             )
             for key, names in environment.flows.items()
@@ -2289,7 +2288,8 @@ def reference_environment(request, reference):
             nav="reference",
             page_title="Reference environment",
             reference_environment=environment,
-            reference_milestones=milestones,
+            reference_milestones=environment.milestone_rows(product.definition),
+            reference_flows=flows,
             reference_shells=shells,
             reference_client_id=client_id,
             reference_client_secret=client_secret,
