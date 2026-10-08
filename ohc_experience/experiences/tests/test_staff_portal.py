@@ -617,7 +617,7 @@ def test_an_event_ending_before_it_starts_is_flagged_on_its_end_time(staff, clie
         },
     )
     assert response.context["form"].errors == {
-        "ends_at": ["The event must end after it starts."],
+        "ends_at": ["The session must end after it starts."],
     }
     assertContains(response, 'href="#id_ends_at"')
     assertNotContains(response, "is violated")
@@ -690,7 +690,7 @@ def test_event_editors_delete_drafts_but_not_published_events(staff, client):
     assertNotContains(page, f'action="{delete_published}"')
     page = client.get(reverse("experiences:event-detail", args=[draft.pk]))
     assertContains(page, f'action="{delete_draft}"')
-    assertContains(page, "Delete this event and its 1 registration? This cannot")
+    assertContains(page, "Delete this session and its 1 registration? This cannot")
     assert client.get(delete_draft).status_code == 405
     assert client.post(delete_published).status_code == 403
     access.can_write = False
@@ -701,7 +701,7 @@ def test_event_editors_delete_drafts_but_not_published_events(staff, client):
     assert client.post(delete_draft).status_code == 302
     assert list(Event.objects.all()) == [published]
     assert not EventRegistration.objects.exists()
-    assert LogEntry.objects.get(change_message="Event deleted").is_deletion()
+    assert LogEntry.objects.get(change_message="Session deleted").is_deletion()
 
 
 def test_superadmins_can_delete_published_events(superadmin, client):
@@ -713,7 +713,8 @@ def test_superadmins_can_delete_published_events(superadmin, client):
     client.force_login(superadmin)
     assertContains(
         client.get(reverse("experiences:event-detail", args=[event.pk])),
-        "Delete this event? Integrators will no longer see it. This cannot be undone.",
+        "Delete this session? Integrators will no longer see it. "
+        "This cannot be undone.",
     )
     assert (
         client.post(reverse("experiences:event-delete", args=[event.pk])).status_code

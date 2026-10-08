@@ -155,7 +155,7 @@ and releases pending review and support assignments. Evidence, decisions, audit
 history and grants remain intact. Restore reactivates the saved grants but cannot
 revive deleted sessions. Password/email changes also end existing sessions.
 
-Staff can manage events at `/portal/events/manage/` with their existing scoped
+Staff can manage events at `/portal/sessions-and-activities/` with their existing scoped
 event permissions; `is_staff` is not required. Portal navigation no longer links
 to Django admin. The technical admin endpoint still exists separately for
 maintenance, with its existing authorization checks. Staff identity and ordinary

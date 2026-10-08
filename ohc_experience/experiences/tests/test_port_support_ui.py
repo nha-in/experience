@@ -842,7 +842,7 @@ def test_registered_event_explains_missing_joining_details(
     assert response.status_code == HTTPStatus.OK
     assert b"Joining details have not been added yet." in response.content
     assert b"Cancel registration" in response.content
-    assert b"Join event" not in response.content
+    assert b"Join session" not in response.content
 
 
 def test_support_pages_keep_filters_in_links(
@@ -915,7 +915,7 @@ def test_event_register_and_cancel_on_the_event_page(
     assert EventRegistration.objects.filter(event=event).exists()
     assert Notification.objects.filter(subject__contains=event.title).count() == 1
     assert b"Cancel registration" in response.content
-    assert b"Join event" in response.content
+    assert b"Join session" in response.content
     filtered = portal_client.get(listing, {"kind": "webinar"})
     assert event not in filtered.context["events"]
     response = portal_client.post(url, {"intent": "cancel"}, follow=True)
@@ -940,7 +940,7 @@ def test_an_event_that_has_ended_takes_no_registration(portal_client):
     )
     url = event.get_absolute_url()
     page = portal_client.get(url)
-    assert b"This event has ended." in page.content
+    assert b"This session has ended." in page.content
     assert b'value="register"' not in page.content
     assert (
         portal_client.post(url, {"intent": "register"}).status_code

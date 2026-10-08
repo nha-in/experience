@@ -39,6 +39,26 @@ def test_retired_routes_are_not_exposed(client, user, path):
 
 
 @pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("/portal/events/", "/portal/sessions-and-activities/"),
+        (
+            "/portal/events/?period=past&kind=webinar",
+            "/portal/sessions-and-activities/?period=past&kind=webinar",
+        ),
+        ("/portal/events/4/", "/portal/sessions-and-activities/4/"),
+        ("/portal/events/4/edit/", "/portal/sessions-and-activities/4/edit/"),
+    ],
+)
+def test_the_old_events_addresses_lead_to_sessions_and_activities(client, old, new):
+    """Sessions and Activities was Events and Activities, under portal/events/."""
+    response = client.get(old)
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == new
+    assert reverse("experiences:events") == "/portal/sessions-and-activities/"
+
+
+@pytest.mark.parametrize(
     ("app_label", "model"),
     [
         ("organisations", "Sandbox"),

@@ -241,5 +241,5 @@ class TestEndsAfterItStarts:
             event.full_clean(exclude={"slug"})  # save() fills the slug
 
         assert raised.value.message_dict == {
-            "ends_at": ["The event must end after it starts."],
+            "ends_at": ["The session must end after it starts."],
         }

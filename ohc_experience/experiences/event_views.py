@@ -299,17 +299,17 @@ def event_edit(request, pk=None):
             event_log(
                 request.user,
                 event,
-                "Event updated" if pk else "Event created",
+                "Session updated" if pk else "Session created",
                 flag=CHANGE if pk else ADDITION,
             )
-            messages.success(request, "Event saved.")
+            messages.success(request, "Session saved.")
             return redirect("experiences:event-detail", pk=event.pk)
     return render(
         request,
         "experiences/event_edit.html",
         {
             "nav": "events",
-            "page_title": "Edit event" if pk else "New event",
+            "page_title": "Edit session" if pk else "New session",
             "form": form,
             "source": source,
         },
@@ -341,11 +341,11 @@ def event_publication(request, pk):
         event_log(
             request.user,
             event,
-            "Event published" if action == "publish" else "Event unpublished",
+            "Session published" if action == "publish" else "Session unpublished",
         )
     messages.success(
         request,
-        "Event published." if action == "publish" else "Event unpublished.",
+        "Session published." if action == "publish" else "Session unpublished.",
     )
     return redirect("experiences:event-detail", pk=event.pk)
 
@@ -362,7 +362,7 @@ def event_delete(request, pk):
         # Same rule as editing: only a superuser can delete a published event.
         if not can_edit_event(request.user, event):
             raise PermissionDenied
-        event_log(request.user, event, "Event deleted", flag=DELETION)
+        event_log(request.user, event, "Session deleted", flag=DELETION)
         event.delete()
-    messages.success(request, "Event deleted.")
+    messages.success(request, "Session deleted.")
     return redirect("experiences:events")

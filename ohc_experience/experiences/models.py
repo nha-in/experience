@@ -57,7 +57,7 @@ class AccessGrant(models.Model):
     class Area(models.TextChoices):
         REVIEW = "review", _("Reviews")
         SUPPORT = "support", _("Support")
-        EVENTS = "events", _("Events")
+        EVENTS = "events", _("Sessions and Activities")
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

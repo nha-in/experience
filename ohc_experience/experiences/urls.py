@@ -1,4 +1,6 @@
 from django.urls import path
+from django.urls import re_path
+from django.views.generic import RedirectView
 
 from . import event_views
 from . import production_views
@@ -103,19 +105,40 @@ urlpatterns = [
         name="production-detail",
     ),
     path("portal/reviews/<int:pk>/open/", views.open_record, name="review-open"),
-    path("portal/events/", views.events, name="events"),
-    path("portal/events/new/", event_views.event_edit, name="event-create"),
-    path("portal/events/<int:pk>/edit/", event_views.event_edit, name="event-edit"),
-    path("portal/events/<int:pk>/", event_views.event_detail, name="event-detail"),
+    path("portal/sessions-and-activities/", views.events, name="events"),
     path(
-        "portal/events/<int:pk>/publication/",
+        "portal/sessions-and-activities/new/",
+        event_views.event_edit,
+        name="event-create",
+    ),
+    path(
+        "portal/sessions-and-activities/<int:pk>/edit/",
+        event_views.event_edit,
+        name="event-edit",
+    ),
+    path(
+        "portal/sessions-and-activities/<int:pk>/",
+        event_views.event_detail,
+        name="event-detail",
+    ),
+    path(
+        "portal/sessions-and-activities/<int:pk>/publication/",
         event_views.event_publication,
         name="event-publication",
     ),
     path(
-        "portal/events/<int:pk>/delete/",
+        "portal/sessions-and-activities/<int:pk>/delete/",
         event_views.event_delete,
         name="event-delete",
+    ),
+    # The module lived under portal/events/ until it was renamed, and links to
+    # it, such as those in sent emails, still arrive there.
+    re_path(
+        r"^portal/events/(?P<rest>.*)$",
+        RedirectView.as_view(
+            url="/portal/sessions-and-activities/%(rest)s",
+            query_string=True,
+        ),
     ),
     path("portal/support/", views.support, name="support"),
     path("portal/support/<str:reference>/", views.ticket, name="ticket"),

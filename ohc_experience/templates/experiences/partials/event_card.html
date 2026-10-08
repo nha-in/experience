@@ -41,7 +41,7 @@
     <div class="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1 sm:justify-self-end">
       {% if period == 'past' %}
         {% if event.pk in registered %}<span class="ui-badge ui-badge--neutral ui-badge--size-sm">You registered</span>{% endif %}
-        <span class="text-xs text-soft-foreground">This event has ended.</span>
+        <span class="text-xs text-soft-foreground">This session has ended.</span>
       {% elif event.pk in registered %}
         <span class="ui-badge ui-badge--success ui-badge--size-sm">✓ Registered</span>
       {% endif %}

@@ -3193,7 +3193,7 @@ def events(request):
         manage = permissions.has_area(request.user, "events")
         return tables.export_response(
             export,
-            f"events-{period}",
+            f"sessions-{period}",
             (*EVENT_EXPORT_HEADER, "Registrations" if manage else "Registered"),
             _event_export_rows(shown, registered=registered, manage=manage),
         )
@@ -3203,7 +3203,7 @@ def events(request):
         _context(
             request,
             product,
-            page_title="Events and Activities",
+            page_title="Sessions and Activities",
             nav="events",
             events=_page(request, shown),
             upcoming_count=upcoming.count(),

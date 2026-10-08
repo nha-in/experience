@@ -70,7 +70,7 @@ Review write allows queries; approve allows approval/rejection and assigning
 the category's requests. Neither needs assignment: the assignee only labels work
 for the queue filters. Support write
 allows replies; approve allows resolution. Event
-write allows draft creation/editing at `/portal/events/manage/`; approve allows
+write allows draft creation/editing at `/portal/sessions-and-activities/`; approve allows
 publishing through that page's actions. Published events must be unpublished before editing.
 General/onboarding is a separate category covering organisation/product review;
 it is not implicitly granted with NHCX or UHI. See the engine guide for details.
@@ -261,7 +261,7 @@ integrators and retained as product outcomes.
   their production client IDs and issue dates, with a CSV export at
   `/assess/production/export/`. General/onboarding review read to view, approve
   to add, change or remove.
-- `/portal/events/`, `/portal/support/`: registrations and support threads.
+- `/portal/sessions-and-activities/`, `/portal/support/`: registrations and support threads.
 
 The CareUI shell uses HTMX navigation with a shared `#main-content` target and
 an out-of-band `#app-nav` refresh, with local HTMX history caching disabled.

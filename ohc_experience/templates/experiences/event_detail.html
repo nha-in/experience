@@ -3,7 +3,7 @@
 {% load experience_ui %}
 
 {% block crumb_root %}
-  {% include 'components/crumb.html' with label='Events' %}
+  {% include 'components/crumb.html' with label='Sessions and Activities' %}
 {% endblock crumb_root %}
 {% block portal_content %}
   <section hx-boost="true"
@@ -12,7 +12,7 @@
            hx-select-oob="#app-nav"
            hx-swap="outerHTML show:window:top">
     <a class="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary"
-       href="{% url 'experiences:events' %}{% if not event.is_published %}?period=drafts{% endif %}">All events</a>
+       href="{% url 'experiences:events' %}{% if not event.is_published %}?period=drafts{% endif %}">All sessions</a>
     <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div class="min-w-0 flex-1 basis-64">
         <div class="flex flex-wrap items-center gap-2">
@@ -28,7 +28,7 @@
       </div>
       <div class="flex flex-wrap items-center gap-2">
         {% if event.is_past %}
-          <span class="text-xs text-soft-foreground">This event has ended.</span>
+          <span class="text-xs text-soft-foreground">This session has ended.</span>
         {% elif can_register %}
           <form method="post" class="flex flex-wrap items-center gap-2">
             {% csrf_token %}
@@ -39,7 +39,7 @@
                    target="_blank"
                    rel="noopener noreferrer"
                    hx-boost="false"
-                   aria-label="Join {{ event.title }} (opens in a new tab)">Join event{% include "components/new_tab_mark.html" %}</a>
+                   aria-label="Join {{ event.title }} (opens in a new tab)">Join session{% include "components/new_tab_mark.html" %}</a>
               {% endif %}
               <button class="ui-btn ui-btn--ghost ui-btn--size-sm min-h-11"
                       name="intent"
@@ -65,7 +65,7 @@
         {% if can_publish %}
           <form method="post"
                 action="{% url 'experiences:event-publication' event.pk %}"
-                data-confirm="{% if event.is_published %}Unpublish this event?{% else %}Publish this event for applicants?{% endif %}">
+                data-confirm="{% if event.is_published %}Unpublish this session?{% else %}Publish this session for applicants?{% endif %}">
             {% csrf_token %}
             <input type="hidden"
                    name="intent"
@@ -77,7 +77,7 @@
         {% if can_edit %}
           <form method="post"
                 action="{% url 'experiences:event-delete' event.pk %}"
-                data-confirm="Delete this event{% if registration_count %} and its {{ registration_count }} registration{{ registration_count|pluralize }}{% endif %}? {% if event.is_published %}Integrators will no longer see it. {% endif %}This cannot be undone.">
+                data-confirm="Delete this session{% if registration_count %} and its {{ registration_count }} registration{{ registration_count|pluralize }}{% endif %}? {% if event.is_published %}Integrators will no longer see it. {% endif %}This cannot be undone.">
             {% csrf_token %}
             <button class="ui-btn ui-btn--destructive ui-btn--size-sm min-h-11"
                     type="submit">Delete</button>
@@ -90,7 +90,7 @@
     {% endif %}
     {% if event.description %}
       <div class="border-t border-border pt-5">
-        <h2 class="ui-section-title">About this event</h2>
+        <h2 class="ui-section-title">About this session</h2>
         <p class="mt-2 text-sm leading-relaxed break-words text-muted-foreground">{{ event.description|linebreaksbr }}</p>
       </div>
     {% endif %}

@@ -251,7 +251,7 @@ def test_events_sort_by_title_and_say_who_registered(environment, client):
         page = client.get(url, {"period": "past", "sort": sort}).context["events"]
         return [event.title for event in page]
 
-    assert listed("") == titles  # Past events: the latest first.
+    assert listed("") == titles  # Past sessions: the latest first.
     assert listed("event") == sorted(titles)
     assert listed("-event") == sorted(titles, reverse=True)
     # Registration is the viewer's own: the session they joined comes first.

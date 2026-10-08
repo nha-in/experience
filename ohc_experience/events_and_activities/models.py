@@ -76,7 +76,7 @@ class Event(models.Model):
         _("Location"),
         max_length=255,
         blank=True,
-        help_text=_("Leave blank for an online event."),
+        help_text=_("Leave blank for an online session."),
     )
     join_url = models.URLField(_("Join link"), blank=True)
     published_at = models.DateTimeField(_("Published at"), null=True, blank=True)
@@ -95,15 +95,15 @@ class Event(models.Model):
     objects: ClassVar[EventQuerySet] = EventQuerySet.as_manager()
 
     class Meta:
-        verbose_name = _("Event")
-        verbose_name_plural = _("Events")
+        verbose_name = _("Session")
+        verbose_name_plural = _("Sessions")
         ordering = ["starts_at"]
         indexes = [models.Index(fields=["published_at", "starts_at"])]
         constraints = [
             models.CheckConstraint(
                 condition=Q(ends_at__isnull=True) | Q(ends_at__gt=F("starts_at")),
                 name="event_ends_after_it_starts",
-                violation_error_message=_("The event must end after it starts."),
+                violation_error_message=_("The session must end after it starts."),
             ),
         ]
 
