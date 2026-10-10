@@ -69,6 +69,20 @@ def test_registrations_under_a_staff_email_are_skipped():
     ]
 
 
+def test_a_registration_that_reads_like_a_test_one_still_comes_across():
+    """Deciding it is not an integrator was our call to make, and it is not."""
+    loader = importer()
+    loader.logins = [login(1, 2, "qa.test1@acme.in"), login(2, 2, "owner@acme.in")]
+    loader.roles = LEGACY_ROLES
+    loader.statuses = {}
+
+    selected = loader.select_valid_integrator_users()
+
+    assert [row["sd_id"] for row in selected] == [1, 2]
+    assert loader.report.skipped == []
+    assert loader.report.review["test accounts"] == [{"sd_id": 1}]
+
+
 def test_a_staff_role_earns_its_grants_from_its_name():
     assert staff_grants("htc") == [("*", True, True, True)]
     assert staff_grants("super admin") == []

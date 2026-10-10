@@ -416,9 +416,7 @@ class Importer:
                 self.report.skip("sd_login", key, "email belongs to a staff login")
                 continue
             if clean.is_test_account(row["name"], address, row["organization"]):
-                self.report.skip("sd_login", key, "test account")
                 self.report.review["test accounts"].append({"sd_id": key})
-                continue
             registrations.append(row)
         return registrations
 
