@@ -255,6 +255,10 @@ def _checks():
         ),
         # An unverified number is an SMS code at the first sign-in, for everyone
         # legacy had a number for.
+        "organisations without a name": Organisation.objects.filter(name=""),
+        # A product falls back to its organisation's name, so this is only ever
+        # blank when that was blank too.
+        "products without a name": Product.objects.filter(name=""),
         "users whose mobile number is unverified": User.objects.exclude(
             phone_number="",
         ).filter(phone_verified=False),

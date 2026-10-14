@@ -277,3 +277,31 @@ def test_a_user_keeps_the_number_legacy_signed_them_up_on():
 
     assert user.phone_number == "9876543210"
     assert user.phone_verified is True
+
+
+def registration(sd_id, organization, name="Asha Rao"):
+    return {
+        "sd_id": sd_id,
+        "organization": organization,
+        "name": name,
+        "email": "a@acme.in",
+    }
+
+
+def test_an_organisation_keeps_the_last_name_legacy_was_given():
+    """Legacy let the same email register again, often leaving the name out."""
+    rows = [registration(7, "Acme Health"), registration(9, "")]
+
+    assert Importer.organisation_name(rows, rows[-1]) == "Acme Health"
+
+
+def test_a_name_on_the_lead_registration_wins():
+    rows = [registration(7, "Acme Health"), registration(9, "Acme Health Systems")]
+
+    assert Importer.organisation_name(rows, rows[-1]) == "Acme Health Systems"
+
+
+def test_an_email_that_never_named_a_company_falls_back_to_its_contact():
+    rows = [registration(7, ""), registration(9, "")]
+
+    assert Importer.organisation_name(rows, rows[-1]) == "Asha Rao"

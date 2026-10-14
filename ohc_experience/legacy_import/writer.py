@@ -633,6 +633,19 @@ class Importer:
         else:
             self.report.counts["organisations"] += 1
 
+    @staticmethod
+    def organisation_name(rows, lead):
+        """The newest name legacy holds under this email.
+
+        A registration can leave `organization` empty where an earlier one
+        filled it in, and the lead row alone would then name nothing.
+        """
+        for row in (lead, *reversed(rows)):
+            name = clean.text(row["organization"])
+            if name:
+                return name
+        return clean.text(lead["name"]) or clean.email(lead["email"]).split("@")[0]
+
     def import_integrator(self, integrator, users):
         rows = integrator.rows
         approved = [
@@ -646,7 +659,7 @@ class Importer:
         if integrator.is_person:
             name = clean.text(lead["name"]) or clean.email(lead["email"]).split("@")[0]
         else:
-            name = clean.text(lead["organization"])
+            name = self.organisation_name(rows, lead)
         verified_at = min((self.decision_time(row) for row in approved), default=None)
         location = self.addresses.get(lead["sd_id"]) or {}
         enrolment = self.enrolments.get(lead["sd_id"]) or {}
