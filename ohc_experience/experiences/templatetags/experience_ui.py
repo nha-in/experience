@@ -303,7 +303,7 @@ def reload_url(context, key):
 
 @register.simple_tag(takes_context=True)
 def export_url(context, export, table=None):
-    """This table's rows as a CSV or Excel file, filtered and sorted as on screen.
+    """This table's rows as an Excel file, filtered and sorted as on screen.
 
     `table` names which one, on a page with two.
     """

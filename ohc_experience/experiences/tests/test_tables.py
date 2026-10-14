@@ -1,5 +1,4 @@
 # ruff: noqa: F811
-import csv
 import io
 import re
 from datetime import timedelta
@@ -17,6 +16,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
+from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.events_and_activities.models import Event
@@ -37,11 +37,9 @@ COLUMNS = {"name": Lower("name"), "joined": "date_joined"}
 
 def rows(response):
     assert "attachment" in response["Content-Disposition"]
-    if response["Content-Type"] == tables.XLSX_TYPE:
-        assert response["Content-Disposition"].endswith('.xlsx"')
-        return sheet(response.content)
-    assert response["Content-Type"] == "text/csv; charset=utf-8"
-    return list(csv.reader(io.StringIO(response.content.decode("utf-8-sig"))))
+    assert response["Content-Type"] == tables.XLSX_TYPE
+    assert response["Content-Disposition"].endswith('.xlsx"')
+    return sheet(response.content)
 
 
 def sheet(content):
@@ -103,11 +101,6 @@ def test_a_workbook_keeps_text_as_text_past_column_z():
         )
 
 
-def test_a_cell_that_starts_like_a_formula_stays_text():
-    assert tables.cell("=SUM(A1)") == "'=SUM(A1)"
-    assert tables.cell(None) == ""
-
-
 def test_sort_header_marks_the_column_and_toggles_its_direction(rf):
     request = rf.get("/", {"sort": "name", "page": "3", "q": "x"})
     html = Template(
@@ -119,14 +112,14 @@ def test_sort_header_marks_the_column_and_toggles_its_direction(rf):
     assert 'href="?sort=-joined&amp;q=x"' in html
 
 
-def test_staff_sort_and_csv_follow_the_query(client):
+def test_staff_sort_and_export_follow_the_query(client):
     admin = UserFactory(is_superuser=True, is_staff=True, name="Asha Admin")
     UserFactory(is_nha_team=True, name="Zoya Reviewer")
     client.force_login(admin)
     url = reverse("experiences:staff-list")
     listed = client.get(url, {"sort": "-member"}).context["page"]
     assert [member.name for member in listed] == ["Zoya Reviewer", "Asha Admin"]
-    exported = rows(client.get(url, {"sort": "-member", "export": "csv"}))
+    exported = rows(client.get(url, {"sort": "-member", "export": "xlsx"}))
     assert exported[0] == ["Name", "Email", "Portal access", "Status", "Last sign-in"]
     assert [row[0] for row in exported[1:]] == ["Zoya Reviewer", "Asha Admin"]
     assert rows(client.get(url, {"sort": "-member", "export": "xlsx"})) == exported
@@ -140,7 +133,9 @@ def test_the_queue_sorts_by_product_and_downloads_every_entry(environment, clien
     response = client.get(url, {"scope": "all", "sort": "title"})
     assert response.context["table_sort"] == "title"
     assert 'aria-sort="ascending"' in response.content.decode()
-    exported = rows(client.get(url, {"scope": "all", "sort": "title", "export": "csv"}))
+    exported = rows(
+        client.get(url, {"scope": "all", "sort": "title", "export": "xlsx"}),
+    )
     assert exported[0][:3] == ["Reference", "Product", "Organisation"]
     assert len(exported) - 1 == response.context["page"].paginator.count
     workbook_rows = rows(
@@ -257,7 +252,7 @@ def test_events_sort_by_title_and_say_who_registered(environment, client):
     # Registration is the viewer's own: the session they joined comes first.
     assert listed("-registration")[0] == "ABHA office hours"
     exported = rows(
-        client.get(url, {"period": "past", "sort": "event", "export": "csv"}),
+        client.get(url, {"period": "past", "sort": "event", "export": "xlsx"}),
     )
     assert exported[0][-1] == "Registered"
     assert [(row[0], row[-1]) for row in exported[1:]] == [
@@ -266,9 +261,9 @@ def test_events_sort_by_title_and_say_who_registered(environment, client):
         ("Consent clinic", "No"),
     ]
     client.force_login(environment["admin"])
-    exported = rows(client.get(url, {"period": "past", "export": "csv"}))
+    exported = rows(client.get(url, {"period": "past", "export": "xlsx"}))
     assert exported[0][-1] == "Registrations"
-    assert [row[-1] for row in exported[1:]] == ["0", "0", "1"]
+    assert [row[-1] for row in exported[1:]] == [0, 0, 1]
 
 
 def test_the_team_roster_sorts_and_exports_its_members(environment, client):
@@ -313,6 +308,40 @@ def test_an_integrators_own_products_sort_and_export(environment, client):
     assert response.context["table_sort"] == "product"
     for sort in ("solution", "-registered"):
         assert client.get(url, {"sort": sort}).context["table_sort"] == sort
-    exported = rows(client.get(url, {"export": "csv"}))
+    exported = rows(client.get(url, {"export": "xlsx"}))
     assert exported[0] == list(views.PRODUCT_EXPORT_HEADER)
     assert [row[0] for row in exported[1:]] == [environment["product"].reference]
+
+
+def test_product_and_organisation_exports_carry_client_ids(environment, client):
+    product = environment["product"]
+    client_id = product.credential.client_id
+    client.force_login(environment["reviewer"])
+    exported = rows(client.get(reverse("experiences:products"), {"export": "xlsx"}))
+    assert exported[0][:3] == ["Reference", "Client ID", "Product"]
+    assert exported[1][:3] == [product.reference, client_id, product.name]
+    exported = rows(
+        client.get(reverse("experiences:organizations"), {"export": "xlsx"}),
+    )
+    assert exported[0][-2:] == ["Product", "Client ID"]
+    assert exported[1][-2:] == [product.name, client_id]
+
+
+def test_the_organisation_export_gives_each_product_a_row(environment, client):
+    organisation = environment["org"]
+    product = environment["product"]
+    other, form = services.register_product(
+        organisation,
+        environment["applicant"],
+        data=product_data("Zeta clinic app"),
+    )
+    assert other, form.errors
+    client.force_login(environment["admin"])
+    exported = rows(
+        client.get(reverse("experiences:organizations"), {"export": "xlsx"}),
+    )
+    assert [row[-2:] for row in exported[1:]] == [
+        [product.name, product.credential.client_id],
+        ["Zeta clinic app", ""],
+    ]
+    assert {row[0] for row in exported[1:]} == {organisation.display_name}

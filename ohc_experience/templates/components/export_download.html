@@ -1,6 +1,6 @@
 {% comment %}
   One Export button whose menu offers every row the table's filters match,
-  in its current order, as a CSV file or an Excel workbook. A native <details>
+  in its current order, as an Excel workbook. A native <details>
   like the product switcher: layouts/app.html closes it on a click elsewhere,
   on a choice or on Escape. Context: optional size (ui-btn size, sm by
   default); url, a page of its own that takes ?export=, in place of this one;
@@ -36,12 +36,6 @@
   </summary>
   <ul class="absolute top-full z-40 {% if wrap_left %}left-0 md:right-0 md:left-auto{% else %}right-0{% endif %} mt-1.5 flex w-36 flex-col gap-px rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
       aria-label="Export format">
-    <li>
-      <a class="ui-nav-link block py-2 text-sm no-underline"
-         href="{% if url %}{{ url }}&amp;export=csv{% else %}{% export_url 'csv' table %}{% endif %}"
-         hx-boost="false"
-         download>CSV</a>
-    </li>
     <li>
       <a class="ui-nav-link block py-2 text-sm no-underline"
          href="{% if url %}{{ url }}&amp;export=xlsx{% else %}{% export_url 'xlsx' table %}{% endif %}"

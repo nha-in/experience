@@ -378,7 +378,7 @@ def _from_iso(value):
         return None
 
 
-CSV_HEADER = (
+EXPORT_HEADER = (
     "Product reference",
     "Product",
     "Organisation",

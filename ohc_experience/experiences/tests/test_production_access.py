@@ -1,6 +1,4 @@
 # ruff: noqa: F811, PLR2004
-import csv
-import io
 from datetime import timedelta
 
 import pytest
@@ -22,6 +20,7 @@ from ohc_experience.experiences.models import AuditEvent
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.experiences.registry import get_program
+from ohc_experience.experiences.tests.test_tables import rows
 from ohc_experience.integrations.local import LocalNotificationGateway
 from ohc_experience.integrations.notification.templates import PRODUCTION_APPROVED
 from ohc_experience.users.tests.factories import UserFactory
@@ -278,7 +277,7 @@ def test_detail_page_records_and_removes(environment, client):
     ]
 
 
-def test_list_tabs_search_and_csv(environment, client):
+def test_list_tabs_search_and_export(environment, client):
     approve(environment)
     product = product_of(environment)
     client.force_login(staff())
@@ -313,14 +312,11 @@ def test_list_tabs_search_and_csv(environment, client):
     assert not client.get(url, {"tab": "approved", "q": "nothing"}).context["rows"]
     Product.objects.filter(pk=product.pk).update(name="=HYPERLINK(1)")
     response = client.get(reverse("experiences:production-export"), {"tab": "approved"})
-    assert response["Content-Type"] == "text/csv; charset=utf-8"
-    assert response["Content-Disposition"].startswith("attachment;")
-    content = response.content.decode()
-    assert content.startswith("﻿")
-    header, row = list(csv.reader(io.StringIO(content.removeprefix("﻿"))))
-    assert tuple(header) == production.CSV_HEADER
+    header, row = rows(response)
+    assert tuple(header) == production.EXPORT_HEADER
     values = dict(zip(header, row, strict=True))
-    assert values["Product"] == "'=HYPERLINK(1)"
+    # Stored as text, so the workbook never runs it.
+    assert values["Product"] == "=HYPERLINK(1)"
     assert values["Sandbox client ID"] == sandbox_id(product)
     assert values["Production client ID"] == "PROD-1"
     assert values["Production issue date"] == timezone.localdate().isoformat()
@@ -330,7 +326,7 @@ def test_list_tabs_search_and_csv(environment, client):
     assert values["Added by"] == environment["reviewer"].email
     # The export is the register, whichever stage the screen is showing.
     response = client.get(reverse("experiences:production-export"))
-    assert len(list(csv.reader(io.StringIO(response.content.decode())))) == 2
+    assert len(rows(response)) == 2
     assert "production-approved-" in response["Content-Disposition"]
 
 

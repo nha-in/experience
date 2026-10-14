@@ -21,6 +21,7 @@ from django.db.models import Exists
 from django.db.models import F
 from django.db.models import IntegerField
 from django.db.models import OuterRef
+from django.db.models import Prefetch
 from django.db.models import Q
 from django.db.models import Value
 from django.db.models import When
@@ -449,6 +450,7 @@ def _product_columns(*, reviewer=False):
 
 PRODUCT_EXPORT_HEADER = (
     "Reference",
+    "Client ID",
     "Product",
     "Organisation",
     "Solution type",
@@ -461,10 +463,16 @@ REVIEWER_PRODUCT_EXPORT_HEADER = (
 )
 
 
+def _client_id(product):
+    credential = getattr(product, "credential", None)
+    return credential.client_id if credential else ""
+
+
 def _product_export_rows(products, *, open_counts=False):
-    for product in products:
+    for product in products.select_related("credential"):
         yield (
             product.reference,
+            _client_id(product),
             product.name,
             product.organisation.display_name,
             product.get_solution_type_display(),
@@ -595,6 +603,8 @@ ORGANISATION_EXPORT_HEADER = (
     "Open requests",
     "Registered on",
     "Verified on",
+    "Product",
+    "Client ID",
 )
 
 
@@ -611,8 +621,9 @@ def _with_labels(organisations):
 
 
 def _organisation_export_rows(organisations):
+    """A row per product, the organisation repeated; one row when it has none."""
     for organisation in _with_labels(organisations):
-        yield (
+        details = (
             organisation.display_name,
             organisation.entity_type_label,
             organisation.state_label,
@@ -623,6 +634,12 @@ def _organisation_export_rows(organisations):
             tables.day(organisation.created_at),
             tables.day(organisation.verified_at),
         )
+        for product in organisation.export_products or [None]:
+            yield (
+                *details,
+                product.name if product else "",
+                _client_id(product) if product else "",
+            )
 
 
 @login_required
@@ -664,11 +681,20 @@ def organizations(request):
     sort, order = tables.sorting(request, _organisation_columns(), "name")
     rows = rows.order_by(*order)
     if export := tables.export_format(request):
+        products = (
+            permissions.visible_products(request.user)
+            .select_related("credential")
+            .order_by("name", "pk")
+        )
         return tables.export_response(
             export,
             "organisations",
             ORGANISATION_EXPORT_HEADER,
-            _organisation_export_rows(rows),
+            _organisation_export_rows(
+                rows.prefetch_related(
+                    Prefetch("products", queryset=products, to_attr="export_products"),
+                ),
+            ),
         )
     page = _page(request, rows)
     page.object_list = list(_with_labels(page))

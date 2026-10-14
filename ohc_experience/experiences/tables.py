@@ -3,11 +3,9 @@
 A table names its sortable columns as `{key: expressions}`, the `order_by`
 terms that sort it ascending. `?sort=key` sorts by a column ascending and
 `?sort=-key` descending; `?per_page=` picks how many rows a page shows; and
-`?export=csv` or `?export=xlsx` downloads every row the filters match, in the
-order on screen. A second table on a page sorts by a query key of its own.
+`?export=xlsx` downloads every row the filters match as an Excel workbook, in
+the order on screen. A second table on a page sorts by a query key of its own.
 """
-
-import csv
 
 from django.core.paginator import Paginator
 from django.db.models import Case
@@ -25,8 +23,7 @@ from django.utils import timezone
 from .xlsx import workbook
 
 PAGE_SIZES = (10, 25, 50, 100)
-FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-EXPORT_FORMATS = ("csv", "xlsx")
+EXPORT_FORMATS = ("xlsx",)
 XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
@@ -93,15 +90,9 @@ def paginate(request, items, default=25):
 
 
 def export_format(request):
-    """ "csv" or "xlsx" when the request asks for a download, else None."""
+    """ "xlsx" when the request asks for a download, else None."""
     value = request.GET.get("export")
     return value if value in EXPORT_FORMATS else None
-
-
-def cell(value):
-    """Spreadsheets run a cell that starts with a formula character."""
-    text = "" if value is None else str(value)
-    return f"'{text}" if text.startswith(FORMULA_PREFIXES) else text
 
 
 def day(value):
@@ -114,16 +105,8 @@ def day(value):
 
 
 def export_response(export, name, header, rows):
-    """Every row as a download, in the format `export_format` read."""
+    """Every row as an Excel download."""
     filename = f"{name}-{timezone.localdate():%Y-%m-%d}.{export}"
-    if export == "xlsx":
-        response = HttpResponse(workbook(header, rows), content_type=XLSX_TYPE)
-    else:
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        # Lets spreadsheet software pick UTF-8 for names.
-        response.write("\ufeff")
-        writer = csv.writer(response)
-        writer.writerow(header)
-        writer.writerows([cell(value) for value in row] for row in rows)
+    response = HttpResponse(workbook(header, rows), content_type=XLSX_TYPE)
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response

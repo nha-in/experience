@@ -16,6 +16,7 @@ from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.experiences.tests.test_port_review_ui import (
     review_item,  # noqa: F401
 )
+from ohc_experience.experiences.tests.test_tables import rows
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.users.tests.factories import ReviewerFactory
@@ -374,12 +375,11 @@ def test_organisation_verification_is_listed_under_organisations_not_on_its_prod
         "products",
         "organisations",
     ]
-    exported = client.get(
-        url,
-        {"kind": "organisations", "scope": "all", "export": "csv"},
-    ).content.decode("utf-8-sig")
-    assert exported.splitlines()[0].startswith("Reference,Organisation,Type of entity")
-    assert organisation.reference in exported
+    exported = rows(
+        client.get(url, {"kind": "organisations", "scope": "all", "export": "xlsx"}),
+    )
+    assert exported[0][:3] == ["Reference", "Organisation", "Type of entity"]
+    assert organisation.reference in {row[0] for row in exported[1:]}
 
 
 def test_pagination_never_splits_products_or_merges_similar_product_names(

@@ -106,9 +106,9 @@ def production_export(request):
     if "sort" in request.GET:
         query = query.order_by(*tables.sorting(request, COLUMNS, "-approved")[1])
     return tables.export_response(
-        tables.export_format(request) or "csv",
+        tables.export_format(request) or "xlsx",
         "production-approved",
-        production.CSV_HEADER,
+        production.EXPORT_HEADER,
         production.export_rows(query),
     )
 
