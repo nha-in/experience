@@ -315,16 +315,23 @@ def test_an_integrators_own_products_sort_and_export(environment, client):
 
 def test_product_and_organisation_exports_carry_client_ids(environment, client):
     product = environment["product"]
+    product.production_client_id = "PROD-1"
+    product.save(update_fields=["production_client_id"])
     client_id = product.credential.client_id
     client.force_login(environment["reviewer"])
     exported = rows(client.get(reverse("experiences:products"), {"export": "xlsx"}))
-    assert exported[0][:3] == ["Reference", "Client ID", "Product"]
-    assert exported[1][:3] == [product.reference, client_id, product.name]
+    assert exported[0][:4] == [
+        "Reference",
+        "Sandbox client ID",
+        "Production client ID",
+        "Product",
+    ]
+    assert exported[1][:4] == [product.reference, client_id, "PROD-1", product.name]
     exported = rows(
         client.get(reverse("experiences:organizations"), {"export": "xlsx"}),
     )
-    assert exported[0][-2:] == ["Product", "Client ID"]
-    assert exported[1][-2:] == [product.name, client_id]
+    assert exported[0][-3:] == ["Product", "Sandbox client ID", "Production client ID"]
+    assert exported[1][-3:] == [product.name, client_id, "PROD-1"]
 
 
 def test_the_organisation_export_gives_each_product_a_row(environment, client):
@@ -340,8 +347,8 @@ def test_the_organisation_export_gives_each_product_a_row(environment, client):
     exported = rows(
         client.get(reverse("experiences:organizations"), {"export": "xlsx"}),
     )
-    assert [row[-2:] for row in exported[1:]] == [
-        [product.name, product.credential.client_id],
-        ["Zeta clinic app", ""],
+    assert [row[-3:] for row in exported[1:]] == [
+        [product.name, product.credential.client_id, ""],
+        ["Zeta clinic app", "", ""],
     ]
     assert {row[0] for row in exported[1:]} == {organisation.display_name}

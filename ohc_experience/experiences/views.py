@@ -450,7 +450,8 @@ def _product_columns(*, reviewer=False):
 
 PRODUCT_EXPORT_HEADER = (
     "Reference",
-    "Client ID",
+    "Sandbox client ID",
+    "Production client ID",
     "Product",
     "Organisation",
     "Solution type",
@@ -473,6 +474,7 @@ def _product_export_rows(products, *, open_counts=False):
         yield (
             product.reference,
             _client_id(product),
+            product.production_client_id,
             product.name,
             product.organisation.display_name,
             product.get_solution_type_display(),
@@ -604,7 +606,8 @@ ORGANISATION_EXPORT_HEADER = (
     "Registered on",
     "Verified on",
     "Product",
-    "Client ID",
+    "Sandbox client ID",
+    "Production client ID",
 )
 
 
@@ -639,6 +642,7 @@ def _organisation_export_rows(organisations):
                 *details,
                 product.name if product else "",
                 _client_id(product) if product else "",
+                product.production_client_id if product else "",
             )
 
 
