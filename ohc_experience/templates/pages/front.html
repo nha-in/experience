@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% load static i18n %}
+
+{% block title %}
+  {% translate "NHA Developer Sandbox" %}
+{% endblock title %}
+{% block meta_description %}
+  {% translate "Choose a sandbox: the Ayushman Bharat Digital Mission or the National Health Claims Exchange." %}
+{% endblock meta_description %}
+{% block css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'fonts/marketing/fonts.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/marketing.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/landing.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/front.css' %}" />
+{% endblock css %}
+{% block javascript %}
+  {{ block.super }}
+  <script defer src="{% static 'js/marketing.js' %}"></script>
+{% endblock javascript %}
+{% block bodyclass %}marketing-body{% endblock bodyclass %}
+{% block body %}
+  <div class="marketing-shell">
+    <header class="marketing-header">
+      <div class="marketing-utility">
+        <div class="marketing-container marketing-utility-inner">
+          <a href="tel:14477"><span aria-hidden="true">☎</span> {% translate "Toll Free Number : 14477" %}</a>
+          <div class="marketing-utility-actions">
+            <a href="#main-content">{% translate "Skip to Main Content" %}</a>
+            <div class="marketing-text-controls"
+                 aria-label="{% translate 'Text size' %}">
+              <button type="button"
+                      data-text-size="increase"
+                      aria-label="{% translate 'Increase text size' %}">+A</button>
+              <button type="button"
+                      data-text-size="reset"
+                      aria-label="{% translate 'Reset text size' %}">A</button>
+              <button type="button"
+                      data-text-size="decrease"
+                      aria-label="{% translate 'Decrease text size' %}">−A</button>
+            </div>
+            <button type="button"
+                    data-contrast-toggle
+                    aria-pressed="false"
+                    aria-label="{% translate 'Toggle high contrast' %}">◐</button>
+          </div>
+        </div>
+      </div>
+      <div class="marketing-container marketing-header-inner">
+        <a class="marketing-brand"
+           href="/"
+           aria-label="{% translate 'NHA Developer Sandbox home' %}">
+          <img src="{% static 'images/marketing/nha-logo-trim.png' %}"
+               alt="{% translate 'National Health Authority' %}"
+               width="90"
+               height="32" />
+          <span class="marketing-brand-copy gate-brand-copy"><strong>{% translate "National Health Authority" %}</strong><strong>{% translate "Developer Sandbox" %}</strong><small>{% translate "Ministry of Health & Family Welfare, Government of India" %}</small></span>
+        </a>
+      </div>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="gate" aria-labelledby="front-title">
+        <div class="sbx-hero-wheel" aria-hidden="true">{% include "components/marketing_chakra.html" %}</div>
+        <div class="marketing-container gate-content">
+          <div class="gate-head">
+            <p class="sbx-eyebrow sbx-hero-eyebrow">
+              <span aria-hidden="true"></span>{% translate "National Health Authority · Developer Sandbox" %}
+            </p>
+            <h1 id="front-title">
+              {% translate "Where are you" %} <span>{% translate "building" %}</span> {% translate "today?" %}
+            </h1>
+            <p class="gate-lede">
+              {% translate "Choose a sandbox to start integrating with India’s national digital health infrastructure." %}
+            </p>
+          </div>
+          <div class="gate-doors">
+            <article class="gate-door" aria-labelledby="door-abdm">
+              <span class="sbx-gateway-number">01</span>
+              <h2 id="door-abdm">ABDM</h2>
+              <p class="gate-full">{% translate "Ayushman Bharat Digital Mission" %}</p>
+              <p class="gate-desc">
+                {% translate "Create and link ABHA, exchange health records with consent, and connect to the UHI network. Build with Agentic AI and certify milestones" %} <span class="nowrap">M1–M4</span>.
+              </p>
+              <ul class="gate-tags" aria-label="{% translate 'Covers' %}">
+                <li>HIE-CM</li>
+                <li>UHI</li>
+                <li>M1–M4</li>
+              </ul>
+              <div class="gate-door-foot">
+                <a class="marketing-button gate-go" href="{{ abdm_sandbox_url }}">{% translate "Go to ABDM Sandbox" %} <span aria-hidden="true">→</span></a>
+              </div>
+            </article>
+            <article class="gate-door" aria-labelledby="door-nhcx">
+              <span class="sbx-gateway-number">02</span>
+              <h2 id="door-nhcx">NHCX</h2>
+              <p class="gate-full">{% translate "National Health Claims Exchange" %}</p>
+              <p class="gate-desc">
+                {% translate "Exchange insurance claims, eligibility checks and pre-authorisation requests between payers and providers over the standardised NHCX rails." %}
+              </p>
+              <ul class="gate-tags" aria-label="{% translate 'Covers' %}">
+                <li>{% translate "Claims" %}</li>
+                <li>{% translate "Pre-authorisation" %}</li>
+                <li>{% translate "Eligibility" %}</li>
+              </ul>
+              <div class="gate-door-foot">
+                {% if nhcx_site_url %}
+                  <a class="marketing-button gate-go" href="{{ nhcx_site_url }}">{% translate "Go to NHCX Sandbox" %} <span aria-hidden="true">→</span></a>
+                {% else %}
+                  <span class="marketing-button gate-go" aria-disabled="true">{% translate "Go to NHCX Sandbox" %} <span aria-hidden="true">→</span></span>
+                  <span class="gate-note">{% translate "NHCX’s address is not set up yet." %}</span>
+                {% endif %}
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="marketing-container gate-foot">
+      <span>© {% now "Y" %} {% translate "National Health Authority, Government of India" %}</span>
+      <a href="tel:14477">{% translate "Support · 14477" %}</a>
+    </footer>
+  </div>
+{% endblock body %}

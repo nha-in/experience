@@ -36,6 +36,86 @@ pytestmark = pytest.mark.django_db
 RENDERED_ERROR_PAGE_MIN_LENGTH = 1000
 
 
+@pytest.fixture
+def front_host(settings):
+    """NHA's hostname, which the test client is allowed to ask under."""
+    settings.FRONT_HOST = "sandbox.nha.example"
+    settings.ALLOWED_HOSTS = [*settings.ALLOWED_HOSTS, settings.FRONT_HOST]
+    return {"host": settings.FRONT_HOST}
+
+
+class TestFrontView:
+    """NHA's hostname shows the chooser; the portal's own keeps its landing page."""
+
+    def test_stands_at_the_root_of_nhas_own_hostname(self, client: Client, front_host):
+
+        response = client.get("/", headers=front_host)
+
+        assert response.status_code == HTTPStatus.OK
+        assert "pages/front.html" in [template.name for template in response.templates]
+
+    def test_leaves_the_portals_own_hostname_alone(self, client: Client, front_host):
+        response = client.get(reverse("home"), headers={"host": "testserver"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert "pages/home.html" in [template.name for template in response.templates]
+
+    def test_every_other_path_there_belongs_to_the_portal(
+        self,
+        client: Client,
+        front_host,
+        settings,
+    ):
+        settings.SITE_BASE_URL = "https://sandbox.staging.example/"
+
+        response = client.get(
+            "/accounts/login/?next=/dashboard/",
+            headers=front_host,
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert response["Location"] == (
+            "https://sandbox.staging.example/accounts/login/?next=/dashboard/"
+        )
+
+    def test_the_abdm_button_opens_the_portal_at_its_own_address(
+        self,
+        client: Client,
+        front_host,
+        settings,
+    ):
+        settings.SITE_BASE_URL = "https://sandbox.staging.example/"
+
+        html = client.get("/", headers=front_host).content.decode()
+
+        assert 'href="https://sandbox.staging.example/"' in html
+
+    def test_the_nhcx_button_opens_the_site_the_deployment_names(
+        self,
+        client: Client,
+        front_host,
+        settings,
+    ):
+        settings.NHCX_SITE_URL = "https://nhcx.staging.example/start"
+
+        html = client.get("/", headers=front_host).content.decode()
+
+        assert 'href="https://nhcx.staging.example/start"' in html
+
+    def test_without_an_nhcx_address_the_button_is_disabled(
+        self,
+        client: Client,
+        front_host,
+        settings,
+    ):
+        settings.NHCX_SITE_URL = ""
+
+        html = client.get("/", headers=front_host).content.decode()
+
+        assert 'aria-disabled="true"' in html
+        assert "not set up yet" in html
+
+
 class TestLandingView:
     def test_renders_for_an_anonymous_visitor(self, client: Client):
         response = client.get(reverse("home"))
@@ -48,6 +128,7 @@ class TestLandingView:
     def test_a_local_server_puts_its_port_first_in_the_title(
         self,
         client: Client,
+        front_host,
         settings,
     ):
         settings.DEBUG = True

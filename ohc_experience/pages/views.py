@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.db.models import Exists
 from django.db.models import OuterRef
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.views.generic import TemplateView
 
 from ohc_experience.experiences.models import Milestone
@@ -17,6 +19,17 @@ from .abdm_dashboard import current_figures
 if TYPE_CHECKING:
     from django.http import HttpRequest
     from django.http import HttpResponse
+
+
+class FrontView(TemplateView):
+    template_name = "pages/front.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        base = settings.SITE_BASE_URL.rstrip("/")
+        context["abdm_sandbox_url"] = f"{base}{reverse('home')}"
+        context["nhcx_site_url"] = settings.NHCX_SITE_URL
+        return context
 
 
 class LandingView(TemplateView):

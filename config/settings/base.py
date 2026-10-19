@@ -162,6 +162,13 @@ ABDM_GATEWAY_URL = env(
 # serves the Agent Skills.
 ABDM_DOCS_URL = env("ABDM_DOCS_URL", default="https://docs.abdm.gov.in")
 
+# NHCX's own site, which the front page's NHCX button opens.
+NHCX_SITE_URL = env("NHCX_SITE_URL", default="https://nhcxai.abdm.gov.in")
+
+# NHA's own hostname, where the front page stands in front of both sandboxes.
+# Every other path there belongs to the portal, and is sent to SITE_BASE_URL.
+FRONT_HOST = env("DJANGO_FRONT_HOST", default="sandbox.nha.gov.in")
+
 # Legacy DHIS handoff protocol. Keys must be supplied through deployment secrets.
 ABDM_DHIS_URL = env("ABDM_DHIS_URL", default="https://dhis.abdm.gov.in/DHIS/")
 ABDM_DHIS_JWT_SECRET = env("ABDM_DHIS_JWT_SECRET", default="")
@@ -286,6 +293,9 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # After authentication: the page it serves renders with the same context
+    # every other page gets, and that context reads the user.
+    "ohc_experience.pages.middleware.FrontHostMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",

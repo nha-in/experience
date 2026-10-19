@@ -103,6 +103,19 @@ python manage.py fetch_agent_skills --check  # fail if the file is behind, write
 
 Source: `config/settings/base.py`, `ohc_experience/abdm/skills.py`, `ohc_experience/experiences/definitions.py`, `ohc_experience/experiences/skills_manifest.py`.
 
+For the **front page**, the chooser NHA's own hostname serves in front of both
+sandboxes, configure:
+
+| Variable | Requirement / default |
+| --- | --- |
+| `DJANGO_FRONT_HOST` | The hostname that gets the front page. Default: `sandbox.nha.gov.in`. Every other path on it redirects to `SITE_BASE_URL`, so the portal keeps one origin for sessions, forms and the links sent by mail. Left empty, no hostname is special and every name serves the portal. |
+| `NHCX_SITE_URL` | The address of NHCX's own site, which the front page's NHCX button opens. Default: `https://nhcxai.abdm.gov.in`. Left empty, the button shows disabled. |
+
+The load balancer has to send that hostname to this service, and its listener
+needs a certificate covering it; neither is set here.
+
+Source: `config/settings/base.py`, `ohc_experience/pages/middleware.py`.
+
 For **email delivery**, production uses the Global Email API through a durable notification outbox. Mail posts to `NOTIFICATION_APP_BASE_URL` + `/internal/v3/notification/message`, or + `/internal/v3/notification/email/send` when it has CC recipients, so the one host below carries both the verification codes and gateway email. Configure the gateway and template settings on both the web process and Celery worker:
 
 | Variable | Requirement / default |
