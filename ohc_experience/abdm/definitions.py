@@ -64,7 +64,8 @@ def answered_gaps(product, solution_note):
     """
     answered = []
     picked = [key for key in product.solution_type if key != "other"]
-    if picked or solution_note not in legacy.IMPORTED_SOLUTION_NOTES:
+    note = (solution_note or "").strip()
+    if picked or (note and note not in legacy.IMPORTED_SOLUTION_NOTES):
         answered.append(legacy.SOLUTION_TYPE)
     tracks = {value.split(":", 1)[0] for value in product.applied_milestones}
     if len(tracks & set(EXCLUSIVE_TRACKS)) < len(EXCLUSIVE_TRACKS):

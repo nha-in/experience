@@ -18,6 +18,7 @@ from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import OPTIONAL_MILESTONES
 from ohc_experience.abdm.catalog import REQUIRED_MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
+from ohc_experience.abdm.catalog import fixed_selections
 from ohc_experience.abdm.definitions import ABDM
 from ohc_experience.abdm.forms import ExitEvidenceForm
 from ohc_experience.abdm.forms import OrganisationForm
@@ -916,12 +917,28 @@ class Importer:
 
     # ---------------------------------------------------------------- products
 
+    @staticmethod
+    def crosses_tracks(row, enrolment):
+        """Whether the types fix milestones on both exclusive tracks.
+
+        No product is a hospital system and a citizen's health locker at once,
+        so legacy saved more of its list than it was asked for: the types are
+        not an answer, and the form locks a set the portal then refuses.
+        """
+        solutions, _ = clean.solution_types(
+            row["solution_type"],
+            enrolment.get("solution_type"),
+        )
+        fixed = fixed_selections(solutions) or []
+        tracks = {value.split(":", 1)[0] for value in fixed}
+        return len(tracks & set(EXCLUSIVE_TRACKS)) > 1
+
     def solution_choice(self, row, enrolment, keys):
         """The types to record, and the words that go in the Other box."""
         dumped = clean.every_option(
             row["solution_type"],
             enrolment.get("solution_type"),
-        )
+        ) or self.crosses_tracks(row, enrolment)
         if dumped:
             self.report.counts["solution type was the whole option list"] += 1
             solutions, unlisted = [], []

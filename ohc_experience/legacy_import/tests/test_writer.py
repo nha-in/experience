@@ -305,3 +305,16 @@ def test_an_email_that_never_named_a_company_falls_back_to_its_contact():
     rows = [registration(7, ""), registration(9, "")]
 
     assert Importer.organisation_name(rows, rows[-1]) == "Asha Rao"
+
+
+def test_types_that_span_both_tracks_are_not_an_answer():
+    """Legacy's own list crosses HIE-CM and PHR, which no product does."""
+    row = {"solution_type": "HMIS,Health Locker", "solution_type_others": ""}
+
+    assert Importer.crosses_tracks(row, {}) is True
+
+
+def test_types_within_one_track_are_kept():
+    row = {"solution_type": "HMIS,Clinic HMIS", "solution_type_others": ""}
+
+    assert Importer.crosses_tracks(row, {}) is False

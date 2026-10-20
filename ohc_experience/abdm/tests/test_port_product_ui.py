@@ -16,6 +16,7 @@ from ohc_experience.abdm.catalog import MILESTONES
 from ohc_experience.abdm.catalog import REQUIRED_MILESTONES
 from ohc_experience.abdm.catalog import TRACK_MAP
 from ohc_experience.abdm.definitions import ABDM
+from ohc_experience.abdm.definitions import answered_gaps
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.demo import uhi_data
@@ -1376,6 +1377,42 @@ def test_an_imported_gap_is_shown_and_opens_the_solution_type_again(
     html = client.get(url).content.decode()
     assert legacy.GAP_NOTICES[legacy.SOLUTION_TYPE] not in html
     assert "disabled" in solution_type_box(html, "hmis")
+
+
+@pytest.mark.django_db
+def test_the_imported_note_is_said_beside_the_box_not_typed_into_it(
+    environment,
+    client,
+):
+    """A field holding words the integrator never wrote reads as their answer."""
+    product = environment["product"]
+    registered_as_other(product)
+    product.metadata = {legacy.LEGACY_GAPS: [legacy.SOLUTION_TYPE]}
+    product.save(update_fields=["metadata"])
+    client.force_login(environment["applicant"])
+
+    form = ProductRegistrationForm(
+        organisation=product.organisation,
+        product=product,
+        initial={"solution_type_other": legacy.EVERY_OPTION_SOLUTION_TYPE},
+    )
+
+    assert form.initial["solution_type_other"] == ""
+    assert (
+        form.fields["solution_type_other"].help_text
+        == legacy.EVERY_OPTION_SOLUTION_TYPE
+    )
+
+
+@pytest.mark.django_db
+def test_an_empty_other_box_still_owes_the_answer(environment):
+    """Blank is not an answer, so the gap and its notice stay."""
+    product = environment["product"]
+    registered_as_other(product)
+
+    assert legacy.SOLUTION_TYPE not in answered_gaps(product, "")
+    assert legacy.SOLUTION_TYPE not in answered_gaps(product, "   ")
+    assert legacy.SOLUTION_TYPE in answered_gaps(product, "Queue management")
 
 
 @pytest.mark.django_db

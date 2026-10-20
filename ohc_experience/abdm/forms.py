@@ -387,6 +387,12 @@ class ProductRegistrationForm(ReviewForm):
                 product,
                 legacy.SOLUTION_TYPE,
             )
+        # The import's own note is not an answer, so it is said beside the box
+        # rather than typed into it: an empty box is still owed one.
+        note = self.initial.get("solution_type_other")
+        if not self.is_bound and note in legacy.IMPORTED_SOLUTION_NOTES:
+            self.initial["solution_type_other"] = ""
+            self.fields["solution_type_other"].help_text = note
         if self.is_bound and "other" not in (self["solution_type"].value() or []):
             self.fields["solution_type_other"].required = False
         # Locked boxes are disabled, so a fixed type may arrive with none posted.
