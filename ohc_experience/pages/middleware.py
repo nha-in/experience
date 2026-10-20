@@ -5,8 +5,7 @@ from .views import FrontView
 
 
 class FrontHostMiddleware:
-    """Serve NHA's front page on NHA's hostname, and only that.
-    """
+    """Serve NHA's front page on NHA's hostname, and only that."""
 
     def __init__(self, get_response):
         self.get_response = get_response
