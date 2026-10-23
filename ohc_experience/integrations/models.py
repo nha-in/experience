@@ -1,9 +1,13 @@
-"""What we created in each external system, so a partial run can be reconciled.
+"""What we created in each external system, so a partial run can be reconciled,
+and the outside teams that call this portal's API.
 
 `secret_ref` is a reference into the short-lived hand-off, never a secret value.
 """
 
 from __future__ import annotations
+
+import hashlib
+import secrets
 
 from django.conf import settings
 from django.db import models
@@ -138,3 +142,40 @@ class ProvisioningRun(models.Model):
     @property
     def is_running(self) -> bool:
         return self.status == self.Status.RUNNING
+
+
+#: Tells a key from a JWT, which always starts with "eyJ".
+KEY_PREFIX = "sbxkey_"
+
+
+def new_key() -> str:
+    return f"{KEY_PREFIX}{secrets.token_urlsafe(32)}"
+
+
+def hash_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+class ApiCaller(models.Model):
+    """An outside team calling this portal's API with a key of its own.
+
+    Only the key's hash is stored; `add_api_caller` prints the key once.
+    """
+
+    name = models.CharField(_("Team"), max_length=255)
+    key_hash = models.CharField(max_length=64, unique=True, editable=False)
+    active = models.BooleanField(_("Active"), default=True)
+    created_at = models.DateTimeField(_("Created"), auto_now_add=True)
+    last_used_at = models.DateTimeField(_("Last used"), null=True, editable=False)
+
+    class Meta:
+        verbose_name = _("API caller")
+        verbose_name_plural = _("API callers")
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @classmethod
+    def for_key(cls, key: str) -> ApiCaller | None:
+        return cls.objects.filter(key_hash=hash_key(key), active=True).first()

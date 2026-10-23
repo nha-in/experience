@@ -516,6 +516,26 @@ on that form after an agency is renamed or deactivated. Demo resets preserve
 the administrator-maintained table; demo creation requires at least one active
 ABDM agency. The legacy list is seed data, with no automatic external refresh.
 
+## Client search for other ABDM services
+
+Other ABDM teams look up products by client ID at legacy's
+`POST /api/sandbox/v1/search/clients`. The body is `{"clientIds": [...]}`. The
+answer lists each matched product's `name`, `clientId` and approved
+`milestones` (`"M1,M2"`), as legacy did. An ID matches a sandbox client ID or a
+production client ID. Call it on the `SITE_BASE_URL` host: `DJANGO_FRONT_HOST`
+redirects every other path, and a POST does not survive the redirect.
+
+`Authorization` carries either a key of the team's own or, as legacy accepted,
+any unexpired JWT, whose signature is not checked. Each call logs the key's
+caller or the token's `iss` and `azp`, which shows the teams still on a token.
+
+Keys are issued from a shell on the ECS task, and only their hash is stored:
+
+1. `python manage.py add_api_caller "<team>"` prints the caller's id and its
+   key, once. Give the key to the team.
+2. To revoke a key, run `python manage.py deactivate_api_caller <id>`. To replace
+   one, add the new key first, then deactivate the old.
+
 ## Verification
 
 ```sh

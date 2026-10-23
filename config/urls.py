@@ -4,9 +4,11 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include
 from django.urls import path
+from django.urls import re_path
 from django.views import defaults as default_views
 
 from ohc_experience.core.health import ping
+from ohc_experience.experiences.client_search import search_clients
 from ohc_experience.users.views import account_verification_view
 from ohc_experience.users.views import email_verification_sent_view
 from ohc_experience.users.views import user_signup_view
@@ -14,6 +16,13 @@ from ohc_experience.users.views import verify_phone_view
 
 urlpatterns = [
     path("ping/", ping, name="ping"),
+    # Legacy's path, so other ABDM services only change the host; legacy also
+    # took it with a trailing slash.
+    re_path(
+        r"^api/sandbox/v1/search/clients/?$",
+        search_clients,
+        name="client-search",
+    ),
     path("", include("ohc_experience.experiences.urls")),
     # Landing page and dashboard alias
     path("", include("ohc_experience.pages.urls")),
