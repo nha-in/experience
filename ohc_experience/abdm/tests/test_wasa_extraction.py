@@ -67,7 +67,6 @@ def stated(**overrides) -> str:
 def reader(settings, monkeypatch):
     """A configured hook whose model replies with whatever a test sets."""
     settings.WASA_EXTRACTION_MODEL = "bedrock/test-model"
-    wasa_extraction._extraction_cache.clear()  # noqa: SLF001
     cache.clear()
     replies = {"reply": "{}", "calls": []}
 
@@ -564,7 +563,7 @@ def provider(settings, monkeypatch):
     settings.BEDROCK_REGION_NAME = ""
     settings.BEDROCK_ACCESS_KEY_ID = ""
     settings.BEDROCK_SECRET_ACCESS_KEY = ""
-    wasa_extraction._extraction_cache.clear()  # noqa: SLF001
+    cache.clear()
     monkeypatch.setattr(wasa_extraction, "_completion", REAL_COMPLETION)
     monkeypatch.setattr(wasa_extraction, "_page_images", lambda content: [b"page-png"])
     return monkeypatch
