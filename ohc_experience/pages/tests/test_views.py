@@ -78,7 +78,7 @@ class TestFrontView:
             "https://sandbox.staging.example/accounts/login/?next=/dashboard/"
         )
 
-    def test_the_abdm_button_opens_the_portal_at_its_own_address(
+    def test_the_hiecm_and_uhi_buttons_open_the_portal_at_its_own_address(
         self,
         client: Client,
         front_host,
@@ -88,7 +88,7 @@ class TestFrontView:
 
         html = client.get("/", headers=front_host).content.decode()
 
-        assert 'href="https://sandbox.staging.example/"' in html
+        assert html.count('href="https://sandbox.staging.example/"') == 2
 
     def test_the_nhcx_button_opens_the_site_the_deployment_names(
         self,

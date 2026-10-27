@@ -75,24 +75,40 @@
             </p>
           </div>
           <div class="gate-doors">
-            <article class="gate-door" aria-labelledby="door-abdm">
+            <article class="gate-door" aria-labelledby="door-hiecm">
               <span class="sbx-gateway-number">01</span>
-              <h2 id="door-abdm">ABDM</h2>
-              <p class="gate-full">{% translate "Ayushman Bharat Digital Mission" %}</p>
+              <h2 id="door-hiecm">HIE-CM</h2>
+              <p class="gate-full">{% translate "Health Information Exchange & Consent Manager" %}</p>
               <p class="gate-desc">
-                {% translate "Create and link ABHA, exchange health records with consent, and connect to the UHI network. Build with Agentic AI and certify milestones" %} <span class="nowrap">M1–M4</span>.
+                {% translate "Create and link ABHA, manage consent, and exchange health records across the digital health ecosystem as an HIP or HIU." %}
               </p>
               <ul class="gate-tags" aria-label="{% translate 'Covers' %}">
-                <li>HIE-CM</li>
-                <li>UHI</li>
+                <li>ABHA</li>
+                <li>{% translate "Consent" %}</li>
                 <li>M1–M4</li>
               </ul>
               <div class="gate-door-foot">
-                <a class="marketing-button gate-go" href="{{ abdm_sandbox_url }}">{% translate "Go to ABDM Sandbox" %} <span aria-hidden="true">→</span></a>
+                <a class="marketing-button gate-go" href="{{ abdm_sandbox_url }}">{% translate "Go to HIE-CM Sandbox" %} <span aria-hidden="true">→</span></a>
+              </div>
+            </article>
+            <article class="gate-door" aria-labelledby="door-uhi">
+              <span class="sbx-gateway-number">02</span>
+              <h2 id="door-uhi">UHI</h2>
+              <p class="gate-full">{% translate "Unified Health Interface" %}</p>
+              <p class="gate-desc">
+                {% translate "Enable discovery and booking of health services, such as doctor consultations, ambulance and blood bank services, over the UHI network." %}
+              </p>
+              <ul class="gate-tags" aria-label="{% translate 'Covers' %}">
+                <li>{% translate "Discovery" %}</li>
+                <li>{% translate "Booking" %}</li>
+                <li>{% translate "Consultations" %}</li>
+              </ul>
+              <div class="gate-door-foot">
+                <a class="marketing-button gate-go" href="{{ abdm_sandbox_url }}">{% translate "Go to UHI Sandbox" %} <span aria-hidden="true">→</span></a>
               </div>
             </article>
             <article class="gate-door" aria-labelledby="door-nhcx">
-              <span class="sbx-gateway-number">02</span>
+              <span class="sbx-gateway-number">03</span>
               <h2 id="door-nhcx">NHCX</h2>
               <p class="gate-full">{% translate "National Health Claims Exchange" %}</p>
               <p class="gate-desc">
