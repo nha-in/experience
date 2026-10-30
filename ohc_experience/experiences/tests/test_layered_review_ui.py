@@ -14,16 +14,13 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 
-def test_stage_counts_keep_search_and_assignee_filters(client, review_item):
-    reviewer = ReviewerFactory(is_nha_team=True)
-    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
-    client.force_login(reviewer)
+def test_stage_counts_keep_search_and_type_filters(client, review_item):
+    client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(
         reverse("experiences:queue"),
         {
             "item": "milestones",
             "q": "Water pump",
-            "assignee": reviewer.pk,
             "scope": "ready",
         },
     )
@@ -38,6 +35,7 @@ def test_stage_counts_keep_search_and_assignee_filters(client, review_item):
         "all": 1,
     }
     assert response.context["queue_scope"] == "ready"
+    assert b'name="assignee"' not in response.content
 
 
 def test_the_stage_select_carries_the_stage_that_the_tabs_show(client, review_item):

@@ -142,16 +142,13 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     owner_membership,
 ):
     release = submit_release(review_item, owner_membership.user)
-    reviewer = ReviewerFactory(is_nha_team=True)
-    workflows.assign_review(release, UserFactory(is_superuser=True), reviewer)
-    client.force_login(reviewer)
-    # Under review, but held by INS: nothing of this reviewer's can be decided
-    # now, so it is done for them, and its chip and the filter say it waits.
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    # Under review, but held by INS: nothing the filters match can be decided
+    # now, so it is done, and its chip and the filter say it waits.
     filters = {
         "scope": "decided",
         "item": "Quality",
         "status": "waiting",
-        "assignee": "me",
         "q": release.application.reference,
     }
     response = client.get(
@@ -164,7 +161,6 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     entry = response.context["page"][0]
     assert entry.reviews == [release, review_item]
     assert entry.matching_reviews == [release]
-    assert entry.assignees == [reviewer]
     assert response.context["stage_counts"] == {
         "ready": 0,
         "decided": 1,
@@ -181,7 +177,7 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     assert not client.get(reverse("experiences:queue"), filters).context["page"]
 
 
-def test_a_status_filters_every_tab_count_as_the_assignee_filter_does(
+def test_a_status_filters_every_tab_count(
     environment,
     client,
 ):

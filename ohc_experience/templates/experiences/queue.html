@@ -65,17 +65,17 @@
              hx-swap="outerHTML"
              hx-push-url="true">
           <a class="ui-switch-option"
-             href="?{{ kind_query }}scope=ready&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?{{ kind_query }}scope=ready&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'ready' %}aria-current="page"{% endif %}>Pending <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.ready }}</span></a>
           <a class="ui-switch-option"
-             href="?{{ kind_query }}scope=decided&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?{{ kind_query }}scope=decided&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'decided' %}aria-current="page"{% endif %}>Done <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.decided }}</span></a>
           <a class="ui-switch-option"
-             href="?{{ kind_query }}scope=all&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;assignee={{ filters.assignee|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
+             href="?{{ kind_query }}scope=all&amp;status={{ filters.status|urlencode }}&amp;item={{ filters.item|urlencode }}&amp;q={{ filters.q|urlencode }}&amp;sort={{ queue_sort }}"
              {% if queue_scope == 'all' %}aria-current="page"{% endif %}>All <span class="ml-1.5 text-xs font-normal text-soft-foreground tabular-nums">{{ stage_counts.all }}</span></a>
         </nav>
         {# Pending holds one state, so it has no Status filter and one column fewer; Organisations has no Type filter. #}
-        <div class="grid items-end gap-3 sm:grid-cols-2 {% if queue_kind == 'organisations' %}{% if statuses %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto]{% endif %}{% elif statuses %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% endif %}">
+        <div class="grid items-end gap-3 sm:grid-cols-2 {% if queue_kind == 'organisations' %}{% if statuses %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.6fr)_auto]{% endif %}{% elif statuses %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto]{% endif %}">
           <div class="min-w-0 sm:hidden">
             <label class="ui-label" for="queue-scope">Review stage</label>
             <div class="ui-select-wrapper">
@@ -138,24 +138,9 @@
               </div>
             </div>
           {% endif %}
-          <div class="min-w-0">
-            <label class="ui-label" for="queue-assignee">Assignee</label>
-            <div class="ui-select-wrapper">
-              <select class="ui-select" id="queue-assignee" name="assignee">
-                <option value="">All reviewers</option>
-                <option value="me" {% if filters.assignee == 'me' %}selected{% endif %}>Me</option>
-                <option value="unassigned"
-                        {% if filters.assignee == 'unassigned' %}selected{% endif %}>Unassigned</option>
-                {% for user in reviewers %}
-                  <option value="{{ user.pk }}"
-                          {% if filters.assignee == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.display_name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
           <div class="flex items-center gap-4">
             <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Search</button>
-            {% if filters.q or filters.status or filters.assignee or queue_kind == 'products' and filters.item %}
+            {% if filters.q or filters.status or queue_kind == 'products' and filters.item %}
               <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
                  href="?{{ kind_query }}scope={{ queue_scope }}"
                  hx-get="?{{ kind_query }}scope={{ queue_scope }}"

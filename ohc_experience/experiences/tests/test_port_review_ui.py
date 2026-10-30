@@ -101,13 +101,10 @@ def test_production_access_is_absent_for_a_program_that_does_not_record_it(
 
 
 def test_queue_filters_still_work_when_requested_through_htmx(review_item, client):
-    reviewer = ReviewerFactory(is_nha_team=True)
-    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
-    client.force_login(reviewer)
+    client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(
         reverse("experiences:queue"),
         {
-            "assignee": "me",
             "item": "Quality",
             "q": "Water pump",
             "status": "in_review",
@@ -176,7 +173,7 @@ def test_queue_searches_by_product_reference_and_preserves_it_in_navigation(
     }
     assert f'value="{reference}"'.encode() in response.content
     assert (
-        f"?scope=decided&amp;status=&amp;item=&amp;assignee=&amp;q={reference}".encode()
+        f"?scope=decided&amp;status=&amp;item=&amp;q={reference}".encode()
         in response.content
     )
     assert f"q={reference}".encode() in response.context["filter_query"].encode()
@@ -711,9 +708,7 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
     incompatible_status,
     expected_statuses,
 ):
-    reviewer = ReviewerFactory(is_nha_team=True)
-    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
-    client.force_login(reviewer)
+    client.force_login(ReviewerFactory(is_nha_team=True))
     if scope == "decided":
         response = client.post(
             product_page(review_item),
@@ -726,7 +721,6 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
         {
             "scope": scope,
             "status": incompatible_status,
-            "assignee": "me",
             "item": "Quality",
             "q": "Water pump",
         },
@@ -740,20 +734,19 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
     assert "status" not in response.context["filters"]
     assert "status=" not in response.context["filter_query"]
     assert set(dict(response.context["statuses"])) == expected_statuses
-    assert response.context["filters"]["assignee"] == "me"
     assert response.context["filters"]["item"] == "Quality"
     assert response.context["filters"]["q"] == "Water pump"
     assert f'href="?scope={scope}"'.encode() in response.content
 
 
-def test_empty_personal_queue_keeps_its_scope_when_clearing_filters(
+def test_empty_search_keeps_its_scope_when_clearing_filters(
     review_item,
     client,
 ):
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.get(
         reverse("experiences:queue"),
-        {"scope": "ready", "assignee": "me", "q": "not found"},
+        {"scope": "ready", "q": "not found"},
     )
     assert b"No reviews match these filters." in response.content
     assert b'href="?scope=ready"' in response.content

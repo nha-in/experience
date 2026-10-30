@@ -9,15 +9,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from django.db.models import CharField
 from django.db.models import Count
 from django.db.models import F
 from django.db.models import Max
 from django.db.models import Min
-from django.db.models import Value
-from django.db.models.functions import Coalesce
 from django.db.models.functions import Lower
-from django.db.models.functions import NullIf
 from django.urls import reverse
 from django.utils import timezone
 
@@ -67,7 +63,7 @@ def verification_requests(user):
 
 QUEUE_SORTS = tuple(
     f"{direction}{key}"
-    for key in ("submitted", "age", "title", "requests", "assignee")
+    for key in ("submitted", "age", "title", "requests")
     for direction in ("-", "")
 )
 
@@ -75,25 +71,13 @@ QUEUE_SORTS = tuple(
 VERIFICATION_SORTS = tuple(sort for sort in QUEUE_SORTS if "requests" not in sort)
 
 
-def _assignee_name():
-    """A request's assignee as the queue sorts them: by name, else by email."""
-    return Lower(
-        Coalesce(
-            NullIf("assignee__name", Value("")),
-            "assignee__email",
-            output_field=CharField(),
-        ),
-    )
-
-
 def grouped_requests(query, sort="-submitted"):
     """Group each product's requests into its row before counting or paginating.
 
     A row dates from its newest request, or its oldest when the oldest come
     first; its age is the same date read the other way. By title it sorts on
-    its product's name; by requests on how many of its requests match; and by
-    assignee on the first name among them, the unassigned last. Ties go newest
-    first.
+    its product's name; and by requests on how many of its requests match.
+    Ties go newest first.
     """
     key = sort.removeprefix("-")
     descending = sort.startswith("-")
@@ -103,8 +87,6 @@ def grouped_requests(query, sort="-submitted"):
     query = query.order_by()
     if key == "title":
         query = query.annotate(queue_title=Lower("product__name"))
-    elif key == "assignee":
-        query = query.annotate(queue_assignee=_assignee_name())
     groups = query.values("product_id").annotate(
         submitted_at=aggregate("submitted_at"),
         sort_id=aggregate("pk"),
@@ -120,7 +102,6 @@ def grouped_requests(query, sort="-submitted"):
         sort_key={
             "title": Min("queue_title"),
             "requests": Count("pk"),
-            "assignee": Min("queue_assignee"),
         }[key],
     )
     sort_key = F("sort_key")
@@ -135,8 +116,7 @@ def grouped_requests(query, sort="-submitted"):
 def ordered_verifications(query, sort="-submitted"):
     """Verifications in the order a sort asks for, as `grouped_requests` reads it.
 
-    By title they sort on the organisation's name, and by assignee on theirs,
-    the unassigned last. Ties go newest first.
+    By title they sort on the organisation's name. Ties go newest first.
     """
     key = sort.removeprefix("-")
     descending = sort.startswith("-")
@@ -145,9 +125,8 @@ def ordered_verifications(query, sort="-submitted"):
     field = {
         "submitted": F("submitted_at"),
         "title": Lower(tables.organisation_name("organisation__")),
-        "assignee": _assignee_name(),
     }[key]
-    return query.select_related("organisation", "assignee").order_by(
+    return query.select_related("organisation").order_by(
         field.desc(nulls_last=True) if descending else field.asc(nulls_last=True),
         "-submitted_at",
         "-pk",
@@ -250,16 +229,6 @@ class QueueEntry:
             ),
         )
 
-    @property
-    def assignees(self):
-        # Assignment belongs to a request. Never imply a single owner for a
-        # product whose matching requests have different reviewers.
-        return list(
-            {
-                review.assignee_id: review.assignee for review in self.matching_reviews
-            }.values(),
-        )
-
 
 @dataclass
 class VerificationEntry:
@@ -304,10 +273,6 @@ class VerificationEntry:
         """Whether a reviewer can decide it now, and so is late after a week."""
         return self.review.status == ReviewItem.Status.IN_REVIEW
 
-    @property
-    def assignee(self):
-        return self.review.assignee
-
 
 def review_order(review):
     """Organisation first, then the program's catalog presentation order."""
@@ -338,7 +303,6 @@ def populate_queue_page(page, user, matching):
             "product",
             "organisation",
             "application__milestone",
-            "assignee",
             "form",
         )
     )

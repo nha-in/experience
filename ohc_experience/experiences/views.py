@@ -488,7 +488,7 @@ def products(request):
     permissions.require_area(request.user, "review")
     if permissions.reviewer(request.user):
         return _reviewer_products(request)
-    sort, order = tables.sorting(request, _product_columns(), "product")
+    sort, order = tables.sorting(request, _product_columns(), "-registered")
     rows = _products(request.user).order_by(*order)
     if export := tables.export_format(request):
         return tables.export_response(
@@ -682,7 +682,7 @@ def organizations(request):
             distinct=True,
         ),
     )
-    sort, order = tables.sorting(request, _organisation_columns(), "name")
+    sort, order = tables.sorting(request, _organisation_columns(), "-registered")
     rows = rows.order_by(*order)
     if export := tables.export_format(request):
         products = (
@@ -746,7 +746,11 @@ def _reviewer_products(request):
         rows = rows.filter(
             Q(name__icontains=search) | Q(reference__icontains=search),
         )
-    sort, order = tables.sorting(request, _product_columns(reviewer=True), "product")
+    sort, order = tables.sorting(
+        request,
+        _product_columns(reviewer=True),
+        "-registered",
+    )
     rows = rows.order_by(*order)
     if export := tables.export_format(request):
         return tables.export_response(
@@ -2744,7 +2748,6 @@ QUEUE_EXPORT_HEADER = (
     "Approved",
     "Submitted on",
     "Age (days)",
-    "Assignees",
 )
 
 VERIFICATION_EXPORT_HEADER = (
@@ -2757,7 +2760,6 @@ VERIFICATION_EXPORT_HEADER = (
     "Requests waiting",
     "Submitted on",
     "Age (days)",
-    "Assignee",
 )
 
 
@@ -2791,10 +2793,6 @@ def _queue_export_rows(groups, user, matching):
             f"{len(entry.approved)} of {len(entry.reviews)}",
             tables.day(entry.submitted_at),
             entry.age,
-            ", ".join(
-                assignee.display_name if assignee else "Unassigned"
-                for assignee in entry.assignees
-            ),
         )
 
 
@@ -2822,7 +2820,6 @@ def _verification_export_rows(query, user):
             entry.held,
             tables.day(entry.submitted_at),
             entry.age,
-            entry.assignee.display_name if entry.assignee else "Unassigned",
         )
 
 
@@ -2837,7 +2834,7 @@ QUEUE_KINDS = {
 def _queue_list(kind, user, params):
     """A list's requests under every filter but its tabs', and each tab's filter.
 
-    Search, assignee and status hold in both lists; the Type filter is the
+    Search and status hold in both lists; the Type filter is the
     Products list's alone. Each narrows the requests before the tabs split
     them, so every tab counts what the filters match, and All stays Pending
     plus Done: a product is pending when a request the filters keep can be
@@ -2847,13 +2844,6 @@ def _queue_list(kind, user, params):
         query = verification_requests(user)
     else:
         query = visible = queue_requests(user)
-    assignee = params.get("assignee", "")
-    if assignee == "me":
-        query = query.filter(assignee=user)
-    elif assignee == "unassigned":
-        query = query.filter(assignee=None)
-    elif assignee.isdigit():
-        query = query.filter(assignee_id=assignee)
     if params.get("status"):
         query = query.filter(_queue_status_filter(params["status"]))
     search = params.get("q", "").strip()
@@ -2878,9 +2868,10 @@ def _queue_count(kind, query):
 
 def _kind_switch(params, kind):
     """Both lists: this one as it is filtered, and the other on the same tab
-    with the same search and assignee, the filters both lists have."""
+    with the same search, the filter both lists have."""
     shared = {"scope": params["scope"]}
-    shared.update({key: params[key] for key in ("q", "assignee") if params.get(key)})
+    if params.get("q"):
+        shared["q"] = params["q"]
     switch = []
     for value, (label, icon) in QUEUE_KINDS.items():
         if value == kind:
@@ -2974,10 +2965,6 @@ def queue(request):
             queue_sort=sort,
             table_sort=sort,
             statuses=statuses,
-            reviewers=get_user_model().objects.filter(
-                Q(is_nha_team=True) | Q(is_superuser=True),
-                is_active=True,
-            ),
             filters=params,
             filter_query=params.urlencode(),
             request_choices=_request_choices(program, request.user),

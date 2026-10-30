@@ -305,8 +305,8 @@ def test_an_integrators_own_products_sort_and_export(environment, client):
             ("Product", "Solution type", "Registered on"),
         )
     )
-    assert response.context["table_sort"] == "product"
-    for sort in ("solution", "-registered"):
+    assert response.context["table_sort"] == "-registered"
+    for sort in ("solution", "product"):
         assert client.get(url, {"sort": sort}).context["table_sort"] == sort
     exported = rows(client.get(url, {"export": "xlsx"}))
     assert exported[0] == list(views.PRODUCT_EXPORT_HEADER)
