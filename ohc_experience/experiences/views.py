@@ -15,11 +15,11 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Case
-from django.db.models import CharField
 from django.db.models import Count
 from django.db.models import Exists
 from django.db.models import F
 from django.db.models import IntegerField
+from django.db.models import Max
 from django.db.models import OuterRef
 from django.db.models import Prefetch
 from django.db.models import Q
@@ -786,45 +786,59 @@ REQUEST_TITLE = Lower(
         tables.organisation_name("organisation__"),
     ),
 )
-REQUEST_EXPORT_HEADER = (
-    "Reference",
-    "Type",
-    "Request",
-    "Product",
-    "Status",
-    "Assignee",
-    "Submitted on",
-    "Age (days)",
-)
 
 
-def _request_export_rows(items):
-    for item in items:
-        yield (
-            item.reference,
-            item.get_kind_display(),
-            item.title,
-            item.product.name if item.product_id else "",
-            item.get_status_display(),
-            item.assignee.display_name if item.assignee_id else "Unassigned",
-            tables.day(item.submitted_at),
-            item.age,
-        )
-
-
-REQUEST_COLUMNS = {
-    "request": REQUEST_TITLE,
-    "product": Lower("product__name"),
-    "status": tables.ranked("status", ReviewItem.Status.values),
-    "assignee": Lower(
-        Coalesce(
-            NullIf("assignee__name", Value("")),
-            "assignee__email",
-            output_field=CharField(),
+def _with_open_questions(requests):
+    """When each request's latest open question was asked, or None."""
+    return requests.annotate(
+        question_asked_at=Max(
+            "queries__raised_at",
+            filter=Q(
+                queries__submission_id=F("selected_submission_id"),
+                queries__status="open",
+            ),
         ),
-    ),
-    "submitted": "submitted_at",
-}
+    )
+
+
+def _request_group(item):
+    """Whose move a request is: the reviewer's, the integrator's, or nobody's.
+
+    A request under review that waits on a prerequisite is marked with
+    `held_by`, and is the integrator's when every prerequisite is theirs.
+    """
+    if item.status == ReviewItem.Status.APPROVED:
+        return "finished"
+    if item.status != ReviewItem.Status.IN_REVIEW:
+        return "theirs"
+    held = services.pending_prerequisites(item)
+    if not held:
+        return "yours"
+    names = [_prerequisite_label(item.program, waits_on)[0] for waits_on in held]
+    item.held_by = f"{readable_list(names)} {'is' if len(names) == 1 else 'are'}"
+    # Only a prerequisite under review is the reviewer's: a reply to every
+    # question puts it back there.
+    if any(
+        waits_on.review and waits_on.review.status == ReviewItem.Status.IN_REVIEW
+        for waits_on in held
+    ):
+        return "yours"
+    return "theirs"
+
+
+def _request_groups(items):
+    groups = {"yours": [], "theirs": [], "finished": []}
+    for item in items:
+        groups[_request_group(item)].append(item)
+    return groups
+
+
+def _wasa_notice(certification):
+    """An expired or soon-expiring certificate, with its days counted, else None."""
+    if certification.get("status") not in ("expired", "expiring"):
+        return None
+    days = (certification["valid_until"] - timezone.localdate()).days
+    return certification | {"days": abs(days)}
 
 
 @login_required
@@ -837,55 +851,35 @@ def organization_detail(request, slug):
     visible_reviews = (
         permissions.review_requests(request.user)
         .filter(organisation=organization)
-        .select_related(
-            "assignee",
-            "application",
-            "product",
-            "selected_submission",
-        )
-        .order_by("-submitted_at", "-pk")
+        .select_related("application__milestone", "selected_submission")
     )
-    sort, order = tables.sorting(request, REQUEST_COLUMNS, "-submitted")
-    # A draft is the integrator's unsent work, not yet a request.
-    requests = visible_reviews.exclude(status="draft").order_by(*order)
-    product_sort, product_order = tables.sorting(
-        request,
-        _product_columns(reviewer=True),
-        "-open",
-        param="product_sort",
-    )
-    products = (
-        _product_rows(request.user)
-        .filter(organisation=organization)
-        .order_by(*product_order)
-    )
-    if export := tables.export_format(request):
-        if request.GET.get("table") == "products":
-            return tables.export_response(
-                export,
-                f"products-{organization.slug}",
-                REVIEWER_PRODUCT_EXPORT_HEADER,
-                _product_export_rows(products, open_counts=True),
-            )
-        return tables.export_response(
-            export,
-            f"review-requests-{organization.slug}",
-            REQUEST_EXPORT_HEADER,
-            _request_export_rows(requests),
-        )
-    verification = visible_reviews.filter(kind=ReviewItem.Kind.ORGANISATION).first()
+    verification = _with_open_questions(
+        visible_reviews.filter(kind=ReviewItem.Kind.ORGANISATION),
+    ).first()
     withdrawn = (
         verification
         and organization.verification_status
         == Organisation.VerificationStatus.WITHDRAWN
     )
-    review_requests = _page(request, requests)
+    # A draft is the integrator's unsent work, not yet a request.
+    requests = _with_open_questions(
+        visible_reviews.exclude(status="draft").exclude(
+            kind=ReviewItem.Kind.ORGANISATION,
+        ),
+    ).order_by("pk")
+    by_product = {}
+    for item in requests:
+        by_product.setdefault(item.product_id, []).append(item)
+    products = list(_products(request.user).filter(organisation=organization))
+    for product in products:
+        product.requests = _request_groups(by_product.get(product.pk, []))
+        product.wasa = _wasa_notice(_certification_context(request, product))
+    products.sort(key=lambda product: (not product.requests["yours"], product.name))
+    if verification:
+        verification.group = _request_group(verification)
     # Verification is reviewed on a product page, so it waits for the first product.
     awaits_product = not organization.products.exists()
-    for item in review_requests:
-        item.awaits_product = (
-            awaits_product and item.kind == ReviewItem.Kind.ORGANISATION
-        )
+    wasa = Counter(product.wasa["status"] for product in products if product.wasa)
     return render(
         request,
         "experiences/organization_detail.html",
@@ -899,13 +893,15 @@ def organization_detail(request, slug):
                 if verification and verification.selected_submission
                 else {}
             ),
+            verification=verification,
             withdrawn_verification=verification if withdrawn else None,
             withdrawn_at=services.withdrawn_at(verification) if withdrawn else None,
             verification_awaits_product=awaits_product,
             products=products,
-            product_sort=product_sort,
-            review_requests=review_requests,
-            table_sort=sort,
+            waiting_count=sum(len(product.requests["yours"]) for product in products)
+            + (getattr(verification, "group", "") == "yours"),
+            wasa_expired=wasa["expired"],
+            wasa_expiring=wasa["expiring"],
         ),
     )
 
@@ -1294,9 +1290,10 @@ def product_detail(request, reference):
         _context(
             request,
             page_title=product.name,
-            nav="organizations",
+            nav="queue",
             experience_program=program,
-            product=product,
+            # _context keeps `product` for an integrator's own product.
+            staff_product=product,
             reference=product.reference,
             organisation=product.organisation,
             organisation_details=(
@@ -1352,6 +1349,65 @@ def product_detail(request, reference):
                 if program.sandbox_credentials
                 else "",
             )[:6],
+        ),
+    )
+
+
+@login_required
+def product_overview(request, reference):
+    """A product at a glance; its decisions stay on the product review page."""
+    _reviewer_required(request)
+    product = get_object_or_404(_products(request.user), reference=reference)
+    program = product.definition
+    visible_items = permissions.visible_reviews(request.user)
+    items = _with_open_questions(
+        visible_items.filter(_product_review_scope(product))
+        .exclude(kind=ReviewItem.Kind.PRODUCT)
+        .filter(permissions.shown_to_reviewers())
+        .select_related("application__milestone"),
+    ).order_by("pk")
+    general_access = permissions.has_access(request.user, "review", program=program.key)
+    credential = (
+        ProductCredential.objects.filter(product=product).first()
+        if general_access
+        else None
+    )
+    provisioning = provisioning_progress(product) if general_access else []
+    activity = AuditEvent.objects.filter(
+        Q(product=product)
+        | Q(item__in=[item for item in items if not item.product_id]),
+        item__in=visible_items,
+    )
+    certification = _certification_context(request, product)
+    return render(
+        request,
+        "experiences/product_overview.html",
+        _context(
+            request,
+            page_title=product.name,
+            nav="organizations",
+            experience_program=program,
+            # _context keeps `product` for an integrator's own product.
+            staff_product=product,
+            organisation=product.organisation,
+            requests=_request_groups(items),
+            certification=certification,
+            wasa=_wasa_notice(certification),
+            general_access=general_access,
+            credential=credential,
+            provisioning=provisioning,
+            provisioning_ready=all(
+                system.variant == "success" for system in provisioning
+            ),
+            can_manage_credentials=_can_provision(request.user, product, program.key)
+            or _can_revoke_credentials(request.user, credential)
+            or _can_retry_deprovisioning(request.user, product, credential)
+            or _can_reprovision(request.user, product, credential),
+            open_tickets=permissions.visible_tickets(request.user).filter(
+                product=product,
+                status__in=["open", "awaiting_integrator"],
+            )[:5],
+            activity=activity.select_related("actor", "item")[:10],
         ),
     )
 
@@ -1495,7 +1551,7 @@ def product_edit(request, reference):
 @login_required
 def overview(request, reference):
     if permissions.reviewer(request.user):
-        return redirect("experiences:product-detail", reference=reference)
+        return redirect("experiences:product-overview", reference=reference)
     product = _product(request, reference)
     visible_items = permissions.visible_reviews(request.user)
     activity = product.audit_events.all()

@@ -193,17 +193,11 @@ def test_every_table_sorts_by_each_heading_and_exports_its_rows(environment, cli
         published_at=timezone.now(),
         created_by=environment["admin"],
     )
-    organisation = reverse(
-        "experiences:organization-detail",
-        args=[environment["org"].slug],
-    )
     tables_on_pages = [
         (reverse("experiences:organizations"), {}, "organizations"),
         (reverse("experiences:products"), {}, "products"),
         (reverse("experiences:events"), {"period": "past"}, "events"),
         (reverse("experiences:pending-queries"), {}, "items"),
-        (organisation, {}, "review_requests"),
-        (organisation, {"table": "products"}, "products"),
     ]
     client.force_login(environment["reviewer"])
     for url, params, key in tables_on_pages:

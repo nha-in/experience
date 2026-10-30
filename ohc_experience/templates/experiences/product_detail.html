@@ -3,27 +3,27 @@
 {% load experience_ui %}
 
 {% block crumb_root %}
-  {% include 'components/crumb.html' with label='Organisations' %}
+  {% include 'components/crumb.html' with label='Review queue' %}
 {% endblock crumb_root %}
 {% block portal_hero %}
   <div class="ui-hero pt-4 pb-16">
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
         <a class="ui-hero-back mb-1 min-h-7"
-           href="{% url 'experiences:organization-detail' organisation.slug %}"><span aria-hidden="true">‹</span> {{ organisation.display_name }}</a>
-        <h1 class="ui-hero-title text-[28px] sm:text-[30px] sm:leading-9">{{ product.name }}</h1>
+           href="{% url 'experiences:queue' %}"><span aria-hidden="true">‹</span> Review queue</a>
+        <h1 class="ui-hero-title text-[28px] sm:text-[30px] sm:leading-9">{{ staff_product.name }}</h1>
         <p class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span class="inline-flex items-center gap-0.5"><span class="font-mono text-[13px] text-foreground">{{ reference }}</span>{% include 'components/copy_button.html' with value=reference label='product reference' %}</span>
-          {% if product.solution_type %}<span aria-hidden="true">·</span><span>{{ product.get_solution_type_display }}</span>{% endif %}
-          {% if product.registered_at %}<span aria-hidden="true">·</span><span>Registered {% if registration.selected_submission_id %}<a class="font-semibold text-primary hover:underline"
-   href="{% url 'experiences:submission' registration.pk registration.selected_submission_id %}">{{ product.registered_at|date:'d/m/Y' }}</a>{% else %}{{ product.registered_at|date:'d/m/Y' }}{% endif %}</span>{% endif %}
+          {% if staff_product.solution_type %}<span aria-hidden="true">·</span><span>{{ staff_product.get_solution_type_display }}</span>{% endif %}
+          {% if staff_product.registered_at %}<span aria-hidden="true">·</span><span>Registered {% if registration.selected_submission_id %}<a class="font-semibold text-primary hover:underline"
+   href="{% url 'experiences:submission' registration.pk registration.selected_submission_id %}">{{ staff_product.registered_at|date:'d/m/Y' }}</a>{% else %}{{ staff_product.registered_at|date:'d/m/Y' }}{% endif %}</span>{% endif %}
           {% if progress.total %}<span aria-hidden="true">·</span><span><strong class="font-semibold tabular-nums text-primary">{{ progress.approved }}/{{ progress.total }}</strong> milestones approved</span>{% endif %}
         </p>
       </div>
       <div class="ui-rise flex shrink-0 flex-wrap items-center gap-2.5">
         {% include 'experiences/partials/status.html' with status=organisation.verification_status label=organisation.get_verification_status_display %}
         <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline shadow-md"
-           href="{% url 'experiences:queue' %}?scope=ready&amp;q={{ reference|urlencode }}">Open in queue</a>
+           href="{% url 'experiences:queue' %}?scope=all&amp;q={{ reference|urlencode }}">Open in queue</a>
       </div>
     </div>
   </div>

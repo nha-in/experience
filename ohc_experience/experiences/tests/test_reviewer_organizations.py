@@ -1,17 +1,21 @@
 # ruff: noqa: F811
+from datetime import timedelta
 from http import HTTPStatus
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
+from ohc_experience.abdm.tests.test_workflow import approve_submitted
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.experiences.views import _wasa_notice
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.users.tests.factories import UserFactory
@@ -63,10 +67,10 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
     assert detail.status_code == HTTPStatus.OK
     assert detail.context["organization"] == organization
     assert list(detail.context["products"]) == [product]
-    assert verification in detail.context["review_requests"]
+    assert detail.context["verification"] == verification
     assert VERIFICATION_DOCUMENT_NUMBER.encode() in detail.content
-    staff_url = reverse("experiences:product-detail", args=[product.reference])
-    assert f'href="{staff_url}"'.encode() in detail.content
+    overview = reverse("experiences:product-overview", args=[product.reference])
+    assert f'href="{overview}"'.encode() in detail.content
     assert f'href="{product.get_absolute_url()}"'.encode() not in detail.content
 
 
@@ -95,7 +99,7 @@ def test_organization_pages_follow_category_review_scope(environment, client):
         ),
     )
     assert list(detail.context["products"]) == [product]
-    assert list(detail.context["review_requests"]) == [visible_item]
+    assert requests_on(detail) == [visible_item]
     assert VERIFICATION_DOCUMENT_NUMBER.encode() not in detail.content
 
     products = client.get(reverse("experiences:products"))
@@ -122,7 +126,7 @@ def test_staff_see_products_as_a_tab_of_organizations(environment, client):
     assert response.context["nav"] == "organizations"
     assert b'id="nav-products"' not in response.content
     assert f'href="{reverse("experiences:organizations")}"'.encode() in response.content
-    staff_url = reverse("experiences:product-detail", args=[product.reference])
+    staff_url = reverse("experiences:product-overview", args=[product.reference])
     assert f'href="{staff_url}"'.encode() in response.content
 
     client.force_login(environment["applicant"])
@@ -154,15 +158,19 @@ def test_open_request_counts_leave_out_drafts(environment, client):
         reverse("experiences:organization-detail", args=[organization.slug]),
     )
     # The organization's own page leads with the products that need a decision.
-    assert [
-        (product, product.open_count) for product in detail.context["products"]
-    ] == [
-        (product, 1),
-        (quiet, 0),
+    assert detail.context["products"] == [product, quiet]
+    assert detail.context["products"][0].requests["yours"] == [submitted]
+    assert "draft" not in {item.status for item in requests_on(detail)}
+
+
+def requests_on(page):
+    """Every request an organisation page lists under its products."""
+    return [
+        item
+        for product in page.context["products"]
+        for group in product.requests.values()
+        for item in group
     ]
-    requests = list(detail.context["review_requests"])
-    assert submitted in requests
-    assert "draft" not in {item.status for item in requests}
 
 
 @pytest.fixture
@@ -415,3 +423,88 @@ def test_integrators_cannot_access_reviewer_organizations(
     assert client.get(reverse(f"experiences:{route}", args=args)).status_code == (
         HTTPStatus.FORBIDDEN
     )
+
+
+def test_requests_are_grouped_by_whose_move_it_is(environment, client):
+    item = submit(environment)
+    page = reverse("experiences:organization-detail", args=[environment["org"].slug])
+    client.force_login(environment["admin"])
+
+    def group_of(item):
+        response = client.get(page)
+        return next(
+            name
+            for product in response.context["products"]
+            for name, items in product.requests.items()
+            if item in items
+        ), " ".join(response.content.decode().split())
+
+    assert group_of(item)[0] == "yours"
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+    services.decide(
+        item,
+        environment["reviewer"],
+        action="query",
+        note="Which cases cover consent expiry?",
+        field_key="functional_report",
+    )
+    group, html = group_of(item)
+    assert group == "theirs"
+    assert "They have not replied yet." in html
+    query = item.queries.get()
+    services.reply_query(query, environment["applicant"], "Case 3.")
+    assert group_of(item)[0] == "yours"
+    services.resolve_query(query, environment["reviewer"])
+    approve_submitted(environment)
+    assert group_of(item)[0] == "finished"
+
+
+def test_a_request_held_by_the_integrator_waits_with_them(environment, client):
+    """M2 cannot be decided while M1 waits on the integrator's reply."""
+    first = submit(environment, "m1")
+    second = submit(environment, "m2")
+    services.assign_review(first, environment["admin"], environment["reviewer"])
+    services.decide(
+        first,
+        environment["reviewer"],
+        action="query",
+        note="Which cases cover consent expiry?",
+        field_key="functional_report",
+    )
+    client.force_login(environment["admin"])
+    response = client.get(
+        reverse("experiences:organization-detail", args=[environment["org"].slug]),
+    )
+    [product] = response.context["products"]
+    assert product.requests["theirs"] == [first, second]
+    assert "Can be decided once M1 is approved." in " ".join(
+        response.content.decode().split(),
+    )
+    assert response.context["waiting_count"] == 0
+
+
+def test_the_product_overview_leads_to_the_review_page(environment, client):
+    item = submit(environment)
+    product = environment["product"]
+    overview = reverse("experiences:product-overview", args=[product.reference])
+    review = reverse("experiences:product-detail", args=[product.reference])
+
+    client.force_login(environment["applicant"])
+    assert client.get(overview).status_code == HTTPStatus.FORBIDDEN
+
+    client.force_login(environment["admin"])
+    response = client.get(overview)
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["requests"]["yours"] == [item]
+    assert f'href="{review}"'.encode() in response.content
+    assert product.name.encode() in response.content
+
+
+@pytest.mark.parametrize(
+    ("status", "days", "shown"),
+    [("valid", 40, None), ("expiring", 19, 19), ("expired", -28, 28)],
+)
+def test_wasa_notice_counts_days_either_side_of_expiry(status, days, shown):
+    valid_until = timezone.localdate() + timedelta(days=days)
+    notice = _wasa_notice({"status": status, "valid_until": valid_until})
+    assert (notice and notice["days"]) == shown

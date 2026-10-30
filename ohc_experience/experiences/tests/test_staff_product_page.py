@@ -27,6 +27,13 @@ def product_url(environment, product=None):
     return reverse("experiences:product-detail", args=[product.reference])
 
 
+def overview_url(environment):
+    return reverse(
+        "experiences:product-overview",
+        args=[environment["product"].reference],
+    )
+
+
 def track_url(environment, code, product=None):
     product = product or environment["product"]
     return reverse("experiences:track", args=[product.reference, code])
@@ -110,7 +117,7 @@ def test_staff_links_into_integrator_pages_land_on_staff_pages(environment, clie
     client.force_login(environment["admin"])
 
     assert client.get(environment["product"].get_absolute_url()).url == (
-        product_url(environment)
+        overview_url(environment)
     )
     response = client.get(track_url(environment, "HIE-CM"), {"milestone": "m1"})
     assert response.url == m1.get_absolute_url()
@@ -154,6 +161,7 @@ def test_staff_pages_never_offer_the_product_switcher(environment, client):
         reverse("experiences:ticket", args=[ticket.reference]),
         reverse("experiences:submission", args=[item.pk, item.selected_submission_id]),
         reverse("experiences:products"),
+        overview_url(environment),
         product_url(environment),
     ]
     client.force_login(environment["admin"])
@@ -162,7 +170,7 @@ def test_staff_pages_never_offer_the_product_switcher(environment, client):
         assert response.status_code == HTTPStatus.OK, url
         assert b'id="product-switcher' not in response.content, url
     assert (
-        product_url(environment).encode()
+        overview_url(environment).encode()
         in client.get(reverse("experiences:products")).content
     )
 

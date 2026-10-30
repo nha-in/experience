@@ -216,7 +216,7 @@ def test_staff_cannot_initiate_or_see_handoff_actions(environment, client, actor
 
     assert page.status_code == 200
     assert page.redirect_chain[0][0] == reverse(
-        "experiences:product-detail",
+        "experiences:product-overview",
         args=[environment["product"].reference],
     )
     assert "handoffs" not in page.context

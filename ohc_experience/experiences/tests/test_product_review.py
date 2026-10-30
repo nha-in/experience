@@ -1,4 +1,5 @@
 # ruff: noqa: F811
+import re
 from http import HTTPStatus
 
 import pytest
@@ -8,6 +9,7 @@ from django.urls import reverse
 from ohc_experience.abdm.demo import evidence_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
+from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import reverify
@@ -594,3 +596,34 @@ def test_integrators_cannot_post_product_review_decisions(environment, client):
     client.force_login(environment["applicant"])
     response = client.post(product_url(environment), batch_data([item]))
     assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_the_review_page_shows_its_product_to_staff(environment, client):
+    """Staff pages get no `product` from _context, so the page names its own."""
+    submit(environment, "m1")
+    submit(environment, "m2")
+    clear_callback_url(environment)
+    product = environment["product"]
+    assert product.callback_codes
+    client.force_login(environment["reviewer"])
+
+    response = client.get(
+        reverse("experiences:product-detail", args=[product.reference]),
+    )
+    html = " ".join(response.content.decode().split())
+    assert re.search(rf"<h1[^>]*>\s*{re.escape(product.name)}\s*</h1>", html)
+    assert product.get_solution_type_display() in html
+    registered = f"{product.registered_at:%d/%m/%Y}"
+    assert re.search(rf"Registered (<a[^>]*>)?{registered}", html)
+    bulk_form = html.split("data-product-bulk-form", 1)[1].split("</form>", 1)[0]
+    assert "No callback URL saved" in bulk_form
+
+
+def test_the_review_page_sits_under_the_review_queue(environment, client):
+    client.force_login(environment["reviewer"])
+    reference = environment["product"].reference
+    url = reverse("experiences:product-detail", args=[reference])
+    assert url == f"/review/{reference}/"
+
+    response = client.get(url)
+    assert response.context["nav"] == "queue"

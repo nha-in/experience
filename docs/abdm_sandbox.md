@@ -39,7 +39,7 @@ restricted to DEBUG environments. Do not run it against a database to retain.
 Local uploads use private MinIO. File type and size are validated before storage;
 uploads do not undergo antivirus scanning.
 
-Open http://localhost:8000/portal/ or http://localhost:8000/assess/dashboard/.
+Open http://localhost:8000/portal/ or http://localhost:8000/review/dashboard/.
 Demo accounts all use password `experience-demo-2026`:
 
 | Email | Access |
@@ -230,7 +230,7 @@ shares M1 with HIE-CM, and NHCX intentionally has no published milestones per v3
 There is no configured decision SLA. Production credential issuance is external:
 once a milestone exit is approved, staff with General/onboarding review approve
 access add the production client ID the gateway team issued, and the day it
-issued it, at `/assess/production/`. The screens carry NHA's own vocabulary from
+issued it, at `/review/production/`. The screens carry NHA's own vocabulary from
 the legacy portal: a **Production Approval** screen whose Approved tab is their
 register, and **Update production details** on each product. Adding or changing the ID is audited and emails the
 organisation's members a link to the product (not the ID itself); correcting the
@@ -242,16 +242,17 @@ integrators and retained as product outcomes.
 - `/accounts/signup/`: account creation, CAPTCHA and email verification.
 - `/onboarding/organisation/`, `/onboarding/product/`: initial registration.
 - `/portal/products/`: product list and switcher.
-- `/portal/products/<sandbox-id>/`: NHA staff view of a product. Its open
-  requests, milestones, registration and WASA each link to their review.
+- `/portal/products/<sandbox-id>/`: NHA staff overview of a product: its
+  requests by whose move it is, sandbox connection, WASA and open tickets.
 - `/products/<sandbox-id>/`: integrator overview and activity. Staff are
   redirected to the staff product view.
 - `/products/<sandbox-id>/tracks/<track>/`: milestone forms, queries and history.
   Staff are redirected to the selected milestone's review.
 - `/products/<sandbox-id>/credentials/`: audited reveal and callbacks.
 - `/portal/queries/`: highlighted pending queries.
-- `/assess/dashboard/`, `/assess/queue/`, `/assess/review/<id>/`: NHA review.
-- `/assess/production/`, `/assess/production/<sandbox-id>/`: production approval
+- `/review/dashboard/`, `/review/queue/`: NHA review.
+- `/review/<sandbox-id>/`: a product's review page, holding every decision form.
+- `/review/production/`, `/review/production/<sandbox-id>/`: production approval
   in two stages, switched as the review queue switches its own. *Pending*
   holds the exit requests still to be decided: the queue's rows,
   scoped to the reviewer's categories as the queue is, ordered by the queue's
@@ -259,7 +260,7 @@ integrators and retained as product outcomes.
   it waits on. Each row opens its review, which is still where a decision is
   taken. *Approved* is the register of every product with an approved exit,
   their production client IDs and issue dates, with a CSV export at
-  `/assess/production/export/`. General/onboarding review read to view, approve
+  `/review/production/export/`. General/onboarding review read to view, approve
   to add, change or remove.
 - `/portal/sessions-and-activities/`, `/portal/support/`: registrations and support threads.
 

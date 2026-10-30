@@ -1381,9 +1381,14 @@ def test_product_registrations_are_records_not_queue_requests(environment, clien
     client.force_login(environment["reviewer"])
 
     queue = client.get(reverse("experiences:queue")).context["page"]
-    organisation = client.get(
-        reverse("experiences:organization-detail", args=[environment["org"].slug]),
-    ).context["review_requests"]
+    organisation = [
+        item
+        for product in client.get(
+            reverse("experiences:organization-detail", args=[environment["org"].slug]),
+        ).context["products"]
+        for group in product.requests.values()
+        for item in group
+    ]
     record = client.get(registration.get_absolute_url())
 
     assert all(registration not in entry.reviews for entry in queue)

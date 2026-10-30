@@ -1,0 +1,52 @@
+{% comment %}
+  One request in plain words: its track and title, then where it stands.
+  Context: item, annotated with question_asked_at and marked by _request_group;
+  group, what _request_group returned.
+{% endcomment %}
+<div class="min-w-0 flex-1">
+  {% if item.application.milestone %}
+    <span class="mb-0.5 block font-mono text-xs text-soft-foreground">{% for code in item.application.milestone.track_codes %}{{ code }}{% if not forloop.last %} · {% endif %}{% endfor %}</span>
+  {% endif %}
+  <p class="text-sm font-semibold break-words">
+    {% if item.kind == 'organisation_verification' %}
+      Organisation verification
+    {% else %}
+      {{ item.title }}
+    {% endif %}
+  </p>
+  <p class="mt-0.5 text-xs text-soft-foreground">
+    {% if group == 'finished' %}
+      Approved on {{ item.decided_at|date:'d/m/Y' }}
+    {% elif item.status == 'rejected' %}
+      Sent back on {{ item.decided_at|date:'d/m/Y' }}. They have not resubmitted yet.
+    {% elif item.status == 'draft' %}
+      Withdrawn by the integrator. It returns for review when they resubmit.
+    {% elif item.status == 'query_raised' %}
+      Question asked{% if item.question_asked_at %} on {{ item.question_asked_at|date:'d/m/Y' }}{% endif %}. They have not replied yet.
+    {% elif group == 'theirs' %}
+      Can be decided once {{ item.held_by }} approved.
+    {% else %}
+      <span class="{% if item.age > 7 %}font-semibold text-red-700{% endif %}">
+        {% if item.age %}
+          Submitted {{ item.age }} day{{ item.age|pluralize }} ago
+        {% else %}
+          Submitted today
+        {% endif %}
+      </span>
+      {% if item.held_by %}· Can be decided once {{ item.held_by }} approved.{% endif %}
+    {% endif %}
+  </p>
+</div>
+{% if group == 'theirs' %}
+  <span class="ui-badge ui-badge--size-xs {% if item.status == 'draft' or item.status == 'in_review' %}ui-badge--neutral{% else %}ui-badge--warning{% endif %}">
+    {% if item.status == 'rejected' %}
+      Sent back
+    {% elif item.status == 'draft' %}
+      Withdrawn
+    {% elif item.status == 'in_review' %}
+      On hold
+    {% else %}
+      Question asked
+    {% endif %}
+  </span>
+{% endif %}

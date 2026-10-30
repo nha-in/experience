@@ -1,0 +1,57 @@
+{% comment %}
+  A product's requests by whose move it is. One Review button opens the
+  product review page, which holds every decision form.
+  Context: groups, from _request_groups; review_url.
+{% endcomment %}
+{% if groups.yours %}
+  <div class="flex min-h-12 flex-wrap items-center justify-between gap-3 border-t border-soft-border bg-soft-background/50 px-5 py-2">
+    <h3 class="ui-kicker">Waiting for you · {{ groups.yours|length }}</h3>
+    <a class="ui-btn ui-btn--default ui-btn--size-sm no-underline"
+       href="{{ review_url }}">Review</a>
+  </div>
+  <ul class="divide-y divide-soft-border border-t border-soft-border">
+    {% for item in groups.yours %}
+      <li class="flex items-center gap-3 px-5 py-3">
+        {% include 'experiences/partials/request_row.html' with group='yours' %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% if groups.theirs %}
+  <h3 class="ui-kicker border-t border-soft-border bg-soft-background/50 px-5 py-2.5">
+    Waiting for the integrator · {{ groups.theirs|length }}
+  </h3>
+  <ul class="divide-y divide-soft-border border-t border-soft-border">
+    {% for item in groups.theirs %}
+      <li class="flex items-center gap-3 px-5 py-3">
+        {% include 'experiences/partials/request_row.html' with group='theirs' %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% if groups.finished %}
+  <details class="group/finished border-t border-soft-border">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-5 py-2.5 transition-colors hover:bg-soft-background focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+      <h3 class="ui-kicker shrink-0">Finished · {{ groups.finished|length }}</h3>
+      <span class="min-w-0 flex-1 truncate text-xs text-soft-foreground group-open/finished:invisible">{% for item in groups.finished %}{% if item.kind == 'organisation_verification' %}Organisation verification{% elif item.application.milestone %}{{ item.application.milestone.definition.code }}{% else %}{{ item.title }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+      <span class="text-xs font-semibold text-primary"><span class="group-open/finished:hidden">Show</span><span class="hidden group-open/finished:inline">Hide</span></span>
+      <svg viewBox="0 0 24 24"
+           class="size-4 shrink-0 text-soft-foreground transition-transform group-open/finished:rotate-180 motion-reduce:transition-none"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="1.8"
+           stroke-linecap="round"
+           stroke-linejoin="round"
+           aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </summary>
+    <ul class="divide-y divide-soft-border border-t border-soft-border">
+      {% for item in groups.finished %}
+        <li class="flex items-center gap-3 px-5 py-3">
+          {% include 'experiences/partials/request_row.html' with group='finished' %}
+        </li>
+      {% endfor %}
+    </ul>
+  </details>
+{% endif %}

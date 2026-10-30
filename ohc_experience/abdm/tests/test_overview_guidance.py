@@ -99,7 +99,7 @@ def test_reviewer_does_not_receive_integrator_actions(client, environment):  # n
     assert response.redirect_chain == [
         (
             reverse(
-                "experiences:product-detail",
+                "experiences:product-overview",
                 args=[environment["product"].reference],
             ),
             HTTPStatus.FOUND,

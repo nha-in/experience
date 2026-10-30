@@ -100,7 +100,7 @@
               <tr class="group">
                 <td class="min-w-[200px]">
                   <a class="font-semibold text-foreground no-underline group-hover:text-primary"
-                     href="{% url 'experiences:product-detail' product.reference %}"
+                     href="{% url 'experiences:product-overview' product.reference %}"
                      data-row-link>{{ product.name }}</a>
                   <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
                 </td>
@@ -116,7 +116,7 @@
       <div class="divide-y divide-soft-border md:hidden">
         {% for product in products %}
           <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-             href="{% url 'experiences:product-detail' product.reference %}">
+             href="{% url 'experiences:product-overview' product.reference %}">
             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
                   aria-hidden="true">{{ product.name|first }}</span>
             <div class="min-w-0 flex-[1_1_12rem]">

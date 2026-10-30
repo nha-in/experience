@@ -1,0 +1,24 @@
+{% comment %}
+  An expired or soon-expiring WASA in one line. Context: wasa, from _wasa_notice.
+{% endcomment %}
+<p class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
+  {% if wasa.status == 'expired' %}
+    <span class="ui-badge ui-badge--destructive ui-badge--size-xs">WASA expired</span>
+  {% else %}
+    <span class="ui-badge ui-badge--warning ui-badge--size-xs">WASA expiring</span>
+  {% endif %}
+  <span>
+    {% if wasa.status == 'expired' %}
+      Expired on {{ wasa.valid_until|date:'d/m/Y' }}, {{ wasa.days }} day{{ wasa.days|pluralize }} ago.
+    {% elif wasa.days %}
+      Expires on {{ wasa.valid_until|date:'d/m/Y' }}, in {{ wasa.days }} day{{ wasa.days|pluralize }}.
+    {% else %}
+      Expires today.
+    {% endif %}
+    {% if wasa.pending_review %}
+      A renewal has been submitted.
+    {% else %}
+      No renewal submitted yet.
+    {% endif %}
+  </span>
+</p>

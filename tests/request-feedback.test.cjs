@@ -103,7 +103,7 @@ function createPage() {
   const message = new Element('p', { role: 'alert', 'data-request-error': '' });
   const dismiss = new Element('button', { type: 'button', 'data-dismiss-request': '' });
   const toast = new Element('div', { id: 'request-feedback', hidden: '' }, [message, dismiss]);
-  const link = new Element('a', { href: '/assess/queue/' });
+  const link = new Element('a', { href: '/review/queue/' });
   const form = new Element('form', { method: 'post' }, [
     new Element('input', { type: 'hidden', name: 'expected' }),
     new Element('input', { type: 'text', name: 'client_id' }),

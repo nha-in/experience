@@ -21,8 +21,8 @@ urlpatterns = [
     path("portal/products/", views.products, name="products"),
     path(
         "portal/products/<str:reference>/",
-        views.product_detail,
-        name="product-detail",
+        views.product_overview,
+        name="product-overview",
     ),
     path("portal/organizations/", views.organizations, name="organizations"),
     path(
@@ -86,23 +86,28 @@ urlpatterns = [
         views.submission,
         name="submission",
     ),
-    path("assess/dashboard/", views.assess_dashboard, name="assess-dashboard"),
-    path("assess/queue/", views.queue, name="queue"),
+    path("review/dashboard/", views.assess_dashboard, name="assess-dashboard"),
+    path("review/queue/", views.queue, name="queue"),
     path(
-        "assess/production/",
+        "review/production/",
         production_views.production_list,
         name="production-list",
     ),
     # Before the detail pattern, which would otherwise take "export" as a reference.
     path(
-        "assess/production/export/",
+        "review/production/export/",
         production_views.production_export,
         name="production-export",
     ),
     path(
-        "assess/production/<str:reference>/",
+        "review/production/<str:reference>/",
         production_views.production_detail,
         name="production-detail",
+    ),
+    path(
+        "review/<str:reference>/",
+        views.product_detail,
+        name="product-detail",
     ),
     path("portal/reviews/<int:pk>/open/", views.open_record, name="review-open"),
     path("portal/sessions-and-activities/", views.events, name="events"),

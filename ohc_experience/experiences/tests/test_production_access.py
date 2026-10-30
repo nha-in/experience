@@ -350,7 +350,7 @@ def test_integrator_and_reviewer_pages(environment, client):
         reverse("experiences:overview", args=[reference]),
     ).content.decode()
     assert "PROD-1" in content
-    assert "/assess/production/" not in content
+    assert reverse("experiences:production-list") not in content
     client.force_login(environment["reviewer"])
     detail_url = reverse("experiences:production-detail", args=[reference])
     content = client.get(

@@ -75,10 +75,10 @@ function createPage() {
 // Open link and an Assign button.
 function queueRow() {
   const parts = {
-    name: element('a', { href: '/assess/reviews/41/', 'data-row-link': '' }),
+    name: element('a', { href: '/review/APP-2026-00041/', 'data-row-link': '' }),
     reference: element('span'),
     status: element('span'),
-    open: element('a', { href: '/assess/reviews/41/' }),
+    open: element('a', { href: '/review/APP-2026-00041/' }),
     assign: element('button', { type: 'submit' }),
     unlinked: element('span'),
   };
@@ -127,7 +127,7 @@ test('Ctrl, Cmd and the middle button open the row in a new tab', () => {
   page.dispatch('click', row.status, { metaKey: true });
   page.dispatch('auxclick', row.status, { button: 1 });
   assert.equal(row.name.clicks, 0);
-  assert.deepEqual(page.opened, Array(3).fill(['/assess/reviews/41/', '_blank', 'noopener']));
+  assert.deepEqual(page.opened, Array(3).fill(['/review/APP-2026-00041/', '_blank', 'noopener']));
   // The middle press does not start autoscrolling over the row, as on a link.
   assert.ok(page.dispatch('mousedown', row.status, { button: 1 }).defaultPrevented);
   assert.ok(!page.dispatch('mousedown', row.status).defaultPrevented);

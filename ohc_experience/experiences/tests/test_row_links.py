@@ -209,7 +209,7 @@ def test_organisation_product_and_query_rows_open_their_pages(environment, clien
         args=[environment["org"].slug],
     )
     product = reverse(
-        "experiences:product-detail",
+        "experiences:product-overview",
         args=[environment["product"].reference],
     )
     # A card on a narrow screen is one link from edge to edge, so only the
@@ -222,7 +222,6 @@ def test_organisation_product_and_query_rows_open_their_pages(environment, clien
     assert row_links(queries) == [
         f"{item.get_absolute_url().split('#')[0]}#queries-{item.pk}",
     ]
-    page = client.get(organisation)
-    requests = [review.get_absolute_url() for review in page.context["review_requests"]]
-    assert item.get_absolute_url() in requests
-    assert row_links(page) == [product, *requests]
+    # The organisation page lists requests by product, with one Review button
+    # each, so none of its rows is a link of its own.
+    assert row_links(client.get(organisation)) == []

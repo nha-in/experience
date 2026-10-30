@@ -188,7 +188,10 @@ def test_staff_product_page_links_open_requests_to_their_cards(
     product = review_item.product
     url = reverse("experiences:product-detail", args=[product.reference])
     client.force_login(ReviewerFactory(is_nha_team=True))
-    assert client.get(product.get_absolute_url()).url == url
+    assert client.get(product.get_absolute_url()).url == reverse(
+        "experiences:product-overview",
+        args=[product.reference],
+    )
     response = client.get(url)
 
     assert response.status_code == HTTPStatus.OK

@@ -1,0 +1,154 @@
+{% extends 'experiences/base.html' %}
+
+{% block crumb_root %}
+  {% include 'components/crumb.html' with label='Organisations' %}
+{% endblock crumb_root %}
+{% block portal_hero %}
+  <div class="ui-hero pt-4 pb-16">
+    <div class="ui-hero-inner">
+      <div class="ui-rise min-w-0">
+        <a class="ui-hero-back mb-1 min-h-7"
+           href="{% url 'experiences:organization-detail' organisation.slug %}"><span aria-hidden="true">‹</span> {{ organisation.display_name }}</a>
+        <h1 class="ui-hero-title text-[28px] sm:text-[30px] sm:leading-9">{{ staff_product.name }}</h1>
+        <p class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span class="inline-flex items-center gap-0.5"><span class="font-mono text-[13px] text-foreground">{{ staff_product.reference }}</span>{% include 'components/copy_button.html' with value=staff_product.reference label='product reference' %}</span>
+          {% if staff_product.solution_type %}<span aria-hidden="true">·</span><span>{{ staff_product.get_solution_type_display }}</span>{% endif %}
+          {% if staff_product.registered_at %}<span aria-hidden="true">·</span><span>Registered {{ staff_product.registered_at|date:'d/m/Y' }}</span>{% endif %}
+          <span aria-hidden="true">·</span>
+          {% with count=requests.yours|length %}
+            {% if count %}
+              <span><strong class="font-semibold tabular-nums text-primary">{{ count }}</strong> request{{ count|pluralize }} waiting for you</span>
+            {% else %}
+              <span>Nothing waiting for you</span>
+            {% endif %}
+          {% endwith %}
+        </p>
+      </div>
+      <div class="ui-rise flex shrink-0 flex-wrap items-center gap-2.5">
+        {% include 'experiences/partials/status.html' with status=organisation.verification_status label=organisation.get_verification_status_display %}
+      </div>
+    </div>
+  </div>
+{% endblock portal_hero %}
+{% block canvas_padding %}pt-0{% endblock canvas_padding %}
+{% block portal_content %}
+  <div class="ui-float flex min-w-0 flex-col gap-5">
+    {% if wasa %}
+      <section class="ui-card ui-card--layered ui-rise px-5 py-3"
+               aria-label="WASA expiry">
+        {% include 'experiences/partials/wasa_notice.html' %}
+      </section>
+    {% endif %}
+    <section class="ui-card ui-card--layered ui-rise gap-0 overflow-hidden py-0"
+             aria-label="Requests">
+      {% if requests.yours or requests.theirs or requests.finished %}
+        {% url 'experiences:product-detail' staff_product.reference as review_url %}
+        <div class="-mt-px">{% include 'experiences/partials/request_groups.html' with groups=requests %}</div>
+      {% else %}
+        <p class="px-5 py-6 text-sm text-muted-foreground">Nothing has been submitted yet.</p>
+      {% endif %}
+    </section>
+    {% if general_access and experience_program.sandbox_credentials %}
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+               aria-labelledby="connection-title">
+        <div class="ui-card-content">
+          <h2 class="mb-3 text-base font-bold" id="connection-title">Sandbox connection</h2>
+          {% if credential %}
+            <dl class="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2.5 text-sm">
+              <dt class="text-soft-foreground">Client ID</dt>
+              <dd class="flex min-w-0 items-start gap-0.5 [&>button]:-my-1.5">
+                <span class="min-w-0 break-all font-mono">{{ credential.client_id }}</span>
+                {% include 'components/copy_button.html' with value=credential.client_id label='client ID' %}
+              </dd>
+              <dt class="text-soft-foreground">Callback</dt>
+              <dd class="min-w-0 break-all">
+                {% if credential.callback_url %}
+                  <span class="font-mono">{{ credential.callback_url }}</span>
+                {% else %}
+                  Not set
+                {% endif %}
+              </dd>
+              <dt class="text-soft-foreground">Status</dt>
+              <dd class="min-w-0">
+                {% if credential.status == 'revoked' %}
+                  Revoked. The integrator has no sandbox access.
+                {% elif provisioning and provisioning_ready %}
+                  Working. {% for system in provisioning %}{{ system.label }}{% if not forloop.last %} and {% endif %}{% endfor %} are set up.
+                {% elif provisioning %}
+                  {% for system in provisioning %}
+                    <span class="block">{{ system.label }}: {{ system.display }}</span>
+                  {% endfor %}
+                {% else %}
+                  Not set up yet.
+                {% endif %}
+              </dd>
+            </dl>
+          {% else %}
+            <p class="text-sm leading-relaxed text-soft-foreground">No credentials issued yet.</p>
+          {% endif %}
+          {% if can_manage_credentials %}
+            <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-2.5 no-underline"
+               href="{% url 'experiences:product-detail' staff_product.reference %}#connection">Manage credentials</a>
+          {% endif %}
+        </div>
+      </section>
+    {% endif %}
+    {% if certification.current or certification.source_submission or certification.review and certification.review.status != 'draft' %}
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+               aria-labelledby="wasa-title">
+        <div class="ui-card-content">
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <h2 class="text-base font-bold" id="wasa-title">WASA</h2>
+            <span class="ui-badge ui-badge--{{ certification.tone }} ui-badge--size-xs">{{ certification.status_label }}</span>
+          </div>
+          {% if certification.valid_until %}
+            <p class="text-sm text-soft-foreground">
+              Expiry <span class="tabular-nums">{{ certification.valid_until|date:'d/m/Y' }}</span>
+            </p>
+          {% endif %}
+          {% if certification.agency %}<p class="mt-1 break-words text-xs text-soft-foreground">{{ certification.agency }}</p>{% endif %}
+          {% if certification.certificate %}
+            <a class="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-primary hover:underline"
+               href="{% url 'experiences:attachment-preview' certification.certificate.pk certification.certificate.original_name %}"
+               target="_blank"
+               rel="noopener"
+               hx-boost="false">View approved certificate<span class="sr-only"> (opens in a new tab)</span></a>
+          {% endif %}
+        </div>
+      </section>
+    {% endif %}
+    {% if can_read_support %}
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+               aria-labelledby="tickets-title">
+        <div class="ui-card-content">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="text-base font-bold" id="tickets-title">Open support tickets</h2>
+            <a class="text-xs font-semibold text-primary hover:underline"
+               href="{% url 'experiences:support' %}">Support inbox</a>
+          </div>
+          <ul class="flex flex-col gap-2.5 text-sm">
+            {% for ticket in open_tickets %}
+              <li class="group flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <a class="font-mono text-xs font-semibold text-primary no-underline group-hover:underline"
+                   href="{% url 'experiences:ticket' ticket.reference %}"
+                   data-row-link>{{ ticket.reference }}</a>
+                <span class="min-w-0 break-words">{{ ticket.subject }}</span>
+              </li>
+            {% empty %}
+              <li class="text-muted-foreground">No open tickets.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
+    {% endif %}
+    <details class="ui-card ui-card--layered ui-card--sm ui-rise group/activity gap-0 py-0">
+      <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-6 py-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+        <h2 class="ui-card-title">Recent activity</h2>
+        <span class="text-xs font-semibold text-primary"><span class="group-open/activity:hidden">Show</span><span class="hidden group-open/activity:inline">Hide</span></span>
+      </summary>
+      <div class="border-t border-soft-border px-6 py-4">
+        {% include 'experiences/partials/activity_feed.html' with events=activity show_context=True empty_text='No activity on the requests you can review.' only %}
+      </div>
+    </details>
+  </div>
+{% endblock portal_content %}
