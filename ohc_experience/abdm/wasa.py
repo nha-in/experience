@@ -3,11 +3,19 @@
 from datetime import date
 from datetime import timedelta
 
+from django.db.models import F
+from django.db.models import OuterRef
+from django.db.models import Subquery
+from django.db.models import Value
+from django.db.models.fields.json import KT
+from django.db.models.functions import NullIf
 from django.utils import timezone
 
 from ohc_experience.experiences.definitions import AnswerWarning
 from ohc_experience.experiences.definitions import OutcomeDefinition
+from ohc_experience.experiences.models import OUTCOME_EXPIRING_DAYS
 from ohc_experience.experiences.models import FormSubmission
+from ohc_experience.experiences.models import ProductOutcome
 from ohc_experience.experiences.models import ProductOutcomeStatus
 from ohc_experience.experiences.models import ReviewItem
 
@@ -81,6 +89,22 @@ def approved_wasa_outcomes(product):
 
 def current_wasa(product):
     return next(iter(approved_wasa_outcomes(product)), None)
+
+
+def with_current_wasa(products):
+    """Products with the expiry and status of the WASA `current_wasa` picks.
+
+    ISO dates sort as text, so the latest audit still comes first.
+    """
+    current = (
+        ProductOutcome.objects.filter(product=OuterRef("pk"), outcome_type=WASA_OUTCOME)
+        .annotate(audit=NullIf(KT("data__wasa_date"), Value("")))
+        .order_by(F("audit").desc(nulls_last=True), "-issued_at", "-pk")
+    )
+    return products.annotate(
+        certificate_valid_until=Subquery(current.values("valid_until")[:1]),
+        certificate_status=Subquery(current.values("status")[:1]),
+    )
 
 
 def approved_wasa_submission(product, submission_id, *, require_valid=True):
@@ -213,7 +237,7 @@ def wasa_context(product):
         )
     elif current.is_expired or current.status == ProductOutcomeStatus.EXPIRED:
         status, label, tone = "expired", "Expired", "warning"
-    elif (expiry - timezone.localdate()).days <= 30:  # noqa: PLR2004
+    elif (expiry - timezone.localdate()).days <= OUTCOME_EXPIRING_DAYS:
         status, label, tone = "expiring", "Expiring soon", "warning"
     else:
         status, label, tone = "valid", "Valid", "success"

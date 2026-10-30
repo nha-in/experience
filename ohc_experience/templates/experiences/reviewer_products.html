@@ -18,7 +18,7 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
-    <form class="grid items-end gap-3 border-b border-soft-border px-5 py-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+    <form class="grid items-end gap-3 border-b border-soft-border px-5 py-4 sm:grid-cols-2 {% if wasa_choices %}xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% endif %}"
           method="get"
           action="{% url 'experiences:products' %}"
           role="search"
@@ -62,9 +62,33 @@
           </select>
         </div>
       </div>
+      <div class="min-w-0">
+        <label class="ui-label" for="product-track">Programme</label>
+        <div class="ui-select-wrapper">
+          <select class="ui-select" id="product-track" name="track">
+            <option value="">All programmes</option>
+            {% for track in track_choices %}
+              <option value="{{ track.code }}" {% if track.code == selected_track %}selected{% endif %}>{{ track.code }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      {% if wasa_choices %}
+        <div class="min-w-0">
+          <label class="ui-label" for="product-wasa">WASA</label>
+          <div class="ui-select-wrapper">
+            <select class="ui-select" id="product-wasa" name="wasa">
+              <option value="">Any WASA</option>
+              {% for value, label in wasa_choices %}
+                <option value="{{ value }}" {% if value == selected_wasa %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      {% endif %}
       <div class="flex items-center gap-4">
         <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11" type="submit">Filter</button>
-        {% if search or selected_organization or selected_solution_type %}
+        {% if search or selected_organization or selected_solution_type or selected_track or selected_wasa %}
           <a class="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline"
              href="{% url 'experiences:products' %}">Clear filters</a>
         {% endif %}
@@ -72,7 +96,7 @@
     </form>
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-soft-border px-5 py-3 md:border-b-0 md:px-6">
       <p class="text-sm font-semibold" aria-live="polite">
-        {{ products.paginator.count }} product{{ products.paginator.count|pluralize }}{% if search or selected_organization or selected_solution_type %} found{% endif %}
+        {{ products.paginator.count }} product{{ products.paginator.count|pluralize }}{% if search or selected_organization or selected_solution_type or selected_track or selected_wasa %} found{% endif %}
       </p>
       {% if products %}
         {% include "components/export_download.html" %}
@@ -92,6 +116,9 @@
               {% sort_header "Organisation" "organisation" %}
               {% sort_header "Solution type" "solution" %}
               {% sort_header "Open requests" "open" "text-right" descending_first=True %}
+              {% if wasa_choices %}
+                {% sort_header "WASA valid until" "wasa" %}
+              {% endif %}
               {% sort_header "Registered on" "registered" descending_first=True %}
             </tr>
           </thead>
@@ -107,6 +134,9 @@
                 <td class="max-w-[240px] text-muted-foreground">{{ product.organisation.display_name }}</td>
                 <td class="text-muted-foreground">{{ product.get_solution_type_display|default:'—' }}</td>
                 <td class="text-right tabular-nums">{{ product.open_count }}</td>
+                {% if wasa_choices %}
+                  <td class="whitespace-nowrap tabular-nums">{{ product.certificate_valid_until|date:'d/m/Y'|default:'—' }}</td>
+                {% endif %}
                 <td class="whitespace-nowrap tabular-nums">{{ product.registered_at|date:'d/m/Y'|default:'—' }}</td>
               </tr>
             {% endfor %}
@@ -128,6 +158,9 @@
             {% if product.open_count %}
               <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>
             {% endif %}
+            {% if product.certificate_valid_until %}
+              <span class="text-xs text-soft-foreground">WASA until {{ product.certificate_valid_until|date:'d/m/Y' }}</span>
+            {% endif %}
             {% if product.registered_at %}
               <span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>
             {% endif %}
@@ -138,9 +171,9 @@
       </div>
     {% else %}
       <div class="px-5 py-12 text-center">
-        {% if search or selected_organization or selected_solution_type %}
+        {% if search or selected_organization or selected_solution_type or selected_track or selected_wasa %}
           <h2 class="text-base font-semibold">No products match these filters</h2>
-          <p class="mt-2 text-sm text-soft-foreground">Try another name or reference, or widen the organisation or solution type.</p>
+          <p class="mt-2 text-sm text-soft-foreground">Try another name or reference, or widen the other filters.</p>
         {% else %}
           <h2 class="text-base font-semibold">No products available</h2>
           <p class="mt-2 text-sm text-soft-foreground">Products will appear when a review request matches your permissions.</p>

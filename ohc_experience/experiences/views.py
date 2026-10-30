@@ -1,3 +1,4 @@
+import math
 import re
 from collections import Counter
 from datetime import timedelta
@@ -29,7 +30,6 @@ from django.db.models.fields.json import KT
 from django.db.models.functions import Coalesce
 from django.db.models.functions import Lower
 from django.db.models.functions import NullIf
-from django.db.models.functions import TruncMonth
 from django.db.models.functions import Upper
 from django.http import FileResponse
 from django.http import Http404
@@ -58,6 +58,7 @@ from ohc_experience.integrations.selectors import provisioning_progress
 from ohc_experience.integrations.selectors import teardown_is_incomplete
 from ohc_experience.integrations.services import start_deprovisioning
 from ohc_experience.integrations.services import start_provisioning
+from ohc_experience.organisations.models import GOVERNMENT
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.support.models import Status
@@ -77,9 +78,12 @@ from .context_processors import products_for
 from .context_processors import selected_product
 from .forms import CallbackURLForm
 from .forms import SupportForm
+from .models import OUTCOME_EXPIRING_DAYS
 from .models import AuditEvent
 from .models import EventRegistration
+from .models import Product
 from .models import ProductCredential
+from .models import ProductOutcomeStatus
 from .models import ReviewItem
 from .models import ReviewQuery
 from .models import SubmissionStatus
@@ -101,7 +105,6 @@ from .queue_presentation import populate_queue_page
 from .queue_presentation import populate_verification_page
 from .queue_presentation import queue_requests
 from .queue_presentation import review_order
-from .queue_presentation import submitted_requests
 from .queue_presentation import verification_requests
 from .registry import get_program
 from .support_presentation import support_inbox
@@ -444,8 +447,37 @@ def _product_columns(*, reviewer=False):
         columns |= {
             "organisation": Lower(tables.organisation_name("organisation__")),
             "open": "open_count",
+            "wasa": "certificate_valid_until",
         }
     return columns
+
+
+#: The Products list's WASA filter, which the dashboard's WASA cards open.
+CERTIFICATE_STANDINGS = [
+    ("expired", "Expired"),
+    ("expiring", f"Expiring in {OUTCOME_EXPIRING_DAYS} days"),
+    ("active", "Active"),
+]
+
+
+def _certificate_standing(standing):
+    """Products whose current certificate reads as this on the product page's
+    WASA card. A revoked or undated certificate is none of them."""
+    today = timezone.localdate()
+    soon = today + timedelta(days=OUTCOME_EXPIRING_DAYS)
+    active = Q(certificate_status=ProductOutcomeStatus.ACTIVE)
+    return {
+        "expired": ~Q(certificate_status=ProductOutcomeStatus.REVOKED)
+        & (
+            Q(certificate_valid_until__lt=today)
+            | Q(
+                certificate_status=ProductOutcomeStatus.EXPIRED,
+                certificate_valid_until__isnull=False,
+            )
+        ),
+        "expiring": active & Q(certificate_valid_until__range=(today, soon)),
+        "active": active & Q(certificate_valid_until__gt=soon),
+    }[standing]
 
 
 PRODUCT_EXPORT_HEADER = (
@@ -724,7 +756,8 @@ def organizations(request):
 
 
 def _reviewer_products(request):
-    rows = _product_rows(request.user)
+    program = get_program()
+    rows = program.with_certificate(_product_rows(request.user))
     organization_choices = (
         permissions.visible_organisations(request.user)
         .filter(pk__in=_products(request.user).values("organisation"))
@@ -741,6 +774,20 @@ def _reviewer_products(request):
         rows = rows.filter(solution_type__contains=[solution_type])
     else:
         solution_type = ""
+    track_choices = permissions.allowed_tracks(request.user)
+    track = request.GET.get("track", "")
+    if track in {choice.code for choice in track_choices}:
+        rows = rows.filter(
+            permissions.track_products(program.track_map()[track]),
+        )
+    else:
+        track = ""
+    wasa_choices = CERTIFICATE_STANDINGS if program.applications.certification else []
+    wasa = request.GET.get("wasa", "")
+    if wasa in dict(wasa_choices):
+        rows = rows.filter(_certificate_standing(wasa))
+    else:
+        wasa = ""
     search = request.GET.get("q", "").strip()
     if search:
         rows = rows.filter(
@@ -772,6 +819,10 @@ def _reviewer_products(request):
             selected_organization=organization,
             solution_type_choices=solution_type_choices,
             selected_solution_type=solution_type,
+            track_choices=track_choices,
+            selected_track=track,
+            wasa_choices=wasa_choices,
+            selected_wasa=wasa,
             search=search,
         ),
     )
@@ -2481,6 +2532,18 @@ def _request_choices(program, user):
     ]
 
 
+def _programme_filter(code):
+    """Requests on a product in this programme, and the verification of every
+    organisation that owns one, so an organisation counts in each programme."""
+    products = Product.objects.filter(
+        permissions.track_products(get_program().track_map()[code]),
+    )
+    return Q(product__in=products) | Q(
+        kind=ReviewItem.Kind.ORGANISATION,
+        organisation__in=products.values("organisation"),
+    )
+
+
 def _item_filter(program, item):
     """The queue's Type filter: one request, every milestone, or one track's."""
     requests = _requests(program)
@@ -2497,133 +2560,201 @@ def _queue_url(**params):
     return f"{reverse('experiences:queue')}?{urlencode(params)}"
 
 
-#: Audit actions that approve a request; "Recorded" needs no reviewer.
-APPROVALS = ("Approved", "Approved (prerequisites overridden)", "Recorded")
-
-
-def _last_twelve_months(today):
-    """The first day of this month and of the eleven before it, oldest first."""
-    months = [today.replace(day=1)]
-    for _ in range(11):
-        months.insert(0, (months[0] - timedelta(days=1)).replace(day=1))
-    return months
-
-
-def _decisions_by_month(requests, months):
-    counts = Counter()
-    decisions = (
-        AuditEvent.objects.filter(
-            item__in=requests,
-            action__in=[*APPROVALS, "Rejected"],
-            created_at__date__gte=months[0],
-        )
-        .annotate(month=TruncMonth("created_at"))
-        .values("month", "action")
-        .annotate(count=Count("pk"))
-    )
-    for row in decisions:
-        outcome = "rejected" if row["action"] == "Rejected" else "approved"
-        counts[row["month"].date(), outcome] += row["count"]
-    return [
-        {
-            "start": month,
-            "approved": counts[month, "approved"],
-            "rejected": counts[month, "rejected"],
-        }
-        for month in months
-    ]
-
-
-def _bar_height(count, busiest):
-    return max(2, round(count / busiest * 80)) if count else 0
-
-
-def _status_card(user, item, title, caption, months):
-    """The queue's rows for one Type filter, and its decisions in each month.
-
-    An organisation holds a single verification, a row of the queue's
-    Organisations list. A milestone request belongs to one product, so a track
-    counts the Products list's rows.
-    """
-    item_filter = _item_filter(get_program(), item)
-    verifications = item == ReviewItem.Kind.ORGANISATION.value
-    requests = (
-        submitted_requests(user) if verifications else queue_requests(user)
-    ).filter(item_filter)
-
-    def rows(query):
-        return query.count() if verifications else grouped_requests(query).count()
-
-    pending = (
-        services.actionable_reviews()
-        if verifications
-        else _queue_scopes(requests, queue_requests(user))["ready"]
-    )
-
-    decisions = _decisions_by_month(
-        permissions.visible_reviews(user).filter(item_filter),
-        months,
-    )
-    busiest = max(month["approved"] + month["rejected"] for month in decisions)
-    for month in decisions:
-        month["approved_height"] = _bar_height(month["approved"], busiest)
-        month["rejected_height"] = _bar_height(month["rejected"], busiest)
+def _queue_tile(user, label, **params):
+    """A link into the queue, and how many rows it opens there."""
+    kind = params.get("kind", "products")
+    query, scopes = _queue_list(kind, user, params)
+    if params["scope"] != "all":
+        query = query.filter(scopes[params["scope"]])
     return {
-        "title": title,
-        "caption": caption,
-        "total": rows(requests),
-        "url": _queue_url(scope="all", item=item),
-        "tiles": [
-            {
-                "label": "Pending",
-                "variant": "info",
-                "count": rows(requests.filter(pending)),
-                "url": _queue_url(scope="ready", item=item),
-            },
-            {
-                "label": "Rejected",
-                "variant": "warning",
-                "count": rows(requests.filter(status=ReviewItem.Status.REJECTED)),
-                "url": _queue_url(scope="all", status="rejected", item=item),
-            },
-            {
-                "label": "Approved",
-                "variant": "success",
-                "count": rows(requests.filter(status=ReviewItem.Status.APPROVED)),
-                "url": _queue_url(scope="all", status="approved", item=item),
-            },
-        ],
-        "months": decisions,
-        "this_month": decisions[-1],
-        "busiest": busiest,
+        "label": label,
+        "count": _queue_count(kind, query),
+        "url": _queue_url(**params),
     }
+
+
+def _dashboard_queues(user, program, track):
+    """Where a programme's pending work waits, or every programme's without a
+    track: entity registrations and WASA renewals for onboarding reviewers,
+    and exits for anyone the track's reviews are open to."""
+    narrow = {"track": track.code} if track else {}
+    queues = {"exit": {"scope": "ready", "item": track.code if track else "milestones"}}
+    if permissions.has_access(user, "review", program=program.key):
+        queues["onboarding"] = {"kind": "organisations", "scope": "ready", **narrow}
+        if program.applications.certification:
+            queues["renewals"] = {"scope": "ready", "item": "certification", **narrow}
+    return queues
+
+
+def _queue_split(user, params):
+    """A queue's Pending rows, the new ones, and those back with a reply."""
+    new = _queue_tile(user, QUEUE_NEW[1], status=QUEUE_NEW[0], **params)
+    answered = _queue_tile(user, QUEUE_ANSWERED[1], status=QUEUE_ANSWERED[0], **params)
+    both = new["count"] + answered["count"]
+    return {
+        "pending": _queue_tile(user, "Pending", **params),
+        "new": new,
+        "answered": answered,
+        "tiles": [new, answered],
+        "new_share": round(new["count"] / both * 100) if both else 0,
+        "answered_share": round(answered["count"] / both * 100) if both else 0,
+    }
+
+
+def _wasa_standings(user, program, track):
+    """Products by their current WASA, each split by who runs them."""
+    products = program.with_certificate(_products(user))
+    if track:
+        products = products.filter(permissions.track_products(track))
+    standings = {}
+    for standing, label in CERTIFICATE_STANDINGS:
+        counts = products.filter(_certificate_standing(standing)).aggregate(
+            total=Count("pk"),
+            government=Count("pk", filter=Q(organisation__entity_type=GOVERNMENT)),
+        )
+        query = {"wasa": standing, "sort": "wasa"} | (
+            {"track": track.code} if track else {}
+        )
+        standings[standing] = {
+            "label": label,
+            "variant": STANDING_VARIANTS[standing],
+            "count": counts["total"],
+            "government": counts["government"],
+            "private": counts["total"] - counts["government"],
+            "url": f"{reverse('experiences:products')}?{urlencode(query)}",
+        }
+    return standings
+
+
+#: The dot beside each standing, as the product page's WASA card tones it.
+STANDING_VARIANTS = {"expired": "warning", "expiring": "neutral", "active": "success"}
+
+
+#: The compliance ring's radius, in the 92px box it is drawn in.
+RING_RADIUS = 34
+
+
+def _compliance(standings):
+    live = sum(standing["count"] for standing in standings.values())
+    percent = round(standings["active"]["count"] / live * 100) if live else 0
+    circumference = 2 * math.pi * RING_RADIUS
+    return {
+        "live": live,
+        "percent": percent,
+        "radius": RING_RADIUS,
+        "dash": f"{circumference * percent / 100:.1f} {circumference:.1f}",
+    }
+
+
+def _attention_cards(splits, standings):
+    """The figures that need a reviewer, highest impact first."""
+    cards = []
+    if standings:
+        cards += [
+            standings["expired"]
+            | {
+                "label": "WASA expired",
+                "note": "Live products without a valid WASA.",
+                "action": "View products",
+                "variant": "warning",
+            },
+            standings["expiring"]
+            | {
+                "label": f"WASA expiring in {OUTCOME_EXPIRING_DAYS} days",
+                "note": "Owners get automatic reminders.",
+                "action": "View products",
+                "variant": "neutral",
+            },
+        ]
+    onboarding, exit_ = splits.get("onboarding"), splits["exit"]
+    if onboarding:
+        cards.append(
+            onboarding["new"]
+            | {
+                "label": "New applications to verify",
+                "note": "Entity registrations awaiting verification.",
+                "action": "Start verification",
+            },
+        )
+    replies = exit_["answered"]["count"]
+    note = "Applicants answered your query."
+    if onboarding:
+        replies += onboarding["answered"]["count"]
+        note = (
+            f"Entities {onboarding['answered']['count']} · "
+            f"Exits {exit_['answered']['count']}"
+        )
+    cards += [
+        exit_["answered"]
+        | {
+            "label": "Clarifications received",
+            "count": replies,
+            "note": note,
+            "action": "Review responses",
+        },
+        exit_["new"]
+        | {
+            "label": "Exit requests to review",
+            "note": "New milestone requests.",
+            "action": "Review exits",
+        },
+    ]
+    return cards
 
 
 @login_required
 def assess_dashboard(request):
     _reviewer_required(request)
-    program = get_program()
-    months = _last_twelve_months(timezone.localdate())
+    user, program = request.user, get_program()
+    tracks = permissions.allowed_tracks(user)
+    track = next(
+        (track for track in tracks if track.code == request.GET.get("track")),
+        None,
+    )
+
+    def total(track):
+        return sum(
+            _queue_tile(user, "", **params)["count"]
+            for params in _dashboard_queues(user, program, track).values()
+        )
+
+    programmes = [{"code": "", "label": "All", "total": total(None)}] + [
+        {"code": choice.code, "label": choice.code, "total": total(choice)}
+        for choice in tracks
+    ]
+    busiest = max(programme["total"] for programme in programmes[1:]) if tracks else 0
+    for programme in programmes:
+        programme["url"] = "?" + urlencode({"track": programme["code"]})
+        programme["width"] = round(programme["total"] / busiest * 100) if busiest else 0
+    queues = _dashboard_queues(user, program, track)
+    pending = {
+        name: _queue_tile(user, "", **params)["count"]
+        for name, params in queues.items()
+    }
+    splits = {
+        name: _queue_split(user, params)
+        for name, params in queues.items()
+        if name != "renewals"
+    }
+    standings = _wasa_standings(user, program, track) if "renewals" in queues else None
     context = _context(
         request,
         # Superusers administer the portal; Staff & permissions is theirs alone.
         page_title="Administrator dashboard"
-        if request.user.is_superuser
+        if user.is_superuser
         else "Reviewer dashboard",
         nav="assess-dashboard",
-        sandbox_card=_status_card(
-            request.user,
-            ReviewItem.Kind.ORGANISATION.value,
-            "Sandbox access",
-            "Organisation verification",
-            months,
-        )
-        if permissions.has_access(request.user, "review", program=program.key)
-        else None,
-        track_cards=[
-            _status_card(request.user, track.code, track.code, track.name, months)
-            for track in permissions.allowed_tracks(request.user)
-        ],
+        programme=track.code if track else "",
+        programmes=programmes,
+        total=sum(pending.values()),
+        pending=pending,
+        queue_url=_queue_url(scope="ready", **({"item": track.code} if track else {})),
+        renewals_url=_queue_url(**queues["renewals"]) if standings else "",
+        onboarding_queue=splits.get("onboarding"),
+        exit=splits["exit"],
+        standings=standings,
+        compliance=_compliance(standings) if standings else None,
+        attention_cards=_attention_cards(splits, standings),
     )
     return render(request, "experiences/assess_dashboard.html", context)
 
@@ -2729,6 +2860,12 @@ def _status_choice(status):
     return status.value, status.label
 
 
+#: Pending's Status filter: a request is new until the integrator answers a
+#: query on it, and then waits on the reviewer to read the reply.
+QUEUE_NEW = ("new", "New")
+QUEUE_ANSWERED = ("answered", "Clarification received")
+
+
 #: Every state a chip shows, in the order a request moves through them.
 QUEUE_STATUSES = [
     _status_choice(ReviewItem.Status.IN_REVIEW),
@@ -2741,12 +2878,12 @@ def _queue_statuses(scope, kind="products"):
     """The Status filter's choices: the states this tab's chips show.
 
     Pending holds only what a reviewer can decide now, which is all under
-    review, so it has nothing to filter. Done holds everything else. An
-    organisation's verification waits on nothing, so the Organisations list
-    has no Waiting on prerequisites.
+    review, so it tells new requests from those the integrator has answered a
+    query on. Done holds everything else. An organisation's verification waits
+    on nothing, so the Organisations list has no Waiting on prerequisites.
     """
     if scope == "ready":
-        return []
+        return [QUEUE_NEW, QUEUE_ANSWERED]
     return [
         choice
         for choice in QUEUE_STATUSES
@@ -2788,7 +2925,17 @@ def _verification_scopes():
 
 
 def _queue_status_filter(status):
-    """The requests whose chip shows this state."""
+    """The requests whose chip shows this state, or that Pending's filter names."""
+    if status in (QUEUE_NEW[0], QUEUE_ANSWERED[0]):
+        answered = Q(
+            pk__in=ReviewQuery.objects.filter(
+                status="answered",
+                submission=F("item__selected_submission"),
+            ).values("item"),
+        )
+        if status == QUEUE_NEW[0]:
+            answered = ~answered
+        return Q(status=ReviewItem.Status.IN_REVIEW) & answered
     if status == QUEUE_WAITING[0]:
         return Q(status=ReviewItem.Status.IN_REVIEW) & services.waiting_reviews()
     if status == ReviewItem.Status.IN_REVIEW:
@@ -2902,6 +3049,8 @@ def _queue_list(kind, user, params):
         query = visible = queue_requests(user)
     if params.get("status"):
         query = query.filter(_queue_status_filter(params["status"]))
+    if params.get("track"):
+        query = query.filter(_programme_filter(params["track"]))
     search = params.get("q", "").strip()
     if kind == "organisations":
         if search:
@@ -2926,8 +3075,9 @@ def _kind_switch(params, kind):
     """Both lists: this one as it is filtered, and the other on the same tab
     with the same search, the filter both lists have."""
     shared = {"scope": params["scope"]}
-    if params.get("q"):
-        shared["q"] = params["q"]
+    for name in ("q", "track"):
+        if params.get(name):
+            shared[name] = params[name]
     switch = []
     for value, (label, icon) in QUEUE_KINDS.items():
         if value == kind:
@@ -2947,8 +3097,8 @@ def queue(request):
     params = request.GET.copy()
     params.pop("page", None)
     if verifies and params.get("item") == ReviewItem.Kind.ORGANISATION:
-        # The dashboard's Sandbox access card asks the Type filter for
-        # verifications, which have a list of their own.
+        # Links from the dashboard's old Sandbox access card ask the Type filter
+        # for verifications, which have a list of their own.
         params.pop("item")
         params["kind"] = "organisations"
         return redirect(f"{reverse('experiences:queue')}?{params.urlencode()}")
@@ -2962,10 +3112,13 @@ def queue(request):
     if scope not in ("ready", "decided", "all"):
         scope = "ready"
     params["scope"] = scope
-    # A tab drops a status it has no chip for, as Pending does every status.
+    # A tab drops a status its Status filter does not offer.
     statuses = _queue_statuses(scope, kind)
     if params.get("status", "") not in dict(statuses):
         params.pop("status", None)
+    tracks = permissions.allowed_tracks(request.user)
+    if params.get("track") not in {track.code for track in tracks}:
+        params.pop("track", None)
     query, scopes = _queue_list(kind, request.user, params)
     stage_counts = {
         stage: _queue_count(kind, query.filter(stage_filter))
@@ -3024,7 +3177,7 @@ def queue(request):
             filters=params,
             filter_query=params.urlencode(),
             request_choices=_request_choices(program, request.user),
-            track_choices=permissions.allowed_tracks(request.user),
+            track_choices=tracks,
         ),
     )
 

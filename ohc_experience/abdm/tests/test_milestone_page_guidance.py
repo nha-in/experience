@@ -300,18 +300,21 @@ def test_functional_testing_comes_before_the_wasa_audit(environment, client):  #
     )
 
 
-def test_the_dashboard_says_what_each_chart_counts(environment, client):  # noqa: F811
+def test_the_dashboard_names_each_section(environment, client):  # noqa: F811
     client.force_login(environment["reviewer"])
 
     html = client.get(reverse("experiences:assess-dashboard")).content.decode()
 
     for title in (
-        "Sandbox access",
-        "Organisation verification",
-        "Decisions per month",
-        "so far:",
+        "Total pending actions",
+        "WASA compliance",
+        "Needs your attention",
+        "Sandbox onboarding",
+        "Sandbox exit",
     ):
         assert title in html
+    # The integrator's registration steps are not a reviewer's.
+    assert "Registration progress" not in html
 
 
 def test_the_dashboard_is_named_for_who_reads_it(environment, client):  # noqa: F811

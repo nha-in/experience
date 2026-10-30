@@ -97,9 +97,10 @@ def test_review_category_filters_lists_counts_details_downloads_and_history(
         "PHR",
     ]
     response = client.get(reverse("experiences:assess-dashboard"))
-    assert response.context["sandbox_card"] is None
-    [card] = response.context["track_cards"]
-    assert (card["title"], card["tiles"][0]["count"]) == ("PHR", 1)
+    assert response.context["onboarding_queue"] is None
+    assert response.context["standings"] is None
+    assert [choice["code"] for choice in response.context["programmes"]] == ["", "PHR"]
+    assert response.context["exit"]["pending"]["count"] == 1
     assert b'id="nav-support"' not in response.content
     assert b'id="nav-events"' not in response.content
     assert client.get(hicm.get_absolute_url()).status_code == 404

@@ -133,6 +133,14 @@ def track_items(track):
     return query
 
 
+def track_products(track):
+    """Products that applied for any of a track's milestones."""
+    query = Q(pk__in=[])
+    for key in track.keys:
+        query |= Q(applied_milestones__contains=[f"{track.code}:{key}"])
+    return query
+
+
 def visible_reviews(user, action="read"):
     query = ReviewItem.objects.all()
     if not user.is_authenticated or not user.is_active:

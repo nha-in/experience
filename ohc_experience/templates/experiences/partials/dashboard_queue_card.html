@@ -1,0 +1,32 @@
+<section class="flex flex-col gap-3" aria-labelledby="{{ key }}-heading">
+  <h2 class="text-sm font-semibold text-muted-foreground" id="{{ key }}-heading">{{ heading }}</h2>
+  <div class="ui-card ui-card--layered ui-card--sm ui-rise">
+    <div class="ui-card-header grid-cols-[minmax(0,1fr)_auto] gap-x-4">
+      <h3 class="ui-card-title">{{ title }}</h3>
+      <p class="ui-card-description col-start-1">{{ caption }}</p>
+      <p class="col-start-2 row-span-2 row-start-1 self-center text-sm font-semibold text-primary tabular-nums">
+        {{ split.pending.count }} pending
+      </p>
+    </div>
+    <div class="ui-card-content grid grid-cols-2 gap-2.5">
+      {% for tile in split.tiles %}
+        <a class="ui-stat"
+           href="{{ tile.url }}"
+           aria-label="{{ tile.label }} in {{ title }}: {{ tile.count }}">
+          <span class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            {% include "components/status_dot.html" with variant='primary' %}
+          {{ tile.label }}</span>
+          <span class="ui-stat-figure">{{ tile.count }}</span>
+        </a>
+      {% endfor %}
+    </div>
+    <div class="ui-card-content flex flex-col gap-3">
+      <span class="ui-meter" aria-hidden="true"><span class="ui-meter-fill" style="width: {{ split.new_share }}%"></span></span>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-xs text-muted-foreground">Clarifications are {{ split.answered_share }}% of this queue</p>
+        <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
+           href="{{ split.pending.url }}">Review queue<span class="sr-only">: {{ title }}</span></a>
+      </div>
+    </div>
+  </div>
+</section>

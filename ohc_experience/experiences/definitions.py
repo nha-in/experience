@@ -13,6 +13,9 @@ from urllib.parse import quote
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError
+from django.db.models import CharField
+from django.db.models import DateField
+from django.db.models import Value
 
 from .models import FormReuseScope
 from .models import ReviewItem
@@ -831,6 +834,15 @@ class ProgramDefinition:
     def certification_context(cls, product):
         """Optional product certification summary supplied by the program."""
         return {}
+
+    @classmethod
+    def with_certificate(cls, products):
+        """Products with their current certificate's `certificate_valid_until`
+        and `certificate_status`, both empty where the program issues none."""
+        return products.annotate(
+            certificate_valid_until=Value(None, DateField()),
+            certificate_status=Value(None, CharField()),
+        )
 
     @classmethod
     def milestone_predecessors(cls, key, organisation=None):

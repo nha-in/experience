@@ -613,6 +613,10 @@ class ApplicationFormUse(models.Model):
             )
 
 
+#: Days before its expiry that a dated outcome shows as expiring.
+OUTCOME_EXPIRING_DAYS = 30
+
+
 class ProductOutcomeStatus(models.TextChoices):
     ACTIVE = "active", _("Active")
     EXPIRED = "expired", _("Expired")

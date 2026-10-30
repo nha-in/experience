@@ -5,7 +5,18 @@
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
         <h1 class="ui-hero-title">Dashboard</h1>
-        <p class="ui-hero-lede">{{ today|date:'l, d/m/Y' }}</p>
+        {% if programmes|length > 1 %}
+          <p class="ui-hero-caption mt-4" id="programme-caption">Programme</p>
+          <nav class="ui-switch" aria-labelledby="programme-caption">
+            {% for choice in programmes %}
+              <a class="ui-switch-option"
+                 href="{{ choice.url }}"
+                 {% if choice.code == programme %}aria-current="page"{% endif %}>
+                {{ choice.label }} <span class="ml-1 text-soft-foreground tabular-nums">{{ choice.total }}</span>
+              </a>
+            {% endfor %}
+          </nav>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -13,15 +24,140 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float flex flex-col gap-6">
-    {% if sandbox_card %}
-      {% include 'experiences/partials/dashboard_status_card.html' with card=sandbox_card %}
-    {% endif %}
-    {% if track_cards %}
-      <div class="grid items-start gap-6 lg:grid-cols-2">
-        {% for card in track_cards %}
-          {% include 'experiences/partials/dashboard_status_card.html' %}
+    <div class="grid gap-6 {% if compliance %}lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]{% endif %}">
+      <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+               aria-labelledby="total-title">
+        <div class="ui-card-content grid gap-x-8 gap-y-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+          <div>
+            <h2 class="text-xs font-semibold text-muted-foreground" id="total-title">Total pending actions</h2>
+            <p class="mt-1 text-5xl leading-none font-extrabold tracking-[-0.03em] tabular-nums">{{ total }}</p>
+            <p class="mt-2 text-sm text-muted-foreground">Awaiting a reviewer's decision</p>
+            <a class="ui-btn ui-btn--default ui-btn--size-sm mt-4 no-underline"
+               href="{{ queue_url }}">Open review queue</a>
+          </div>
+          {% if programmes|length > 2 %}
+            <dl class="grid gap-2.5 text-xs" aria-label="Pending actions by programme">
+              {% for choice in programmes|slice:'1:' %}
+                <div class="grid grid-cols-[3.5rem_minmax(0,1fr)_2rem] items-center gap-3 {% if programme and choice.code != programme %}opacity-50{% endif %}">
+                  <dt class="font-medium">{{ choice.label }}</dt>
+                  <dd class="ui-meter" aria-hidden="true">
+                    <span class="ui-meter-fill" style="width: {{ choice.width }}%"></span>
+                  </dd>
+                  <dd class="text-right tabular-nums">{{ choice.total }}</dd>
+                </div>
+              {% endfor %}
+            </dl>
+          {% endif %}
+          <ul class="flex flex-wrap gap-2 text-xs text-muted-foreground sm:col-span-2">
+            {% if onboarding_queue %}
+              <li class="rounded-lg bg-soft-background px-3 py-1.5">
+                <span class="font-semibold text-foreground tabular-nums">{{ pending.onboarding }}</span> Onboarding
+              </li>
+            {% endif %}
+            <li class="rounded-lg bg-soft-background px-3 py-1.5">
+              <span class="font-semibold text-foreground tabular-nums">{{ pending.exit }}</span> Exit
+            </li>
+            {% if standings %}
+              <li class="rounded-lg bg-soft-background px-3 py-1.5">
+                <span class="font-semibold text-foreground tabular-nums">{{ pending.renewals }}</span> WASA renewals
+              </li>
+            {% endif %}
+          </ul>
+        </div>
+      </section>
+      {% if compliance %}
+        <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+                 aria-labelledby="compliance-title">
+          <div class="ui-card-content flex h-full items-center gap-5">
+            <svg class="shrink-0"
+                 width="92"
+                 height="92"
+                 viewBox="0 0 92 92"
+                 role="img"
+                 aria-label="{{ compliance.percent }}% of live products hold an active WASA">
+              <circle cx="46" cy="46" r="{{ compliance.radius }}" fill="none" class="stroke-muted-background" stroke-width="10" />
+              <circle cx="46" cy="46" r="{{ compliance.radius }}" fill="none" class="stroke-emerald-500" stroke-width="10" stroke-linecap="round" stroke-dasharray="{{ compliance.dash }}" transform="rotate(-90 46 46)" />
+              <text x="46" y="52" text-anchor="middle" class="fill-foreground text-[17px] font-bold">{{ compliance.percent }}%</text>
+            </svg>
+            <div class="min-w-0">
+              <h2 class="text-sm font-semibold" id="compliance-title">WASA compliance</h2>
+              <p class="text-xs text-muted-foreground">{{ compliance.live }} live product{{ compliance.live|pluralize }}</p>
+              <ul class="mt-2 grid gap-1 text-xs text-muted-foreground">
+                {% for key, standing in standings.items %}
+                  <li class="flex items-center gap-1.5">
+                    {% include "components/status_dot.html" with variant=standing.variant %}
+                    <span>{{ standing.label }} <span class="font-semibold text-foreground tabular-nums">{{ standing.count }}</span></span>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </section>
+      {% endif %}
+    </div>
+    <section class="flex flex-col gap-3" aria-labelledby="attention-title">
+      <h2 class="text-sm font-semibold text-muted-foreground" id="attention-title">Needs your attention</h2>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {% for card in attention_cards %}
+          <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+                   aria-labelledby="attention-{{ forloop.counter }}">
+            <div class="ui-card-content flex h-full flex-col gap-1.5">
+              <span class="ui-stat-figure">{{ card.count }}</span>
+              <h3 class="flex items-center gap-1.5 text-sm font-semibold"
+                  id="attention-{{ forloop.counter }}">
+                {% include "components/status_dot.html" with variant=card.variant|default:'primary' %}
+                {{ card.label }}
+              </h3>
+              <p class="flex-1 text-xs text-muted-foreground">{{ card.note }}</p>
+              <a class="ui-btn {% if card.variant %}ui-btn--outline{% else %}ui-btn--default{% endif %} ui-btn--size-sm mt-3 self-start no-underline"
+                 href="{{ card.url }}">{{ card.action }}<span class="sr-only">: {{ card.label }}</span></a>
+            </div>
+          </section>
         {% endfor %}
       </div>
+    </section>
+    <div class="grid items-start gap-6 {% if onboarding_queue %}lg:grid-cols-2{% endif %}">
+      {% if onboarding_queue %}
+        {% include 'experiences/partials/dashboard_queue_card.html' with key='onboarding' heading='Sandbox onboarding' title='Entity registered' caption='Pending verification' split=onboarding_queue %}
+      {% endif %}
+      {% include 'experiences/partials/dashboard_queue_card.html' with key='exit' heading='Sandbox exit' title='Exit form submitted' caption='Pending review' split=exit %}
+    </div>
+    {% if standings %}
+      <section class="flex flex-col gap-3" aria-labelledby="wasa-heading">
+        <h2 class="text-sm font-semibold text-muted-foreground" id="wasa-heading">Live products · WASA compliance</h2>
+        <div class="ui-card ui-card--layered ui-card--sm ui-rise">
+          <div class="ui-card-header grid-cols-[minmax(0,1fr)_auto] gap-x-4">
+            <h3 class="ui-card-title">WASA status</h3>
+            <p class="ui-card-description col-start-1">Each live product's current certificate</p>
+            <p class="col-start-2 row-span-2 row-start-1 self-center text-sm font-semibold text-primary tabular-nums">
+              {{ compliance.live }} live product{{ compliance.live|pluralize }}
+            </p>
+          </div>
+          <div class="ui-card-content grid gap-2.5 sm:grid-cols-3">
+            {% for key, standing in standings.items %}
+              <div class="flex flex-col gap-2 rounded-xl bg-soft-background px-3.5 pt-3 pb-3.5">
+                <span class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  {% include "components/status_dot.html" with variant=standing.variant %}
+                {{ standing.label }}</span>
+                <span class="ui-stat-figure">{{ standing.count }}</span>
+                <p class="text-xs text-muted-foreground tabular-nums">
+                  Government <span class="font-semibold text-foreground">{{ standing.government }}</span> · Private <span class="font-semibold text-foreground">{{ standing.private }}</span>
+                </p>
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  {% if key == 'expired' %}
+                    <a class="text-muted-foreground hover:text-primary hover:underline"
+                       href="{{ renewals_url }}">Renewal requests: <span class="font-semibold text-foreground">{{ pending.renewals }} pending</span></a>
+                  {% elif key == 'active' %}
+                    <span class="text-muted-foreground">{{ compliance.percent }}% of live products compliant</span>
+                  {% endif %}
+                  <a class="font-semibold text-primary no-underline hover:underline"
+                     href="{{ standing.url }}">View products<span class="sr-only">: WASA {{ standing.label|lower }}</span></a>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
     {% endif %}
   </div>
 {% endblock portal_content %}

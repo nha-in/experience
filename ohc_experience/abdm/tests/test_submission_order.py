@@ -14,6 +14,7 @@ from ohc_experience.abdm.tests.test_workflow import approve_submitted
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import files
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import pending_exits
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
@@ -367,12 +368,13 @@ def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
     assert "2 waiting on this" in queue_text(client)
     assert "Waiting on M1 · under review" not in queue_text(client)
     assert "Waiting on M1 · under review" in queue_text(client, scope="all")
-    dashboard = client.get(reverse("experiences:assess-dashboard")).context
-    pending = {
-        card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
-    }
     # UHI waits on M1, so nothing in it can be decided yet.
-    assert pending == {"HIE-CM": 1, "PHR": 1, "UHI": 0, "NHCX": 0}
+    assert pending_exits(client, "HIE-CM", "PHR", "UHI", "NHCX") == {
+        "HIE-CM": 1,
+        "PHR": 1,
+        "UHI": 0,
+        "NHCX": 0,
+    }
 
     approve_submitted(environment)
 

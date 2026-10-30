@@ -3,118 +3,204 @@ from datetime import timedelta
 import pytest
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.html import escape
 
+from ohc_experience.abdm.demo import organisation_data
 from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_reject_reasons import DOCUMENTS
+from ohc_experience.abdm.tests.test_wasa_lifecycle import certificate_data
+from ohc_experience.abdm.tests.test_wasa_lifecycle import decide
+from ohc_experience.abdm.tests.test_wasa_lifecycle import request_milestone
+from ohc_experience.abdm.tests.test_wasa_lifecycle import request_renewal
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
+from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_claims
+from ohc_experience.abdm.wasa import current_wasa
 from ohc_experience.experiences import workflows as services
-from ohc_experience.experiences.views import _last_twelve_months
-from ohc_experience.experiences.views import _status_card
+from ohc_experience.experiences.models import ProductOutcome
+from ohc_experience.organisations.models import GOVERNMENT
+from ohc_experience.organisations.models import Membership
+from ohc_experience.organisations.models import Organisation
+from ohc_experience.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
 
-
-def queue_rows(client, url):
-    # Sandbox access asks the Type filter for verifications, which the queue
-    # sends on to its Organisations list.
-    return client.get(url, follow=True).context["page"].paginator.count
+PROGRAMMES = ("", "HIE-CM", "PHR", "UHI", "NHCX")
 
 
-def figures(card):
-    return card["total"], [tile["count"] for tile in card["tiles"]]
+def dashboard(client, track=""):
+    return client.get(reverse("experiences:assess-dashboard"), {"track": track}).context
 
 
-def test_every_track_figure_is_the_row_count_of_the_queue_it_opens(
+def rows(client, url):
+    """How many rows the page a dashboard link opens lists."""
+    context = client.get(url).context
+    if "stage_counts" in context:
+        return context["stage_counts"][context["queue_scope"]]
+    return context["products"].paginator.count
+
+
+def split_figures(split):
+    return (
+        split["pending"]["count"],
+        split["new"]["count"],
+        split["answered"]["count"],
+    )
+
+
+def links(context):
+    for split in (context["onboarding_queue"], context["exit"]):
+        yield split["pending"]
+        yield split["new"]
+        yield split["answered"]
+    yield from context["standings"].values()
+
+
+def test_every_figure_is_the_row_count_of_the_page_it_opens(
     environment,  # noqa: F811
     client,
 ):
     approve(environment, "m1")
-    submit(environment, "m2")
+    m2 = submit(environment, "m2")
+    reviewer = environment["reviewer"]
+    services.decide(m2, reviewer, action="query", note="Which tests cover it?")
+    services.reply_query(m2.queries.get(), environment["applicant"], "Cases 2 and 5.")
     submit(environment, "uhi1")
     locker = submit(environment, "p1")
-    services.assign_review(locker, environment["admin"], environment["reviewer"])
-    services.decide(locker, environment["reviewer"], action="reject", reason=DOCUMENTS)
+    services.decide(locker, reviewer, action="reject", reason=DOCUMENTS)
     submit_claims(environment, "m1")
     submit_claims(environment, "m3")
     submit_claims(environment, "nhcx_payer")
     client.force_login(environment["admin"])
 
-    response = client.get(reverse("experiences:assess-dashboard"))
-    cards = [response.context["sandbox_card"], *response.context["track_cards"]]
-
-    # Total, then Pending, Rejected and Approved. Sandbox access counts the
-    # organisation's single verification, not the three products it reaches.
-    # NHCX waits on M1 and M3, so nothing in it can be decided yet.
-    assert {card["title"]: figures(card) for card in cards} == {
-        "Sandbox access": (1, [0, 0, 1]),
-        "HIE-CM": (2, [2, 0, 1]),
-        "PHR": (1, [0, 1, 0]),
-        "UHI": (1, [0, 0, 1]),
-        "NHCX": (1, [0, 0, 0]),
-    }
-    # UHI is recorded without a reviewer, and that counts as an approval.
+    # Pending, New and Clarification received. M2 is back with its reply and the
+    # claims product's M1 is new. NHCX waits on M1 and M3, so nothing in it can
+    # be decided yet.
     assert {
-        card["title"]: (card["this_month"]["approved"], card["this_month"]["rejected"])
-        for card in cards
+        track: split_figures(dashboard(client, track)["exit"]) for track in PROGRAMMES
     } == {
-        "Sandbox access": (1, 0),
-        "HIE-CM": (1, 0),
-        "PHR": (0, 1),
-        "UHI": (1, 0),
-        "NHCX": (0, 0),
+        "": (2, 1, 1),
+        "HIE-CM": (2, 1, 1),
+        "PHR": (0, 0, 0),
+        "UHI": (0, 0, 0),
+        "NHCX": (0, 0, 0),
     }
-    html = response.content.decode()
-    for card in cards:
-        assert f'href="{escape(card["url"])}"' in html
-        for tile in card["tiles"]:
-            assert f'href="{escape(tile["url"])}"' in html
-    # Every card counts the rows of the queue it opens: a track the Products
-    # list's, and Sandbox access the Organisations list's.
-    for card in cards:
-        assert queue_rows(client, card["url"]) == card["total"], card["title"]
-        for tile in card["tiles"]:
-            assert queue_rows(client, tile["url"]) == tile["count"], (
-                card["title"],
-                tile["label"],
-            )
+    for track in PROGRAMMES:
+        context = dashboard(client, track)
+        for link in links(context):
+            assert rows(client, link["url"]) == link["count"], (track, link["label"])
+        totals = {choice["code"]: choice["total"] for choice in context["programmes"]}
+        assert totals[track] == context["total"] == sum(context["pending"].values())
 
 
-def test_a_decision_stays_in_the_month_it_was_made(environment):  # noqa: F811
-    locker = submit(environment, "p1")
-    services.assign_review(locker, environment["admin"], environment["reviewer"])
-    services.decide(locker, environment["reviewer"], action="reject", reason=DOCUMENTS)
-
-    def rejected_by_month(months_later):
-        today = timezone.localdate().replace(day=1) + timedelta(days=31 * months_later)
-        months = _last_twelve_months(today)
-        card = _status_card(environment["admin"], "PHR", "PHR", "", months)
-        return [month["rejected"] for month in card["months"]]
-
-    assert rejected_by_month(0) == [0] * 11 + [1]
-    assert rejected_by_month(3) == [0] * 8 + [1] + [0] * 3
-    assert rejected_by_month(12) == [0] * 12
-
-
-def test_the_sandbox_card_counts_a_verification_once_as_its_queue_does(
+def test_an_organisation_counts_in_the_programmes_of_its_products(
     environment,  # noqa: F811
     client,
 ):
-    """An organisation holds one verification however many products it owns."""
-    product, form = services.register_product(
-        environment["org"],
-        environment["applicant"],
-        data=product_data("Second product"),
+    """Its verification joins the queue with its first product, and counts in
+    every programme that product applied for."""
+    owner = UserFactory()
+    org = Organisation.objects.create(name="Second health systems")
+    Membership.objects.create(organisation=org, user=owner, role="owner")
+    item, form, saved = services.save_review_form(
+        services.organisation_review(org, owner),
+        owner,
+        data=organisation_data(),
+        files={"supporting_document": pdf()},
+        submit=True,
     )
-    assert product, form.errors
+    assert saved, form.errors
     client.force_login(environment["admin"])
 
-    card = client.get(reverse("experiences:assess-dashboard")).context["sandbox_card"]
+    def figures(track=""):
+        context = dashboard(client, track)
+        for link in links(context):
+            assert rows(client, link["url"]) == link["count"], link["label"]
+        return split_figures(context["onboarding_queue"])
 
-    assert figures(card) == (1, [0, 0, 1])
-    # The queue the card opens lists the verification once too, under
-    # Organisations, not on each of the organisation's two products.
-    assert queue_rows(client, card["url"]) == 1
+    assert figures() == (0, 0, 0)
+
+    product, form = services.register_product(org, owner, data=product_data("New"))
+    assert product, form.errors
+    assert figures() == figures("HIE-CM") == figures("UHI") == (1, 1, 0)
+    assert figures("PHR") == (0, 0, 0)
+
+    services.decide(item, environment["reviewer"], action="query", note="Which PAN?")
+    assert figures() == (0, 0, 0)
+    services.reply_query(item.queries.get(), owner, "The one on the certificate.")
+    assert figures() == (1, 0, 1)
+
+
+def test_wasa_figures_follow_each_product_s_current_certificate(
+    environment,  # noqa: F811
+    client,
+):
+    product = environment["product"]
+    decide(environment, request_milestone(environment))
+    client.force_login(environment["admin"])
+
+    def shown(track=""):
+        context = dashboard(client, track)
+        for link in links(context):
+            assert rows(client, link["url"]) == link["count"], link["label"]
+        return {
+            key: (standing["count"], standing["government"], standing["private"])
+            for key, standing in context["standings"].items()
+        }
+
+    # The milestone's certificate runs out in 30 days.
+    assert shown() == {
+        "expired": (0, 0, 0),
+        "expiring": (1, 0, 1),
+        "active": (0, 0, 0),
+    }
+    assert shown("HIE-CM") == shown()
+    assert shown("NHCX")["expiring"] == (0, 0, 0)
+
+    ProductOutcome.objects.filter(product=product).update(
+        valid_until=timezone.localdate() - timedelta(days=1),
+    )
+    Organisation.objects.filter(pk=product.organisation_id).update(
+        entity_type=GOVERNMENT,
+    )
+    assert shown()["expired"] == (1, 1, 0)
+
+    renewal = request_renewal(
+        environment,
+        certificate=certificate_data(expires_in=200, audited_ago=1),
+    )
+    context = dashboard(client)
+    assert context["pending"]["renewals"] == 1
+    assert rows(client, context["renewals_url"]) == 1
+    decide(environment, renewal)
+
+    # The renewal's later audit makes it the current certificate.
+    assert shown()["expired"] == (0, 0, 0)
+    context = dashboard(client)
+    assert context["standings"]["active"]["count"] == context["compliance"]["live"]
+    response = client.get(context["standings"]["active"]["url"])
+    [row] = response.context["products"]
+    assert row.certificate_valid_until == current_wasa(product).valid_until
+
+
+def test_a_clarification_card_adds_both_lists_and_opens_the_exits(
+    environment,  # noqa: F811
+    client,
+):
+    m1 = submit(environment, "m1")
+    reviewer = environment["reviewer"]
+    services.decide(m1, reviewer, action="query", note="Which tests cover it?")
+    services.reply_query(m1.queries.get(), environment["applicant"], "Cases 2 and 5.")
+    client.force_login(environment["admin"])
+
+    context = dashboard(client)
+    card = next(
+        card
+        for card in context["attention_cards"]
+        if card["label"] == "Clarifications received"
+    )
+
+    assert card["count"] == 1
+    assert card["note"] == "Entities 0 · Exits 1"
+    assert card["url"] == context["exit"]["answered"]["url"]

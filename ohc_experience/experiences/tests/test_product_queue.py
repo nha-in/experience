@@ -8,6 +8,7 @@ from django.utils import timezone
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import pending_exits
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.experiences import workflows
@@ -198,7 +199,7 @@ def test_a_status_filters_every_tab_count(
         assert response.context["page"].paginator.count == 1
         entry = response.context["page"][0]
         assert [item.queue_state for item in entry.matching_reviews] == ["approved"]
-    # Pending has no Status filter, so it drops one and counts without it.
+    # Pending's Status filter has no Approved, so it drops it and counts without.
     response = client.get(url, {"scope": "ready", "status": "approved"})
     assert "status" not in response.context["filters"]
     assert response.context["stage_counts"] == unfiltered
@@ -224,8 +225,10 @@ def test_a_query_moves_a_request_to_done_until_the_integrator_answers(
             for entry in response.context["page"]
         ]
 
-    assert client.get(url).context["statuses"] == []
-    assert b'id="queue-status"' not in client.get(url).content
+    assert client.get(url).context["statuses"] == [
+        ("new", "New"),
+        ("answered", "Clarification received"),
+    ]
     assert client.get(url, {"scope": "decided"}).context["statuses"] == [
         ("waiting", "Waiting on prerequisites"),
         ("query_raised", "Query raised"),
@@ -251,6 +254,10 @@ def test_a_query_moves_a_request_to_done_until_the_integrator_answers(
     )
     assert rows("ready") == [(["in_review"], [])]
     assert rows("decided") == []
+    # Back with its reply, it reads as a clarification rather than as new.
+    answered = client.get(url, {"status": "answered"}).context
+    assert answered["stage_counts"]["ready"] == 1
+    assert client.get(url, {"status": "new"}).context["stage_counts"]["ready"] == 0
 
 
 def test_an_open_query_sets_the_whole_product_aside(environment, client):
@@ -292,9 +299,7 @@ def test_an_open_query_sets_the_whole_product_aside(environment, client):
     response = client.get(url, {"scope": "decided", "q": m3.application.reference})
     assert response.context["stage_counts"] == {"ready": 0, "decided": 1, "all": 1}
     assert [row.matching_reviews for row in response.context["page"]] == [[m3]]
-    dashboard = client.get(reverse("experiences:assess-dashboard")).context
-    abdm = next(card for card in dashboard["track_cards"] if card["title"] == "HIE-CM")
-    assert abdm["tiles"][0]["count"] == 0
+    assert pending_exits(client, "HIE-CM") == {"HIE-CM": 0}
 
     workflows.reply_query(
         m2.queries.get(),

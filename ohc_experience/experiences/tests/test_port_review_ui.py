@@ -200,10 +200,6 @@ def test_staff_product_page_links_open_requests_to_their_cards(
     assert f'href="#review-{review_item.pk}"'.encode() in response.content
     assert b"Supplier Quality Portal" in response.content
     assert b'id="product-switcher' not in response.content
-    assert (
-        f"{reverse('experiences:queue')}?scope=ready&amp;q={product.reference}".encode()
-        in response.content
-    )
 
     client.force_login(owner_membership.user)
     response = client.get(product.get_absolute_url())
@@ -693,8 +689,8 @@ def test_client_response_alert_is_not_shown_to_reviewer(review_item):
 @pytest.mark.parametrize(
     ("scope", "incompatible_status", "expected_statuses"),
     [
-        ("ready", "approved", set()),
-        ("ready", "query_raised", set()),
+        ("ready", "approved", {"new", "answered"}),
+        ("ready", "query_raised", {"new", "answered"}),
         # A saved link may still carry the status that is gone.
         ("decided", "new", {"waiting", "query_raised", "rejected", "approved"}),
         (

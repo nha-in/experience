@@ -126,6 +126,15 @@ def environment(settings, tmp_path, lgd_lookup):
     }
 
 
+def pending_exits(client, *tracks):
+    """Each programme's pending milestone requests, from its dashboard view."""
+    url = reverse("experiences:assess-dashboard")
+    return {
+        track: client.get(url, {"track": track}).context["exit"]["pending"]["count"]
+        for track in tracks
+    }
+
+
 def ready(product):
     """Provisioned and holding a callback URL, as the milestones expect."""
     provision_inline(product)
@@ -1230,9 +1239,7 @@ def test_rejected_draft_retains_reason_and_decision_history(environment, client)
     assert saved, form.errors
     assert item.status == "in_review"
     client.force_login(environment["reviewer"])
-    response = client.get(reverse("experiences:assess-dashboard"))
-    abdm = response.context["track_cards"][0]
-    assert (abdm["title"], abdm["this_month"]["rejected"]) == ("HIE-CM", 1)
+    assert pending_exits(client, "HIE-CM") == {"HIE-CM": 1}
 
 
 def test_track_filter_keeps_shared_m1_on_its_own_track(environment, client):
@@ -1298,12 +1305,8 @@ def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client
     assert listed("NHCX") == [nhcx_payer]
     assert m1 in listed("HIE-CM")
     assert nhcx_payer not in listed("HIE-CM")
-    dashboard = client.get(reverse("experiences:assess-dashboard")).context
-    pending = {
-        card["title"]: card["tiles"][0]["count"] for card in dashboard["track_cards"]
-    }
     # NHCX waits on M1 and M3, so nothing in it can be decided yet.
-    assert (pending["HIE-CM"], pending["NHCX"]) == (1, 0)
+    assert pending_exits(client, "HIE-CM", "NHCX") == {"HIE-CM": 1, "NHCX": 0}
 
 
 def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
