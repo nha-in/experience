@@ -90,8 +90,7 @@ def test_ticket_rows_open_the_ticket(environment, client):
     url = reverse("experiences:ticket", args=[open_ticket(environment).reference])
     client.force_login(environment["applicant"])
     response = client.get(
-        reverse("experiences:support"),
-        {"product": environment["product"].reference},
+        reverse("experiences:product-support", args=[environment["product"].reference]),
     )
     # The table row, and the card that replaces it on a narrow screen.
     assert row_links(response) == [url, url]
@@ -190,7 +189,12 @@ def test_upcoming_event_rows_open_the_event(environment, client):
         reverse("experiences:overview", args=[environment["product"].reference]),
     )
     assert "Launch webinar" in response.content.decode()
-    assert row_links(response) == [event.get_absolute_url()]
+    assert row_links(response) == [
+        reverse(
+            "experiences:product-event",
+            args=[environment["product"].reference, event.pk],
+        ),
+    ]
 
 
 def test_organisation_product_and_query_rows_open_their_pages(environment, client):

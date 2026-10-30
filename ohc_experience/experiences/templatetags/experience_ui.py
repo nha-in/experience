@@ -11,6 +11,15 @@ from ohc_experience.experiences.registry import registry
 
 register = template.Library()
 
+
+@register.filter
+def event_url(event, product):
+    """An event's page, staying inside the product it was reached from."""
+    if product:
+        return reverse("experiences:product-event", args=[product.reference, event.pk])
+    return event.get_absolute_url()
+
+
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 

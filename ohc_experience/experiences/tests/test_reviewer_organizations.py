@@ -132,8 +132,8 @@ def test_staff_see_products_as_a_tab_of_organizations(environment, client):
     client.force_login(environment["applicant"])
     response = client.get(reverse("experiences:products"))
     assert response.status_code == HTTPStatus.OK
-    assert "experiences/products.html" in [t.name for t in response.templates]
-    assert list(response.context["products"]) == [product]
+    assert "experiences/dashboard.html" in [t.name for t in response.templates]
+    assert list(response.context["product_rows"]) == [product]
 
 
 def test_open_request_counts_leave_out_drafts(environment, client):

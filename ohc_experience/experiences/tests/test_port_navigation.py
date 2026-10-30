@@ -18,7 +18,7 @@ from ohc_experience.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 
-def test_selected_product_follows_integrator_into_account_pages(environment):  # noqa: F811
+def test_account_pages_are_above_any_one_product(environment):  # noqa: F811
     user = environment["applicant"]
     data = {
         **product_data(),
@@ -35,15 +35,14 @@ def test_selected_product_follows_integrator_into_account_pages(environment):  #
     for url in (reverse("users:profile"), reverse("organisations:team")):
         response = client.get(url)
         assert response.status_code == 200
-        assert response.context["product"].pk == second.pk
-        assert second.name.encode() in response.content
+        assert response.context["product"] is None
         nav = (
             response.content.decode()
             .split('<nav id="app-nav"', 1)[1]
             .split("</nav>", 1)[0]
         )
-        assert "nav-track-phr" in nav
-        assert "nav-track-hie-cm" not in nav
+        assert "Pick a product" in nav
+        assert "nav-track-phr" not in nav
 
 
 def test_switcher_never_lists_another_organisations_products(environment):  # noqa: F811
@@ -56,11 +55,8 @@ def test_switcher_never_lists_another_organisations_products(environment):  # no
     assert other, form.errors
     client = Client()
     client.force_login(environment["applicant"])
-    session = client.session
-    session["experience_product"] = other.reference
-    session.save()
-    response = client.get(reverse("users:profile"))
-    assert response.context["product"].pk == environment["product"].pk
+    response = client.get(reverse("users:profile"), {"product": other.reference})
+    assert response.context["product"] is None
     assert b"Private other product" not in response.content
     assert client.get(other.get_absolute_url()).status_code == 404
 

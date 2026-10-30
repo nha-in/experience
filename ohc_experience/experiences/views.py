@@ -75,7 +75,6 @@ from . import workflows as services
 from .context_processors import navigation_context
 from .context_processors import product_scope
 from .context_processors import products_for
-from .context_processors import selected_product
 from .forms import CallbackURLForm
 from .forms import SupportForm
 from .models import OUTCOME_EXPIRING_DAYS
@@ -88,11 +87,14 @@ from .models import ReviewItem
 from .models import ReviewQuery
 from .models import SubmissionStatus
 from .models import TicketAttachment
+from .presentation import PRODUCT_STATUS_KEY
 from .presentation import agent_skill_groups
 from .presentation import default_agent_skill
+from .presentation import organisation_next_step
 from .presentation import overview_next_step
 from .presentation import overview_progress
 from .presentation import product_hold_step
+from .presentation import product_statuses
 from .presentation import recommended_step
 from .presentation import track_documents
 from .presentation import track_progress
@@ -186,9 +188,7 @@ def _products(user):
 
 
 def _product(request, reference):
-    product = get_object_or_404(_products(request.user), reference=reference)
-    request.session["experience_product"] = product.reference
-    return product
+    return get_object_or_404(_products(request.user), reference=reference)
 
 
 def _item(request, pk):
@@ -330,8 +330,6 @@ def _context(request, product=None, **kwargs):
         # Staff never work inside a product: the switcher and the product's own
         # navigation belong to its integrators. Staff pages link to products instead.
         product = None
-    elif product is None:
-        product = selected_product(request)
     request.experience_navigation = navigation_context(request, product)
     result = {
         **request.experience_navigation,
@@ -412,20 +410,9 @@ def dashboard(request):
     organisation = _organisation(request)
     if not organisation.is_onboarded:
         return redirect("experiences:organisation")
-    product = (
-        _products(request.user)
-        .filter(
-            reference=request.GET.get(
-                "product",
-                request.session.get("experience_product", ""),
-            ),
-        )
-        .first()
-        or _products(request.user).order_by("created_at").first()
-    )
-    return redirect(
-        product.get_absolute_url() if product else "experiences:product-create",
-    )
+    if not _products(request.user).exists():
+        return redirect("experiences:product-create")
+    return _integrator_dashboard(request)
 
 
 def _product_columns(*, reviewer=False):
@@ -520,6 +507,10 @@ def products(request):
     permissions.require_area(request.user, "review")
     if permissions.reviewer(request.user):
         return _reviewer_products(request)
+    return _integrator_dashboard(request)
+
+
+def _integrator_dashboard(request):
     sort, order = tables.sorting(request, _product_columns(), "-registered")
     rows = _products(request.user).order_by(*order)
     if export := tables.export_format(request):
@@ -529,17 +520,36 @@ def products(request):
             PRODUCT_EXPORT_HEADER,
             _product_export_rows(rows),
         )
-    return render(
+    page = _page(request, rows)
+    for product in page:
+        tracks = _tracks(product, request.user)
+        _lock_tiles(product, tracks)
+        certification = _certification_context(request, product)
+        product.statuses = product_statuses(tracks, certification)
+        product.wasa = _wasa_notice(certification)
+        product.hold = product_hold_step(product)
+    requests = permissions.review_requests(request.user)
+    context = _context(
         request,
-        "experiences/products.html",
-        _context(
-            request,
-            page_title="Products",
-            nav="products",
-            products=_page(request, rows),
-            table_sort=sort,
-        ),
+        page_title="Dashboard",
+        nav="dashboard",
+        status_key=PRODUCT_STATUS_KEY,
+        product_rows=page,
+        table_sort=sort,
+        waiting_count=requests.filter(
+            status__in=[ReviewItem.Status.QUERY, ReviewItem.Status.REJECTED],
+        ).count(),
+        under_review_count=requests.filter(
+            status=ReviewItem.Status.IN_REVIEW,
+        ).count(),
+        production_count=rows.exclude(production_client_id="").count(),
     )
+    if context["can_integrate"]:
+        context["next_step"] = organisation_next_step(
+            context["organisation"],
+            requests.filter(kind=ReviewItem.Kind.ORGANISATION).first(),
+        )
+    return render(request, "experiences/dashboard.html", context)
 
 
 def _require_reviewer_area(user):
@@ -2113,6 +2123,7 @@ def query_action(request, pk):
 PENDING_COLUMNS = {
     "request": REQUEST_TITLE,
     "type": Lower(tables.labelled("kind", ReviewItem.Kind.choices)),
+    "product": Lower("product__name"),
     "organisation": Lower(tables.organisation_name("organisation__")),
     "submitted": "submitted_at",
     # As _query_state reads it: a reply awaited first, then replies to read.
@@ -2163,7 +2174,7 @@ def _pending_export_rows(items, *, reviewer):
 
 
 @login_required
-def pending_queries(request):
+def pending_queries(request, reference=None):
     query = (
         permissions.visible_reviews(request.user)
         .filter(
@@ -2187,11 +2198,13 @@ def pending_queries(request):
         )
     )
     reviewer = permissions.reviewer(request.user)
+    product = None
     if reviewer:
         query = query.filter(unresolved_query_count__gt=0)
     else:
+        product = _product(request, reference) if reference else None
         query = query.filter(
-            product_scope(selected_product(request)),
+            product_scope(product),
             status="query_raised",
             organisation__memberships__user=request.user,
         )
@@ -2225,6 +2238,7 @@ def pending_queries(request):
         "experiences/pending.html",
         _context(
             request,
+            product,
             items=items,
             page_title="Pending queries",
             nav="queries",
@@ -3409,20 +3423,11 @@ def _event_export_rows(events, *, registered, manage):
 
 @login_required
 @require_safe
-def events(request):
+def events(request, reference=None):
     permissions.require_area(request.user, "events")
-    products = _products(request.user)
     product = None
-    if not permissions.reviewer(request.user):
-        product = (
-            products.filter(reference=request.GET.get("product")).first()
-            or products.filter(
-                reference=request.session.get("experience_product", ""),
-            ).first()
-            or products.first()
-        )
-    if product:
-        request.session["experience_product"] = product.reference
+    if reference and not permissions.reviewer(request.user):
+        product = _product(request, reference)
     upcoming = permissions.visible_events(request.user).upcoming()
     past = permissions.visible_events(request.user).past()
     # Drafts reach only the team that writes them: an integrator sees published
@@ -3523,24 +3528,40 @@ def _ticket_export_rows(tickets, *, reviewer):
         )
 
 
+def _named_product_redirect(request, products):
+    """Support for the product a query names, else None.
+
+    A new ticket's product step lands here, as links from before the product
+    route do. The request is preserved so a form left open keeps its text.
+    """
+    product = products.filter(reference=request.GET.get("product")).first()
+    if not product:
+        return None
+    query = request.GET.copy()
+    del query["product"]
+    url = reverse("experiences:product-support", args=[product.reference])
+    return redirect(
+        f"{url}?{query.urlencode()}" if query else url,
+        preserve_request=True,
+    )
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
-def support(request):
+def support(request, reference=None):  # noqa: C901
     permissions.require_area(request.user, "support")
     products = _products(request.user)
+    creating = request.GET.get("new") == "1" or request.method == "POST"
     product = None
     if not permissions.reviewer(request.user):
-        product = (
-            products.filter(reference=request.GET.get("product")).first()
-            or products.filter(
-                reference=request.session.get("experience_product", ""),
-            ).first()
-            or products.first()
-        )
-    if product:
-        request.session["experience_product"] = product.reference
+        if reference:
+            product = _product(request, reference)
+        elif moved := _named_product_redirect(request, products):
+            return moved
+        elif creating and products.count() == 1:
+            product = products.first()
     tickets = permissions.visible_tickets(request.user)
-    if product and not permissions.reviewer(request.user):
+    if product:
         tickets = tickets.filter(product=product)
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
@@ -3564,13 +3585,14 @@ def support(request):
             _ticket_export_rows(tickets, reviewer=reviewer),
         )
     inbox["tickets"] = _page(request, tickets)
+    ticket_product = product or products.first()
     can_open_ticket = bool(
-        product
+        ticket_product
         and not permissions.reviewer(request.user)
-        and permissions.can_integrate(request.user, product.organisation),
+        and permissions.can_integrate(request.user, ticket_product.organisation),
     )
     if request.method == "POST":
-        if not can_open_ticket:
+        if not (can_open_ticket and product):
             # Reviewers, and integrators without a product, have nothing to
             # raise a ticket against. Say so instead of failing the request.
             _error(
@@ -3618,8 +3640,7 @@ def support(request):
             nav="support",
             **inbox,
             form=form,
-            creating=can_open_ticket
-            and (request.GET.get("new") == "1" or request.method == "POST"),
+            creating=can_open_ticket and creating,
         ),
     )
 
@@ -3658,7 +3679,6 @@ def ticket(request, reference):
     track = product.definition.track_map().get(
         category.track if category else ticket.category,
     )
-    request.session["experience_product"] = product.reference
     if request.POST.get("intent") == "priority":
         return _change_ticket_priority(request, ticket)
     resolving = request.POST.get("intent") == "close"

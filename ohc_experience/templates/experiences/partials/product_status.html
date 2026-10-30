@@ -1,0 +1,24 @@
+{% comment %}
+  Where a product stands on the integrator's dashboard. Context: product,
+  marked by _integrator_dashboard with hold, statuses and wasa.
+{% endcomment %}
+<div class="flex flex-col items-start gap-2">
+  {% if product.hold %}
+    <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.hold.title }}</span>
+  {% endif %}
+  <ul class="flex flex-wrap gap-1">
+    {% for chip in product.statuses %}
+      <li class="ui-queue-chip ui-queue-chip--{{ chip.state }} font-mono"
+          title="{{ chip.title }} · {{ chip.label }}">
+        {% include 'experiences/partials/queue_state_icon.html' with state=chip.state %}
+        {{ chip.code }}
+        <span class="sr-only">{{ chip.label }}</span>
+      </li>
+    {% empty %}
+      <li class="text-sm text-soft-foreground">No milestones chosen</li>
+    {% endfor %}
+  </ul>
+  {% if product.wasa %}
+    {% include 'experiences/partials/wasa_notice.html' with wasa=product.wasa %}
+  {% endif %}
+</div>

@@ -1,6 +1,8 @@
+{% load experience_ui %}
+
 {% if hero %}
   <a class="ui-rise flex flex-wrap items-center gap-4 rounded-[14px] bg-card/65 p-3.5 pr-4 no-underline shadow-layered ring-1 ring-primary/20 backdrop-blur-sm [animation-delay:50ms]"
-     href="{{ event.get_absolute_url }}">
+     href="{{ event|event_url:product }}">
     <time class="ui-dateblock ui-dateblock--solid"
           datetime="{{ event.starts_at|date:'c' }}">
       <span class="ui-dateblock-day">{{ event.starts_at|date:"d" }}</span><span class="ui-dateblock-month">{{ event.starts_at|date:"M" }}</span>
@@ -27,7 +29,7 @@
       <div class="flex flex-wrap items-center gap-2">
         <h3 class="text-[15px] leading-[22px] font-semibold break-words {% if period == 'past' %}text-muted-foreground{% endif %}">
           <a class="text-inherit no-underline group-hover:text-primary"
-             href="{{ event.get_absolute_url }}"
+             href="{{ event|event_url:product }}"
              data-row-link>{{ event.title }}</a>
         </h3>
         <span class="ui-badge ui-badge--neutral ui-badge--size-xs">{{ event.get_kind_display }}</span>
@@ -46,7 +48,7 @@
         <span class="ui-badge ui-badge--success ui-badge--size-sm">✓ Registered</span>
       {% endif %}
       <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
-         href="{{ event.get_absolute_url }}"
+         href="{{ event|event_url:product }}"
          aria-label="View details for {{ event.title }}">View details</a>
     </div>
   </li>

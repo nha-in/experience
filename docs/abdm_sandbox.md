@@ -241,7 +241,11 @@ integrators and retained as product outcomes.
 
 - `/accounts/signup/`: account creation, CAPTCHA and email verification.
 - `/onboarding/organisation/`, `/onboarding/product/`: initial registration.
-- `/portal/products/`: product list and switcher.
+- `/dashboard/`, `/portal/`: where an integrator lands: their organisation's
+  products, each with its milestones by status, and counts of what waits on
+  them. Staff are redirected to their own home. A product is selected only by a
+  URL under `/products/<sandbox-id>/`; every other page offers "Pick a product".
+- `/portal/products/`: NHA staff's product list; integrators get the dashboard.
 - `/portal/products/<sandbox-id>/`: NHA staff overview of a product: its
   requests by whose move it is, sandbox connection, WASA and open tickets.
 - `/products/<sandbox-id>/`: integrator overview and activity. Staff are
@@ -249,7 +253,8 @@ integrators and retained as product outcomes.
 - `/products/<sandbox-id>/tracks/<track>/`: milestone forms, queries and history.
   Staff are redirected to the selected milestone's review.
 - `/products/<sandbox-id>/credentials/`: audited reveal and callbacks.
-- `/portal/queries/`: highlighted pending queries.
+- `/portal/queries/`: highlighted pending queries across the organisation's
+  products; `/products/<sandbox-id>/queries/` for one product.
 - `/review/dashboard/`, `/review/queue/`: NHA review.
 - `/review/<sandbox-id>/`: a product's review page, holding every decision form.
 - `/review/production/`, `/review/production/<sandbox-id>/`: production approval
@@ -262,7 +267,9 @@ integrators and retained as product outcomes.
   their production client IDs and issue dates, with a CSV export at
   `/review/production/export/`. General/onboarding review read to view, approve
   to add, change or remove.
-- `/portal/sessions-and-activities/`, `/portal/support/`: registrations and support threads.
+- `/portal/sessions-and-activities/`, `/portal/support/`: registrations and support
+  threads across the organisation; under `/products/<sandbox-id>/` for one product.
+  A new ticket picks its product first, since the categories depend on it.
 
 The CareUI shell uses HTMX navigation with a shared `#main-content` target and
 an out-of-band `#app-nav` refresh, with local HTMX history caching disabled.

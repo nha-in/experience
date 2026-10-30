@@ -1,16 +1,18 @@
 {% comment %}
   The product switcher: the current product's name as a native <details>
   disclosure listing the organisation's other products and the registration
-  link. Opening another product's overview is what makes it current
-  (the engine remembers the selected selected_product in the session), so every entry is a plain
-  link and the whole thing works with scripting off. layouts/app.html closes
-  an open one on a click elsewhere or on Escape.
+  link. Opening another product's overview is what makes it current, so
+  every entry is a plain link and the whole thing works with scripting off.
+  layouts/app.html closes an open one on a click elsewhere or on Escape.
 
   variant "bar": the first crumb of the top bar on wide screens; the list
   floats below the name. variant "card": the product card at the head of the
   rail, at every width; the list floats below the card, over the rail. That
   is why app_nav.html keeps the card above the rail's scroll region: a
   floating panel inside it would be clipped.
+
+  Only a page under /products/<reference>/ has a product selected. On any
+  other the card reads "Pick a product" and lists them all.
 
   Context: selected_product, products, organisation, can_integrate,
   variant.
@@ -24,10 +26,15 @@
            title="{% translate 'Switch product' %}">
     {% if variant == "card" %}
       <span class="ui-avatar ui-avatar--primary size-9 rounded-lg text-xs"
-            aria-hidden="true">{{ organisation.initials|default:selected_product.name|slice:":2"|upper }}</span>
+            aria-hidden="true">{% firstof organisation.initials selected_product.name as avatar %}{{ avatar|slice:":2"|upper }}</span>
       <span class="min-w-0 flex-1 leading-tight">
-        <span class="block truncate text-sm font-semibold">{{ selected_product.name }}</span>
-        <span class="mt-1 block font-mono text-xs text-soft-foreground">{{ selected_product.reference }}</span>
+        {% if selected_product %}
+          <span class="block truncate text-sm font-semibold">{{ selected_product.name }}</span>
+          <span class="mt-1 block font-mono text-xs text-soft-foreground">{{ selected_product.reference }}</span>
+        {% else %}
+          <span class="block truncate text-sm font-semibold">{% translate "Pick a product" %}</span>
+          <span class="mt-1 block truncate text-xs text-soft-foreground">{{ organisation.display_name }}</span>
+        {% endif %}
       </span>
     {% else %}
       <span class="truncate">{{ selected_product.name }}</span>

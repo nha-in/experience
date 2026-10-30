@@ -97,19 +97,18 @@
     </div>
     <section class="flex flex-col gap-3" aria-labelledby="attention-title">
       <h2 class="text-sm font-semibold text-muted-foreground" id="attention-title">Needs your attention</h2>
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {# Six columns: the WASA cards take the top row, and decisions the next, three across or two. #}
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         {% for card in attention_cards %}
-          <section class="ui-card ui-card--layered ui-card--sm ui-rise"
+          <section class="ui-card ui-card--layered ui-card--sm ui-rise {% if card.variant or attention_cards|length|divisibleby:2 %}xl:col-span-3{% else %}xl:col-span-2{% endif %}"
                    aria-labelledby="attention-{{ forloop.counter }}">
-            <div class="ui-card-content flex h-full flex-col gap-1.5">
-              <span class="ui-stat-figure">{{ card.count }}</span>
-              <h3 class="flex items-center gap-1.5 text-sm font-semibold"
-                  id="attention-{{ forloop.counter }}">
-                {% include "components/status_dot.html" with variant=card.variant|default:'primary' %}
-                {{ card.label }}
-              </h3>
-              <p class="flex-1 text-xs text-muted-foreground">{{ card.note }}</p>
-              <a class="ui-btn {% if card.variant %}ui-btn--outline{% else %}ui-btn--default{% endif %} ui-btn--size-sm mt-3 self-start no-underline"
+            <div class="ui-card-content flex h-full flex-col gap-3">
+              <div class="flex items-center gap-3">
+                <span class="ui-count {% if not card.count or card.variant == 'neutral' %}ui-count--quiet{% elif card.variant == 'warning' %}ui-count--warning{% endif %}">{{ card.count }}</span>
+                <h3 class="text-base font-semibold" id="attention-{{ forloop.counter }}">{{ card.label }}</h3>
+              </div>
+              <p class="flex-1 text-sm text-muted-foreground">{{ card.note }}</p>
+              <a class="ui-btn {% if card.variant %}ui-btn--outline{% else %}ui-btn--default{% endif %} ui-btn--size-sm self-start no-underline"
                  href="{{ card.url }}">{{ card.action }}<span class="sr-only">: {{ card.label }}</span></a>
             </div>
           </section>

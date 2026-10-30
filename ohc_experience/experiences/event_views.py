@@ -25,6 +25,8 @@ from ohc_experience.organisations.models import Membership
 
 from . import permissions
 from . import tables
+from .context_processors import navigation_context
+from .context_processors import products_for
 from .models import EventRegistration
 from .models import Notification
 from .registry import get_program
@@ -199,13 +201,13 @@ def update_registration(request, event):
                     f"{event.join_url}"
                 ),
             )
-    return redirect("experiences:event-detail", pk=event.pk)
+    return redirect(request.path)
 
 
 @login_required
 @never_cache
 @require_http_methods(["GET", "POST"])
-def event_detail(request, pk):
+def event_detail(request, pk, reference=None):
     """One event for both audiences: its details, its actions and its participants.
 
     Anyone who reaches a published event can register for it; the team that runs
@@ -213,6 +215,11 @@ def event_detail(request, pk):
     """
     permissions.require_area(request.user, "events")
     event = get_object_or_404(permissions.visible_events(request.user), pk=pk)
+    if reference and not permissions.reviewer(request.user):
+        request.experience_navigation = navigation_context(
+            request,
+            get_object_or_404(products_for(request.user), reference=reference),
+        )
     if request.method == "POST":
         return update_registration(request, event)
     can_manage = permissions.has_area(request.user, "events")

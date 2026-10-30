@@ -25,10 +25,10 @@
       <nav class="flex flex-wrap items-center gap-1"
            aria-label="Filter sessions">
         <a class="ui-pill"
-           href="?period={{ period }}{% if product %}&amp;product={{ product.reference }}{% endif %}"
+           href="?period={{ period }}"
            {% if not request.GET.kind %}aria-current="page"{% endif %}>All types</a>
         {% for value,label in kinds %}<a class="ui-pill"
-   href="?kind={{ value }}&amp;period={{ period }}{% if product %}&amp;product={{ product.reference }}{% endif %}"
+   href="?kind={{ value }}&amp;period={{ period }}"
    {% if request.GET.kind == value %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
       </nav>
       <span class="text-xs text-soft-foreground">Registered for {{ registered_upcoming_count|default:0 }} upcoming session{{ registered_upcoming_count|default:0|pluralize }}</span>
@@ -36,10 +36,10 @@
     <div class="flex flex-wrap items-end justify-between gap-4 px-6 pt-4">
       <nav class="flex flex-wrap gap-x-7 gap-y-3" aria-label="Session period">
         <a class="ui-tabstat"
-           href="?period=upcoming&amp;kind={{ request.GET.kind|urlencode }}{% if product %}&amp;product={{ product.reference }}{% endif %}"
+           href="?period=upcoming&amp;kind={{ request.GET.kind|urlencode }}"
            {% if period == 'upcoming' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ upcoming_count|default:0 }}</span><span class="ui-kicker">Upcoming</span></a>
         <a class="ui-tabstat"
-           href="?period=past&amp;kind={{ request.GET.kind|urlencode }}{% if product %}&amp;product={{ product.reference }}{% endif %}"
+           href="?period=past&amp;kind={{ request.GET.kind|urlencode }}"
            {% if period == 'past' %}aria-current="page"{% endif %}><span class="ui-figure ui-figure--md">{{ past_count|default:0 }}</span><span class="ui-kicker">Past sessions</span></a>
         {% if can_manage_events %}
           <a class="ui-tabstat"
@@ -82,7 +82,7 @@
               <tr class="group">
                 <td class="min-w-[240px]">
                   <a class="font-semibold text-foreground no-underline group-hover:text-primary"
-                     href="{{ event.get_absolute_url }}"
+                     href="{{ event|event_url:product }}"
                      data-row-link>{{ event.title }}</a>
                   {% if not event.is_published %}<span class="ui-badge ui-badge--neutral ui-badge--size-xs ml-1.5">Draft</span>{% endif %}
                 </td>
@@ -115,7 +115,7 @@
         <h3 class="ui-section-title">No {% if period == 'past' %}past{% elif period == 'drafts' %}draft{% else %}upcoming{% endif %} sessions to show</h3>
         <p class="text-sm text-muted-foreground">{% if request.GET.kind %}Nothing matches this filter. Choose another type to see more sessions.{% elif period == 'past' %}No sessions have run yet.{% elif period == 'drafts' %}Every session you can reach is published. A new session starts as a draft and waits here until you publish it.{% else %}Nothing is scheduled right now. Events, webinars and workshops appear here as soon as dates are announced.{% endif %}</p>
         {% if request.GET.kind %}<a class="ui-btn ui-btn--secondary ui-btn--size-sm no-underline"
-   href="?period={{ period }}{% if product %}&amp;product={{ product.reference }}{% endif %}">Show all types</a>{% endif %}
+   href="?period={{ period }}">Show all types</a>{% endif %}
       </div>
     {% endif %}
   </section>

@@ -157,7 +157,7 @@ def product_hold_step(product):
             "Its details cannot be edited and its milestones cannot be "
             "submitted while that stands.",
             "Raise a support ticket",
-            f"{reverse('experiences:support')}?product={product.reference}",
+            reverse("experiences:product-support", args=[product.reference]),
             tone="warning",
         )
     held = len(legacy.gaps(product))
@@ -188,7 +188,13 @@ def overview_next_step(product, tracks, organisation_review):
     attention = _review_attention(requests)
     if attention:
         return attention
-    organisation = product.organisation
+    return _verification_step(
+        product.organisation,
+        organisation_review,
+    ) or _milestone_next_step(tiles, product_url)
+
+
+def _verification_step(organisation, organisation_review):
     if (
         not organisation.is_verified
         and organisation_review
@@ -202,9 +208,59 @@ def overview_next_step(product, tracks, organisation_review):
                 f"your {organisation.noun} is verified."
             ),
             "Continue verification",
-            organisation_url,
+            reverse("experiences:organisation"),
         )
-    return _milestone_next_step(tiles, product_url)
+    return None
+
+
+def organisation_next_step(organisation, organisation_review):
+    """What the organisation's own verification asks of its integrator, if anything."""
+    return _review_attention(
+        [(organisation_review, reverse("experiences:organisation"))],
+    ) or _verification_step(organisation, organisation_review)
+
+
+#: The states a product's chips can show, in the order a request moves through
+#: them. The review queue never shows a draft, so Open is the dashboard's own.
+PRODUCT_STATUS_KEY = (
+    ("draft", "Open"),
+    ("blocked", "Waiting on prerequisites"),
+    ("in_review", "Under review"),
+    ("query_raised", "Query raised"),
+    ("rejected", "Rejected"),
+    ("approved", "Approved"),
+)
+
+
+def product_statuses(tracks, certification):
+    """A product's requests as review queue chips, in catalogue order.
+
+    Call it on tracks whose tiles have been through `_lock_tiles`. A milestone
+    two tracks share counts once.
+    """
+    tiles = {
+        tile["definition"].key: tile for track in tracks for tile in track["tiles"]
+    }
+    chips = [
+        {
+            "code": tile["definition"].code,
+            "title": f"{tile['definition'].code} {tile['definition'].name}",
+            "state": "blocked" if tile["locked_by"] else tile["status"],
+            "label": tile["label"],
+        }
+        for tile in tiles.values()
+    ]
+    review = certification.get("review")
+    if review:
+        chips.append(
+            {
+                "code": "WASA",
+                "title": "WASA certificate",
+                "state": review.status,
+                "label": review.get_status_display(),
+            },
+        )
+    return chips
 
 
 def recommended_step(tracks):

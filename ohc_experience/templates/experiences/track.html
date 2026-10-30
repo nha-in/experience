@@ -186,7 +186,7 @@
              href="{% url 'experiences:product-edit' product.reference %}">Edit product</a>
         {% elif not track.definition.keys %}
           <a class="ui-btn ui-btn--outline ui-btn--size-sm no-underline"
-             href="{% url 'experiences:events' %}">See events</a>
+             href="{% url 'experiences:product-events' product.reference %}">See events</a>
         {% endif %}
         <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
            href="{{ track.definition.docs_url|default:experience_program.docs_url }}"

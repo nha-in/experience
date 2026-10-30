@@ -10,11 +10,17 @@
      hx-swap="outerHTML show:window:top"
      hx-push-url="true"
      hx-indicator="#nav-progress">
-  {% if selected_product %}
+  {% if selected_product or products and not reviewer %}
     <div class="mb-5">{% include "components/product_switcher.html" with variant="card" %}</div>
   {% endif %}
   <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
     <ul class="flex flex-col gap-1 text-sm">
+      {% if not reviewer %}
+        <li><a id="nav-dashboard"
+   class="ui-nav-link flex items-center gap-2.5 {% if nav == 'dashboard' %}ui-nav-link--active{% endif %}"
+   {% if nav == 'dashboard' %}aria-current="page"{% endif %}
+   href="{% url 'experiences:home' %}">{% include "components/nav_icon.html" with icon="home" %}Dashboard</a></li>
+      {% endif %}
       {% if reviewer %}
         {% if can_read_reviews %}
           <li><a id="nav-dashboard"
@@ -36,10 +42,7 @@
    href="{% url 'experiences:production-list' %}">{% include "components/nav_icon.html" with icon="credentials" %}Production approval</a></li>
           {% endif %}
         {% endif %}
-      {% elif not selected_product %}
-        <li><a id="nav-dashboard"
-   class="ui-nav-link"
-   href="{% url 'experiences:home' %}">{% include "components/nav_icon.html" with icon="overview" %}Dashboard</a></li>
+      {% elif not products %}
         <li><a id="nav-products"
    class="ui-nav-link"
    href="{% url 'experiences:products' %}">{% include "components/nav_icon.html" with icon="track" %}Products</a></li>
@@ -68,18 +71,18 @@
    href="{% url 'experiences:track' selected_product.reference row.definition.code %}">{% include "components/nav_icon.html" with icon="track" %}<span class="min-w-0 flex-1 truncate">{{ row.definition.code }}</span><span class="font-mono text-[11px] text-soft-foreground">{{ row.approved }}/{{ row.count }}<span class="sr-only"> milestones approved</span></span></a></li>
         {% endfor %}
       {% endif %}
-      {% if reviewer or selected_product %}
+      {% if reviewer or products %}
         {% if can_read_support or can_read_events or not reviewer %}<li class="px-2 pt-5 pb-2 text-[11px] font-bold tracking-[0.09em] text-soft-foreground uppercase">Programme</li>{% endif %}
         {% if not reviewer %}<li><a id="nav-queries"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'queries' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:pending-queries' %}">{% include "components/nav_icon.html" with icon="query" %}<span class="flex-1">Pending queries</span>{% if query_count %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ query_count }}</span>{% endif %}</a></li>{% endif %}
+   href="{% if selected_product %}{% url 'experiences:product-queries' selected_product.reference %}{% else %}{% url 'experiences:pending-queries' %}{% endif %}">{% include "components/nav_icon.html" with icon="query" %}<span class="flex-1">Pending queries</span>{% if query_count %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ query_count }}</span>{% endif %}</a></li>{% endif %}
         {% if can_read_events %}<li><a id="nav-events"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'events' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:events' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Sessions and Activities</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
+   href="{% if selected_product %}{% url 'experiences:product-events' selected_product.reference %}{% else %}{% url 'experiences:events' %}{% endif %}">{% include "components/nav_icon.html" with icon="events" %}<span class="flex-1">Sessions and Activities</span>{% if nav_event_count %}<span class="font-mono text-[11px] text-soft-foreground">{{ nav_event_count }}</span>{% endif %}</a></li>
       {% endif %}
       {% if can_read_support %}<li><a id="nav-support"
    class="ui-nav-link flex items-center gap-2.5 {% if nav == 'support' %}ui-nav-link--active{% endif %}"
-   href="{% url 'experiences:support' %}{% if selected_product %}?product={{ selected_product.reference }}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}{% blocktranslate count tickets=nav_ticket_count asvar open_tickets %}{{ tickets }} open ticket{% plural %}{{ tickets }} open tickets{% endblocktranslate %}<span class="ui-tooltip-host -mx-1.5 -my-1 px-1.5 py-1 font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}<span class="sr-only"> open ticket{{ nav_ticket_count|pluralize }}</span>{% include "components/tooltip.html" with text=open_tickets side="left" %}</span>{% endif %}</a></li>
+   href="{% if selected_product %}{% url 'experiences:product-support' selected_product.reference %}{% else %}{% url 'experiences:support' %}{% endif %}">{% include "components/nav_icon.html" with icon="support" %}<span class="flex-1">Support</span>{% if nav_ticket_count %}{% blocktranslate count tickets=nav_ticket_count asvar open_tickets %}{{ tickets }} open ticket{% plural %}{{ tickets }} open tickets{% endblocktranslate %}<span class="ui-tooltip-host -mx-1.5 -my-1 px-1.5 py-1 font-mono text-[11px] text-soft-foreground">{{ nav_ticket_count }}<span class="sr-only"> open ticket{{ nav_ticket_count|pluralize }}</span>{% include "components/tooltip.html" with text=open_tickets side="left" %}</span>{% endif %}</a></li>
     {% endif %}
   {% endif %}
   {% if can_integrate %}

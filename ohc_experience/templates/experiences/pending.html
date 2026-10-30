@@ -24,6 +24,9 @@
             <tr>
               {% sort_header "Request" "request" %}
               {% sort_header "Type" "type" %}
+              {% if not reviewer and not product %}
+                {% sort_header "Product" "product" %}
+              {% endif %}
               {% if reviewer %}
                 {% sort_header "Organisation" "organisation" %}
               {% endif %}
@@ -41,6 +44,7 @@
                   <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ item.reference }}</span>
                 </td>
                 <td class="text-muted-foreground">{{ item.get_kind_display }}</td>
+                {% if not reviewer and not product %}<td class="text-muted-foreground">{{ item.product.name|default:'—' }}</td>{% endif %}
                 {% if reviewer %}<td class="max-w-[220px] text-muted-foreground">{{ item.organisation.display_name }}</td>{% endif %}
                 <td class="whitespace-nowrap tabular-nums">{{ item.submitted_at|date:'d/m/Y'|default:'—' }}</td>
                 <td>
@@ -57,7 +61,7 @@
              href="{{ item.portal_url }}">
             <div class="min-w-0">
               <h2 class="text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ item.title }}</h2>
-              <p class="mt-1 text-xs text-soft-foreground">{{ item.get_kind_display }} · <span class="font-mono">{{ item.reference }}</span>{% if reviewer %} · {{ item.organisation.display_name }}{% endif %}</p></div><span class="ui-badge ui-badge--size-sm {% if item.awaiting_reply_count %}ui-badge--warning{% else %}ui-badge--info{% endif %}">{{ item.query_state }} <span aria-hidden="true">→</span></span></a>
+              <p class="mt-1 text-xs text-soft-foreground">{{ item.get_kind_display }} · <span class="font-mono">{{ item.reference }}</span>{% if reviewer %} · {{ item.organisation.display_name }}{% elif not product and item.product %} · {{ item.product.name }}{% endif %}</p></div><span class="ui-badge ui-badge--size-sm {% if item.awaiting_reply_count %}ui-badge--warning{% else %}ui-badge--info{% endif %}">{{ item.query_state }} <span aria-hidden="true">→</span></span></a>
         {% endfor %}
       </div>
     {% else %}

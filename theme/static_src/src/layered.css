@@ -141,6 +141,22 @@
     @apply text-[28px] leading-none font-extrabold tracking-[-0.03em] text-foreground tabular-nums;
   }
 
+  /* ── Count tile: a figure in a small tinted square ──────────────────── */
+
+  .ui-count {
+    @apply inline-flex h-12 min-w-12 shrink-0 items-center justify-center rounded-[10px] border border-transparent bg-primary-100 px-2.5 text-[22px] leading-none font-extrabold tracking-[-0.02em] text-primary-800 tabular-nums;
+  }
+
+  .ui-count--warning {
+    border-color: var(--status-warning-border);
+    background: var(--status-warning-bg);
+    color: var(--status-warning-text);
+  }
+
+  .ui-count--quiet {
+    @apply bg-soft-background text-soft-foreground;
+  }
+
   /* ── Meters ─────────────────────────────────────────────────────────── */
 
   .ui-meter {
@@ -448,6 +464,10 @@
 
   .ui-queue-chip--blocked {
     @apply border-dashed border-stronger-border bg-card text-soft-foreground;
+  }
+
+  .ui-queue-chip--draft {
+    @apply border-border bg-card text-muted-foreground;
   }
 
   /* ── Milestone stepper ──────────────────────────────────────────────── */

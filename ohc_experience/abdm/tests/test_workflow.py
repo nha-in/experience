@@ -1520,13 +1520,17 @@ def test_pending_queries_follow_the_selected_product(environment, client):
     )
     assert other, form.errors
     client.force_login(environment["applicant"])
-    url = reverse("experiences:pending-queries")
 
-    here = client.get(url, {"product": environment["product"].reference})
+    def queries(product):
+        return client.get(
+            reverse("experiences:product-queries", args=[product.reference]),
+        )
+
+    here = queries(environment["product"])
     assert item in here.context["items"]
     assert here.context["query_count"] == 1
 
-    elsewhere = client.get(url, {"product": other.reference})
+    elsewhere = queries(other)
     assert item not in elsewhere.context["items"]
     assert elsewhere.context["query_count"] == 0
 

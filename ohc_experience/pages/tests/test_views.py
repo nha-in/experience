@@ -88,7 +88,11 @@ class TestFrontView:
 
         html = client.get("/", headers=front_host).content.decode()
 
-        assert html.count('href="https://sandbox.staging.example/"') == 2
+        hiecm_and_uhi_buttons = 2
+        assert (
+            html.count('href="https://sandbox.staging.example/"')
+            == hiecm_and_uhi_buttons
+        )
 
     def test_the_nhcx_button_opens_the_site_the_deployment_names(
         self,

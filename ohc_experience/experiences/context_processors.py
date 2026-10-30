@@ -19,23 +19,14 @@ def products_for(user):
     return query.order_by("name", "pk")
 
 
-def selected_product(request):
-    if not request.user.is_authenticated:
-        return None
-    reference = request.GET.get(
-        "product",
-        request.session.get("experience_product", ""),
-    )
-    query = products_for(request.user)
-    return query.filter(reference=reference).first() or query.first()
-
-
 def product_scope(product):
-    """The selected product's reviews, and organisation-level ones with no product."""
-    scope = Q(product__isnull=True)
-    if product:
-        scope |= Q(product=product)
-    return scope
+    """The selected product's reviews, and organisation-level ones with no product.
+
+    With no product selected the page is about the organisation: every review.
+    """
+    if not product:
+        return Q()
+    return Q(product__isnull=True) | Q(product=product)
 
 
 def navigation_context(request, product=None):
@@ -130,12 +121,7 @@ def experience_program(request):
         if hasattr(request, "experience_navigation"):
             context.update(request.experience_navigation)
         else:
-            product = (
-                None
-                if permissions.reviewer(request.user)
-                else selected_product(request)
-            )
-            context.update(navigation_context(request, product))
+            context.update(navigation_context(request))
         if context.get("product"):
             context["experience_program"] = context["product"].definition
     return context

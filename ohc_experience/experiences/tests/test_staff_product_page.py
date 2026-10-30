@@ -284,7 +284,7 @@ def test_a_revoked_integrator_is_sent_to_support_not_offered_new_credentials(
     content = client.get(url).content.decode()
 
     assert "Your credentials have been revoked." in content
-    assert f"{reverse('experiences:support')}?product={product.reference}" in content
+    assert reverse("experiences:product-support", args=[product.reference]) in content
     assert 'value="reveal"' not in content
     assert product.definition.sandbox_credentials.demo_notice not in content
     client.post(url, {"intent": "rotate"})

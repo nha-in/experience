@@ -51,10 +51,13 @@ def portal_products(owner_membership):
 @pytest.fixture
 def portal_client(client, owner_membership, portal_products):
     client.force_login(owner_membership.user)
-    session = client.session
-    session["experience_product"] = portal_products[1].reference
-    session.save()
     return client
+
+
+@pytest.fixture
+def support_url(portal_products):
+    """Support for the product the tests here work on."""
+    return reverse("experiences:product-support", args=[portal_products[1].reference])
 
 
 def test_ticket_defaults_and_applied_category_choices(portal_products):
@@ -179,11 +182,11 @@ def field_label(response, name):
     return re.sub(r'<span class="ui-required"[^>]*>(\*)</span>', r"\1", label).strip()
 
 
-def test_a_ticket_is_always_filed_under_a_category(portal_client):
+def test_a_ticket_is_always_filed_under_a_category(portal_client, support_url):
     """Others has a code of its own, so no ticket is filed under a blank one. The
     field that picks it is not optional, and starts on no category at all, so a
     ticket is never left in one by default."""
-    url = reverse("experiences:support")
+    url = support_url
     data = {
         "subject": "Help",
         "issue_type": "Access / General Inquiry / Concerns",
@@ -209,10 +212,11 @@ def test_a_ticket_is_always_filed_under_a_category(portal_client):
 
 def test_new_ticket_asks_for_an_issue_type_without_calling_it_optional(
     portal_client,
+    support_url,
 ):
     """Every ABDM category has a sub-menu, Others included, so every ticket
     names an issue type, and a missing one is reported once."""
-    url = reverse("experiences:support")
+    url = support_url
 
     page = portal_client.get(url, {"new": "1"})
     assert field_label(page, "issue_type") == "Issue type *"
@@ -277,18 +281,22 @@ def test_issue_type_menu_is_flat_and_tags_each_option_with_its_category(
     assert 'value="Data Transfer" data-category="abdm-m2"' in html
 
 
-@pytest.mark.parametrize("route", ["experiences:support", "experiences:events"])
+@pytest.mark.parametrize(
+    "route",
+    [
+        "experiences:product-queries",
+        "experiences:product-support",
+        "experiences:product-events",
+    ],
+)
 def test_programme_pages_keep_current_product(portal_client, portal_products, route):
-    response = portal_client.get(reverse(route))
+    product = portal_products[1]
+    link = reverse(route, args=[product.reference])
+    assert f'href="{link}"' in portal_client.get(product.get_absolute_url()).text
+    response = portal_client.get(link)
     assert response.status_code == HTTPStatus.OK
-    assert response.context["product"] == portal_products[1]
-    assert f"product={portal_products[1].reference}".encode() in response.content
-    response = portal_client.get(
-        reverse(route),
-        {"product": portal_products[0].reference},
-    )
-    assert response.context["product"] == portal_products[0]
-    assert portal_client.session["experience_product"] == portal_products[0].reference
+    assert response.context["product"] == product
+    assert f'href="{link}"' in response.text
 
 
 def test_support_ignores_another_organisations_product(
@@ -306,16 +314,17 @@ def test_support_ignores_another_organisations_product(
         reverse("experiences:support"),
         {"product": other.reference},
     )
-    assert response.context["product"] == portal_products[1]
+    assert response.context["product"] is None
     assert b"Private product" not in response.content
 
 
 def test_ticket_create_saves_category_and_scopes_product(
     portal_client,
     portal_products,
+    support_url,
 ):
     response = portal_client.post(
-        reverse("experiences:support"),
+        support_url,
         {
             "subject": "Callback rejects the request",
             "category": "phr-app-p2",
@@ -336,7 +345,10 @@ def test_ticket_create_saves_category_and_scopes_product(
     assert ticket.messages.get().body == "The callback returns an unexpected status."
 
 
-def test_a_ticket_takes_documents_spreadsheets_text_and_screenshots(portal_client):
+def test_a_ticket_takes_documents_spreadsheets_text_and_screenshots(
+    portal_client,
+    support_url,
+):
     """Each file is labelled with its own type in the thread. Screenshots open in
     the browser as PDFs do; Office files and text download."""
     files = {
@@ -347,7 +359,7 @@ def test_a_ticket_takes_documents_spreadsheets_text_and_screenshots(portal_clien
         "response.txt": b'{"error": "INVALID_CONSENT"}',
     }
     response = portal_client.post(
-        reverse("experiences:support"),
+        support_url,
         {
             "subject": "Callback rejects the request",
             "category": "phr-app-p2",
@@ -384,6 +396,7 @@ def test_a_ticket_takes_documents_spreadsheets_text_and_screenshots(portal_clien
 def test_ticket_attachments_say_what_they_take(
     portal_client,
     portal_products,
+    support_url,
     owner_membership,
 ):
     """The picker and the hint name what the validator takes, on the new ticket
@@ -393,7 +406,7 @@ def test_ticket_attachments_say_what_they_take(
     assert field.help_text == (
         "PDF, Word, Excel, CSV, text, PNG or JPG, up to 5 files, 10 MB each."
     )
-    creating = portal_client.get(reverse("experiences:support"), {"new": "1"})
+    creating = portal_client.get(support_url, {"new": "1"})
     assert b"PDF, Word, Excel, CSV, text, PNG or JPG, 10 MB each." in creating.content
     ticket = Ticket.objects.create(
         organisation=owner_membership.organisation,
@@ -469,9 +482,12 @@ def test_ticket_list_shows_category_and_sub_category_columns(
     assert "Bridge Service" in body
 
 
-def test_ticket_creation_error_keeps_form_and_does_not_write(portal_client):
+def test_ticket_creation_error_keeps_form_and_does_not_write(
+    portal_client,
+    support_url,
+):
     response = portal_client.post(
-        reverse("experiences:support"),
+        support_url,
         {
             "subject": "Help",
             "category": "bad",
@@ -561,7 +577,7 @@ def test_ticket_reply_needs_no_category_and_keeps_downloads(
     response = portal_client.get(ticket.get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     assert b"diagnostic.pdf" in response.content
-    assert portal_client.session["experience_product"] == portal_products[0].reference
+    assert response.context["selected_product"] == portal_products[0]
     assert set(response.context["form"].fields) == {"body", "attachments"}
     ticket.refresh_from_db()
     assert ticket.category == "abdm-m1"
@@ -572,6 +588,7 @@ def test_support_search_keeps_product_and_status(
     portal_client,
     portal_products,
     owner_membership,
+    support_url,
 ):
     for product, subject, status in (
         (portal_products[0], "Callback on another product", "open"),
@@ -585,10 +602,7 @@ def test_support_search_keeps_product_and_status(
             subject=subject,
             status=status,
         )
-    response = portal_client.get(
-        reverse("experiences:support"),
-        {"q": "callback", "status": "open"},
-    )
+    response = portal_client.get(support_url, {"q": "callback", "status": "open"})
     assert response.status_code == HTTPStatus.OK
     assert [ticket.subject for ticket in response.context["tickets"]] == [
         "Callback investigation",
@@ -599,6 +613,7 @@ def test_support_counts_keep_filters_and_product_before_status(
     portal_client,
     portal_products,
     owner_membership,
+    support_url,
 ):
     for product_index, subject, category, priority, status in (
         (1, "Callback investigation", "phr-app-p2", "high", "open"),
@@ -617,7 +632,7 @@ def test_support_counts_keep_filters_and_product_before_status(
             status=status,
         )
     response = portal_client.get(
-        reverse("experiences:support"),
+        support_url,
         {
             "q": "callback",
             "category": "phr-app-p2",
@@ -639,10 +654,7 @@ def test_support_counts_keep_filters_and_product_before_status(
     }
     assert response.context["has_ticket_filters"]
     assert b">Clear filters</a>" in response.content
-    cleared = portal_client.get(
-        reverse("experiences:support"),
-        {"product": portal_products[1].reference},
-    )
+    cleared = portal_client.get(support_url)
     assert not cleared.context["has_ticket_filters"]
     assert cleared.context["ticket_filters"]["status"] == "open"
     open_product_tickets = 4
@@ -780,8 +792,7 @@ def test_an_empty_first_tab_does_not_claim_there_are_no_tickets(
     if as_reviewer:
         portal_client.force_login(ReviewerFactory(is_nha_team=True))
     response = portal_client.get(
-        reverse("experiences:support"),
-        {"product": portal_products[0].reference},
+        reverse("experiences:product-support", args=[portal_products[0].reference]),
     )
     assert response.status_code == HTTPStatus.OK
     assert b"No tickets yet" not in response.content
@@ -897,10 +908,11 @@ def test_event_register_and_cancel_on_the_event_page(
         join_url="https://example.org/event",
         description="Bring your integration questions.",
     )
-    url = event.get_absolute_url()
+    reference = portal_products[1].reference
+    url = reverse("experiences:product-event", args=[reference, event.pk])
     listing = (
-        f"{reverse('experiences:events')}?product={portal_products[1].reference}"
-        "&kind=event&period=upcoming"
+        f"{reverse('experiences:product-events', args=[reference])}"
+        "?kind=event&period=upcoming"
     )
     # The listing no longer registers anyone; it sends them to the event instead.
     assert url.encode() in portal_client.get(listing).content
@@ -1099,14 +1111,10 @@ def test_reviewer_pages_do_not_select_a_product(
     route,
 ):
     portal_client.force_login(ReviewerFactory(is_nha_team=True))
-    session = portal_client.session
-    session["experience_product"] = portal_products[1].reference
-    session.save()
     response = portal_client.get(reverse(route))
 
     assert response.status_code == HTTPStatus.OK
     assert response.context["product"] is None
-    assert portal_client.session["experience_product"] == portal_products[1].reference
 
 
 def test_integrator_can_resolve_their_own_ticket(

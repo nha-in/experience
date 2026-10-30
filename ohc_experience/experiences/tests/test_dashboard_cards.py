@@ -18,6 +18,7 @@ from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.abdm.wasa import current_wasa
 from ohc_experience.experiences import workflows as services
+from ohc_experience.experiences.models import OUTCOME_EXPIRING_DAYS
 from ohc_experience.experiences.models import ProductOutcome
 from ohc_experience.organisations.models import GOVERNMENT
 from ohc_experience.organisations.models import Membership
@@ -204,3 +205,34 @@ def test_a_clarification_card_adds_both_lists_and_opens_the_exits(
     assert card["count"] == 1
     assert card["note"] == "Entities 0 · Exits 1"
     assert card["url"] == context["exit"]["answered"]["url"]
+
+
+def test_wasa_leads_the_attention_cards_and_decisions_follow(
+    environment,  # noqa: F811
+    client,
+):
+    client.force_login(environment["admin"])
+
+    labels = [card["label"] for card in dashboard(client)["attention_cards"]]
+
+    assert labels == [
+        "WASA expired",
+        f"WASA expiring in {OUTCOME_EXPIRING_DAYS} days",
+        "New applications to verify",
+        "Clarifications received",
+        "Exit requests to review",
+    ]
+
+
+@pytest.mark.parametrize("track", ["", "HIE-CM", "PHR", "UHI", "NHCX"])
+def test_attention_cards_always_fill_their_rows(
+    environment,  # noqa: F811
+    client,
+    track,
+):
+    client.force_login(environment["admin"])
+
+    html = client.get(reverse("experiences:assess-dashboard"), {"track": track}).text
+
+    columns = 2 * html.count("xl:col-span-2") + 3 * html.count("xl:col-span-3")
+    assert columns % 6 == 0

@@ -292,12 +292,11 @@ def test_an_integrators_own_products_sort_and_export(environment, client):
     url = reverse("experiences:products")
     response = client.get(url)
     html = response.content.decode()
-    assert (
-        html.count('class="ui-sort"')
-        == html.count("<th ")
-        == len(
-            ("Product", "Solution type", "Registered on"),
-        )
+    assert html.count('class="ui-sort"') == len(
+        ("Product", "Solution type", "Registered on"),
+    )
+    assert html.count("<th ") == len(
+        ("Product", "Solution type", "Registered on", "Status"),
     )
     assert response.context["table_sort"] == "-registered"
     for sort in ("solution", "product"):

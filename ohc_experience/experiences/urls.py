@@ -59,6 +59,26 @@ urlpatterns = [
         name="agent-skills",
     ),
     path(
+        "products/<str:reference>/queries/",
+        views.pending_queries,
+        name="product-queries",
+    ),
+    path(
+        "products/<str:reference>/support/",
+        views.support,
+        name="product-support",
+    ),
+    path(
+        "products/<str:reference>/sessions-and-activities/",
+        views.events,
+        name="product-events",
+    ),
+    path(
+        "products/<str:reference>/sessions-and-activities/<int:pk>/",
+        event_views.event_detail,
+        name="product-event",
+    ),
+    path(
         "products/<str:reference>/handoffs/<slug:handoff_key>/",
         views.product_handoff,
         name="product-handoff",
