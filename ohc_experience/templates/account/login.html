@@ -14,10 +14,9 @@
 {% endblock title %}
 {% block header_action %}
   {% if ACCOUNT_ALLOW_REGISTRATION %}
-    <span class="marketing-auth-headerhint">{% translate "New to the sandbox?" %}</span>
-    {% url 'account_signup' as signup_fallback %}
+    <span class="marketing-auth-headerhint">{% translate "New registrations are paused." %}</span>
     <a class="marketing-button marketing-button--primary marketing-button--small"
-       href="{% firstof signup_url signup_fallback %}">{% translate "Create an account" %}</a>
+       aria-disabled="true">{% translate "Create an account" %}</a>
   {% endif %}
 {% endblock header_action %}
 {% block entrance_layout_class %}marketing-auth--login{% endblock entrance_layout_class %}
@@ -71,11 +70,7 @@
 {% endblock entrance_body %}
 {% block entrance_after %}
   {% if ACCOUNT_ALLOW_REGISTRATION and not SOCIALACCOUNT_ONLY %}
-    <p>
-      {% translate "No account yet?" %}
-      {% url 'account_signup' as signup_fallback %}
-      <a class="ui-prose-link" href="{% firstof signup_url signup_fallback %}">{% translate "Create your integrator account" %}</a>
-    </p>
+    <p>{% translate "No account yet? New registrations are paused for now." %}</p>
   {% endif %}
 {% endblock entrance_after %}
 {% block inline_javascript %}

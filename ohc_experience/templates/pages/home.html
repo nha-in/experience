@@ -31,7 +31,7 @@
     {% if request.user.is_authenticated %}
       <a class="sbx-quick-nav-action" href="{% url 'dashboard' %}">{% translate "Open dashboard" %} <span aria-hidden="true">›</span></a>
     {% else %}
-      <a class="sbx-quick-nav-action" href="{% url 'account_signup' %}">{% translate "Register" %} <span aria-hidden="true">›</span></a>
+      <a class="sbx-quick-nav-action" aria-disabled="true">{% translate "Register" %} <span aria-hidden="true">›</span></a>
     {% endif %}
   </nav>
 {% endblock floating_navigation %}
@@ -51,9 +51,9 @@
         </h1>
         <p class="sbx-hero-lede"><span aria-hidden="true">✦</span> {% translate "Integrate with ABDM Ecosystem faster with Agentic AI" %}</p>
         <p class="sbx-hero-description">{% translate "A controlled, self-service sandbox where integrators build and validate their solutions with India’s National Digital Health Ecosystem. Purpose-built Agentic AI artefacts guide you through every ABDM integration, from HIE-CM and UHI to NHCX, so you are production-ready faster and with fewer errors." %}</p>
+        <p class="marketing-signup-paused">{% translate "This website is currently under testing. Please use the old portal for submitting applications. New registrations are disabled for now." %}</p>
         <div class="marketing-actions">
-          <a class="marketing-button marketing-button--primary sbx-magnetic"
-             href="{% url 'account_signup' %}">{% translate "Register for the Sandbox" %}
+          <a class="marketing-button marketing-button--primary" aria-disabled="true">{% translate "Register for the Sandbox" %}
             <span aria-hidden="true">→</span>
           </a>
           <a class="marketing-button" href="#how">{% translate "See the integration journey" %}
@@ -392,10 +392,10 @@
         <div>
           <h2 id="start-title">{% translate "Ready to start integrating?" %}</h2>
           <p>{% translate "Register for the Agentic AI Sandbox and let the AI artefacts guide you from M1 to go-live." %}</p>
+          <p class="marketing-signup-paused">{% translate "This website is currently under testing. Please use the old portal for submitting applications. New registrations are disabled for now." %}</p>
         </div>
         <div class="sbx-final-actions">
-          <a class="marketing-button marketing-button--primary sbx-magnetic"
-             href="{% url 'account_signup' %}">{% translate "Register for Sandbox" %}
+          <a class="marketing-button marketing-button--primary" aria-disabled="true">{% translate "Register for Sandbox" %}
             <span aria-hidden="true">→</span>
           </a>
           <a class="marketing-button marketing-button--secondary"
