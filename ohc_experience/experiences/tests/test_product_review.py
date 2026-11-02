@@ -45,14 +45,6 @@ def last_flash(response):
     return [str(message) for message in get_messages(response.wsgi_request)][-1]
 
 
-def assign_data(item, assignee):
-    return {
-        "intent": "assign",
-        "review_id": item.pk,
-        "assignee": assignee.pk if assignee else "",
-    }
-
-
 def test_product_review_combines_submissions_without_exposing_drafts(
     environment,
     client,
@@ -275,95 +267,69 @@ def test_single_review_rejects_a_stale_submission_and_retains_the_note(
     item.refresh_from_db()
     assert item.pending
     assert b"Evidence reviewed carefully." in response.content
+    compact = " ".join(response.content.decode().split())
+    assert f'id="review-{item.pk}" data-product-review-panel open>' in compact
 
 
-def test_approvers_assign_a_request_from_its_panel(environment, client):
+def test_the_assigned_reviewer_stays_out_of_view(environment, client):
     item = submit(environment)
-    client.force_login(environment["reviewer"])
-
-    response = client.get(product_url(environment))
-
-    section = next(
-        row for row in response.context["review_sections"] if row["item"] == item
-    )
-    assert section["can_assign"]
-    assert environment["reviewer"] in section["reviewers"]
-    assert f'id="assignee-{item.pk}"'.encode() in response.content
-
-    response = client.post(
-        product_url(environment),
-        assign_data(item, environment["reviewer"]),
-    )
-
-    assert response.status_code == HTTPStatus.FOUND
-    assert response.url == product_url(environment) + f"#review-{item.pk}"
-    assert last_flash(response) == f"{item.title} assigned to you."
-    item.refresh_from_db()
-    assert item.assignee == environment["reviewer"]
-    assert item.status == "in_review"
-
     client.force_login(environment["admin"])
-    response = client.post(
-        product_url(environment),
-        assign_data(item, environment["reviewer"]),
-    )
-    reviewer = environment["reviewer"].display_name
-    assert last_flash(response) == f"{item.title} assigned to {reviewer}."
-    response = client.post(product_url(environment), assign_data(item, None))
-    assert response.status_code == HTTPStatus.FOUND
-    assert last_flash(response) == f"{item.title} unassigned."
-    item.refresh_from_db()
-    assert item.assignee is None
+    assert b"Unassigned" not in client.get(product_url(environment)).content
 
-
-def test_reviewers_without_approve_access_cannot_assign(environment, client):
-    item = submit(environment)
-    writer = UserFactory(is_nha_team=True)
+    reviewer = UserFactory(is_nha_team=True, name="Priya Assignee")
     AccessGrant.objects.create(
-        user=writer,
+        user=reviewer,
         program="abdm",
         area="review",
         category="HIE-CM",
         can_read=True,
         can_write=True,
     )
-    client.force_login(writer)
+    workflows.assign_review(item, environment["admin"], reviewer)
+    content = client.get(product_url(environment)).content.decode()
 
-    response = client.get(product_url(environment))
+    assert 'name="assignee"' not in content
+    assert "Assigned reviewer" not in content
+    assert "Unassigned" not in content
+    assert reviewer.display_name not in content
 
-    assert not any(row["can_assign"] for row in response.context["review_sections"])
-    assert b'name="assignee"' not in response.content
-    response = client.post(product_url(environment), assign_data(item, writer))
-    assert response.status_code == HTTPStatus.FORBIDDEN
-    item.refresh_from_db()
-    assert item.assignee is None
-
-
-def test_an_ineligible_assignee_is_refused_with_the_request_open(environment, client):
-    item = submit(environment)
-    client.force_login(environment["admin"])
-
+    # Nothing offers assignment now, so a hand-made form changes nothing.
     response = client.post(
         product_url(environment),
-        assign_data(item, environment["applicant"]),
+        {"intent": "assign", "review_id": item.pk, "assignee": ""},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert b"Choose a review action." in response.content
+    item.refresh_from_db()
+    assert item.assignee == reviewer
+
+
+def test_activity_feeds_leave_out_reviewer_assignment(environment, client):
+    item = submit(environment)
+    workflows.assign_review(item, environment["admin"], environment["reviewer"])
+    workflows.assign_review(item, environment["admin"], None)
+    assert item.history.filter(action="Reviewer assigned").exists()
+    reference = environment["product"].reference
+
+    def assert_left_out(*urls):
+        for url in urls:
+            content = client.get(url).content
+            assert b"Reviewer assigned" not in content
+            assert b"Reviewer unassigned" not in content
+
+    client.force_login(environment["admin"])
+    assert_left_out(
+        reverse("experiences:product-detail", args=[reference]),
+        reverse("experiences:product-overview", args=[reference]),
+    )
+    client.force_login(environment["applicant"])
+    assert_left_out(
+        reverse("experiences:overview", args=[reference]),
+        reverse("experiences:track", args=[reference, "HIE-CM"]) + "?milestone=m1",
     )
 
-    assert response.status_code == HTTPStatus.OK
-    assert b"Choose an active reviewer" in response.content
-    compact = " ".join(response.content.decode().split())
-    assert f'id="review-{item.pk}" data-product-review-panel open>' in compact
-    item.refresh_from_db()
-    assert item.assignee is None
 
-
-@pytest.mark.parametrize(
-    "data",
-    [
-        {"intent": "decision", "revision": "0", "action": "approve"},
-        {"intent": "assign", "assignee": ""},
-    ],
-)
-def test_product_actions_cannot_target_another_product(environment, client, data):
+def test_product_actions_cannot_target_another_product(environment, client):
     other, form = workflows.register_product(
         environment["org"],
         environment["applicant"],
@@ -373,7 +339,15 @@ def test_product_actions_cannot_target_another_product(environment, client, data
     item = other.milestones.get(key="m1").application.review_item
     client.force_login(environment["admin"])
 
-    response = client.post(product_url(environment), {**data, "review_id": item.pk})
+    response = client.post(
+        product_url(environment),
+        {
+            "intent": "decision",
+            "revision": "0",
+            "action": "approve",
+            "review_id": item.pk,
+        },
+    )
 
     assert response.status_code == HTTPStatus.NOT_FOUND
 

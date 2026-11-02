@@ -116,7 +116,7 @@
                   <span class="staff-editor-chevron" aria-hidden="true"></span>
                 </summary>
                 <div class="staff-editor-group-body">
-                  <p class="staff-editor-actions-description">{% if group.area == 'review' %}<strong>Write</strong> raises and resolves queries. <strong>Approve</strong> approves or rejects, and assigns reviewers.{% elif group.area == 'support' %}<strong>Write</strong> replies to tickets and changes their priority. <strong>Approve</strong> resolves tickets.{% else %}<strong>Write</strong> creates and edits drafts. <strong>Approve</strong> publishes and unpublishes.{% endif %}</p>
+                  <p class="staff-editor-actions-description">{% if group.area == 'review' %}<strong>Write</strong> raises and resolves queries. <strong>Approve</strong> approves or rejects.{% elif group.area == 'support' %}<strong>Write</strong> replies to tickets and changes their priority. <strong>Approve</strong> resolves tickets.{% else %}<strong>Write</strong> creates and edits drafts. <strong>Approve</strong> publishes and unpublishes.{% endif %}</p>
                   <table class="staff-editor-matrix">
                     <caption class="sr-only">{{ group.program.short_name }} {{ group.label }} permissions</caption>
                     <thead>
@@ -164,11 +164,11 @@
           <section class="staff-editor-status" aria-labelledby="staff-status-title">
             <div>
               <h2 id="staff-status-title">Account status</h2>
-              <p>{% if staff_member.is_active %}{{ pending_reviews }} pending review{{ pending_reviews|pluralize }}. Archiving ends active sessions and releases pending assignments.{% else %}Previous permissions are retained. Restoring enables sign-in again.{% endif %}</p>
+              <p>{% if staff_member.is_active %}Archiving ends active sessions and releases pending assignments.{% else %}Previous permissions are retained. Restoring enables sign-in again.{% endif %}</p>
             </div>
             <form method="post"
                   action="{% url 'experiences:staff-archive' staff_member.pk %}"
-                  data-confirm="{% if staff_member.is_active %}Archive this account and end its active sessions? Pending reviews will be unassigned.{% else %}Restore this account with its saved portal permissions?{% endif %}">
+                  data-confirm="{% if staff_member.is_active %}Archive this account and end its active sessions? Pending assignments will be released.{% else %}Restore this account with its saved portal permissions?{% endif %}">
               {% csrf_token %}
               <input type="hidden" name="revision" value="{{ account_revision }}" />
               <button class="ui-btn ui-btn--outline ui-btn--size-sm {% if staff_member.is_active %}staff-editor-archive-button{% endif %}"

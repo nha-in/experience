@@ -6,8 +6,7 @@
 {% endif %}{% if registered %}{% translate "Solution type" %}: {{ item.product.get_solution_type_display }}
 {% if applicant %}{% translate "Registered by" %}: {{ applicant.name|default:applicant.email }}
 {% endif %}{% endif %}{% translate "Status" %}: {{ item.get_status_display }}
-{% if item.assignee %}{% translate "Reviewer" %}: {{ item.assignee.name|default:item.assignee.email }}
-{% endif %}{% if reason %}{% translate "Reason" %}: {{ reason }}
+{% if reason %}{% translate "Reason" %}: {{ reason }}
 {% endif %}
 {% if note %}{{ note }}
 {% endif %}{% for label, question in questions %}{{ label }}:

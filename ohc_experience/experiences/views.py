@@ -7,7 +7,6 @@ from urllib.parse import urlencode
 from django import forms
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
@@ -1011,16 +1010,6 @@ def _posted_product_review(request, product):
     )
 
 
-def _posted_assignee(request):
-    """The reviewer an Assign form chose, or None to leave the request unassigned."""
-    assignee_id = request.POST.get("assignee", "")
-    return (
-        get_object_or_404(get_user_model(), pk=assignee_id)
-        if assignee_id.isdigit()
-        else None
-    )
-
-
 def _review_label(item):
     """A request as its section on the product page is headed."""
     if item.kind == ReviewItem.Kind.ORGANISATION:
@@ -1035,13 +1024,6 @@ def _decision_notice(item, action, *, queries=1):
         return f"{raised} raised on {_review_label(item)}."
     outcome = "approved" if action == "approve" else "rejected"
     return f"{_review_label(item)} {outcome}."
-
-
-def _assign_notice(item, assignee, actor):
-    if assignee is None:
-        return f"{_review_label(item)} unassigned."
-    name = "you" if assignee == actor else assignee.display_name
-    return f"{_review_label(item)} assigned to {name}."
 
 
 def _product_review_post(request, product):
@@ -1084,12 +1066,6 @@ def _product_review_post(request, product):
             notice = _decision_notice(item, action)
         messages.success(request, notice)
         anchor = f"review-{item.pk}"
-    elif request.POST.get("intent") == "assign":
-        item = _posted_product_review(request, product)
-        assignee = _posted_assignee(request)
-        services.assign_review(item, request.user, assignee)
-        messages.success(request, _assign_notice(item, assignee, request.user))
-        anchor = f"review-{item.pk}"
     else:
         msg = "Choose a review action."
         raise ValidationError(msg)
@@ -1126,12 +1102,6 @@ def _query_drafts(request, item, action):
 
 
 def _product_review_sections(request, items):
-    assignable = {
-        item.pk for item in items if permissions.can_assign(request.user, item)
-    }
-    reviewers = permissions.eligible_reviewers(
-        [item for item in items if item.pk in assignable],
-    )
     sections = []
     for item in items:
         snapshot = item.selected_submission
@@ -1198,8 +1168,6 @@ def _product_review_sections(request, items):
                 if posted or asked
                 else {},
                 "opened": posted or asked,
-                "can_assign": item.pk in assignable,
-                "reviewers": reviewers.get(item.pk, []),
             },
         )
     return sections
@@ -1264,7 +1232,6 @@ def product_detail(request, reference):
             "organisation",
             "product",
             "application__milestone",
-            "assignee",
         )
         .prefetch_related("queries__raised_by", "queries__replied_by")
         .order_by("pk"),
@@ -1298,7 +1265,6 @@ def product_detail(request, reference):
             status__in=["in_review", "query_raised"],
         ).select_related(
             "application__milestone__product",
-            "assignee",
             "product",
         ),
     )
@@ -1333,7 +1299,7 @@ def product_detail(request, reference):
         None,
     )
     certification = _certification_context(request, product)
-    activity = AuditEvent.objects.filter(
+    activity = AuditEvent.objects.shown().filter(
         Q(product=product) | Q(item_id=organisation_section["item"].pk)
         if organisation_section
         else Q(product=product),
@@ -1433,7 +1399,7 @@ def product_overview(request, reference):
         else None
     )
     provisioning = provisioning_progress(product) if general_access else []
-    activity = AuditEvent.objects.filter(
+    activity = AuditEvent.objects.shown().filter(
         Q(product=product)
         | Q(item__in=[item for item in items if not item.product_id]),
         item__in=visible_items,
@@ -1614,7 +1580,7 @@ def overview(request, reference):
         return redirect("experiences:product-overview", reference=reference)
     product = _product(request, reference)
     visible_items = permissions.visible_reviews(request.user)
-    activity = product.audit_events.all()
+    activity = product.audit_events.shown()
     outcomes = product.outcomes.all()
     organisation_review = (
         visible_items.filter(

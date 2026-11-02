@@ -46,8 +46,8 @@ Demo accounts all use password `experience-demo-2026`:
 | --- | --- |
 | applicant@abdm-demo.in | Primary organisation owner |
 | contributor@abdm-demo.in | Integrator teammate |
-| reviewer@abdm-demo.in | Assigned NHA reviewer |
-| admin@abdm-demo.in | NHA administrator; assigns reviewers |
+| reviewer@abdm-demo.in | NHA reviewer |
+| admin@abdm-demo.in | NHA administrator |
 | new-integrator@abdm-demo.in | Organisation awaiting verification |
 | nhcx-reviewer@abdm-demo.in | Reviews: NHCX only |
 | uhi-reviewer@abdm-demo.in | Reviews: UHI only |
@@ -66,9 +66,8 @@ The broad `reviewer@abdm-demo.in` demo account has explicit all-category grants;
 the category-specific accounts above do not. All use the demo password above.
 Applicant access stays organisation-based.
 
-Review write allows queries; approve allows approval/rejection and assigning
-the category's requests. Neither needs assignment: the assignee only labels work
-for the queue filters. Support write
+Review write allows queries; approve allows approval/rejection. Neither needs
+assignment, which the portal keeps out of view. Support write
 allows replies; approve allows resolution. Event
 write allows draft creation/editing at `/portal/sessions-and-activities/`; approve allows
 publishing through that page's actions. Published events must be unpublished before editing.
@@ -195,10 +194,9 @@ retired; reviewer work uses the engine's assessment screens.
   Accept all and reject all skip these requests entirely, so the override is
   offered one request at a time: on its own review screen, and on its decision
   block on the product page.
-  Superusers, and reviewers holding the request category's review-approve grant,
-  assign reviewers manually to label and filter work, on the review screen or in
-  the request's panel on the product page. The assignee must hold the matching
-  category's review-write or review-approve grant. Any
+  A request's assignee stays on record but out of view: no portal page, activity
+  feed or email body names it, and only Django admin sets it. The assignee must
+  hold the matching category's review-write or review-approve grant. Any
   reviewer with that grant can act, assigned or not; superusers can perform
   every action.
 - `FormRecord` remains independent. Exit requests for one product share a form

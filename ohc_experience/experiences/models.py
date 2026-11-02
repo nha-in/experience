@@ -954,7 +954,15 @@ class ReviewQuery(models.Model):
         return f"{self.item.reference}: {self.field_key} ({self.status})"
 
 
+REVIEWER_ASSIGNED = "Reviewer assigned"
+REVIEWER_UNASSIGNED = "Reviewer unassigned"
+
+
 class AuditQuerySet(models.QuerySet):
+    def shown(self):
+        """What an activity feed lists: assignment stays on record, out of view."""
+        return self.exclude(action__in=[REVIEWER_ASSIGNED, REVIEWER_UNASSIGNED])
+
     def update(self, **kwargs):
         message = "Audit events are append-only."
         raise ValidationError(message)

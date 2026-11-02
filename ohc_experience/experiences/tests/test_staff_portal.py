@@ -875,3 +875,25 @@ def test_archive_releases_pending_assignments_and_preserves_evidence(
     assert ticket.assignee is None
     assert item.selected_submission_id == submission_id
     assert item.history.filter(action="Reviewer unassigned").exists()
+
+
+def test_the_staff_page_keeps_assigned_reviews_out_of_view(
+    environment,
+    staff,
+    superadmin,
+    client,
+):
+    AccessGrant.objects.create(
+        user=staff,
+        program="abdm",
+        area="review",
+        category="HIE-CM",
+        can_approve=True,
+    )
+    workflows.assign_review(submit(environment), environment["admin"], staff)
+    client.force_login(superadmin)
+
+    page = client.get(reverse("experiences:staff-edit", args=[staff.pk]))
+
+    assertNotContains(page, "pending review")
+    assertNotContains(page, "assigns reviewers")

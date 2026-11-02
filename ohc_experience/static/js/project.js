@@ -734,9 +734,9 @@ document.addEventListener("click", async (event) => {
   } catch { copy.setAttribute("aria-label", "Copy unavailable; select and copy the value"); }
 });
 
-// Assign, Reassign and a ticket's Change priority open their panel straight onto
-// the list. Closing it, with Cancel or Escape, forgets a choice that was never
-// saved. Toggle events do not bubble, so this listens while capturing.
+// A ticket's Change priority opens its panel straight onto the list. Closing it,
+// with Cancel or Escape, forgets a choice that was never saved. Toggle events do
+// not bubble, so this listens while capturing.
 document.addEventListener("toggle", (event) => {
   const panel = event.target;
   if (!panel.matches?.("details[data-picker-panel]")) return;

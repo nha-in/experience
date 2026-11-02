@@ -209,7 +209,7 @@ def test_staff_product_page_links_open_requests_to_their_cards(
     assert client.get(reverse("experiences:queue")).status_code == HTTPStatus.FORBIDDEN
 
 
-def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, client):
+def test_review_decisions_follow_grants_and_not_the_assignee(review_item, client):
     url = product_page(review_item)
     reviewer = ReviewerFactory(is_nha_team=True)
     client.force_login(reviewer)
@@ -219,8 +219,6 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     # Each submitted field picks itself for a query, falling back to a link.
     assert 'data-query-field="score"' in card
     assert "field=score#review-" in card
-    # Approving a request includes choosing its reviewer.
-    assert 'name="assignee"' in card
 
     read_only = UserFactory(is_nha_team=True)
     AccessGrant.objects.create(
@@ -234,22 +232,9 @@ def test_review_decisions_follow_grants_and_assignment_only_labels(review_item, 
     assert "data-decision-form" not in card
     assert "data-query-field" not in card
     assert "You have read-only access to this request." in card
-    assert 'name="assignee"' not in card
-
-    client.force_login(UserFactory(is_superuser=True))
-    card = review_section(client.get(url).content.decode(), review_item)
-    assert 'name="assignee"' in card
-    assert "Reassign" not in card
-    response = client.post(
-        url,
-        {"intent": "assign", "review_id": review_item.pk, "assignee": reviewer.pk},
-    )
-    assert response.status_code == HTTPStatus.FOUND
-    review_item.refresh_from_db()
-    assert review_item.assignee == reviewer
-    assert "Reassign" in review_section(client.get(url).content.decode(), review_item)
 
     # Someone other than the assignee can still record the decision.
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(ReviewerFactory(is_nha_team=True))
     response = client.post(
         url,
@@ -547,6 +532,9 @@ def test_several_questions_go_to_the_integrator_in_one_send(review_item, client)
     [email] = mail.outbox
     assert "Whole form:\nAttach the signed release note." in email.body
     assert "Score:\nConfirm this score against the report." in email.body
+    # The assignee stays copied, but the mail does not name them.
+    assert reviewer.email in email.cc
+    assert "Reviewer:" not in email.body
 
 
 def test_a_batch_of_questions_is_sent_whole_or_not_at_all(review_item):

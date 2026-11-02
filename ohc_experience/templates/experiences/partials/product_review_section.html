@@ -47,7 +47,7 @@
         {% endif %}
       </span>
       <span class="mt-1 block text-xs leading-relaxed text-soft-foreground break-words">
-        {% if item.kind == 'organisation_verification' %}{% if item.status == 'draft' %}Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'d/m/Y' }}{% endif %}{% else %}Shared across all products of {{ organisation.display_name }}{% endif %}{% elif snapshot %}Submitted {{ item.submitted_at|date:'d/m/Y' }} · {{ item.assignee.display_name|default:'Unassigned' }}{% elif item.status == 'rejected' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}
+        {% if item.kind == 'organisation_verification' %}{% if item.status == 'draft' %}Withdrawn by the integrator{% if withdrawn_at %} on {{ withdrawn_at|date:'d/m/Y' }}{% endif %}{% else %}Shared across all products of {{ organisation.display_name }}{% endif %}{% elif snapshot %}Submitted {{ item.submitted_at|date:'d/m/Y' }}{% elif item.status == 'rejected' %}Awaiting resubmission{% else %}No submitted evidence{% endif %}
       </span>
     </span>
     <span class="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -239,9 +239,6 @@
             {% endif %}
           {% else %}
             {% include 'experiences/partials/review_status.html' with reviewer=True %}
-          {% endif %}
-          {% if can_assign %}
-            {% include 'experiences/partials/reviewer_assign.html' %}
           {% endif %}
         </div>
       </div>

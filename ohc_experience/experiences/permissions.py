@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db.models import BigIntegerField
 from django.db.models import Exists
@@ -300,32 +299,8 @@ def eligible_reviewer(user, item):
     )
 
 
-def eligible_reviewers(items):
-    """The active staff each request can be assigned to, keyed by request pk."""
-    pks = [item.pk for item in items]
-    eligible = {pk: [] for pk in pks}
-    if not pks:
-        return eligible
-    staff = get_user_model().objects.filter(
-        Q(is_nha_team=True) | Q(is_superuser=True),
-        is_active=True,
-    )
-    for user in staff:
-        allowed = {
-            pk
-            for action in ("write", "approve")
-            for pk in visible_reviews(user, action)
-            .filter(pk__in=pks)
-            .values_list("pk", flat=True)
-        }
-        for pk in pks:
-            if pk in allowed:
-                eligible[pk].append(user)
-    return eligible
-
-
 def can_review(user, item, action):
-    """Category grants alone decide; the assignee only labels and filters work."""
+    """Category grants alone decide; the assignee plays no part."""
     return reviewer(user) and visible_reviews(user, action).filter(pk=item.pk).exists()
 
 

@@ -32,6 +32,8 @@ from ohc_experience.experiences.services import submission_payload
 from ohc_experience.experiences.services import synchronize_attachment_data
 from ohc_experience.organisations.models import Organisation
 
+from .models import REVIEWER_ASSIGNED
+from .models import REVIEWER_UNASSIGNED
 from .models import AuditEvent
 from .models import Milestone
 from .models import Notification
@@ -1124,7 +1126,7 @@ def assign_review(item, actor, assignee):
     item.save(update_fields=["assignee"])
     audit(
         actor=actor,
-        action="Reviewer assigned" if assignee else "Reviewer unassigned",
+        action=REVIEWER_ASSIGNED if assignee else REVIEWER_UNASSIGNED,
         item=item,
         detail={"before": before, "after": getattr(assignee, "pk", None)},
     )
