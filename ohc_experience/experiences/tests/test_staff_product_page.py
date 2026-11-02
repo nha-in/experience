@@ -4,18 +4,24 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
+from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import organisation_data
+from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import production
+from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.integrations.local import fail_next
 from ohc_experience.integrations.models import ProvisioningRun
 from ohc_experience.integrations.ports import UNSUPPORTED
 from ohc_experience.integrations.ports import ExternalSystem
+from ohc_experience.organisations.models import Membership
+from ohc_experience.organisations.models import Organisation
 from ohc_experience.support.models import Ticket
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -233,6 +239,89 @@ def test_the_connection_card_shows_each_value_whole_with_a_copy_button(
     assert "Not configured" in card
     assert "Copy callback URL" not in card
     assert "Copy client ID" in card
+
+
+def submit_organisation(organisation, applicant):
+    services.save_review_form(
+        services.organisation_review(organisation, applicant),
+        applicant,
+        data=organisation_data(),
+        files={"supporting_document": pdf()},
+        submit=True,
+    )
+
+
+def production_link(product):
+    return reverse("experiences:production-detail", args=[product.reference])
+
+
+def test_the_connection_card_waits_for_the_organisation_to_be_verified(
+    environment,
+    client,
+):
+    """Provisioning starts on verification, so until then the card has nothing."""
+    applicant = UserFactory()
+    organisation = Organisation.objects.create(name="Unverified health systems")
+    Membership.objects.create(organisation=organisation, user=applicant, role="owner")
+    submit_organisation(organisation, applicant)
+    product, _form = services.register_product(
+        organisation,
+        applicant,
+        data=product_data(),
+    )
+    client.force_login(environment["admin"])
+
+    response = client.get(product_url(environment, product))
+
+    assert response.status_code == HTTPStatus.OK
+    assert b'id="connection"' not in response.content
+    assert production_link(product).encode() not in response.content
+
+    ProvisioningRun.objects.create(
+        product=product,
+        status=ProvisioningRun.Status.FAILED,
+    )
+
+    assert b'id="connection"' in client.get(product_url(environment, product)).content
+
+
+def test_the_connection_card_stays_while_an_organisation_is_verified_again(
+    environment,
+    client,
+):
+    """A live product keeps its credentials while its organisation is resubmitted."""
+    product = environment["product"]
+    approve(environment)
+    production.record(product, environment["admin"], client_id="PROD-1", expected="")
+    submit_organisation(environment["org"], environment["applicant"])
+    environment["org"].refresh_from_db()
+    assert not environment["org"].is_verified
+    client.force_login(environment["admin"])
+
+    card = connection_card(client.get(product_url(environment)).content.decode())
+
+    assert "PROD-1" in card
+    assert "revoke_credentials" in card
+    assert production_link(product) in card
+
+
+def test_production_details_join_the_card_once_an_exit_is_approved(
+    environment,
+    client,
+):
+    link = production_link(environment["product"])
+    client.force_login(environment["admin"])
+
+    card = connection_card(client.get(product_url(environment)).content.decode())
+
+    assert "revoke_credentials" in card
+    assert link not in card
+
+    approve(environment)
+
+    assert link in connection_card(
+        client.get(product_url(environment)).content.decode(),
+    )
 
 
 def test_a_super_admin_revokes_the_credentials_from_the_product(

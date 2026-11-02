@@ -1302,6 +1302,11 @@ def product_detail(request, reference):
         None,
     )
     certification = _certification_context(request, product)
+    production = (
+        production_services.state(product)
+        if production_services.can_view(request.user, program)
+        else None
+    )
     activity = AuditEvent.objects.shown().filter(
         Q(product=product) | Q(item_id=organisation_section["item"].pk)
         if organisation_section
@@ -1361,9 +1366,8 @@ def product_detail(request, reference):
                 product,
                 credential,
             ),
-            production=production_services.state(product)
-            if production_services.can_view(request.user, program)
-            else None,
+            production=production,
+            show_connection=_has_connection(product, credential, production),
             provisioning=provisioning_progress(product) if general_access else [],
             can_retry_provisioning=_can_provision(request.user, product, program.key),
             provisioning_never_started=awaiting_provisioning(product),
@@ -3090,6 +3094,21 @@ def queue(request):
             request_choices=_request_choices(program, request.user),
             track_choices=tracks,
         ),
+    )
+
+
+def _has_connection(product, credential, production):
+    """Whether the Integration connection card has anything to show.
+
+    Provisioning starts once the organisation is verified, so until then the
+    card is empty. An organisation being verified again keeps it, for the live
+    credentials and production client ID its product may still hold.
+    """
+    return bool(
+        product.organisation.is_verified
+        or credential
+        or not awaiting_provisioning(product)
+        or (production and production["eligible"]),
     )
 
 
