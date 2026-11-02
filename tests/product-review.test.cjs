@@ -109,13 +109,13 @@ test('both bulk decisions open and require the shared note', () => {
   assert.equal(browser.fire('click', target).prevented, true);
   assert.equal(notePanel.open, true);
   assert.equal(note.required, true);
-  assert.match(note.validityMessage, /shared decision note/);
+  assert.match(note.validityMessage, /Enter the review/);
   notePanel.open = false;
   button.value = 'approve';
   assert.equal(browser.fire('click', target).prevented, true);
   assert.equal(notePanel.open, true);
   assert.equal(note.required, true);
-  assert.match(note.validityMessage, /shared decision note/);
+  assert.match(note.validityMessage, /Enter the review/);
   note.value = 'Too short';
   assert.equal(browser.fire('click', target).prevented, true);
   assert.match(note.validityMessage, /at least 10 characters/);

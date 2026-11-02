@@ -38,7 +38,7 @@
                data-product-bulk-note
                open>
         <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-semibold text-primary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
-          <span>Shared decision note <span class="font-normal text-soft-foreground">· required</span></span>
+          <span>Review <span class="font-normal text-soft-foreground">· required</span></span>
           <svg viewBox="0 0 24 24"
                class="size-3.5 transition-transform group-open/note:rotate-180 motion-reduce:transition-none"
                fill="none"
@@ -51,11 +51,11 @@
           </svg>
         </summary>
         <div class="px-3 pb-3">
-          <label class="sr-only" for="bulk-decision-note">Shared decision note</label>
-          <textarea class="ui-textarea min-h-20"
+          <label class="sr-only" for="bulk-decision-note">Review</label>
+          <textarea class="ui-textarea min-h-12 md:min-h-10"
                     id="bulk-decision-note"
                     name="note"
-                    rows="2"
+                    rows="1"
                     maxlength="10000"
                     minlength="{{ min_note_length }}"
                     required

@@ -1559,7 +1559,7 @@ def decide_product(product, actor, *, action, expected_revisions, note=""):
     # requests is turned away: what they typed never explains a refusal.
     note = note.strip()
     if not note:
-        msg = "Enter the shared decision note before continuing."
+        msg = "Enter the review before continuing."
         raise ValidationError(msg)
     if len(note) < MIN_REVIEW_TEXT:
         raise ValidationError(SHORT_NOTE)

@@ -862,7 +862,7 @@ document.addEventListener("keydown", (event) => {
     event.stopPropagation();
     note.setCustomValidity(written
       ? `Use at least ${note.minLength} characters.`
-      : 'Enter the shared decision note before continuing.');
+      : 'Enter the review before continuing.');
     note.focus();
     note.reportValidity();
   }

@@ -119,7 +119,7 @@ def test_bulk_decision_handles_submitted_siblings_and_leaves_m3_pending(
 @pytest.mark.parametrize(
     ("note", "message"),
     [
-        ("  ", b"Enter the shared decision note"),
+        ("  ", b"Enter the review before continuing."),
         ("Too short", b"at least 10 characters"),
     ],
 )
@@ -146,6 +146,20 @@ def test_a_bulk_decision_requires_the_shared_note_without_changing_any_review(
     for item in items:
         item.refresh_from_db()
         assert item.pending
+
+
+def test_the_bulk_review_box_is_named_review_and_starts_at_one_line(
+    environment,
+    client,
+):
+    submit(environment)
+    client.force_login(environment["reviewer"])
+
+    content = " ".join(client.get(product_url(environment)).content.decode().split())
+
+    assert '<label class="sr-only" for="bulk-decision-note">Review</label>' in content
+    assert 'id="bulk-decision-note" name="note" rows="1"' in content
+    assert "Shared decision note" not in content
 
 
 def test_unsent_corrections_after_rejection_are_not_shown_to_reviewers(
