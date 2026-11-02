@@ -49,7 +49,7 @@
                  id="track-{{ row.definition.code|slugify }}"
                  href="{{ row.tiles.0.url }}"
                  title="{{ row.definition.name }}">
-                {{ row.definition.code }} <span class="font-normal tabular-nums text-soft-foreground">{{ row.approved }}/{{ row.tiles|length }}</span>
+                {{ row.definition.code }} <span class="font-normal tabular-nums text-soft-foreground">{{ row.approved }}/{{ row.count }}</span>
               </a>
             {% endfor %}
           </nav>

@@ -291,6 +291,7 @@ def _tracks(product, user):
                 "shared_note": product.definition.shared_note(track.code),
                 "tiles": tiles,
                 "approved": sum(tile["status"] == "approved" for tile in tiles),
+                "count": len(tiles),
             },
         )
     return result

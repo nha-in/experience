@@ -15,6 +15,7 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import nhcx_product
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.organisations.models import Membership
@@ -677,3 +678,28 @@ def test_a_review_row_names_nhcx_only_for_what_the_role_builds_on(
     assert tracks("m2") == m2_tracks
     assert tracks("m3") == m3_tracks
     assert tracks("m4") == ["HIE-CM"]
+
+
+def test_the_tracks_strip_counts_requests_not_yet_submitted(environment, client):
+    """The Payer role is still a draft, so NHCX's two approved prerequisites are
+    2 of 3, not a finished 2 of 2."""
+    product = nhcx_product(environment)
+    for key in ("m1", "m3"):
+        item = submit_claims(environment, key)
+        workflows.assign_review(item, environment["admin"], environment["reviewer"])
+        workflows.decide(
+            item,
+            environment["reviewer"],
+            action="approve",
+            note="Approved with gateway handoff.",
+        )
+    client.force_login(environment["reviewer"])
+
+    response = client.get(
+        reverse("experiences:product-detail", args=[product.reference]),
+    )
+
+    strip = response.content.decode().split('aria-label="Compliance tracks"')[1]
+    strip = " ".join(re.sub(r"<[^>]+>", " ", strip.split("</nav>")[0]).split())
+    assert "HIE-CM 2/4" in strip
+    assert "NHCX 2/3" in strip
