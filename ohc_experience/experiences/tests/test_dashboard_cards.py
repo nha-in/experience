@@ -18,7 +18,6 @@ from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.abdm.wasa import current_wasa
 from ohc_experience.experiences import workflows as services
-from ohc_experience.experiences.models import OUTCOME_EXPIRING_DAYS
 from ohc_experience.experiences.models import ProductOutcome
 from ohc_experience.organisations.models import GOVERNMENT
 from ohc_experience.organisations.models import Membership
@@ -92,7 +91,7 @@ def test_every_figure_is_the_row_count_of_the_page_it_opens(
         for link in links(context):
             assert rows(client, link["url"]) == link["count"], (track, link["label"])
         totals = {choice["code"]: choice["total"] for choice in context["programmes"]}
-        assert totals[track] == context["total"] == sum(context["pending"].values())
+        assert totals[track] == sum(context["pending"].values())
 
 
 def test_an_organisation_counts_in_the_programmes_of_its_products(
@@ -185,54 +184,14 @@ def test_wasa_figures_follow_each_product_s_current_certificate(
     assert row.certificate_valid_until == current_wasa(product).valid_until
 
 
-def test_a_clarification_card_adds_both_lists_and_opens_the_exits(
-    environment,  # noqa: F811
-    client,
-):
-    m1 = submit(environment, "m1")
-    reviewer = environment["reviewer"]
-    services.decide(m1, reviewer, action="query", note="Which tests cover it?")
-    services.reply_query(m1.queries.get(), environment["applicant"], "Cases 2 and 5.")
-    client.force_login(environment["admin"])
-
-    context = dashboard(client)
-    card = next(
-        card
-        for card in context["attention_cards"]
-        if card["label"] == "Clarifications received"
-    )
-
-    assert card["count"] == 1
-    assert card["note"] == "Entities 0 · Exits 1"
-    assert card["url"] == context["exit"]["answered"]["url"]
-
-
-def test_wasa_leads_the_attention_cards_and_decisions_follow(
+def test_the_programme_filter_leads_straight_to_the_queues(
     environment,  # noqa: F811
     client,
 ):
     client.force_login(environment["admin"])
 
-    labels = [card["label"] for card in dashboard(client)["attention_cards"]]
+    html = client.get(reverse("experiences:assess-dashboard")).text
 
-    assert labels == [
-        "WASA expired",
-        f"WASA expiring in {OUTCOME_EXPIRING_DAYS} days",
-        "New applications to verify",
-        "Clarifications received",
-        "Exit requests to review",
-    ]
-
-
-@pytest.mark.parametrize("track", ["", "HIE-CM", "PHR", "UHI", "NHCX"])
-def test_attention_cards_always_fill_their_rows(
-    environment,  # noqa: F811
-    client,
-    track,
-):
-    client.force_login(environment["admin"])
-
-    html = client.get(reverse("experiences:assess-dashboard"), {"track": track}).text
-
-    columns = 2 * html.count("xl:col-span-2") + 3 * html.count("xl:col-span-3")
-    assert columns % 6 == 0
+    assert html.index('id="programme-caption"') < html.index("Sandbox onboarding")
+    for removed in ("Total pending actions", "Needs your attention"):
+        assert removed not in html

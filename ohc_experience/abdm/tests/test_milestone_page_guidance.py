@@ -306,11 +306,9 @@ def test_the_dashboard_names_each_section(environment, client):  # noqa: F811
     html = client.get(reverse("experiences:assess-dashboard")).content.decode()
 
     for title in (
-        "Total pending actions",
-        "WASA compliance",
-        "Needs your attention",
         "Sandbox onboarding",
         "Sandbox exit",
+        "Live products · WASA compliance",
     ):
         assert title in html
     # The integrator's registration steps are not a reviewer's.

@@ -1,4 +1,3 @@
-import math
 import re
 from collections import Counter
 from datetime import timedelta
@@ -2644,76 +2643,10 @@ def _wasa_standings(user, program, track):
 STANDING_VARIANTS = {"expired": "warning", "expiring": "neutral", "active": "success"}
 
 
-#: The compliance ring's radius, in the 92px box it is drawn in.
-RING_RADIUS = 34
-
-
 def _compliance(standings):
     live = sum(standing["count"] for standing in standings.values())
     percent = round(standings["active"]["count"] / live * 100) if live else 0
-    circumference = 2 * math.pi * RING_RADIUS
-    return {
-        "live": live,
-        "percent": percent,
-        "radius": RING_RADIUS,
-        "dash": f"{circumference * percent / 100:.1f} {circumference:.1f}",
-    }
-
-
-def _attention_cards(splits, standings):
-    """The figures that need a reviewer, highest impact first."""
-    cards = []
-    if standings:
-        cards += [
-            standings["expired"]
-            | {
-                "label": "WASA expired",
-                "note": "Live products without a valid WASA.",
-                "action": "View products",
-                "variant": "warning",
-            },
-            standings["expiring"]
-            | {
-                "label": f"WASA expiring in {OUTCOME_EXPIRING_DAYS} days",
-                "note": "Owners get automatic reminders.",
-                "action": "View products",
-                "variant": "neutral",
-            },
-        ]
-    onboarding, exit_ = splits.get("onboarding"), splits["exit"]
-    if onboarding:
-        cards.append(
-            onboarding["new"]
-            | {
-                "label": "New applications to verify",
-                "note": "Entity registrations awaiting verification.",
-                "action": "Start verification",
-            },
-        )
-    replies = exit_["answered"]["count"]
-    note = "Applicants answered your query."
-    if onboarding:
-        replies += onboarding["answered"]["count"]
-        note = (
-            f"Entities {onboarding['answered']['count']} · "
-            f"Exits {exit_['answered']['count']}"
-        )
-    cards += [
-        exit_["answered"]
-        | {
-            "label": "Clarifications received",
-            "count": replies,
-            "note": note,
-            "action": "Review responses",
-        },
-        exit_["new"]
-        | {
-            "label": "Exit requests to review",
-            "note": "New milestone requests.",
-            "action": "Review exits",
-        },
-    ]
-    return cards
+    return {"live": live, "percent": percent}
 
 
 @login_required
@@ -2736,10 +2669,8 @@ def assess_dashboard(request):
         {"code": choice.code, "label": choice.code, "total": total(choice)}
         for choice in tracks
     ]
-    busiest = max(programme["total"] for programme in programmes[1:]) if tracks else 0
     for programme in programmes:
         programme["url"] = "?" + urlencode({"track": programme["code"]})
-        programme["width"] = round(programme["total"] / busiest * 100) if busiest else 0
     queues = _dashboard_queues(user, program, track)
     pending = {
         name: _queue_tile(user, "", **params)["count"]
@@ -2760,15 +2691,12 @@ def assess_dashboard(request):
         nav="assess-dashboard",
         programme=track.code if track else "",
         programmes=programmes,
-        total=sum(pending.values()),
         pending=pending,
-        queue_url=_queue_url(scope="ready", **({"item": track.code} if track else {})),
         renewals_url=_queue_url(**queues["renewals"]) if standings else "",
         onboarding_queue=splits.get("onboarding"),
         exit=splits["exit"],
         standings=standings,
         compliance=_compliance(standings) if standings else None,
-        attention_cards=_attention_cards(splits, standings),
     )
     return render(request, "experiences/assess_dashboard.html", context)
 
