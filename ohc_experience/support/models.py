@@ -229,12 +229,13 @@ class Ticket(models.Model):
 
 
 class TicketMessage(models.Model):
-    """One entry in a ticket thread: a reply, or a status or priority change."""
+    """One thread entry: a reply, or a status, priority or assignee change."""
 
     class Kind(models.TextChoices):
         REPLY = "reply", _("Reply")
         EVENT = "event", _("Status change")
         PRIORITY = "priority", _("Priority change")
+        ASSIGNMENT = "assignment", _("Assignee change")
 
     ticket = models.ForeignKey(
         Ticket,
@@ -360,6 +361,41 @@ def change_priority(ticket: Ticket, author, priority: str) -> TicketMessage | No
             body=PRIORITY_CHANGE_SEPARATOR.join(
                 str(Priority(value).label) for value in (previous, priority)
             ),
+            from_nha_team=True,
+        )
+
+
+def assign_ticket(ticket: Ticket, author, assignee) -> TicketMessage | None:
+    """Give a ticket to someone who can act on it, or with None to no one.
+
+    The thread records the change by name, so the entry still reads once that
+    account has gone. Choosing the current assignee again changes nothing. The
+    support email thread mirrors replies only, so nothing is sent.
+    """
+    from ohc_experience.experiences.permissions import ticket_assignees  # noqa: PLC0415
+
+    if assignee and not ticket_assignees(ticket).filter(pk=assignee.pk).exists():
+        msg = _(
+            "Choose an active team member with write or approve access to this "
+            "category.",
+        )
+        raise ValidationError(msg)
+    with transaction.atomic():
+        # Read under a lock, so a stale copy cannot hide a change made meanwhile.
+        previous = (
+            Ticket.objects.select_for_update()
+            .values_list("assignee_id", flat=True)
+            .get(pk=ticket.pk)
+        )
+        ticket.assignee = assignee
+        if ticket.assignee_id == previous:
+            return None
+        ticket.save(update_fields=["assignee", "updated_at"])
+        return TicketMessage.objects.create(
+            ticket=ticket,
+            author=author,
+            kind=TicketMessage.Kind.ASSIGNMENT,
+            body=assignee.display_name if assignee else "",
             from_nha_team=True,
         )
 

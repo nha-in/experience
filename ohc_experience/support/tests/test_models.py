@@ -10,11 +10,13 @@ from __future__ import annotations
 import pytest
 from django.core.exceptions import ValidationError
 
+from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.organisations.tests.factories import OrganisationFactory
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
 from ohc_experience.support.models import TicketMessage
+from ohc_experience.support.models import assign_ticket
 from ohc_experience.support.models import change_priority
 from ohc_experience.support.models import post_reply
 from ohc_experience.support.tests.factories import product_for
@@ -314,6 +316,117 @@ class TestChangePriority:
         post_reply(ticket, nha_member, "Looking into it.", from_nha_team=True)
 
         change_priority(ticket, nha_member, Priority.LOW)
+        ticket.refresh_from_db()
+
+        assert ticket.status == Status.AWAITING_INTEGRATOR
+
+
+class TestAssignTicket:
+    @pytest.fixture
+    def colleague(self, ticket: Ticket):
+        user = UserFactory.create(name="Divya R", is_nha_team=True)
+        AccessGrant.objects.create(
+            user=user,
+            program=ticket.product.experience_type,
+            area="support",
+            category=ticket.category,
+            can_write=True,
+        )
+        return user
+
+    def test_the_thread_records_who_it_went_to(
+        self,
+        ticket: Ticket,
+        nha_member,
+        colleague,
+    ):
+        filed_at = ticket.updated_at
+
+        entry = assign_ticket(ticket, nha_member, colleague)
+        ticket.refresh_from_db()
+
+        assert ticket.assignee == colleague
+        assert ticket.updated_at > filed_at
+        assert (entry.kind, entry.body, entry.author, entry.from_nha_team) == (
+            TicketMessage.Kind.ASSIGNMENT,
+            "Divya R",
+            nha_member,
+            True,
+        )
+        assert entry.is_event
+
+    def test_unassigning_records_that_no_one_has_it(
+        self,
+        ticket: Ticket,
+        nha_member,
+        colleague,
+    ):
+        assign_ticket(ticket, nha_member, colleague)
+
+        entry = assign_ticket(ticket, nha_member, None)
+        ticket.refresh_from_db()
+
+        assert ticket.assignee is None
+        assert entry.kind == TicketMessage.Kind.ASSIGNMENT
+        assert entry.body == ""
+
+    def test_choosing_the_current_assignee_records_nothing(
+        self,
+        ticket: Ticket,
+        nha_member,
+        colleague,
+    ):
+        assign_ticket(ticket, nha_member, colleague)
+
+        assert assign_ticket(ticket, nha_member, colleague) is None
+        assert ticket.messages.count() == 1
+
+    def test_leaving_a_ticket_unassigned_records_nothing(
+        self,
+        ticket: Ticket,
+        nha_member,
+    ):
+        assert assign_ticket(ticket, nha_member, None) is None
+        assert not ticket.messages.exists()
+
+    def test_the_change_is_read_from_the_saved_assignee_not_a_stale_copy(
+        self,
+        ticket: Ticket,
+        nha_member,
+        colleague,
+    ):
+        """Someone else took the ticket after this copy was read."""
+        Ticket.objects.filter(pk=ticket.pk).update(assignee=colleague)
+
+        entry = assign_ticket(ticket, nha_member, None)
+        ticket.refresh_from_db()
+
+        assert entry is not None
+        assert ticket.assignee is None
+
+    def test_someone_who_cannot_act_on_the_ticket_is_refused(
+        self,
+        ticket: Ticket,
+        nha_member,
+    ):
+        """This nha_member holds no support grant, so the ticket would sit with them."""
+        with pytest.raises(ValidationError):
+            assign_ticket(ticket, nha_member, nha_member)
+        ticket.refresh_from_db()
+
+        assert ticket.assignee is None
+        assert not ticket.messages.exists()
+
+    def test_the_status_stays_where_it_was(
+        self,
+        ticket: Ticket,
+        nha_member,
+        colleague,
+    ):
+        """Assigning a ticket answers nobody, so the turn does not pass."""
+        post_reply(ticket, nha_member, "Looking into it.", from_nha_team=True)
+
+        assign_ticket(ticket, nha_member, colleague)
         ticket.refresh_from_db()
 
         assert ticket.status == Status.AWAITING_INTEGRATOR

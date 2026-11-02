@@ -68,7 +68,8 @@ Applicant access stays organisation-based.
 
 Review write allows queries; approve allows approval/rejection. Neither needs
 assignment, which the portal keeps out of view. Support write
-allows replies; approve allows resolution. Event
+allows replies; approve allows resolution; either allows assigning the
+category's tickets, and being assigned them. Event
 write allows draft creation/editing at `/portal/sessions-and-activities/`; approve allows
 publishing through that page's actions. Published events must be unpublished before editing.
 General/onboarding is a separate category covering organisation/product review;

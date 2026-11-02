@@ -7,10 +7,12 @@ from unittest.mock import patch
 import pytest
 from django.core import mail
 
+from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.support import emails
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
+from ohc_experience.support.models import assign_ticket
 from ohc_experience.support.models import change_priority
 from ohc_experience.support.models import post_reply
 from ohc_experience.support.tests.factories import product_for
@@ -150,6 +152,26 @@ def test_a_priority_change_mails_no_one_and_joins_no_one_to_the_thread(
 ):
     post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
     change_priority(ticket, nha_member, Priority.LOW)
+    post_reply(ticket, integrator, "Any update?", from_nha_team=False)
+
+    _opening, follow_up = mail.outbox
+    assert follow_up.cc == ["meera@sunrise.in"]
+
+
+def test_an_assignment_mails_no_one_and_joins_no_one_to_the_thread(
+    ticket,
+    integrator,
+    nha_member,
+):
+    AccessGrant.objects.create(
+        user=nha_member,
+        program=ticket.product.experience_type,
+        area="support",
+        category=ticket.category,
+        can_write=True,
+    )
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
+    assign_ticket(ticket, nha_member, nha_member)
     post_reply(ticket, integrator, "Any update?", from_nha_team=False)
 
     _opening, follow_up = mail.outbox

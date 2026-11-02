@@ -98,7 +98,7 @@
         <nav class="flex flex-wrap gap-x-6 gap-y-3" aria-label="Ticket status">
           {% for tab in status_tabs %}
             <a class="ui-tabstat"
-               href="?status={{ tab.value }}&amp;q={{ ticket_filters.q|urlencode }}&amp;category={{ ticket_filters.category|urlencode }}&amp;priority={{ ticket_filters.priority|urlencode }}"
+               href="?status={{ tab.value }}&amp;q={{ ticket_filters.q|urlencode }}&amp;category={{ ticket_filters.category|urlencode }}&amp;priority={{ ticket_filters.priority|urlencode }}&amp;assignee={{ ticket_filters.assignee|urlencode }}"
                {% if ticket_filters.status|default:'' == tab.value %}aria-current="page"{% endif %}>
               <span class="ui-figure ui-figure--md">{{ tab.count }}</span><span class="ui-kicker">{{ tab.label }}</span>
             </a>
@@ -132,6 +132,13 @@
           <div class="ui-select-wrapper"><select class="ui-select" name="priority" id="ticket-priority"><option value="">All priorities</option>{% for value,label in form.priority.field.choices %}<option value="{{ value }}"
         {% if ticket_filters.priority == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
         </div>
+        {% if reviewer %}
+          <div class="w-full sm:w-[140px]">
+            <label class="ui-label mb-1.5 block text-xs" for="ticket-assignee">Assignee</label>
+            <div class="ui-select-wrapper"><select class="ui-select" name="assignee" id="ticket-assignee"><option value="">All assignees</option>{% for value, label in assignee_choices %}<option value="{{ value }}"
+        {% if ticket_filters.assignee == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+          </div>
+        {% endif %}
         <div class="min-w-0 flex-1 basis-40">
           <label class="ui-label mb-1.5 block text-xs" for="ticket-search">Search tickets</label>
           <input class="ui-input w-full"
@@ -170,6 +177,9 @@
                   {% sort_header "Sub-category" "subcategory" %}
                   {% sort_header "Priority" "priority" %}
                   {% sort_header "Status" "status" %}
+                  {% if reviewer %}
+                    {% sort_header "Assigned to" "assignee" %}
+                  {% endif %}
                   {% sort_header "Updated" "updated" "text-right" descending_first=True %}
                 </tr>
               </thead>
@@ -193,7 +203,7 @@
         {% elif has_ticket_filters or ticket_total %}
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">
             <h3 class="ui-section-title">No support tickets to show</h3>
-            <p class="text-sm text-muted-foreground">{% if ticket_filters.status == 'open' and not has_ticket_search_filters %}{% if reviewer %}No tickets need your reply right now.{% else %}None of your tickets are with the NHA team right now.{% endif %}{% elif ticket_filters.status == 'awaiting_integrator' and not has_ticket_search_filters %}{% if reviewer %}No tickets are waiting for an organisation's reply.{% else %}No tickets need your reply right now.{% endif %}{% elif ticket_filters.status == 'closed' and not has_ticket_search_filters %}No tickets have been resolved yet.{% else %}Try another status, category or priority, or clear your search to see more tickets.{% endif %}</p>
+            <p class="text-sm text-muted-foreground">{% if ticket_filters.status == 'open' and not has_ticket_search_filters %}{% if reviewer %}No tickets need your reply right now.{% else %}None of your tickets are with the NHA team right now.{% endif %}{% elif ticket_filters.status == 'awaiting_integrator' and not has_ticket_search_filters %}{% if reviewer %}No tickets are waiting for an organisation's reply.{% else %}No tickets need your reply right now.{% endif %}{% elif ticket_filters.status == 'closed' and not has_ticket_search_filters %}No tickets have been resolved yet.{% else %}Try another status, category{% if reviewer %}, priority or assignee{% else %} or priority{% endif %}, or clear your search to see more tickets.{% endif %}</p>
           </div>
         {% else %}
           <div class="flex flex-col items-start gap-3 border-t border-soft-border px-6 py-6">

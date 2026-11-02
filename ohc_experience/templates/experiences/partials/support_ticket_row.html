@@ -10,6 +10,7 @@
     </div>
     <p class="mt-1.5 text-xs text-soft-foreground">{{ ticket.category_label }}{% if ticket.issue_type %} · {{ ticket.issue_type }}{% endif %} · updated {{ ticket.updated_at|timesince }} ago</p>
     {% if reviewer or not product %}<p class="mt-1 text-xs text-soft-foreground">{{ ticket.product.name }}</p>{% endif %}
+    {% if reviewer %}<p class="mt-1 text-xs text-soft-foreground">{% if ticket.assignee %}Assigned to {{ ticket.assignee.display_name }}{% else %}Unassigned{% endif %}</p>{% endif %}
   </li>
 {% else %}
   <tr class="group {% if ticket.status == 'awaiting_integrator' %}bg-orange-50/60 hover:bg-orange-50{% endif %}">
@@ -24,6 +25,7 @@
     <td class="align-top text-muted-foreground">{% if ticket.issue_type %}{{ ticket.issue_type }}{% else %}<span class="text-soft-foreground">—</span>{% endif %}</td>
     <td class="align-top text-muted-foreground">{{ ticket.get_priority_display }}</td>
     <td class="align-top"><span class="ui-badge ui-badge--{{ ticket.status_variant }} ui-badge--size-sm">{% if reviewer %}{{ ticket.queue_status_label }}{% else %}{{ ticket.get_status_display }}{% endif %}</span></td>
+    {% if reviewer %}<td class="align-top text-muted-foreground">{% if ticket.assignee %}{{ ticket.assignee.display_name }}{% else %}<span class="text-soft-foreground">Unassigned</span>{% endif %}</td>{% endif %}
     <td class="text-right align-top whitespace-nowrap text-muted-foreground tabular-nums"><time datetime="{{ ticket.updated_at|date:'c' }}"
       title="{{ ticket.updated_at|date:'d/m/Y, H:i' }} IST">{{ ticket.updated_at|timesince }} ago</time></td>
   </tr>

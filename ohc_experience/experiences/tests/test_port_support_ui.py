@@ -18,6 +18,7 @@ from ohc_experience.experiences.forms import SupportForm
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import EventRegistration
 from ohc_experience.experiences.models import Notification
+from ohc_experience.experiences.tests.test_tables import rows
 from ohc_experience.experiences.uploads import TICKET_ATTACHMENT_SIGNATURES
 from ohc_experience.experiences.uploads import validate_ticket_attachment
 from ohc_experience.organisations.tests.factories import MembershipFactory
@@ -748,6 +749,7 @@ def test_invalid_support_filters_do_not_create_a_false_active_state(portal_clien
     assert response.context["ticket_filters"] == {
         "category": "",
         "priority": "",
+        "assignee": "",
         "status": "",
         "q": "",
     }
@@ -1102,6 +1104,472 @@ def test_a_priority_off_the_list_is_refused(
     ticket.refresh_from_db()
     assert ticket.priority == "high"
     assert not ticket.messages.exists()
+
+
+@pytest.fixture
+def m1_ticket(owner_membership, portal_products):
+    return Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_products[0],
+        subject="Where is the sandbox guide?",
+        category="abdm-m1",
+        created_by=owner_membership.user,
+    )
+
+
+def staff_with_grant(ticket, category, name="Divya R", **actions):
+    """Someone on the team with one support grant, and no other way in."""
+    user = UserFactory(is_nha_team=True, name=name)
+    AccessGrant.objects.create(
+        user=user,
+        program=ticket.product.experience_type,
+        area="support",
+        category=category,
+        **actions,
+    )
+    return user
+
+
+def compact(response):
+    return " ".join(response.content.decode().split())
+
+
+def toasts(response):
+    return [str(message) for message in response.context["messages"]]
+
+
+def test_staff_can_assign_a_ticket_and_the_thread_tells_both_sides(
+    portal_client,
+    owner_membership,
+    m1_ticket,
+):
+    ticket = m1_ticket
+    colleague = staff_with_grant(ticket, "abdm-m1", can_write=True)
+    url = ticket.get_absolute_url()
+    portal_client.force_login(ReviewerFactory(name="Anand S"))
+    page = compact(portal_client.get(url))
+    assert '<input type="hidden" name="intent" value="assign" />' in page
+    assert f'<option value="{colleague.pk}" >Divya R</option>' in page
+    assert '<span class="block break-words">Unassigned</span>' in page
+
+    response = portal_client.post(
+        url,
+        {"intent": "assign", "assignee": colleague.pk},
+        follow=True,
+    )
+
+    assert response.redirect_chain == [(url, HTTPStatus.FOUND)]
+    assert toasts(response) == [f"Ticket {ticket.reference} assigned to Divya R."]
+    ticket.refresh_from_db()
+    assert ticket.assignee == colleague
+    assert list(ticket.messages.values_list("kind", "body")) == [
+        ("assignment", "Divya R"),
+    ]
+    page = compact(response)
+    entry = "Anand S assigned this to <strong>Divya R</strong>"
+    assert entry in page
+    assert '<span class="block break-words">Divya R</span>' in page
+    assert f'<option value="{colleague.pk}" selected>Divya R</option>' in page
+    # Saving the assignee it already has says and records nothing.
+    response = portal_client.post(
+        url,
+        {"intent": "assign", "assignee": colleague.pk},
+        follow=True,
+    )
+    assert not toasts(response)
+    assert ticket.messages.count() == 1
+
+    portal_client.force_login(owner_membership.user)
+    page = compact(portal_client.get(url))
+    assert entry in page
+    assert 'value="assign"' not in page
+
+
+def test_staff_can_take_a_ticket_and_let_it_go(
+    portal_client,
+    owner_membership,
+    m1_ticket,
+):
+    ticket = m1_ticket
+    url = ticket.get_absolute_url()
+    reviewer = ReviewerFactory(name="Anand S")
+    portal_client.force_login(reviewer)
+
+    taken = portal_client.post(
+        url,
+        {"intent": "assign", "assignee": reviewer.pk},
+        follow=True,
+    )
+
+    assert toasts(taken) == [f"Ticket {ticket.reference} assigned to you."]
+    assert "Anand S assigned this to themselves" in compact(taken)
+    assert ">Reassign" in compact(taken)
+
+    released = portal_client.post(
+        url,
+        {"intent": "assign", "assignee": ""},
+        follow=True,
+    )
+
+    assert toasts(released) == [f"Ticket {ticket.reference} unassigned."]
+    assert "Anand S unassigned this" in compact(released)
+    ticket.refresh_from_db()
+    assert ticket.assignee is None
+    # An integrator's ticket with no one on it is still with the NHA team.
+    portal_client.force_login(owner_membership.user)
+    assert 'class="break-words"> NHA team </dd>' in compact(portal_client.get(url))
+
+
+def test_a_ticket_is_only_offered_to_staff_who_can_act_on_its_category(
+    portal_client,
+    m1_ticket,
+):
+    ticket = m1_ticket
+    writer = staff_with_grant(ticket, "abdm-m1", "Writer", can_write=True)
+    approver = staff_with_grant(ticket, "abdm-m1", "Approver", can_approve=True)
+    all_categories = staff_with_grant(ticket, "*", "All", can_write=True)
+    staff_with_grant(ticket, "abdm-m1", "Reader")
+    staff_with_grant(ticket, "abdm-m2", "Another category", can_write=True)
+    archived = staff_with_grant(ticket, "abdm-m1", "Archived", can_write=True)
+    archived.is_active = False
+    archived.save(update_fields=["is_active"])
+    portal_client.force_login(writer)
+
+    response = portal_client.get(ticket.get_absolute_url())
+
+    assert list(response.context["assignees"]) == [all_categories, approver, writer]
+
+
+def test_someone_off_the_list_cannot_be_assigned_a_ticket(portal_client, m1_ticket):
+    """A form left open can name someone who has since lost the category."""
+    ticket = m1_ticket
+    outsider = staff_with_grant(ticket, "abdm-m2", can_write=True)
+    portal_client.force_login(ReviewerFactory())
+
+    response = portal_client.post(
+        ticket.get_absolute_url(),
+        {"intent": "assign", "assignee": outsider.pk},
+        follow=True,
+    )
+
+    assert toasts(response) == [
+        "Choose an active team member with write or approve access to this category.",
+    ]
+    ticket.refresh_from_db()
+    assert ticket.assignee is None
+    assert not ticket.messages.exists()
+
+
+def test_an_assignee_who_does_not_exist_is_not_found(portal_client, m1_ticket):
+    portal_client.force_login(ReviewerFactory())
+
+    response = portal_client.post(
+        m1_ticket.get_absolute_url(),
+        {"intent": "assign", "assignee": "0"},
+    )
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.parametrize("actor", ["integrator", "read_only_staff"])
+def test_only_staff_who_can_act_on_a_ticket_can_assign_it(
+    client,
+    owner_membership,
+    m1_ticket,
+    actor,
+):
+    ticket = m1_ticket
+    user = owner_membership.user
+    assigned_shows = "NHA team"
+    if actor == "read_only_staff":
+        user = staff_with_grant(ticket, "abdm-m1")
+        assigned_shows = "Unassigned"
+    client.force_login(user)
+    url = ticket.get_absolute_url()
+
+    page = client.get(url)
+    assert page.status_code == HTTPStatus.OK
+    assert b'value="assign"' not in page.content
+    assert f'class="break-words"> {assigned_shows} </dd>' in compact(page)
+    response = client.post(url, {"intent": "assign", "assignee": user.pk})
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    ticket.refresh_from_db()
+    assert ticket.assignee is None
+    assert not ticket.messages.exists()
+
+
+def test_a_ticket_keeps_its_assignee_through_a_reply_and_a_resolution(
+    portal_client,
+    m1_ticket,
+):
+    ticket = m1_ticket
+    reviewer = ReviewerFactory()
+    portal_client.force_login(reviewer)
+    url = ticket.get_absolute_url()
+    portal_client.post(url, {"intent": "assign", "assignee": reviewer.pk})
+
+    portal_client.post(url, {"body": "Looking into it."})
+    portal_client.post(url, {"intent": "close", "body": "Guide shared."})
+
+    ticket.refresh_from_db()
+    assert ticket.status == "closed"
+    assert ticket.assignee == reviewer
+
+
+@pytest.fixture
+def assigned_tickets(owner_membership, portal_products):
+    """One reviewer's tickets among a colleague's and some with no one on them."""
+    reviewer = ReviewerFactory(name="Anand S")
+    colleague = ReviewerFactory(name="Divya R")
+    for subject, assignee, status in (
+        ("Mine and open", reviewer, "open"),
+        ("Mine and resolved", reviewer, "closed"),
+        ("Theirs", colleague, "open"),
+        ("No one's", None, "open"),
+    ):
+        Ticket.objects.create(
+            organisation=owner_membership.organisation,
+            product=portal_products[0],
+            subject=subject,
+            category="abdm-m1",
+            status=status,
+            assignee=assignee,
+        )
+    return reviewer
+
+
+def test_assigned_to_me_narrows_the_queue_and_its_tabs(client, assigned_tickets):
+    client.force_login(assigned_tickets)
+    url = reverse("experiences:support")
+
+    response = client.get(url, {"assignee": "me", "status": ""})
+
+    assert {ticket.subject for ticket in response.context["tickets"]} == {
+        "Mine and open",
+        "Mine and resolved",
+    }
+    assert {tab["value"]: tab["count"] for tab in response.context["status_tabs"]} == {
+        "": 2,
+        "open": 1,
+        "awaiting_integrator": 0,
+        "closed": 1,
+    }
+    assert response.context["has_ticket_filters"]
+    assert response.context["has_ticket_search_filters"]
+    page = compact(response)
+    assert '<option value="me" selected>Assigned to me</option>' in page
+    assert page.count("&amp;assignee=me") == len(response.context["status_tabs"])
+    # Sorting reads the query, so a column heading keeps the filter as well.
+    assert "?assignee=me&amp;status=&amp;sort=subject" in page
+
+
+def test_the_queue_shows_everyone_s_tickets_unless_asked(client, assigned_tickets):
+    client.force_login(assigned_tickets)
+
+    response = client.get(reverse("experiences:support"), {"status": ""})
+
+    assert len(response.context["tickets"]) == 4  # noqa: PLR2004
+    assert '<option value="me" >Assigned to me</option>' in compact(response)
+    assert not response.context["has_ticket_search_filters"]
+
+
+def test_a_status_with_nothing_assigned_to_me_points_at_the_filter(
+    client,
+    assigned_tickets,
+):
+    client.force_login(assigned_tickets)
+
+    response = client.get(
+        reverse("experiences:support"),
+        {"assignee": "me", "status": "awaiting_integrator"},
+    )
+
+    assert not response.context["tickets"]
+    assert b"Try another status, category, priority or assignee" in response.content
+
+
+@pytest.mark.parametrize("assignee", ["me", "unassigned"])
+def test_integrators_have_no_assignee_filter_or_column(
+    portal_client,
+    assigned_tickets,
+    assignee,
+):
+    """They are never assigned a ticket, so the filter would hide all of theirs."""
+    response = portal_client.get(
+        reverse("experiences:support"),
+        {"assignee": assignee, "status": "", "sort": "assignee"},
+    )
+
+    assert len(response.context["tickets"]) == 4  # noqa: PLR2004
+    assert response.context["ticket_filters"]["assignee"] == ""
+    assert not response.context["has_ticket_search_filters"]
+    assert response.context["table_sort"] == "-updated"
+    assert b'name="assignee"' not in response.content
+    assert b"Assigned to" not in response.content
+
+
+def test_the_queue_says_who_holds_each_ticket(client, assigned_tickets):
+    client.force_login(assigned_tickets)
+
+    page = compact(client.get(reverse("experiences:support"), {"status": ""}))
+
+    assert '<td class="align-top text-muted-foreground">Divya R</td>' in page
+    assert '<span class="text-soft-foreground">Unassigned</span>' in page
+    # The phone's cards say it in words, with no heading above them.
+    assert ">Assigned to Divya R</p>" in page
+
+
+def test_the_queue_sorts_by_assignee_with_the_unassigned_last(
+    client,
+    owner_membership,
+    portal_products,
+    assigned_tickets,
+):
+    """Someone with no name sorts where their email would, as it shows."""
+    Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_products[0],
+        subject="Held by someone with no name",
+        category="abdm-m1",
+        assignee=ReviewerFactory(name="", email="beena@ohc.network"),
+    )
+    client.force_login(assigned_tickets)
+
+    def holders(sort):
+        response = client.get(
+            reverse("experiences:support"),
+            {"status": "", "sort": sort},
+        )
+        assert response.context["table_sort"] == sort
+        return [
+            ticket.assignee.display_name if ticket.assignee else None
+            for ticket in response.context["tickets"]
+        ]
+
+    holding = ["Anand S", "Anand S", "beena", "Divya R"]
+    assert holders("assignee") == [*holding, None]
+    assert holders("-assignee") == [*reversed(holding), None]
+
+
+def test_the_assignee_filter_lists_everyone_holding_a_ticket(client, assigned_tickets):
+    """But not the viewer, who has Assigned to me, or anyone with nothing to show."""
+    colleague = Ticket.objects.get(subject="Theirs").assignee
+    ReviewerFactory(name="Nothing Assigned")
+    client.force_login(assigned_tickets)
+
+    response = client.get(reverse("experiences:support"))
+
+    assert response.context["assignee_choices"] == [
+        ("me", "Assigned to me"),
+        ("unassigned", "Unassigned"),
+        (str(colleague.pk), "Divya R"),
+    ]
+
+
+def test_the_queue_narrows_to_one_persons_tickets(client, assigned_tickets):
+    colleague = Ticket.objects.get(subject="Theirs").assignee
+    client.force_login(assigned_tickets)
+
+    response = client.get(
+        reverse("experiences:support"),
+        {"assignee": colleague.pk, "status": ""},
+    )
+
+    assert [ticket.subject for ticket in response.context["tickets"]] == ["Theirs"]
+    assert response.context["has_ticket_search_filters"]
+    page = compact(response)
+    assert f'<option value="{colleague.pk}" selected>Divya R</option>' in page
+    assert f"&amp;assignee={colleague.pk}" in page
+
+
+def test_the_queue_narrows_to_tickets_no_one_holds(client, assigned_tickets):
+    client.force_login(assigned_tickets)
+
+    response = client.get(
+        reverse("experiences:support"),
+        {"assignee": "unassigned", "status": ""},
+    )
+
+    assert [ticket.subject for ticket in response.context["tickets"]] == ["No one's"]
+    assert '<option value="unassigned" selected>Unassigned</option>' in compact(
+        response,
+    )
+
+
+def test_the_assignee_filter_stops_at_the_tickets_a_reviewer_can_see(
+    client,
+    owner_membership,
+    m1_ticket,
+):
+    """Whoever holds only another category's tickets is not offered, or honoured."""
+    m1_holder = staff_with_grant(m1_ticket, "abdm-m1", "M1 Holder", can_write=True)
+    Ticket.objects.filter(pk=m1_ticket.pk).update(assignee=m1_holder)
+    m2_holder = staff_with_grant(m1_ticket, "abdm-m2", "M2 Holder", can_write=True)
+    Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=m1_ticket.product,
+        subject="Another category",
+        category="abdm-m2",
+        assignee=m2_holder,
+    )
+    client.force_login(staff_with_grant(m1_ticket, "abdm-m1", can_write=True))
+    url = reverse("experiences:support")
+
+    response = client.get(url)
+
+    assert [label for _value, label in response.context["assignee_choices"]] == [
+        "Assigned to me",
+        "Unassigned",
+        "M1 Holder",
+    ]
+    response = client.get(url, {"assignee": m2_holder.pk, "status": ""})
+    assert response.context["ticket_filters"]["assignee"] == ""
+    assert not response.context["has_ticket_search_filters"]
+    assert [ticket.subject for ticket in response.context["tickets"]] == [
+        m1_ticket.subject,
+    ]
+
+
+@pytest.mark.parametrize("assignee", ["nobody", "0", "999999"])
+def test_an_assignee_off_the_filter_narrows_nothing(
+    client,
+    assigned_tickets,
+    assignee,
+):
+    client.force_login(assigned_tickets)
+
+    response = client.get(
+        reverse("experiences:support"),
+        {"assignee": assignee, "status": ""},
+    )
+
+    assert len(response.context["tickets"]) == 4  # noqa: PLR2004
+    assert response.context["ticket_filters"]["assignee"] == ""
+    assert not response.context["has_ticket_search_filters"]
+
+
+def test_the_export_says_who_holds_each_ticket_for_staff_only(
+    client,
+    owner_membership,
+    assigned_tickets,
+):
+    url = reverse("experiences:support")
+    client.force_login(assigned_tickets)
+
+    exported = rows(
+        client.get(url, {"status": "", "sort": "assignee", "export": "xlsx"}),
+    )
+
+    column = exported[0].index("Assigned to")
+    assert [row[column] for row in exported[1:]] == [
+        "Anand S",
+        "Anand S",
+        "Divya R",
+        "Unassigned",
+    ]
+    client.force_login(owner_membership.user)
+    assert "Assigned to" not in rows(client.get(url, {"export": "xlsx"}))[0]
 
 
 @pytest.mark.parametrize("route", ["experiences:events", "experiences:support"])

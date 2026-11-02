@@ -188,6 +188,121 @@ def test_reply_priority_and_close_follow_the_action_on_the_grant(
     assert visible(staff, "approve") == ({"abdm-m1"} if can_close else set())
 
 
+@pytest.mark.parametrize(
+    ("action", "can_act"),
+    [("read", False), ("write", True), ("approve", True)],
+)
+def test_a_ticket_goes_to_staff_who_can_act_on_its_category(
+    tickets,
+    staff,
+    action,
+    can_act,
+):
+    support_grant(staff, "abdm-m1", action=action)
+    ticket = tickets["abdm-m1"]
+
+    assert (staff in permissions.ticket_assignees(ticket)) is can_act
+    # Whoever can be assigned a ticket can assign it too.
+    assert permissions.can_assign_ticket(staff, ticket) is can_act
+    assert staff not in permissions.ticket_assignees(tickets["abdm-m2"])
+    assert not permissions.can_assign_ticket(staff, tickets["abdm-m2"])
+
+
+def test_a_grant_for_all_categories_reaches_a_retired_one_but_not_another_program(
+    tickets,
+    supplier_ticket,
+    staff,
+):
+    support_grant(staff, "*", action="write")
+
+    assert staff in permissions.ticket_assignees(tickets["abdm-m1"])
+    assert staff in permissions.ticket_assignees(tickets[RETIRED])
+    assert staff not in permissions.ticket_assignees(supplier_ticket)
+
+
+def test_a_ticket_goes_to_no_one_outside_the_active_staff(
+    tickets,
+    staff,
+    owner_membership,
+):
+    ticket = tickets["abdm-m1"]
+    support_grant(staff, "abdm-m1", action="write")
+    staff.is_active = False
+    staff.save(update_fields=["is_active"])
+    # A grant left on an account that has since left the team opens nothing.
+    former = UserFactory(is_nha_team=False)
+    support_grant(former, "abdm-m1", action="write")
+
+    assert staff not in permissions.ticket_assignees(ticket)
+    assert former not in permissions.ticket_assignees(ticket)
+    assert owner_membership.user not in permissions.ticket_assignees(ticket)
+    assert not permissions.can_assign_ticket(staff, ticket)
+    assert not permissions.can_assign_ticket(owner_membership.user, ticket)
+    assert not permissions.can_assign_ticket(AnonymousUser(), ticket)
+
+
+def test_a_ticket_can_go_to_a_superuser_with_no_grant(tickets, supplier_ticket):
+    admin = UserFactory(is_superuser=True)
+
+    assert admin in permissions.ticket_assignees(tickets["abdm-m1"])
+    assert admin in permissions.ticket_assignees(supplier_ticket)
+    assert permissions.can_assign_ticket(admin, supplier_ticket)
+
+
+def test_assignees_are_listed_by_name(tickets):
+    names = ["divya R", "Anand S", "Meena K"]
+    for name in names:
+        support_grant(
+            UserFactory(is_nha_team=True, name=name),
+            "abdm-m1",
+            action="write",
+        )
+
+    assignees = permissions.ticket_assignees(tickets["abdm-m1"])
+
+    assert [user.name for user in assignees] == ["Anand S", "divya R", "Meena K"]
+
+
+def test_assignees_are_the_staff_the_tickets_own_rules_let_act(
+    tickets,
+    supplier_ticket,
+    owner_membership,
+):
+    """Assignees are read from the grants directly, in one query for the picker,
+    so they are held here to what `visible_tickets` says for each account."""
+    reader = UserFactory(is_nha_team=True)
+    support_grant(reader, "abdm-m1")
+    writer = UserFactory(is_nha_team=True)
+    support_grant(writer, "abdm-m1", action="write")
+    approver = UserFactory(is_nha_team=True)
+    support_grant(approver, "nhcx-data", action="approve")
+    everything = UserFactory(is_nha_team=True)
+    support_grant(everything, "*", action="write")
+    supplier_staff = UserFactory(is_nha_team=True)
+    support_grant(supplier_staff, "*", program="supplier-quality", action="approve")
+    archived = UserFactory(is_nha_team=True, is_active=False)
+    support_grant(archived, "*", action="write")
+    accounts = [
+        reader,
+        writer,
+        approver,
+        everything,
+        supplier_staff,
+        archived,
+        UserFactory(is_superuser=True),
+        owner_membership.user,
+    ]
+
+    for ticket in [*tickets.values(), supplier_ticket]:
+        expected = {
+            user
+            for user in accounts
+            for action in ("write", "approve")
+            if permissions.visible_tickets(user, action).filter(pk=ticket.pk).exists()
+        }
+        assert set(permissions.ticket_assignees(ticket)) == expected
+
+
 def test_an_action_stops_at_the_category_it_was_granted_for(tickets, staff):
     support_grant(staff, "abdm-m1", action="write")
     support_grant(staff, "nhcx-data")

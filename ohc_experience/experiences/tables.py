@@ -53,6 +53,15 @@ def organisation_name(path=""):
     return Coalesce(NullIf(f"{path}legal_name", Value("")), f"{path}name")
 
 
+def person_name(path=""):
+    """The name a person goes by, their email when they have none."""
+    return Coalesce(
+        NullIf(f"{path}name", Value("")),
+        f"{path}email",
+        output_field=CharField(),
+    )
+
+
 def labelled(expression, choices):
     """A column sorted by the labels its values show as, rather than the values.
 

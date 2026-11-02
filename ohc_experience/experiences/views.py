@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from django import forms
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
@@ -61,6 +62,7 @@ from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
+from ohc_experience.support.models import assign_ticket
 from ohc_experience.support.models import change_priority
 from ohc_experience.support.models import post_reply
 
@@ -3383,14 +3385,19 @@ def events(request, reference=None):
     )
 
 
-TICKET_COLUMNS = {
-    "subject": Lower("subject"),
-    "category": "category",
-    "subcategory": Lower("issue_type"),
-    "priority": tables.ranked("priority", ("high", "medium", "low")),
-    "status": tables.ranked("status", ("open", "awaiting_integrator", "closed")),
-    "updated": "updated_at",
-}
+def _ticket_columns(*, reviewer=False):
+    """The tickets table's sortable headings; staff also see who holds each one."""
+    columns = {
+        "subject": Lower("subject"),
+        "category": "category",
+        "subcategory": Lower("issue_type"),
+        "priority": tables.ranked("priority", ("high", "medium", "low")),
+        "status": tables.ranked("status", ("open", "awaiting_integrator", "closed")),
+        "updated": "updated_at",
+    }
+    if reviewer:
+        columns["assignee"] = Lower(tables.person_name("assignee__"))
+    return columns
 
 
 def _ticket_export_header(*, reviewer):
@@ -3402,6 +3409,7 @@ def _ticket_export_header(*, reviewer):
         "Sub-category",
         "Priority",
         "Status",
+        *(("Assigned to",) if reviewer else ()),
         "Opened on",
         "Updated on",
     )
@@ -3417,6 +3425,11 @@ def _ticket_export_rows(tickets, *, reviewer):
             ticket.issue_type,
             ticket.get_priority_display(),
             ticket.queue_status_label if reviewer else ticket.get_status_display(),
+            *(
+                (ticket.assignee.display_name if ticket.assignee else "Unassigned",)
+                if reviewer
+                else ()
+            ),
             tables.day(ticket.created_at),
             tables.day(ticket.updated_at),
         )
@@ -3466,10 +3479,15 @@ def support(request, reference=None):  # noqa: C901
         tickets,
         request.GET,
         form,
+        user=request.user,
         reviewer=permissions.reviewer(request.user),
     )
     reviewer = permissions.reviewer(request.user)
-    inbox["table_sort"], order = tables.sorting(request, TICKET_COLUMNS, "-updated")
+    inbox["table_sort"], order = tables.sorting(
+        request,
+        _ticket_columns(reviewer=reviewer),
+        "-updated",
+    )
     tickets = inbox["tickets"].order_by(*order)
     if request.method == "GET" and (export := tables.export_format(request)):
         return tables.export_response(
@@ -3559,11 +3577,43 @@ def _change_ticket_priority(request, ticket):
     return redirect("experiences:ticket", reference=ticket.reference)
 
 
+def _posted_assignee(request):
+    """The person a ticket's Assign form chose, or None to leave it unassigned."""
+    assignee_id = request.POST.get("assignee", "")
+    return (
+        get_object_or_404(get_user_model(), pk=assignee_id)
+        if assignee_id.isdigit()
+        else None
+    )
+
+
+def _assign_notice(ticket, assignee, actor):
+    if assignee is None:
+        return f"Ticket {ticket.reference} unassigned."
+    name = "you" if assignee == actor else assignee.display_name
+    return f"Ticket {ticket.reference} assigned to {name}."
+
+
+def _assign_ticket(request, ticket):
+    if not permissions.can_assign_ticket(request.user, ticket):
+        raise PermissionDenied
+    assignee = _posted_assignee(request)
+    try:
+        changed = assign_ticket(ticket, request.user, assignee)
+    except ValidationError as error:
+        _error(request, error)
+    else:
+        if changed:
+            messages.success(request, _assign_notice(ticket, assignee, request.user))
+    return redirect("experiences:ticket", reference=ticket.reference)
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def ticket(request, reference):
     query = permissions.visible_tickets(request.user).select_related(
         "product",
+        "assignee",
     )
     ticket = get_object_or_404(query, reference=reference)
     product = ticket.product
@@ -3575,6 +3625,8 @@ def ticket(request, reference):
     )
     if request.POST.get("intent") == "priority":
         return _change_ticket_priority(request, ticket)
+    if request.POST.get("intent") == "assign":
+        return _assign_ticket(request, ticket)
     resolving = request.POST.get("intent") == "close"
     form = SupportForm(
         data=request.POST if request.method == "POST" else None,
@@ -3632,6 +3684,8 @@ def ticket(request, reference):
             ),
             # In the order the integrator chose from when filing.
             priorities=SupportForm.base_fields["priority"].choices,
+            can_assign=permissions.can_assign_ticket(request.user, ticket),
+            assignees=permissions.ticket_assignees(ticket),
             resolving=resolving,
             form=form,
         ),

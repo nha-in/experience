@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db.models import BigIntegerField
 from django.db.models import Exists
@@ -5,6 +6,7 @@ from django.db.models import OuterRef
 from django.db.models import Q
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
+from django.db.models.functions import Lower
 
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.organisations.models import Role
@@ -356,6 +358,37 @@ def can_change_ticket_priority(user, ticket):
     return (
         reviewer(user) and visible_tickets(user, "write").filter(pk=ticket.pk).exists()
     )
+
+
+def ticket_assignees(ticket):
+    """The active staff who can act on a ticket, and so can be assigned it.
+
+    A support grant for its category, or for all of them, gives that. Read
+    access alone does not, since a reader could not answer the ticket.
+    """
+    access = AccessGrant.objects.filter(
+        Q(can_write=True) | Q(can_approve=True),
+        area="support",
+        program=ticket.product.experience_type,
+        category__in=["*", ticket.category],
+    )
+    return (
+        get_user_model()
+        .objects.filter(
+            Q(is_superuser=True) | Q(is_nha_team=True, pk__in=access.values("user")),
+            is_active=True,
+        )
+        .order_by(Lower("name"), Lower("email"))
+    )
+
+
+def can_assign_ticket(user, ticket):
+    """Whoever can be assigned a ticket can take it, or pass it to a colleague.
+
+    The assignee opens nothing, since it only labels and filters work, so this
+    asks for no more than being assigned does.
+    """
+    return ticket_assignees(ticket).filter(pk=user.pk).exists()
 
 
 def staff_home(user):

@@ -40,7 +40,8 @@ def _participants(ticket: Ticket) -> list[str]:
 
     Copying them keeps the OHC member who answered on the conversation once the
     integrator replies, instead of leaving them to spot it in the shared inbox.
-    Changing the priority alone does not join anyone to the conversation.
+    Changing the priority or the assignee alone does not join anyone to the
+    conversation.
     """
     from .models import TicketMessage  # noqa: PLC0415
 

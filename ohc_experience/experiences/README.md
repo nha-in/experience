@@ -126,12 +126,13 @@ independent of the source review.
 | --- | --- | --- | --- |
 | Reviews | Queue, evidence, history, downloads | Raise and resolve queries | Approve or reject |
 | Reviews, General/onboarding | Production Approval screen and CSV export | | Add, change or remove a product's production details |
-| Support | Tickets and attachments | Reply, change priority | Resolve |
+| Support | Tickets and attachments | Reply, change priority, assign | Resolve, assign |
 | Events | Events | Create/edit drafts | Publish/unpublish |
 
 Write and approve independently require read; neither implies the other.
 Assignment neither grants nor restricts review actions; it only labels work
-for the queue filters.
+for the queue filters. A ticket's assignee is the same: staff with write or
+approve on its category can be assigned it, and can assign it.
 `available_review_actions(user, item)` exposes actions for the current actor.
 Use `visible_reviews`, `visible_submissions`, `visible_tickets`, and
 `visible_events` for data reads, not the staff identity helper `reviewer()`.
