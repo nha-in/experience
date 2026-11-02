@@ -315,17 +315,17 @@
           </div>
         </section>
       {% endif %}
-      <section class="ui-card ui-card--layered ui-card--sm ui-rise"
-               aria-labelledby="activity-title">
-        <div class="ui-card-header">
+      <details class="ui-card ui-card--layered ui-card--sm ui-rise group/activity gap-0 py-0">
+        <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
           <h2 class="ui-card-title" id="activity-title">Recent activity</h2>
-        </div>
-        <div class="ui-card-content max-h-[28rem] min-h-0 overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+          <span class="text-xs font-semibold text-primary"><span class="group-open/activity:hidden">Show</span><span class="hidden group-open/activity:inline">Hide</span></span>
+        </summary>
+        <div class="max-h-[28rem] min-h-0 overflow-y-auto rounded-b-xl border-t border-soft-border px-5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
              tabindex="0"
              aria-labelledby="activity-title">
           {% include 'experiences/partials/activity_feed.html' with events=activity show_context=True empty_text='No activity on the requests you can review.' only %}
         </div>
-      </section>
+      </details>
     </aside>
   </div>
 {% endblock portal_content %}

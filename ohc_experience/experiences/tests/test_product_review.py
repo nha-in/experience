@@ -329,6 +329,18 @@ def test_activity_feeds_leave_out_reviewer_assignment(environment, client):
     )
 
 
+def test_recent_activity_folds_away_on_the_product_page(environment, client):
+    submit(environment)
+    client.force_login(environment["reviewer"])
+
+    content = client.get(product_url(environment)).content.decode()
+
+    panel = content[: content.index('id="activity-title"')]
+    panel = panel[panel.rindex("<details") :]
+    assert "<summary" in panel
+    assert " open" not in panel[: panel.index(">")]
+
+
 def test_product_actions_cannot_target_another_product(environment, client):
     other, form = workflows.register_product(
         environment["org"],
