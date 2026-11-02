@@ -742,7 +742,15 @@ class Milestone(models.Model):
 
     @property
     def track_codes(self):
-        return [track.code for track in self.product.definition.tracks_with(self.key)]
+        """The tracks this product applied for that this milestone counts towards:
+        an NHCX provider's M2 names NHCX, a payer's does not."""
+        definition = self.product.definition
+        selections = self.product.applied_milestones
+        return [
+            track.code
+            for track in definition.tracks
+            if self.key in definition.applied_keys(track, selections)
+        ]
 
 
 class ReviewItem(models.Model):

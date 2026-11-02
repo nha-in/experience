@@ -12,6 +12,7 @@ from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import clear_callback_url
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import milestone
+from ohc_experience.abdm.tests.test_workflow import nhcx_product
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.experiences import workflows
@@ -627,3 +628,52 @@ def test_the_review_page_sits_under_the_review_queue(environment, client):
 
     response = client.get(url)
     assert response.context["nav"] == "queue"
+
+
+def test_a_review_row_names_only_the_tracks_the_product_applied_for(
+    environment,
+    client,
+):
+    """NHCX builds on M2 and M3, but this product never applied for NHCX."""
+    submit(environment)
+    submit(environment, "m2")
+    submit(environment, "m3")
+    client.force_login(environment["reviewer"])
+
+    response = client.get(product_url(environment))
+
+    html = " ".join(response.content.decode().split())
+    assert "HIE-CM · UHI · M1" in html
+    assert "HIE-CM · UHI · M2" in html
+    assert "HIE-CM · M3" in html
+
+
+@pytest.mark.parametrize(
+    ("role", "m2_tracks", "m3_tracks"),
+    [
+        ("nhcx_payer", ["HIE-CM"], ["HIE-CM", "NHCX"]),
+        ("nhcx_provider", ["HIE-CM", "NHCX"], ["HIE-CM"]),
+    ],
+)
+def test_a_review_row_names_nhcx_only_for_what_the_role_builds_on(
+    environment,
+    role,
+    m2_tracks,
+    m3_tracks,
+):
+    product = nhcx_product(environment)
+    product.applied_milestones = [
+        "HIE-CM:m1",
+        "HIE-CM:m2",
+        "HIE-CM:m3",
+        "HIE-CM:m4",
+        f"NHCX:{role}",
+    ]
+
+    def tracks(key):
+        return product.milestones.get(key=key).track_codes
+
+    assert tracks("m1") == ["HIE-CM", "NHCX"]
+    assert tracks("m2") == m2_tracks
+    assert tracks("m3") == m3_tracks
+    assert tracks("m4") == ["HIE-CM"]
