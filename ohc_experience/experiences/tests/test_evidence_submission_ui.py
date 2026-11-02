@@ -19,6 +19,7 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import nhcx_product
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.organisations.tests.factories import MembershipFactory
@@ -183,9 +184,9 @@ def test_choices_exclude_pending_approved_and_auto_approved_requests(
     """Only a milestone still open for submission is offered; a draft is open."""
     approved = approve(environment)
     draft = save_draft(environment, "m3")
-    pending = submit(environment, "m4")
+    pending, current = submit_together(environment, "m4", "m2")
+    workflows.withdraw(current, environment["applicant"])
     other_pending = submit(environment, "p1")
-    current = milestone(environment, "m2")
     client.force_login(environment["applicant"])
     response = client.get(track_url(environment, "m2"))
 
@@ -204,8 +205,8 @@ def test_choices_exclude_pending_approved_and_auto_approved_requests(
     assert choice_ids == {draft.pk}
 
 
-def test_m2_has_one_evidence_form_after_m1_is_submitted(environment, client):
-    submit(environment)
+def test_m2_has_one_evidence_form_after_m1_is_approved(environment, client):
+    approve(environment)
     client.force_login(environment["applicant"])
     response = client.get(track_url(environment, "m2"))
 
@@ -325,7 +326,7 @@ def test_current_milestone_submission_requires_its_own_testing_dates(
     client,
     field,
 ):
-    source = submit(environment)
+    source = approve(environment)
     target = milestone(environment, "m2")
     payload = submit_data()
     payload.pop(field)
@@ -347,9 +348,9 @@ def test_existing_other_category_evidence_does_not_expand_submission_choices(
     client,
 ):
     claims = {**environment, "product": nhcx_product(environment)}
-    first = submit(claims)
-    submit(claims, "m3")
-    other = submit(claims, "nhcx_payer")
+    first = approve(claims)
+    approve(claims, "m3")
+    other = approve(claims, "nhcx_payer")
     assert first.form_id == other.form_id
     client.force_login(environment["applicant"])
     response = client.get(track_url(claims, "m2"))

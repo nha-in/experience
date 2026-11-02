@@ -93,118 +93,42 @@
         </div>
         <div class="min-w-0 rounded-xl border border-soft-border bg-card p-4">
           {% if item.pending %}
-            <h3 class="text-sm font-bold" id="decision-title-{{ item.pk }}">Decision</h3>
+            <h3 class="text-sm font-bold" id="decision-title-{{ item.pk }}">Review</h3>
             {% if prerequisites %}
               <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950"
                    id="decision-hold-{{ item.pk }}">
                 <p class="font-semibold">Waiting on prerequisites</p>
-                <p class="mt-1">{% if withdrawn_hold %}{{ withdrawn_hold }}{% elif item.definition.auto_approve and can_override %}This request is recorded automatically once its prerequisites are approved, or you can approve it now and override that wait.{% elif item.definition.auto_approve %}This request is recorded automatically after its prerequisites are approved.{% else %}Individual decisions are available after the prerequisites are approved.{% endif %}{% if can_query %} You can raise queries meanwhile.{% endif %}</p>
+                <p class="mt-1">{% if withdrawn_hold %}{{ withdrawn_hold }}{% elif item.definition.auto_approve and can_override %}This request is recorded automatically once its prerequisites are approved, or you can approve it now and override that wait.{% elif item.definition.auto_approve %}This request is recorded automatically after its prerequisites are approved.{% else %}Accept all and Reject all take this request once its prerequisites are approved, or are decided with it.{% endif %}{% if can_query %} You can raise queries meanwhile.{% endif %}</p>
                 {% include 'experiences/partials/reviewer_prerequisites.html' %}
               </div>
             {% endif %}
             {% if unresolved_query_count %}
               <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm leading-relaxed text-amber-950"
-                   id="approval-hold-{{ item.pk }}">
-                <p class="font-semibold">Approval is on hold</p>
-                <p class="mt-1">Resolve {{ unresolved_query_count }} outstanding quer{{ unresolved_query_count|pluralize:'y,ies' }} before approval.</p>
+                   id="query-hold-{{ item.pk }}">
+                <p class="font-semibold">Decision is on hold</p>
+                <p class="mt-1">Resolve {{ unresolved_query_count }} outstanding quer{{ unresolved_query_count|pluralize:'y,ies' }} before approving or rejecting.</p>
                 <a class="mt-1 inline-flex min-h-9 items-center font-semibold underline underline-offset-2"
                    href="#queries-{{ item.pk }}">Review queries and replies</a>
               </div>
             {% endif %}
-            {% if can_approve or can_reject or can_query %}
+            {% if can_query %}
               <form method="post"
-                    id="decision-form-{{ item.pk }}"
+                    id="query-form-{{ item.pk }}"
                     class="mt-3 flex flex-col gap-3"
-                    data-decision-form
-                    data-unsaved-form
-                    {% if unresolved_query_count %}data-approval-blocked="true"{% endif %}
-                    {% if prerequisites %}data-decision-blocked="true"{% endif %}>
+                    data-query-send-form
+                    data-unsaved-form>
                 {% csrf_token %}
                 <input type="hidden" name="intent" value="decision" />
                 <input type="hidden" name="review_id" value="{{ item.pk }}" />
                 <input type="hidden"
                        name="revision"
                        value="{{ item.selected_submission_id }}" />
-                <fieldset class="flex gap-1 rounded-xl bg-muted-background p-1 text-center text-sm [&>label]:flex-1">
-                  <legend class="sr-only">Review action for {{ item.title }}</legend>
-                  <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-                    <input class="sr-only"
-                           type="radio"
-                           name="action"
-                           value="approve"
-                           {% if not can_approve %}disabled{% endif %}
-                           {% if prerequisites %}aria-describedby="decision-hold-{{ item.pk }}"{% elif unresolved_query_count %}aria-describedby="approval-hold-{{ item.pk }}"{% endif %}
-                           {% if decision_action == 'approve' and can_approve %}checked{% endif %} />
-                    <span>Approve</span>
-                  </label>
-                  <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-                    <input class="sr-only"
-                           type="radio"
-                           name="action"
-                           value="reject"
-                           {% if not can_reject %}disabled{% endif %}
-                           {% if prerequisites %}aria-describedby="decision-hold-{{ item.pk }}"{% endif %}
-                           {% if decision_action == 'reject' and can_reject %}checked{% endif %} />
-                    <span>Reject</span>
-                  </label>
-                  <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-1 py-2 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-                    <input class="sr-only"
-                           type="radio"
-                           name="action"
-                           value="query"
-                           {% if not can_query %}disabled{% endif %}
-                           {% if decision_action == 'query' and can_query %}checked{% endif %} />
-                    <span class="flex items-center gap-1.5">{% include "components/nav_icon.html" with icon="query" icon_size="size-4" %}Query</span>
-                  </label>
-                </fieldset>
+                <input type="hidden" name="action" value="query" />
                 {% include 'experiences/partials/query_drafts_summary.html' %}
-                {% if reject_reasons %}
-                  <div data-reject-controls
-                       {% if decision_action != 'reject' %}hidden{% endif %}>
-                    <label class="ui-label" for="decision-reason-{{ item.pk }}">Reason <span class="ui-required" aria-hidden="true">*</span></label>
-                    <div class="ui-select-wrapper">
-                      <select class="ui-select"
-                              id="decision-reason-{{ item.pk }}"
-                              name="reason"
-                              aria-required="true"
-                              data-reason-select>
-                        <option value="">Choose a reason</option>
-                        {% for reason in reject_reasons %}
-                          <option value="{{ reason }}"
-                                  {% if reason == other_reason %}data-note-required{% endif %}
-                                  {% if reason == decision_reason %}selected{% endif %}>{{ reason }}</option>
-                        {% endfor %}
-                      </select>
-                    </div>
-                    <p class="ui-hint" data-reason-hint>The integrator sees this reason above your note.</p>
-                  </div>
-                {% endif %}
-                <div data-note-controls
-                     {% if decision_action == 'query' %}hidden{% endif %}>
-                  <label class="ui-label" for="decision-note-{{ item.pk }}">
-                    <span data-decision-label>{% if decision_action == 'reject' %}Note for the integrator{% else %}Decision note{% endif %}</span>
-                    <span class="ui-required"
-                          aria-hidden="true"
-                          data-note-marker
-                          {% if decision_action == 'reject' and reject_reasons %}hidden{% endif %}>*</span>
-                  </label>
-                  <textarea class="ui-textarea min-h-20"
-                            id="decision-note-{{ item.pk }}"
-                            name="note"
-                            rows="3"
-                            maxlength="10000"
-                            data-note-minlength="{{ min_note_length }}"
-                            {% if decision_action == 'approve' or decision_action == 'reject' and not reject_reasons %}required minlength="{{ min_note_length }}"{% endif %}
-                            aria-describedby="decision-help-{{ item.pk }}">{{ decision_note }}</textarea>
-                  <p class="ui-hint" id="decision-help-{{ item.pk }}">Shared with the integrator and saved in this request's history. At least {{ min_note_length }} characters{% if reject_reasons %}, unless a listed reason already explains the rejection{% endif %}.</p>
-                </div>
-                <p class="text-xs leading-relaxed text-soft-foreground"
-                   data-query-aside
-                   hidden></p>
                 <div>
                   <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11 w-full"
                           type="submit"
-                          data-decision-submit>{% if decision_action == 'query' %}Send queries{% elif decision_action == 'reject' %}Reject request{% else %}Record approval{% endif %}</button>
+                          data-query-send>Send queries</button>
                 </div>
               </form>
             {% elif can_override %}
@@ -234,8 +158,11 @@
               </form>
             {% elif item.definition.auto_approve %}
               <p class="mt-3 text-sm leading-relaxed text-soft-foreground">This request is recorded automatically and needs no reviewer decision.</p>
-            {% elif not prerequisites %}
+            {% elif not can_decide and not prerequisites %}
               <p class="mt-3 text-sm leading-relaxed text-soft-foreground">You have read-only access to this request.</p>
+            {% endif %}
+            {% if can_decide %}
+              <p class="mt-3 text-xs leading-relaxed text-soft-foreground">Approve or reject it with Accept all or Reject all, together with the other requests here.</p>
             {% endif %}
           {% else %}
             {% include 'experiences/partials/review_status.html' with reviewer=True %}

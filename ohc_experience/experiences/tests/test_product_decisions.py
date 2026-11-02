@@ -14,6 +14,7 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import AuditEvent
@@ -26,11 +27,18 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def submitted_pair(environment):
-    return submit(environment, "m1"), submit(environment, "m2")
+    return tuple(submit_together(environment, "m1", "m2"))
 
 
 def revisions(*items):
     return {str(item.pk): str(item.selected_submission_id) for item in items}
+
+
+#: A reason from each list a batch can hold.
+REASONS = {
+    "sandbox_exit_evidence": "Incomplete documentation",
+    "sandbox_organisation": "Wrong website address",
+}
 
 
 def decide_all(environment, items, *, action="approve", note="Reviewed the evidence."):
@@ -40,6 +48,7 @@ def decide_all(environment, items, *, action="approve", note="Reviewed the evide
         action=action,
         expected_revisions=revisions(*items),
         note=note,
+        reasons=REASONS,
     )
 
 
@@ -177,12 +186,10 @@ def test_expired_evidence_rolls_back_entire_batch(environment, submitted_pair):
 
 def test_automatic_release_is_rolled_back_without_a_notice_on_later_failure(
     environment,
-    submitted_pair,
     django_capture_on_commit_callbacks,
 ):
-    m1, m2 = submitted_pair
+    m1, m2, queried = submit_together(environment, "m1", "m2", "m3")
     automatic = submit(environment, "uhi1")
-    queried = submit(environment, "m3")
     workflows.decide(
         queried,
         environment["admin"],
@@ -202,9 +209,9 @@ def test_automatic_release_is_rolled_back_without_a_notice_on_later_failure(
     assert_pending(m1, m2, queried, automatic)
 
 
-def test_unselected_new_submission_is_not_decided(environment, submitted_pair):
-    another = submit(environment, "m3")
-    decide_all(environment, submitted_pair)
+def test_unselected_new_submission_is_not_decided(environment):
+    m1, m2, another = submit_together(environment, "m1", "m2", "m3")
+    decide_all(environment, [m1, m2])
     assert_pending(another)
 
 
@@ -239,10 +246,7 @@ def test_previous_decision_cannot_be_replayed(environment, submitted_pair):
     assert_pending(m2)
 
 
-def test_every_selected_category_requires_approval_permission(
-    environment,
-    submitted_pair,
-):
+def test_every_selected_category_requires_approval_permission(environment):
     """UHI reaches the M1 and M2 it builds on, and no further: M3 refuses the batch."""
     staff = UserFactory(is_nha_team=True)
     AccessGrant.objects.create(
@@ -253,15 +257,15 @@ def test_every_selected_category_requires_approval_permission(
         can_read=True,
         can_approve=True,
     )
-    m3 = submit(environment, "m3")
+    items = submit_together(environment, "m1", "m2", "m3")
     with pytest.raises(PermissionDenied):
         workflows.decide_product(
             environment["product"],
             staff,
             action="approve",
-            expected_revisions=revisions(m3, *submitted_pair),
+            expected_revisions=revisions(*items),
         )
-    assert_pending(m3, *submitted_pair)
+    assert_pending(*items)
 
 
 @pytest.mark.parametrize("invalid", [{}, {"invalid": "1"}, None, {999999999: "1"}])

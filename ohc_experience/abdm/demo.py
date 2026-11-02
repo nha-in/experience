@@ -375,10 +375,21 @@ class DemoBuilder:
             issued_on=timezone.localdate() - timedelta(days=9),
             expected="",
         )
-        self.exit(product, "m2", applicant, admin, reviewer, "query")
-        # M3 builds on M1, which is approved, so this review is ready to decide.
-        self.exit(product, "m3", applicant, admin, reviewer, "review")
-        self.exit(product, "m4", applicant, admin, reviewer, "review")
+        # One exit covering three milestones. The query on M2 holds the decision.
+        m2, *_rest = self.exit_together(
+            product,
+            ("m2", "m3", "m4"),
+            applicant,
+            admin,
+            reviewer,
+        )
+        services.decide(
+            m2,
+            reviewer,
+            action="query",
+            field_key="functional_report",
+            note="Please identify the test cases covering consent expiry and revocation in the functional report.",
+        )
         uhi = product.milestones.get(key="uhi1").application.review_item
         services.save_review_form(uhi, applicant, data=uhi_data(), submit=True)
         self.locker_product(org, applicant, admin, reviewer)
@@ -412,7 +423,7 @@ class DemoBuilder:
             "HealthBridge Digital",
             password,
         )
-        # Verification pending beside a submitted M1, both on one product page.
+        # Verification pending with a product, whose milestones wait for it.
         submitter, submitting_org = self.pending_organisation(
             "pending-org-submitted@abdm-demo.in",
             "Meera Krishnan",
@@ -426,13 +437,6 @@ class DemoBuilder:
         )
         if not arogya:
             raise CommandError(str(form.errors))
-        services.save_review_form(
-            arogya.milestones.get(key="m1").application.review_item,
-            submitter,
-            data=evidence_data(),
-            files=evidence_files(),
-            submit=True,
-        )
         self.events(admin)
         ticket = Ticket.objects.create(
             organisation=org,
@@ -559,14 +563,6 @@ class DemoBuilder:
                 action="approve",
                 note=note,
             )
-        elif state == "query":
-            services.decide(
-                item,
-                reviewer,
-                action="query",
-                field_key="functional_report",
-                note="Please identify the test cases covering consent expiry and revocation in the functional report.",
-            )
         elif state == "rejected":
             services.decide(
                 item,
@@ -575,6 +571,33 @@ class DemoBuilder:
                 reason="Incomplete documentation",
                 note="Include the data-retention and document-retrieval scenarios, then resubmit the functional report.",
             )
+
+    def exit_together(self, product, keys, applicant, admin, reviewer):
+        """One exit request covering several milestones, as a track page sends it."""
+        items = [
+            product.milestones.get(key=key).application.review_item for key in keys
+        ]
+        lead, *others = items
+        data = evidence_data()
+        for item in others:
+            data[f"milestone_{item.pk}_start_date"] = data["start_date"]
+            data[f"milestone_{item.pk}_end_date"] = data["end_date"]
+        _item, form, saved = services.save_review_forms(
+            lead,
+            applicant,
+            data=data,
+            files=evidence_files(),
+            expected_revision=lead.selected_submission_id,
+            additional_revisions={
+                item.pk: item.selected_submission_id for item in others
+            },
+            page_keys=keys,
+        )
+        if not saved:
+            raise CommandError(str(form.errors))
+        for item in items:
+            services.assign_review(item, admin, reviewer)
+        return items
 
     def locker_product(self, org, applicant, admin, reviewer):
         """A PHR product on its own track, walking P1 to P4.
@@ -608,8 +631,7 @@ class DemoBuilder:
             "approved",
             note="P1 approved. P2 and P3 are open for submission.",
         )
-        for key in ("p2", "p3", "p4"):
-            self.exit(locker, key, applicant, admin, reviewer, "review")
+        self.exit_together(locker, ("p2", "p3", "p4"), applicant, admin, reviewer)
 
     def events(self, admin):
         for index, (title, kind, days) in enumerate(

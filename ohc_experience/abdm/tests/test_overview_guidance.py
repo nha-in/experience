@@ -9,6 +9,7 @@ from ohc_experience.abdm.demo import product_data
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import legacy
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import ReviewItem
@@ -134,11 +135,11 @@ def test_withdrawn_organisation_guidance_requires_resubmission(
     assert next_step["url"] == reverse("experiences:organisation")
 
 
-def test_verification_under_review_still_leads_to_milestone_evidence(
+def test_verification_under_review_holds_the_milestones_back(
     client,
     environment,  # noqa: F811
 ):
-    """Milestones no longer wait for verification, so neither does the guidance."""
+    """Milestones wait for verification, so the guidance waits with them."""
     item = workflows.organisation_review(
         environment["org"],
         environment["applicant"],
@@ -154,8 +155,9 @@ def test_verification_under_review_still_leads_to_milestone_evidence(
     response = client.get(environment["product"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK
     next_step = response.context["next_step"]
-    assert next_step["action"] == "Continue milestone"
-    assert next_step["url"].endswith("/tracks/HIE-CM/?milestone=m1")
+    assert next_step["action"] == "View verification"
+    assert next_step["url"] == reverse("experiences:organisation")
+    assert "Milestones open for submission once" in next_step["detail"]
 
 
 def test_review_guidance_skips_approved_milestones(client, environment):  # noqa: F811
@@ -163,8 +165,9 @@ def test_review_guidance_skips_approved_milestones(client, environment):  # noqa
     # P3 waits on the two phases before it, so they are decided, not just sent.
     for key in ("p1", "p2"):
         approve(environment, key)
-    for key in ("m2", "m3", "m4", "p3", "p4", "uhi1"):
-        submit(environment, key)
+    submit_together(environment, "m2", "m3", "m4")
+    submit_together(environment, "p3", "p4")
+    submit(environment, "uhi1")
     client.force_login(environment["applicant"])
     response = client.get(environment["product"].get_absolute_url())
     assert response.status_code == HTTPStatus.OK

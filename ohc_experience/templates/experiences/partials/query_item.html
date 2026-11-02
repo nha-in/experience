@@ -2,7 +2,7 @@
 One query in a queries card. A query the person looking can act on
 (collapsed=False) opens in full with its action: Mark resolved on a reply, or
 the reply form on an open question. Any other query folds to one line that
-opens in place.
+opens in place, with Close query for a reviewer on one still unanswered.
 {% endcomment %}
 {% if not collapsed %}
   <article class="flex flex-col gap-3 border-t border-soft-border {{ pad }} pt-4 pb-[18px]"
@@ -74,7 +74,7 @@ opens in place.
       {% endif %}
       <span class="truncate font-semibold">{{ query.field_label }}</span>
       <span class="hidden truncate text-[13px] text-soft-foreground group-open/q:invisible sm:block">{{ query.excerpt }}</span>
-      <span class="text-xs whitespace-nowrap {% if not query.live %}text-soft-foreground{% elif query.status == 'answered' %}font-semibold text-primary{% else %}font-semibold text-[var(--status-warning-text)]{% endif %}">{% if query.status == 'resolved' %}Resolved{% if query.resolved_at %} {{ query.resolved_at|date:'d/m/Y' }}{% endif %}{% elif query.earlier_submission %}Earlier submission{% elif not query.live %}{% if query.status == 'answered' %}Not resolved{% else %}No reply{% endif %}{% elif query.status == 'answered' %}{% if audience == 'integrator' %}With reviewer{% else %}Answered{% endif %}{% else %}Awaiting reply{% endif %}</span>
+      <span class="text-xs whitespace-nowrap {% if not query.live %}text-soft-foreground{% elif query.status == 'answered' %}font-semibold text-primary{% else %}font-semibold text-[var(--status-warning-text)]{% endif %}">{% if query.status == 'resolved' %}{% if query.reply %}Resolved{% else %}Closed{% endif %}{% if query.resolved_at %} {{ query.resolved_at|date:'d/m/Y' }}{% endif %}{% elif query.earlier_submission %}Earlier submission{% elif not query.live %}{% if query.status == 'answered' %}Not resolved{% else %}No reply{% endif %}{% elif query.status == 'answered' %}{% if audience == 'integrator' %}With reviewer{% else %}Answered{% endif %}{% else %}Awaiting reply{% endif %}</span>
       <svg viewBox="0 0 24 24"
            class="size-4 text-soft-foreground transition-transform group-open/q:rotate-180 motion-reduce:transition-none"
            fill="none"
@@ -86,6 +86,26 @@ opens in place.
         <path d="m6 9 6 6 6-6" />
       </svg>
     </summary>
-    <div class="{{ pad }} pt-1 pb-4">{% include 'experiences/partials/query_messages.html' %}</div>
+    <div class="{{ pad }} pt-1 pb-4">
+      {% include 'experiences/partials/query_messages.html' %}
+      {% if query.can_close %}
+        <form class="mt-3 sm:pl-[34px]"
+              method="post"
+              action="{% url 'experiences:query-action' query.pk %}"
+              data-confirm="Close this query without a reply? It stops holding the decision."
+              hx-confirm="Close this query without a reply? It stops holding the decision.">
+          {% csrf_token %}
+          <input type="hidden" name="intent" value="close" />
+          {% if return_to_product %}
+            <input type="hidden"
+                   name="return_to_product"
+                   value="{{ product_review_reference|default:'1' }}" />
+          {% endif %}
+          <button class="ui-btn ui-btn--outline ui-btn--size-sm"
+                  type="submit"
+                  aria-describedby="query-question-{{ query.pk }}">Close query</button>
+        </form>
+      {% endif %}
+    </div>
   </details>
 {% endif %}

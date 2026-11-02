@@ -1,7 +1,7 @@
 {% load experience_ui %}
 
 {% snapshot_rows snapshot item query_drafts as rows %}
-{% decision_form_id item as form_id %}
+{% query_form_id item as form_id %}
 {% draft_for query_drafts 'form' as form_draft %}
 <section class="{% if embedded_review %}flex flex-col{% else %}ui-card ui-card--layered gap-3.5 pb-2.5{% endif %}"
          aria-labelledby="submitted-form-title{% if embedded_review %}-{{ item.pk }}{% endif %}"

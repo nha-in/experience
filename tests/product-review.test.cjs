@@ -11,9 +11,10 @@ function page() {
     if (!listeners.has(name)) listeners.set(name, []);
     listeners.get(name).push(callback);
   };
+  const bulkForms = [];
   const document = {
     addEventListener: on,
-    querySelectorAll: () => [],
+    querySelectorAll: selector => selector === '[data-product-bulk-form]' ? bulkForms : [],
     querySelector: () => null,
     getElementById: id => targets.get(id),
   };
@@ -26,6 +27,7 @@ function page() {
   return {
     window,
     targets,
+    bulkForms,
     fire(name, target, extra = {}) {
       const event = {
         target,
@@ -86,9 +88,8 @@ test('a row filed under Approved reviews opens that section as well', () => {
   assert.equal(panel.open, true);
 });
 
-test('both bulk decisions open and require the shared note', () => {
+test('both bulk decisions require the shared note', () => {
   const browser = page();
-  const notePanel = { open: false };
   const note = {
     value: '',
     required: false,
@@ -99,21 +100,18 @@ test('both bulk decisions open and require the shared note', () => {
     setCustomValidity(message) { this.validityMessage = message; },
   };
   const form = {
-    querySelector: selector => selector === '[name="note"]' ? note : notePanel,
+    querySelector: selector => selector === '[name="note"]' ? note : null,
   };
   const button = { form, value: 'reject' };
   const target = {
-    closest: selector => selector === '[data-product-bulk-form] button[name="action"]'
+    closest: selector => selector === '[data-product-bulk-form] [data-bulk-submit]'
       ? button : null,
   };
   assert.equal(browser.fire('click', target).prevented, true);
-  assert.equal(notePanel.open, true);
   assert.equal(note.required, true);
   assert.match(note.validityMessage, /Enter the review/);
-  notePanel.open = false;
   button.value = 'approve';
   assert.equal(browser.fire('click', target).prevented, true);
-  assert.equal(notePanel.open, true);
   assert.equal(note.required, true);
   assert.match(note.validityMessage, /Enter the review/);
   note.value = 'Too short';
@@ -125,4 +123,86 @@ test('both bulk decisions open and require the shared note', () => {
   button.value = 'reject';
   note.value = 'Correct the submitted documents.';
   assert.equal(browser.fire('click', target).prevented, false);
+});
+
+function decisionForm({ action = 'approve', held = [], reasons = [] } = {}) {
+  const choices = ['approve', 'reject'].map(value => ({
+    value,
+    checked: value === action,
+    disabled: held.includes(value),
+  }));
+  const button = { disabled: false, textContent: '' };
+  const controls = { hidden: false };
+  const selects = reasons.map(value => ({ value }));
+  const form = {
+    querySelector: selector => ({
+      '[name="action"]:checked': choices.find(choice => choice.checked),
+      '[data-bulk-submit]': button,
+    })[selector] ?? null,
+    querySelectorAll: selector => ({
+      '[data-reject-controls]': [controls],
+      '[data-bulk-reason]': selects,
+    })[selector] ?? [],
+  };
+  const target = { closest: selector => selector === '[data-product-bulk-form]' ? form : null };
+  return {
+    button,
+    controls,
+    form,
+    selects,
+    target,
+    choose(value) {
+      for (const choice of choices) choice.checked = choice.value === value;
+    },
+  };
+}
+
+test('accepting asks for no reason, and the button says so', () => {
+  const browser = page();
+  const { button, controls, form } = decisionForm({ reasons: [''] });
+  browser.bulkForms.push(form);
+  browser.fire('DOMContentLoaded');
+  assert.equal(controls.hidden, true);
+  assert.equal(button.textContent, 'Accept all');
+  assert.equal(button.disabled, false);
+});
+
+test('rejecting shows the reasons and waits for one from every list', () => {
+  const browser = page();
+  const page_ = decisionForm({ reasons: ['', ''] });
+  browser.bulkForms.push(page_.form);
+  page_.choose('reject');
+  browser.fire('change', page_.target);
+  assert.equal(page_.controls.hidden, false);
+  assert.equal(page_.button.textContent, 'Reject all');
+  assert.equal(page_.button.disabled, true);
+  page_.selects[0].value = 'Incomplete documentation';
+  browser.fire('change', page_.target);
+  assert.equal(page_.button.disabled, true);
+  page_.selects[1].value = 'Wrong website address';
+  browser.fire('change', page_.target);
+  assert.equal(page_.button.disabled, false);
+});
+
+test('switching back to accept needs no reason again', () => {
+  const browser = page();
+  const page_ = decisionForm({ action: 'reject', reasons: [''] });
+  page_.choose('approve');
+  browser.fire('change', page_.target);
+  assert.equal(page_.controls.hidden, true);
+  assert.equal(page_.button.disabled, false);
+});
+
+test('a form that lists no reasons leaves rejecting to the note', () => {
+  const browser = page();
+  const { button, target } = decisionForm({ action: 'reject' });
+  browser.fire('change', target);
+  assert.equal(button.disabled, false);
+});
+
+test('a reason does not release a decision that something else holds', () => {
+  const browser = page();
+  const { button, target } = decisionForm({ action: 'reject', held: ['reject'], reasons: ['Other'] });
+  browser.fire('change', target);
+  assert.equal(button.disabled, true);
 });

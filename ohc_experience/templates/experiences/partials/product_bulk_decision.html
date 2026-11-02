@@ -16,42 +16,62 @@
           <h2 class="text-base font-bold" id="decisions-title">Product review</h2>
           <p class="mt-1 text-xs leading-relaxed text-soft-foreground">{{ bulk_items|length }} submitted request{{ bulk_items|length|pluralize }} awaiting your decision. Reject all returns {{ bulk_items|length|pluralize:'it,them' }} to the integrator for corrections.</p>
         </div>
-        <div class="flex gap-2">
-          <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11"
-                  type="submit"
-                  name="action"
-                  value="approve"
-                  {% if bulk_approve_blockers %}disabled aria-describedby="bulk-hold" {% endif %}>Accept all</button>
-          <button class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11"
-                  type="submit"
-                  name="action"
-                  value="reject"
-                  {% if bulk_reject_blockers %}disabled aria-describedby="bulk-hold" {% endif %}>Reject all</button>
-        </div>
+        <fieldset class="flex gap-1 rounded-xl bg-muted-background p-1 text-center text-sm">
+          <legend class="sr-only">Decision on these requests</legend>
+          <label class="flex min-h-9 min-w-20 cursor-pointer items-center justify-center rounded-lg px-3 py-1.5 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+            <input class="sr-only"
+                   type="radio"
+                   name="action"
+                   value="approve"
+                   {% if bulk_action == 'approve' %}checked{% endif %}
+                   {% if bulk_approve_blockers %}disabled aria-describedby="bulk-hold"{% endif %} />
+            <span>Accept</span>
+          </label>
+          <label class="flex min-h-9 min-w-20 cursor-pointer items-center justify-center rounded-lg px-3 py-1.5 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+            <input class="sr-only"
+                   type="radio"
+                   name="action"
+                   value="reject"
+                   {% if bulk_action == 'reject' %}checked{% endif %}
+                   {% if bulk_reject_blockers %}disabled aria-describedby="bulk-hold"{% endif %} />
+            <span>Reject</span>
+          </label>
+        </fieldset>
       </div>
       {% for item in bulk_items %}
         {% if item.kind == 'organisation_verification' %}
           <p class="text-xs leading-relaxed text-soft-foreground">Organisation verification applies to all products of {{ organisation.display_name }}.</p>
         {% endif %}
       {% endfor %}
-      <details class="group/note rounded-lg border border-soft-border bg-soft-background"
-               data-product-bulk-note
-               open>
-        <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-semibold text-primary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
-          <span>Review <span class="font-normal text-soft-foreground">· required</span></span>
-          <svg viewBox="0 0 24 24"
-               class="size-3.5 transition-transform group-open/note:rotate-180 motion-reduce:transition-none"
-               fill="none"
-               stroke="currentColor"
-               stroke-width="1.8"
-               stroke-linecap="round"
-               stroke-linejoin="round"
-               aria-hidden="true">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </summary>
-        <div class="px-3 pb-3">
-          <label class="sr-only" for="bulk-decision-note">Review</label>
+      <div class="flex flex-col items-start gap-x-4 gap-y-3 md:flex-row">
+        {% if bulk_reasons %}
+          <div class="w-full min-w-0 md:w-72 md:shrink-0"
+               data-reject-controls
+               {% if bulk_action != 'reject' %}hidden{% endif %}>
+            <div class="flex flex-col gap-3">
+              {% for group in bulk_reasons %}
+                <div>
+                  <label class="ui-label" for="bulk-reason-{{ forloop.counter }}">{{ group.label }} <span class="ui-required" aria-hidden="true">*</span></label>
+                  <div class="ui-select-wrapper">
+                    <select class="ui-select"
+                            id="bulk-reason-{{ forloop.counter }}"
+                            name="{{ group.name }}"
+                            data-bulk-reason>
+                      <option value="">Choose a reason</option>
+                      {% for reason in group.reasons %}
+                        <option value="{{ reason }}"
+                                {% if reason == group.chosen %}selected{% endif %}>{{ reason }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+            <p class="ui-hint">The integrator sees {{ bulk_reasons|length|pluralize:'this,these' }} above your review.</p>
+          </div>
+        {% endif %}
+        <div class="w-full min-w-0 flex-1">
+          <label class="ui-label" for="bulk-decision-note">Review <span class="ui-required" aria-hidden="true">*</span></label>
           <textarea class="ui-textarea min-h-12 md:min-h-10"
                     id="bulk-decision-note"
                     name="note"
@@ -62,7 +82,7 @@
                     aria-describedby="bulk-decision-help">{{ bulk_note }}</textarea>
           <p class="ui-hint" id="bulk-decision-help">Saved to every included request and shared with the integrator. At least {{ min_note_length }} characters.</p>
         </div>
-      </details>
+      </div>
       {% if staff_product.callback_codes and credential and not credential.callback_url %}
         <div class="ui-alert ui-alert--warning" role="status">
           <div class="flex-1">
@@ -71,17 +91,24 @@
           </div>
         </div>
       {% endif %}
-      {% if bulk_holds %}
-        <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950"
-             id="bulk-hold">
-          {% for hold in bulk_holds %}
-            <p class="font-semibold {% if not forloop.first %}mt-2.5{% endif %}">{{ hold.label }} on hold</p>
-            <ul class="mt-1 list-disc space-y-1 pl-4">
-              {% for reason in hold.reasons %}<li>{{ reason }}</li>{% endfor %}
-            </ul>
-          {% endfor %}
-        </div>
-      {% endif %}
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-end">
+        {% if bulk_holds %}
+          <div class="min-w-0 flex-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950"
+               id="bulk-hold">
+            {% for hold in bulk_holds %}
+              <p class="font-semibold {% if not forloop.first %}mt-2.5{% endif %}">{{ hold.label }} on hold</p>
+              <ul class="mt-1 list-disc space-y-1 pl-4">
+                {% for reason in hold.reasons %}<li>{{ reason }}</li>{% endfor %}
+              </ul>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11 shrink-0"
+                type="submit"
+                data-bulk-submit
+                {% if bulk_holds %}aria-describedby="bulk-hold"{% endif %}
+                {% if bulk_action == 'reject' and bulk_reject_blockers or bulk_action == 'approve' and bulk_approve_blockers %}disabled{% endif %}>{% if bulk_action == 'reject' %}Reject all{% else %}Accept all{% endif %}</button>
+      </div>
     </form>
   {% else %}
     <h2 class="text-base font-bold" id="decisions-title">Product review</h2>

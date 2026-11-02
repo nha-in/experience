@@ -235,7 +235,7 @@ def test_invalid_current_form_returns_errors_without_any_saved_changes(
 
 def test_an_additional_saved_draft_is_superseded_not_lost(environment):
     """The batch supersedes the draft with a new revision; the draft stays."""
-    submit(environment, "m1")
+    approve(environment, "m1")
     current = milestone(environment, "m2")
     target, form, saved = workflows.save_review_form(
         milestone(environment, "m3"),
@@ -481,9 +481,9 @@ def test_invalid_additional_dates_prevent_every_submission(environment, invalid)
 def test_a_pin_from_an_nhcx_role_prefills_like_one_from_its_track(environment):
     """A payer shares HIE-CM's evidence, so M4 inheriting it keeps its answers."""
     claims = {**environment, "product": nhcx_product(environment)}
-    submit(claims, "m1")
-    submit(claims, "m3")
-    source = submit(claims, "nhcx_payer").selected_submission
+    approve(claims, "m1")
+    approve(claims, "m3")
+    source = approve(claims, "nhcx_payer").selected_submission
     target = milestone(claims, "m4")
     inherit_snapshot(target, source)
     form = workflows.build_form(target)
@@ -494,7 +494,7 @@ def test_a_pin_from_an_nhcx_role_prefills_like_one_from_its_track(environment):
 
 
 def test_same_track_inherited_pin_keeps_files_but_requires_new_dates(environment):
-    source = submit(environment).selected_submission
+    source = approve(environment).selected_submission
     target = milestone(environment, "m2")
     inherit_snapshot(target, source)
     form = workflows.build_form(target)

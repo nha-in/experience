@@ -1,6 +1,7 @@
 # ruff: noqa: F811, PLR2004
 import re
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from django.contrib import admin
@@ -160,15 +161,27 @@ def review_card(client, item):
 
 
 def offers(client, item, action):
-    """Whether the request's card lets this reviewer choose the action."""
-    return bool(
-        re.search(rf'value="{action}"(?!\s+disabled)', review_card(client, item)),
-    )
+    """Whether the product page lets this reviewer take the action on the request."""
+    url = reverse("experiences:product-detail", args=[item.product.reference])
+    response = client.get(url)
+    if action == "query":
+        return "data-query-send-form" in review_card(client, item)
+    return item in response.context["bulk_items"]
 
 
 def decide(client, item, action, note):
     item.refresh_from_db()
-    text = {"question_form": note} if action == "query" else {"note": note}
+    if action != "query":
+        return client.post(
+            reverse("experiences:product-detail", args=[item.product.reference]),
+            {
+                "intent": "bulk_decision",
+                "action": action,
+                "reviews": [f"{item.pk}:{item.selected_submission_id}"],
+                "note": note,
+                "reason_sandbox_exit_evidence": "Incorrect document",
+            },
+        )
     return client.post(
         reverse("experiences:product-detail", args=[item.product.reference]),
         {
@@ -176,7 +189,7 @@ def decide(client, item, action, note):
             "review_id": item.pk,
             "revision": item.selected_submission_id,
             "action": action,
-            **text,
+            "question_form": note,
         },
     )
 
@@ -191,7 +204,7 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
     assert not offers(client, item, "approve")
     assert not offers(client, item, "reject")
     for action in ["approve", "reject"]:
-        assert decide(client, item, action, "No").status_code == 403
+        assert decide(client, item, action, "No review.").status_code == 403
     assert decide(client, item, "query", "Clarify the scope.").status_code == 302
     query = item.queries.get()
     workflows.reply_query(query, environment["applicant"], "Confirmed")
@@ -208,6 +221,20 @@ def test_review_write_and_approve_are_independent(environment, staff, client):
     assert item.status == "approved"
 
 
+def override_wait(client, item, note):
+    """The one decision a request takes alone on the product page."""
+    return client.post(
+        reverse("experiences:product-detail", args=[item.product.reference]),
+        {
+            "intent": "decision",
+            "review_id": item.pk,
+            "revision": item.selected_submission_id,
+            "action": "approve",
+            "note": note,
+        },
+    )
+
+
 def test_an_override_needs_approve_rights_not_write(environment, staff, client):
     """Overriding a recorded request is an approval; writing alone never offers it."""
     submit(environment)
@@ -217,13 +244,13 @@ def test_an_override_needs_approve_rights_not_write(environment, staff, client):
     override = "Approving ahead of M1 for a pilot."
 
     assert "Approve and override prerequisites" not in review_card(client, uhi)
-    assert decide(client, uhi, "approve", override).status_code == 403
+    assert override_wait(client, uhi, override).status_code == 403
 
     access.can_write, access.can_approve = False, True
     access.save()
 
     assert "Approve and override prerequisites" in review_card(client, uhi)
-    assert decide(client, uhi, "approve", override).status_code == 302
+    assert override_wait(client, uhi, override).status_code == 302
     uhi.refresh_from_db()
     assert uhi.decided_by == staff
 
@@ -236,7 +263,7 @@ def test_read_only_assignment_and_revocation(environment, staff, client):
     with pytest.raises(ValidationError):
         workflows.assign_review(item, environment["admin"], staff)
     client.force_login(staff)
-    assert b"data-decision-form" not in client.get(item.get_absolute_url()).content
+    assert b"data-query-send-form" not in client.get(item.get_absolute_url()).content
     access.can_approve = True
     access.save()
     workflows.assign_review(item, environment["admin"], staff)
@@ -550,6 +577,14 @@ def test_general_and_all_categories_are_explicit(environment, staff):
 
 def test_reused_pins_remain_visible_without_exposing_source_history(environment, staff):
     """NHCX shares HIE-CM's evidence form; M3's evidence shows once Payer pins it."""
+    with patch(
+        "ohc_experience.abdm.definitions.open_exit_wait_reason",
+        return_value="",
+    ):
+        reused_pins_stay_visible(environment, staff)
+
+
+def reused_pins_stay_visible(environment, staff):
     submit_claims(environment, "m1")
     source = submit_claims(environment, "m3")
     original = source.selected_submission

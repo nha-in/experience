@@ -178,9 +178,9 @@ def snapshot_rows(snapshot, item=None, drafts=None):
 
 
 @register.simple_tag
-def decision_form_id(item):
-    """The id of the form that decides this request on the product page."""
-    return f"decision-form-{item.pk}"
+def query_form_id(item):
+    """The id of the form that sends this request's queries on the product page."""
+    return f"query-form-{item.pk}"
 
 
 @register.simple_tag
@@ -203,7 +203,8 @@ def query_groups(item, *, can_resolve=False, can_reply=False):
 
     An answered query is theirs to act on when they may resolve it, and an
     open one when they may reply. Those open in full; the other queries still
-    in play fold to a line each. Resolved queries, those asked of an earlier
+    in play fold to a line each, and whoever may resolve can close an open one
+    from there. Resolved queries, those asked of an earlier
     submission and any left on a request no longer under review are settled.
     `answered` and `open` count the queries still in play. Each query is
     labelled as its submission's form labels the field.
@@ -224,6 +225,7 @@ def query_groups(item, *, can_resolve=False, can_reply=False):
             groups["settled"].append(query)
             continue
         groups[query.status] += 1
+        query.can_close = can_resolve and query.status == "open"
         can_act = can_resolve if query.status == "answered" else can_reply
         groups["actionable" if can_act else "waiting"].append(query)
     # Replies to check come before questions still waiting for one.

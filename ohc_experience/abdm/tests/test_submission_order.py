@@ -18,6 +18,7 @@ from ohc_experience.abdm.tests.test_workflow import pending_exits
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import ApplicationDependency
 from ohc_experience.experiences.models import ReviewItem
@@ -68,9 +69,7 @@ def test_a_milestone_opens_once_everything_before_it_is_submitted(environment):
         "M1 - ABHA Creation and Verification is submitted."
     )
 
-    submit(environment)
-
-    assert submit(environment, "m2").status == ReviewItem.Status.IN_REVIEW
+    assert submit_together(environment, "m1", "m2")[1].pending
     assert submit(environment, "uhi1").status == ReviewItem.Status.IN_REVIEW
 
 
@@ -141,9 +140,7 @@ def test_a_rejected_milestone_locks_the_next_one_until_it_is_resubmitted(
         "P2 - Consents Management opens once P1 - Registration and login is submitted."
     )
 
-    submit(environment)
-
-    assert submit(environment, "m2").status == ReviewItem.Status.IN_REVIEW
+    assert submit_together(environment, "m1", "m2")[1].pending
 
 
 def test_the_track_page_asks_for_a_rejected_milestone_to_be_resubmitted(
@@ -173,9 +170,7 @@ def test_the_track_page_asks_for_a_rejected_milestone_to_be_resubmitted(
 
 def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
     applicant = environment["applicant"]
-    submit(environment)
-    submit(environment, "m2")
-    submit(environment, "m3")
+    submit_together(environment, "m1", "m2", "m3")
     submit(environment, "uhi1")
 
     with pytest.raises(ValidationError) as error:
@@ -330,8 +325,7 @@ def test_a_milestone_tile_names_the_milestone_it_needs(environment, client):
 
 
 def test_withdrawing_names_the_requests_to_withdraw_first(environment, client):
-    submit(environment)
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     client.force_login(environment["applicant"])
 
     m1 = client.get(track_url(environment), {"milestone": "m1"}).content.decode()
@@ -353,8 +347,7 @@ def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
     """A milestone submitted after the one it builds on stays on its product's
     entry, but only All shows it, marked as waiting: Pending lists only what can
     be decided now, and what is already decided."""
-    m1 = submit(environment)
-    m2 = submit(environment, "m2")
+    m1, m2 = submit_together(environment, "m1", "m2")
     uhi = submit(environment, "uhi1")
     locker = submit(environment, "p1")
     client.force_login(environment["reviewer"])
@@ -388,8 +381,8 @@ def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
 
 
 def test_requests_wait_on_organisation_verification_too(environment, client):
-    verification = reverify(environment)
     locker = submit(environment, "p1")
+    verification = reverify(environment)
     client.force_login(environment["reviewer"])
 
     # P1 waits on the verification, so only the verification can be decided
@@ -414,7 +407,8 @@ def test_the_waiting_filter_agrees_with_pending_prerequisites(environment):
             item for item in pending if workflows.pending_prerequisites(item)
         }
 
-    for key in ("m1", "m2", "m3", "m4", "uhi1", "p1"):
+    submit_together(environment, "m1", "m2", "m3", "m4")
+    for key in ("uhi1", "p1"):
         submit(environment, key)
     assert agree()
     verification = reverify(environment)

@@ -33,7 +33,7 @@ See [the engine contracts](../experiences/README.md) and
 for sandbox exit, compressed from every remark the old sandbox portal's
 reviewers wrote. A reviewer picks one, or `Other` and writes the reason. Forms
 the legacy data does not cover, such as WASA review, list none and take the note
-alone.
+alone. Reject all asks for one reason per form among the requests it covers.
 
 Each legacy remark maps to one of these reasons, or to `Other` when none says
 what it says, so migrated records keep the reviewer's original words in the note.

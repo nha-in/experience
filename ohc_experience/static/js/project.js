@@ -501,53 +501,18 @@
     if (jump) jump.hidden = missing === 0;
   }
 
-  function updateDecision(form) {
-    const action = form.querySelector('[name="action"]:checked')?.value || 'approve';
-    const note = form.querySelector('[name="note"]');
-    const labels = { approve: ['Decision note', 'Record approval'], reject: ['Note for the integrator', 'Reject request'], query: ['Query', 'Send queries'] };
-    const label = form.querySelector('[data-decision-label]');
-    if (label) label.textContent = labels[action][0];
-    // Forms that list reasons ask for one; the rest take the note alone.
-    const reason = form.querySelector('[data-reason-select]');
-    const chosen = reason?.options[reason.selectedIndex];
-    const hint = form.querySelector('[data-reason-hint]');
-    if (hint) hint.textContent = reason && !reason.value
-      ? 'Choose a reason before rejecting.'
-      : 'The integrator sees this reason above your note.';
-    const queued = updateQueries(form, action);
-    const button = form.querySelector('[data-decision-submit]');
+  function updateQueryForm(form) {
+    const queued = updateQueries(form);
+    const button = form.querySelector('[data-query-send]');
     if (button) {
-      button.textContent = action === 'query'
-        ? (queued ? `Send ${queued} ${queued === 1 ? 'query' : 'queries'}` : 'Send queries')
-        : labels[action][1];
-      // Prerequisites hold every decision but a query; open queries hold approval;
-      // a query needs something to send.
-      button.disabled = (action !== 'query' && form.dataset.decisionBlocked === 'true')
-        || (action === 'approve' && form.dataset.approvalBlocked === 'true')
-        || (action === 'reject' && Boolean(reason) && !reason.value)
-        || (action === 'query' && !queued);
+      button.textContent = queued ? `Send ${queued} ${queued === 1 ? 'query' : 'queries'}` : 'Send queries';
+      // A query needs something to send.
+      button.disabled = !queued;
     }
-    // Every decision needs the reviewer's own words, except a rejection a listed
-    // reason already explains. Other, and a form with no list to choose from,
-    // leave the note carrying the reason. A query's words are in its boxes.
-    if (note) {
-      note.required = action !== 'query' && (action !== 'reject'
-        || !reason || 'noteRequired' in (chosen?.dataset || {}));
-      // The floor guards a required note. Zero is the unconstrained default,
-      // for the aside beside a listed reason.
-      note.minLength = note.required ? Number(note.dataset.noteMinlength) : 0;
-      // The asterisk beside the note's label shows only while the note is required.
-      const marker = form.querySelector('[data-note-marker]');
-      if (marker) marker.hidden = !note.required;
-    }
-    form.querySelectorAll('[data-query-controls]').forEach(el => { el.hidden = action !== 'query'; });
-    form.querySelectorAll('[data-note-controls]').forEach(el => { el.hidden = action === 'query'; });
-    form.querySelectorAll('[data-approval-controls]').forEach(el => { el.hidden = action !== 'approve'; });
-    form.querySelectorAll('[data-reject-controls]').forEach(el => { el.hidden = action !== 'reject'; });
   }
 
   // The query boxes beside a review's submitted form, each joined to its
-  // decision form by the form's id: Query opens one under its field, Remove
+  // query form by the form's id: Query opens one under its field, Remove
   // closes and clears it.
   function queryBoxes(form) {
     return form.id ? [...document.querySelectorAll(`[data-query-for="${form.id}"] [data-query-draft]`)] : [];
@@ -557,15 +522,12 @@
     return document.querySelector(`[data-query-form="${form.id}"][data-query-field="${box.dataset.queryDraft}"]`);
   }
 
-  // Lists the open queries in the decision form, and says how many go in one
-  // send. A query goes only when Query is chosen: under another decision it is set
-  // aside, neither sent nor holding the form back.
-  function updateQueries(form, action) {
-    const querying = action === 'query';
+  // Lists the open queries in the query form, and says how many go in one send.
+  function updateQueries(form) {
     const open = queryBoxes(form).filter(box => {
       const question = box.querySelector('textarea');
-      if (question) question.disabled = box.hidden || !querying;
-      box.closest('[data-query-row]')?.toggleAttribute('data-query-selected', querying && !box.hidden);
+      if (question) question.disabled = box.hidden;
+      box.closest('[data-query-row]')?.toggleAttribute('data-query-selected', !box.hidden);
       // A field with its box open needs no Query beside it.
       const button = queryButton(form, box)?.closest('[data-query-button]');
       if (button) button.hidden = !box.hidden;
@@ -594,32 +556,23 @@
       }));
       list.hidden = !open.length;
     }
-    const aside = form.querySelector('[data-query-aside]');
-    if (aside) {
-      aside.textContent = open.length === 1
-        ? 'Your query is not sent with this decision. Choose Query to send it.'
-        : `Your ${queries} are not sent with this decision. Choose Query to send them.`;
-      aside.hidden = querying || !open.length;
-    }
     return open.length;
   }
 
-  // Query beside a field opens its query box and chooses Query in the decision
-  // form, without the page load its link falls back to.
+  // Query beside a field opens its query box, without the page load its link
+  // falls back to.
   function openQuery(link) {
     const form = document.getElementById(link.dataset.queryForm);
-    const query = form?.querySelector('[name="action"][value="query"]');
     const box = queryBoxes(form || {}).find(candidate => candidate.dataset.queryDraft === link.dataset.queryField);
-    if (!query || query.disabled || !box) return false;
-    query.checked = true;
+    if (!box) return false;
     box.hidden = false;
-    updateDecision(form);
+    updateQueryForm(form);
     box.querySelector('textarea')?.focus();
     return true;
   }
 
   // Remove clears a query and closes its box. Focus stays where the
-  // reviewer was: on the field's Query, or in the decision form's list.
+  // reviewer was: on the field's Query, or in the query form's list.
   function removeQuery(button) {
     const box = button.dataset.queryBox ? document.getElementById(button.dataset.queryBox) : button.closest('[data-query-draft]');
     const question = box?.querySelector('textarea');
@@ -627,9 +580,9 @@
     if (!form) return;
     question.value = '';
     box.hidden = true;
-    updateDecision(form);
+    updateQueryForm(form);
     const next = button.dataset.queryBox
-      ? form.querySelector('[data-query-list] [data-query-remove]') || form.querySelector('[name="action"][value="query"]')
+      ? form.querySelector('[data-query-list] [data-query-remove]') || queryButton(form, box)
       : queryButton(form, box);
     next?.focus();
   }
@@ -640,7 +593,7 @@
     scope.querySelectorAll?.('[data-autofill-target]').forEach(source => autofillFromDate(source));
     scope.querySelectorAll?.('[data-review-form]').forEach(updateDateConstraints);
     scope.querySelectorAll?.('[data-review-form]').forEach(updateSubmission);
-    scope.querySelectorAll?.('[data-decision-form]').forEach(updateDecision);
+    scope.querySelectorAll?.('[data-query-send-form]').forEach(updateQueryForm);
     scope.querySelectorAll?.('[data-revealed-secret]').forEach(secret => {
       if (secret.dataset.maskScheduled) return;
       secret.dataset.maskScheduled = 'true';
@@ -669,8 +622,6 @@
     if (switcher) {
       switcher.form.requestSubmit();
     }
-    const decision = event.target.closest('[data-decision-form]');
-    if (decision) updateDecision(decision);
     const source = event.target.closest('[data-autofill-target]');
     if (source) autofillFromDate(source);
     const edited = event.target.closest('[data-autofilled]');
@@ -683,9 +634,9 @@
   document.addEventListener('input', event => {
     const form = event.target.closest('[data-review-form]');
     if (form) updateSubmission(form);
-    // A query box belongs to its decision form only through the form attribute.
-    const decision = event.target.form;
-    if (decision?.matches?.('[data-decision-form]') && event.target.closest('[data-query-draft]')) updateDecision(decision);
+    // A query box belongs to its query form only through the form attribute.
+    const queries = event.target.form;
+    if (queries?.matches?.('[data-query-send-form]') && event.target.closest('[data-query-draft]')) updateQueryForm(queries);
   });
   document.addEventListener('drop', event => {
     const form = event.target.closest('[data-review-form]');
@@ -853,8 +804,6 @@ document.addEventListener("keydown", (event) => {
     if (!note) return;
     note.required = true;
     note.setCustomValidity('');
-    const panel = form.querySelector('[data-product-bulk-note]');
-    if (panel) panel.open = true;
     // The floor is the one the markup already declares, so it is stated once.
     const written = note.value.trim();
     if (written && written.length >= note.minLength) return;
@@ -867,13 +816,33 @@ document.addEventListener("keydown", (event) => {
     note.reportValidity();
   }
 
+  // The switch decides what the form asks for: only a rejection takes a reason,
+  // from each form's list. The button follows the switch, and waits for those
+  // reasons. The server asks for them again, for a browser without this script.
+  function updateBulkDecision(form) {
+    const choice = form.querySelector('[name="action"]:checked');
+    const rejecting = choice?.value === 'reject';
+    form.querySelectorAll('[data-reject-controls]').forEach(controls => { controls.hidden = !rejecting; });
+    const button = form.querySelector('[data-bulk-submit]');
+    if (!button) return;
+    button.textContent = rejecting ? 'Reject all' : 'Accept all';
+    button.disabled = !choice || choice.disabled
+      || (rejecting && [...form.querySelectorAll('[data-bulk-reason]')].some(select => !select.value));
+  }
+
+  function initializeBulkForms() {
+    document.querySelectorAll('[data-product-bulk-form]').forEach(updateBulkDecision);
+  }
+
   document.addEventListener('DOMContentLoaded', () => revealReview(window.location.hash));
   document.addEventListener('htmx:afterSettle', () => revealReview(window.location.hash));
+  document.addEventListener('DOMContentLoaded', initializeBulkForms);
+  document.addEventListener('htmx:afterSettle', initializeBulkForms);
   window.addEventListener('hashchange', () => revealReview(window.location.hash));
   document.addEventListener('click', event => {
     const link = event.target.closest?.('a[href^="#"]');
     if (link) revealReview(link.getAttribute('href'));
-    const button = event.target.closest?.('[data-product-bulk-form] button[name="action"]');
+    const button = event.target.closest?.('[data-product-bulk-form] [data-bulk-submit]');
     if (button) prepareBulkDecision(button.form, event);
   }, true);
   document.addEventListener('submit', event => {
@@ -885,5 +854,9 @@ document.addEventListener("keydown", (event) => {
     if (event.target.matches?.('[data-product-bulk-form] [name="note"]')) {
       event.target.setCustomValidity('');
     }
+  });
+  document.addEventListener('change', event => {
+    const form = event.target.closest?.('[data-product-bulk-form]');
+    if (form) updateBulkDecision(form);
   });
 })();

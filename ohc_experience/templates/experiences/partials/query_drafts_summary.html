@@ -1,10 +1,9 @@
 {% comment %}
-The queries waiting to be sent, listed in the decision form. The
+The queries waiting to be sent, listed in the query form. The
 script fills the list from the open question boxes, each item a link back to
 its box; the hint stays to say how to add one.
 {% endcomment %}
-<div data-query-controls
-     {% if decision_action != 'query' %}hidden{% endif %}>
+<div>
   <p class="text-sm font-semibold" data-query-count hidden></p>
   <ul class="mt-1 mb-2.5 divide-y divide-soft-border border-y border-soft-border"
       data-query-list

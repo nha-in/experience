@@ -1139,17 +1139,22 @@ def _approve_subject(item, actor):
         issue_outcome(application=item.application, actor=actor, outcome=outcome)
 
 
-def _validate_approval(item):
-    reason = item.definition.approval_block_reason(item)
-    if reason:
-        raise ValidationError(reason)
+def _require_settled_queries(item):
+    """A query on this submission holds its decision, either way, until resolved."""
     if (
         item.queries.filter(submission=item.selected_submission)
         .exclude(status="resolved")
         .exists()
     ):
-        msg = "Resolve all queries on this submission before approving."
+        msg = "Resolve all queries on this submission before deciding."
         raise ValidationError(msg)
+
+
+def _validate_approval(item):
+    reason = item.definition.approval_block_reason(item)
+    if reason:
+        raise ValidationError(reason)
+    _require_settled_queries(item)
 
 
 def _auto_approve(item, actor, *, defer_notifications=False):
@@ -1237,13 +1242,9 @@ def reject_reasons(definition):
 
 
 def _decision_reason(item, action, reason):
-    """The reason a rejection is given, when the form offers a list to choose from.
-
-    None means the decision offered no choice, as a bulk rejection of requests
-    with different lists does; the note then carries the reason.
-    """
+    """The reason a rejection is given, when the form offers a list to choose from."""
     offered = reject_reasons(item.definition)
-    if action != "reject" or not offered or reason is None:
+    if action != "reject" or not offered:
         return ""
     reason = reason.strip()
     if not reason:
@@ -1360,7 +1361,7 @@ def _decide(  # noqa: PLR0913
     *,
     action,
     note="",
-    reason=None,
+    reason="",
     field_key="form",
     defer_notifications=False,
     rejecting_reviews=(),
@@ -1376,6 +1377,8 @@ def _decide(  # noqa: PLR0913
     # reviewer is never asked to write one for a decision they cannot record.
     if action == "approve":
         _validate_approval(item)
+    elif action == "reject":
+        _require_settled_queries(item)
     overridden = overridden_prerequisites(item) if action == "approve" else []
     overriding = bool(overridden)
     note = note.strip()
@@ -1525,6 +1528,8 @@ def product_decision_blockers(items, actor, *, action):
             _require_decidable(item, action, settling_reviews=selected)
             if action == "approve":
                 _validate_approval(item)
+            else:
+                _require_settled_queries(item)
         except (PermissionDenied, ValidationError) as error:
             reason = (
                 "; ".join(error.messages)
@@ -1536,7 +1541,15 @@ def product_decision_blockers(items, actor, *, action):
 
 
 @transaction.atomic
-def decide_product(product, actor, *, action, expected_revisions, note=""):
+def decide_product(  # noqa: PLR0913
+    product,
+    actor,
+    *,
+    action,
+    expected_revisions,
+    note="",
+    reasons=None,
+):
     """Decide selected product and organisation submissions or change nothing.
 
     Approval walks the dependency order, from organisation verification through
@@ -1546,7 +1559,9 @@ def decide_product(product, actor, *, action, expected_revisions, note=""):
 
     One note is saved to every request in the batch, so both decisions ask for
     it: a reviewer approving several requests at once owes the integrator the
-    same reasoning a rejection does.
+    same reasoning a rejection does. A rejection also takes a reason from each
+    form's own list, since a batch can mix forms: `reasons` maps form keys to
+    the reason chosen for them.
     """
     if action not in {"approve", "reject"}:
         msg = "Choose accept all or reject all."
@@ -1574,6 +1589,7 @@ def decide_product(product, actor, *, action, expected_revisions, note=""):
             _require_decidable(item, action, settling_reviews=rejecting_reviews)
         # Return downstream submissions before the evidence they depend on.
         items.sort(key=lambda item: len(pending_prerequisites(item)), reverse=True)
+    reasons = reasons or {}
     decided = []
     while items:
         ready = (
@@ -1591,6 +1607,7 @@ def decide_product(product, actor, *, action, expected_revisions, note=""):
                 actor,
                 action=action,
                 note=note,
+                reason=reasons.get(ready.form.form_key, ""),
                 defer_notifications=True,
                 rejecting_reviews=rejecting_reviews,
             ),
@@ -1599,6 +1616,17 @@ def decide_product(product, actor, *, action, expected_revisions, note=""):
         if ready.kind == ReviewItem.Kind.ORGANISATION:
             organisation.refresh_from_db()
     return decided
+
+
+def _resume_review(item):
+    """With no question left unanswered, the request is the reviewer's again."""
+    if not item.queries.filter(
+        submission=item.selected_submission,
+        status="open",
+    ).exists():
+        item.status = ReviewItem.Status.IN_REVIEW
+        item.save(update_fields=["status"])
+        _set_application_status(item, "under_review")
 
 
 @transaction.atomic
@@ -1623,13 +1651,7 @@ def reply_query(query, actor, body):
         "answered",
     )
     query.save()
-    if not item.queries.filter(
-        submission=item.selected_submission,
-        status="open",
-    ).exists():
-        item.status = ReviewItem.Status.IN_REVIEW
-        item.save(update_fields=["status"])
-        _set_application_status(item, "under_review")
+    _resume_review(item)
     audit(
         actor=actor,
         action="Query answered",
@@ -1658,6 +1680,34 @@ def resolve_query(query, actor):
     audit(
         actor=actor,
         action="Query resolved",
+        item=item,
+        detail={"query_id": query.pk},
+    )
+
+
+@transaction.atomic
+def close_query(query, actor):
+    """Take back a query nobody answered, so it stops holding the decision.
+
+    A query holds rejection as well as approval, so without this a mistaken or
+    abandoned one could only be released by the integrator.
+    """
+    item = _lock_review(query.item_id)
+    query = ReviewQuery.objects.get(pk=query.pk)
+    require_decider(actor, item, "write")
+    if (
+        query.status != "open"
+        or not item.pending
+        or query.submission_id != item.selected_submission_id
+    ):
+        msg = "Only an unanswered query on the current review can be closed."
+        raise ValidationError(msg)
+    query.status, query.resolved_at = "resolved", timezone.now()
+    query.save(update_fields=["status", "resolved_at"])
+    _resume_review(item)
+    audit(
+        actor=actor,
+        action="Query closed",
         item=item,
         detail={"query_id": query.pk},
     )

@@ -8,9 +8,11 @@ from ohc_experience.experiences.definitions import ApplicationSet
 from ohc_experience.experiences.definitions import OutcomeDefinition
 from ohc_experience.experiences.definitions import Prerequisite
 from ohc_experience.experiences.definitions import ProgramDefinition
+from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormReuseScope
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ReviewItem
+from ohc_experience.experiences.workflows import PENDING_STATUSES
 from ohc_experience.experiences.workflows import callback_missing
 from ohc_experience.experiences.workflows import edit_blocked_reason
 from ohc_experience.experiences.workflows import project_product
@@ -76,7 +78,9 @@ def answered_gaps(product, solution_note):
 
 
 def organisation_prerequisite(item):
-    """Milestones are submitted at any time but decided once verification is done."""
+    """A request filed before the organisation went back to pending is decided
+    once verification is done; new ones wait for it, by `verification_wait_reason`.
+    """
     if item.organisation.is_verified:
         return ()
     return (
@@ -113,6 +117,48 @@ def callback_block_reason(item):
     if not callback_missing(item):
         return ""
     return f"Add a callback URL to submit {item.application.milestone.definition.code}."
+
+
+def verification_wait_reason(item):
+    """Nothing on a product is sent for review before its organisation is verified.
+
+    Verification is what starts a product's credentials, and the product review
+    decides what is open on a product together, so a request sent early would
+    hold verification with it.
+    """
+    organisation = item.organisation
+    if organisation.is_verified:
+        return ""
+    return f"Submit this once your {organisation.noun} is verified."
+
+
+def open_exit_wait_reason(item):
+    """One exit is open for a product at a time.
+
+    Only a first submission waits. A request sent before can always come back,
+    or a milestone open on a rejected one could never be decided. Exit requests
+    for one product share a form record.
+    """
+    if item.submitted_at:
+        return ""
+    codes = [
+        review.application.milestone.definition.code
+        for review in item.form.review_items.filter(
+            status__in=PENDING_STATUSES,
+        ).select_related("application__milestone__product")
+    ]
+    if not codes:
+        return ""
+    names = readable_list(codes)
+    if len(codes) == 1:
+        return (
+            f"{names} is under review. Withdraw it to send this milestone with "
+            "it, or submit this once it is decided."
+        )
+    return (
+        f"{names} are under review. Withdraw them to send this milestone with "
+        "them, or submit this once they are decided."
+    )
 
 
 class OrganisationVerification(ApplicationFormDefinition):
@@ -210,8 +256,16 @@ class ExitEvidence(ApplicationFormDefinition):
         return read_wasa_certificate(field_key, upload, refresh=refresh)
 
     @classmethod
+    def submission_wait_reason(cls, item):
+        return verification_wait_reason(item) or open_exit_wait_reason(item)
+
+    @classmethod
     def submission_block_reason(cls, item):
-        return gap_block_reason(item) or callback_block_reason(item)
+        return (
+            cls.submission_wait_reason(item)
+            or gap_block_reason(item)
+            or callback_block_reason(item)
+        )
 
     @classmethod
     def approval_block_reason(cls, item):
@@ -279,6 +333,10 @@ class WasaReview(ApplicationFormDefinition):
         return read_wasa_certificate(field_key, upload, refresh=refresh)
 
     @classmethod
+    def submission_wait_reason(cls, item):
+        return verification_wait_reason(item)
+
+    @classmethod
     def approval_block_reason(cls, item):
         return wasa_approval_block_reason(item)
 
@@ -342,8 +400,16 @@ class UhiParticipation(ApplicationFormDefinition):
     )
 
     @classmethod
+    def submission_wait_reason(cls, item):
+        return verification_wait_reason(item)
+
+    @classmethod
     def submission_block_reason(cls, item):
-        return gap_block_reason(item) or callback_block_reason(item)
+        return (
+            cls.submission_wait_reason(item)
+            or gap_block_reason(item)
+            or callback_block_reason(item)
+        )
 
     @classmethod
     def pending_prerequisites(cls, item):

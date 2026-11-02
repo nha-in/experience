@@ -346,6 +346,7 @@ def _context(request, product=None, **kwargs):
     item = kwargs.get("item")
     if item:
         result["submission_blocked"] = item.definition.submission_block_reason(item)
+        result["submission_wait"] = item.definition.submission_wait_reason(item)
         if "prerequisites" not in result:
             result["prerequisites"] = (
                 services.pending_prerequisites(item) if item.pending else []
@@ -968,6 +969,10 @@ def organization_detail(request, slug):
     )
 
 
+#: Reject all posts each form's reason as `reason_<form key>`.
+BULK_REASON_PREFIX = "reason_"
+
+
 def _product_review_id(value):
     if (
         not value.isascii()
@@ -1025,8 +1030,16 @@ def _decision_notice(item, action, *, queries=1):
     if action == "query":
         raised = "Query" if queries == 1 else f"{queries} queries"
         return f"{raised} raised on {_review_label(item)}."
-    outcome = "approved" if action == "approve" else "rejected"
-    return f"{_review_label(item)} {outcome}."
+    return f"{_review_label(item)} approved."
+
+
+def _posted_reasons(request):
+    """The reason Reject all was given for each form, by form key."""
+    return {
+        key.removeprefix(BULK_REASON_PREFIX): value
+        for key, value in request.POST.items()
+        if key.startswith(BULK_REASON_PREFIX)
+    }
 
 
 def _product_review_post(request, product):
@@ -1037,6 +1050,7 @@ def _product_review_post(request, product):
             action=request.POST.get("action"),
             expected_revisions=_posted_product_reviews(request),
             note=request.POST.get("note", ""),
+            reasons=_posted_reasons(request),
         )
         verb = "Approved" if request.POST.get("action") == "approve" else "Rejected"
         noun = "request" if len(decided) == 1 else "requests"
@@ -1057,16 +1071,19 @@ def _product_review_post(request, product):
                 expected_revision=request.POST.get("revision", ""),
             )
             notice = _decision_notice(item, action, queries=len(questions))
-        else:
+        elif action == "approve" and item.definition.auto_approve:
+            # Accept all leaves these out, so an override is decided on its own.
             services.decide(
                 item,
                 request.user,
                 action=action,
                 note=request.POST.get("note", ""),
-                reason=request.POST.get("reason", ""),
                 expected_revision=request.POST.get("revision", ""),
             )
             notice = _decision_notice(item, action)
+        else:
+            msg = "Decide this request with Accept all or Reject all."
+            raise ValidationError(msg)
         messages.success(request, notice)
         anchor = f"review-{item.pk}"
     else:
@@ -1078,7 +1095,7 @@ def _product_review_post(request, product):
 
 
 def _posted_questions(request, item):
-    """The questions a decision form sends, one per field it asks about.
+    """The questions a query form sends, one per field it asks about.
 
     Each is posted as `question_<field key>`, with "form" for the whole form.
     """
@@ -1119,21 +1136,9 @@ def _product_review_sections(request, items):
             for query in item.queries.all()
         )
         actions = permissions.available_review_actions(request.user, item)
-        can_approve = "approve" in actions and not prerequisites and not unresolved
-        can_reject = "reject" in actions and not prerequisites
-        can_query = "query" in actions
         can_override = "approve" in actions and bool(
             services.overridden_prerequisites(item),
         )
-        available = [
-            action
-            for action, allowed in (
-                ("approve", can_approve),
-                ("reject", can_reject),
-                ("query", can_query),
-            )
-            if allowed
-        ]
         posted = request.POST.get("review_id") == str(item.pk)
         asked = request.method == "GET" and request.GET.get("review") == str(item.pk)
         action = request.POST.get("action") if posted else None
@@ -1154,19 +1159,11 @@ def _product_review_sections(request, items):
                 "withdrawn_at": services.withdrawn_at(item)
                 if item.status == ReviewItem.Status.DRAFT
                 else None,
-                "can_approve": can_approve,
-                "can_reject": can_reject,
-                "can_query": can_query,
+                "can_decide": "reject" in actions,
+                "can_query": "query" in actions,
                 "can_override": can_override,
-                "available_actions": available,
                 "unresolved_query_count": unresolved,
                 "decision_note": request.POST.get("note", "") if posted else "",
-                "reject_reasons": services.reject_reasons(item.definition),
-                "other_reason": services.OTHER_REASON,
-                "decision_reason": request.POST.get("reason", "") if posted else "",
-                "decision_action": action
-                if action in available
-                else next(iter(available), ""),
                 "query_drafts": _query_drafts(request, item, action)
                 if posted or asked
                 else {},
@@ -1190,6 +1187,31 @@ def _review_groups(sections):
         else:
             groups["pending"].append(section)
     return groups
+
+
+def _bulk_reasons(request, items):
+    """What Reject all asks for: a reason from each form's own list."""
+    forms = {item.definition.key: item.definition for item in items}
+    offered = [form for form in forms.values() if form.reject_reasons]
+    chosen = _posted_reasons(request)
+    return [
+        {
+            "name": f"{BULK_REASON_PREFIX}{form.key}",
+            "label": "Rejection reason"
+            if len(offered) == 1
+            else f"{form.name} rejection reason",
+            "reasons": services.reject_reasons(form),
+            "chosen": chosen.get(form.key, ""),
+        }
+        for form in offered
+    ]
+
+
+def _bulk_action(request, approve_blockers, reject_blockers):
+    """The decision the form opens on: the one just tried, or the first that is free."""
+    if request.POST.get("intent") == "bulk_decision":
+        return "reject" if request.POST.get("action") == "reject" else "approve"
+    return "reject" if approve_blockers and not reject_blockers else "approve"
 
 
 def _bulk_holds(approve_blockers, reject_blockers):
@@ -1347,6 +1369,12 @@ def product_detail(request, reference):
             bulk_approve_blockers=bulk_approve_blockers,
             bulk_reject_blockers=bulk_reject_blockers,
             bulk_holds=_bulk_holds(bulk_approve_blockers, bulk_reject_blockers),
+            bulk_reasons=_bulk_reasons(request, bulk_items),
+            bulk_action=_bulk_action(
+                request,
+                bulk_approve_blockers,
+                bulk_reject_blockers,
+            ),
             bulk_note=request.POST.get("note", "")
             if request.POST.get("intent") == "bulk_decision"
             else "",
@@ -1765,6 +1793,12 @@ def product_certification(request, reference):
             nav="certification",
             item=item,
             form=form,
+            # Before there is a request, its form says whether one can be sent.
+            submission_blocked=definition.forms[0].submission_block_reason(
+                ReviewItem(organisation=product.organisation, product=product),
+            )
+            if not item
+            else "",
             certification=certification,
             certification_revision=revision(),
             certification_reviews=reviews.select_related("selected_submission"),
@@ -1845,7 +1879,11 @@ def _page_milestones(track):
 
 
 def _track_evidence_context(request, item, form, track):
-    if not item or not permissions.can_integrate(request.user, item.organisation):
+    if (
+        not item
+        or not permissions.can_integrate(request.user, item.organisation)
+        or item.definition.submission_wait_reason(item)
+    ):
         return {}
     choices = []
     additional_forms = getattr(form, "additional_forms", {})
@@ -2059,6 +2097,9 @@ def query_action(request, pk):
         if request.POST.get("intent") == "resolve":
             services.resolve_query(query, request.user)
             messages.success(request, "Query resolved.")
+        elif request.POST.get("intent") == "close":
+            services.close_query(query, request.user)
+            messages.success(request, "Query closed.")
         else:
             services.reply_query(query, request.user, request.POST.get("body", ""))
             messages.success(request, "Reply sent.")

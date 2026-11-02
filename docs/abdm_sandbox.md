@@ -93,8 +93,9 @@ docker compose -f docker-compose.local.yml exec django python manage.py seed_exp
 ```
 
 `APP-2026-00001` demonstrates an approved shared M1 with a (fake) production
-client ID and issue date, an M2 query, an M3 review, a P1 review, a rejected
-P4 locker request and a UHI application recorded automatically, since M1 —
+client ID and issue date, one exit covering M2, M3 and M4 with a query on M2,
+a P1 review, a rejected P4 locker request and a UHI application recorded
+automatically, since M1 —
 its only prerequisite — is already approved by the time it's submitted. The
 second product is registered, with no milestone requests yet. The third,
 `Medibase Teleconsult`, applies for M1 and UHI alone and leaves its M1
@@ -179,11 +180,19 @@ retired; reviewer work uses the engine's assessment screens.
   rejected or withdrawn milestone counts once it is resubmitted, so M2 stays
   locked while M1 is rejected. A
   request cannot be withdrawn while a later milestone built on it is under
-  review; the integrator withdraws that one first. An
-  integrator can still submit M2 before M1 is approved, or before the
-  organisation is verified. The review keeps the order: approve and reject
-  stay disabled, and are refused, while an earlier milestone or organisation
-  verification is unapproved. Queries can still be raised. The review queue lists
+  review; the integrator withdraws that one first.
+  One exit is open for a product at a time. A milestone's first submission
+  waits while another of the product's milestones is under review or has a
+  query raised, so an integrator sends M1 and M2 together, or withdraws what
+  is open and resubmits it with the new milestone. Only a first submission
+  waits: a rejected or withdrawn milestone can always come back, and an
+  approved one cannot reopen. Milestones, UHI and WASA cannot be submitted
+  until the organisation is verified, which is what starts a product's
+  credentials; drafts still save. The review keeps the order: Accept all and
+  Reject all stay disabled, and are refused, while an earlier milestone or
+  organisation verification outside the decision is unapproved. An exit left
+  open when a verified organisation goes back to pending waits the same way.
+  Queries can still be raised. The review queue lists
   those requests under Waiting, apart from Ready ones, with what each waits on;
   a request's row and review page name what waits on it. UHI participation
   submitted early waits, and is recorded automatically once M1 is approved.
@@ -192,9 +201,9 @@ retired; reviewer work uses the engine's assessment screens.
   the override and is audited as "Approved (prerequisites overridden)"
   rather than a plain approval. Overriding still refuses if the organisation
   itself is not verified — only the milestone prerequisite can be bypassed.
-  Accept all and reject all skip these requests entirely, so the override is
-  offered one request at a time: on its own review screen, and on its decision
-  block on the product page.
+  Accept all and Reject all are the product page's only other approve and
+  reject, and they skip these requests entirely, so the override is offered
+  one request at a time, in its row on the product page.
   A request's assignee stays on record but out of view: no portal page, activity
   feed or email body names it, and only Django admin sets it. The assignee must
   hold the matching category's review-write or review-approve grant. Any
@@ -217,8 +226,9 @@ retired; reviewer work uses the engine's assessment screens.
   trail reports. The NHA gateway team issues production credentials and sends the
   secret to the integrator directly; the portal never holds it.
 - `ReviewQuery` is pinned to the reviewed submission. All open queries must be
-  answered, and answered queries resolved, before approval. Forms under review
-  are read-only until withdrawn or rejected.
+  answered, and answered queries resolved, before approval or rejection. A
+  reviewer can close a query nobody answered, which releases it the same way.
+  Forms under review are read-only until withdrawn or rejected.
 - `AuditEvent` is append-only through the application and ORM. Review forms,
   decisions, queries, assignment and credential actions create audit entries.
   This is not protection against a privileged database administrator; use database
@@ -437,8 +447,8 @@ values, and demo issuance is disabled in production.
 Client secrets are encrypted at rest with the dedicated key. Reveal is integrator
 only, POST/CSRF protected, audited, rate-limited and returned with no-store headers.
 The browser masks a revealed value after 30 seconds or when the tab is hidden.
-Organisation re-verification revokes prior active credentials; after verification,
-a super admin reprovisions them. Rotation remains implemented and audited but is
+Organisation re-verification leaves a product's credentials as they are; a super
+admin revokes and reprovisions them. Rotation remains implemented and audited but is
 no longer offered in the portal; nothing reaches it.
 
 Keep S3 public access blocked and enable appropriate encryption and retention.

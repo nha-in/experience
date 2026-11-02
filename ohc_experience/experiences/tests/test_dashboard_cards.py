@@ -12,10 +12,10 @@ from ohc_experience.abdm.tests.test_wasa_lifecycle import decide
 from ohc_experience.abdm.tests.test_wasa_lifecycle import request_milestone
 from ohc_experience.abdm.tests.test_wasa_lifecycle import request_renewal
 from ohc_experience.abdm.tests.test_workflow import approve
+from ohc_experience.abdm.tests.test_workflow import claims_exit
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import submit
-from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.abdm.wasa import current_wasa
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import ProductOutcome
@@ -69,9 +69,7 @@ def test_every_figure_is_the_row_count_of_the_page_it_opens(
     submit(environment, "uhi1")
     locker = submit(environment, "p1")
     services.decide(locker, reviewer, action="reject", reason=DOCUMENTS)
-    submit_claims(environment, "m1")
-    submit_claims(environment, "m3")
-    submit_claims(environment, "nhcx_payer")
+    claims_exit(environment, "m1", "m3", "nhcx_payer")
     client.force_login(environment["admin"])
 
     # Pending, New and Clarification received. M2 is back with its reply and the

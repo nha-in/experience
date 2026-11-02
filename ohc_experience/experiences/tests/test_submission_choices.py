@@ -6,12 +6,14 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
+from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import nhcx_product
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import product_data
 from ohc_experience.abdm.tests.test_workflow import ready
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows
 
 pytestmark = pytest.mark.django_db
@@ -30,22 +32,22 @@ def offered(client, environment, key, code="HIE-CM"):
     }
 
 
-def test_abdm_offers_the_rest_of_the_track_and_shrinks_as_each_is_submitted(
+def test_abdm_offers_the_rest_of_the_track_and_shrinks_as_each_is_approved(
     environment,
     client,
 ):
     client.force_login(environment["applicant"])
 
     assert offered(client, environment, "m1") == {"M2": "", "M3": "", "M4": ""}
-    submit(environment, "m1")
+    approve(environment, "m1")
     assert offered(client, environment, "m2") == {"M3": "", "M4": ""}
-    submit(environment, "m2")
+    approve(environment, "m2")
     assert offered(client, environment, "m3") == {"M4": ""}
-    submit(environment, "m3")
+    approve(environment, "m3")
     assert offered(client, environment, "m4") == {}
 
 
-def test_phr_offers_the_rest_of_the_track_and_shrinks_as_each_is_submitted(
+def test_phr_offers_the_rest_of_the_track_and_shrinks_as_each_is_approved(
     environment,
     client,
 ):
@@ -53,11 +55,11 @@ def test_phr_offers_the_rest_of_the_track_and_shrinks_as_each_is_submitted(
     client.force_login(environment["applicant"])
 
     assert offered(client, locker, "p1", "PHR") == {"P2": "", "P3": "", "P4": ""}
-    submit(environment, "p1")
+    approve(environment, "p1")
     assert offered(client, locker, "p2", "PHR") == {"P3": "", "P4": ""}
-    submit(environment, "p2")
+    approve(environment, "p2")
     assert offered(client, locker, "p3", "PHR") == {"P4": ""}
-    submit(environment, "p3")
+    approve(environment, "p3")
     assert offered(client, locker, "p4", "PHR") == {}
 
 
@@ -82,9 +84,9 @@ def test_nhcx_offers_its_role_with_the_milestones_it_builds_on(environment, clie
     assert offered(client, claims, "nhcx_payer", "NHCX") == {"M1": "", "M3": ""}
     # The HIE-CM page shows no NHCX role, so it offers none.
     assert offered(client, claims, "m1") == {"M2": "", "M3": "", "M4": ""}
-    submit(claims, "m1")
+    approve(claims, "m1")
     assert offered(client, claims, "m3", "NHCX") == {"Payer": ""}
-    submit(claims, "m3")
+    approve(claims, "m3")
     assert offered(client, claims, "nhcx_payer", "NHCX") == {}
 
 
@@ -117,8 +119,7 @@ def test_a_milestone_submitted_once_can_be_resubmitted_with_the_batch(
     Choosing M2 here means submitting M1's evidence for it, over the revision
     M2 already holds.
     """
-    submit(environment, "m1")
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     workflows.withdraw(
         workflows.ReviewItem.objects.get(
             product=environment["product"],

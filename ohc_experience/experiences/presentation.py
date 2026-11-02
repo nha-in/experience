@@ -188,10 +188,11 @@ def overview_next_step(product, tracks, organisation_review):
     attention = _review_attention(requests)
     if attention:
         return attention
-    return _verification_step(
-        product.organisation,
-        organisation_review,
-    ) or _milestone_next_step(tiles, product_url)
+    return (
+        _verification_step(product.organisation, organisation_review)
+        or _verification_wait_step(product.organisation, organisation_review)
+        or _milestone_next_step(tiles, product_url)
+    )
 
 
 def _verification_step(organisation, organisation_review):
@@ -203,14 +204,31 @@ def _verification_step(organisation, organisation_review):
         return _step(
             f"Complete your {organisation.noun} verification",
             (
-                f"Submit your {organisation.noun} details for verification. You can "
-                "submit milestones meanwhile, but they are approved only once "
-                f"your {organisation.noun} is verified."
+                f"Submit your {organisation.noun} details for verification. "
+                f"Milestones open for submission once your {organisation.noun} is "
+                "verified."
             ),
             "Continue verification",
             reverse("experiences:organisation"),
         )
     return None
+
+
+def _verification_wait_step(organisation, organisation_review):
+    """Nothing on a product can be submitted until a reviewer settles this."""
+    if (
+        organisation.is_verified
+        or not organisation_review
+        or not organisation_review.pending
+    ):
+        return None
+    return _step(
+        f"Your {organisation.noun} verification is under review",
+        f"Milestones open for submission once your {organisation.noun} is verified.",
+        "View verification",
+        reverse("experiences:organisation"),
+        "info",
+    )
 
 
 def organisation_next_step(organisation, organisation_review):
@@ -280,7 +298,12 @@ def recommended_step(tracks):
 
 def _continue_step(tiles):
     for tile in tiles:
-        if tile["status"] == "draft" and not tile.get("locked_by"):
+        item = tile["item"]
+        if (
+            tile["status"] == "draft"
+            and not tile.get("locked_by")
+            and not item.definition.submission_wait_reason(item)
+        ):
             return _step(
                 f"Continue with {tile['definition'].code}",
                 "Add the required evidence, then submit it for review.",

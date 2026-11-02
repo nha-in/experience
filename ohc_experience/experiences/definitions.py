@@ -92,8 +92,17 @@ class ApplicationFormDefinition:
         return {}
 
     @classmethod
-    def submission_block_reason(cls, item):
+    def submission_wait_reason(cls, item):
+        """What the integrator can only wait out before submitting, if anything.
+
+        It also blocks submission. Guidance points past a form that waits, which
+        it does not past one the integrator can put right from the form itself.
+        """
         return ""
+
+    @classmethod
+    def submission_block_reason(cls, item):
+        return cls.submission_wait_reason(item)
 
     @classmethod
     def approval_block_reason(cls, item):

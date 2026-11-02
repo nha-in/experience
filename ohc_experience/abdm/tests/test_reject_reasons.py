@@ -1,4 +1,4 @@
-"""A reviewer rejects a request with one reason from the form's list."""
+"""Reject all takes one reason from each form's list."""
 
 import re
 from http import HTTPStatus
@@ -12,7 +12,10 @@ from ohc_experience.abdm.definitions import ABDM
 from ohc_experience.abdm.definitions import ExitEvidence
 from ohc_experience.abdm.definitions import OrganisationVerification
 from ohc_experience.abdm.tests import test_workflow as workflow_fixtures
+from ohc_experience.abdm.tests.test_wasa_lifecycle import request_renewal
+from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.workflows import OTHER_REASON
 
@@ -46,24 +49,38 @@ def product_page(environment):
     )
 
 
-def test_the_reason_reaches_the_integrator_beside_the_note(environment, client):
+def reject_all(items, note="Every certificate needs the agency's seal.", **reasons):
+    """Reject all on the product page, as these requests' reasons are chosen."""
+    return {
+        "intent": "bulk_decision",
+        "action": "reject",
+        "reviews": [f"{item.pk}:{item.selected_submission_id}" for item in items],
+        "note": note,
+        **reasons,
+    }
+
+
+def test_the_reason_reaches_the_integrator_beside_the_note(
+    environment,
+    client,
+    django_capture_on_commit_callbacks,
+):
     item = submit(environment)
     client.force_login(environment["reviewer"])
     page = client.get(product_page(environment))
     for reason in services.reject_reasons(ExitEvidence):
         assert f'value="{reason}"'.encode() in page.content
 
-    response = client.post(
-        product_page(environment),
-        {
-            "intent": "decision",
-            "review_id": item.pk,
-            "revision": item.selected_submission_id,
-            "action": "reject",
-            "reason": DOCUMENTS,
-            "note": "The FT certificate covers M1 only.",
-        },
-    )
+    # A batch sends its notices once it is safely saved.
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(
+            product_page(environment),
+            reject_all(
+                [item],
+                "The FT certificate covers M1 only.",
+                reason_sandbox_exit_evidence=DOCUMENTS,
+            ),
+        )
 
     assert response.status_code == HTTPStatus.FOUND
     item.refresh_from_db()
@@ -144,85 +161,122 @@ def test_the_reason_is_cleared_when_the_integrator_resubmits(environment):
 REQUIRED = '<span class="ui-required" aria-hidden="true">*</span>'
 
 
-def test_the_product_page_rejects_one_request_with_a_reason(environment, client):
+def test_reject_all_asks_for_a_reason_from_each_forms_list(environment, client):
     item = submit(environment)
-    client.force_login(environment["reviewer"])
-    page = client.get(product_page(environment))
-    assert f'id="decision-reason-{item.pk}"'.encode() in page.content
-
-    response = client.post(
-        product_page(environment),
-        {
-            "intent": "decision",
-            "review_id": item.pk,
-            "revision": item.selected_submission_id,
-            "action": "reject",
-            "reason": DOCUMENTS,
-        },
-    )
-
-    assert response.status_code == HTTPStatus.FOUND
-    item.refresh_from_db()
-    assert (item.status, item.decision_reason) == ("rejected", DOCUMENTS)
-
-
-def product_note_marked(html, item):
-    """Whether a request's note on the product page shows its asterisk."""
-    found = re.search(
-        rf'<label class="ui-label" for="decision-note-{item.pk}">\s*'
-        r"<span data-decision-label>[^<]*</span>\s*"
-        r'<span class="ui-required"\s+aria-hidden="true"\s+data-note-marker\s*'
-        r"(hidden)?>\*</span>",
-        html,
-    )
-    assert found, "The note's label carries an asterisk to show or hide."
-    return not found.group(1)
-
-
-def test_the_product_page_marks_what_a_decision_requires(environment, client):
-    """The asterisks start where the action does; the box's script then keeps
-    the note's in step with the action and the reason chosen."""
-    item = submit(environment)
+    verification = reverify(environment)
     client.force_login(environment["reviewer"])
 
     html = client.get(product_page(environment)).content.decode()
 
-    assert (
-        f'<label class="ui-label" for="decision-reason-{item.pk}">Reason {REQUIRED}'
-        "</label>"
-    ) in html
-    assert re.search(
-        rf'<select class="ui-select"\s+id="decision-reason-{item.pk}"'
-        r'[^>]*aria-required="true"',
-        html,
-    )
-    # The box opens on Approve, whose note is required.
-    assert product_note_marked(html, item)
-    # Sent back as a rejection with no reason chosen, it stays on Reject, where
-    # a listed reason can carry the rejection alone.
+    assert "Sandbox exit evidence rejection reason <span" in html
+    assert "Organisation verification rejection reason <span" in html
+    assert 'name="reason_sandbox_exit_evidence"' in html
+    assert 'name="reason_sandbox_organisation"' in html
+
     response = client.post(
         product_page(environment),
-        {
-            "intent": "decision",
-            "review_id": item.pk,
-            "revision": item.selected_submission_id,
-            "action": "reject",
-        },
+        reject_all(
+            [item, verification],
+            reason_sandbox_exit_evidence=DOCUMENTS,
+            reason_sandbox_organisation="Wrong website address",
+        ),
     )
-    assert response.status_code == HTTPStatus.OK
-    assert not product_note_marked(response.content.decode(), item)
-    # A query's note is required, as an approval's is.
+
+    assert response.status_code == HTTPStatus.FOUND
+    item.refresh_from_db()
+    verification.refresh_from_db()
+    assert (item.status, item.decision_reason) == ("rejected", DOCUMENTS)
+    assert (verification.status, verification.decision_reason) == (
+        "rejected",
+        "Wrong website address",
+    )
+
+
+def test_the_form_asks_for_a_reason_only_when_rejecting(environment, client):
+    item = submit(environment)
+    client.force_login(environment["reviewer"])
+
+    html = " ".join(client.get(product_page(environment)).content.decode().split())
+
+    assert "Accept all</button>" in html
+    assert "data-reject-controls hidden" in html
+
+    # Sent back as a rejection with no reason chosen, it stays on Reject.
+    response = client.post(product_page(environment), reject_all([item]))
+    html = " ".join(response.content.decode().split())
+
+    assert "Reject all</button>" in html
+    assert "data-reject-controls hidden" not in html
+    assert re.search(r'value="reject" checked', html)
+
+
+def test_one_form_asks_for_one_reason_and_shares_it_across_the_exit(
+    environment,
+    client,
+):
+    items = submit_together(environment, "m1", "m2")
+    client.force_login(environment["reviewer"])
+
+    assert b">Rejection reason <span" in client.get(product_page(environment)).content
+
+    client.post(
+        product_page(environment),
+        reject_all(items, reason_sandbox_exit_evidence=DOCUMENTS),
+    )
+
+    for item in items:
+        item.refresh_from_db()
+        assert (item.status, item.decision_reason) == ("rejected", DOCUMENTS)
+
+
+def test_reject_all_with_no_reason_changes_nothing_and_keeps_what_was_chosen(
+    environment,
+    client,
+):
+    item = submit(environment)
+    verification = reverify(environment)
+    client.force_login(environment["reviewer"])
+
     response = client.post(
         product_page(environment),
-        {
-            "intent": "decision",
-            "review_id": item.pk,
-            "revision": item.selected_submission_id,
-            "action": "query",
-        },
+        reject_all([item, verification], reason_sandbox_exit_evidence=DOCUMENTS),
     )
+
     assert response.status_code == HTTPStatus.OK
-    assert product_note_marked(response.content.decode(), item)
+    assert b"Choose a reason for rejecting this request." in response.content
+    assert re.search(rf'value="{DOCUMENTS}"\s+selected', response.content.decode())
+    item.refresh_from_db()
+    verification.refresh_from_db()
+    assert item.pending
+    assert verification.pending
+
+
+def test_reject_all_refuses_a_reason_from_outside_the_list(environment, client):
+    item = submit(environment)
+    client.force_login(environment["reviewer"])
+
+    response = client.post(
+        product_page(environment),
+        reject_all([item], reason_sandbox_exit_evidence="Wrong website address"),
+    )
+
+    assert b"Choose a reason from the list." in response.content
+    item.refresh_from_db()
+    assert item.pending
+
+
+def test_a_form_that_lists_no_reasons_takes_the_note_alone(environment, client):
+    renewal = request_renewal(environment)
+    client.force_login(environment["reviewer"])
+
+    html = client.get(product_page(environment)).content.decode()
+    assert "rejection reason" not in html.lower()
+
+    response = client.post(product_page(environment), reject_all([renewal]))
+
+    assert response.status_code == HTTPStatus.FOUND
+    renewal.refresh_from_db()
+    assert (renewal.status, renewal.decision_reason) == ("rejected", "")
 
 
 def test_the_product_page_marks_an_override_note_as_required(environment, client):
@@ -238,23 +292,3 @@ def test_the_product_page_marks_an_override_note_as_required(environment, client
         f'<label class="ui-label" for="decision-note-{uhi.pk}">Override note '
         f"{REQUIRED}</label>"
     ) in html
-
-
-def test_rejecting_a_batch_takes_the_note_alone(environment, client):
-    """A batch can mix forms with different lists, so it has no reason to choose."""
-    item = submit(environment)
-    client.force_login(environment["reviewer"])
-
-    response = client.post(
-        product_page(environment),
-        {
-            "intent": "bulk_decision",
-            "action": "reject",
-            "reviews": [f"{item.pk}:{item.selected_submission_id}"],
-            "note": "Every certificate needs the agency's seal.",
-        },
-    )
-
-    assert response.status_code == HTTPStatus.FOUND
-    item.refresh_from_db()
-    assert (item.status, item.decision_reason) == ("rejected", "")

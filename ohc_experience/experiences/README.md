@@ -57,7 +57,9 @@ Implementations contain no models, migrations, URL configuration or views:
    and a demo builder.
 
 Form hooks run inside the engine transaction: `initial_data` supplies defaults;
-`submission_block_reason` gates final submission; `pending_prerequisites` names
+`submission_block_reason` gates final submission, and `submission_wait_reason`
+names the part of that gate the integrator can only wait out, so guidance points
+past that form; `pending_prerequisites` names
 program approvals, beyond application dependencies, that must come before a
 decision, and `prerequisites_due` expresses the same condition as a review filter
 for the queue; `on_submit` projects validated answers; `on_approve` returns structured
@@ -91,8 +93,17 @@ rejects cross-product links, self references and cycles. A form opens once every
 application it depends on, directly or not, is submitted; a rejected or withdrawn
 one counts once it is resubmitted. A request cannot be withdrawn while a request
 depending on it is under review. The engine refuses approval or rejection until
-every prerequisite reaches its success status. Queries stay open. The review
+every prerequisite reaches its success status. Queries stay open. A query on
+the current submission, open or answered, holds approval and rejection until a
+reviewer resolves it, or closes one nobody answered. The review
 queue separates requests still waiting on a prerequisite from ready ones.
+
+The product page decides what a reviewer may approve together: Accept all and
+Reject all are the only approve and reject it offers, for organisation
+verification, certification and milestone requests alike. A request with an
+open query or an unsettled prerequisite outside the decision holds both
+buttons. The one decision a request takes alone is the override of an
+automatically recorded request's wait, which the batch leaves out.
 
 A form definition lists the reasons a reviewer chooses from in
 `reject_reasons`, and a rejection on such a form takes exactly one, stored in
@@ -104,7 +115,8 @@ required it has to run to `MIN_REVIEW_TEXT` characters, so that "ok" cannot stan
 in for a reason. A note offered beside a listed reason is free to be brief.
 Resubmitting clears the reason along with the note. A batch decision from the
 product page saves one note to every request it covers, so it asks for that note
-whichever way the batch goes.
+whichever way the batch goes, and a rejection takes one reason from each form's
+list.
 
 ### Staff Permissions
 
@@ -124,7 +136,7 @@ independent of the source review.
 
 | Area | Read | Write | Approve |
 | --- | --- | --- | --- |
-| Reviews | Queue, evidence, history, downloads | Raise and resolve queries | Approve or reject |
+| Reviews | Queue, evidence, history, downloads | Raise, resolve and close queries | Approve or reject |
 | Reviews, General/onboarding | Production Approval screen and CSV export | | Add, change or remove a product's production details |
 | Support | Tickets and attachments | Reply, change priority, assign | Resolve, assign |
 | Events | Events | Create/edit drafts | Publish/unpublish |

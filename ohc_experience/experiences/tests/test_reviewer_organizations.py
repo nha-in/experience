@@ -13,6 +13,7 @@ from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.views import _wasa_notice
@@ -461,8 +462,7 @@ def test_requests_are_grouped_by_whose_move_it_is(environment, client):
 
 def test_a_request_held_by_the_integrator_waits_with_them(environment, client):
     """M2 cannot be decided while M1 waits on the integrator's reply."""
-    first = submit(environment, "m1")
-    second = submit(environment, "m2")
+    first, second = submit_together(environment, "m1", "m2")
     services.assign_review(first, environment["admin"], environment["reviewer"])
     services.decide(
         first,

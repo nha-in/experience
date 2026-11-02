@@ -31,8 +31,18 @@ def product_page(item):
     return reverse("experiences:product-detail", args=[item.product.reference])
 
 
+def accept_all(item, note):
+    """Accept all on a product page that holds this one request."""
+    return {
+        "intent": "bulk_decision",
+        "action": "approve",
+        "reviews": [f"{item.pk}:{item.selected_submission_id}"],
+        "note": note,
+    }
+
+
 def decision(item, action, note="", **fields):
-    """A request's own Decision form on the product page."""
+    """A request's own form on the product page."""
     return {
         "intent": "decision",
         "review_id": item.pk,
@@ -214,7 +224,7 @@ def test_review_decisions_follow_grants_and_not_the_assignee(review_item, client
     reviewer = ReviewerFactory(is_nha_team=True)
     client.force_login(reviewer)
     card = review_section(client.get(url).content.decode(), review_item)
-    assert "data-decision-form" in card
+    assert "data-query-send-form" in card
     assert "field=form#review-" in card
     # Each submitted field picks itself for a query, falling back to a link.
     assert 'data-query-field="score"' in card
@@ -229,17 +239,14 @@ def test_review_decisions_follow_grants_and_not_the_assignee(review_item, client
     )
     client.force_login(read_only)
     card = review_section(client.get(url).content.decode(), review_item)
-    assert "data-decision-form" not in card
+    assert "data-query-send-form" not in card
     assert "data-query-field" not in card
     assert "You have read-only access to this request." in card
 
     # Someone other than the assignee can still record the decision.
     workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
     client.force_login(ReviewerFactory(is_nha_team=True))
-    response = client.post(
-        url,
-        decision(review_item, "approve", "Evidence accepted."),
-    )
+    response = client.post(url, accept_all(review_item, "Evidence accepted."))
     assert response.status_code == HTTPStatus.FOUND
     review_item.refresh_from_db()
     assert review_item.status == "approved"
@@ -277,7 +284,6 @@ def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa:
     url = product_page(review_item)
     response = client.post(url, decision(review_item, "query"))
     assert response.status_code == HTTPStatus.OK
-    assert section(response, review_item)["decision_action"] == "query"
     assert b"Write a query before sending." in response.content
 
     response = client.post(
@@ -289,10 +295,9 @@ def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa:
     query = review_item.queries.get()
     response = client.get(url)
     assert section(response, review_item)["unresolved_query_count"] == 1
-    assert b'data-approval-blocked="true"' in response.content
     card = " ".join(review_section(response.content.decode(), review_item).split())
     assert "Confirm this score." in card
-    assert "Resolve 1 outstanding query before approval." in card
+    assert "Resolve 1 outstanding query before approving or rejecting." in card
     assert "1 awaiting reply" in card
 
     client.force_login(owner_membership.user)
@@ -321,15 +326,15 @@ def test_query_validation_reply_resolution_and_approval_through_portal(  # noqa:
     )
     assert response.status_code == HTTPStatus.FOUND
     assert last_flash(response) == "Query resolved."
-    response = client.post(url, decision(review_item, "approve", "Evidence verified."))
+    response = client.post(url, accept_all(review_item, "Evidence verified."))
     assert response.status_code == HTTPStatus.FOUND
-    assert last_flash(response) == f"{review_item.title} approved."
+    assert last_flash(response) == "Approved 1 submitted request."
     review_item.refresh_from_db()
     assert review_item.status == "approved"
     response = client.get(url)
     card = review_section(response.content.decode(), review_item)
     assert "Evidence verified." in card
-    assert "data-decision-form" not in card
+    assert "data-query-send-form" not in card
     snapshot_url = reverse(
         "experiences:submission",
         args=[review_item.pk, review_item.selected_submission_id],
@@ -449,7 +454,7 @@ def test_the_product_page_names_who_submitted_each_request(
     assert "Not on the website's domain" not in row
 
 
-def test_the_product_page_asks_within_that_requests_decision(review_item, client):
+def test_the_product_page_asks_within_that_requests_query_form(review_item, client):
     client.force_login(ReviewerFactory(is_nha_team=True))
 
     html = client.get(
@@ -459,7 +464,7 @@ def test_the_product_page_asks_within_that_requests_decision(review_item, client
         ),
     ).content.decode()
 
-    form = f"decision-form-{review_item.pk}"
+    form = f"query-form-{review_item.pk}"
     assert f'id="{form}"' in html
     assert f'data-query-for="{form}"' in html
     assert 'data-query-field="score"' in html
@@ -472,7 +477,7 @@ def test_the_product_page_asks_within_that_requests_decision(review_item, client
 def test_ask_opens_a_closed_question_box_under_its_field(review_item, client):
     client.force_login(ReviewerFactory(is_nha_team=True))
     url = product_page(review_item)
-    form = f"decision-form-{review_item.pk}"
+    form = f"query-form-{review_item.pk}"
 
     def score_box(html):
         box = html[html.index(f'id="draft-{form}-score"') :]
@@ -699,7 +704,7 @@ def test_queue_scope_removes_conflicting_status_without_losing_other_filters(
     if scope == "decided":
         response = client.post(
             product_page(review_item),
-            decision(review_item, "approve", "Evidence accepted."),
+            accept_all(review_item, "Evidence accepted."),
         )
         assert response.status_code == HTTPStatus.FOUND
 

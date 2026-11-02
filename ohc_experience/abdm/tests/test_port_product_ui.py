@@ -32,6 +32,7 @@ from ohc_experience.abdm.tests.test_workflow import registered_as_other
 from ohc_experience.abdm.tests.test_workflow import review_section
 from ohc_experience.abdm.tests.test_workflow import stored_secret
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import legacy
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import Product
@@ -857,9 +858,7 @@ def test_nhcx_roles_are_radios_and_one_under_review_locks_the_other(
     assert 'data-role-track="PHR" hidden' in html
     assert 'data-role-track="HIE-CM" hidden' not in html
 
-    workflow_fixtures.submit_claims(environment, "m1")
-    workflow_fixtures.submit_claims(environment, "m3")
-    workflow_fixtures.submit_claims(environment, "nhcx_payer")
+    workflow_fixtures.claims_exit(environment, "m1", "m3", "nhcx_payer")
     html = client.get(url).content.decode()
     provider = role(html, "nhcx_provider")
     assert "disabled" in provider
@@ -1092,7 +1091,7 @@ def test_a_milestone_that_calls_back_needs_a_callback_url_to_submit(
     key,
     code,
 ):
-    submit(environment, "m1")
+    approve(environment, "m1")
     clear_callback_url(environment)
 
     with pytest.raises(ValidationError, match=f"Add a callback URL to submit {code}."):
@@ -1111,7 +1110,7 @@ def test_the_m2_page_disables_submit_until_a_callback_url_is_saved(
     environment,
     client,
 ):
-    submit(environment, "m1")
+    approve(environment, "m1")
     clear_callback_url(environment)
     client.force_login(environment["applicant"])
     url = _track_url(environment["product"], "m2")
@@ -1138,8 +1137,7 @@ def submit_button(html):
 
 @pytest.mark.django_db
 def test_the_product_page_flags_a_missing_callback_url(environment, client):
-    submit(environment, "m1")
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     clear_callback_url(environment)
     url = reverse(
         "experiences:product-detail",
@@ -1161,8 +1159,7 @@ def test_the_product_page_does_not_flag_it_once_a_callback_url_is_saved(
     environment,
     client,
 ):
-    submit(environment, "m1")
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     url = reverse(
         "experiences:product-detail",
         args=[environment["product"].reference],

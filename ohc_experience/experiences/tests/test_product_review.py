@@ -16,6 +16,7 @@ from ohc_experience.abdm.tests.test_workflow import nhcx_product
 from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_claims
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.organisations.models import Membership
@@ -38,6 +39,8 @@ def batch_data(items, action="approve", note="Reviewed against the evidence."):
         "action": action,
         "reviews": [f"{item.pk}:{item.selected_submission_id}" for item in items],
         "note": note,
+        "reason_sandbox_exit_evidence": "Incomplete documentation",
+        "reason_sandbox_organisation": "Wrong website address",
     }
 
 
@@ -51,8 +54,7 @@ def test_product_review_combines_submissions_without_exposing_drafts(
     environment,
     client,
 ):
-    m1 = submit(environment)
-    m2 = submit(environment, "m2")
+    m1, m2 = submit_together(environment, "m1", "m2")
     m3, form, saved = workflows.save_review_form(
         milestone(environment, "m3"),
         environment["applicant"],
@@ -97,8 +99,7 @@ def test_bulk_decision_handles_submitted_siblings_and_leaves_m3_pending(
     action,
     status,
 ):
-    m1 = submit(environment)
-    m2 = submit(environment, "m2")
+    m1, m2 = submit_together(environment, "m1", "m2")
     m3 = milestone(environment, "m3")
     client.force_login(environment["reviewer"])
 
@@ -132,7 +133,7 @@ def test_a_bulk_decision_requires_the_shared_note_without_changing_any_review(
     note,
     message,
 ):
-    items = [submit(environment), submit(environment, "m2")]
+    items = submit_together(environment, "m1", "m2")
     client.force_login(environment["reviewer"])
 
     response = client.post(
@@ -159,7 +160,7 @@ def test_the_bulk_review_box_is_named_review_and_starts_at_one_line(
 
     content = " ".join(client.get(product_url(environment)).content.decode().split())
 
-    assert '<label class="sr-only" for="bulk-decision-note">Review</label>' in content
+    assert '<label class="ui-label" for="bulk-decision-note">Review <span' in content
     assert 'id="bulk-decision-note" name="note" rows="1"' in content
     assert "Shared decision note" not in content
 
@@ -199,8 +200,7 @@ def test_product_review_lists_open_requests_first_and_folds_approved_ones(
     client,
 ):
     m1 = approve(environment)
-    m2 = submit(environment, "m2")
-    m4 = submit(environment, "m4")
+    m2, m4 = submit_together(environment, "m2", "m4")
     workflows.decide(
         m4,
         environment["reviewer"],
@@ -240,7 +240,7 @@ def test_product_review_lists_open_requests_first_and_folds_approved_ones(
     ]
 
 
-def test_read_only_reviewer_has_no_bulk_or_individual_decisions(environment, client):
+def test_read_only_reviewer_has_no_decisions_or_queries(environment, client):
     item = submit(environment)
     reader = UserFactory(is_nha_team=True)
     AccessGrant.objects.create(
@@ -253,15 +253,16 @@ def test_read_only_reviewer_has_no_bulk_or_individual_decisions(environment, cli
     client.force_login(reader)
     response = client.get(product_url(environment))
     assert response.context["bulk_items"] == []
-    assert all(
-        not row["available_actions"] for row in response.context["review_sections"]
+    assert not any(
+        row["can_decide"] or row["can_query"]
+        for row in response.context["review_sections"]
     )
     assert client.post(product_url(environment), batch_data([item])).status_code == (
         HTTPStatus.FORBIDDEN
     )
 
 
-def test_single_review_rejects_a_stale_submission_and_retains_the_note(
+def test_a_query_on_a_stale_submission_is_refused_and_keeps_its_text(
     environment,
     client,
 ):
@@ -274,15 +275,16 @@ def test_single_review_rejects_a_stale_submission_and_retains_the_note(
             "intent": "decision",
             "review_id": item.pk,
             "revision": "0",
-            "action": "approve",
-            "note": "Evidence reviewed carefully.",
+            "action": "query",
+            "question_form": "Please explain the testing scope.",
         },
     )
 
     assert response.status_code == HTTPStatus.OK
     item.refresh_from_db()
     assert item.pending
-    assert b"Evidence reviewed carefully." in response.content
+    assert not item.queries.exists()
+    assert b"Please explain the testing scope." in response.content
     compact = " ".join(response.content.decode().split())
     assert f'id="review-{item.pk}" data-product-review-panel open>' in compact
 
@@ -381,8 +383,7 @@ def test_product_actions_cannot_target_another_product(environment, client):
 
 
 def test_organisation_verification_is_reviewed_in_the_product(environment, client):
-    m1 = submit(environment)
-    m2 = submit(environment, "m2")
+    m1, m2 = submit_together(environment, "m1", "m2")
     verification = reverify(environment)
     client.force_login(environment["reviewer"])
 
@@ -409,10 +410,11 @@ def test_organisation_verification_is_reviewed_in_the_product(environment, clien
             "note": "Organisation identity verified.",
         },
     )
-    assert response.url == product_url(environment) + f"#review-{verification.pk}"
-    assert last_flash(response) == "Organisation verification approved."
+    # It goes with the rest of the page, never on its own.
+    assert response.status_code == HTTPStatus.OK
+    assert b"Decide this request with Accept all or Reject all." in response.content
     environment["org"].refresh_from_db()
-    assert environment["org"].is_verified
+    assert not environment["org"].is_verified
     for item in (m1, m2):
         item.refresh_from_db()
         assert item.pending
@@ -428,7 +430,7 @@ def test_product_bulk_decisions_include_organisation_verification(
     action,
     status,
 ):
-    items = [submit(environment), submit(environment, "m2"), reverify(environment)]
+    items = [*submit_together(environment, "m1", "m2"), reverify(environment)]
     client.force_login(environment["reviewer"])
 
     response = client.post(
@@ -508,7 +510,7 @@ def test_withdrawn_organisation_verification_waits_on_the_integrator(
     environment,
     client,
 ):
-    items = [submit(environment), submit(environment, "m2")]
+    items = submit_together(environment, "m1", "m2")
     verification = reverify(environment)
     workflows.withdraw(verification, environment["applicant"])
     environment["org"].refresh_from_db()
@@ -570,9 +572,10 @@ def test_queries_can_be_raised_and_resolved_from_the_product(environment, client
     query = item.queries.get()
     workflows.reply_query(query, environment["applicant"], "All required APIs.")
 
+    # An answer is not enough: the reviewer still has to resolve it.
     response = client.get(product_url(environment))
     assert response.context["bulk_approve_blockers"]
-    assert not response.context["bulk_reject_blockers"]
+    assert response.context["bulk_reject_blockers"]
     response = client.post(
         reverse("experiences:query-action", args=[query.pk]),
         {"intent": "resolve", "return_to_product": "1"},
@@ -581,6 +584,9 @@ def test_queries_can_be_raised_and_resolved_from_the_product(environment, client
     assert last_flash(response) == "Query resolved."
     query.refresh_from_db()
     assert query.status == "resolved"
+    response = client.get(product_url(environment))
+    assert not response.context["bulk_approve_blockers"]
+    assert not response.context["bulk_reject_blockers"]
 
 
 @pytest.mark.parametrize("reviews", [[], ["bad"], ["1:2", "1:2"], ["1:2:3"]])
@@ -602,8 +608,7 @@ def test_integrators_cannot_post_product_review_decisions(environment, client):
 
 def test_the_review_page_shows_its_product_to_staff(environment, client):
     """Staff pages get no `product` from _context, so the page names its own."""
-    submit(environment, "m1")
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     clear_callback_url(environment)
     product = environment["product"]
     assert product.callback_codes
@@ -636,9 +641,7 @@ def test_a_review_row_names_only_the_tracks_the_product_applied_for(
     client,
 ):
     """NHCX builds on M2 and M3, but this product never applied for NHCX."""
-    submit(environment)
-    submit(environment, "m2")
-    submit(environment, "m3")
+    submit_together(environment, "m1", "m2", "m3")
     client.force_login(environment["reviewer"])
 
     response = client.get(product_url(environment))

@@ -236,6 +236,27 @@ def submit(environment, key="m1"):
     return item
 
 
+def submit_together(environment, key, *others):
+    """One exit covering several milestones, as the track page sends it."""
+    lead = milestone(environment, key)
+    joining = [milestone(environment, other) for other in others]
+    data = evidence_data()
+    for item in joining:
+        data[f"milestone_{item.pk}_start_date"] = data["start_date"]
+        data[f"milestone_{item.pk}_end_date"] = data["end_date"]
+    _item, form, saved = services.save_review_forms(
+        lead,
+        environment["applicant"],
+        data=data,
+        files=files(),
+        expected_revision=lead.selected_submission_id,
+        additional_revisions={item.pk: item.selected_submission_id for item in joining},
+        page_keys=[key, *others],
+    )
+    assert saved, form.errors
+    return [milestone(environment, each) for each in (key, *others)]
+
+
 def approve(environment, key="m1"):
     submit(environment, key)
     return approve_submitted(environment, key)
@@ -532,8 +553,7 @@ def test_uhi_opens_and_submits_with_m1_alone_even_without_m2(environment, client
 def test_uhi_submitted_before_m1_is_approved_is_recorded_when_it_is(
     environment,
 ):
-    submit(environment)
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     uhi = submit(environment, "uhi1")
     assert uhi.status == ReviewItem.Status.IN_REVIEW
     assert uhi.application.status == "under_review"
@@ -604,9 +624,10 @@ def test_a_reviewer_can_override_uhi_s_unmet_prerequisite(environment):
 
 def test_an_override_still_needs_organisation_verification(environment):
     """Overriding the milestone chain never bypasses organisation verification."""
-    reverify(environment)
     submit(environment)
-    uhi = submit(environment, "uhi1")
+    submit(environment, "uhi1")
+    reverify(environment)
+    uhi = milestone(environment, "uhi1")
     services.assign_review(
         uhi,
         environment["admin"],
@@ -626,11 +647,18 @@ def test_an_override_still_needs_organisation_verification(environment):
 def test_a_waiting_uhi_application_is_recorded_once_verification_is_approved(
     environment,
 ):
-    """Verification is no milestone's dependency, but approving it still counts."""
+    """Verification is no milestone's dependency, but approving it still counts.
+
+    Nothing waits this way today, so this is a request filed before that rule.
+    """
     approve(environment)
     approve(environment, "m2")
     verification = reverify(environment)
-    uhi = submit(environment, "uhi1")
+    with patch(
+        "ohc_experience.abdm.definitions.verification_wait_reason",
+        return_value="",
+    ):
+        uhi = submit(environment, "uhi1")
     assert uhi.status == ReviewItem.Status.IN_REVIEW
     services.assign_review(verification, environment["admin"], environment["reviewer"])
 
@@ -652,8 +680,7 @@ def test_milestones_are_submitted_in_order_and_decided_in_order(environment):
         match="once M1 - ABHA Creation and Verification is submitted",
     ):
         submit(environment, "m2")
-    submit(environment)
-    m2 = submit(environment, "m2")
+    _m1, m2 = submit_together(environment, "m1", "m2")
     assert m2.status == ReviewItem.Status.IN_REVIEW
     services.assign_review(m2, environment["admin"], environment["reviewer"])
     for action in ("approve", "reject"):
@@ -685,9 +712,9 @@ def test_milestones_are_submitted_in_order_and_decided_in_order(environment):
     assert m2.status == ReviewItem.Status.APPROVED
 
 
-def test_an_unverified_organisation_can_submit_but_not_be_approved(environment):
-    reverify(environment)
+def test_a_request_left_open_by_a_new_verification_waits_for_it(environment):
     item = submit(environment)
+    reverify(environment)
     services.assign_review(item, environment["admin"], environment["reviewer"])
 
     with pytest.raises(ValidationError) as error:
@@ -860,8 +887,7 @@ def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
     environment,
     client,
 ):
-    submit(environment)
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     client.force_login(environment["applicant"])
     url = reverse(
         "experiences:track",
@@ -1271,6 +1297,12 @@ def submit_claims(environment, key):
     return item
 
 
+def claims_exit(environment, *keys):
+    """One exit on the claims product, covering these milestones."""
+    claims = {**environment, "product": nhcx_product(environment)}
+    return submit_together(claims, *keys)
+
+
 def nhcx_reviewer(client):
     staff = UserFactory(is_nha_team=True, is_staff=True)
     AccessGrant.objects.create(
@@ -1287,9 +1319,7 @@ def nhcx_reviewer(client):
 
 
 def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client):
-    m1 = submit_claims(environment, "m1")
-    submit_claims(environment, "m3")
-    nhcx_payer = submit_claims(environment, "nhcx_payer")
+    m1, _m3, nhcx_payer = claims_exit(environment, "m1", "m3", "nhcx_payer")
     client.force_login(environment["reviewer"])
 
     def listed(item):
@@ -1313,9 +1343,7 @@ def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
     environment,
     client,
 ):
-    m1 = submit_claims(environment, "m1")
-    submit_claims(environment, "m3")
-    nhcx_payer = submit_claims(environment, "nhcx_payer")
+    m1, _m3, nhcx_payer = claims_exit(environment, "m1", "m3", "nhcx_payer")
     staff = nhcx_reviewer(client)
 
     queue = client.get(reverse("experiences:queue"), {"scope": "all"})
@@ -1339,8 +1367,7 @@ def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
 def test_the_queue_sorts_by_matching_submission_dates(environment, client):
     # Both have to be ready to decide, so M1 is approved before they open.
     approve(environment, "m1")
-    older = submit(environment, "m2")
-    newer = submit(environment, "m3")
+    older, newer = submit_together(environment, "m2", "m3")
     ReviewItem.objects.filter(pk=older.pk).update(
         submitted_at=timezone.now() - timedelta(days=2),
     )
@@ -1397,7 +1424,7 @@ def test_product_registrations_are_records_not_queue_requests(environment, clien
     assert all(registration not in entry.reviews for entry in queue)
     assert registration not in organisation
     assert record.status_code == 200
-    assert "data-decision-form" not in record.content.decode()
+    assert "data-query-send-form" not in record.content.decode()
 
 
 def test_the_type_filter_gathers_the_milestones_of_every_track(environment, client):
@@ -1429,32 +1456,28 @@ def test_the_product_page_holds_decisions_until_prerequisites_are_approved(
     environment,
     client,
 ):
-    submit(environment)
-    m2 = submit(environment, "m2")
+    _m1, m2 = submit_together(environment, "m1", "m2")
     client.force_login(environment["reviewer"])
 
     section = review_section(client.get(review_page(environment)).content.decode(), m2)
 
     assert "Waiting on prerequisites" in section
     assert "M1 - ABHA Creation and Verification" in section
-    assert 'data-decision-blocked="true"' in section
-    assert re.search(r'value="approve"\s+disabled', section)
-    assert re.search(r'value="reject"\s+disabled', section)
-    assert re.search(r'value="query"\s+checked', section)
+    # A query can still be raised, and its own form holds no other decision.
+    assert "data-query-send-form" in section
+    assert 'value="approve"' not in section
 
     approve_submitted(environment)
     section = review_section(client.get(review_page(environment)).content.decode(), m2)
 
     assert f'id="decision-hold-{m2.pk}"' not in section
-    assert not re.search(r'value="approve"\s+disabled', section)
 
 
 def test_a_waiting_recorded_request_offers_a_reviewer_an_override(
     environment,
     client,
 ):
-    submit(environment)
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     uhi = submit(environment, "uhi1")
     client.force_login(environment["reviewer"])
 
@@ -1468,7 +1491,7 @@ def test_a_waiting_recorded_request_offers_a_reviewer_an_override(
         "recorded automatically once its prerequisites are approved, "
         "or you can approve it now and override that wait."
     ) in section
-    assert "data-decision-form" not in section
+    assert "data-query-send-form" not in section
     assert "Approve and override prerequisites" in section
 
 

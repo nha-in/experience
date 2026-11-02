@@ -11,6 +11,7 @@ from ohc_experience.abdm.tests.test_workflow import milestone
 from ohc_experience.abdm.tests.test_workflow import pending_exits
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_claims
+from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.experiences.models import ReviewItem
@@ -66,8 +67,7 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
     environment,
     client,
 ):
-    m1 = submit(environment, "m1")
-    m2 = submit(environment, "m2")
+    m1, m2 = submit_together(environment, "m1", "m2")
     m3 = milestone(environment, "m3")
     client.force_login(environment["reviewer"])
     response = client.get(reverse("experiences:queue"))
@@ -99,8 +99,7 @@ def test_queue_chips_put_what_can_be_decided_first_and_the_rest_below(
     environment,
     client,
 ):
-    submit(environment, "m1")
-    submit(environment, "m2")
+    submit_together(environment, "m1", "m2")
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
 
@@ -264,8 +263,7 @@ def test_an_open_query_sets_the_whole_product_aside(environment, client):
     """M2 and M3 each build on M1 alone, so either can be decided. A query on
     M2 still moves the product to Done until the integrator replies."""
     approve(environment, "m1")
-    m2 = submit(environment, "m2")
-    m3 = submit(environment, "m3")
+    m2, m3 = submit_together(environment, "m2", "m3")
     reviewer = environment["reviewer"]
     client.force_login(reviewer)
     url = reverse("experiences:queue")
