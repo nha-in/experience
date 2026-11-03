@@ -707,15 +707,17 @@ document.addEventListener("keydown", (event) => {
 });
 
 (() => {
+  // A target may name several values, separated by spaces, and shows for any.
   const syncConditionalFields = (root) => {
     const scope = root instanceof Element ? root : document;
     scope.querySelectorAll("[data-show-when-field]").forEach((target) => {
       const form = target.closest("form");
       if (!form) return;
       const { showWhenField: name, showWhenValue: value } = target.dataset;
+      const values = value.split(" ");
       const answered = [...form.querySelectorAll(`[name="${name}"]`)].some(
         (input) =>
-          input.value === value &&
+          values.includes(input.value) &&
           (input.type === "checkbox" || input.type === "radio" ? input.checked : true),
       );
       target.hidden = !answered;

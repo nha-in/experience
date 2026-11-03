@@ -4,6 +4,8 @@ from django.core.validators import MinLengthValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from ohc_experience.support.models import Environment
+
 from .fields import MultipleFileField
 from .production import validate_client_id
 from .production import validate_issued_on
@@ -149,6 +151,8 @@ class CallbackURLForm(forms.Form):
 
 #: Resolving a ticket takes a reply that says how it was resolved.
 RESOLVE_COMMENT_MIN_LENGTH = 10
+#: The failing call, asked only by a category with ``api_details``.
+API_DETAIL_FIELDS = ("api_url", "api_request_id", "api_request", "api_response")
 
 
 class IssueTypeSelect(forms.Select):
@@ -172,6 +176,16 @@ class IssueTypeSelect(forms.Select):
 
 
 class SupportForm(forms.Form):
+    #: What only the opening form asks. A reply drops these and keeps the rest.
+    filing_fields = (
+        "subject",
+        "category",
+        "issue_type",
+        "priority",
+        "environment",
+        *API_DETAIL_FIELDS,
+    )
+
     subject = forms.CharField(max_length=255)
     category = forms.ChoiceField(
         error_messages={"required": "Choose the category this ticket is about."},
@@ -183,6 +197,28 @@ class SupportForm(forms.Form):
     priority = forms.ChoiceField(
         choices=[("low", "Low"), ("medium", "Medium"), ("high", "High")],
         initial="medium",
+    )
+    # Nothing is chosen: a sandbox default would send a production problem to
+    # the wrong logs.
+    environment = forms.ChoiceField(
+        choices=[("", "Select an environment"), *Environment.choices],
+        error_messages={"required": "Choose the environment this ticket is about."},
+    )
+    api_url = forms.CharField(label="API URL", max_length=500, required=False)
+    api_request_id = forms.CharField(
+        label="Request / transaction ID",
+        max_length=200,
+        required=False,
+    )
+    api_request = forms.CharField(
+        label="cURL (request body + header)",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4, "spellcheck": "false"}),
+    )
+    api_response = forms.CharField(
+        label="Request response",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4, "spellcheck": "false"}),
     )
     body = forms.CharField(label="Message", widget=forms.Textarea(attrs={"rows": 5}))
     attachments = MultipleFileField(
@@ -237,6 +273,10 @@ class SupportForm(forms.Form):
             for entry in category.issue_types
         }
         issue_type.required = self._asks_for_issue_type()
+        # The page shows the API details only once one of these is chosen.
+        self.api_detail_categories = [
+            category.code for category in self.categories if category.api_details
+        ]
 
     def _asks_for_issue_type(self) -> bool:
         """Whether the ticket has to name an issue type, read before any cleaning.
@@ -254,6 +294,15 @@ class SupportForm(forms.Form):
                 return bool(chosen.issue_types)
         return any(category.issue_types for category in self.categories)
 
+    @property
+    def api_details_entered(self) -> bool:
+        """Whether the form came back with any API detail typed.
+
+        The page folds the API details away, since they are optional and long,
+        and opens them again here rather than hiding what was typed or refused.
+        """
+        return any(self[name].value() for name in API_DETAIL_FIELDS)
+
     def clean(self):
         cleaned = super().clean()
         # The reply form drops the filing fields; only the opening form files.
@@ -262,6 +311,11 @@ class SupportForm(forms.Form):
         category = self.category_map.get(cleaned.get("category"))
         if category is None:
             return cleaned
+        if not category.api_details:
+            # Hidden fields still post, so details typed under another category
+            # are dropped here rather than filed against a question with no call.
+            for name in API_DETAIL_FIELDS:
+                cleaned[name] = ""
         if not category.issue_types:
             cleaned["issue_type"] = ""
         # A missing one has already been reported as required.

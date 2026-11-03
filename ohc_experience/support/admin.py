@@ -52,7 +52,7 @@ class TicketAdmin(admin.ModelAdmin):
         "assignee",
         "updated_at",
     ]
-    list_filter = ["status", "priority", "category"]
+    list_filter = ["status", "priority", "category", "environment"]
     search_fields = ["reference", "subject", "organisation__name", "product__name"]
     autocomplete_fields = ["organisation", "assignee"]
     readonly_fields = [

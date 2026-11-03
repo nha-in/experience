@@ -240,7 +240,8 @@ def excluded_track(selected):
 #: Finer than the tracks the same program is reviewed by, because the milestone
 #: a question is about is what decides who can answer it. "Others" is the
 #: catch-all for work that belongs to no track; it sits last so the milestones
-#: lead and the catch-all is the fallback.
+#: lead and the catch-all is the fallback. Every category about an integration
+#: asks for the call that failed; the review demo and Others make none.
 SUPPORT_CATEGORIES = (
     SupportCategoryDefinition(
         "abdm-m1",
@@ -253,6 +254,7 @@ SUPPORT_CATEGORIES = (
             "Get ABHA Profile",
             "Profile Update",
         ),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "abdm-m2",
@@ -265,12 +267,14 @@ SUPPORT_CATEGORIES = (
             "Data Transfer",
             "PHR Bundle / Encryption",
         ),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "abdm-m3",
         "ABDM - Milestone 3",
         "HIE-CM",
         ("Consent Management (Request)", "Data Request", "FHIR Bundle Decryption"),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "abdm-m4",
@@ -282,6 +286,7 @@ SUPPORT_CATEGORIES = (
             "Search - Professional",
             "Search - Facility",
         ),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "abdm-review",
@@ -294,12 +299,14 @@ SUPPORT_CATEGORIES = (
         "ABDM - Scan & Share",
         "HIE-CM",
         ("Profile On Share",),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "phr-app-p1",
         "PHR App - P1",
         "PHR",
         ("Registration Flow", "Login Flow"),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "phr-app-p2",
@@ -311,30 +318,35 @@ SUPPORT_CATEGORIES = (
             "Consent Flow",
             "Scan and Register",
         ),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "phr-app-p3",
         "PHR App - P3",
         "PHR",
         ("HIU Services",),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "phr-app-p4",
         "PHR App - P4",
         "PHR",
         ("Health Locker",),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "nhcx-auth",
         "NHCX - Authentication & Access",
         "NHCX",
         ("Login/Token Issues", "Role & Permission Errors", "Header Problems"),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "nhcx-workflow",
         "NHCX - Workflow & Business Logic",
         "NHCX",
         ("Request/Response Error", "Status Errors"),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "nhcx-data",
@@ -346,6 +358,7 @@ SUPPORT_CATEGORIES = (
             "Encryption/Decryption Errors",
             "Payload Size Issue",
         ),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "uhi-integration",
@@ -356,6 +369,7 @@ SUPPORT_CATEGORIES = (
             "API Credentials & Authentication",
             "API Callback issues",
         ),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "uhi-service",
@@ -370,6 +384,7 @@ SUPPORT_CATEGORIES = (
             "Emergency & Ambulance Booking",
             "Doctor Consultations Booking",
         ),
+        api_details=True,
     ),
     SupportCategoryDefinition(
         "others",

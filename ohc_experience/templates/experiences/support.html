@@ -68,8 +68,9 @@
               {% include "components/form_errors.html" %}
               <div class="flex flex-col gap-4">
                 {% ui_field form.subject placeholder="Briefly describe the problem" %}
-                <div class="grid gap-4 sm:grid-cols-2">{% ui_field form.category help_text="What the ticket is about." %}{% ui_field form.priority %}</div>
+                {% ui_field form.category help_text="What the ticket is about." %}
                 <div data-issue-type-field>{% ui_field form.issue_type help_text="The part of the category your question is about." %}</div>
+                <div class="grid gap-4 sm:grid-cols-2">{% ui_field form.priority %}{% ui_field form.environment help_text="Where the problem happened." %}</div>
                 <div>
                   <span class="ui-label">Product</span>
                   <div class="rounded-lg border border-border bg-soft-background px-3 py-2 text-sm">
@@ -78,7 +79,35 @@
                   </div>
                 </div>
                 {% ui_field form.body label="What happened?" placeholder="Describe the issue and any error messages" help_text="Include the steps you tried, what you expected, and the response you received." extra_class="min-h-36" %}
-                {% ui_field form.attachments help_text="Attach up to five files to help us investigate. PDF, Word, Excel, CSV, text, PNG or JPG, 10 MB each." %}
+                {% if form.api_detail_categories %}
+                  {# Only an integration category asks for the call that failed; project.js shows these once one is chosen. They are optional and long, so they start folded. #}
+                  <details class="group/api rounded-lg border border-border"
+                           data-show-when-field="category"
+                           data-show-when-value="{{ form.api_detail_categories|join:' ' }}"
+                           {% if form.api_details_entered %}open{% endif %}>
+                    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg px-3.5 py-2.5 transition-colors group-open/api:rounded-b-none hover:bg-soft-background focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none [&::-webkit-details-marker]:hidden">
+                      <span class="min-w-0 flex-1 text-sm font-medium">API details <span class="font-normal text-soft-foreground">(optional)</span></span>
+                      <svg viewBox="0 0 24 24"
+                           class="size-4 shrink-0 text-soft-foreground transition-transform group-open/api:rotate-180 motion-reduce:transition-none"
+                           fill="none"
+                           stroke="currentColor"
+                           stroke-width="1.8"
+                           stroke-linecap="round"
+                           stroke-linejoin="round"
+                           aria-hidden="true">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </summary>
+                    <fieldset class="flex flex-col gap-4 border-t border-soft-border px-3.5 pt-3.5 pb-4">
+                      <legend class="sr-only">API details</legend>
+                      {% ui_field form.api_url placeholder="POST /api/hiecm/consent/v3/request/init" extra_class="font-mono" %}
+                      {% ui_field form.api_request_id extra_class="font-mono" %}
+                      {% ui_field form.api_request help_text="Mask your client secret and access token before pasting." extra_class="font-mono" %}
+                      {% ui_field form.api_response help_text="The status code and body you got back." extra_class="font-mono" %}
+                    </fieldset>
+                  </details>
+                {% endif %}
+                {% ui_field form.attachments help_text="Attach up to five files, such as error screenshots, to help us investigate. PDF, Word, Excel, CSV, text, PNG or JPG, 10 MB each." %}
               </div>
               <div class="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row-reverse sm:justify-start">
                 <button class="ui-btn ui-btn--default ui-btn--size-default" type="submit">Create ticket</button>

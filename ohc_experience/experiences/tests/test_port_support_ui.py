@@ -107,6 +107,7 @@ def test_a_category_takes_an_issue_type_from_its_own_sub_menu(portal_products):
             data={
                 "subject": "Help",
                 "priority": "medium",
+                "environment": "sandbox",
                 "body": "Details",
                 **extra,
             },
@@ -147,6 +148,7 @@ def test_a_category_with_no_sub_menu_records_no_issue_type():
             "body": "Details",
             "category": "bare",
             "issue_type": "Data Transfer",
+            "environment": "sandbox",
         },
     )
     assert form.is_valid(), form.errors
@@ -164,6 +166,7 @@ def test_others_asks_which_kind_of_general_question_it_is(portal_products):
                 "priority": "medium",
                 "body": "Details",
                 "category": "others",
+                "environment": "sandbox",
                 **extra,
             },
         )
@@ -192,6 +195,7 @@ def test_a_ticket_is_always_filed_under_a_category(portal_client, support_url):
         "subject": "Help",
         "issue_type": "Access / General Inquiry / Concerns",
         "priority": "medium",
+        "environment": "sandbox",
         "body": "Details",
     }
 
@@ -331,6 +335,7 @@ def test_ticket_create_saves_category_and_scopes_product(
             "category": "phr-app-p2",
             "issue_type": "Consent Flow",
             "priority": "medium",
+            "environment": "sandbox",
             "body": "The callback returns an unexpected status.",
         },
     )
@@ -344,6 +349,181 @@ def test_ticket_create_saves_category_and_scopes_product(
     assert ticket.category_label == "PHR App - P2"
     assert ticket.product == portal_products[1]
     assert ticket.messages.get().body == "The callback returns an unexpected status."
+
+
+def test_a_ticket_says_which_environment_it_is_about(portal_client, support_url):
+    """Sandbox or Production and nothing else, as NHA asked, and never chosen for
+    the integrator: a default would send a production problem to sandbox logs."""
+    data = {
+        "subject": "Callback rejects the request",
+        "category": "phr-app-p2",
+        "issue_type": "Consent Flow",
+        "priority": "medium",
+        "body": "The callback returns an unexpected status.",
+    }
+    page = portal_client.get(support_url, {"new": "1"})
+    assert field_label(page, "environment") == "Environment *"
+    assert page.context["form"].fields["environment"].choices == [
+        ("", "Select an environment"),
+        ("sandbox", "Sandbox"),
+        ("production", "Production"),
+    ]
+    assert '<option value="" selected>Select an environment</option>' in compact(page)
+
+    response = portal_client.post(support_url, data)
+    assert response.context["form"].errors["environment"] == [
+        "Choose the environment this ticket is about.",
+    ]
+    response = portal_client.post(support_url, {**data, "environment": "staging"})
+    assert "environment" in response.context["form"].errors
+    assert not Ticket.objects.exists()
+    portal_client.post(support_url, {**data, "environment": "production"})
+    ticket = Ticket.objects.get()
+    assert ticket.environment == "production"
+    assert (
+        '<dt class="text-soft-foreground">Environment</dt> <dd> Production </dd>'
+        in compact(portal_client.get(ticket.get_absolute_url()))
+    )
+
+
+def test_a_ticket_filed_before_environments_shows_none(
+    portal_client,
+    portal_products,
+    owner_membership,
+):
+    ticket = Ticket.objects.create(
+        organisation=owner_membership.organisation,
+        product=portal_products[1],
+        subject="Callback rejects the request",
+        created_by=owner_membership.user,
+        category="phr-app-p2",
+    )
+    page = portal_client.get(ticket.get_absolute_url()).text
+    assert ">Environment</dt>" not in page
+    assert 'id="api-details-title"' not in page
+
+
+def test_api_details_are_asked_only_for_integration_categories(
+    portal_client,
+    portal_products,
+):
+    """The legacy help desk asked an integration issue for the call that failed.
+    A review demo and Others have no call, so the page shows the fields only once
+    an integration category is chosen, and never requires them."""
+    form = SupportForm(product=portal_products[0])
+    assert form.api_detail_categories == [
+        "abdm-m1",
+        "abdm-m2",
+        "abdm-m3",
+        "abdm-m4",
+        "abdm-scan-share",
+    ]
+    assert not any(
+        form.fields[name].required
+        for name in ("api_url", "api_request_id", "api_request", "api_response")
+    )
+    page = compact(
+        portal_client.get(
+            reverse("experiences:product-support", args=[portal_products[0].reference]),
+            {"new": "1"},
+        ),
+    )
+    assert (
+        'data-show-when-field="category" data-show-when-value="abdm-m1 abdm-m2 '
+        'abdm-m3 abdm-m4 abdm-scan-share"'
+    ) in page
+    # The thread's opening message stays first; the call follows it.
+    assert page.index('name="body"') < page.index('name="api_url"')
+
+
+def test_api_details_start_folded_and_reopen_with_what_was_typed(
+    portal_client,
+    support_url,
+):
+    """They are optional and long, so the section starts closed. A form that comes
+    back with any of them typed opens it again rather than hiding them."""
+
+    def opens(response):
+        page = compact(response)
+        tag = re.search(r'<details[^>]*data-show-when-field="category"[^>]*>', page)[0]
+        return tag.endswith(" open>")
+
+    assert not opens(portal_client.get(support_url, {"new": "1"}))
+    # Without a subject, each form comes back to be fixed.
+    untyped = {
+        "category": "phr-app-p2",
+        "issue_type": "Consent Flow",
+        "priority": "medium",
+        "environment": "sandbox",
+        "body": "The consent request stays REQUESTED past its expiry.",
+    }
+    assert not opens(portal_client.post(support_url, untyped))
+    typed = {**untyped, "api_request_id": "5f0c6a2e-7d1b-4a39-9c51-2b9e1d7f4a10"}
+    assert opens(portal_client.post(support_url, typed))
+
+
+def test_an_integration_ticket_records_the_call_that_failed(
+    portal_client,
+    support_url,
+):
+    """Shown ahead of the thread, each long field in a box that scrolls rather
+    than stretching the page."""
+    details = {
+        "api_url": "POST /api/hiecm/consent/v3/request/init",
+        "api_request_id": "5f0c6a2e-7d1b-4a39-9c51-2b9e1d7f4a10",
+        "api_request": (
+            "curl -X POST https://dev.abdm.gov.in/api/hiecm/consent/v3/request/init"
+            " -H 'REQUEST-ID: 5f0c6a2e'"
+        ),
+        "api_response": '{"error": {"code": "ABDM-1017", "message": "Invalid"}}',
+    }
+    response = portal_client.post(
+        support_url,
+        {
+            "subject": "Consent request not moving to EXPIRED",
+            "category": "phr-app-p2",
+            "issue_type": "Consent Flow",
+            "priority": "medium",
+            "environment": "sandbox",
+            "body": "The consent request stays REQUESTED past its expiry.",
+            **details,
+        },
+    )
+    assert response.status_code == HTTPStatus.FOUND
+    ticket = Ticket.objects.get()
+    assert {name: getattr(ticket, name) for name in details} == details
+    page = compact(portal_client.get(ticket.get_absolute_url()))
+    assert page.index('id="api-details-title"') < page.index('id="ticket-thread"')
+    assert "POST /api/hiecm/consent/v3/request/init" in page
+    assert "5f0c6a2e-7d1b-4a39-9c51-2b9e1d7f4a10" in page
+    assert 'tabindex="0" aria-labelledby="api-request-label">curl -X POST' in page
+    assert "{&quot;error&quot;: {&quot;code&quot;: &quot;ABDM-1017&quot;" in page
+
+
+def test_a_question_with_no_call_keeps_no_api_details(portal_client, support_url):
+    """Hidden fields still post, so details typed before switching to Others are
+    dropped rather than filed against a question with no call."""
+    portal_client.post(
+        support_url,
+        {
+            "subject": "How do I add a colleague?",
+            "category": "others",
+            "issue_type": "Access / General Inquiry / Concerns",
+            "priority": "low",
+            "environment": "sandbox",
+            "body": "We need a second integrator on the product.",
+            "api_url": "POST /api/hiecm/consent/v3/request/init",
+            "api_response": "HTTP 500",
+        },
+    )
+    ticket = Ticket.objects.get()
+    assert not ticket.has_api_details
+    assert (
+        'id="api-details-title"'
+        not in portal_client.get(
+            ticket.get_absolute_url(),
+        ).text
+    )
 
 
 def test_a_ticket_takes_documents_spreadsheets_text_and_screenshots(
@@ -366,6 +546,7 @@ def test_a_ticket_takes_documents_spreadsheets_text_and_screenshots(
             "category": "phr-app-p2",
             "issue_type": "Consent Flow",
             "priority": "medium",
+            "environment": "sandbox",
             "body": "The callback returns an unexpected status.",
             "attachments": [
                 SimpleUploadedFile(name, content) for name, content in files.items()
@@ -1637,3 +1818,52 @@ def test_resolving_takes_a_comment_of_at_least_ten_characters(
     # A plain reply has no minimum length.
     response = portal_client.post(url, {"body": "Fixed now"})
     assert response.status_code == HTTPStatus.FOUND
+
+
+def test_staff_see_who_opened_a_ticket_and_how_to_reach_them(
+    portal_client,
+    owner_membership,
+    m1_ticket,
+):
+    """The legacy help desk showed agents the requester's email. Integrators
+    already know their colleagues, so they get the name alone."""
+    owner = owner_membership.user
+    page = compact(portal_client.get(m1_ticket.get_absolute_url()))
+    assert (
+        f'<dt class="text-soft-foreground">Opened by</dt> <dd class="break-words"> '
+        f"{owner.display_name} </dd>"
+    ) in page
+    assert f"mailto:{owner.email}" not in page
+
+    portal_client.force_login(staff_with_grant(m1_ticket, "abdm-m1", can_write=True))
+    page = compact(portal_client.get(m1_ticket.get_absolute_url()))
+    assert f'href="mailto:{owner.email}">{owner.email}</a>' in page
+
+
+def test_the_export_says_which_environment_each_ticket_is_about(
+    portal_client,
+    owner_membership,
+    portal_products,
+):
+    for subject, environment in (
+        ("Filed before environments", ""),
+        ("Live consent fails", "production"),
+    ):
+        Ticket.objects.create(
+            organisation=owner_membership.organisation,
+            product=portal_products[0],
+            subject=subject,
+            category="abdm-m1",
+            environment=environment,
+            created_by=owner_membership.user,
+        )
+
+    exported = rows(
+        portal_client.get(
+            reverse("experiences:support"),
+            {"status": "", "sort": "subject", "export": "xlsx"},
+        ),
+    )
+
+    column = exported[0].index("Environment")
+    assert [row[column] for row in exported[1:]] == ["", "Production"]

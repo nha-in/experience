@@ -30,6 +30,13 @@ class Priority(models.TextChoices):
     LOW = "low", _("Low")
 
 
+class Environment(models.TextChoices):
+    """Where the problem happened. NHA asked for these two and no others."""
+
+    SANDBOX = "sandbox", _("Sandbox")
+    PRODUCTION = "production", _("Production")
+
+
 class Status(models.TextChoices):
     """The three states from the support inbox screen.
 
@@ -108,6 +115,24 @@ class Ticket(models.Model):
     # The category's sub-menu entry. It labels the ticket for triage; the
     # category above it is what decides who may read and answer the ticket.
     issue_type = models.CharField(_("Issue type"), max_length=100, blank=True)
+    # Blank on tickets filed before the form asked for it.
+    environment = models.CharField(
+        _("Environment"),
+        max_length=20,
+        choices=Environment,
+        blank=True,
+    )
+    # The call an integration ticket is about, when its category asks for one.
+    # The API URL holds the method and path as the integrator wrote them, which
+    # is rarely a full URL, so it is not validated as one.
+    api_url = models.CharField(_("API URL"), max_length=500, blank=True)
+    api_request = models.TextField(_("cURL (request body + header)"), blank=True)
+    api_response = models.TextField(_("Request response"), blank=True)
+    api_request_id = models.CharField(
+        _("Request / transaction ID"),
+        max_length=200,
+        blank=True,
+    )
     priority = models.CharField(
         _("Priority"),
         max_length=10,
@@ -209,6 +234,12 @@ class Ticket(models.Model):
         if category is not None:
             return category.name
         return self.category
+
+    @property
+    def has_api_details(self) -> bool:
+        return any(
+            (self.api_url, self.api_request, self.api_response, self.api_request_id),
+        )
 
     @property
     def is_open(self) -> bool:

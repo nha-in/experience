@@ -443,6 +443,7 @@ class DemoBuilder:
             product=product,
             category="abdm-m2",
             issue_type="Bridge Service",
+            environment="sandbox",
             subject="Clarification on consent callback acknowledgement",
             priority="medium",
             created_by=applicant,

@@ -22,6 +22,56 @@
   {% endif %}
   <div class="flex flex-col items-start gap-3.5 lg:flex-row">
     <div class="flex min-w-0 w-full flex-1 flex-col gap-3 lg:w-auto">
+      {% if ticket.has_api_details %}
+        {# The call the ticket was filed about, ahead of the conversation that follows it. #}
+        <section class="ui-card ui-card--sm" aria-labelledby="api-details-title">
+          <div class="ui-card-content">
+            <h2 class="mb-[11px] text-xs font-bold" id="api-details-title">API details</h2>
+            <dl class="flex flex-col gap-3 text-[11.5px]">
+              {% if ticket.api_url or ticket.api_request_id %}
+                <div class="grid gap-3 sm:grid-cols-2">
+                  {% if ticket.api_url %}
+                    <div class="min-w-0">
+                      <dt class="text-soft-foreground">API URL</dt>
+                      <dd class="mt-0.5 font-mono break-all">
+                        {{ ticket.api_url }}
+                      </dd>
+                    </div>
+                  {% endif %}
+                  {% if ticket.api_request_id %}
+                    <div class="min-w-0">
+                      <dt class="text-soft-foreground">Request / transaction ID</dt>
+                      <dd class="mt-0.5 font-mono break-all">
+                        {{ ticket.api_request_id }}
+                      </dd>
+                    </div>
+                  {% endif %}
+                </div>
+              {% endif %}
+              {% if ticket.api_request %}
+                <div>
+                  <dt class="text-soft-foreground" id="api-request-label">cURL (request body + header)</dt>
+                  <dd class="mt-1">
+                    <pre class="max-h-60 overflow-auto rounded-lg border border-border bg-soft-background px-3 py-2 font-mono text-[11px] leading-[1.55] break-all whitespace-pre-wrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                         tabindex="0"
+                         aria-labelledby="api-request-label">{{ ticket.api_request }}</pre>
+                  </dd>
+                </div>
+              {% endif %}
+              {% if ticket.api_response %}
+                <div>
+                  <dt class="text-soft-foreground" id="api-response-label">Request response</dt>
+                  <dd class="mt-1">
+                    <pre class="max-h-60 overflow-auto rounded-lg border border-border bg-soft-background px-3 py-2 font-mono text-[11px] leading-[1.55] break-all whitespace-pre-wrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                         tabindex="0"
+                         aria-labelledby="api-response-label">{{ ticket.api_response }}</pre>
+                  </dd>
+                </div>
+              {% endif %}
+            </dl>
+          </div>
+        </section>
+      {% endif %}
       <ol id="ticket-thread"
           class="flex flex-col gap-3"
           aria-label="Ticket conversation">
@@ -132,6 +182,20 @@
             <dt class="text-soft-foreground">Product</dt>
             <dd class="break-words">
               {{ ticket.product.name }}
+            </dd>
+            {% if ticket.environment %}
+              <dt class="text-soft-foreground">Environment</dt>
+              <dd>
+                {{ ticket.get_environment_display }}
+              </dd>
+            {% endif %}
+            <dt class="text-soft-foreground">Opened by</dt>
+            <dd class="break-words">
+              {{ ticket.created_by.display_name|default:ticket.organisation.display_name }}
+              {% if reviewer and ticket.created_by.email %}
+                <a class="mt-0.5 block break-all text-soft-foreground hover:text-primary hover:underline"
+                   href="mailto:{{ ticket.created_by.email }}">{{ ticket.created_by.email }}</a>
+              {% endif %}
             </dd>
             <dt class="text-soft-foreground">Created</dt>
             <dd>

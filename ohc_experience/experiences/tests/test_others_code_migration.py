@@ -140,4 +140,5 @@ def test_the_way_back_returns_the_catch_all_to_blank(at_before, owner_membership
     MigrationExecutor(connection).migrate(BEFORE)
 
     assert grants(user) == {("support", "")}
-    assert Ticket.objects.get(pk=ticket).category == ""
+    # Only the category: columns later migrations add are not there yet.
+    assert Ticket.objects.values_list("category", flat=True).get(pk=ticket) == ""

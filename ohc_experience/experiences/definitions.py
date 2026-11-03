@@ -344,6 +344,10 @@ class SupportCategoryDefinition:
     the ticket for triage and carries no permission of its own: granting at that
     depth would multiply the permission grid without answering a question
     anyone asks of it.
+
+    ``api_details`` asks a ticket for the call that failed: its URL, request,
+    response and request ID, as the legacy help desk's integration-issue forms
+    did. A question about a review or access has no such call to describe.
     """
 
     code: str
@@ -351,6 +355,7 @@ class SupportCategoryDefinition:
     track: str = ""
     issue_types: tuple[str, ...] = ()
     description: str = ""
+    api_details: bool = False
 
     @property
     def summary(self) -> str:

@@ -3468,6 +3468,7 @@ def _ticket_export_header(*, reviewer):
         *(("Product",) if reviewer else ()),
         "Category",
         "Sub-category",
+        "Environment",
         "Priority",
         "Status",
         *(("Assigned to",) if reviewer else ()),
@@ -3484,6 +3485,7 @@ def _ticket_export_rows(tickets, *, reviewer):
             *((ticket.product.name if ticket.product else "",) if reviewer else ()),
             ticket.category_label,
             ticket.issue_type,
+            ticket.get_environment_display(),
             ticket.get_priority_display(),
             ticket.queue_status_label if reviewer else ticket.get_status_display(),
             *(
@@ -3583,10 +3585,10 @@ def support(request, reference=None):  # noqa: C901
                 ticket = Ticket.objects.create(
                     organisation=product.organisation,
                     product=product,
-                    subject=form.cleaned_data["subject"],
-                    category=form.cleaned_data["category"],
-                    issue_type=form.cleaned_data["issue_type"],
-                    priority=form.cleaned_data["priority"],
+                    **{
+                        name: form.cleaned_data[name]
+                        for name in SupportForm.filing_fields
+                    },
                     created_by=request.user,
                 )
                 message = post_reply(
@@ -3694,7 +3696,7 @@ def ticket(request, reference):
         files=request.FILES or None,
         resolving=resolving,
     )
-    for key in ("subject", "category", "issue_type", "priority"):
+    for key in SupportForm.filing_fields:
         del form.fields[key]
     if request.method == "POST":
         allowed = (

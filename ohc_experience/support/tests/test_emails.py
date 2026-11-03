@@ -9,6 +9,7 @@ from django.core import mail
 
 from ohc_experience.experiences.models import AccessGrant
 from ohc_experience.support import emails
+from ohc_experience.support.models import Environment
 from ohc_experience.support.models import Priority
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
@@ -74,6 +75,28 @@ def test_the_opening_message_reaches_support_and_copies_the_requester(
     assert "New support ticket" in sent.body
     assert "Our records vanished." in sent.body
     assert f"https://hub.example.in{ticket.get_absolute_url()}" in sent.body
+
+
+@pytest.mark.parametrize(
+    ("environment", "line"),
+    [
+        (Environment.PRODUCTION, "Product: Sandbox HMIS · Environment: Production\n"),
+        # Filed before the form asked, a ticket says nothing about it.
+        ("", "Product: Sandbox HMIS\n"),
+    ],
+)
+def test_the_opening_message_names_the_environment_it_was_filed_for(
+    ticket,
+    integrator,
+    environment,
+    line,
+):
+    ticket.environment = environment
+    ticket.save(update_fields=["environment"])
+
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
+
+    assert line in mail.outbox[0].body
 
 
 def test_the_opening_message_owns_the_thread_anchor(ticket, integrator):
