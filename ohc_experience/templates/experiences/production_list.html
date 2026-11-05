@@ -106,7 +106,10 @@
                        data-row-link>{{ product.name }}</a>
                     <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
                   </td>
-                  <td class="max-w-[180px] text-muted-foreground">{{ product.organisation.display_name }}</td>
+                  <td class="max-w-[180px]">
+                    <a class="inline-block text-muted-foreground no-underline hover:text-primary hover:underline"
+                       href="{% url 'experiences:organization-detail' product.organisation.slug %}">{{ product.organisation.display_name }}</a>
+                  </td>
                   <td>
                     <span class="font-mono text-xs">{{ product.approved_codes|join:', '|default:'—' }}</span>
                     {% if product.first_exit_at %}

@@ -14,7 +14,8 @@
          href="{% url 'experiences:production-list' %}?tab={% if product.production_client_id %}approved{% else %}pending{% endif %}">Production Approval</a>
       <h1 class="ui-page-title">{{ product.name }}</h1>
       <p class="mt-1 text-sm text-muted-foreground">
-        <span class="font-mono">{{ reference }}</span> · {{ product.organisation.display_name }}
+        <span class="font-mono">{{ reference }}</span> · <a class="font-semibold text-primary hover:underline"
+    href="{% url 'experiences:organization-detail' product.organisation.slug %}">{{ product.organisation.display_name }}</a>
       </p>
     </div>
     <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">

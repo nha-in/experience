@@ -232,6 +232,29 @@ def test_staff_pages_need_general_review_access(environment, client):
     )
 
 
+def test_both_screens_link_the_organisation_and_a_reader_can_open_it(
+    environment,
+    client,
+):
+    approve(environment)
+    organisation = environment["product"].organisation
+    organisation_url = reverse(
+        "experiences:organization-detail",
+        args=[organisation.slug],
+    )
+    client.force_login(staff())
+    for url in [
+        reverse("experiences:production-list"),
+        reverse(
+            "experiences:production-detail",
+            args=[environment["product"].reference],
+        ),
+    ]:
+        html = " ".join(client.get(url).content.decode().split())
+        assert f'href="{organisation_url}">{organisation.display_name}</a>' in html
+    assert client.get(organisation_url).status_code == 200
+
+
 def test_detail_page_records_and_removes(environment, client):
     approve(environment)
     reference = environment["product"].reference
