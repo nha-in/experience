@@ -2538,10 +2538,22 @@ def _requests(program):
     }
     certification = program.applications.certification
     if certification:
+        certificates = Q(application__application_type=certification.key)
         requests["certification"] = (
             certification.filter_name or certification.name,
-            Q(application__application_type=certification.key),
+            certificates,
         )
+        # Led by the option above, which picks both.
+        if certification.renewal_filter_name:
+            renewals = program.certificate_renewals()
+            requests["certification_new"] = (
+                certification.first_filter_name,
+                certificates & ~renewals,
+            )
+            requests["certification_renewal"] = (
+                certification.renewal_filter_name,
+                renewals,
+            )
     return requests
 
 
@@ -2606,8 +2618,15 @@ def _dashboard_queues(user, program, track):
     queues = {"exit": {"scope": "ready", "item": track.code if track else "milestones"}}
     if permissions.has_access(user, "review", program=program.key):
         queues["onboarding"] = {"kind": "organisations", "scope": "ready", **narrow}
-        if program.applications.certification:
-            queues["renewals"] = {"scope": "ready", "item": "certification", **narrow}
+        certification = program.applications.certification
+        if certification:
+            # Renewals alone when the program tells them from a first request.
+            item = (
+                "certification_renewal"
+                if certification.renewal_filter_name
+                else "certification"
+            )
+            queues["renewals"] = {"scope": "ready", "item": item, **narrow}
     return queues
 
 

@@ -447,6 +447,8 @@ class WasaCertification(ApplicationDefinition):
     key = "abdm_wasa_review"
     name = "WASA certification review"
     filter_name = "WASA certification"
+    first_filter_name = "New WASA"
+    renewal_filter_name = "WASA renewal"
     reference_prefix = "WASA"
     forms = (WasaReview,)
 

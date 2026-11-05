@@ -193,3 +193,24 @@ def test_the_programme_filter_leads_straight_to_the_queues(
     assert html.index('id="programme-caption"') < html.index("Sandbox onboarding")
     for removed in ("Total pending actions", "Needs your attention"):
         assert removed not in html
+
+
+def test_renewal_requests_leave_out_a_product_s_first_wasa(
+    environment,  # noqa: F811
+    client,
+):
+    client.force_login(environment["admin"])
+    first = request_renewal(environment)
+
+    context = dashboard(client)
+    assert context["pending"]["renewals"] == 0
+    assert rows(client, context["renewals_url"]) == 0
+
+    decide(environment, first)
+    request_renewal(
+        environment,
+        certificate=certificate_data(expires_in=200, audited_ago=1),
+    )
+    context = dashboard(client)
+    assert context["pending"]["renewals"] == 1
+    assert rows(client, context["renewals_url"]) == 1

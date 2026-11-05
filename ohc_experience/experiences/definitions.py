@@ -182,6 +182,10 @@ class ApplicationDefinition:
     key: ClassVar[str]
     name: ClassVar[str]
     filter_name: ClassVar[str] = ""
+    #: A certification's Type filter options for a product's first request and
+    #: for one renewing a certificate it held; empty offers neither.
+    first_filter_name: ClassVar[str] = ""
+    renewal_filter_name: ClassVar[str] = ""
     reference_prefix: ClassVar[str] = "APP"
     initial_status: ClassVar[str] = "draft"
     forms: ClassVar[tuple[type[ApplicationFormDefinition], ...]]

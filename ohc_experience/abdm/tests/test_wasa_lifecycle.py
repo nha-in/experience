@@ -826,3 +826,41 @@ def test_a_wasa_approved_with_a_milestone_makes_the_next_one_a_renewal(
     client.force_login(environment["admin"])
 
     assert queue_purposes(client) == {renewal.pk: "Renewal"}
+
+
+def test_the_type_filter_tells_new_wasa_from_renewals(environment, client):
+    client.force_login(environment["admin"])
+
+    def listed(item):
+        page = client.get(
+            reverse("experiences:queue"),
+            {"scope": "all", "item": item},
+        ).context["page"]
+        return {review.pk for entry in page for review in entry.matching_reviews}
+
+    first = request_renewal(environment)
+    assert listed("certification_new") == {first.pk}
+    assert listed("certification_renewal") == set()
+
+    decide(environment, first)
+    renewal = request_renewal(
+        environment,
+        certificate=certificate_data(expires_in=90, audited_ago=1),
+    )
+
+    assert listed("certification") == {first.pk, renewal.pk}
+    assert listed("certification_new") == {first.pk}
+    assert listed("certification_renewal") == {renewal.pk}
+    # WASA certification leads the two it picks together, before Exit forms.
+    page = client.get(reverse("experiences:queue"))
+    html = " ".join(page.content.decode().split())
+    options = [
+        ("certification", "WASA certification"),
+        ("certification_new", "New WASA"),
+        ("certification_renewal", "WASA renewal"),
+        ("milestones", "Exit forms"),
+    ]
+    found = [
+        html.index(f'<option value="{value}" >{label}<') for value, label in options
+    ]
+    assert found == sorted(found)
