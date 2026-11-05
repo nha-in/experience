@@ -45,6 +45,7 @@ from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
 from .wasa import wasa_approval_outcomes
 from .wasa import wasa_context
+from .wasa import wasa_renewals
 from .wasa import with_current_wasa
 from .wasa_extraction import WASA_CERTIFICATE_FIELD
 from .wasa_extraction import extract_certificate
@@ -514,6 +515,10 @@ class ABDM(ProgramDefinition):
     @classmethod
     def with_certificate(cls, products):
         return with_current_wasa(products)
+
+    @classmethod
+    def certificate_renewals(cls):
+        return wasa_renewals()
 
     @classmethod
     def on_product_created(cls, product, actor):

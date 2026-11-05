@@ -2921,11 +2921,14 @@ VERIFICATION_EXPORT_HEADER = (
 
 
 def _queue_request_label(item):
-    """A request as its chip reads: "M2 Under review, waiting on M1"."""
+    """A request as its chip reads: "M2 Under review, waiting on M1", or
+    "WASA-26-GD24Z4 Renewal Under review"."""
     if item.queue_milestone:
         name = item.queue_milestone.code
     else:
         name = item.application.reference
+    if item.queue_purpose:
+        name = f"{name} {item.queue_purpose}"
     label = f"{name} {item.queue_label}"
     if item.waiting_on:
         label += ", waiting on " + ", ".join(

@@ -3,8 +3,10 @@
 from datetime import date
 from datetime import timedelta
 
+from django.db.models import Exists
 from django.db.models import F
 from django.db.models import OuterRef
+from django.db.models import Q
 from django.db.models import Subquery
 from django.db.models import Value
 from django.db.models.fields.json import KT
@@ -105,6 +107,17 @@ def with_current_wasa(products):
         certificate_valid_until=Subquery(current.values("valid_until")[:1]),
         certificate_status=Subquery(current.values("status")[:1]),
     )
+
+
+def wasa_renewals():
+    """WASA reviews begun while their product held an approved certificate,
+    current or lapsed: those renew it, the rest are a product's first."""
+    held = ProductOutcome.objects.filter(
+        product=OuterRef("product"),
+        outcome_type=WASA_OUTCOME,
+        issued_at__lt=OuterRef("created_at"),
+    )
+    return Q(application__application_type=WASA_APPLICATION) & Q(Exists(held))
 
 
 def approved_wasa_submission(product, submission_id, *, require_valid=True):

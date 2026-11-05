@@ -15,6 +15,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError
 from django.db.models import CharField
 from django.db.models import DateField
+from django.db.models import Q
 from django.db.models import Value
 
 from .models import FormReuseScope
@@ -857,6 +858,12 @@ class ProgramDefinition:
             certificate_valid_until=Value(None, DateField()),
             certificate_status=Value(None, CharField()),
         )
+
+    @classmethod
+    def certificate_renewals(cls):
+        """Certification requests that renew a certificate the product held,
+        as a filter on review items: none where the program issues none."""
+        return Q(pk__in=[])
 
     @classmethod
     def milestone_predecessors(cls, key, organisation=None):

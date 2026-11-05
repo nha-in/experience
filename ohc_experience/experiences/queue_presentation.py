@@ -21,6 +21,7 @@ from . import permissions
 from . import tables
 from .models import Product
 from .models import ReviewItem
+from .registry import get_program
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -306,6 +307,11 @@ def populate_queue_page(page, user, matching):
             "form",
         )
     )
+    program = get_program()
+    certification = program.applications.certification
+    renewals = set(
+        visible.filter(program.certificate_renewals()).values_list("pk", flat=True),
+    )
     reviews = defaultdict(list)
     for review in visible:
         milestone = getattr(review.application, "milestone", None)
@@ -313,6 +319,12 @@ def populate_queue_page(page, user, matching):
             review.program.milestones[milestone.key] if milestone else None
         )
         review.queue_label = review.get_status_display()
+        # Whether a certification request is the product's first or renews one.
+        review.queue_purpose = ""
+        if certification and (
+            getattr(review.application, "application_type", None) == certification.key
+        ):
+            review.queue_purpose = "Renewal" if review.pk in renewals else "New"
         reviews[review.product_id].append(review)
     for entry_reviews in reviews.values():
         entry_reviews.sort(key=review_order)

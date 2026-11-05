@@ -779,3 +779,50 @@ def test_product_page_shows_a_certificate_held_only_as_milestone_evidence(
     assert page.context["certification"]["status"] == "needs_verification"
     assert b'id="wasa-title"' in page.content
     assert b"Expiry needs verification" in page.content
+
+
+def queue_purposes(client):
+    """Each WASA request in the queue, as the product's first or a renewal."""
+    page = client.get(
+        reverse("experiences:queue"),
+        {"scope": "all", "item": "certification"},
+    ).context["page"]
+    return {
+        review.pk: review.queue_purpose
+        for entry in page
+        for review in entry.reviews
+        if review.queue_purpose
+    }
+
+
+def test_queue_tells_a_products_first_wasa_from_a_renewal(environment, client):
+    client.force_login(environment["admin"])
+    first = request_renewal(environment)
+    assert queue_purposes(client) == {first.pk: "New"}
+
+    decide(environment, first)
+    renewal = request_renewal(
+        environment,
+        certificate=certificate_data(expires_in=90, audited_ago=1),
+    )
+
+    assert queue_purposes(client) == {first.pk: "New", renewal.pk: "Renewal"}
+    html = client.get(reverse("experiences:queue")).content.decode()
+    compact = " ".join(html.split())
+    assert (
+        f'{renewal.application.reference} <span class="font-sans">· Renewal</span>'
+    ) in compact
+
+
+def test_a_wasa_approved_with_a_milestone_makes_the_next_one_a_renewal(
+    environment,
+    client,
+):
+    decide(environment, request_milestone(environment))
+    renewal = request_renewal(
+        environment,
+        certificate=certificate_data(expires_in=90, audited_ago=1),
+    )
+    client.force_login(environment["admin"])
+
+    assert queue_purposes(client) == {renewal.pk: "Renewal"}
