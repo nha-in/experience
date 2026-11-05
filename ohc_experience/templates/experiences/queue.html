@@ -115,7 +115,7 @@
                     <option value="{{ value }}" {% if filters.item == value %}selected{% endif %}>{{ label }}</option>
                   {% endfor %}
                   <option value="milestones"
-                          {% if filters.item == 'milestones' %}selected{% endif %}>All milestones</option>
+                          {% if filters.item == 'milestones' %}selected{% endif %}>Exit forms</option>
                   {% for track in track_choices %}
                     <option value="{{ track.code }}"
                             {% if filters.item == track.code %}selected{% endif %}>{{ track.code }}</option>

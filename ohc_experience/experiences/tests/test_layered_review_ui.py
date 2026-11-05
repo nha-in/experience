@@ -54,7 +54,7 @@ def test_the_type_select_lists_milestones_without_a_heading(client, review_item)
     compact = " ".join(response.content.decode().split())
 
     assert "<optgroup" not in compact
-    assert '<option value="milestones" selected>All milestones</option>' in compact
+    assert '<option value="milestones" selected>Exit forms</option>' in compact
 
 
 def test_stage_counts_follow_a_status_filter(client, review_item):
