@@ -1301,7 +1301,6 @@ def product_detail(request, reference):
         .values_list("pk", flat=True)
     }
     tracks = _tracks(product, request.user)
-    progress = overview_progress(tracks)
     submitted_ids = {item.pk for item in product_items}
     for row in tracks:
         row["tiles"] = [
@@ -1380,7 +1379,6 @@ def product_detail(request, reference):
             else "",
             min_note_length=services.MIN_REVIEW_TEXT,
             tracks=[row for row in tracks if row["tiles"]],
-            progress=progress,
             registration=visible_items.filter(
                 product=product,
                 kind="product_registration",
