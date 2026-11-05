@@ -2,6 +2,7 @@
 
 # ruff: noqa: F811
 import re
+from datetime import timedelta
 from http import HTTPStatus
 
 import pytest
@@ -9,6 +10,7 @@ from django.contrib.messages import get_messages
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.urls import reverse
+from django.utils import timezone
 
 from ohc_experience.abdm.tests.test_wasa_lifecycle import request_renewal
 from ohc_experience.abdm.tests.test_workflow import approve
@@ -18,8 +20,10 @@ from ohc_experience.abdm.tests.test_workflow import reverify
 from ohc_experience.abdm.tests.test_workflow import review_section
 from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_together
+from ohc_experience.abdm.wasa import UNDATED_EXIT_WASA
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.experiences.models import ProductOutcome
 from ohc_experience.experiences.models import ReviewItem
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -339,3 +343,86 @@ def test_a_closed_query_reads_as_closed(environment, client):
     assert "Closed " in section
     assert "Close query" not in section
     assert milestone(environment, "m1").pending
+
+
+def undated(item):
+    """An exit form whose WASA has no expiry date, as forms migrated from the
+    legacy portal can."""
+    submission = item.selected_submission
+    data = {**submission.data, "wasa_valid_until": None}
+    type(submission).objects.filter(pk=submission.pk).update(data=data)
+    return fresh(item)
+
+
+def accept_all(environment, *items):
+    return workflows.decide_product(
+        environment["product"],
+        environment["admin"],
+        action="approve",
+        expected_revisions={
+            str(item.pk): str(item.selected_submission_id) for item in items
+        },
+        note="Reviewed against the evidence.",
+    )
+
+
+def wasa_sources(environment):
+    """The requests each of the product's WASA approvals came from."""
+    return list(
+        ProductOutcome.objects.filter(
+            product=environment["product"],
+            outcome_type="wasa_approval",
+        ).values_list("source_application_id", flat=True),
+    )
+
+
+def test_an_undated_exit_wasa_holds_accept_all_with_nothing_to_stand_in(
+    environment,
+):
+    m1 = undated(submit(environment))
+
+    assert holds(environment, m1, action="approve") == [
+        f"{m1.title}: {UNDATED_EXIT_WASA}",
+    ]
+    assert not holds(environment, m1, action="reject")
+
+
+def test_a_wasa_review_accepted_alongside_stands_in_for_an_undated_exit(
+    environment,
+):
+    m1 = undated(submit(environment))
+    renewal = request_renewal(environment)
+    assert holds(environment, m1, action="approve")
+    assert not holds(environment, m1, renewal, action="approve")
+
+    accept_all(environment, m1, renewal)
+
+    assert fresh(m1).status == ReviewItem.Status.APPROVED
+    assert fresh(renewal).status == ReviewItem.Status.APPROVED
+    # The exit form records no undated WASA of its own.
+    assert wasa_sources(environment) == [renewal.application_id]
+
+
+def test_a_valid_product_wasa_stands_in_for_an_undated_exit(environment):
+    m1 = approve(environment, "m1")
+    m2 = undated(submit(environment, "m2"))
+    assert not holds(environment, m2, action="approve")
+
+    accept_all(environment, m2)
+
+    assert fresh(m2).status == ReviewItem.Status.APPROVED
+    assert wasa_sources(environment) == [m1.application_id]
+
+
+def test_an_expired_product_wasa_does_not_stand_in_for_an_undated_exit(
+    environment,
+):
+    approve(environment, "m1")
+    ProductOutcome.objects.filter(outcome_type="wasa_approval").update(
+        valid_until=timezone.localdate() - timedelta(days=1),
+    )
+    m2 = undated(submit(environment, "m2"))
+
+    assert holds(environment, m2, action="approve") == [
+        f"{m2.title}: {UNDATED_EXIT_WASA}",
+    ]

@@ -106,8 +106,12 @@ class ApplicationFormDefinition:
         return cls.submission_wait_reason(item)
 
     @classmethod
-    def approval_block_reason(cls, item):
-        """Recheck time-sensitive evidence immediately before a decision."""
+    def approval_block_reason(cls, item, settling_reviews=()):
+        """Recheck time-sensitive evidence immediately before a decision.
+
+        `settling_reviews` are the requests approved with this one, which may
+        bring evidence it relies on.
+        """
         return ""
 
     @classmethod

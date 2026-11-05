@@ -40,6 +40,7 @@ from .reference import ABDMReferenceEnvironment
 from .reject_reasons import EXIT_REJECT_REASONS
 from .reject_reasons import ORGANISATION_REJECT_REASONS
 from .skills import ABDMAgentSkills
+from .wasa import exit_wasa_block_reason
 from .wasa import expiry_warnings
 from .wasa import preferred_wasa_submission
 from .wasa import wasa_approval_block_reason
@@ -269,8 +270,8 @@ class ExitEvidence(ApplicationFormDefinition):
         )
 
     @classmethod
-    def approval_block_reason(cls, item):
-        return wasa_approval_block_reason(item)
+    def approval_block_reason(cls, item, settling_reviews=()):
+        return exit_wasa_block_reason(item, settling_reviews)
 
     @classmethod
     def pending_prerequisites(cls, item):
@@ -338,7 +339,7 @@ class WasaReview(ApplicationFormDefinition):
         return verification_wait_reason(item)
 
     @classmethod
-    def approval_block_reason(cls, item):
+    def approval_block_reason(cls, item, settling_reviews=()):
         return wasa_approval_block_reason(item)
 
     @classmethod

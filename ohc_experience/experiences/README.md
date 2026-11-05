@@ -65,7 +65,8 @@ decision, and `prerequisites_due` expresses the same condition as a review filte
 for the queue; `on_submit` projects validated answers; `on_approve` returns structured
 outcomes; `on_reject` updates domain state. An `auto_approve` form is recorded
 on submission, or once its prerequisites are approved. `snapshot_valid_until` stores the submitted evidence's expiry, while
-`approval_block_reason` rechecks validity immediately before approval.
+`approval_block_reason` rechecks validity immediately before approval, given the
+requests approved with it.
 External provider calls cannot roll back with the database, so integrations
 must implement idempotency and reconciliation.
 

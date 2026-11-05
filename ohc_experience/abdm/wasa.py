@@ -296,9 +296,54 @@ def wasa_approval_block_reason(item):
     return ""
 
 
+UNDATED_EXIT_WASA = (
+    "This exit form's WASA has no expiry date, and the product has no valid "
+    "WASA to use instead. Reject it so the integrator can enter the date."
+)
+
+
+def holds_dated_wasa(product, settling_reviews=()):
+    """Whether the product holds a valid WASA with an expiry date, or a WASA
+    review decided with `settling_reviews` brings one."""
+    current = current_wasa(product)
+    if (
+        current
+        and current.status == ProductOutcomeStatus.ACTIVE
+        and current.valid_until
+        and not current.is_expired
+    ):
+        return True
+    reviews = ReviewItem.objects.filter(
+        pk__in=settling_reviews,
+        product=product,
+        application__application_type=WASA_APPLICATION,
+        selected_submission__isnull=False,
+    ).select_related("selected_submission")
+    for review in reviews:
+        expiry = as_date(review.selected_submission.data.get("wasa_valid_until"))
+        if expiry and expiry >= timezone.localdate():
+            return True
+    return False
+
+
+def exit_wasa_block_reason(item, settling_reviews=()):
+    """An exit form's WASA, which the product's own stands in for when it has
+    no expiry date, as forms migrated from the legacy portal can lack."""
+    submission = item.selected_submission
+    if submission and not as_date(submission.data.get("wasa_valid_until")):
+        if holds_dated_wasa(item.product, settling_reviews):
+            return ""
+        return UNDATED_EXIT_WASA
+    return wasa_approval_block_reason(item)
+
+
 def wasa_approval_outcomes(item):
     submission = item.selected_submission
-    if submission.data.get("use_product_wasa"):
+    # A reused certificate is the product's already, and an exit form whose
+    # WASA has no expiry date was approved on the product's dated one.
+    if submission.data.get("use_product_wasa") or not as_date(
+        submission.data.get("wasa_valid_until"),
+    ):
         return ()
     return (
         OutcomeDefinition(

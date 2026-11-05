@@ -1150,8 +1150,11 @@ def _require_settled_queries(item):
         raise ValidationError(msg)
 
 
-def _validate_approval(item):
-    reason = item.definition.approval_block_reason(item)
+def _validate_approval(item, *, settling_reviews=()):
+    reason = item.definition.approval_block_reason(
+        item,
+        settling_reviews=settling_reviews,
+    )
     if reason:
         raise ValidationError(reason)
     _require_settled_queries(item)
@@ -1364,19 +1367,23 @@ def _decide(  # noqa: PLR0913
     reason="",
     field_key="form",
     defer_notifications=False,
-    rejecting_reviews=(),
+    settling_reviews=(),
 ):
-    """Apply a decision to a review protected by its organisation's lock."""
+    """Apply a decision to a review protected by its organisation's lock.
+
+    `settling_reviews` are the requests decided with it: a rejection may return
+    the prerequisites among them, and an approval may rely on their evidence.
+    """
     require_decider(actor, item, "write" if action == "query" else "approve")
     _require_decidable(
         item,
         action,
-        settling_reviews=rejecting_reviews if action == "reject" else (),
+        settling_reviews=settling_reviews if action == "reject" else (),
     )
     # What holds the decision is said before what is wrong with the note, so a
     # reviewer is never asked to write one for a decision they cannot record.
     if action == "approve":
-        _validate_approval(item)
+        _validate_approval(item, settling_reviews=settling_reviews)
     elif action == "reject":
         _require_settled_queries(item)
     overridden = overridden_prerequisites(item) if action == "approve" else []
@@ -1527,7 +1534,7 @@ def product_decision_blockers(items, actor, *, action):
             require_decider(actor, item)
             _require_decidable(item, action, settling_reviews=selected)
             if action == "approve":
-                _validate_approval(item)
+                _validate_approval(item, settling_reviews=selected)
             else:
                 _require_settled_queries(item)
         except (PermissionDenied, ValidationError) as error:
@@ -1582,11 +1589,11 @@ def decide_product(  # noqa: PLR0913
     # same batch, rather than separate select_related copies of its old state.
     for item in items:
         item.organisation = organisation
-    rejecting_reviews = {item.pk for item in items} if action == "reject" else set()
+    settling_reviews = {item.pk for item in items}
     if action == "reject":
         # Validate the complete set before any rejection changes prerequisites.
         for item in items:
-            _require_decidable(item, action, settling_reviews=rejecting_reviews)
+            _require_decidable(item, action, settling_reviews=settling_reviews)
         # Return downstream submissions before the evidence they depend on.
         items.sort(key=lambda item: len(pending_prerequisites(item)), reverse=True)
     reasons = reasons or {}
@@ -1609,7 +1616,7 @@ def decide_product(  # noqa: PLR0913
                 note=note,
                 reason=reasons.get(ready.form.form_key, ""),
                 defer_notifications=True,
-                rejecting_reviews=rejecting_reviews,
+                settling_reviews=settling_reviews,
             ),
         )
         items.remove(ready)
