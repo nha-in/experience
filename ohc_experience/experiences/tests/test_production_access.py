@@ -255,6 +255,30 @@ def test_both_screens_link_the_organisation_and_a_reader_can_open_it(
     assert client.get(organisation_url).status_code == 200
 
 
+def test_production_details_show_the_organisation_card_of_the_review_page(
+    environment,
+    client,
+):
+    approve(environment)
+    product = environment["product"]
+    client.force_login(staff())
+
+    pages = [
+        reverse("experiences:production-detail", args=[product.reference]),
+        reverse("experiences:product-detail", args=[product.reference]),
+    ]
+    cards = []
+    for url in pages:
+        html = client.get(url).content.decode()
+        start = html.index('aria-labelledby="organisation-title"')
+        cards.append(html[start : html.index("</section>", start)])
+
+    production_card, review_card = cards
+    assert "View organisation" in production_card
+    assert "L12345KA2020PLC123456" in production_card
+    assert production_card == review_card
+
+
 def test_detail_page_records_and_removes(environment, client):
     approve(environment)
     reference = environment["product"].reference

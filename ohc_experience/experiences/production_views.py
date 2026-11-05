@@ -20,6 +20,8 @@ from . import tables
 from .forms import ProductionAccessForm
 from .models import Product
 from .models import ProductCredential
+from .models import ReviewItem
+from .models import SubmissionStatus
 from .registry import get_program
 
 PAGE_SIZE = 20
@@ -62,6 +64,24 @@ def _filters(request):
     if stage not in production.STAGES:
         stage = "pending"
     return stage, request.GET.get("q", "").strip()[:100]
+
+
+def _organisation_details(user, organisation):
+    """The organisation's sent verification answers, which the Organisation
+    card reads its registration document from, as on the product review page."""
+    verification = (
+        permissions.visible_reviews(user)
+        .filter(
+            organisation=organisation,
+            kind=ReviewItem.Kind.ORGANISATION,
+            selected_submission__status=SubmissionStatus.COMPLETED,
+        )
+        .exclude(status=ReviewItem.Status.DRAFT)
+        .select_related("selected_submission")
+        .order_by("pk")
+        .first()
+    )
+    return verification.selected_submission.data if verification else {}
 
 
 @login_required
@@ -180,6 +200,11 @@ def production_detail(request, reference):
             "page_title": f"{product.name} · Production details",
             "product": product,
             "reference": product.reference,
+            "organisation": product.organisation,
+            "organisation_details": _organisation_details(
+                request.user,
+                product.organisation,
+            ),
             "sandbox": ProductCredential.objects.filter(product=product).first(),
             "exits": exits,
             "eligible": bool(exits),
