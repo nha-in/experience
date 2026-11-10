@@ -107,6 +107,8 @@ def revoke(credential, actor):
 @transaction.atomic
 def save_callback_url(credential, actor, url):
     require_integrator(actor, credential.product.organisation)
+    # Every save registers the bridge again with the gateway.
+    rate_limit(actor, "callback")
     credential = ProductCredential.objects.select_for_update().get(pk=credential.pk)
     previous = credential.callback_url
     credential.callback_url = url

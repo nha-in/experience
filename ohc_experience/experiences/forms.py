@@ -1,3 +1,6 @@
+import ipaddress
+from urllib.parse import urlsplit
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import MinLengthValidator
@@ -138,6 +141,21 @@ class ProductionAccessForm(forms.Form):
         return validate_issued_on(self.cleaned_data["issued_on"])
 
 
+def _public_host_name(host):
+    """HIE-CM calls this host from inside NHA's network and checks nothing.
+
+    shortcut: the name is not resolved, so one pointed at a private address
+    still passes; only a check where HIE-CM makes the call can close that.
+    """
+    host = host.rstrip(".").lower()
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        internal = (".internal", ".local", ".localhost")
+        return "." in host and not host.endswith(internal)
+    return False
+
+
 class CallbackURLForm(forms.Form):
     callback_url = forms.URLField(required=False)
 
@@ -145,6 +163,9 @@ class CallbackURLForm(forms.Form):
         url = self.cleaned_data["callback_url"]
         if url and not url.lower().startswith("https://"):
             msg = "Use an HTTPS URL."
+            raise ValidationError(msg)
+        if url and not _public_host_name(urlsplit(url).hostname or ""):
+            msg = "Use a public host name, not an IP address or an internal name."
             raise ValidationError(msg)
         return url
 

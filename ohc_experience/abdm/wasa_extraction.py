@@ -47,6 +47,9 @@ MAX_JPEG_QUALITY = 95
 MAX_DOCUMENT_PAGES = 4
 # Bedrock rejects a larger image outright; refusing first gives a better message.
 MAX_IMAGE_BYTES = 3_500_000
+# A page is rasterized whole before anything else can refuse it, and a PDF can
+# declare one of any size. A3 at 150 DPI is about four million pixels.
+MAX_PAGE_PIXELS = 25_000_000
 # PDF user units are 1/72 inch, so this is the render scale for a chosen DPI.
 PDF_UNITS_PER_INCH = 72
 # A certificate older than this is a data-entry error rather than a renewal.
@@ -207,6 +210,16 @@ def _bedrock_credentials(model: str) -> dict[str, str]:
     }
 
 
+def _pages_too_large() -> WasaExtractionError:
+    return WasaExtractionError(
+        _(
+            "This certificate's pages are too large to read. "
+            "Enter the audit details yourself.",
+        ),
+        retryable=False,
+    )
+
+
 def _page_images(content: bytes) -> list[bytes]:
     """Each page as JPEG bytes, at a resolution where printed text stays legible."""
     import pypdfium2  # noqa: PLC0415
@@ -226,6 +239,10 @@ def _page_images(content: bytes) -> list[bytes]:
             # page. Close them before rendering the next page to keep both
             # memory pressure and GC pauses low for multi-page uploads.
             pdf_page = document[index]
+            width, height = pdf_page.get_size()
+            if width * scale * height * scale > MAX_PAGE_PIXELS:
+                pdf_page.close()
+                raise _pages_too_large()  # noqa: TRY301
             bitmap = pdf_page.render(scale=scale)
             image = bitmap.to_pil().convert("RGB")
             try:
@@ -244,13 +261,7 @@ def _page_images(content: bytes) -> list[bytes]:
             # Do not spend CPU rendering later pages when this request cannot
             # be sent to the provider in the first place.
             if len(rendered) > MAX_IMAGE_BYTES:
-                raise WasaExtractionError(  # noqa: TRY301
-                    _(
-                        "This certificate's pages are too large to read. "
-                        "Enter the audit details yourself.",
-                    ),
-                    retryable=False,
-                )
+                raise _pages_too_large()  # noqa: TRY301
             images.append(rendered)
     except WasaExtractionError:
         raise

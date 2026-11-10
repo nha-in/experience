@@ -4,10 +4,12 @@ import json
 import time
 
 import pytest
+from django.core.cache import cache
 
 from ohc_experience.abdm.tests.test_workflow import approve
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import submit
+from ohc_experience.experiences import client_search
 from ohc_experience.experiences.models import Product
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.integrations.models import ApiCaller
@@ -253,3 +255,19 @@ def test_each_call_logs_who_made_it_without_the_credential(
     assert "2 IDs asked, 1 found" in key_line
     assert legacy not in caplog.text
     assert key not in caplog.text
+
+
+def test_more_client_ids_than_one_request_may_ask_for_are_refused(client, environment):
+    response = search(client, ["SBX_x"] * 101)
+
+    assert response.status_code == 400
+    assert "at most 100" in response.json()["message"]
+
+
+def test_calls_past_the_minute_limit_are_refused(client, environment, monkeypatch):
+    cache.clear()
+    monkeypatch.setattr(client_search, "CALLS_PER_MINUTE", 2)
+
+    answers = [search(client, ["SBX_x"]).status_code for _ in range(3)]
+
+    assert answers == [200, 200, 429]

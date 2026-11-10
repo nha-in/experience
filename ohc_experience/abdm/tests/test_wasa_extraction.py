@@ -570,11 +570,11 @@ def provider(settings, monkeypatch):
     return monkeypatch
 
 
-def blank_pdf(page_count: int = 1) -> bytes:
+def blank_pdf(page_count: int = 1, size: tuple[int, int] = (595, 842)) -> bytes:
     """A real PDF, so the renderer itself is exercised rather than mocked."""
     document = pypdfium2.PdfDocument.new()
     for _ in range(page_count):
-        document.new_page(595, 842)
+        document.new_page(*size)
     buffer = BytesIO()
     document.save(buffer)
     document.close()
@@ -790,3 +790,13 @@ def test_endpoint_hides_the_provider_detail_of_a_failed_reading(
     )
     assert response.status_code == UNAVAILABLE
     assert "bedrock" not in response.json()["error"]
+
+
+def test_a_page_too_large_to_rasterize_is_refused_before_it_is_rendered(monkeypatch):
+    def render(*args, **kwargs):
+        pytest.fail("the oversized page was rendered")
+
+    monkeypatch.setattr(pypdfium2.PdfPage, "render", render)
+
+    with pytest.raises(WasaExtractionError, match="too large to read"):
+        wasa_extraction._page_images(blank_pdf(size=(14400, 14400)))  # noqa: SLF001

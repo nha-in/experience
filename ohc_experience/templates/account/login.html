@@ -48,20 +48,10 @@
               class="ui-btn ui-btn--default ui-btn--size-default ui-btn--block">{% translate "Sign in" %}<span aria-hidden="true">→</span></button>
     </form>
   {% endif %}
-  {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
+  {% if LOGIN_BY_CODE_ENABLED %}
     <div class="marketing-auth-alternatives">
-      {% if PASSKEY_LOGIN_ENABLED %}
-        <button type="submit"
-                form="mfa_login"
-                id="passkey_login"
-                class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block">
-          {% translate "Sign in with a passkey" %}
-        </button>
-      {% endif %}
-      {% if LOGIN_BY_CODE_ENABLED %}
-        <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
-           href="{{ request_login_code_url }}">{% translate "Email me a sign-in code" %}</a>
-      {% endif %}
+      <a class="ui-btn ui-btn--outline ui-btn--size-default ui-btn--block no-underline"
+         href="{{ request_login_code_url }}">{% translate "Email me a sign-in code" %}</a>
     </div>
   {% endif %}
   {% if SOCIALACCOUNT_ENABLED %}
@@ -73,9 +63,3 @@
     <p>{% translate "No account yet? New registrations are paused for now." %}</p>
   {% endif %}
 {% endblock entrance_after %}
-{% block inline_javascript %}
-  {{ block.super }}
-  {% if PASSKEY_LOGIN_ENABLED %}
-    {% include "mfa/webauthn/snippets/login_script.html" with button_id="passkey_login" %}
-  {% endif %}
-{% endblock inline_javascript %}

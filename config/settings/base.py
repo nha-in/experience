@@ -112,7 +112,6 @@ TAILWIND_USE_STANDALONE_BINARY = env.bool(
 THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
-    "allauth.mfa",
     "allauth.socialaccount",
     "django_celery_beat",
     "django_htmx",
@@ -563,6 +562,9 @@ ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT = {
     "length": 6,
     "dashed": False,
 }
+# The approved email and SMS texts both promise ten minutes.
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_TIMEOUT = 10 * 60
+ACCOUNT_PHONE_VERIFICATION_TIMEOUT = 10 * 60
 ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = 3
 ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_CHANGE = True
 ACCOUNT_PHONE_VERIFICATION_CODE_FORMAT = ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT
@@ -574,6 +576,14 @@ ACCOUNT_PASSWORD_RESET_BY_CODE_CODE_FORMAT = ACCOUNT_EMAIL_VERIFICATION_BY_CODE_
 # The approved template promises ten minutes and three tries.
 ACCOUNT_PASSWORD_RESET_BY_CODE_TIMEOUT = 10 * 60
 ACCOUNT_PASSWORD_RESET_BY_CODE_MAX_ATTEMPTS = 3
+# Each new code brings three fresh guesses at six digits, so the codes one
+# address can be sent in a day are capped. One per-address rate per action:
+# allauth keeps a single history per address, and two rates would clobber it.
+ACCOUNT_RATE_LIMITS = {
+    "reset_password": "20/m/ip,10/d/key",
+    "confirm_email": "10/d/key",
+    "verify_phone": "10/d/key,3/m/ip",
+}
 # How long before a new code can be asked for, as on the legacy portal.
 VERIFICATION_RESEND_AFTER_SECONDS = 90
 # https://docs.allauth.org/en/latest/account/configuration.html

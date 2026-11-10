@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from allauth.account.models import EmailAddress
+from django.core.cache import cache
 from django.urls import reverse
 
 from ohc_experience.integrations.local import LocalNotificationGateway
@@ -94,3 +95,19 @@ def test_an_unknown_address_sends_no_code(client: Client):
 
     assert response["Location"] == CODE_PAGE
     assert LocalNotificationGateway().sent() == []
+
+
+def test_an_address_is_sent_only_so_many_codes_a_day(
+    client: Client,
+    account: User,
+    settings,
+):
+    cache.clear()
+    settings.ACCOUNT_RATE_LIMITS = {"reset_password": "2/d/key"}
+
+    answers = [
+        client.post(REQUEST_PAGE, {"email": EMAIL}).status_code for _ in range(3)
+    ]
+
+    assert answers[:2] == [HTTPStatus.FOUND, HTTPStatus.FOUND]
+    assert answers[2] == HTTPStatus.TOO_MANY_REQUESTS

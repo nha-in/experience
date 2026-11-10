@@ -13,6 +13,7 @@ import logging
 import time
 from http import HTTPStatus
 
+from django.core.cache import cache
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
@@ -27,9 +28,14 @@ from .production import approved_codes
 
 logger = logging.getLogger(__name__)
 
+MAX_CLIENT_IDS = 100
+CALLS_PER_MINUTE = 60
+
 EXPIRED = "Token expired."
 ACCESS_DENIED = "Access denied."
 NO_CLIENT_IDS = "clientIds must be a non-empty list of client IDs."
+TOO_MANY_CLIENT_IDS = f"Ask for at most {MAX_CLIENT_IDS} client IDs in one request."
+TOO_MANY_CALLS = "Too many requests. Wait a minute and try again."
 
 
 def _refused(status, message):
@@ -62,6 +68,18 @@ def legacy_token_claims(token):
     return claims
 
 
+def _client_address(request):
+    """The address the load balancer saw: it appends to X-Forwarded-For, so
+    only the last entry is not the caller's own word."""
+    forwarded = request.headers.get("X-Forwarded-For", "").split(",")[-1].strip()
+    return forwarded or request.META.get("REMOTE_ADDR", "")
+
+
+def _over_limit(caller):
+    key = f"client-search:{caller}:{int(time.time()) // 60}"
+    return not cache.add(key, 1, timeout=65) and cache.incr(key) > CALLS_PER_MINUTE
+
+
 def _rows(client_ids):
     asked = set(client_ids)
     products = list(
@@ -85,7 +103,7 @@ def _rows(client_ids):
 
 @csrf_exempt
 @require_POST
-def search_clients(request):
+def search_clients(request):  # noqa: PLR0911
     presented = _key_or_token(request)
     if presented.startswith(KEY_PREFIX):
         caller = ApiCaller.for_key(presented)
@@ -94,6 +112,7 @@ def search_clients(request):
             return _refused(HTTPStatus.UNAUTHORIZED, ACCESS_DENIED)
         ApiCaller.objects.filter(pk=caller.pk).update(last_used_at=timezone.now())
         who = f"API caller {caller.pk} ({caller.name})"
+        limited = f"key:{caller.pk}"
     else:
         claims = legacy_token_claims(presented)
         if claims is None:
@@ -103,6 +122,12 @@ def search_clients(request):
         if claims["exp"] <= time.time():
             logger.warning("Client search refused: expired %s", who)
             return _refused(HTTPStatus.UNAUTHORIZED, EXPIRED)
+        # A token names nobody we can trust, so its calls count by address.
+        limited = f"ip:{_client_address(request)}"
+
+    if _over_limit(limited):
+        logger.warning("Client search refused: too many calls by %s", who)
+        return _refused(HTTPStatus.TOO_MANY_REQUESTS, TOO_MANY_CALLS)
 
     try:
         body = json.loads(request.body)
@@ -115,6 +140,8 @@ def search_clients(request):
         or not all(isinstance(client_id, str) for client_id in client_ids)
     ):
         return _refused(HTTPStatus.BAD_REQUEST, NO_CLIENT_IDS)
+    if len(client_ids) > MAX_CLIENT_IDS:
+        return _refused(HTTPStatus.BAD_REQUEST, TOO_MANY_CLIENT_IDS)
 
     rows = _rows(client_ids)
     logger.info(

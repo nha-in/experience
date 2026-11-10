@@ -17,11 +17,11 @@
       <h2 class="ui-card-title">{% translate "Confirm your mobile number" %}</h2>
       {% comment %}
         The stated expiry must match ACCOUNT_PHONE_VERIFICATION_TIMEOUT
-        (900 seconds).
+        (600 seconds).
       {% endcomment %}
       <p class="ui-card-description">
         {% blocktranslate trimmed %}
-          We texted a code to {{ phone }}. It is valid for fifteen minutes.
+          We texted a code to {{ phone }}. It is valid for ten minutes.
         {% endblocktranslate %}
       </p>
     </div>

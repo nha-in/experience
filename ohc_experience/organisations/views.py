@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -424,7 +425,10 @@ def send_invitation_email(request: HttpRequest, invitation: Invitation) -> None:
     context = {
         "invitation": invitation,
         "organisation": invitation.organisation,
-        "accept_url": request.build_absolute_uri(invitation.get_absolute_url()),
+        # Not the request's host, which the sender of the request chooses.
+        "accept_url": (
+            f"{settings.SITE_BASE_URL.rstrip('/')}{invitation.get_absolute_url()}"
+        ),
         "invited_by": invitation.invited_by,
     }
     subject = render_to_string(
