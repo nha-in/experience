@@ -147,6 +147,10 @@ EMAIL_SUBJECT_PREFIX = env(
 )
 ACCOUNT_EMAIL_SUBJECT_PREFIX = EMAIL_SUBJECT_PREFIX
 
+# The load balancer is the one proxy in front: without this every visitor
+# shares its address, and so one per-IP rate limit.
+ALLAUTH_TRUSTED_PROXY_COUNT = env.int("ALLAUTH_TRUSTED_PROXY_COUNT", default=1)
+
 # ADMIN
 # ------------------------------------------------------------------------------
 # Django Admin URL regex.
@@ -240,6 +244,7 @@ sentry_sdk.init(
     integrations=integrations,
     environment=env("SENTRY_ENVIRONMENT", default="production"),
     traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
+    include_local_variables=False,
 )
 
 
