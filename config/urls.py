@@ -27,7 +27,7 @@ urlpatterns = [
     # Landing page and dashboard alias
     path("", include("ohc_experience.pages.urls")),
     # Django Admin, use {% url 'admin:index' %}
-    path(settings.ADMIN_URL, admin.site.urls),
+    *([path(settings.ADMIN_URL, admin.site.urls)] if settings.ADMIN_ENABLED else []),
     # User management
     path("", include("ohc_experience.users.urls", namespace="users")),
     # Organisation, team and invitations

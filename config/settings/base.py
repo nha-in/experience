@@ -144,6 +144,11 @@ EXPERIENCE_CREDENTIAL_KEY = (
 )
 
 EXPERIENCE_ALLOW_INSECURE_DEMO_KEY = False
+# Each product gets a Keycloak client and a gateway application of its own.
+EXPERIENCE_MAX_PRODUCTS_PER_ORGANISATION = env.int(
+    "EXPERIENCE_MAX_PRODUCTS_PER_ORGANISATION",
+    default=8,
+)
 ABDM_CREDENTIAL_PROVIDER = env(
     "ABDM_CREDENTIAL_PROVIDER",
     default=env("SANDBOX_CREDENTIAL_PROVIDER", default=""),
@@ -441,6 +446,7 @@ SITE_BASE_URL = env(
 # ------------------------------------------------------------------------------
 # Django Admin URL.
 ADMIN_URL = "admin/"
+ADMIN_ENABLED = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#admins
 ADMINS = ['"OHCNF" <ohcnf@ohc.network>']
 # https://docs.djangoproject.com/en/dev/ref/settings/#managers

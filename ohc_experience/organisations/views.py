@@ -396,6 +396,13 @@ class InvitationAcceptView(View):
                 % {"organisation": invitation.organisation.name},
             )
             return redirect("account_signup")
+        if request.user.is_staff or request.user.is_nha_team:
+            # Whoever reviews integrators cannot also be one.
+            messages.error(
+                request,
+                _("An NHA team account cannot join an organisation."),
+            )
+            return redirect("home")
         if get_membership_for(request.user) is not None:
             messages.error(
                 request,

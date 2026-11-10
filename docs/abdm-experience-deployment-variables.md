@@ -13,7 +13,9 @@ For the **application and database**, supply these values:
 | `DJANGO_SETTINGS_MODULE` | Production image default: `config.settings.production`, used by web, Celery worker, Celery beat, Flower, and management commands. Set it explicitly when running production processes outside that image; management commands and Celery otherwise default to local settings. `config.settings.build` is only for offline asset creation and verification, never runtime serving. |
 | `DJANGO_SECRET_KEY` | **Required.** Strong, persistent Django secret. |
 | `DJANGO_ALLOWED_HOSTS` | Set comma-separated application hostnames without schemes or paths. Code default: `*`. |
-| `DJANGO_ADMIN_URL` | **Required.** Admin path, e.g. `admin/`. |
+| `DJANGO_ADMIN_ENABLED` | Django admin is off in production unless this is `True`. Default: `False`. |
+| `DJANGO_ADMIN_URL` | **Required when the admin is enabled.** Admin path, e.g. `admin/`. |
+| `EXPERIENCE_MAX_PRODUCTS_PER_ORGANISATION` | Products one organisation may register. Default: `8`. |
 | `DATABASE_URL` | PostgreSQL connection URL, e.g. `postgres://USER:PASSWORD@HOST:5432/DB`. Takes precedence over individual database settings. |
 | `POSTGRES_HOST` | Database hostname. Django default: `postgres`; **must be explicitly supplied to the stock Docker entrypoint**. |
 | `POSTGRES_PORT` | Database port. Django default: `5432`; **must be explicitly supplied to the stock Docker entrypoint**. |

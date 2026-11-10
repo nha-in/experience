@@ -631,6 +631,24 @@ class TestInvitationAcceptView:
             f"You joined {onboarded_organisation.name}.",
         ]
 
+    def test_an_nha_team_account_cannot_join(
+        self,
+        sign_in: Callable[[User], Client],
+        onboarded_organisation: Organisation,
+    ):
+        user = UserFactory.create(email="anand@nha.in", is_nha_team=True)
+        invitation = InvitationFactory.create(
+            organisation=onboarded_organisation,
+            email=user.email,
+        )
+
+        response = sign_in(user).get(invitation.get_absolute_url())
+
+        assert not Membership.objects.filter(user=user).exists()
+        assert message_texts(response) == [
+            "An NHA team account cannot join an organisation.",
+        ]
+
     def test_a_different_address_is_refused(
         self,
         sign_in: Callable[[User], Client],

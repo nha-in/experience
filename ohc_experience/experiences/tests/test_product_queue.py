@@ -385,7 +385,9 @@ def test_pagination_never_splits_products_or_merges_similar_product_names(
     client,
     review_item,
     owner_membership,
+    settings,
 ):
+    settings.EXPERIENCE_MAX_PRODUCTS_PER_ORGANISATION = 20
     items = [review_item]
     for _index in range(10):
         product, form = workflows.register_product(

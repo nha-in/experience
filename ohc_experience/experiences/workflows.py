@@ -4,6 +4,7 @@ from functools import partial
 from uuid import uuid4
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
@@ -1024,6 +1025,14 @@ def register_product(organisation, actor, *, data, program=None):
         **program.product_form_kwargs(organisation),
     )
     if not form.is_valid():
+        return None, form
+    limit = settings.EXPERIENCE_MAX_PRODUCTS_PER_ORGANISATION
+    if organisation.products.count() >= limit:
+        form.add_error(
+            None,
+            f"An organisation can register up to {limit} products. "
+            "Raise a support ticket if you need more.",
+        )
         return None, form
     product = Product.objects.create(
         organisation=organisation,

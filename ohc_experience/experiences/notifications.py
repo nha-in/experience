@@ -62,8 +62,18 @@ def thread_anchor_id(item: ReviewItem) -> str:
 
 
 def _applicant(item: ReviewItem):
+    """Whoever submitted, while they are still on the organisation's team."""
     submission = item.selected_submission
-    return submission.submitted_by if submission else None
+    applicant = submission.submitted_by if submission else None
+    if (
+        applicant
+        and applicant.is_active
+        and item.organisation.memberships.filter(
+            user=applicant,
+        ).exists()
+    ):
+        return applicant
+    return None
 
 
 def _copies(*people) -> list[str]:

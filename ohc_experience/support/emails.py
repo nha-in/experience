@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.mail import EmailMessage
+from django.db.models import Q
 from django.template.loader import render_to_string
 
 from ohc_experience.core.mail import GLOBAL_EMAIL_BACKEND
@@ -37,22 +39,28 @@ def _ticket_url(ticket: Ticket) -> str:
 
 def _participants(ticket: Ticket) -> list[str]:
     """Everyone who has replied in the thread, requester included.
-
-    Copying them keeps the OHC member who answered on the conversation once the
-    integrator replies, instead of leaving them to spot it in the shared inbox.
-    Changing the priority or the assignee alone does not join anyone to the
-    conversation.
     """
     from .models import TicketMessage  # noqa: PLC0415
 
-    addresses = set(
+    people = set(
         ticket.messages.filter(kind=TicketMessage.Kind.REPLY)
         .exclude(author=None)
-        .values_list("author__email", flat=True),
+        .values_list("author_id", flat=True),
     )
-    if ticket.created_by:
-        addresses.add(ticket.created_by.email)
-    return sorted(address for address in addresses if address)
+    if ticket.created_by_id:
+        people.add(ticket.created_by_id)
+    # Not someone who has since left the team or had their account switched off.
+    addresses = (
+        get_user_model()
+        .objects.filter(pk__in=people, is_active=True)
+        .filter(
+            Q(is_nha_team=True)
+            | Q(is_superuser=True)
+            | Q(memberships__organisation=ticket.organisation_id),
+        )
+        .values_list("email", flat=True)
+    )
+    return sorted({address for address in addresses if address})
 
 
 def notify_support(ticket: Ticket, message: TicketMessage) -> None:

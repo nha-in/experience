@@ -28,6 +28,7 @@ from ohc_experience.abdm.forms import OrganisationForm
 from ohc_experience.abdm.forms import ProductRegistrationForm
 from ohc_experience.experiences import credentials
 from ohc_experience.experiences import legacy
+from ohc_experience.experiences import notifications
 from ohc_experience.experiences import uploads
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.definitions import TrackDefinition
@@ -1893,3 +1894,31 @@ def test_a_product_that_really_is_other_answers_in_the_other_box():
         legacy.EVERY_OPTION_SOLUTION_TYPE,
     )
     assert legacy.SOLUTION_TYPE in answered_gaps(product, "Front desk queue system")
+
+
+@pytest.mark.django_db
+def test_an_organisation_cannot_register_past_its_product_limit(environment, settings):
+    settings.EXPERIENCE_MAX_PRODUCTS_PER_ORGANISATION = 1
+
+    product, form = services.register_product(
+        environment["org"],
+        environment["applicant"],
+        data=product_data(name="Second product"),
+    )
+
+    assert product is None
+    assert "register up to 1 products" in form.non_field_errors()[0]
+    assert environment["org"].products.count() == 1
+
+
+@pytest.mark.django_db
+def test_a_decision_is_not_copied_to_an_applicant_who_left_the_team(environment):
+    applicant = environment["applicant"]
+    item = environment["product"].review_items.get(kind="product_registration")
+
+    notifications.notify_decision(item)
+    assert applicant.email in mail.outbox[-1].cc
+
+    Membership.objects.filter(user=applicant).delete()
+    notifications.notify_decision(item)
+    assert applicant.email not in mail.outbox[-1].cc

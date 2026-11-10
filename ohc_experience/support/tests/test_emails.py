@@ -8,6 +8,8 @@ import pytest
 from django.core import mail
 
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.organisations.models import Membership
+from ohc_experience.organisations.tests.factories import MembershipFactory
 from ohc_experience.support import emails
 from ohc_experience.support.models import Environment
 from ohc_experience.support.models import Priority
@@ -31,13 +33,17 @@ def _inbox(settings):
 
 
 @pytest.fixture
-def integrator():
-    return UserFactory.create(name="Meera Krishnan", email="meera@sunrise.in")
+def integrator(organisation):
+    user = UserFactory.create(name="Meera Krishnan", email="meera@sunrise.in")
+    MembershipFactory.create(organisation=organisation, user=user)
+    return user
 
 
 @pytest.fixture
-def colleague():
-    return UserFactory.create(name="Raj Menon", email="raj@sunrise.in")
+def colleague(organisation):
+    user = UserFactory.create(name="Raj Menon", email="raj@sunrise.in")
+    MembershipFactory.create(organisation=organisation, user=user)
+    return user
 
 
 @pytest.fixture
@@ -233,3 +239,16 @@ def test_a_mail_failure_does_not_break_the_thread(ticket, integrator):
     assert message.pk is not None
     assert ticket.status == Status.OPEN
     assert mail.outbox == []
+
+
+def test_a_requester_who_left_the_team_is_no_longer_copied(
+    ticket,
+    integrator,
+    nha_member,
+):
+    post_reply(ticket, integrator, "Our records vanished.", from_nha_team=False)
+    Membership.objects.filter(user=integrator).delete()
+
+    post_reply(ticket, nha_member, "Restored from backup.", from_nha_team=True)
+
+    assert mail.outbox[-1].cc == ["anand@ohc.network"]

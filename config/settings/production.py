@@ -153,8 +153,11 @@ ALLAUTH_TRUSTED_PROXY_COUNT = env.int("ALLAUTH_TRUSTED_PROXY_COUNT", default=1)
 
 # ADMIN
 # ------------------------------------------------------------------------------
-# Django Admin URL regex.
-ADMIN_URL = env("DJANGO_ADMIN_URL")
+# Off unless a deployment asks for it: its sign-in has no rate limit, captcha
+# or verification code. The path is required only when it is on.
+ADMIN_ENABLED = env.bool("DJANGO_ADMIN_ENABLED", default=False)
+if ADMIN_ENABLED:
+    ADMIN_URL = env("DJANGO_ADMIN_URL")
 
 # Anymail
 # ------------------------------------------------------------------------------
@@ -245,6 +248,9 @@ sentry_sdk.init(
     environment=env("SENTRY_ENVIRONMENT", default="production"),
     traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
     include_local_variables=False,
+    # Form posts carry passwords, codes and contact details under names the
+    # SDK's scrubber does not know (password1, oldpassword, ...).
+    max_request_body_size="never",
 )
 
 
