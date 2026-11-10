@@ -111,3 +111,21 @@ def test_an_address_is_sent_only_so_many_codes_a_day(
 
     assert answers[:2] == [HTTPStatus.FOUND, HTTPStatus.FOUND]
     assert answers[2] == HTTPStatus.TOO_MANY_REQUESTS
+
+
+def test_a_reset_keeps_a_number_on_an_account_whose_address_was_confirmed(
+    client: Client,
+    account: User,
+):
+    """A migrated account arrives with both confirmed and has never signed in."""
+    account.phone_number = "+919876543210"
+    account.phone_verified = True
+    account.save()
+    code = request_code(client)
+    client.post(CODE_PAGE, {"code": code})
+
+    client.post(PASSWORD_PAGE, {"password1": NEW_PASSWORD, "password2": NEW_PASSWORD})
+
+    account.refresh_from_db()
+    assert account.check_password(NEW_PASSWORD)
+    assert account.phone_verified

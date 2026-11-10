@@ -225,6 +225,10 @@ class AccountVerificationView(TemplateView):
         if self.stage is None:
             return redirect("account_login")
         self.user = self.stage.login.user
+        # A password reset by the address's owner confirms the address, and
+        # must not finish a login someone else started with the old password.
+        if self.stage.login.state.get("auth_hash") != self.user.get_session_auth_hash():
+            return self.stage.abort()
         # An address and a number outlive their codes. Expired, the screen
         # offers a new one rather than dropping what is already confirmed, so
         # the email process is resumed only while its code is still good —

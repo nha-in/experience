@@ -372,6 +372,34 @@ class TestSignupVerification:
 
         assert client.session[EMAIL_VERIFICATION_CODE_SESSION_KEY]["at"] > first
 
+    def test_a_pending_signup_ends_when_the_owner_resets_the_password(
+        self,
+        client: Client,
+    ):
+        """Someone else's address, their own number: the owner's reset would
+        otherwise confirm the address for them."""
+        sign_up(client)
+        confirm(client, "sms")
+        owner = Client()
+        owner.post(reverse("account_reset_password"), {"email": EMAIL})
+        owner.post(
+            reverse("account_confirm_password_reset_code"),
+            {"code": last_code("email")},
+        )
+        new_password = "sandbox-Wayanad-2027"  # noqa: S105
+        owner.post(
+            reverse("account_complete_password_reset"),
+            {"password1": new_password, "password2": new_password},
+        )
+        assert EmailAddress.objects.get(email=EMAIL).verified
+        # The number is whoever signed up's, so the owner is asked for it again.
+        assert not User.objects.get(email=EMAIL).phone_verified
+
+        response = client.get(VERIFY_PAGE)
+
+        assert signed_in_user(client) is None
+        assert response["Location"] == reverse("account_login")
+
     def test_create_account_and_sign_in_stay_reachable_while_verifying(
         self,
         client: Client,

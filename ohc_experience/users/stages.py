@@ -26,6 +26,8 @@ class VerificationStage(EmailVerificationStage):
         return False
 
     def handle(self):
+        # The screen ends this login if the password changes under it.
+        self.login.state["auth_hash"] = self.login.user.get_session_auth_hash()
         email_response, keep_going = super().handle()
         phone = self._unverified_phone()
         if phone is not None:
