@@ -35,14 +35,18 @@ def _locked_credential(credential):
     return ProductCredential.objects.select_for_update().get(pk=credential.pk)
 
 
+def _require_active(credential):
+    if credential.status != "active":
+        msg = "These credentials are no longer active."
+        raise ValidationError(msg)
+
+
 @transaction.atomic
 def reveal(credential, actor):
     credential = _locked_credential(credential)
     require_integrator(actor, credential.product.organisation)
     rate_limit(actor, "reveal")
-    if credential.status != "active":
-        msg = "These credentials are no longer active."
-        raise ValidationError(msg)
+    _require_active(credential)
     audit(actor=actor, action="Client secret revealed", product=credential.product)
     return cipher().decrypt(credential.encrypted_secret.encode()).decode()
 
@@ -55,9 +59,7 @@ def rotate(credential, actor):
     integrator's stored secret is dead at that point and only they can act.
     """
     require_integrator(actor, credential.product.organisation)
-    if credential.status != "active":
-        msg = "These credentials are no longer active."
-        raise ValidationError(msg)
+    _require_active(credential)
     rate_limit(actor, "rotate", limit=2)
 
     secret = rotate_client(credential.product)
@@ -110,6 +112,7 @@ def save_callback_url(credential, actor, url):
     # Every save registers the bridge again with the gateway.
     rate_limit(actor, "callback")
     credential = ProductCredential.objects.select_for_update().get(pk=credential.pk)
+    _require_active(credential)
     previous = credential.callback_url
     credential.callback_url = url
     credential.save(update_fields=["callback_url"])
@@ -127,6 +130,7 @@ def save_callback_url(credential, actor, url):
 def retry_bridge(credential, actor):
     require_integrator(actor, credential.product.organisation)
     rate_limit(actor, "register", limit=2)
+    _require_active(credential)
     if not credential.callback_url:
         msg = "Save a callback URL first."
         raise ValidationError(msg)

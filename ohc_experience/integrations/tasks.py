@@ -328,6 +328,9 @@ def sync_bridge(task: Task, product_id: int) -> int:
     credential = getattr(product, "credential", None)
     if credential is None or not credential.callback_url:
         return product_id
+    # A sync queued before a revoke must not bring the bridge back.
+    if credential.status != "active":
+        return product_id
 
     client = _ledger_row(product, ProvisionedSystem.KEYCLOAK)
     if client is None:

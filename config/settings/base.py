@@ -149,7 +149,8 @@ ABDM_CREDENTIAL_PROVIDER = env(
     default=env("SANDBOX_CREDENTIAL_PROVIDER", default=""),
 )
 ABDM_ALLOW_DEMO_CREDENTIALS = False
-SANDBOX_SIGNUP_CAPTCHA = env("SANDBOX_SIGNUP_CAPTCHA", default=True)
+# Off only in the test settings; no deployment can disable it.
+SANDBOX_SIGNUP_CAPTCHA = True
 TURNSTILE_SITE_KEY = env("TURNSTILE_SITE_KEY", default="")
 TURNSTILE_SECRET_KEY = env("TURNSTILE_SECRET_KEY", default="")
 ABDM_GATEWAY_URL = env(

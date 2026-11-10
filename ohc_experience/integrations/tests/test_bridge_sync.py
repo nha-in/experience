@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.test import override_settings
 
+from ohc_experience.experiences import credentials
 from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.integrations import local
 from ohc_experience.integrations.local import always_fail
@@ -129,3 +131,41 @@ def test_clearing_the_url_leaves_the_existing_bridge_alone(provision, register_b
     sync_bridge(product.pk)
 
     assert _row(product).state == ProvisionedResourceState.ACTIVE
+
+
+@pytest.fixture
+def revoked(provision, register_bridge, teardown, superadmin):
+    """A product whose bridge was registered and then revoked with the rest."""
+    product = provision()
+    register_bridge()
+    credentials.revoke(ProductCredential.objects.get(product=product), superadmin)
+    teardown()
+    return ProductCredential.objects.get(product=product)
+
+
+def _bridge_is_active(product):
+    return (
+        local.LocalBridgeRegistry().get_bridge_status(_row(product).external_ref).active
+    )
+
+
+def test_a_revoked_integrator_cannot_save_a_url_to_bring_the_bridge_back(
+    revoked,
+    owner,
+):
+    with pytest.raises(ValidationError):
+        credentials.save_callback_url(revoked, owner, SECOND_URL)
+
+    revoked.refresh_from_db()
+    assert revoked.callback_url != SECOND_URL
+
+
+def test_a_revoked_integrator_cannot_register_the_bridge_again(revoked, owner):
+    with pytest.raises(ValidationError):
+        credentials.retry_bridge(revoked, owner)
+
+
+def test_a_sync_queued_before_a_revoke_registers_nothing(revoked):
+    sync_bridge(revoked.product_id)
+
+    assert _bridge_is_active(revoked.product) is False

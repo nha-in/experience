@@ -992,6 +992,27 @@ def test_a_plain_http_callback_url_is_refused(environment, client):
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(("status", "disabled"), [("active", False), ("revoked", True)])
+def test_the_callback_form_is_disabled_once_revoked(
+    environment,
+    client,
+    status,
+    disabled,
+):
+    credential = ProductCredential.objects.get(product=environment["product"])
+    credential.callback_url = "https://kept.example/callback"
+    credential.status = status
+    credential.save(update_fields=["callback_url", "status"])
+    client.force_login(environment["applicant"])
+
+    response = client.get(
+        reverse("experiences:credentials", args=[environment["product"].reference]),
+    )
+
+    assert (b"<fieldset disabled>" in response.content) is disabled
+
+
+@pytest.mark.django_db
 def test_a_pending_panel_shows_what_each_system_is_doing(environment, client):
     """ "No credentials yet" and "the gateway never happened" must not look alike."""
     fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
