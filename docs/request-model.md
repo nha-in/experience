@@ -113,7 +113,6 @@ and migrations.
   `get_solution_type_display`, `get_absolute_url` move across.
 - `applied_milestones` stays a JSON column for this step. It becomes derived in
   step 4.
-- Importer (`legacy_import/writer.py`) writes `Product` fields instead.
 
 Standalone value: one object per product; every `product.workspace.x` read
 becomes `product.x`.
@@ -218,8 +217,6 @@ First consumer of the new shape; written against it, not before it.
   `FormSubmission`. Reuse and revision history work and are used.
 - Moving tracks or milestones into tables. NHA changes them by release.
 - The phase-2 `Review` table.
-- `legacy_import` beyond keeping it compiling at each step. It has not run; it
-  gets written once against the final shape rather than migrated through four.
 
 ## Risks
 

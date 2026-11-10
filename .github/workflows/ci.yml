@@ -7,11 +7,11 @@ env:
 
 on:
   pull_request:
-    branches: ['main', 'testing_new']
+    branches: ['main', 'testing_new', 'production']
     paths-ignore: ['docs/**']
 
   push:
-    branches: ['main', 'testing_new']
+    branches: ['main', 'testing_new', 'production']
     paths-ignore: ['docs/**']
 
 concurrency:
