@@ -3184,7 +3184,12 @@ def _can_provision(user, product, program_key):
     return bool(
         product
         and product.organisation.is_verified
-        and permissions.has_access(user, "review", program=program_key)
+        and permissions.has_access(
+            user,
+            "review",
+            action="write",
+            program=program_key,
+        )
         and (provisioning_can_be_retried(product) or awaiting_provisioning(product)),
     )
 

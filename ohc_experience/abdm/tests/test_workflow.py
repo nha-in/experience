@@ -1728,6 +1728,28 @@ def test_an_integrator_cannot_restart_a_chain(environment, client):
     assert response.status_code == 403
 
 
+def test_a_read_only_reviewer_cannot_restart_a_failed_chain(environment, client):
+    fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
+    product = _second_product(environment)
+    provision_inline(product)
+    reader = UserFactory(is_nha_team=True, is_staff=True)
+    AccessGrant.objects.create(
+        user=reader,
+        program="abdm",
+        area="review",
+        category="*",
+        can_read=True,
+    )
+    client.force_login(reader)
+
+    response = client.post(
+        reverse("experiences:product-detail", args=[product.reference]),
+        {"intent": "retry_provisioning"},
+    )
+
+    assert response.status_code == 403
+
+
 def test_a_reviewer_can_restart_a_failed_chain(environment, client):
     fail_next(ExternalSystem.WSO2, "create_application", retryable=False)
     product = _second_product(environment)

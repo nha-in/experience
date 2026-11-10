@@ -207,7 +207,8 @@ class SupportForm(forms.Form):
         *API_DETAIL_FIELDS,
     )
 
-    subject = forms.CharField(max_length=255)
+    # Room for the reference the notification subject puts in front of it.
+    subject = forms.CharField(max_length=200)
     category = forms.ChoiceField(
         error_messages={"required": "Choose the category this ticket is about."},
     )

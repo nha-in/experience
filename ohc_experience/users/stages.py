@@ -5,6 +5,8 @@ from allauth.account.internal.flows.phone_verification import (
     PhoneVerificationStageProcess,
 )
 from allauth.account.stages import EmailVerificationStage
+from allauth.core.exceptions import RateLimited
+from django.contrib import messages
 from django.shortcuts import redirect
 
 
@@ -31,7 +33,17 @@ class VerificationStage(EmailVerificationStage):
         email_response, keep_going = super().handle()
         phone = self._unverified_phone()
         if phone is not None:
-            PhoneVerificationStageProcess.initiate(stage=self, phone=phone)
+            try:
+                PhoneVerificationStageProcess.initiate(stage=self, phone=phone)
+            except RateLimited:
+                # The number stays waiting on the screen, which offers a new
+                # code once the wait is over.
+                adapter = get_adapter(self.request)
+                adapter.add_message(
+                    self.request,
+                    messages.ERROR,
+                    message=adapter.error_messages["rate_limited"],
+                )
         elif email_response is None:
             return None, keep_going
         return redirect(self.urlname), keep_going

@@ -11,6 +11,8 @@ from allauth.account.internal.flows.email_verification_by_code import (
     EMAIL_VERIFICATION_CODE_SESSION_KEY,
 )
 from allauth.account.models import EmailAddress
+from allauth.core import ratelimit
+from allauth.core.exceptions import RateLimited
 from django.core import mail
 from django.test import Client
 from django.urls import reverse
@@ -20,6 +22,7 @@ from ohc_experience.integrations.local import LocalNotificationGateway
 from ohc_experience.integrations.notification.templates import EMAIL_VERIFICATION_CODE
 from ohc_experience.integrations.notification.templates import MOBILE_VERIFICATION_CODE
 from ohc_experience.integrations.ports import ExternalSystem
+from ohc_experience.organisations.tests.factories import InvitationFactory
 from ohc_experience.users.models import User
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -218,6 +221,28 @@ class TestSignupVerification:
         assert user.email == corrected
         assert EmailAddress.objects.get(email=corrected).verified
 
+    def test_an_invited_address_cannot_be_swapped_for_another(self, client: Client):
+        """The invite vouches for one address; a leaked link is no use with another."""
+        invitation = InvitationFactory.create(email=EMAIL)
+        client.get(invitation.get_absolute_url())
+        sign_up(client)
+
+        page = screen(client)
+        client.post(
+            VERIFY_PAGE,
+            {"action": "change_email", "email_change-email": "mallory@elsewhere.in"},
+        )
+
+        assert 'name="email_change-email"' not in page
+        assert [message["receiver"] for message in sent("email")] == [EMAIL]
+        assert (
+            User.objects.get(email=EMAIL)
+            .memberships.filter(
+                organisation=invitation.organisation,
+            )
+            .exists()
+        )
+
     def test_the_number_can_be_corrected(self, client: Client):
         sign_up(client)
         assert 'name="phone_change-phone"' in screen(client)
@@ -399,6 +424,29 @@ class TestSignupVerification:
 
         assert signed_in_user(client) is None
         assert response["Location"] == reverse("account_login")
+
+    def test_too_many_codes_at_signup_is_a_message_not_an_error_page(
+        self,
+        client: Client,
+        monkeypatch,
+    ):
+        consume = ratelimit.consume
+
+        def limited(request, *, action, **kwargs):
+            if action == "verify_phone":
+                raise RateLimited
+            return consume(request, action=action, **kwargs)
+
+        monkeypatch.setattr(ratelimit, "consume", limited)
+
+        response = client.post(reverse("account_signup"), data=SIGNUP_DATA)
+
+        assert response["Location"] == VERIFY_PAGE
+        assert not sent("sms")
+        page = screen(client)
+        # The number is still waiting, and a new code can be asked for later.
+        assert PHONE_BOX in page
+        assert "too many requests" in page
 
     def test_create_account_and_sign_in_stay_reachable_while_verifying(
         self,

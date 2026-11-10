@@ -38,8 +38,7 @@ def _ticket_url(ticket: Ticket) -> str:
 
 
 def _participants(ticket: Ticket) -> list[str]:
-    """Everyone who has replied in the thread, requester included.
-    """
+    """Everyone who has replied in the thread, requester included."""
     from .models import TicketMessage  # noqa: PLC0415
 
     people = set(

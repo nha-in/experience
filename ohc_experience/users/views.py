@@ -263,7 +263,7 @@ class AccountVerificationView(TemplateView):
                 actions["verify_email"] = self._verify_email
                 if self.email_process.can_resend and not _resend_at(self.email_state):
                     actions["resend_email"] = self._resend_email
-                if self.email_process.can_change:
+                if self._can_change_email():
                     actions["change_email"] = self._change_email
         if self._phone_done():
             return actions
@@ -292,7 +292,7 @@ class AccountVerificationView(TemplateView):
             email_resend_at=email_resend_at if email_live else None,
             can_resend_email=not email_done
             and (email_live is None or email_live.can_resend),
-            can_change_email=email_live is not None and email_live.can_change,
+            can_change_email=email_live is not None and self._can_change_email(),
             phone_pending=bool(self.pending_phone),
             phone=self.pending_phone,
             phone_done=phone_done,
@@ -324,6 +324,17 @@ class AccountVerificationView(TemplateView):
 
     def _email_done(self) -> bool:
         return has_verified_email(self.user)
+
+    def _can_change_email(self) -> bool:
+        """An invite vouches for one address, so that one cannot be swapped."""
+        return (
+            self.email_process.can_change
+            and not Invitation.objects.filter(
+                email__iexact=self.user.email,
+                accepted_at__isnull=False,
+                organisation__memberships__user=self.user,
+            ).exists()
+        )
 
     def _email_expired(self) -> bool:
         return self.email_state is not None and _expired(
