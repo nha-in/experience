@@ -60,6 +60,24 @@ def open_ticket(organisation, subject: str = "Another problem") -> Ticket:
 
 
 class TestReference:
+    def test_a_number_taken_by_a_ticket_filed_at_the_same_moment_is_tried_again(
+        self,
+        organisation,
+        monkeypatch,
+    ):
+        first = open_ticket(organisation, "First")
+        fresh = Ticket._next_reference  # noqa: SLF001
+        stale = iter([first.reference])
+        monkeypatch.setattr(
+            Ticket,
+            "_next_reference",
+            staticmethod(lambda: next(stale, None) or fresh()),
+        )
+
+        second = open_ticket(organisation, "Second")
+
+        assert second.reference == f"TKT-{int(first.reference.split('-')[1]) + 1}"
+
     def test_references_are_handed_out_in_order(self, organisation):
         first = open_ticket(organisation, "First")
         second = open_ticket(organisation, "Second")

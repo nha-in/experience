@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from typing import ClassVar
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.db import models
 from django.db import transaction
 from django.db.models import F
@@ -189,8 +191,17 @@ class Ticket(models.Model):
         return f"{self.reference} — {self.subject}"
 
     def save(self, *args, **kwargs) -> None:
-        if not self.reference:
+        if self.reference:
+            super().save(*args, **kwargs)
+            return
+        # Two tickets filed at once read the same latest number, and the unique
+        # reference refuses the second: number it again rather than fail.
+        for _attempt in range(2):
             self.reference = self._next_reference()
+            with suppress(IntegrityError), transaction.atomic():
+                super().save(*args, **kwargs)
+                return
+        self.reference = self._next_reference()
         super().save(*args, **kwargs)
 
     def get_absolute_url(self) -> str:
