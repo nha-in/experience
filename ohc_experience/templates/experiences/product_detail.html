@@ -10,7 +10,7 @@
     <div class="ui-hero-inner">
       <div class="ui-rise min-w-0">
         <a class="ui-hero-back mb-1 min-h-7"
-           href="{% url 'experiences:queue' %}"><span aria-hidden="true">‹</span> Review queue</a>
+           href="{% url 'experiences:queue' %}{% if request.session.queue_query %}?{{ request.session.queue_query }}{% endif %}"><span aria-hidden="true">‹</span> Review queue</a>
         <h1 class="ui-hero-title text-[28px] sm:text-[30px] sm:leading-9">{{ staff_product.name }}</h1>
         <p class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span class="inline-flex items-center gap-0.5"><span class="font-mono text-[13px] text-foreground">{{ reference }}</span>{% include 'components/copy_button.html' with value=reference label='product reference' %}</span>

@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils.formats import date_format
 
 from ohc_experience.experiences.registry import registry
+from ohc_experience.experiences.workflows import QUERY_TARGETS
 
 register = template.Library()
 
@@ -92,14 +93,9 @@ def _label_query(query, labels):
         labels[query.submission_id] = {
             field["key"]: field["label"] for field in query.submission.field_schema
         }
-    query.field_label = (
-        "Whole form"
-        if query.field_key == "form"
-        else labels[query.submission_id].get(
-            query.field_key,
-            readable(query.field_key),
-        )
-    )
+    query.field_label = QUERY_TARGETS.get(query.field_key) or labels[
+        query.submission_id
+    ].get(query.field_key, readable(query.field_key))
     return query
 
 
@@ -168,6 +164,11 @@ def snapshot_rows(snapshot, item=None, drafts=None):
                 "value": value,
                 "files": attachments.get(key, []),
                 "file_field": "File" in field["type"] or "Image" in field["type"],
+                # Only http(s): imported answers never passed URLField's check.
+                "link": value
+                if field["type"] == "URLField"
+                and str(value).startswith(("http://", "https://"))
+                else None,
                 "queries": asked.get(key, []),
                 "query_open": key in asked,
                 "draft": (drafts or {}).get(key),

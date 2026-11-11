@@ -666,3 +666,11 @@ def test_search_finds_what_the_queue_shows(client, review_item, owner_membership
     assert found(standalone.reference, "organisations") == [standalone.reference]
     assert found(standalone.reference) == []
     assert found(review_item.reference.lower()) == [product]
+
+
+def test_back_to_the_queue_keeps_its_filters(client, review_item):
+    client.force_login(ReviewerFactory(is_nha_team=True))
+    client.get(reverse("experiences:queue"), {"scope": "all", "q": "sunrise"})
+    url = reverse("experiences:product-detail", args=[review_item.product.reference])
+    back = f"{reverse('experiences:queue')}?scope=all&amp;q=sunrise"
+    assert back in client.get(url).content.decode()

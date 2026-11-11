@@ -1097,9 +1097,9 @@ def _product_review_post(request, product):
 def _posted_questions(request, item):
     """The questions a query form sends, one per field it asks about.
 
-    Each is posted as `question_<field key>`, with "form" for the whole form.
+    Each is posted as `question_<field key>`, or a key of QUERY_TARGETS.
     """
-    keys = ["form"]
+    keys = list(services.QUERY_TARGETS)
     if item.selected_submission_id:
         keys += [field["key"] for field in item.selected_submission.field_schema]
     return [
@@ -3146,6 +3146,8 @@ def queue(request):
             query,
             scope,
         )
+    # The product page's back link returns to the queue as filtered here.
+    request.session["queue_query"] = request.GET.urlencode()
     return render(
         request,
         "experiences/queue.html",

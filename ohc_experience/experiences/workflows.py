@@ -1316,10 +1316,14 @@ def raise_queries(item, actor, questions, *, expected_revision=None):
     return _raise_queries(item, actor, questions)
 
 
+#: What a reviewer can query besides the submitted form's own fields.
+QUERY_TARGETS = {"form": "Whole form", "submitter_email": "Submitter's email"}
+
+
 def _raise_queries(item, actor, questions, *, defer_notifications=False):
     """Record each question and send them to the integrator in one notice."""
     labels = {
-        "form": "Whole form",
+        **QUERY_TARGETS,
         **{
             field["key"]: field["label"]
             for field in item.selected_submission.field_schema

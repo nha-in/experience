@@ -19,6 +19,7 @@ from ohc_experience.abdm.tests.test_workflow import submit_claims
 from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.experiences.templatetags.experience_ui import open_queries
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
 from ohc_experience.users.tests.factories import UserFactory
@@ -706,3 +707,28 @@ def test_the_tracks_strip_counts_requests_not_yet_submitted(environment, client)
     strip = " ".join(re.sub(r"<[^>]+>", " ", strip.split("</nav>")[0]).split())
     assert "HIE-CM 2/4" in strip
     assert "NHCX 2/3" in strip
+
+
+def test_a_reviewer_queries_the_submitters_email(environment, client):
+    item = submit(environment)
+    client.force_login(environment["reviewer"])
+    url = product_url(environment)
+    assert 'data-query-field="submitter_email"' in client.get(url).content.decode()
+
+    response = client.post(
+        url,
+        {
+            "intent": "decision",
+            "review_id": item.pk,
+            "revision": item.selected_submission_id,
+            "action": "query",
+            "question_submitter_email": "Please sign in with your company email.",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert item.queries.get().field_key == "submitter_email"
+    item.refresh_from_db()
+    assert [query.field_label for query in open_queries(item)] == [
+        "Submitter's email",
+    ]
