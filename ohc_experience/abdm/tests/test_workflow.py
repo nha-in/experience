@@ -802,6 +802,23 @@ def test_queries_pause_until_all_answered_and_resolved(environment):
     assert len(answered) == 2
 
 
+def test_query_mail_keeps_typed_punctuation_as_written(environment):
+    item = submit(environment)
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+    services.decide(
+        item,
+        environment["reviewer"],
+        action="query",
+        note='Isn\'t the R&D report "final"?',
+        field_key="functional_report",
+    )
+    services.reply_query(item.queries.get(), environment["applicant"], "It's final.")
+
+    raised, answered = mail.outbox[-2:]
+    assert 'Isn\'t the R&D report "final"?' in raised.body
+    assert "It's final." in answered.body
+
+
 def test_a_product_edit_applies_at_once_without_a_review(environment):
     product = environment["product"]
     registered_at = product.registered_at

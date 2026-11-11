@@ -1,4 +1,4 @@
-{% load i18n %}{% blocktranslate with title=item.title %}{{ title }} has been reviewed and approved.{% endblocktranslate %}
+{% load i18n %}{% autoescape off %}{% blocktranslate with title=item.title %}{{ title }} has been reviewed and approved.{% endblocktranslate %}
 
 {% translate "Reference" %}: {{ item.reference }}
 {% translate "Organisation" %}: {{ item.organisation.display_name }}
@@ -12,4 +12,4 @@
 {% endif %}
 —
 {% blocktranslate with url=ticket_url %}Open the record in the portal: {{ url }}{% endblocktranslate %}
-{% translate "Please do not reply to this email." %}
+{% translate "Please do not reply to this email." %}{% endautoescape %}

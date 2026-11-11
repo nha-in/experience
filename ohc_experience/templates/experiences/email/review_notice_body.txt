@@ -1,4 +1,4 @@
-{% load i18n %}{% if registered %}{% blocktranslate with org=item.organisation.display_name product=item.product.name %}{{ org }} has registered a new product, {{ product }}, on the portal. The registration form has been submitted in full.{% endblocktranslate %}{% else %}{% blocktranslate with label=label %}Update: {{ label }}.{% endblocktranslate %}{% endif %}
+{% load i18n %}{% autoescape off %}{% if registered %}{% blocktranslate with org=item.organisation.display_name product=item.product.name %}{{ org }} has registered a new product, {{ product }}, on the portal. The registration form has been submitted in full.{% endblocktranslate %}{% else %}{% blocktranslate with label=label %}Update: {{ label }}.{% endblocktranslate %}{% endif %}
 
 {% translate "Reference" %}: {{ item.reference }}
 {% translate "Organisation" %}: {{ item.organisation.display_name }}
@@ -15,4 +15,4 @@
 {% endif %}{% endfor %}
 —
 {% blocktranslate with url=url %}Open the record in the portal: {{ url }}{% endblocktranslate %}
-{% translate "Please do not reply to this email." %}
+{% translate "Please do not reply to this email." %}{% endautoescape %}

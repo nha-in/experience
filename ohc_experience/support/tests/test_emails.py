@@ -83,6 +83,16 @@ def test_the_opening_message_reaches_support_and_copies_the_requester(
     assert f"https://hub.example.in{ticket.get_absolute_url()}" in sent.body
 
 
+def test_typed_punctuation_reaches_the_mail_as_written(ticket, integrator):
+    ticket.subject = "Can't log in & reset"
+    ticket.save()
+    post_reply(ticket, integrator, 'It says "invalid" & stops.', from_nha_team=False)
+
+    sent = mail.outbox[0]
+    assert "Can't log in & reset" in sent.subject
+    assert 'It says "invalid" & stops.' in sent.body
+
+
 @pytest.mark.parametrize(
     ("environment", "line"),
     [
