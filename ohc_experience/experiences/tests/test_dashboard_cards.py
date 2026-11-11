@@ -73,8 +73,8 @@ def test_every_figure_is_the_row_count_of_the_page_it_opens(
     client.force_login(environment["admin"])
 
     # Pending, New and Clarification received. M2 is back with its reply and the
-    # claims product's M1 is new. NHCX waits on M1 and M3, so nothing in it can
-    # be decided yet.
+    # claims product's M1 is new. NHCX waits on M1 and M3, which the admin
+    # decides with it.
     assert {
         track: split_figures(dashboard(client, track)["exit"]) for track in PROGRAMMES
     } == {
@@ -82,7 +82,7 @@ def test_every_figure_is_the_row_count_of_the_page_it_opens(
         "HIE-CM": (2, 1, 1),
         "PHR": (0, 0, 0),
         "UHI": (0, 0, 0),
-        "NHCX": (0, 0, 0),
+        "NHCX": (1, 1, 0),
     }
     for track in PROGRAMMES:
         context = dashboard(client, track)

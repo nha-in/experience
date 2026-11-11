@@ -2794,13 +2794,19 @@ def _prerequisite_label(program, prerequisite):
 
 
 def waiting_rows(items):
-    """What each request waits on, and how many requests wait on it."""
+    """What each request waits on, and how many requests wait on it.
+
+    A prerequisite under review in `items` is not waited on: approve all and
+    reject all decide them together.
+    """
     items = list(items)
+    settled = {item.pk for item in items if item.status == ReviewItem.Status.IN_REVIEW}
     for item in items:
         item.waiting_on = (
             [
                 _prerequisite_label(item.program, prerequisite)
                 for prerequisite in services.pending_prerequisites(item)
+                if not prerequisite.review or prerequisite.review.pk not in settled
             ]
             if item.pending
             else []
@@ -2818,9 +2824,9 @@ def _queue_rows(page, user, matching, tab="all"):
     page = populate_queue_page(page, user, matching)
     for entry in page:
         entry.tab = tab
-    for item in waiting_rows(item for entry in page for item in entry.reviews):
-        held = item.waiting_on and item.status == ReviewItem.Status.IN_REVIEW
-        item.queue_state = "blocked" if held else item.status
+        for item in waiting_rows(entry.reviews):
+            held = item.waiting_on and item.status == ReviewItem.Status.IN_REVIEW
+            item.queue_state = "blocked" if held else item.status
     return page
 
 
@@ -2873,7 +2879,9 @@ def _queue_scopes(query, visible):
     narrow what a tab lists, not whether a product waits on the integrator.
     Every other product is done, so the two tabs add up to All.
     """
-    actionable = services.actionable_reviews()
+    in_review = Q(status=ReviewItem.Status.IN_REVIEW)
+    # What the reviewer can see under review is decided in one batch with it.
+    actionable = in_review & ~services.waiting_reviews(visible.filter(in_review))
     queried = visible.filter(status=ReviewItem.Status.QUERY)
     pending_products = (
         query.filter(actionable)
@@ -2897,8 +2905,12 @@ def _verification_scopes():
     return {"ready": actionable, "decided": ~actionable}
 
 
-def _queue_status_filter(status):
-    """The requests whose chip shows this state, or that Pending's filter names."""
+def _queue_status_filter(status, visible):
+    """The requests whose chip shows this state, or that Pending's filter names.
+
+    A request waits only on what `visible` cannot decide with it, as its chip
+    does.
+    """
     if status in (QUEUE_NEW[0], QUEUE_ANSWERED[0]):
         answered = Q(
             pk__in=ReviewQuery.objects.filter(
@@ -2909,10 +2921,11 @@ def _queue_status_filter(status):
         if status == QUEUE_NEW[0]:
             answered = ~answered
         return Q(status=ReviewItem.Status.IN_REVIEW) & answered
+    settled = visible.filter(status=ReviewItem.Status.IN_REVIEW)
     if status == QUEUE_WAITING[0]:
-        return Q(status=ReviewItem.Status.IN_REVIEW) & services.waiting_reviews()
+        return Q(status=ReviewItem.Status.IN_REVIEW) & services.waiting_reviews(settled)
     if status == ReviewItem.Status.IN_REVIEW:
-        return Q(status=status) & ~services.waiting_reviews()
+        return Q(status=status) & ~services.waiting_reviews(settled)
     return Q(status=status)
 
 
@@ -3024,7 +3037,7 @@ def _queue_list(kind, user, params):
     else:
         query = visible = queue_requests(user)
     if params.get("status"):
-        query = query.filter(_queue_status_filter(params["status"]))
+        query = query.filter(_queue_status_filter(params["status"], query))
     if params.get("track"):
         query = query.filter(_programme_filter(params["track"]))
     search = params.get("q", "").strip()

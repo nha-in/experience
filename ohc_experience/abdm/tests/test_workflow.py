@@ -1336,8 +1336,8 @@ def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client
     assert listed("NHCX") == [nhcx_payer]
     assert m1 in listed("HIE-CM")
     assert nhcx_payer not in listed("HIE-CM")
-    # NHCX waits on M1 and M3, so nothing in it can be decided yet.
-    assert pending_exits(client, "HIE-CM", "NHCX") == {"HIE-CM": 1, "NHCX": 0}
+    # NHCX waits on M1 and M3, which this reviewer decides with it.
+    assert pending_exits(client, "HIE-CM", "NHCX") == {"HIE-CM": 1, "NHCX": 1}
 
 
 def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
@@ -1352,6 +1352,8 @@ def test_track_reviewer_sees_the_prerequisite_wait_but_not_the_prerequisite(
     assert m1 not in rows
     [row] = [review for review in rows if review == nhcx_payer]
     assert [name for name, _status in row.waiting_on] == ["M1", "M3"]
+    assert row.queue_state == "blocked"
+    assert pending_exits(client, "NHCX") == {"NHCX": 0}
 
     html = client.get(
         reverse("experiences:product-detail", args=[nhcx_payer.product.reference]),

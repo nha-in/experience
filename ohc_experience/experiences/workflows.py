@@ -471,12 +471,14 @@ def overridden_prerequisites(item):
     return pending_prerequisites(item)
 
 
-def waiting_reviews():
+def waiting_reviews(settled_with=None):
     """Open reviews that cannot be decided yet: `pending_prerequisites` as a filter.
 
     The queue sorts ready reviews from waiting ones in the database. A join per
     level reaches as far back as the longest chain in any catalog, since
-    dependencies only ever follow a catalog's predecessors.
+    dependencies only ever follow a catalog's predecessors. A prerequisite whose
+    review is in `settled_with` is decided in the same batch, so it holds
+    nothing.
     """
     unsettled = Q(pk__in=[])
     for definition in registry.all():
@@ -491,12 +493,13 @@ def waiting_reviews():
     depth = max((program.longest_chain() for program in registry.programs()), default=0)
     for level in range(1, depth + 1):
         lookup = "__".join(["dependent_applications"] * level)
-        held |= Exists(
-            ApplicationInstance.objects.filter(
-                unsettled,
-                **{lookup: OuterRef("application")},
-            ),
+        prerequisites = ApplicationInstance.objects.filter(
+            unsettled,
+            **{lookup: OuterRef("application")},
         )
+        if settled_with is not None:
+            prerequisites = prerequisites.exclude(review_item__in=settled_with)
+        held |= Exists(prerequisites)
     return Q(status__in=PENDING_STATUSES) & held
 
 

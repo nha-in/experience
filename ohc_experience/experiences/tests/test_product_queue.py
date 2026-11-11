@@ -81,8 +81,8 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
         item.queue_milestone.code for item in entry.reviews if item.queue_milestone
     ]
     assert codes == ["M1", "M2"]
-    # Only M1 can be decided now; M2 waits on it and rides along on its row.
-    assert entry.matching_reviews == [m1]
+    # M2 builds on M1, and approve all decides both.
+    assert entry.matching_reviews == [m1, m2]
     assert entry.url == reverse(
         "experiences:product-detail",
         args=[environment["product"].reference],
@@ -90,7 +90,7 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
     assert entry.url.encode() in response.content
     assert b"Not submitted" not in response.content
     assert m3.get_absolute_url().encode() not in response.content
-    # M2 waits on M1, and still shows beside it; the product counts once.
+    # The product counts once.
     assert response.context["stage_counts"]["ready"] == 1
     assert "waiting" not in response.context["stage_counts"]
 
@@ -103,17 +103,18 @@ def test_queue_chips_put_what_can_be_decided_first_and_the_rest_below(
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
 
-    # M2 waits on M1, so only All shows it, below M1; Pending leaves it out.
-    for scope, done in (("all", ["blocked"]), ("ready", [])):
+    # M2 builds on M1, but approve all decides both, so M2 is under review too.
+    for scope in ("all", "ready"):
         response = client.get(url, {"scope": scope})
         entry = response.context["page"][0]
-        assert [item.queue_state for item in entry.pending_reviews] == ["in_review"]
-        assert [item.queue_state for item in entry.done_reviews] == done
+        assert [item.queue_state for item in entry.pending_reviews] == [
+            "in_review",
+            "in_review",
+        ]
+        assert entry.done_reviews == []
         html = " ".join(response.content.decode().split())
-        pending_row = html[html.index("data-queue-pending") :].split("</ul>", 1)[0]
-        assert "ui-queue-chip--blocked" not in pending_row
-        assert ("data-queue-done" in html) == (scope == "all")
-        assert ("M2 waiting on M1" in html) == (scope == "all")
+        assert 'ui-queue-chip--blocked"' not in html
+        assert "M2 waiting on M1" not in html
 
 
 def test_product_with_an_open_request_is_pending_only_and_done_once_decided(
@@ -143,12 +144,12 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
 ):
     release = submit_release(review_item, owner_membership.user)
     client.force_login(ReviewerFactory(is_nha_team=True))
-    # Under review, but held by INS: nothing the filters match can be decided
-    # now, so it is done, and its chip and the filter say it waits.
+    # Built on INS, which is under review on the same row: approve all decides
+    # both, so its chip and the filter say it is under review, not waiting.
     filters = {
-        "scope": "decided",
+        "scope": "ready",
         "item": "Quality",
-        "status": "waiting",
+        "status": "in_review",
         "q": release.application.reference,
     }
     response = client.get(
@@ -162,18 +163,17 @@ def test_filters_select_products_and_narrow_their_chips_to_matching_requests(
     assert entry.reviews == [release, review_item]
     assert entry.matching_reviews == [release]
     assert response.context["stage_counts"] == {
-        "ready": 0,
-        "decided": 1,
+        "ready": 1,
+        "decided": 0,
         "all": 1,
     }
-    assert b"Waiting on INS" in response.content
     compact = " ".join(response.content.decode().split())
-    assert 'title="REL Release · Under review · waiting on INS"' in compact
+    assert 'title="REL Release · Under review"' in compact
     assert 'title="INS Inspection' not in compact
-    assert "REL waiting on INS" in compact
-    assert "data-queue-pending" not in compact
-    # Its own status no longer finds it: no chip on the row would say so.
-    filters.update(scope="all", status="in_review")
+    assert "REL waiting on INS" not in compact
+    assert "Waiting on INS" not in compact
+    # Waiting no longer finds it: no chip on the row would say so.
+    filters.update(scope="all", status="waiting")
     assert not client.get(reverse("experiences:queue"), filters).context["page"]
 
 

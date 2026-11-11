@@ -344,28 +344,26 @@ def test_withdrawing_names_the_requests_to_withdraw_first(environment, client):
 
 
 def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):
-    """A milestone submitted after the one it builds on stays on its product's
-    entry, but only All shows it, marked as waiting: Pending lists only what can
-    be decided now, and what is already decided."""
+    """A milestone submitted with the one it builds on stays on its product's
+    entry as under review, since approve all decides both."""
     m1, m2 = submit_together(environment, "m1", "m2")
     uhi = submit(environment, "uhi1")
     locker = submit(environment, "p1")
     client.force_login(environment["reviewer"])
 
-    assert set(queue(client)) == {m1, locker}
+    assert set(queue(client)) == {m1, m2, uhi, locker}
     response = client.get(reverse("experiences:queue"))
     assert response.context["queue_scope"] == "ready"
     assert {m2, uhi} <= {
         item for entry in response.context["page"] for item in entry.reviews
     }
     assert "2 waiting on this" in queue_text(client)
-    assert "Waiting on M1 · under review" not in queue_text(client)
-    assert "Waiting on M1 · under review" in queue_text(client, scope="all")
-    # UHI waits on M1, so nothing in it can be decided yet.
+    assert "Waiting on M1" not in queue_text(client, scope="all")
+    # UHI waits on M1, which this reviewer decides with it.
     assert pending_exits(client, "HIE-CM", "PHR", "UHI", "NHCX") == {
         "HIE-CM": 1,
         "PHR": 1,
-        "UHI": 0,
+        "UHI": 1,
         "NHCX": 0,
     }
 
