@@ -802,6 +802,15 @@ def test_queries_pause_until_all_answered_and_resolved(environment):
     assert len(answered) == 2
 
 
+def test_an_assignment_is_mailed_to_the_reviewer_not_the_integrator(environment):
+    item = submit(environment)
+    services.assign_review(item, environment["admin"], environment["reviewer"])
+
+    assigned = mail.outbox[-1]
+    assert "Assigned to you" in assigned.body
+    assert assigned.cc == [environment["reviewer"].email]
+
+
 def test_query_mail_keeps_typed_punctuation_as_written(environment):
     item = submit(environment)
     services.assign_review(item, environment["admin"], environment["reviewer"])

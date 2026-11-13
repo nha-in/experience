@@ -112,7 +112,8 @@ def notify_review(
     A query notice carries each question under the field it asks about.
 
     Support is the recipient; the applicant and the assigned decision maker are
-    copied so an assignment or status update reaches them without a new subject.
+    copied so a status update reaches them without a new subject. An assignment
+    is internal, so it reaches the decision maker only.
     """
     context = {
         "item": item,
@@ -133,7 +134,7 @@ def notify_review(
         item,
         subject,
         render_to_string("experiences/email/review_notice_body.txt", context),
-        _copies(_applicant(item), item.assignee),
+        _copies(None if event == "assigned" else _applicant(item), item.assignee),
         TEMPLATE_KEY,
     )
 
