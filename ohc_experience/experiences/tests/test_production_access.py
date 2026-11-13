@@ -368,6 +368,9 @@ def test_list_tabs_search_and_export(environment, client):
     assert values["Production client ID"] == "PROD-1"
     assert values["Production issue date"] == timezone.localdate().isoformat()
     assert values["Added on"]
+    assert values["Product description"] == product.description
+    assert values["Applied milestones"]
+    assert values["Product registered by"] == product.created_by.email
     assert values["Approved milestones"] == "M1"
     assert values["Owner email"] == environment["applicant"].email
     assert values["Added by"] == environment["reviewer"].email

@@ -321,8 +321,8 @@ def test_product_and_organisation_exports_carry_client_ids(environment, client):
     exported = rows(
         client.get(reverse("experiences:organizations"), {"export": "xlsx"}),
     )
-    assert exported[0][-3:] == ["Product", "Sandbox client ID", "Production client ID"]
-    assert exported[1][-3:] == [product.name, client_id, "PROD-1"]
+    assert exported[0][-2:] == ["Sandbox client ID", "Production client ID"]
+    assert exported[1][-2:] == [client_id, "PROD-1"]
 
 
 def test_the_organisation_export_gives_each_product_a_row(environment, client):
@@ -338,8 +338,31 @@ def test_the_organisation_export_gives_each_product_a_row(environment, client):
     exported = rows(
         client.get(reverse("experiences:organizations"), {"export": "xlsx"}),
     )
-    assert [row[-3:] for row in exported[1:]] == [
+    product_column = exported[0].index("Product")
+    assert [[row[product_column], *row[-2:]] for row in exported[1:]] == [
         [product.name, product.credential.client_id, ""],
         ["Zeta clinic app", "", ""],
     ]
     assert {row[0] for row in exported[1:]} == {organisation.display_name}
+
+
+def test_the_organisation_export_carries_every_detail(environment, client):
+    product = environment["product"]
+    client.force_login(environment["admin"])
+    header, row = rows(
+        client.get(reverse("experiences:organizations"), {"export": "xlsx"}),
+    )
+    assert header == list(views.ORGANISATION_EXPORT_HEADER)
+    values = dict(zip(header, row, strict=True))
+    assert values["Category"] == "Entity in India"
+    assert values["Registered address"] == "42 Technology Park, Bengaluru"
+    assert values["PIN code"] == "560001"
+    assert values["Document type"] == "CIN"
+    assert values["Document number"] == "L12345KA2020PLC123456"
+    assert values["Owner email"] == environment["applicant"].email
+    assert values["Product reference"] == product.reference
+    assert values["Product description"] == product.description
+    assert values["Applied milestones"] == (
+        "HIE-CM M1, HIE-CM M2, HIE-CM M3, HIE-CM M4, UHI"
+    )
+    assert values["Product registered by"] == environment["applicant"].email

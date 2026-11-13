@@ -58,7 +58,9 @@ from ohc_experience.integrations.selectors import teardown_is_incomplete
 from ohc_experience.integrations.services import start_deprovisioning
 from ohc_experience.integrations.services import start_provisioning
 from ohc_experience.organisations.models import GOVERNMENT
+from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.models import Organisation
+from ohc_experience.organisations.models import Role
 from ohc_experience.organisations.selectors import get_membership_for
 from ohc_experience.support.models import Status
 from ohc_experience.support.models import Ticket
@@ -641,15 +643,28 @@ def _organisation_columns():
 
 ORGANISATION_EXPORT_HEADER = (
     "Organisation",
+    "Name of the entity",
     "Type of entity",
+    "Category",
+    "Description",
+    "Website",
+    "Registered address",
+    "PIN code",
     "State",
     "District",
+    "Document type",
+    "Document number",
+    "Owner",
+    "Owner email",
+    "Owner mobile",
     "Verification",
     "Products",
     "Open requests",
     "Registered on",
     "Verified on",
+    "Product reference",
     "Product",
+    *production_services.PRODUCT_DETAIL_HEADER,
     "Sandbox client ID",
     "Production client ID",
 )
@@ -669,24 +684,60 @@ def _with_labels(organisations):
 
 def _organisation_export_rows(organisations):
     """A row per product, the organisation repeated; one row when it has none."""
-    for organisation in _with_labels(organisations):
-        details = (
+    categories = dict(
+        get_program().organisation_form.form_class.base_fields["category"].choices,
+    )
+    organisations = list(_with_labels(organisations))
+    details = {
+        product.pk: product
+        for product in production_services.with_details(
+            product
+            for organisation in organisations
+            for product in organisation.export_products
+        )
+    }
+    for organisation in organisations:
+        verification = next(iter(organisation.export_verifications), None)
+        submission = verification and verification.selected_submission
+        data = submission.data if submission else {}
+        owners = organisation.owner_memberships
+        owner = owners[0].user if owners else None
+        cells = (
             organisation.display_name,
+            data.get("name") or organisation.name,
             organisation.entity_type_label,
+            categories.get(data.get("category"), data.get("category", "")),
+            data.get("description", ""),
+            organisation.website,
+            data.get("registered_address", ""),
+            data.get("pincode", ""),
             organisation.state_label,
             organisation.city,
+            data.get("verification_document_type", ""),
+            data.get("verification_document_number", ""),
+            owner.name if owner else "",
+            owner.email if owner else "",
+            owner.phone_number if owner else "",
             organisation.get_verification_status_display(),
             organisation.visible_product_count,
             organisation.open_count,
             tables.day(organisation.created_at),
             tables.day(organisation.verified_at),
         )
-        for product in organisation.export_products or [None]:
+        if not organisation.export_products:
+            blank = len(production_services.PRODUCT_DETAIL_HEADER) + 4
+            yield (*cells, *[""] * blank)
+        for product in organisation.export_products:
             yield (
-                *details,
-                product.name if product else "",
-                _client_id(product) if product else "",
-                product.production_client_id if product else "",
+                *cells,
+                product.reference,
+                product.name,
+                *production_services.detail_cells(
+                    details[product.pk],
+                    day=tables.day,
+                ),
+                _client_id(product),
+                product.production_client_id,
             )
 
 
@@ -731,9 +782,15 @@ def organizations(request):
     if export := tables.export_format(request):
         products = (
             permissions.visible_products(request.user)
-            .select_related("credential")
+            .select_related("credential", "created_by")
             .order_by("name", "pk")
         )
+        verifications = (
+            ReviewItem.objects.filter(kind=ReviewItem.Kind.ORGANISATION)
+            .select_related("selected_submission")
+            .order_by("-pk")
+        )
+        owners = Membership.objects.filter(role=Role.OWNER).select_related("user")
         return tables.export_response(
             export,
             "organisations",
@@ -741,6 +798,16 @@ def organizations(request):
             _organisation_export_rows(
                 rows.prefetch_related(
                     Prefetch("products", queryset=products, to_attr="export_products"),
+                    Prefetch(
+                        "review_items",
+                        queryset=verifications,
+                        to_attr="export_verifications",
+                    ),
+                    Prefetch(
+                        "memberships",
+                        queryset=owners,
+                        to_attr="owner_memberships",
+                    ),
                 ),
             ),
         )

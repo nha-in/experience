@@ -202,6 +202,18 @@ class Product(models.Model):
         return ", ".join(labels.get(key, key) for key in self.solution_type)
 
     @property
+    def applied_milestone_codes(self):
+        """Applied milestones as "HIE-CM M1", or "UHI" where code and track match."""
+        milestones = self.definition.milestones
+        codes = []
+        for selection in self.applied_milestones:
+            track, _, key = selection.rpartition(":")
+            milestone = milestones.get(key)
+            code = milestone.code if milestone else key
+            codes.append(code if code == track else f"{track} {code}".strip())
+        return sorted(codes)
+
+    @property
     def registration(self):
         """The review item this product was registered through."""
         return self.review_items.filter(kind=ReviewItem.Kind.PRODUCT).first()

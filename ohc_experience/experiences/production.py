@@ -35,6 +35,7 @@ from .models import AuditEvent
 from .models import Milestone
 from .models import Product
 from .models import ProductCredential
+from .models import ReviewItem
 from .permissions import has_access
 from .workflows import audit
 from .workflows import integrator_emails
@@ -378,9 +379,19 @@ def _from_iso(value):
         return None
 
 
+PRODUCT_DETAIL_HEADER = (
+    "Product description",
+    "Solution type",
+    "Other solution type",
+    "Applied milestones",
+    "Product registered on",
+    "Product registered by",
+)
+
 EXPORT_HEADER = (
     "Product reference",
     "Product",
+    *PRODUCT_DETAIL_HEADER,
     "Organisation",
     "State",
     "District",
@@ -406,9 +417,35 @@ def _date(value):
     return value.isoformat()
 
 
+def with_details(products):
+    """Products with the free-text solution type their registration gave."""
+    products = list(products)
+    other = dict(
+        ReviewItem.objects.filter(
+            kind=ReviewItem.Kind.PRODUCT,
+            product__in=products,
+        ).values_list("product_id", "selected_submission__data__solution_type_other"),
+    )
+    for product in products:
+        product.other_solution_type = other.get(product.pk) or ""
+    return products
+
+
+def detail_cells(product, day=_date):
+    """The PRODUCT_DETAIL_HEADER cells; needs with_details and created_by."""
+    return (
+        product.description,
+        product.get_solution_type_display(),
+        product.other_solution_type,
+        ", ".join(product.applied_milestone_codes),
+        day(product.registered_at),
+        product.created_by.email,
+    )
+
+
 def export_rows(query):
     products = with_codes(
-        query.prefetch_related(
+        query.select_related("created_by").prefetch_related(
             Prefetch(
                 "organisation__memberships",
                 queryset=Membership.objects.filter(role=Role.OWNER).select_related(
@@ -418,13 +455,14 @@ def export_rows(query):
             ),
         ),
     )
-    for product in products:
+    for product in with_details(products):
         organisation = product.organisation
         owners = organisation.owner_memberships
         owner = owners[0].user if owners else None
         yield (
             product.reference,
             product.name,
+            *detail_cells(product),
             organisation.display_name,
             organisation.state,
             organisation.city,
