@@ -88,7 +88,8 @@ def test_product_queue_combines_submitted_milestones_and_hides_unsubmitted(
         args=[environment["product"].reference],
     )
     assert entry.url.encode() in response.content
-    assert b"Not submitted" not in response.content
+    # Only the WASA badge says it; no unsubmitted milestone is listed.
+    assert response.content.count(b"Not submitted") == 1
     assert m3.get_absolute_url().encode() not in response.content
     # The product counts once.
     assert response.context["stage_counts"]["ready"] == 1
@@ -674,3 +675,21 @@ def test_back_to_the_queue_keeps_its_filters(client, review_item):
     url = reverse("experiences:product-detail", args=[review_item.product.reference])
     back = f"{reverse('experiences:queue')}?scope=all&amp;q=sunrise"
     assert back in client.get(url).content.decode()
+
+
+def test_queue_contact_is_the_owner_else_whoever_registered_the_product(
+    environment,
+    client,
+):
+    submit(environment, "m1")
+    owner, product = environment["applicant"], environment["product"]
+    owner.phone_number = ""
+    owner.save(update_fields=["phone_number"])
+    product.created_by = UserFactory(phone_number="+91 70123 45678")
+    product.save(update_fields=["created_by"])
+    client.force_login(environment["reviewer"])
+    response = client.get(reverse("experiences:queue"))
+    (entry,) = response.context["page"]
+    assert entry.product.contact_email == owner.email
+    assert entry.product.contact_mobile == "+91 70123 45678"
+    assert "+91 70123 45678" in response.content.decode()

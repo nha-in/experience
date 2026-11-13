@@ -132,7 +132,7 @@ def test_the_queue_sorts_by_product_and_downloads_every_entry(environment, clien
     url = reverse("experiences:queue")
     response = client.get(url, {"scope": "all", "sort": "title"})
     assert response.context["table_sort"] == "title"
-    assert 'aria-sort="ascending"' in response.content.decode()
+    assert '<option value="title" selected>' in response.content.decode()
     exported = rows(
         client.get(url, {"scope": "all", "sort": "title", "export": "xlsx"}),
     )
@@ -162,15 +162,13 @@ def test_every_queue_column_sorts_and_keeps_every_entry(environment, client):
         assert sorted(listed(sort)) == sorted(entries)
     # The youngest entry is the newest one.
     assert listed("age") == entries
-    header = client.get(url, {"scope": "all"}).content.decode()
-    header = header[header.index("<thead") : header.index("</thead>")]
-    assert (
-        header.count("<th ")
-        == header.count('class="ui-sort"')
-        == len(
-            {sort.removeprefix("-") for sort in QUEUE_SORTS},
-        )
-    )
+    page = client.get(url, {"scope": "all"}).content.decode()
+    start = page.index('id="queue-sort"')
+    menu = page[start : page.index("</select>", start)]
+    # Age is Submitted read the other way, so the Sort menu has no Age of its own.
+    assert set(re.findall(r'<option value="([^"]+)"', menu)) == {
+        sort for sort in QUEUE_SORTS if "age" not in sort
+    }
 
 
 SORT_LINK = re.compile(r'class="ui-sort" href="([^"]*)"')

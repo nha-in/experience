@@ -17,6 +17,9 @@ from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils import timezone
 
+from ohc_experience.organisations.models import Membership
+from ohc_experience.organisations.models import Role
+
 from . import permissions
 from . import tables
 from .models import Product
@@ -289,9 +292,33 @@ def review_order(review):
 def populate_queue_page(page, user, matching):
     """Load status context only for this page and the reviewer's visible scope."""
     groups = list(page.object_list)
-    products = Product.objects.select_related("organisation").in_bulk(
-        [row["product_id"] for row in groups],
-    )
+    products = Product.objects.select_related(
+        "organisation",
+        "credential",
+        "created_by",
+    ).in_bulk([row["product_id"] for row in groups])
+    owners = {
+        membership.organisation_id: membership.user
+        for membership in Membership.objects.filter(
+            organisation_id__in={p.organisation_id for p in products.values()},
+            role=Role.OWNER,
+        ).select_related("user")
+    }
+    entity_types = dict(get_program().signup_organisation_choices)
+    for product in products.values():
+        organisation = product.organisation
+        organisation.entity_type_label = entity_types.get(
+            organisation.entity_type,
+            organisation.entity_type,
+        )
+        # The organisation's owner, else whoever registered the product.
+        owner = owners.get(product.organisation_id)
+        product.contact_email = (owner and owner.email) or product.created_by.email
+        product.contact_mobile = (
+            owner and owner.phone_number
+        ) or product.created_by.phone_number
+        # shortcut: a few queries per row; annotate the page if the queue slows.
+        product.wasa = product.definition.certification_context(product)
     matches = defaultdict(set)
     for product_id, review_id in matching.filter(
         product_id__in=products,
