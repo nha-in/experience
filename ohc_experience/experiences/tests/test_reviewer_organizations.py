@@ -75,6 +75,36 @@ def test_reviewer_navigation_and_organization_detail(environment, client):
     assert f'href="{product.get_absolute_url()}"'.encode() not in detail.content
 
 
+def test_organization_detail_shows_the_submitted_form_and_owner(environment, client):
+    owner = environment["applicant"]
+    owner.phone_number = "+919876543210"
+    owner.save(update_fields=["phone_number"])
+    organization = environment["org"]
+    submission = organization.review_items.get(
+        kind="organisation_verification",
+    ).selected_submission
+    document = submission.attachments.get(field_key="supporting_document")
+
+    client.force_login(environment["reviewer"])
+    page = client.get(
+        reverse("experiences:organization-detail", args=[organization.slug]),
+    ).content.decode()
+
+    for shown in (
+        "Private company",
+        "Entity in India",
+        "Digital health systems for connected care.",
+        "560001",
+        reverse(
+            "experiences:attachment-preview",
+            args=[document.pk, document.original_name],
+        ),
+        f'href="mailto:{owner.email}"',
+        'href="tel:+919876543210"',
+    ):
+        assert shown in page
+
+
 def test_organization_pages_follow_category_review_scope(environment, client):
     visible_item = submit(environment, "p1")
     # P1 sits on the organisation's PHR product, not on its HIE-CM one.

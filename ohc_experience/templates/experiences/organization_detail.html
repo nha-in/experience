@@ -10,28 +10,131 @@
         <a class="ui-hero-back min-h-9"
            href="{% url 'experiences:organizations' %}"><span aria-hidden="true">‹</span> Organisations</a>
         <h1 class="ui-hero-title">{{ organization.display_name }}</h1>
-        <dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-          {% if organization_details.verification_document_number %}
-            <dt class="text-soft-foreground">{{ organization_details.verification_document_type }}</dt>
-            <dd class="font-mono break-all">
-              {{ organization_details.verification_document_number }}
-            </dd>
+        {% if organization_details.description.value %}
+          <p class="ui-hero-lede break-words">{{ organization_details.description.value|linebreaksbr }}</p>
+        {% endif %}
+      </div>
+      <div class="ui-rise flex shrink-0 flex-col items-start gap-1 [animation-delay:.05s] sm:items-end">
+        {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
+        {% if organization.verified_at %}<span class="text-xs text-soft-foreground">Verified {{ organization.verified_at|date:'d/m/Y' }}</span>{% endif %}
+      </div>
+      <div class="ui-rise w-full [animation-delay:.1s]">
+        <div class="grid gap-3 lg:grid-cols-3">
+          {% if organization_details.entity_type.value or organization_details.category.value or organization_details.verification_document_number.value or organization_details.supporting_document.files %}
+            <section class="ui-card gap-3 px-5 py-4"
+                     aria-labelledby="organization-registration">
+              <h2 class="ui-kicker" id="organization-registration">Registration</h2>
+              <dl class="grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-1 xl:grid-cols-2">
+                {% if organization_details.entity_type.value %}
+                  <div class="min-w-0">
+                    <dt class="text-xs text-soft-foreground">Type of entity</dt>
+                    <dd class="mt-0.5 break-words">
+                      {{ organization_details.entity_type.value }}
+                    </dd>
+                  </div>
+                {% endif %}
+                {% if organization_details.category.value %}
+                  <div class="min-w-0">
+                    <dt class="text-xs text-soft-foreground">Category</dt>
+                    <dd class="mt-0.5 break-words">
+                      {{ organization_details.category.value }}
+                    </dd>
+                  </div>
+                {% endif %}
+                {% if organization_details.verification_document_number.value or organization_details.supporting_document.files %}
+                  <div class="col-span-full min-w-0">
+                    <dt class="text-xs text-soft-foreground">
+                      {% if organization_details.verification_document_number.value %}
+                        {{ organization_details.verification_document_type.value|default:'Document number' }}
+                      {% else %}
+                        Verification document
+                      {% endif %}
+                    </dt>
+                    <dd class="mt-0.5 flex min-w-0 flex-col">
+                      {% if organization_details.verification_document_number.value %}
+                        <span class="font-mono break-all">{{ organization_details.verification_document_number.value }}</span>
+                      {% endif %}
+                      {% for file in organization_details.supporting_document.files %}
+                        <a class="break-all text-primary hover:underline"
+                           href="{% url 'experiences:attachment-preview' file.pk file.original_name %}"
+                           target="_blank"
+                           rel="noopener"
+                           hx-boost="false">{{ file.original_name }} {% include "components/new_tab_mark.html" %}</a>
+                      {% endfor %}
+                    </dd>
+                  </div>
+                {% endif %}
+              </dl>
+            </section>
           {% endif %}
-          <dt class="text-soft-foreground">Address</dt>
-          <dd class="break-words">
-            {{ organization_details.registered_address|default:organization.city|default:'—' }}{% if organization_details.district %}, {{ organization_details.district }}{% endif %}{% if organization_details.state %}, {{ organization_details.state }}{% elif organization.state %}, {{ organization.state }}{% endif %}
-          </dd>
-          {% if organization.website %}
-            <dt class="text-soft-foreground">Website</dt>
-            <dd class="break-all">
-              <a class="text-primary hover:underline"
-                 href="{{ organization.website }}"
-                 target="_blank"
-                 rel="noopener noreferrer">{{ organization.website }} {% include "components/new_tab_mark.html" %}</a>
-            </dd>
-          {% endif %}
-        </dl>
-        <p class="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <section class="ui-card gap-3 px-5 py-4"
+                   aria-labelledby="organization-address">
+            <h2 class="ui-kicker" id="organization-address">Address and web</h2>
+            <dl class="grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-1 xl:grid-cols-2">
+              <div class="col-span-full min-w-0">
+                <dt class="text-xs text-soft-foreground">Address</dt>
+                <dd class="mt-0.5 break-words">
+                  {{ organization_details.registered_address.value|default:organization.city|default:'—' }}{% if organization_details.district.value %}, {{ organization_details.district.value }}{% endif %}{% if organization_details.state.value %}, {{ organization_details.state.value }}{% elif organization.state %}, {{ organization.state }}{% endif %}{% if organization_details.pincode.value %} {{ organization_details.pincode.value }}{% endif %}
+                </dd>
+              </div>
+              {% if organization.website %}
+                <div class="min-w-0">
+                  <dt class="text-xs text-soft-foreground">Website</dt>
+                  <dd class="mt-0.5 break-all">
+                    <a class="text-primary hover:underline"
+                       href="{{ organization.website }}"
+                       target="_blank"
+                       rel="noopener noreferrer">{{ organization.website_domain|default:organization.website }} {% include "components/new_tab_mark.html" %}</a>
+                  </dd>
+                </div>
+              {% endif %}
+              {% if organization_details.logo.link %}
+                <div class="min-w-0">
+                  <dt class="text-xs text-soft-foreground">Logo</dt>
+                  <dd class="mt-0.5">
+                    <a class="text-primary hover:underline"
+                       href="{{ organization_details.logo.link }}"
+                       target="_blank"
+                       rel="noopener noreferrer">View logo {% include "components/new_tab_mark.html" %}</a>
+                  </dd>
+                </div>
+              {% endif %}
+            </dl>
+          </section>
+          {% with owner=organization.owner %}
+            {% if owner %}
+              <section class="ui-card gap-3 px-5 py-4" aria-labelledby="organization-owner">
+                <h2 class="ui-kicker" id="organization-owner">Owner</h2>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-1 xl:grid-cols-2">
+                  <div class="min-w-0">
+                    <dt class="text-xs text-soft-foreground">Name</dt>
+                    <dd class="mt-0.5 break-words">
+                      {{ owner.display_name }}
+                    </dd>
+                  </div>
+                  <div class="min-w-0">
+                    <dt class="text-xs text-soft-foreground">Mobile</dt>
+                    <dd class="mt-0.5 tabular-nums">
+                      {% if owner.phone_number %}
+                        <a class="text-primary hover:underline"
+                           href="tel:{{ owner.phone_number }}">{{ owner.phone_number }}</a>
+                      {% else %}
+                        Not given
+                      {% endif %}
+                    </dd>
+                  </div>
+                  <div class="col-span-full min-w-0">
+                    <dt class="text-xs text-soft-foreground">Email</dt>
+                    <dd class="mt-0.5 break-all">
+                      <a class="text-primary hover:underline" href="mailto:{{ owner.email }}">{{ owner.email }}</a>
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            {% endif %}
+          {% endwith %}
+        </div>
+        <p class="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
           {% if waiting_count %}
             <span><strong class="font-semibold tabular-nums text-primary">{{ waiting_count }}</strong> request{{ waiting_count|pluralize }} waiting for you</span>
           {% else %}
@@ -44,10 +147,6 @@
             <span aria-hidden="true">·</span><span><strong class="font-semibold tabular-nums text-primary">{{ wasa_expiring }}</strong> WASA certificate{{ wasa_expiring|pluralize }} expiring within 30 days</span>
           {% endif %}
         </p>
-      </div>
-      <div class="ui-rise flex shrink-0 flex-col items-start gap-1 [animation-delay:.05s] sm:items-end">
-        {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
-        {% if organization.verified_at %}<span class="text-xs text-soft-foreground">Verified {{ organization.verified_at|date:'d/m/Y' }}</span>{% endif %}
       </div>
     </div>
   </div>

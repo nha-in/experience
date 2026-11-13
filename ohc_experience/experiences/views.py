@@ -49,6 +49,7 @@ from ohc_experience.events_and_activities.models import Event
 from ohc_experience.experiences.definitions import DocumentReadError
 from ohc_experience.experiences.definitions import readable_list
 from ohc_experience.experiences.models import FormAttachment
+from ohc_experience.experiences.templatetags.experience_ui import snapshot_rows
 from ohc_experience.integrations.selectors import awaiting_provisioning
 from ohc_experience.integrations.selectors import bridge_state
 from ohc_experience.integrations.selectors import latest_run
@@ -1018,11 +1019,12 @@ def organization_detail(request, slug):
             page_title=organization.display_name,
             nav="organizations",
             organization=organization,
-            organization_details=(
-                verification.selected_submission.data
-                if verification and verification.selected_submission
-                else {}
-            ),
+            organization_details={
+                row["key"]: row
+                for row in snapshot_rows(
+                    verification.selected_submission if verification else None,
+                )
+            },
             verification=verification,
             withdrawn_verification=verification if withdrawn else None,
             withdrawn_at=services.withdrawn_at(verification) if withdrawn else None,
