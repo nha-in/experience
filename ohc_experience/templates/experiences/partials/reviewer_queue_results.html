@@ -106,7 +106,7 @@
                   </dt>
                   {% if product.wasa.agency %}
                     <dd class="mt-0.5">
-                      {{ product.wasa.agency }}{% if product.wasa.audit_date %} · <span class="tabular-nums">{{ product.wasa.audit_date|date:'d/m/Y' }}</span>{% endif %}
+                      {{ product.wasa.agency }}{% if product.wasa.audit_date %}<br />Audited <span class="tabular-nums">{{ product.wasa.audit_date|date:'d/m/Y' }}</span>{% endif %}
                     </dd>
                   {% else %}
                     <dd class="sr-only">
