@@ -371,6 +371,11 @@ def test_list_tabs_search_and_export(environment, client):
     assert values["Product description"] == product.description
     assert values["Applied milestones"]
     assert values["Product registered by"] == product.created_by.email
+    assert values["Status"] == "Approved"
+    assert values["Type of entity"] == "Private company"
+    assert values["Category"] == "Entity in India"
+    assert values["Registered address"] == "42 Technology Park, Bengaluru"
+    assert values["Website"] == product.organisation.website
     assert values["Approved milestones"] == "M1"
     assert values["Owner email"] == environment["applicant"].email
     assert values["Added by"] == environment["reviewer"].email

@@ -698,9 +698,7 @@ def _organisation_export_rows(organisations):
         )
     }
     for organisation in organisations:
-        verification = next(iter(organisation.export_verifications), None)
-        submission = verification and verification.selected_submission
-        data = submission.data if submission else {}
+        data = production_services.verification_data(organisation)
         owners = organisation.owner_memberships
         owner = owners[0].user if owners else None
         cells = (
@@ -786,11 +784,6 @@ def organizations(request):
             .select_related("credential", "created_by")
             .order_by("name", "pk")
         )
-        verifications = (
-            ReviewItem.objects.filter(kind=ReviewItem.Kind.ORGANISATION)
-            .select_related("selected_submission")
-            .order_by("-pk")
-        )
         owners = Membership.objects.filter(role=Role.OWNER).select_related("user")
         return tables.export_response(
             export,
@@ -801,7 +794,7 @@ def organizations(request):
                     Prefetch("products", queryset=products, to_attr="export_products"),
                     Prefetch(
                         "review_items",
-                        queryset=verifications,
+                        queryset=production_services.VERIFICATIONS,
                         to_attr="export_verifications",
                     ),
                     Prefetch(

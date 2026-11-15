@@ -391,10 +391,15 @@ PRODUCT_DETAIL_HEADER = (
 EXPORT_HEADER = (
     "Product reference",
     "Product",
+    "Status",
     *PRODUCT_DETAIL_HEADER,
     "Organisation",
+    "Type of entity",
+    "Category",
+    "Registered address",
     "State",
     "District",
+    "Website",
     "Owner",
     "Owner email",
     "Owner mobile",
@@ -443,6 +448,20 @@ def detail_cells(product, day=_date):
     )
 
 
+VERIFICATIONS = (
+    ReviewItem.objects.filter(kind=ReviewItem.Kind.ORGANISATION)
+    .select_related("selected_submission")
+    .order_by("-pk")
+)
+
+
+def verification_data(organisation):
+    """Answers on the newest verification; needs export_verifications prefetched."""
+    verification = next(iter(organisation.export_verifications), None)
+    submission = verification and verification.selected_submission
+    return submission.data if submission else {}
+
+
 def export_rows(query):
     products = with_codes(
         query.select_related("created_by").prefetch_related(
@@ -453,19 +472,35 @@ def export_rows(query):
                 ),
                 to_attr="owner_memberships",
             ),
+            Prefetch(
+                "organisation__review_items",
+                queryset=VERIFICATIONS,
+                to_attr="export_verifications",
+            ),
         ),
     )
     for product in with_details(products):
         organisation = product.organisation
         owners = organisation.owner_memberships
         owner = owners[0].user if owners else None
+        program = product.definition
+        entity_types = dict(program.signup_organisation_choices)
+        categories = dict(
+            program.organisation_form.form_class.base_fields["category"].choices,
+        )
+        data = verification_data(organisation)
         yield (
             product.reference,
             product.name,
+            "Approved" if product.production_client_id else "Pending",
             *detail_cells(product),
             organisation.display_name,
+            entity_types.get(organisation.entity_type, organisation.entity_type),
+            categories.get(data.get("category"), data.get("category", "")),
+            data.get("registered_address", ""),
             organisation.state,
             organisation.city,
+            organisation.website,
             owner.name if owner else "",
             owner.email if owner else "",
             owner.phone_number if owner else "",
