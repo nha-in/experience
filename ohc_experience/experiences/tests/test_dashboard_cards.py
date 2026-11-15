@@ -45,6 +45,7 @@ def split_figures(split):
     return (
         split["pending"]["count"],
         split["new"]["count"],
+        split["raised"]["count"],
         split["answered"]["count"],
     )
 
@@ -53,6 +54,7 @@ def links(context):
     for split in (context["onboarding_queue"], context["exit"]):
         yield split["pending"]
         yield split["new"]
+        yield split["raised"]
         yield split["answered"]
     yield from context["standings"].values()
 
@@ -72,17 +74,17 @@ def test_every_figure_is_the_row_count_of_the_page_it_opens(
     claims_exit(environment, "m1", "m3", "nhcx_payer")
     client.force_login(environment["admin"])
 
-    # Pending, New and Clarification received. M2 is back with its reply and the
-    # claims product's M1 is new. NHCX waits on M1 and M3, which the admin
-    # decides with it.
+    # Pending, New, Clarification raised and received. M2 is back with its
+    # reply and the claims product's M1 is new. NHCX waits on M1 and M3, which
+    # the admin decides with it.
     assert {
         track: split_figures(dashboard(client, track)["exit"]) for track in PROGRAMMES
     } == {
-        "": (2, 1, 1),
-        "HIE-CM": (2, 1, 1),
-        "PHR": (0, 0, 0),
-        "UHI": (0, 0, 0),
-        "NHCX": (1, 1, 0),
+        "": (2, 1, 0, 1),
+        "HIE-CM": (2, 1, 0, 1),
+        "PHR": (0, 0, 0, 0),
+        "UHI": (0, 0, 0, 0),
+        "NHCX": (1, 1, 0, 0),
     }
     for track in PROGRAMMES:
         context = dashboard(client, track)
@@ -117,17 +119,37 @@ def test_an_organisation_counts_in_the_programmes_of_its_products(
             assert rows(client, link["url"]) == link["count"], link["label"]
         return split_figures(context["onboarding_queue"])
 
-    assert figures() == (0, 0, 0)
+    assert figures() == (0, 0, 0, 0)
 
     product, form = services.register_product(org, owner, data=product_data("New"))
     assert product, form.errors
-    assert figures() == figures("HIE-CM") == figures("UHI") == (1, 1, 0)
-    assert figures("PHR") == (0, 0, 0)
+    assert figures() == figures("HIE-CM") == figures("UHI") == (1, 1, 0, 0)
+    assert figures("PHR") == (0, 0, 0, 0)
 
     services.decide(item, environment["reviewer"], action="query", note="Which PAN?")
-    assert figures() == (0, 0, 0)
+    assert figures() == (0, 0, 1, 0)
     services.reply_query(item.queries.get(), owner, "The one on the certificate.")
-    assert figures() == (1, 0, 1)
+    assert figures() == (1, 0, 0, 1)
+
+
+def test_a_query_counts_as_raised_until_the_integrator_replies(
+    environment,  # noqa: F811
+    client,
+):
+    approve(environment, "m1")
+    m2 = submit(environment, "m2")
+    services.decide(m2, environment["reviewer"], action="query", note="Which tests?")
+    client.force_login(environment["admin"])
+
+    def figures():
+        context = dashboard(client)
+        for link in links(context):
+            assert rows(client, link["url"]) == link["count"], link["label"]
+        return split_figures(context["exit"])
+
+    assert figures() == (0, 0, 1, 0)
+    services.reply_query(m2.queries.get(), environment["applicant"], "Cases 2 and 5.")
+    assert figures() == (1, 0, 0, 1)
 
 
 def test_wasa_figures_follow_each_product_s_current_certificate(

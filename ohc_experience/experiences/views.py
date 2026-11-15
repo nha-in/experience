@@ -2693,15 +2693,23 @@ def _dashboard_queues(user, program, track):
 
 
 def _queue_split(user, params):
-    """A queue's Pending rows, the new ones, and those back with a reply."""
+    """A queue's Pending rows, the new ones, those waiting on a reply to a
+    query, and those back with one."""
     new = _queue_tile(user, QUEUE_NEW[1], status=QUEUE_NEW[0], **params)
+    # Waiting on the integrator, so off the Pending tab.
+    raised = _queue_tile(
+        user,
+        "Clarification raised",
+        **params | {"scope": "all", "status": ReviewItem.Status.QUERY.value},
+    )
     answered = _queue_tile(user, QUEUE_ANSWERED[1], status=QUEUE_ANSWERED[0], **params)
     both = new["count"] + answered["count"]
     return {
         "pending": _queue_tile(user, "Pending", **params),
         "new": new,
+        "raised": raised,
         "answered": answered,
-        "tiles": [new, answered],
+        "tiles": [new, raised, answered],
         "new_share": round(new["count"] / both * 100) if both else 0,
         "answered_share": round(answered["count"] / both * 100) if both else 0,
     }

@@ -9,9 +9,9 @@
         {{ split.pending.count }} pending
       </p>
     </div>
-    <div class="ui-card-content grid grid-cols-2 gap-2.5">
+    <div class="ui-card-content grid grid-cols-3 gap-2.5">
       {% for tile in split.tiles %}
-        <a class="ui-stat"
+        <a class="ui-stat justify-between"
            href="{{ tile.url }}"
            aria-label="{{ tile.label }} in {{ title }}: {{ tile.count }}">
           <span class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
