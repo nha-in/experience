@@ -113,6 +113,9 @@
                   <a class="font-semibold text-foreground no-underline group-hover:text-primary"
                      href="{% url 'experiences:organization-detail' organization.slug %}"
                      data-row-link>{{ organization.display_name }}</a>
+                  {% if search %}
+                    {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:organization.slug %}
+                  {% endif %}
                 </td>
                 <td class="text-muted-foreground">{{ organization.entity_type_label|default:'—' }}</td>
                 <td class="text-muted-foreground">{{ organization.state_label|default:'—' }}</td>
@@ -123,26 +126,40 @@
                 </td>
                 <td class="whitespace-nowrap tabular-nums">{{ organization.created_at|date:'d/m/Y' }}</td>
               </tr>
+              {% if search %}
+                <tr id="organisation-details-{{ organization.slug }}"
+                    data-details-row
+                    hidden>
+                  <td class="bg-slate-50 pl-12" colspan="7">
+                    {% include 'experiences/partials/organisation_details.html' with organisation=organization %}
+                  </td>
+                </tr>
+              {% endif %}
             {% endfor %}
           </tbody>
         </table>
       </div>
       <div class="divide-y divide-soft-border md:hidden">
         {% for organization in organizations %}
-          <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-             href="{% url 'experiences:organization-detail' organization.slug %}">
-            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
-                  aria-hidden="true">{{ organization.initials }}</span>
-            <div class="min-w-0 flex-[1_1_12rem]">
-              <h2 class="text-base font-bold break-words group-hover:text-primary">{{ organization.display_name }}</h2>
-              <p class="mt-1 text-xs text-soft-foreground">
-                {{ organization.visible_product_count }} product{{ organization.visible_product_count|pluralize }} · {{ organization.open_count }} open request{{ organization.open_count|pluralize }}
-              </p>
-            </div>
-            {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
-            <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
-                  aria-hidden="true">→</span>
-          </a>
+          <div>
+            <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 pt-6 {% if search %}pb-3{% else %}pb-6{% endif %} text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+               href="{% url 'experiences:organization-detail' organization.slug %}">
+              <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
+                    aria-hidden="true">{{ organization.initials }}</span>
+              <div class="min-w-0 flex-[1_1_12rem]">
+                <h2 class="text-base font-bold break-words group-hover:text-primary">{{ organization.display_name }}</h2>
+                <p class="mt-1 text-xs text-soft-foreground">
+                  {{ organization.visible_product_count }} product{{ organization.visible_product_count|pluralize }} · {{ organization.open_count }} open request{{ organization.open_count|pluralize }}
+                </p>
+              </div>
+              {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
+                    aria-hidden="true">→</span>
+            </a>
+            {% if search %}
+              {% include 'experiences/partials/details_disclosure.html' with organisation=organization %}
+            {% endif %}
+          </div>
         {% endfor %}
       </div>
     {% else %}

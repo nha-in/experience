@@ -93,6 +93,12 @@ def production_list(request):
     products, counts = production.listing(program, stage=stage, q=q)
     sort, order = tables.sorting(request, COLUMNS, DEFAULT_SORT[stage])
     page = tables.paginate(request, products.order_by(*order), PAGE_SIZE)
+    rows = production.with_codes(page)
+    if q:
+        production.with_organisation_details(
+            program,
+            (product.organisation for product in rows),
+        )
     return render(
         request,
         "experiences/production_list.html",
@@ -100,7 +106,7 @@ def production_list(request):
             "nav": "production",
             "page_title": "Production approval",
             "page": page,
-            "rows": production.with_codes(page),
+            "rows": rows,
             "stage": stage,
             "q": q,
             "counts": counts,

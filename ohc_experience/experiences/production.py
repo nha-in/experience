@@ -36,6 +36,7 @@ from .models import Milestone
 from .models import Product
 from .models import ProductCredential
 from .models import ReviewItem
+from .models import SubmissionStatus
 from .permissions import has_access
 from .workflows import audit
 from .workflows import integrator_emails
@@ -460,6 +461,40 @@ def verification_data(organisation):
     verification = next(iter(organisation.export_verifications), None)
     submission = verification and verification.selected_submission
     return submission.data if submission else {}
+
+
+def with_organisation_details(program, organisations):
+    """Organisations with their newest sent verification answers, for a list
+    row's details: `details`, `submitted_by` and the type and category labels."""
+    organisations = list(organisations)
+    submissions = {}
+    for verification in (
+        VERIFICATIONS.filter(
+            organisation__in=organisations,
+            selected_submission__status=SubmissionStatus.COMPLETED,
+        )
+        .exclude(status=ReviewItem.Status.DRAFT)
+        .select_related("selected_submission__submitted_by")
+    ):
+        submissions.setdefault(
+            verification.organisation_id,
+            verification.selected_submission,
+        )
+    entity_types = dict(program.signup_organisation_choices)
+    categories = dict(
+        program.organisation_form.form_class.base_fields["category"].choices,
+    )
+    for organisation in organisations:
+        submission = submissions.get(organisation.pk)
+        organisation.details = submission.data if submission else {}
+        organisation.submitted_by = submission.submitted_by if submission else None
+        organisation.entity_type_label = entity_types.get(
+            organisation.entity_type,
+            organisation.entity_type,
+        )
+        category = organisation.details.get("category", "")
+        organisation.category_label = categories.get(category, category)
+    return organisations
 
 
 def export_rows(query):

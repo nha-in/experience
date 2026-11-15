@@ -1,0 +1,63 @@
+{% comment %}
+  An organisation's sent registration, opened from a list row's "Show details".
+  Context: organisation, after production.with_organisation_details.
+{% endcomment %}
+{% with details=organisation.details submitter=organisation.submitted_by %}
+  {% if details %}
+    <dl class="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      {% if details.description %}
+        <div class="col-span-full min-w-0">
+          <dt class="text-xs text-soft-foreground">Description</dt>
+          <dd class="mt-0.5 break-words">
+            {{ details.description|linebreaksbr }}
+          </dd>
+        </div>
+      {% endif %}
+      <div class="min-w-0">
+        <dt class="text-xs text-soft-foreground">Type of entity</dt>
+        <dd class="mt-0.5 break-words">
+          {{ organisation.entity_type_label|default:'—' }}
+        </dd>
+      </div>
+      <div class="min-w-0">
+        <dt class="text-xs text-soft-foreground">Category</dt>
+        <dd class="mt-0.5 break-words">
+          {{ organisation.category_label|default:'—' }}
+        </dd>
+      </div>
+      <div class="min-w-0 sm:col-span-2">
+        <dt class="text-xs text-soft-foreground">Address</dt>
+        <dd class="mt-0.5 break-words">
+          {{ details.registered_address|default:'—' }}{% if details.district %}, {{ details.district }}{% endif %}{% if details.state %}, {{ details.state }}{% endif %}{% if details.pincode %} {{ details.pincode }}{% endif %}
+        </dd>
+      </div>
+      {% if submitter %}
+        <div class="min-w-0 sm:col-span-2">
+          <dt class="text-xs text-soft-foreground">Submitted by</dt>
+          <dd class="mt-0.5 flex min-w-0 flex-col">
+            <span class="break-words">{{ submitter.display_name }}</span>
+            {% if submitter.phone_number %}
+              <a class="text-primary tabular-nums hover:underline"
+                 href="tel:{{ submitter.phone_number }}">{{ submitter.phone_number }}</a>
+            {% endif %}
+            <a class="break-all text-primary hover:underline"
+               href="mailto:{{ submitter.email }}">{{ submitter.email }}</a>
+          </dd>
+        </div>
+      {% endif %}
+      {% if organisation.website %}
+        <div class="min-w-0">
+          <dt class="text-xs text-soft-foreground">Website</dt>
+          <dd class="mt-0.5 break-all">
+            <a class="text-primary hover:underline"
+               href="{{ organisation.website }}"
+               target="_blank"
+               rel="noopener noreferrer">{{ organisation.website_domain|default:organisation.website }} {% include "components/new_tab_mark.html" %}</a>
+          </dd>
+        </div>
+      {% endif %}
+    </dl>
+  {% else %}
+    <p class="text-sm text-muted-foreground">No organisation details sent yet.</p>
+  {% endif %}
+{% endwith %}

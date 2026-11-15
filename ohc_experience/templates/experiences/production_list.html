@@ -109,6 +109,9 @@
                   <td class="max-w-[180px]">
                     <a class="inline-block text-muted-foreground no-underline hover:text-primary hover:underline"
                        href="{% url 'experiences:organization-detail' product.organisation.slug %}">{{ product.organisation.display_name }}</a>
+                    {% if q %}
+                      {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:product.reference %}
+                    {% endif %}
                   </td>
                   <td>
                     <span class="font-mono text-xs">{{ product.approved_codes|join:', '|default:'—' }}</span>
@@ -136,6 +139,16 @@
                     </a>
                   </td>
                 </tr>
+                {% if q %}
+                  <tr id="organisation-details-{{ product.reference }}"
+                      data-details-row
+                      hidden>
+                    <td class="bg-slate-50 pl-12"
+                        colspan="{% if stage == 'approved' %}6{% else %}4{% endif %}">
+                      {% include 'experiences/partials/organisation_details.html' with organisation=product.organisation %}
+                    </td>
+                  </tr>
+                {% endif %}
               {% endfor %}
             </tbody>
           </table>

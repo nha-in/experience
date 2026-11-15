@@ -133,7 +133,12 @@
                      data-row-link>{{ product.name }}</a>
                   <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
                 </td>
-                <td class="max-w-[240px] text-muted-foreground">{{ product.organisation.display_name }}</td>
+                <td class="max-w-[240px] text-muted-foreground">
+                  {{ product.organisation.display_name }}
+                  {% if search %}
+                    {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:product.reference %}
+                  {% endif %}
+                </td>
                 <td class="text-muted-foreground">{{ product.get_solution_type_display|default:'—' }}</td>
                 <td class="text-right tabular-nums">{{ product.open_count }}</td>
                 {% if wasa_choices %}
@@ -141,34 +146,49 @@
                 {% endif %}
                 <td class="whitespace-nowrap tabular-nums">{{ product.registered_at|date:'d/m/Y'|default:'—' }}</td>
               </tr>
+              {% if search %}
+                <tr id="organisation-details-{{ product.reference }}"
+                    data-details-row
+                    hidden>
+                  <td class="bg-slate-50 pl-12"
+                      colspan="{% if wasa_choices %}6{% else %}5{% endif %}">
+                    {% include 'experiences/partials/organisation_details.html' with organisation=product.organisation %}
+                  </td>
+                </tr>
+              {% endif %}
             {% endfor %}
           </tbody>
         </table>
       </div>
       <div class="divide-y divide-soft-border md:hidden">
         {% for product in products %}
-          <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-             href="{% url 'experiences:product-overview' product.reference %}">
-            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
-                  aria-hidden="true">{{ product.name|first }}</span>
-            <div class="min-w-0 flex-[1_1_12rem]">
-              <h2 class="text-base font-bold break-words group-hover:text-primary">{{ product.name }}</h2>
-              <p class="mt-1 text-xs text-soft-foreground">
-                <span class="font-mono">{{ product.reference }}</span>{% if product.solution_type %} · {{ product.get_solution_type_display }}{% endif %} · {{ product.organisation.display_name }}
-              </p>
-            </div>
-            {% if product.open_count %}
-              <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>
+          <div>
+            <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 pt-6 {% if search %}pb-3{% else %}pb-6{% endif %} text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+               href="{% url 'experiences:product-overview' product.reference %}">
+              <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
+                    aria-hidden="true">{{ product.name|first }}</span>
+              <div class="min-w-0 flex-[1_1_12rem]">
+                <h2 class="text-base font-bold break-words group-hover:text-primary">{{ product.name }}</h2>
+                <p class="mt-1 text-xs text-soft-foreground">
+                  <span class="font-mono">{{ product.reference }}</span>{% if product.solution_type %} · {{ product.get_solution_type_display }}{% endif %} · {{ product.organisation.display_name }}
+                </p>
+              </div>
+              {% if product.open_count %}
+                <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>
+              {% endif %}
+              {% if product.certificate_valid_until %}
+                <span class="text-xs text-soft-foreground">WASA until {{ product.certificate_valid_until|date:'d/m/Y' }}</span>
+              {% endif %}
+              {% if product.registered_at %}
+                <span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>
+              {% endif %}
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
+                    aria-hidden="true">→</span>
+            </a>
+            {% if search %}
+              {% include 'experiences/partials/details_disclosure.html' with organisation=product.organisation %}
             {% endif %}
-            {% if product.certificate_valid_until %}
-              <span class="text-xs text-soft-foreground">WASA until {{ product.certificate_valid_until|date:'d/m/Y' }}</span>
-            {% endif %}
-            {% if product.registered_at %}
-              <span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>
-            {% endif %}
-            <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
-                  aria-hidden="true">→</span>
-          </a>
+          </div>
         {% endfor %}
       </div>
     {% else %}

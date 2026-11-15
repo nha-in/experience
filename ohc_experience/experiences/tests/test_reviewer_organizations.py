@@ -105,6 +105,32 @@ def test_organization_detail_shows_the_submitted_form_and_owner(environment, cli
         assert shown in page
 
 
+def test_searched_lists_open_the_organisation_details(environment, client):
+    organization = environment["org"]
+    product = environment["product"]
+    submitter = organization.review_items.get(
+        kind="organisation_verification",
+    ).selected_submission.submitted_by
+    client.force_login(environment["reviewer"])
+
+    for url, search, row in (
+        (reverse("experiences:organizations"), organization.name, organization.slug),
+        (reverse("experiences:products"), product.reference, product.reference),
+    ):
+        page = client.get(url, {"q": search}).content.decode()
+        for shown in (
+            f'aria-controls="organisation-details-{row}"',
+            f'id="organisation-details-{row}"',
+            "Digital health systems for connected care.",
+            "Entity in India",
+            "560001",
+            f'href="mailto:{submitter.email}"',
+        ):
+            assert shown in page, (url, shown)
+        # The plain list stays as it was.
+        assert "organisation-details-" not in client.get(url).content.decode()
+
+
 def test_organization_pages_follow_category_review_scope(environment, client):
     visible_item = submit(environment, "p1")
     # P1 sits on the organisation's PHR product, not on its HIE-CM one.

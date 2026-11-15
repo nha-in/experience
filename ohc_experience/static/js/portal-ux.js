@@ -288,6 +288,14 @@
       icon.toggleAttribute('hidden', icon.dataset.passwordIcon !== (revealing ? 'hide' : 'show'));
     });
   });
+  // A list row's "Show details" opens the table row under it, which a <details> cannot do.
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-details-toggle]');
+    if (!button) return;
+    const expanded = button.getAttribute('aria-expanded') !== 'true';
+    button.setAttribute('aria-expanded', String(expanded));
+    document.getElementById(button.getAttribute('aria-controls')).hidden = !expanded;
+  });
   // Submit as a password field so browsers still offer to save it.
   document.addEventListener('submit', event => {
     event.target.querySelectorAll('[data-password-field] input').forEach(input => { input.type = 'password'; });

@@ -324,6 +324,25 @@ def test_detail_page_records_and_removes(environment, client):
     ]
 
 
+def test_searched_rows_open_the_organisation_details(environment, client):
+    approve(environment)
+    product = product_of(environment)
+    submitter = product.organisation.review_items.get(
+        kind="organisation_verification",
+    ).selected_submission.submitted_by
+    client.force_login(staff())
+    url = reverse("experiences:production-list")
+    assert "organisation-details-" not in client.get(url).content.decode()
+    page = client.get(url, {"q": product.reference}).content.decode()
+    for shown in (
+        f'aria-controls="organisation-details-{product.reference}"',
+        "Digital health systems for connected care.",
+        "Entity in India",
+        f'href="mailto:{submitter.email}"',
+    ):
+        assert shown in page
+
+
 def test_list_tabs_search_and_export(environment, client):
     approve(environment)
     product = product_of(environment)

@@ -397,6 +397,11 @@
     @apply transition-colors hover:bg-secondary/40;
   }
 
+  /* A row's opened details (data-details-row) read as part of it: no divider between them. */
+  .ui-grid-table tbody tr:has(+ tr[data-details-row]:not([hidden])) td {
+    @apply border-b-0;
+  }
+
   /* A sortable heading: the arrow shows the direction, or both while unsorted. */
   .ui-sort {
     @apply -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 whitespace-nowrap text-inherit no-underline hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary;

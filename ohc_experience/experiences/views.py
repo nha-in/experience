@@ -807,6 +807,8 @@ def organizations(request):
         )
     page = _page(request, rows)
     page.object_list = list(_with_labels(page))
+    if search:
+        production_services.with_organisation_details(get_program(), page.object_list)
     return render(
         request,
         "experiences/organizations.html",
@@ -879,6 +881,12 @@ def _reviewer_products(request):
             REVIEWER_PRODUCT_EXPORT_HEADER,
             _product_export_rows(rows, open_counts=True),
         )
+    products = _page(request, rows)
+    if search:
+        production_services.with_organisation_details(
+            program,
+            (product.organisation for product in products),
+        )
     return render(
         request,
         "experiences/reviewer_products.html",
@@ -886,7 +894,7 @@ def _reviewer_products(request):
             request,
             page_title="Products",
             nav="organizations",
-            products=_page(request, rows),
+            products=products,
             table_sort=sort,
             organization_choices=organization_choices,
             selected_organization=organization,
