@@ -4,6 +4,15 @@
 {% if form.errors %}
   <div class="mb-5">{% include 'components/form_errors.html' %}</div>
 {% endif %}
+{# What the reviewer queried on the version taken back to edit: a field marks its own, the rest lead the form. #}
+{% earlier_queries item as earlier %}
+{% unplaced_queries earlier form as unplaced %}
+{% for query in unplaced|one_per_field %}
+  <p class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-soft-foreground">
+    {{ query.field_label }}
+    {% include 'experiences/partials/earlier_query_mark.html' %}
+  </p>
+{% endfor %}
 <div class="flex flex-col gap-6">
   {% for section in form|sections %}
     <fieldset class="ui-form-section border-b border-soft-border pb-6 last:border-0 last:pb-0" {% if section.show_when %}data-show-when-field="{{ section.show_when.field }}" data-show-when-value="{{ section.show_when.value }}"{% if not section.show_when.active %} hidden{% endif %}{% endif %}>
@@ -19,7 +28,13 @@
             {% if field.name != 'wasa_source_submission' or not form.latest_product_wasa %}{{ field }}{% endif %}
           {% else %}
             {% with rule=form|show_when:field.name %}
-              <div class="min-w-0 {% if field.name in form.full_width_fields or field.name == 'description' or field.name == 'name' or field.name == 'registered_address' %}sm:col-span-2{% endif %}" {% if field.name in form.required_uploads %}data-required-upload="{{ field.name }}"{% endif %} {% if form.use_product_wasa and field.name == 'wasa_agency' or form.use_product_wasa and field.name == 'wasa_date' or form.use_product_wasa and field.name == 'wasa_valid_until' or form.use_product_wasa and field.name == 'wasa_certificate' %}data-wasa-upload{% if form.use_product_wasa.value %} data-wasa-from-product="true"{% endif %}{% endif %} {% if rule %}data-show-when-field="{{ rule.field }}" data-show-when-value="{{ rule.value }}"{% if not rule.active %} hidden{% endif %}{% endif %}>
+              {% queries_on earlier field.name as field_queries %}
+              <div class="min-w-0 {% if field_queries %}rounded-lg bg-amber-50 p-3 ring-1 ring-amber-300{% endif %} {% if field.name in form.full_width_fields or field.name == 'description' or field.name == 'name' or field.name == 'registered_address' %}sm:col-span-2{% endif %}" {% if field.name in form.required_uploads %}data-required-upload="{{ field.name }}"{% endif %} {% if form.use_product_wasa and field.name == 'wasa_agency' or form.use_product_wasa and field.name == 'wasa_date' or form.use_product_wasa and field.name == 'wasa_valid_until' or form.use_product_wasa and field.name == 'wasa_certificate' %}data-wasa-upload{% if form.use_product_wasa.value %} data-wasa-from-product="true"{% endif %}{% endif %} {% if rule %}data-show-when-field="{{ rule.field }}" data-show-when-value="{{ rule.value }}"{% if not rule.active %} hidden{% endif %}{% endif %}>
+                {% if field_queries %}
+                  <p class="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                    {% include 'experiences/partials/earlier_query_mark.html' with query=field_queries.0 %}
+                  </p>
+                {% endif %}
                 {% if field.name == 'applied_milestones' and form.milestone_tracks %}
                   {% include 'experiences/partials/product_milestone_picker.html' %}
                 {% elif field.name == 'use_product_wasa' %}

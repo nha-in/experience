@@ -7,6 +7,7 @@ from django import template
 from django.urls import reverse
 from django.utils.formats import date_format
 
+from ohc_experience.experiences import workflows
 from ohc_experience.experiences.registry import registry
 from ohc_experience.experiences.workflows import QUERY_TARGETS
 
@@ -121,6 +122,53 @@ def open_queries(item, snapshot=None):
     ]
 
 
+@register.simple_tag
+def earlier_queries(item, snapshot=None):
+    """Queries left unresolved on the version the integrator took back to edit.
+
+    The form being edited marks them, and so does the version that replaces it
+    while that is under review. Given a `snapshot`, only the version under
+    review marks them: a version shown on its own is read as it was sent.
+    """
+    if not item:
+        return []
+    if snapshot and (not item.pending or snapshot.pk != item.selected_submission_id):
+        return []
+    labels = {}
+    return [_label_query(query, labels) for query in workflows.earlier_queries(item)]
+
+
+@register.simple_tag
+def queries_on(queries, key):
+    """Those of these queries about one field."""
+    return [query for query in queries if query.field_key == key]
+
+
+@register.simple_tag
+def unplaced_queries(queries, form):
+    """Those of these queries no field on the form can carry: the whole form,
+    or a field the form no longer asks."""
+    if not queries:
+        return []
+    shown = {
+        field.name
+        for section in sections(form)
+        for field in section["fields"]
+        if not field.is_hidden
+    }
+    return [query for query in queries if query.field_key not in shown]
+
+
+def _attached(submission, key):
+    """A version's files for one field, by where they are stored."""
+    return sorted(
+        submission.attachments.filter(field_key=key, is_current=True).values_list(
+            "file",
+            flat=True,
+        ),
+    )
+
+
 @register.filter
 def one_per_field(queries):
     """The first of these queries on each field, in the order they were raised."""
@@ -135,7 +183,9 @@ def snapshot_rows(snapshot, item=None, drafts=None):
     """The submitted answers, one row per field.
 
     `drafts` holds the reviewer's open question boxes by field key, so a row's
-    `draft` is its question so far, or None while its box is closed.
+    `draft` is its question so far, or None while its box is closed. A row
+    queried on the version this one replaced lists those queries in `earlier`,
+    and `changed` says whether its answer differs from that version's.
     """
     if not snapshot:
         return []
@@ -145,10 +195,25 @@ def snapshot_rows(snapshot, item=None, drafts=None):
     asked = {}
     for query in open_queries(item, snapshot):
         asked.setdefault(query.field_key, []).append(query)
+    earlier = {}
+    for query in earlier_queries(item, snapshot):
+        earlier.setdefault(query.field_key, []).append(query)
     warnings = registry.get_form(snapshot.form_key).answer_warnings(snapshot.data)
     rows = []
     for field in snapshot.field_schema:
         key = field["key"]
+        file_field = "File" in field["type"] or "Image" in field["type"]
+        changed = None
+        if key in earlier:
+            before = earlier[key][0].submission
+            changed = (
+                _attached(before, key)
+                != sorted(
+                    attachment.file.name for attachment in attachments.get(key, [])
+                )
+                if file_field
+                else before.data.get(key) != snapshot.data.get(key)
+            )
         value = snapshot.data.get(key)
         choices = {
             str(choice["value"]): choice["label"] for choice in field.get("choices", [])
@@ -163,7 +228,7 @@ def snapshot_rows(snapshot, item=None, drafts=None):
                 "label": field["label"],
                 "value": value,
                 "files": attachments.get(key, []),
-                "file_field": "File" in field["type"] or "Image" in field["type"],
+                "file_field": file_field,
                 # Only http(s): imported answers never passed URLField's check.
                 "link": value
                 if field["type"] == "URLField"
@@ -171,6 +236,8 @@ def snapshot_rows(snapshot, item=None, drafts=None):
                 else None,
                 "queries": asked.get(key, []),
                 "query_open": key in asked,
+                "earlier": earlier.get(key, []),
+                "changed": changed,
                 "draft": (drafts or {}).get(key),
                 "warning": warnings.get(key),
             },
@@ -205,16 +272,27 @@ def query_groups(item, *, can_resolve=False, can_reply=False):
     An answered query is theirs to act on when they may resolve it, and an
     open one when they may reply. Those open in full; the other queries still
     in play fold to a line each, and whoever may resolve can close an open one
-    from there. Resolved queries, those asked of an earlier
+    from there. The queries left on the version the integrator took back to
+    edit fold too, apart from the settled ones, because the form marks them
+    and leads here. Resolved queries, those asked of an earlier
     submission and any left on a request no longer under review are settled.
     `answered` and `open` count the queries still in play. Each query is
     labelled as its submission's form labels the field.
     """
-    groups = {"actionable": [], "waiting": [], "settled": [], "answered": 0, "open": 0}
+    groups = {
+        "actionable": [],
+        "waiting": [],
+        "earlier": [],
+        "settled": [],
+        "answered": 0,
+        "open": 0,
+    }
     labels = {}
+    earlier = {query.pk for query in workflows.earlier_queries(item)}
     for query in item.queries.select_related("submission", "raised_by", "replied_by"):
         _label_query(query, labels)
         query.earlier_submission = query.submission_id != item.selected_submission_id
+        query.earlier_version = query.pk in earlier
         query.live = (
             item.pending and not query.earlier_submission and query.status != "resolved"
         )
@@ -223,7 +301,7 @@ def query_groups(item, *, can_resolve=False, can_reply=False):
             query.reply if query.live and query.status == "answered" else query.question
         )
         if not query.live:
-            groups["settled"].append(query)
+            groups["earlier" if query.earlier_version else "settled"].append(query)
             continue
         groups[query.status] += 1
         query.can_close = can_resolve and query.status == "open"

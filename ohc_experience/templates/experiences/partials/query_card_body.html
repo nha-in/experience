@@ -1,8 +1,11 @@
-{# The rows of a queries card, below its heading: what the person looking can act on, then the rest still in play folded to a line each, then settled queries behind one toggle. #}
+{# The rows of a queries card, below its heading: what the person looking can act on, then the rest still in play folded to a line each, then those left on the version taken back to edit, which the form's marks lead to, then settled queries behind one toggle. #}
 {% for query in groups.actionable %}
   {% include 'experiences/partials/query_item.html' with collapsed=False %}
 {% endfor %}
 {% for query in groups.waiting %}
+  {% include 'experiences/partials/query_item.html' with collapsed=True %}
+{% endfor %}
+{% for query in groups.earlier %}
   {% include 'experiences/partials/query_item.html' with collapsed=True %}
 {% endfor %}
 {% if groups.settled %}

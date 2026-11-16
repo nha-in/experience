@@ -56,6 +56,9 @@ opens in place, with Close query for a reviewer on one still unanswered.
              aria-hidden="true">
           <path d="m5 12 4 4L19 6" />
         </svg>
+      {% elif query.earlier_version %}
+        <span class="mx-auto size-2 rounded-full border-[1.5px] border-[var(--status-warning-text)]"
+              aria-hidden="true"></span>
       {% elif not query.live %}
         <svg viewBox="0 0 24 24"
              class="size-4 text-soft-foreground"
@@ -74,7 +77,7 @@ opens in place, with Close query for a reviewer on one still unanswered.
       {% endif %}
       <span class="truncate font-semibold">{{ query.field_label }}</span>
       <span class="hidden truncate text-[13px] text-soft-foreground group-open/q:invisible sm:block">{{ query.excerpt }}</span>
-      <span class="text-xs whitespace-nowrap {% if not query.live %}text-soft-foreground{% elif query.status == 'answered' %}font-semibold text-primary{% else %}font-semibold text-[var(--status-warning-text)]{% endif %}">{% if query.status == 'resolved' %}{% if query.reply %}Resolved{% else %}Closed{% endif %}{% if query.resolved_at %} {{ query.resolved_at|date:'d/m/Y' }}{% endif %}{% elif query.earlier_submission %}Earlier submission{% elif not query.live %}{% if query.status == 'answered' %}Not resolved{% else %}No reply{% endif %}{% elif query.status == 'answered' %}{% if audience == 'integrator' %}With reviewer{% else %}Answered{% endif %}{% else %}Awaiting reply{% endif %}</span>
+      <span class="text-xs whitespace-nowrap {% if query.earlier_version %}font-semibold text-[var(--status-warning-text)]{% elif not query.live %}text-soft-foreground{% elif query.status == 'answered' %}font-semibold text-primary{% else %}font-semibold text-[var(--status-warning-text)]{% endif %}">{% if query.status == 'resolved' %}{% if query.reply %}Resolved{% else %}Closed{% endif %}{% if query.resolved_at %} {{ query.resolved_at|date:'d/m/Y' }}{% endif %}{% elif query.earlier_version %}Asked of version {{ query.submission.revision }}{% elif query.earlier_submission %}Earlier submission{% elif not query.live %}{% if query.status == 'answered' %}Not resolved{% else %}No reply{% endif %}{% elif query.status == 'answered' %}{% if audience == 'integrator' %}With reviewer{% else %}Answered{% endif %}{% else %}Awaiting reply{% endif %}</span>
       <svg viewBox="0 0 24 24"
            class="size-4 text-soft-foreground transition-transform group-open/q:rotate-180 motion-reduce:transition-none"
            fill="none"

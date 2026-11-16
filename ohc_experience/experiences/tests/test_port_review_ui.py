@@ -407,10 +407,17 @@ def test_queries_open_in_full_only_for_whoever_can_act_on_them(
         < card.index("Which inspection is this?")
         < card.index(settled)
     )
-    # Resolved queries and those on an earlier submission settle together.
-    assert "Show 2 settled" in card
+    # Resolved queries settle. The one left on the version taken back to edit
+    # folds apart from them while the version replacing it is under review,
+    # since that version's form marks the field it asked about.
+    assert "Show 1 settled" in card
     assert card.index(settled) < card.index("Attach the release note.")
-    assert card.index(settled) < card.index("Asked of the first submission.")
+    assert (
+        card.index("Which inspection is this?")
+        < card.index("Asked of the first submission.")
+        < card.index("Asked of version 1")
+        < card.index(settled)
+    )
 
     # The integrator is the one who can reply, so the open question opens in
     # full with the reply form, and their answered one folds.
@@ -655,11 +662,186 @@ def test_a_withdrawn_request_marks_no_field_as_queried(review_item, owner_member
         "Confirm this score.",
     ]
 
-    # The queries card files it as settled, and the form agrees.
+    # Taken back, it no longer takes a reply. The form being edited marks it,
+    # but the submitted version shown on its own is read as it was sent.
     workflows.withdraw(review_item, owner_membership.user)
     review_item.refresh_from_db()
     assert not rows()["score"]["query_open"]
+    assert not rows()["score"]["earlier"]
     assert open_queries(review_item) == []
+
+
+def test_the_form_taken_back_to_edit_marks_what_was_queried(
+    review_item,
+    client,
+    owner_membership,
+):
+    integrator = owner_membership.user
+    reviewer = ReviewerFactory(is_nha_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+    for key, note in [
+        ("score", "Confirm this score against the report."),
+        ("form", "Attach the signed release note."),
+    ]:
+        workflows.decide(
+            review_item,
+            reviewer,
+            action="query",
+            field_key=key,
+            note=note,
+        )
+        review_item.refresh_from_db()
+    asked = list(review_item.queries.all())
+    score, form = asked
+    workflows.withdraw(review_item, integrator)
+    track = reverse(
+        "experiences:track",
+        args=[review_item.product.reference, "Quality"],
+    )
+    client.force_login(integrator)
+
+    def page():
+        html = client.get(f"{track}?milestone=inspection").content.decode()
+        return (
+            html[
+                html.index('id="evidence-form"') : html.index('id="evidence-actions"')
+            ],
+            html[html.index('id="queries"') :],
+        )
+
+    edited, card = page()
+    # The whole form leads the form and a field marks itself above its control,
+    # each leading to its query. The questions stay in the queries card.
+    assert (
+        edited.index("Whole form")
+        < edited.index(f'href="#query-{form.pk}"')
+        < edited.index(f'href="#query-{score.pk}"')
+        < edited.index('name="score"')
+    )
+    assert edited.count("Queried on version 1") == len(asked)
+    for query in asked:
+        assert query.question not in edited
+    # The card keeps both in view rather than settled.
+    assert "group/settled" not in card
+    assert card.count("Asked of version 1") == len(asked)
+
+    # A saved draft is a version too, but the marks stay with the one taken back.
+    _item, draft, saved = workflows.save_review_form(
+        review_item,
+        integrator,
+        data={"report_reference": "Q-PORT-1", "score": 97},
+    )
+    assert saved, draft.errors
+    edited, card = page()
+    assert edited.count("Queried on version 1") == len(asked)
+    assert card.count("Asked of version 1") == len(asked)
+
+
+def test_a_resubmission_marks_what_was_queried_on_the_version_before(
+    review_item,
+    client,
+    owner_membership,
+):
+    integrator = owner_membership.user
+    reviewer = ReviewerFactory(is_nha_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+    for key, note in [
+        ("score", "Confirm this score against the report."),
+        ("report_reference", "Which inspection is this?"),
+    ]:
+        workflows.decide(
+            review_item,
+            reviewer,
+            action="query",
+            field_key=key,
+            note=note,
+        )
+        review_item.refresh_from_db()
+    asked = list(review_item.queries.all())
+    score, reference = asked
+    workflows.withdraw(review_item, integrator)
+    item, form, saved = workflows.save_review_form(
+        review_item,
+        integrator,
+        data={"report_reference": "Q-PORT-1", "score": 97},
+        submit=True,
+    )
+    assert saved, form.errors
+    item.refresh_from_db()
+
+    def rows():
+        return {
+            row["key"]: row for row in snapshot_rows(item.selected_submission, item)
+        }
+
+    # Neither query takes a reply on the new version, but each marks its field
+    # there, with whether the answer changed since.
+    assert open_queries(item) == []
+    assert rows()["score"]["earlier"] == [score]
+    assert rows()["score"]["changed"] is True
+    assert rows()["report_reference"]["earlier"] == [reference]
+    assert rows()["report_reference"]["changed"] is False
+
+    client.force_login(reviewer)
+    card = review_section(client.get(product_page(item)).content.decode(), item)
+    submitted = card[
+        card.index("Submitted evidence") : card.index(f'id="queries-{item.pk}"')
+    ]
+    assert submitted.count("Queried on version 1") == len(asked)
+    assert ">Changed<" in submitted
+    assert ">Unchanged<" in submitted
+    assert f'href="#query-{score.pk}"' in submitted
+    assert f'href="#query-{reference.pk}"' in submitted
+
+    # Deciding the new version settles them.
+    workflows.decide(item, reviewer, action="approve", note="Score matches the report.")
+    item.refresh_from_db()
+    assert workflows.earlier_queries(item) == []
+    assert not rows()["score"]["earlier"]
+
+
+def test_a_resubmission_is_marked_only_by_the_version_just_before(
+    review_item,
+    owner_membership,
+):
+    integrator = owner_membership.user
+    reviewer = ReviewerFactory(is_nha_team=True)
+    workflows.assign_review(review_item, UserFactory(is_superuser=True), reviewer)
+
+    def resubmit(score):
+        workflows.withdraw(review_item, integrator)
+        _item, form, saved = workflows.save_review_form(
+            review_item,
+            integrator,
+            data={"report_reference": "Q-PORT-1", "score": score},
+            submit=True,
+        )
+        assert saved, form.errors
+        review_item.refresh_from_db()
+
+    workflows.decide(
+        review_item,
+        reviewer,
+        action="query",
+        field_key="score",
+        note="Confirm this score.",
+    )
+    resubmit(96)
+    first = review_item.queries.get()
+    assert workflows.earlier_queries(review_item) == [first]
+
+    # The reviewer has seen version 2 and asks of it in turn, so taking it back
+    # brings their new query, not the one version 2 already answered.
+    workflows.decide(
+        review_item,
+        reviewer,
+        action="query",
+        field_key="report_reference",
+        note="Which inspection is this?",
+    )
+    second = review_item.queries.get(field_key="report_reference")
+    resubmit(97)
+    assert workflows.earlier_queries(review_item) == [second]
 
 
 def test_client_response_alert_is_not_shown_to_reviewer(review_item):

@@ -1,0 +1,6 @@
+{# A field queried on the version the integrator took back to edit: which version, on the resubmitted version whether its answer changed since (`changed`), and the way to the query in the queries card. The query itself stays in the card. The link keeps to the right of its line unless `inline`, as beside a reviewer's own Query button. #}
+<span class="ui-badge ui-badge--warning ui-badge--size-xs">Queried on version {{ query.submission.revision }}</span>
+{% if changed is not None %}<span class="ui-badge ui-badge--neutral ui-badge--size-xs">{% if changed %}Changed{% else %}Unchanged{% endif %}</span>{% endif %}
+<a class="-my-1 {% if not inline %}ml-auto {% endif %}py-1 font-semibold text-primary no-underline hover:underline"
+   href="#query-{{ query.pk }}"
+   data-query-link>View query<span class="sr-only"> on {{ query.field_label }}</span></a>

@@ -62,6 +62,8 @@ SHORT_NOTE = f"Use at least {MIN_REVIEW_TEXT} characters."
 #: Chosen when no listed reason fits. The reviewer then has to write the reason.
 OTHER_REASON = "Other"
 REQUEST_WITHDRAWN = "Request withdrawn"
+#: Logged with the version each submit saves; drafts are logged otherwise.
+FORM_SUBMITTED = "Form submitted"
 PENDING_STATUSES = (
     ReviewItem.Status.IN_REVIEW,
     ReviewItem.Status.QUERY,
@@ -315,7 +317,7 @@ def _snapshot(item, form, actor, *, completed):
         ).update(selected_submission=snapshot)
     audit(
         actor=actor,
-        action="Form submitted" if completed else "Draft saved",
+        action=FORM_SUBMITTED if completed else "Draft saved",
         item=item,
         detail={
             "submission_id": snapshot.pk,
@@ -549,6 +551,37 @@ def withdrawn_at(item):
         .order_by("-created_at")
         .values_list("created_at", flat=True)
         .first()
+    )
+
+
+def earlier_queries(item):
+    """The queries a reviewer left unresolved on the version taken back to edit.
+
+    A query stays with the version it was asked of, and every save makes a new
+    version, so once the integrator takes a request back its queries are no
+    longer live. They still say what to look at: on the form while it is
+    edited, and on the version that replaces it until a reviewer decides that.
+    Only the version just before counts: once a reviewer has had the version
+    that replaced theirs, a later resubmission does not bring its queries back.
+    """
+    if not (item.editable or item.pending):
+        return []
+    submitted = list(
+        item.history.filter(action=FORM_SUBMITTED)
+        .order_by("-created_at", "-pk")
+        .values_list("detail__submission_id", flat=True)[:2],
+    )
+    if item.pending:
+        # The newest is the version under review, which answers the one before.
+        if submitted[:1] != [item.selected_submission_id]:
+            return []
+        submitted = submitted[1:]
+    if not submitted:
+        return []
+    return list(
+        item.queries.filter(submission_id=submitted[0])
+        .exclude(status="resolved")
+        .select_related("submission", "raised_by"),
     )
 
 

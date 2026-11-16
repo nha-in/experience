@@ -5,6 +5,7 @@
 {% draft_for query_drafts 'form' as form_draft %}
 {% draft_for query_drafts 'submitter_email' as email_draft %}
 {% open_queries item snapshot as asked %}
+{% earlier_queries item snapshot as earlier %}
 <section class="{% if embedded_review %}flex flex-col{% else %}ui-card ui-card--layered gap-3.5 pb-2.5{% endif %}"
          aria-labelledby="submitted-form-title{% if embedded_review %}-{{ item.pk }}{% endif %}"
          {% if can_raise_query %}data-query-for="{{ form_id }}"{% endif %}>
@@ -60,6 +61,11 @@
               {% for query in asked|one_per_field %}
                 {% if query.field_key == 'submitter_email' %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>{% endif %}
               {% endfor %}
+              {% for query in earlier|one_per_field %}
+                {% if query.field_key == 'submitter_email' %}
+                  {% include 'experiences/partials/earlier_query_mark.html' with inline=True %}
+                {% endif %}
+              {% endfor %}
             </span>
             {% if off_domain_website %}<span class="mb-1 block text-xs text-soft-foreground">The website's domain is {{ off_domain_website }}.</span>{% endif %}
             {% if submitter.phone_number %}<span class="block tabular-nums">{{ submitter.phone_number }}</span>{% endif %}
@@ -83,7 +89,7 @@
         </div>
       {% endif %}
       {% for row in rows %}
-        <div class="grid items-start gap-x-4 gap-y-1.5 border-t border-soft-border py-2.5 transition-colors {% if embedded_review %}px-4 {% if can_raise_query %}sm:grid-cols-[148px_minmax(0,1fr)_auto]{% else %}sm:grid-cols-[148px_minmax(0,1fr)]{% endif %}{% else %}px-6 sm:grid-cols-[196px_minmax(0,1fr)_auto]{% endif %} {% if row.query_open %}bg-orange-50/60{% else %}hover:bg-soft-background{% endif %} data-query-selected:bg-primary-50" {% if can_raise_query %}data-query-row="{{ row.key }}"{% if row.draft is not None %} data-query-selected{% endif %}{% endif %}>
+        <div class="grid items-start gap-x-4 gap-y-1.5 border-t border-soft-border py-2.5 transition-colors {% if embedded_review %}px-4 {% if can_raise_query %}sm:grid-cols-[148px_minmax(0,1fr)_auto]{% else %}sm:grid-cols-[148px_minmax(0,1fr)]{% endif %}{% else %}px-6 sm:grid-cols-[196px_minmax(0,1fr)_auto]{% endif %} {% if row.query_open or row.earlier %}bg-orange-50/60{% else %}hover:bg-soft-background{% endif %} data-query-selected:bg-primary-50" {% if can_raise_query %}data-query-row="{{ row.key }}"{% if row.draft is not None %} data-query-selected{% endif %}{% endif %}>
           <dt class="ui-kicker pt-1 tracking-[0.04em]">{{ row.label }}</dt>
           <dd class="flex min-w-0 flex-wrap items-center gap-2.5 text-sm font-medium leading-relaxed break-words">
             {% if row.files %}
@@ -119,6 +125,9 @@
    hx-boost="false">{{ row.value }} {% include "components/new_tab_mark.html" %}</a>
       {% else %}{{ row.value|default:'Not provided'|linebreaksbr }}{% endif %}
       {% if row.query_open %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">Query open</span>{% endif %}
+      {% if row.earlier %}
+        {% include 'experiences/partials/earlier_query_mark.html' with query=row.earlier.0 changed=row.changed inline=True %}
+      {% endif %}
       {% if row.warning %}<span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ row.warning.label }}</span>{% endif %}
       {% if row.warning.detail %}<span class="basis-full text-xs font-normal text-soft-foreground">{{ row.warning.detail }}</span>{% endif %}
         </dd>
