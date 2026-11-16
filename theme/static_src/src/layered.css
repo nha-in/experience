@@ -397,6 +397,23 @@
     @apply transition-colors hover:bg-secondary/40;
   }
 
+  /* A searched row and its details strip (data-details-strip) read as one
+     item: no line between them, and a firmer one after the item. */
+  .ui-grid-table tbody tr:has(+ tr[data-details-strip]) td {
+    @apply border-b-0 pb-1;
+  }
+
+  .ui-grid-table tbody tr[data-details-strip] td,
+  .ui-grid-table tbody tr[data-details-row] td {
+    @apply border-border;
+  }
+
+  /* Pointing at either the row or its strip highlights both. */
+  .ui-grid-table tbody tr:has(+ tr[data-details-strip]:hover),
+  .ui-grid-table tbody tr:hover + tr[data-details-strip] {
+    @apply bg-secondary/40;
+  }
+
   /* A row's opened details (data-details-row) read as part of its strip, and
      closed details at the end leave the strip the last row. */
   .ui-grid-table tbody tr:has(+ tr[data-details-row]:not([hidden])) td,
@@ -816,6 +833,16 @@
 }
 
 @layer utilities {
+  /* A searched list row and its details strip read as one item, as in tables. */
+  .divide-y > li:has(+ li[data-details-strip]) {
+    border-bottom-width: 0;
+  }
+
+  .divide-y > li[data-details-strip],
+  .divide-y > li[data-details-row] {
+    border-color: var(--color-border);
+  }
+
   /* A list row's opened details (data-details-row) read as part of it, and
      closed details at the end leave their row the last one. */
   .divide-y > li:has(+ li[data-details-row]:not([hidden])),

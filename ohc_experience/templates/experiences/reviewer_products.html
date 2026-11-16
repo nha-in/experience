@@ -168,10 +168,10 @@
           </tbody>
         </table>
       </div>
-      <div class="divide-y divide-soft-border md:hidden">
+      <div class="divide-y {% if search %}divide-border{% else %}divide-soft-border{% endif %} md:hidden">
         {% for product in products %}
           <div>
-            <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-6 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+            <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 pt-6 {% if search %}pb-2{% else %}pb-6{% endif %} text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                href="{% url 'experiences:product-overview' product.reference %}">
               <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
                     aria-hidden="true">{{ product.name|first }}</span>

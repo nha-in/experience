@@ -74,10 +74,10 @@
     </tbody>
   </table>
 </div>
-<ul class="divide-y divide-soft-border border-t border-soft-border md:hidden">
+<ul class="divide-y {% if searched %}divide-border{% else %}divide-soft-border{% endif %} border-t border-soft-border md:hidden">
   {% for entry in page %}
     <li data-queue-entry="{{ entry.reference }}">
-      <a class="group block px-5 py-4 transition-colors hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+      <a class="group block px-5 pt-4 {% if searched %}pb-1{% else %}pb-4{% endif %} transition-colors hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
          href="{{ entry.url }}">
         <p class="font-mono text-xs text-soft-foreground">{{ entry.reference }}</p>
         <p class="mt-1 text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ entry.organisation.display_name }}</p>
