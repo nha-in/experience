@@ -502,7 +502,7 @@ def test_organisation_queries_return_to_the_product(environment, client):
 
 
 WITHDRAWN_HOLD = (
-    "Organisation verification was withdrawn by the integrator. Approve or "
+    "Organisation verification is being edited by the integrator. Approve or "
     "reject this request once it is resubmitted and approved."
 )
 
@@ -529,7 +529,7 @@ def test_withdrawn_organisation_verification_waits_on_the_integrator(
         f"{item.title}: {WITHDRAWN_HOLD}" for item in items
     ]
     content = " ".join(response.content.decode().split())
-    assert "Verification withdrawn" in content
+    assert "Verification being edited" in content
     assert "Verification pending" not in content
     assert WITHDRAWN_HOLD in content
 
@@ -537,7 +537,7 @@ def test_withdrawn_organisation_verification_waits_on_the_integrator(
     assert WITHDRAWN_HOLD in " ".join(response.content.decode().split())
 
     response = client.get(reverse("experiences:queue") + "?scope=all")
-    assert ("organisation verification", "withdrawn") in {
+    assert ("organisation verification", "being edited") in {
         waiting
         for entry in response.context["page"]
         for review in entry.reviews

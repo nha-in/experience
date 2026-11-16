@@ -16,7 +16,7 @@
   <div id="evidence-actions"
        class="ui-form-actions mt-8 flex scroll-mt-6 flex-col gap-5 border-t border-soft-border pt-6 lg:flex-row lg:items-center">
     <div class="min-w-0 flex-1">
-      <p class="max-w-[520px] text-xs leading-relaxed text-soft-foreground">{% if item.definition.auto_approve and item.status == 'approved' %}Submitting updates the recorded answers.{% elif item.definition.auto_approve %}Submitting records your participation. You can update your answers later.{% elif submission_group_available %}Submitting sends the selected milestones for review and locks their forms. A draft saves {{ tile.definition.code }} only.{% else %}Submitting sends this milestone for review and locks the form.{% endif %}</p>
+      <p class="max-w-[520px] text-xs leading-relaxed text-soft-foreground">{% if item.definition.auto_approve and item.status == 'approved' %}Submitting updates the recorded answers.{% elif item.definition.auto_approve %}Submitting records your participation. You can update your answers later.{% elif submission_group_available %}Submitting sends the selected milestones for review and locks their forms. A draft saves {{ tile.definition.code }} only.{% elif item.submitted_at %}Resubmitting sends this milestone back for review and locks the form.{% else %}Submitting sends this milestone for review and locks the form.{% endif %}</p>
       <p class="mt-1.5 text-xs text-soft-foreground"
          data-unsaved-status
          aria-live="polite"></p>
@@ -43,7 +43,8 @@
               value="submit"
               aria-describedby="evidence-submit-reason"
               {% if submission_blocked %}disabled{% endif %}
-              data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% elif item.definition.auto_approve %}{{ item.definition.submit_label }}{% else %}<span data-submit-label>Submit {{ tile.definition.code }}</span>{% endif %}</button>
+              data-request-submit>{% if item.definition.auto_approve and item.status == 'approved' %}Update participation{% elif item.definition.auto_approve %}{{ item.definition.submit_label }}{% else %}<span data-submit-label
+      data-submit-verb="{% if item.submitted_at %}Resubmit{% else %}Submit{% endif %}">{% if item.submitted_at %}Resubmit{% else %}Submit{% endif %} {{ tile.definition.code }}</span>{% endif %}</button>
     </div>
   </div>
 </form>

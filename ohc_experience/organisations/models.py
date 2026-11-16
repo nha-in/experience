@@ -67,7 +67,8 @@ class Organisation(models.Model):
         PENDING = "pending", _("Verification pending")
         VERIFIED = "verified", _("Verified integrator")
         REJECTED = "rejected", _("Verification rejected")
-        WITHDRAWN = "withdrawn", _("Verification withdrawn")
+        # Taken back to edit; the stored value predates the Edit wording.
+        WITHDRAWN = "withdrawn", _("Verification being edited")
 
     name = models.CharField(_("Organisation"), max_length=255)
     slug = models.SlugField(_("Slug"), max_length=255, unique=True)

@@ -40,7 +40,9 @@
               You sign in as {{ request.user.email }}, which is not on this website's domain. Reviewers expect an address on your own domain — <a class="ui-prose-link" href="{% url 'account_email' %}">change your email address</a>.
             </p>
             <div class="mt-8 flex flex-wrap items-center gap-4 border-t border-soft-border pt-6">
-              <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">Submit for verification</button>
+              <button class="ui-btn ui-btn--default ui-btn--size-sm" type="submit">
+                {% if item.submitted_at %}Resubmit{% else %}Submit{% endif %} for verification
+              </button>
               {% if onboarding and organisation.is_onboarded %}
                 <a class="ui-btn ui-btn--ghost ui-btn--size-sm no-underline"
                    href="{% url 'experiences:product-create' %}">Continue to product</a>

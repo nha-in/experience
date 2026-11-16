@@ -26,11 +26,11 @@ from ohc_experience.experiences.models import ReviewItem
 pytestmark = pytest.mark.django_db
 
 M1_OPEN = (
-    "M1 is under review. Withdraw it to send this milestone with it, or submit "
+    "M1 is under review. Edit it to send this milestone with it, or submit "
     "this once it is decided."
 )
 M1_AND_M2_OPEN = (
-    "M1 and M2 are under review. Withdraw them to send this milestone with them, "
+    "M1 and M2 are under review. Edit them to send this milestone with them, "
     "or submit this once they are decided."
 )
 UNVERIFIED = "Submit this once your organisation is verified."

@@ -24,7 +24,7 @@ TEMPLATE_KEY = "review"
 
 EVENT_LABELS = {
     "received": _("Submitted for review"),
-    "withdrawn": _("Withdrawn by the integrator"),
+    "withdrawn": _("Opened for editing by the integrator"),
     "assigned": _("Assigned to you"),
     "recorded": _("Recorded without a decision"),
     "query_raised": _("Query raised"),

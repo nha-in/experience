@@ -782,7 +782,7 @@ def test_queries_pause_until_all_answered_and_resolved(environment):
     services.reply_query(first, environment["applicant"], "Confirmed the scope.")
     item.refresh_from_db()
     assert item.status == "query_raised"
-    with pytest.raises(ValidationError, match="Withdraw"):
+    with pytest.raises(ValidationError, match="Use Edit on this request"):
         services.save_review_form(item, environment["applicant"], data=evidence_data())
     services.reply_query(second, environment["applicant"], "See case 14.")
     item.refresh_from_db()
@@ -852,7 +852,10 @@ def test_a_product_edit_applies_at_once_without_a_review(environment):
     assert "NHCX:nhcx_provider" in product.applied_milestones
     assert product.milestones.get(key="nhcx_provider").enabled
     assert product.registered_at == registered_at
-    with pytest.raises(ValidationError, match="Only an active review request"):
+    with pytest.raises(
+        ValidationError,
+        match="Only a request under review can be opened for editing",
+    ):
         services.withdraw(item, environment["applicant"])
 
 
@@ -907,7 +910,7 @@ def test_the_product_form_saves_changes_rather_than_requesting_review(
 
     assert re.search(r">\s*Save changes\s*<", html)
     assert "for review" not in html
-    assert "Withdraw request" not in html
+    assert 'Edit<span class="sr-only"> this request</span>' not in html
 
 
 def test_a_later_milestone_opens_for_evidence_before_the_earlier_is_approved(
@@ -976,7 +979,7 @@ def test_withdraw_and_resubmit_preserves_original_fields_and_files(environment):
     assert item.selected_submission.revision == 2
     assert item.selected_submission.attachments.count() == original.attachments.count()
     assert item.resubmission_count == 1
-    assert item.history.filter(action="Request withdrawn").exists()
+    assert item.history.filter(action="Opened for editing").exists()
 
 
 def test_reuse_pins_revision_without_mutating_approved_application(environment):
@@ -1626,7 +1629,7 @@ def test_support_members_cannot_reply_or_withdraw(environment, client):
         ),
     )
     assert response.status_code == 200
-    assert b"Withdraw request</button>" not in response.content
+    assert b'Edit<span class="sr-only"> this request</span>' not in response.content
     assert b"Send reply</button>" not in response.content
     with pytest.raises(PermissionDenied):
         services.withdraw(item, supporter)

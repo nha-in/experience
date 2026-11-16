@@ -66,7 +66,7 @@
                         id="milestone-{{ milestone.value|slugify }}-why">Approved · cannot be removed</span>
                 {% elif milestone.value in under_review_selections %}
                   <span class="ui-badge ui-badge--info ui-badge--size-xs ml-auto"
-                        id="milestone-{{ milestone.value|slugify }}-why">Under review · withdraw to remove</span>
+                        id="milestone-{{ milestone.value|slugify }}-why">Under review · edit to remove</span>
                 {% endif %}
               </div>
             {% endfor %}

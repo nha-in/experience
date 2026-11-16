@@ -61,7 +61,10 @@ MIN_REVIEW_TEXT = 10
 SHORT_NOTE = f"Use at least {MIN_REVIEW_TEXT} characters."
 #: Chosen when no listed reason fits. The reviewer then has to write the reason.
 OTHER_REASON = "Other"
+#: Taking a request back to edit was logged so until the action was named Edit.
+#: Saved history keeps its words, so both mean the same event.
 REQUEST_WITHDRAWN = "Request withdrawn"
+REQUEST_OPENED_FOR_EDITING = "Opened for editing"
 #: Logged with the version each submit saves; drafts are logged otherwise.
 FORM_SUBMITTED = "Form submitted"
 PENDING_STATUSES = (
@@ -338,7 +341,7 @@ def milestone_unavailable(item):
     if unsubmitted:
         names = readable_list(review.title for review in unsubmitted)
         verb = "is" if len(unsubmitted) == 1 else "are"
-        submitted = "resubmitted" if all_rejected(unsubmitted) else "submitted"
+        submitted = "resubmitted" if all_resubmissions(unsubmitted) else "submitted"
         return f"{item.application.title} opens once {names} {verb} {submitted}."
     return ""
 
@@ -412,11 +415,10 @@ def unsubmitted_prerequisites(item):
     ]
 
 
-def all_rejected(reviews):
-    """Whether each review was rejected, and so is resubmitted, not submitted."""
-    return bool(reviews) and all(
-        review.status == ReviewItem.Status.REJECTED for review in reviews
-    )
+def all_resubmissions(reviews):
+    """Whether each review was submitted before, after a rejection or an edit,
+    and so is resubmitted, not submitted."""
+    return bool(reviews) and all(review.submitted_at for review in reviews)
 
 
 def pending_dependants(item):
@@ -535,19 +537,19 @@ def withdrawn_hold(item, prerequisites):
     names = capfirst(readable_list(prerequisite.name for prerequisite in withdrawn))
     if len(withdrawn) == 1:
         return (
-            f"{names} was withdrawn by the integrator. "
+            f"{names} is being edited by the integrator. "
             f"{outcome} once it is resubmitted and approved."
         )
     return (
-        f"{names} were withdrawn by the integrator. "
+        f"{names} are being edited by the integrator. "
         f"{outcome} once they are resubmitted and approved."
     )
 
 
 def withdrawn_at(item):
-    """When the integrator last took this request back, if they did."""
+    """When the integrator last took this request back to edit, if they did."""
     return (
-        item.history.filter(action=REQUEST_WITHDRAWN)
+        item.history.filter(action__in=[REQUEST_WITHDRAWN, REQUEST_OPENED_FOR_EDITING])
         .order_by("-created_at")
         .values_list("created_at", flat=True)
         .first()
@@ -659,7 +661,7 @@ def project_product(item, actor, *, product_values, solution_type, selections):
         msg = (
             f"{readable_list(removed_under_review)} "
             f"{'is' if len(removed_under_review) == 1 else 'are'} under review. "
-            "Withdraw the request before removing the milestone."
+            "Edit the request before removing the milestone."
         )
         raise ValidationError(msg)
     for key, value in product_values.items():
@@ -723,7 +725,7 @@ def project_product(item, actor, *, product_values, solution_type, selections):
 
 def _require_editable_submission(item, *, submit):
     if not can_edit_review(item):
-        msg = "Withdraw this request before editing the submitted form."
+        msg = "Use Edit on this request before changing the submitted form."
         raise ValidationError(msg)
     if (
         item.status == ReviewItem.Status.APPROVED
@@ -1101,20 +1103,20 @@ def withdraw(item, actor):
     item = _lock_review(item.pk)
     require_integrator(actor, item.organisation)
     if not item.pending:
-        msg = "Only an active review request can be withdrawn."
+        msg = "Only a request under review can be opened for editing."
         raise ValidationError(msg)
     dependants = pending_dependants(item)
     if dependants:
-        # Latest first, the order they can be withdrawn in.
+        # Latest first, the order they can be taken back in.
         names = readable_list(review.title for review in reversed(dependants))
         builds = "It builds" if len(dependants) == 1 else "They build"
-        msg = f"Withdraw {names} first. {builds} on this request."
+        msg = f"Edit {names} first. {builds} on this request."
         raise ValidationError(msg)
     item.status = ReviewItem.Status.DRAFT
     item.save(update_fields=["status"])
     _set_application_status(item, "draft")
     item.definition.on_withdraw(item, actor)
-    audit(actor=actor, action=REQUEST_WITHDRAWN, item=item)
+    audit(actor=actor, action=REQUEST_OPENED_FOR_EDITING, item=item)
     _notice(item, "withdrawn")
 
 

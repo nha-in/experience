@@ -20,7 +20,7 @@
     {% elif item.status == 'rejected' %}
       Sent back on {{ item.decided_at|date:'d/m/Y' }}. They have not resubmitted yet.
     {% elif item.status == 'draft' %}
-      Withdrawn by the integrator. It returns for review when they resubmit.
+      Being edited by the integrator. It returns for review when they resubmit.
     {% elif item.status == 'query_raised' %}
       Question asked{% if item.question_asked_at %} on {{ item.question_asked_at|date:'d/m/Y' }}{% endif %}. They have not replied yet.
     {% elif group == 'theirs' %}
@@ -42,7 +42,7 @@
     {% if item.status == 'rejected' %}
       Sent back
     {% elif item.status == 'draft' %}
-      Withdrawn
+      Being edited
     {% elif item.status == 'in_review' %}
       On hold
     {% else %}

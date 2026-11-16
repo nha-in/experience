@@ -78,6 +78,9 @@ class ApplicationFormDefinition:
     request_label = "application"
     submit_label = "Submit application"
     submitted_message = "Application submitted."
+    #: After a rejection or an edit. Auto-approved forms keep `submitted_message`:
+    #: an update to them is recorded, not reviewed again.
+    resubmitted_message = "Application resubmitted."
     approval_notice = ""
     #: What a reviewer rejecting this form chooses from. A form with no list
     #: takes the reviewer's note alone.

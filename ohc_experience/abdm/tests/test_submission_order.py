@@ -168,6 +168,22 @@ def test_the_track_page_asks_for_a_rejected_milestone_to_be_resubmitted(
     assert "Locked · resubmit M1 first" in overview
 
 
+def test_a_milestone_taken_back_to_edit_is_resubmitted_before_the_next_opens(
+    environment,
+    client,
+):
+    submit(environment)
+    workflows.withdraw(milestone(environment), environment["applicant"])
+
+    assert workflows.milestone_unavailable(milestone(environment, "m2")) == (
+        "M2 - Health Information Provider Services opens once "
+        "M1 - ABHA Creation and Verification is resubmitted."
+    )
+    client.force_login(environment["applicant"])
+    html = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
+    assert "Resubmit M1 first" in milestone_tiles(html)["M2"]
+
+
 def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
     applicant = environment["applicant"]
     submit_together(environment, "m1", "m2", "m3")
@@ -177,7 +193,7 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
         workflows.withdraw(milestone(environment), applicant)
     assert error.value.messages == [
         (
-            "Withdraw UHI - UHI participation, M3 - Health Information User "
+            "Edit UHI - UHI participation, M3 - Health Information User "
             "Services and M2 - Health Information Provider Services first. "
             "They build on this request."
         ),
@@ -187,7 +203,7 @@ def test_a_request_is_withdrawn_only_after_everything_built_on_it(environment):
     workflows.withdraw(milestone(environment, "m3"), applicant)
     with pytest.raises(
         ValidationError,
-        match=r"Withdraw UHI - UHI participation first\. It builds on this request\.",
+        match=r"Edit UHI - UHI participation first\. It builds on this request\.",
     ):
         workflows.withdraw(milestone(environment), applicant)
 
@@ -332,15 +348,15 @@ def test_withdrawing_names_the_requests_to_withdraw_first(environment, client):
     m2 = client.get(track_url(environment), {"milestone": "m2"}).content.decode()
 
     assert "data-withdraw-hold" in m1
-    assert "Withdraw request</button>" not in m1
+    assert 'Edit<span class="sr-only"> this request</span>' not in m1
     # Underlined, as a link in an alert is, so it does not read as plain text.
     assert re.search(
-        r'first withdraw <a class="font-semibold underline underline-offset-4"\s+'
+        r'first edit <a class="font-semibold underline underline-offset-4"\s+'
         rf'href="{track_url(environment)}\?milestone=m2">'
         r"M2 - Health Information Provider Services</a>\. It builds on this request\.",
         m1,
     )
-    assert "Withdraw request</button>" in m2
+    assert 'Edit<span class="sr-only"> this request</span>' in m2
 
 
 def test_pending_lists_waiting_requests_beside_ready_ones(environment, client):

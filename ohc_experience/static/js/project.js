@@ -454,9 +454,13 @@
     });
     const codes = [current, ...choices.filter(choice => choice.checked).map(choice => choice.dataset.milestoneCode)];
     const label = form.querySelector('[data-submit-label]');
+    // A milestone sent before is resubmitted on its own; a batch may mix new
+    // ones in, so it is submitted.
     if (label) label.textContent = codes.length > 2
       ? `Submit ${codes.length} milestones`
-      : `Submit ${codes.join(' + ')}`;
+      : codes.length > 1
+        ? `Submit ${codes.join(' + ')}`
+        : `${label.dataset?.submitVerb || 'Submit'} ${current}`;
     const summary = form.querySelector('[data-milestone-selection-summary]');
     if (summary) summary.textContent = codes.length > 1
       ? `${codes.join(', ')} will be submitted together.`

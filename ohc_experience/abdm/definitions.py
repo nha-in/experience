@@ -154,11 +154,11 @@ def open_exit_wait_reason(item):
     names = readable_list(codes)
     if len(codes) == 1:
         return (
-            f"{names} is under review. Withdraw it to send this milestone with "
+            f"{names} is under review. Edit it to send this milestone with "
             "it, or submit this once it is decided."
         )
     return (
-        f"{names} are under review. Withdraw them to send this milestone with "
+        f"{names} are under review. Edit them to send this milestone with "
         "them, or submit this once they are decided."
     )
 
@@ -228,6 +228,7 @@ class ExitEvidence(ApplicationFormDefinition):
     request_label = "exit request"
     submit_label = "Request for exit"
     submitted_message = "Exit requested."
+    resubmitted_message = "Exit request resubmitted."
     reject_reasons = EXIT_REJECT_REASONS
     approval_notice = (
         "The NHA gateway team issues production credentials. Your production "
@@ -313,6 +314,7 @@ class WasaReview(ApplicationFormDefinition):
     request_label = "WASA review"
     submit_label = "Submit WASA for review"
     submitted_message = "WASA submitted for review."
+    resubmitted_message = "WASA resubmitted for review."
     approval_notice = (
         "Approval makes this certificate available for the product's milestones "
         "until its stated expiry date."

@@ -320,7 +320,7 @@ def _lock_tiles(product, tracks):
             codes.get(review.application_id, review.title)
             for review in unsubmitted[key]
         )
-        tile["resubmit"] = services.all_rejected(unsubmitted[key])
+        tile["resubmit"] = services.all_resubmissions(unsubmitted[key])
         if tile["locked_by"]:
             tile["label"] = "Locked"
 
@@ -1575,6 +1575,7 @@ def organisation(request):
     item = services.organisation_review(org, request.user)
     form = services.build_form(item)
     if request.method == "POST":
+        sent = "resubmitted" if item.submitted_at else "submitted"
         try:
             item, form, saved = services.save_review_form(
                 item,
@@ -1589,11 +1590,11 @@ def organisation(request):
                 # Only the first submission leads on to registration; later edits
                 # come from the settings nav and belong back on this page.
                 if org.products.exists():
-                    messages.success(request, f"{noun} submitted for verification.")
+                    messages.success(request, f"{noun} {sent} for verification.")
                     return redirect("experiences:organisation")
                 messages.success(
                     request,
-                    f"{noun} submitted for verification. "
+                    f"{noun} {sent} for verification. "
                     "You can register your product while it is reviewed.",
                 )
                 return redirect("experiences:product-create")
@@ -1855,6 +1856,7 @@ def product_certification(request, reference):
                     )
                     raise ValidationError(msg)  # noqa: TRY301
                 item = services.certification_review(product, request.user)
+                sent = "resubmitted" if item.submitted_at else "submitted"
                 item, form, saved = services.save_review_form(
                     item,
                     request.user,
@@ -1866,7 +1868,7 @@ def product_certification(request, reference):
             if saved:
                 messages.success(
                     request,
-                    "WASA submitted for review."
+                    f"WASA {sent} for review."
                     if intent == "submit"
                     else "Draft saved.",
                 )
@@ -2047,10 +2049,13 @@ def _save_track_evidence(request, item, track):
     else:
         msg = "Choose a valid form action."
         raise ValidationError(msg)
+    definition = item.definition
     notice = (
         f"Evidence submitted for {len(additional) + 1} milestones."
         if additional
-        else item.definition.submitted_message
+        else definition.resubmitted_message
+        if intent == "submit" and item.submitted_at and not definition.auto_approve
+        else definition.submitted_message
         if intent == "submit"
         else "Draft saved."
     )
@@ -2173,10 +2178,19 @@ def _integrator_item_url(item):
 @login_required
 @require_POST
 def withdraw(request, pk):
+    """Edit, on a request under review: it leaves review until resubmitted."""
     item = _item(request, pk)
     try:
         services.withdraw(item, request.user)
-        messages.success(request, "Request withdrawn. The form can now be edited.")
+        subject = (
+            "Organisation verification"
+            if item.kind == ReviewItem.Kind.ORGANISATION
+            else item.title
+        )
+        messages.success(
+            request,
+            f"{subject} opened for editing. Resubmit it to send it back for review.",
+        )
     except ValidationError as error:
         _error(request, error)
     return redirect(_integrator_item_url(item))
@@ -2891,7 +2905,7 @@ def _prerequisite_label(program, prerequisite):
     milestone = getattr(review.application, "milestone", None) if review else None
     name = program.milestones[milestone.key].code if milestone else prerequisite.name
     if prerequisite.withdrawn:
-        return name, "withdrawn"
+        return name, "being edited"
     if review is None or review.status == ReviewItem.Status.DRAFT:
         return name, "not submitted"
     return name, review.get_status_display().lower()

@@ -10,7 +10,7 @@
         <span class="font-semibold">{{ prerequisite.name|capfirst }}</span>
       {% endif %}
       {% if prerequisite.withdrawn %}
-        {% include 'experiences/partials/status.html' with status='withdrawn' label='Withdrawn' %}
+        {% include 'experiences/partials/status.html' with status='withdrawn' label='Being edited' %}
       {% elif not prerequisite.review or prerequisite.review.status == 'draft' %}
         {% include 'experiences/partials/status.html' with status='not_started' label='Not submitted' %}
       {% else %}

@@ -71,7 +71,7 @@
                             type="submit"
                             name="intent"
                             value="submit"
-                            data-request-submit>Submit WASA for review</button>
+                            data-request-submit>{% if item.submitted_at %}Resubmit{% else %}Submit{% endif %} WASA for review</button>
                   {% endif %}
                 </div>
               </div>

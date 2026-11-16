@@ -8,6 +8,7 @@ const vm = require('node:vm');
 // validity even when a required group has no selected option.
 function createPage({
   autoApprove = false, approvedUpdate = false, draft = true, submit = true, currentMilestoneCode = '', reducedMotion = false,
+  submitVerb = '',
 } = {}) {
   const listeners = new Map();
   const tasks = [];
@@ -19,7 +20,10 @@ function createPage({
   const choices = [];
   const testingDates = [];
   const steps = [];
-  const submitLabel = { textContent: 'Original submit label' };
+  const submitLabel = {
+    textContent: 'Original submit label',
+    dataset: submitVerb ? { submitVerb } : {},
+  };
   const selectionSummary = { textContent: '' };
   const document = {
     activeElement: null,
@@ -879,6 +883,21 @@ test('milestone selection is restored with its prerequisites after a form error'
   assert.equal(m1.checked, true);
   assert.equal(m3.checked, false);
   assert.equal(page.submitLabel.textContent, 'Submit M4 + M1');
+});
+
+test('a milestone sent before is resubmitted alone and submitted in a batch', () => {
+  const page = createPage({ currentMilestoneCode: 'M4', submitVerb: 'Resubmit' });
+  const m1 = page.milestone('M1', '1');
+  page.initialize();
+  assert.equal(page.submitLabel.textContent, 'Resubmit M4');
+
+  m1.checked = true;
+  page.change(m1);
+  assert.equal(page.submitLabel.textContent, 'Submit M4 + M1');
+
+  m1.checked = false;
+  page.change(m1);
+  assert.equal(page.submitLabel.textContent, 'Resubmit M4');
 });
 
 test('participation keeps its own submit label', () => {

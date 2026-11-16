@@ -601,7 +601,7 @@ def test_each_queried_field_leads_the_integrator_to_its_query(
     def page():
         html = client.get(f"{track}?milestone=inspection").content.decode()
         alert = html[html.index("Your response is needed") :]
-        alert = alert[: alert.index("Withdraw request")]
+        alert = alert[: alert.index('Edit<span class="sr-only"> this request</span>')]
         submitted = html[
             html.index(">Submitted form</h2>") : html.index('id="queries"')
         ]
@@ -669,6 +669,67 @@ def test_a_withdrawn_request_marks_no_field_as_queried(review_item, owner_member
     assert not rows()["score"]["query_open"]
     assert not rows()["score"]["earlier"]
     assert open_queries(review_item) == []
+
+
+EDIT_BUTTON = 'Edit<span class="sr-only"> this request</span>'
+
+
+def test_edit_takes_a_request_back_and_resubmit_sends_it_again(
+    review_item,
+    client,
+    owner_membership,
+):
+    track = reverse(
+        "experiences:track",
+        args=[review_item.product.reference, "Quality"],
+    )
+    page = f"{track}?milestone=inspection"
+    client.force_login(owner_membership.user)
+    html = client.get(page).content.decode()
+    assert EDIT_BUTTON in html
+    assert "withdraw" not in html.lower().replace("/withdraw/", "")
+    # A plain form, so the page's own handler asks, not htmx.
+    assert 'data-confirm="Edit this request?"' in html
+
+    response = client.post(reverse("experiences:withdraw", args=[review_item.pk]))
+    assert last_flash(response) == (
+        "INS - Inspection opened for editing. Resubmit it to send it back for review."
+    )
+    assert review_item.history.filter(action="Opened for editing").exists()
+    review_item.refresh_from_db()
+    html = client.get(page).content.decode()
+    assert "Resubmit INS</span>" in html
+
+    response = client.post(
+        page,
+        {
+            "intent": "submit",
+            "report_reference": "Q-PORT-1",
+            "score": 96,
+            "revision": review_item.selected_submission_id,
+        },
+    )
+    assert last_flash(response) == "Application resubmitted."
+    review_item.refresh_from_db()
+    assert review_item.pending
+    assert review_item.resubmission_count == 1
+
+
+def test_history_saved_before_edit_was_named_still_dates_the_edit(
+    review_item,
+    owner_membership,
+):
+    """Saved history keeps its words, so the old action still counts."""
+    workflows.withdraw(review_item, owner_membership.user)
+    edited = review_item.history.get(action=workflows.REQUEST_OPENED_FOR_EDITING)
+    assert workflows.withdrawn_at(review_item) == edited.created_at
+
+    earlier = workflows.audit(
+        actor=owner_membership.user,
+        action=workflows.REQUEST_WITHDRAWN,
+        item=review_item,
+    )
+    assert workflows.withdrawn_at(review_item) == earlier.created_at
 
 
 def test_the_form_taken_back_to_edit_marks_what_was_queried(

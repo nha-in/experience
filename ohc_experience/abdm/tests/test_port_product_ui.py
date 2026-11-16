@@ -817,9 +817,9 @@ def test_picker_locks_a_milestone_under_review_until_it_is_withdrawn(
     locked = next(field for field in inputs if field.get("id") == "milestone-hie-cmm2")
     assert "disabled" in locked
     assert locked["aria-describedby"] == "milestone-hie-cmm2-why"
-    assert 'id="milestone-hie-cmm2-why">Under review · withdraw to remove<' in html
+    assert 'id="milestone-hie-cmm2-why">Under review · edit to remove<' in html
     assert "1 approved · cannot be removed" in html
-    assert "1 under review · withdraw to remove" in html
+    assert "1 under review · edit to remove" in html
 
     workflows.withdraw(item, environment["applicant"])
     html = client.get(url).content.decode()
@@ -829,7 +829,7 @@ def test_picker_locks_a_milestone_under_review_until_it_is_withdrawn(
     )
     assert "disabled" not in unlocked
     assert unlocked["name"] == "applied_milestones"
-    assert "under review · withdraw to remove" not in html.lower()
+    assert "under review · edit to remove" not in html.lower()
 
 
 @pytest.mark.django_db
@@ -897,7 +897,7 @@ def test_track_draft_uploads_and_withdrawn_snapshot_remain_editable(
         follow=True,
     )
     assert response.status_code == 200
-    assert b"Withdraw request" in response.content
+    assert b'Edit<span class="sr-only"> this request</span>' in response.content
     assert b"data-review-form" not in response.content
     assert b"Submitted form" in response.content
     response = client.post(
