@@ -1,0 +1,15 @@
+{% comment %}
+  A staff list's "Search in" choice, beside its search box: every field, or
+  one alone, as a top bar search row opens it (global_search.ORGANISATION_FIELDS,
+  global_search.PRODUCT_FIELDS).
+  Context: field_id; search_field, search_field_choices from the view.
+{% endcomment %}
+<div class="ui-select-wrapper w-36 shrink-0">
+  <label class="sr-only" for="{{ field_id }}">Search in</label>
+  <select class="ui-select" id="{{ field_id }}" name="field">
+    <option value="">All fields</option>
+    {% for value, label in search_field_choices %}
+      <option value="{{ value }}" {% if value == search_field %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</div>

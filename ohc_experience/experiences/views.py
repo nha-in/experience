@@ -70,6 +70,7 @@ from ohc_experience.support.models import change_priority
 from ohc_experience.support.models import post_reply
 
 from . import credentials as credential_services
+from . import global_search
 from . import legacy
 from . import permissions
 from . import production as production_services
@@ -745,9 +746,9 @@ def organizations(request):
     _require_reviewer_area(request.user)
     visible = permissions.visible_organisations(request.user)
     rows = visible
-    search = request.GET.get("q", "").strip()
+    search, field = _search(request, global_search.ORGANISATION_FIELDS)
     if search:
-        rows = rows.filter(Q(name__icontains=search) | Q(legal_name__icontains=search))
+        rows = rows.filter(global_search.organisation_filter(search, field))
     status = request.GET.get("status", "")
     if status in Organisation.VerificationStatus.values:
         rows = rows.filter(verification_status=status)
@@ -809,6 +810,7 @@ def organizations(request):
     page.object_list = list(_with_labels(page))
     if search:
         production_services.with_organisation_details(get_program(), page.object_list)
+        global_search.with_organisation_matches(page.object_list, search, field)
     return render(
         request,
         "experiences/organizations.html",
@@ -819,6 +821,8 @@ def organizations(request):
             organizations=page,
             table_sort=sort,
             search=search,
+            search_field=field,
+            search_field_choices=global_search.ORGANISATION_FIELDS.items(),
             status_choices=Organisation.VerificationStatus.choices,
             selected_status=status,
             entity_type_choices=entity_type_choices,
@@ -863,11 +867,11 @@ def _reviewer_products(request):
         rows = rows.filter(_certificate_standing(wasa))
     else:
         wasa = ""
-    search = request.GET.get("q", "").strip()
+    search, field = _search(request, global_search.PRODUCT_FIELDS)
     if search:
         rows = rows.filter(
-            Q(name__icontains=search) | Q(reference__icontains=search),
-        )
+            global_search.product_filter(search, field),
+        ).select_related("credential")
     sort, order = tables.sorting(
         request,
         _product_columns(reviewer=True),
@@ -887,6 +891,8 @@ def _reviewer_products(request):
             program,
             (product.organisation for product in products),
         )
+        for product in products:
+            product.search_match = global_search.product_match(product, search, field)
     return render(
         request,
         "experiences/reviewer_products.html",
@@ -905,8 +911,28 @@ def _reviewer_products(request):
             wasa_choices=wasa_choices,
             selected_wasa=wasa,
             search=search,
+            search_field=field,
+            search_field_choices=global_search.PRODUCT_FIELDS.items(),
         ),
     )
+
+
+def _search(request, fields):
+    """A list's search text, and the one of `fields` it is limited to, if any."""
+    text = request.GET.get("q", "").strip()[: global_search.MAX_LENGTH]
+    field = request.GET.get("field", "")
+    return text, field if field in fields else ""
+
+
+@login_required
+def search_open(request):
+    """Where the top bar search goes without JavaScript: its first row."""
+    _require_reviewer_area(request.user)
+    text = request.GET.get("q", "").strip()[: global_search.MAX_LENGTH]
+    if not text:
+        return redirect("experiences:organizations")
+    first = global_search.rows(support=False)[0]
+    return redirect(global_search.searched(first.url, text))
 
 
 # ReviewItem.title, in the database: an application's own title, else the

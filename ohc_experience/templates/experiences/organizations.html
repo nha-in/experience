@@ -15,7 +15,7 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
-    <form class="grid items-end gap-3 border-b border-soft-border px-5 py-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_auto]"
+    <form class="grid items-end gap-3 border-b border-soft-border px-5 py-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,2.6fr)_repeat(3,minmax(0,1fr))_auto]"
           method="get"
           action="{% url 'experiences:organizations' %}"
           role="search"
@@ -28,12 +28,15 @@
       {% include "components/table_state.html" %}
       <div class="min-w-0">
         <label class="ui-label" for="organization-search">Search organisations</label>
-        <input class="ui-input"
-               id="organization-search"
-               name="q"
-               value="{{ search }}"
-               placeholder="Organisation or legal name"
-               type="search" />
+        <div class="flex gap-2">
+          <input class="ui-input min-w-0 flex-1"
+                 id="organization-search"
+                 name="q"
+                 value="{{ search }}"
+                 placeholder="Name, member email or mobile"
+                 type="search" />
+          {% include 'experiences/partials/search_field.html' with field_id='organization-search-field' %}
+        </div>
       </div>
       <div class="min-w-0">
         <label class="ui-label" for="organization-status">Verification</label>
@@ -113,6 +116,7 @@
                   <a class="font-semibold text-foreground no-underline group-hover:text-primary"
                      href="{% url 'experiences:organization-detail' organization.slug %}"
                      data-row-link>{{ organization.display_name }}</a>
+                  {% include 'experiences/partials/search_match.html' with match=organization.search_match %}
                 </td>
                 <td class="text-muted-foreground">{{ organization.entity_type_label|default:'—' }}</td>
                 <td class="text-muted-foreground">{{ organization.state_label|default:'—' }}</td>
@@ -153,6 +157,7 @@
                 {% if search and organization.entity_type_label %}
                   <p class="mt-0.5 text-xs text-muted-foreground">{{ organization.entity_type_label }}</p>
                 {% endif %}
+                {% include 'experiences/partials/search_match.html' with match=organization.search_match %}
                 <p class="mt-1 text-xs text-soft-foreground">
                   {{ organization.visible_product_count }} product{{ organization.visible_product_count|pluralize }} · {{ organization.open_count }} open request{{ organization.open_count|pluralize }}
                 </p>

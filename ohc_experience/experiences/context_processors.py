@@ -2,6 +2,7 @@ from django.db.models import Q
 
 from ohc_experience.organisations.selectors import get_membership_for
 
+from . import global_search
 from . import permissions
 from .models import Product
 from .registry import get_program
@@ -78,6 +79,11 @@ def navigation_context(request, product=None):
         tickets = tickets.filter(organisation=organisation)
         if product:
             tickets = tickets.filter(product=product)
+    can_read_reviews = permissions.has_area(request.user, "review")
+    can_read_support = not is_reviewer or permissions.has_area(
+        request.user,
+        "support",
+    )
     return {
         "product": product,
         "selected_product": product,
@@ -89,9 +95,12 @@ def navigation_context(request, product=None):
             "review",
             program=product.definition.key if product else None,
         ),
-        "can_read_reviews": permissions.has_area(request.user, "review"),
-        "can_read_support": not is_reviewer
-        or permissions.has_area(request.user, "support"),
+        "can_read_reviews": can_read_reviews,
+        "can_read_support": can_read_support,
+        # The top bar search, for the staff who can open the lists it searches.
+        "search_rows": global_search.rows(support=can_read_support)
+        if is_reviewer and can_read_reviews
+        else [],
         "can_read_events": not is_reviewer
         or permissions.has_area(request.user, "events"),
         "can_create_events": permissions.has_area(request.user, "events", "write"),

@@ -1,0 +1,88 @@
+{% comment %}
+  The staff search box: the top bar's, and a copy in the phone drawer.
+
+  As in Odoo, typing offers a row per field, "Search Organisation for: care"
+  and so on (global_search.rows), first one highlighted. js/global-search.js
+  builds the rows from the template below as people type, moves through them
+  as a combobox, and opens the one chosen: the list its field belongs to,
+  searched in that field. Without JavaScript the form submits to
+  experiences:search, which opens the first row.
+
+  The form is boosted like the nav, and hx-disinherit keeps that from what the
+  script puts inside it; the popup boosts its rows the same way.
+
+  With shortcut, the box shows its "/" key, which puts the cursor in it from
+  anywhere on the page but a field (the top bar's copy; a phone has no keys).
+
+  Context: search_id, unique per copy; shortcut; search_rows (navigation_context).
+{% endcomment %}
+<form class="relative w-full"
+      role="search"
+      method="get"
+      action="{% url 'experiences:search' %}"
+      data-global-search
+      hx-boost="true"
+      hx-target="#main-content"
+      hx-select="#main-content"
+      hx-select-oob="#app-nav"
+      hx-swap="outerHTML show:window:top"
+      hx-push-url="true"
+      hx-disinherit="*">
+  <label class="sr-only" for="{{ search_id }}">Search organisations, products, IDs, email or mobile</label>
+  <svg class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-soft-foreground"
+       viewBox="0 0 24 24"
+       fill="none"
+       stroke="currentColor"
+       stroke-width="2"
+       stroke-linecap="round"
+       stroke-linejoin="round"
+       aria-hidden="true">
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </svg>
+  <input class="ui-input peer pl-8 md:pl-8 {% if shortcut %}pr-9 md:pr-9{% endif %}"
+         id="{{ search_id }}"
+         name="q"
+         type="text"
+         role="combobox"
+         aria-autocomplete="list"
+         aria-expanded="false"
+         aria-controls="{{ search_id }}-options"
+         {% if shortcut %}aria-keyshortcuts="/"{% endif %}
+         autocomplete="off"
+         autocapitalize="off"
+         spellcheck="false"
+         enterkeyhint="search"
+         maxlength="100"
+         placeholder="Organisation, product, Sandbox ID, email or mobile" />
+  {% if shortcut %}
+    <kbd class="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded border border-b-2 border-border bg-card px-1.5 font-mono text-[11px] leading-4 text-soft-foreground peer-focus:hidden peer-[:not(:placeholder-shown)]:hidden"
+         aria-hidden="true">/</kbd>
+  {% endif %}
+  <div class="absolute top-full right-0 left-0 z-50 mt-1.5 max-h-96 overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+       data-global-search-popup
+       hidden
+       hx-boost="true"
+       hx-target="#main-content"
+       hx-select="#main-content"
+       hx-select-oob="#app-nav"
+       hx-swap="outerHTML show:window:top"
+       hx-push-url="true"
+       hx-indicator="#nav-progress">
+    <div class="flex flex-col gap-0.5"
+         id="{{ search_id }}-options"
+         role="listbox"
+         aria-label="Search"></div>
+  </div>
+  <template data-global-search-rows>
+    {% for row in search_rows %}
+      <a class="cursor-pointer rounded-md px-2 py-2.5 text-base text-foreground no-underline select-none aria-selected:bg-accent aria-selected:text-accent-foreground md:py-1.5 md:text-sm [overflow-wrap:anywhere]"
+         href="{{ row.url }}"
+         data-url="{{ row.url }}"
+         role="option"
+         aria-selected="false"
+         tabindex="-1">Search <strong class="font-semibold">{{ row.label }}</strong> for: <em class="font-medium text-primary" data-global-search-text></em></a>
+    {% endfor %}
+  </template>
+  <p class="sr-only" role="status" data-global-search-status></p>
+</form>

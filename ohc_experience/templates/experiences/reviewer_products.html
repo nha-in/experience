@@ -18,7 +18,7 @@
 {% block canvas_padding %}pt-0{% endblock canvas_padding %}
 {% block portal_content %}
   <div class="ui-float ui-rise ui-card ui-card--layered overflow-hidden [animation-delay:.1s]">
-    <form class="grid items-end gap-3 border-b border-soft-border px-5 py-4 sm:grid-cols-2 {% if wasa_choices %}xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% endif %}"
+    <form class="grid items-end gap-3 border-b border-soft-border px-5 py-4 sm:grid-cols-2 {% if wasa_choices %}xl:grid-cols-[minmax(0,2.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% else %}xl:grid-cols-[minmax(0,2.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]{% endif %}"
           method="get"
           action="{% url 'experiences:products' %}"
           role="search"
@@ -31,12 +31,15 @@
       {% include "components/table_state.html" %}
       <div class="min-w-0">
         <label class="ui-label" for="product-search">Search products</label>
-        <input class="ui-input"
-               id="product-search"
-               name="q"
-               value="{{ search }}"
-               placeholder="Product name or reference"
-               type="search" />
+        <div class="flex gap-2">
+          <input class="ui-input min-w-0 flex-1"
+                 id="product-search"
+                 name="q"
+                 value="{{ search }}"
+                 placeholder="Product, organisation, reference or client ID"
+                 type="search" />
+          {% include 'experiences/partials/search_field.html' with field_id='product-search-field' %}
+        </div>
       </div>
       <div class="min-w-0">
         <label class="ui-label" for="product-organization">Organisation</label>
@@ -132,6 +135,7 @@
                      href="{% url 'experiences:product-overview' product.reference %}"
                      data-row-link>{{ product.name }}</a>
                   <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
+                  {% include 'experiences/partials/search_match.html' with match=product.search_match %}
                 </td>
                 <td class="max-w-[240px] text-muted-foreground">
                   {{ product.organisation.display_name }}
@@ -180,6 +184,7 @@
                 <p class="mt-1 text-xs text-soft-foreground">
                   <span class="font-mono">{{ product.reference }}</span>{% if product.solution_type %} · {{ product.get_solution_type_display }}{% endif %} · {{ product.organisation.display_name }}{% if search and product.organisation.entity_type_label %} · {{ product.organisation.entity_type_label }}{% endif %}
                 </p>
+                {% include 'experiences/partials/search_match.html' with match=product.search_match %}
               </div>
               {% if product.open_count %}
                 <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>

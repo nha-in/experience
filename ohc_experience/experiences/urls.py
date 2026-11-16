@@ -24,6 +24,7 @@ urlpatterns = [
         views.product_overview,
         name="product-overview",
     ),
+    path("portal/search/", views.search_open, name="search"),
     path("portal/organizations/", views.organizations, name="organizations"),
     path(
         "portal/organizations/<slug:slug>/",

@@ -12,6 +12,7 @@
 - Keep a plain dropdown only when asked, with `data-native-select` (in a form, `forms.Select(attrs={"data-native-select": ""})`).
 - A dropdown lists only what can be chosen. Never group its options with `<optgroup>` or grouped Django choices, whose label sits in the list as a heading nobody can pick; `searchable-select.js` drops such a label anyway, but a plain dropdown still shows it. When some options belong together, lead them with one that picks them all, as "Exit forms" does in the queue's Type filter.
 - A script that changes a select's value or options should dispatch `change` on the select, as `ohc_experience/static/js/pincode-lookup.js` does, so the search box shows the new choice.
+- The one other combobox is the staff search box in the top bar (`components/global_search.html`, driven by `ohc_experience/static/js/global-search.js`). As in Odoo, it offers a "Search <field> for: <text>" row per field, each a link to that field's list searched for the text. Those are searches, not choices, so it cannot be a select. Never add a third: a new choice is a select, and a new way to find records is a row in that search box (`ohc_experience/experiences/global_search.py`).
 
 # Rows
 

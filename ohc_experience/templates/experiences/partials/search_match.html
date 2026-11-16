@@ -1,0 +1,9 @@
+{% comment %}
+  A searched list row's word on what it matched that the row does not show:
+  a member's email or mobile, a client ID, the name an organisation trades
+  under (global_search.organisation_match, global_search.product_match).
+  Context: match, empty when the row shows what matched.
+{% endcomment %}
+{% if match %}
+  <span class="mt-1 block text-xs text-soft-foreground [overflow-wrap:anywhere]"><span class="font-semibold text-primary">Matched:</span> {{ match }}</span>
+{% endif %}
