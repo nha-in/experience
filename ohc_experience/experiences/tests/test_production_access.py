@@ -336,11 +336,16 @@ def test_searched_rows_open_the_organisation_details(environment, client):
     page = client.get(url, {"q": product.reference}).content.decode()
     for shown in (
         f'aria-controls="organisation-details-{product.reference}"',
+        # The row shows the type of entity, so the panel leaves it out.
+        dict(get_program().signup_organisation_choices)[
+            product.organisation.entity_type
+        ],
         "Digital health systems for connected care.",
         "Entity in India",
         f'href="mailto:{submitter.email}"',
     ):
         assert shown in page
+    assert "Type of entity" not in page
 
 
 def test_list_tabs_search_and_export(environment, client):

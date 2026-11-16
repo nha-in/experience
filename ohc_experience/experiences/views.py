@@ -3157,7 +3157,7 @@ def _kind_switch(params, kind):
 
 
 @login_required
-def queue(request):
+def queue(request):  # noqa: C901
     _reviewer_required(request)
     program = get_program()
     verifies = permissions.has_access(request.user, "review", program=program.key)
@@ -3224,6 +3224,12 @@ def queue(request):
             query,
             scope,
         )
+    searched = bool(params.get("q", "").strip())
+    if searched:
+        production_services.with_organisation_details(
+            program,
+            (entry.organisation for entry in page),
+        )
     # The product page's back link returns to the queue as filtered here.
     request.session["queue_query"] = request.GET.urlencode()
     return render(
@@ -3245,6 +3251,7 @@ def queue(request):
             statuses=statuses,
             filters=params,
             filter_query=params.urlencode(),
+            searched=searched,
             request_choices=_request_choices(program, request.user),
             track_choices=tracks,
         ),

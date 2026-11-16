@@ -1,14 +1,14 @@
 {% comment %}
-  Opens the hidden table row with organisation details under a list row
-  (portal-ux.js). Context: target, the id of that row.
+  A searched list row's "Organisation details" strip, which opens the hidden
+  row under it (portal-ux.js). Context: target, the id of that row. The strip's
+  own row or list item pads it and turns grey while it is open.
 {% endcomment %}
-<button class="group/details mt-1 flex min-h-9 items-center gap-1 text-sm font-semibold text-primary hover:underline"
+<button class="group/details flex min-h-9 w-full items-center gap-1.5 text-left text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary aria-expanded:text-foreground"
         type="button"
         aria-expanded="false"
         aria-controls="{{ target }}"
         data-details-toggle>
-  <span class="group-aria-expanded/details:hidden">Show details</span>
-  <span class="hidden group-aria-expanded/details:inline">Hide details</span>
+  Organisation details
   <svg viewBox="0 0 24 24"
        class="size-4 shrink-0 transition-transform group-aria-expanded/details:rotate-180 motion-reduce:transition-none"
        fill="none"

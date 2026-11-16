@@ -1,6 +1,8 @@
 {% comment %}
   An organisation's sent registration, opened from a list row's "Show details".
-  Context: organisation, after production.with_organisation_details.
+  Context: organisation, after production.with_organisation_details. The row
+  shows the type of entity. A row that already shows a contact passes its email
+  as row_contact, so it is not repeated here.
 {% endcomment %}
 {% with details=organisation.details submitter=organisation.submitted_by %}
   {% if details %}
@@ -14,12 +16,6 @@
         </div>
       {% endif %}
       <div class="min-w-0">
-        <dt class="text-xs text-soft-foreground">Type of entity</dt>
-        <dd class="mt-0.5 break-words">
-          {{ organisation.entity_type_label|default:'—' }}
-        </dd>
-      </div>
-      <div class="min-w-0">
         <dt class="text-xs text-soft-foreground">Category</dt>
         <dd class="mt-0.5 break-words">
           {{ organisation.category_label|default:'—' }}
@@ -32,16 +28,18 @@
         </dd>
       </div>
       {% if submitter %}
-        <div class="min-w-0 sm:col-span-2">
+        <div class="min-w-0 {% if submitter.email != row_contact %}sm:col-span-2{% endif %}">
           <dt class="text-xs text-soft-foreground">Submitted by</dt>
           <dd class="mt-0.5 flex min-w-0 flex-col">
             <span class="break-words">{{ submitter.display_name }}</span>
-            {% if submitter.phone_number %}
-              <a class="text-primary tabular-nums hover:underline"
-                 href="tel:{{ submitter.phone_number }}">{{ submitter.phone_number }}</a>
+            {% if submitter.email != row_contact %}
+              {% if submitter.phone_number %}
+                <a class="text-primary tabular-nums hover:underline"
+                   href="tel:{{ submitter.phone_number }}">{{ submitter.phone_number }}</a>
+              {% endif %}
+              <a class="break-all text-primary hover:underline"
+                 href="mailto:{{ submitter.email }}">{{ submitter.email }}</a>
             {% endif %}
-            <a class="break-all text-primary hover:underline"
-               href="mailto:{{ submitter.email }}">{{ submitter.email }}</a>
           </dd>
         </div>
       {% endif %}

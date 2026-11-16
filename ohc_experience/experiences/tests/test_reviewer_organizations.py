@@ -16,6 +16,7 @@ from ohc_experience.abdm.tests.test_workflow import submit
 from ohc_experience.abdm.tests.test_workflow import submit_together
 from ohc_experience.experiences import workflows as services
 from ohc_experience.experiences.models import AccessGrant
+from ohc_experience.experiences.registry import get_program
 from ohc_experience.experiences.views import _wasa_notice
 from ohc_experience.organisations.models import Membership
 from ohc_experience.organisations.tests.factories import OrganisationFactory
@@ -111,6 +112,9 @@ def test_searched_lists_open_the_organisation_details(environment, client):
     submitter = organization.review_items.get(
         kind="organisation_verification",
     ).selected_submission.submitted_by
+    entity_type = dict(get_program().signup_organisation_choices)[
+        organization.entity_type
+    ]
     client.force_login(environment["reviewer"])
 
     for url, search, row in (
@@ -121,6 +125,7 @@ def test_searched_lists_open_the_organisation_details(environment, client):
         for shown in (
             f'aria-controls="organisation-details-{row}"',
             f'id="organisation-details-{row}"',
+            entity_type,
             "Digital health systems for connected care.",
             "Entity in India",
             "560001",
@@ -129,6 +134,37 @@ def test_searched_lists_open_the_organisation_details(environment, client):
             assert shown in page, (url, shown)
         # The plain list stays as it was.
         assert "organisation-details-" not in client.get(url).content.decode()
+
+
+def test_searched_queue_opens_the_organisation_details(environment, client):
+    organization = environment["org"]
+    submit(environment, "m1")
+    submitter = organization.review_items.get(
+        kind="organisation_verification",
+    ).selected_submission.submitted_by
+    client.force_login(environment["reviewer"])
+    url = reverse("experiences:queue")
+
+    for tab in ({"scope": "all"}, {"kind": "organisations", "scope": "all"}):
+        response = client.get(url, {**tab, "q": organization.name})
+        [entry] = response.context["page"]
+        page = response.content.decode()
+        for shown in (
+            f'aria-controls="organisation-details-{entry.reference}"',
+            f'id="organisation-details-{entry.reference}"',
+            "Digital health systems for connected care.",
+            "560001",
+            submitter.display_name,
+        ):
+            assert shown in page, (tab, shown)
+        # The plain list stays as it was.
+        assert "organisation-details-" not in client.get(url, tab).content.decode()
+
+    # A product row's side panel already shows the contact.
+    response = client.get(url, {"scope": "all", "q": organization.name})
+    [entry] = response.context["page"]
+    assert entry.product.contact_email == submitter.email
+    assert f'href="mailto:{submitter.email}"' not in response.content.decode()
 
 
 def test_organization_pages_follow_category_review_scope(environment, client):

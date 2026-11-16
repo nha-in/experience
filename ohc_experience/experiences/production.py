@@ -481,9 +481,9 @@ def with_organisation_details(program, organisations):
             verification.selected_submission,
         )
     entity_types = dict(program.signup_organisation_choices)
-    categories = dict(
-        program.organisation_form.form_class.base_fields["category"].choices,
-    )
+    # Not every programme's organisation form asks for a category.
+    category_field = program.organisation_form.form_class.base_fields.get("category")
+    categories = dict(category_field.choices) if category_field else {}
     for organisation in organisations:
         submission = submissions.get(organisation.pk)
         organisation.details = submission.data if submission else {}

@@ -397,8 +397,10 @@
     @apply transition-colors hover:bg-secondary/40;
   }
 
-  /* A row's opened details (data-details-row) read as part of it: no divider between them. */
-  .ui-grid-table tbody tr:has(+ tr[data-details-row]:not([hidden])) td {
+  /* A row's opened details (data-details-row) read as part of its strip, and
+     closed details at the end leave the strip the last row. */
+  .ui-grid-table tbody tr:has(+ tr[data-details-row]:not([hidden])) td,
+  .ui-grid-table tbody tr:has(+ tr[data-details-row][hidden]:last-child) td {
     @apply border-b-0;
   }
 
@@ -811,4 +813,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   a.ui-tile:hover { transform: none; }
+}
+
+@layer utilities {
+  /* A list row's opened details (data-details-row) read as part of it, and
+     closed details at the end leave their row the last one. */
+  .divide-y > li:has(+ li[data-details-row]:not([hidden])),
+  .divide-y > li:has(+ li[data-details-row][hidden]:last-child) {
+    border-bottom-width: 0;
+  }
 }
