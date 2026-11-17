@@ -346,16 +346,22 @@ def sync_bridge(task: Task, product_id: int) -> int:
             _bridge_spec(product, client.public_ref, credential.callback_url),
         )
     except AdapterError as error:
-        attempts = task.request.retries + 1
-        if error.retryable and attempts < settings.PROVISIONING_MAX_ATTEMPTS:
-            raise task.retry(countdown=_backoff(task.request.retries)) from error
-        logger.exception(
-            "registering the bridge for %s failed after %s attempts",
-            _reference(product),
-            attempts,
-        )
-        _record_bridge_failure(product, client.public_ref, error.message)
-        return product_id
+        # ABDM-1093, "Duplicate Bridge request", means the bridge is already
+        # registered, and this PUT overwrites rather than duplicates, so the
+        # refusal is a success. Anything else falls through to the failure row.
+        # shortcut: the code arrives only inside the response text, until the
+        # adapter parses the gateway's error envelope.
+        if "ABDM-1093" not in error.message:
+            attempts = task.request.retries + 1
+            if error.retryable and attempts < settings.PROVISIONING_MAX_ATTEMPTS:
+                raise task.retry(countdown=_backoff(task.request.retries)) from error
+            logger.exception(
+                "registering the bridge for %s failed after %s attempts",
+                _reference(product),
+                attempts,
+            )
+            _record_bridge_failure(product, client.public_ref, error.message)
+            return product_id
 
     _record(
         product,

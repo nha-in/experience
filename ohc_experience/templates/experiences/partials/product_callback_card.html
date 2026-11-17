@@ -2,6 +2,7 @@
 
 <section id="callback-card"
          class="ui-card ui-card--layered gap-5"
+         data-callback-card
          aria-labelledby="callback-title">
   <div class="ui-card-header">
     <h2 class="ui-card-title" id="callback-title">Callback URL</h2>
@@ -21,9 +22,23 @@
             <div>
               {% ui_field form.callback_url extra_class='font-mono text-sm' help_text='The public HTTPS URL where the gateway delivers callbacks.' %}
             </div>
+            <ul class="mt-3 grid gap-1 text-xs text-soft-foreground"
+                id="callback-rules"
+                data-callback-rules>
+              {% for rule in form.rules %}
+                <li class="group flex items-center gap-2"
+                    data-rule-scope="{{ rule.scope }}"
+                    data-rule-pattern="{{ rule.pattern }}">
+                  <span class="grid size-4 shrink-0 place-items-center rounded-full border border-current/30 text-[0.7rem] leading-none group-data-[met=true]:border-transparent group-data-[met=true]:bg-[var(--status-success-bg)] group-data-[met=true]:text-[var(--status-success-text)]"
+                        aria-hidden="true">·</span>{{ rule.label }}
+                </li>
+              {% endfor %}
+            </ul>
             <div class="mt-3.5">
               <button class="ui-btn ui-btn--outline ui-btn--size-sm shadow-md"
-                      type="submit">Save URL</button>
+                      type="submit"
+                      aria-describedby="callback-rules"
+                      data-callback-save>Save URL</button>
             </div>
           </fieldset>
         </form>

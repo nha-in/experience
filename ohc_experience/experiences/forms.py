@@ -1,4 +1,6 @@
 import ipaddress
+import re
+from typing import NamedTuple
 from urllib.parse import urlsplit
 
 from django import forms
@@ -156,7 +158,30 @@ def _public_host_name(host):
     return False
 
 
+class CallbackRule(NamedTuple):
+    """One line of the gateway's rule, read by the card and by the form alike."""
+
+    label: str
+    #: "url", or the part after the host name.
+    scope: str
+    pattern: str
+
+
+#: What the gateway accepts, a line at a time. The card lists these, the browser
+#: ticks them as the integrator types, and `clean_callback_url` is the ruling.
+CALLBACK_RULES = (
+    CallbackRule("Starts with https://", "url", r"^https://"),
+    CallbackRule("No port number", "url", r"^(?:[a-z]+://)?[^/:]*(?:/|$)"),
+    CallbackRule(
+        "Only lower-case letters, digits and hyphens after the host name",
+        "path",
+        r"^(/[a-z0-9-]+)*$",
+    ),
+)
+
+
 class CallbackURLForm(forms.Form):
+    rules = CALLBACK_RULES
     callback_url = forms.URLField(required=False)
 
     def clean_callback_url(self):
@@ -167,6 +192,17 @@ class CallbackURLForm(forms.Form):
         if url and not _public_host_name(urlsplit(url).hostname or ""):
             msg = "Use a public host name, not an IP address or an internal name."
             raise ValidationError(msg)
+        if not url:
+            return url
+        # The gateway answers only "Invalid URL.", minutes later, through a bridge
+        # that never registered, so each rule has to be refused here by name.
+        url = url.rstrip("/")
+        # Everything after the host name, query and fragment included, read the
+        # same way `callback-url-rules.js` reads it.
+        after_host = re.sub(r"^https?://[^/]*", "", url)
+        for rule in CALLBACK_RULES:
+            if not re.match(rule.pattern, url if rule.scope == "url" else after_host):
+                raise ValidationError(rule.label)
         return url
 
 
