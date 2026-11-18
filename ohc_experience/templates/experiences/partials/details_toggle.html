@@ -1,22 +1,29 @@
 {% comment %}
-  A list row's "Organisation details" strip, which opens the hidden
-  row under it (portal-ux.js). Context: target, the id of that row. The strip's
-  own row or list item pads it and turns grey while it is open.
+  The foot of a row's facts box: "Organisation details", which opens the rest of
+  the organisation's registration under it (portal-ux.js). A click in the opened
+  details stays there rather than opening the row (row-link.js).
+  Context: target, a page-unique id for the details; organisation, and the
+  organisation_details.html options.
 {% endcomment %}
-<button class="group/details flex min-h-9 w-full items-center gap-1.5 text-left text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"
-        type="button"
-        aria-expanded="false"
-        aria-controls="{{ target }}"
-        data-details-toggle>
-  Organisation details
-  <svg viewBox="0 0 24 24"
-       class="size-4 shrink-0 transition-transform group-aria-expanded/details:rotate-180 motion-reduce:transition-none"
-       fill="none"
-       stroke="currentColor"
-       stroke-width="2"
-       stroke-linecap="round"
-       stroke-linejoin="round"
-       aria-hidden="true">
-    <path d="m6 9 6 6 6-6" />
-  </svg>
-</button>
+<div class="border-t border-soft-border pt-2">
+  <button class="group/details flex min-h-9 w-full items-center gap-1.5 text-left text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"
+          type="button"
+          aria-expanded="false"
+          aria-controls="{{ target }}"
+          data-details-toggle>
+    Organisation details
+    <svg viewBox="0 0 24 24"
+         class="size-4 shrink-0 transition-transform group-aria-expanded/details:rotate-180 motion-reduce:transition-none"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="2"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         aria-hidden="true">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  </button>
+  <div class="pt-2" id="{{ target }}" data-details-panel hidden>
+    {% include 'experiences/partials/organisation_details.html' %}
+  </div>
+</div>

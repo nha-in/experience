@@ -1,14 +1,14 @@
 {% comment %}
-  An organisation's sent registration, opened from a list row's "Show details".
-  Context: organisation, after production.with_organisation_details. The row
-  shows the type of entity. A row that already shows a contact passes its email
-  as row_contact, so it is not repeated here.
+  An organisation's sent registration, opened from a row's facts box.
+  Context: organisation, after production.with_organisation_details. A row that
+  already shows a contact passes its email as row_contact, so it is not
+  repeated here; one that shows who submitted passes skip_submitter.
 {% endcomment %}
 {% with details=organisation.details submitter=organisation.submitted_by %}
   {% if details %}
-    <dl class="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+    <dl class="grid gap-3 text-sm">
       {% if details.description %}
-        <div class="col-span-full min-w-0">
+        <div class="min-w-0">
           <dt class="text-xs text-soft-foreground">Description</dt>
           <dd class="mt-0.5 break-words">
             {{ details.description|linebreaksbr }}
@@ -21,14 +21,14 @@
           {{ organisation.category_label|default:'—' }}
         </dd>
       </div>
-      <div class="min-w-0 sm:col-span-2">
+      <div class="min-w-0">
         <dt class="text-xs text-soft-foreground">Address</dt>
         <dd class="mt-0.5 break-words">
           {{ details.registered_address|default:'—' }}{% if details.district %}, {{ details.district }}{% endif %}{% if details.state %}, {{ details.state }}{% endif %}{% if details.pincode %} {{ details.pincode }}{% endif %}
         </dd>
       </div>
-      {% if submitter %}
-        <div class="min-w-0 {% if submitter.email != row_contact %}sm:col-span-2{% endif %}">
+      {% if submitter and not skip_submitter %}
+        <div class="min-w-0">
           <dt class="text-xs text-soft-foreground">Submitted by</dt>
           <dd class="mt-0.5 flex min-w-0 flex-col">
             <span class="break-words">{{ submitter.display_name }}</span>

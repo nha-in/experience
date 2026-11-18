@@ -47,9 +47,13 @@
     <form method="get"
           class="ui-card ui-card--layered ui-card--sm ui-rise"
           role="search"
-          aria-label="Production Approval">
+          aria-label="Production Approval"
+          id="production-filter-form"
+          hx-get="{% url 'experiences:production-list' %}"
+          hx-trigger="submit, change from:#production-sort"
+          hx-push-url="true">
       <input type="hidden" name="tab" value="{{ stage }}" />
-      {% include "components/table_state.html" %}
+      {% include "components/table_state.html" with skip_sort=True %}
       <div class="ui-card-content flex flex-wrap items-end gap-3">
         <div class="min-w-0 flex-1">
           <label class="ui-label" for="production-search">Search products</label>
@@ -72,91 +76,69 @@
         <p class="text-sm font-semibold" aria-live="polite">
           {{ page.paginator.count }} product{{ page.paginator.count|pluralize }}{% if q %} found{% endif %}
         </p>
-        {% url 'experiences:production-export' as export_page %}
-        {% include "components/export_download.html" with url=export_page|add:"?"|add:filter_query %}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          {% if rows %}
+            <span class="flex items-center gap-2">
+              <label class="text-xs text-soft-foreground" for="production-sort">Sort</label>
+              <div class="ui-select-wrapper w-48">
+                <select class="ui-select ui-select--sm md:h-9"
+                        id="production-sort"
+                        name="sort"
+                        form="production-filter-form">
+                  {% if stage == 'approved' %}
+                    <option value="-issued" {% if table_sort == '-issued' %}selected{% endif %}>Newest issued</option>
+                    <option value="issued" {% if table_sort == 'issued' %}selected{% endif %}>Oldest issued</option>
+                  {% endif %}
+                  <option value="approved" {% if table_sort == 'approved' %}selected{% endif %}>Oldest approval</option>
+                  <option value="-approved"
+                          {% if table_sort == '-approved' %}selected{% endif %}>Newest approval</option>
+                  <option value="product" {% if table_sort == 'product' %}selected{% endif %}>Product A–Z</option>
+                  <option value="organisation"
+                          {% if table_sort == 'organisation' %}selected{% endif %}>Organisation A–Z</option>
+                </select>
+              </div>
+            </span>
+          {% endif %}
+          {% url 'experiences:production-export' as export_page %}
+          {% include "components/export_download.html" with url=export_page|add:"?"|add:filter_query %}
+        </div>
       </div>
       {% if rows %}
-        <div class="overflow-x-auto">
-          <table class="ui-grid-table {% if stage == 'pending' %}min-w-[640px]{% else %}min-w-[840px]{% endif %}">
-            <caption class="sr-only">
-              {% if stage == 'pending' %}
-                Products approved for production and waiting on a production client ID
-              {% else %}
-                Products with a production client ID
-              {% endif %}
-            </caption>
-            <thead>
-              <tr>
-                {% sort_header "Product" "product" %}
-                {% sort_header "Organisation" "organisation" %}
-                {% sort_header "Approved milestones" "approved" %}
-                {% if stage == 'approved' %}
-                  {% sort_header "Production client ID" "client_id" %}
-                  {% sort_header "Issued on" "issued" descending_first=True %}
-                {% endif %}
-                <th scope="col">Production details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for product in rows %}
-                <tr class="group">
-                  <td class="min-w-[180px]">
-                    <a class="font-semibold text-foreground no-underline group-hover:text-primary"
-                       href="{% url 'experiences:production-detail' product.reference %}"
-                       data-row-link>{{ product.name }}</a>
-                    <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
-                  </td>
-                  <td class="max-w-[180px]">
-                    <a class="inline-block text-muted-foreground no-underline hover:text-primary hover:underline"
-                       href="{% url 'experiences:organization-detail' product.organisation.slug %}">{{ product.organisation.display_name }}</a>
-                    {% if product.organisation.entity_type_label %}
-                      <span class="mt-1 block text-xs text-muted-foreground">{{ product.organisation.entity_type_label }}</span>
-                    {% endif %}
-                  </td>
-                  <td>
-                    <span class="font-mono text-xs">{{ product.approved_codes|join:', '|default:'—' }}</span>
-                    {% if product.first_exit_at %}
-                      <span class="mt-0.5 block text-xs whitespace-nowrap text-soft-foreground tabular-nums">Approved {{ product.first_exit_at|date:'d/m/Y' }}</span>
-                    {% endif %}
-                  </td>
-                  {% if stage == 'approved' %}
-                    <td class="min-w-[200px]">
-                      <span class="font-mono text-xs break-all">{{ product.production_client_id }}</span>
-                    </td>
-                    <td class="whitespace-nowrap tabular-nums">{{ product.production_issued_on|date:'d/m/Y'|default:'—' }}</td>
+        <ul class="divide-y divide-border border-t border-soft-border"
+            aria-label="{% if stage == 'pending' %}Products approved for production and waiting on a production client ID{% else %}Products with a production client ID{% endif %}">
+          {% for product in rows %}
+            <li class="group grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] md:gap-0 md:p-0">
+              <div class="min-w-0 md:px-5 md:py-4">
+                <a class="text-base font-semibold break-words text-foreground group-hover:text-primary hover:underline"
+                   href="{% url 'experiences:production-detail' product.reference %}"
+                   data-row-link>{{ product.name }}</a>
+                <p class="mt-0.5 text-sm break-words text-muted-foreground">
+                  <span class="font-mono text-xs">{{ product.reference }}</span> ·
+                  <a class="text-muted-foreground hover:text-primary hover:underline"
+                     href="{% url 'experiences:organization-detail' product.organisation.slug %}">{{ product.organisation.display_name }}</a>{% if product.organisation.entity_type_label %} · {{ product.organisation.entity_type_label }}{% endif %}
+                </p>
+                <p class="mt-1 text-sm text-muted-foreground">
+                  Approved <span class="font-mono text-xs">{{ product.approved_codes|join:', '|default:'—' }}</span>
+                  {% if product.first_exit_at %}
+                    on <span class="tabular-nums">{{ product.first_exit_at|date:'d/m/Y' }}</span>
                   {% endif %}
-                  <td class="text-right">
-                    <a class="ui-btn ui-btn--outline ui-btn--size-sm min-h-11 whitespace-nowrap"
-                       href="{% url 'experiences:production-detail' product.reference %}">
-                      {% if not can_manage %}
-                        View
-                      {% elif stage == 'pending' %}
-                        Add
-                      {% else %}
-                        Update
-                      {% endif %}
-                      <span class="sr-only">production details for {{ product.name }}</span>
-                    </a>
-                  </td>
-                </tr>
-                <tr data-details-strip>
-                  <td class="py-0 has-aria-expanded:bg-slate-50"
-                      colspan="{% if stage == 'approved' %}6{% else %}4{% endif %}">
-                    {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:product.reference %}
-                  </td>
-                </tr>
-                <tr id="organisation-details-{{ product.reference }}"
-                    data-details-row
-                    hidden>
-                  <td class="bg-slate-50 pt-1 pl-12"
-                      colspan="{% if stage == 'approved' %}6{% else %}4{% endif %}">
-                    {% include 'experiences/partials/organisation_details.html' with organisation=product.organisation %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+                </p>
+                <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-3 min-h-11"
+                   href="{% url 'experiences:production-detail' product.reference %}">
+                  {% if not can_manage %}
+                    View
+                  {% elif stage == 'pending' %}
+                    Add
+                  {% else %}
+                    Update
+                  {% endif %}
+                  <span class="sr-only">production details for {{ product.name }}</span>
+                </a>
+              </div>
+              {% include 'experiences/partials/product_facts.html' with production=True %}
+            </li>
+          {% endfor %}
+        </ul>
       {% else %}
         <div class="border-t border-soft-border px-6 py-12 text-center"
              role="status">

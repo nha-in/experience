@@ -117,9 +117,21 @@ def test_list_rows_open_the_organisation_details(environment, client):
     ]
     client.force_login(environment["reviewer"])
 
-    for url, search, row in (
-        (reverse("experiences:organizations"), organization.name, organization.slug),
-        (reverse("experiences:products"), product.reference, product.reference),
+    # An organisation row's box names who submitted; a product row's names its
+    # contact, here the same person, so the details do not repeat them.
+    for url, search, row, submitted in (
+        (
+            reverse("experiences:organizations"),
+            organization.name,
+            organization.slug,
+            f'href="mailto:{submitter.email}"',
+        ),
+        (
+            reverse("experiences:products"),
+            product.reference,
+            product.reference,
+            submitter.email,
+        ),
     ):
         page = client.get(url, {"q": search}).content.decode()
         for shown in (
@@ -129,7 +141,7 @@ def test_list_rows_open_the_organisation_details(environment, client):
             "Digital health systems for connected care.",
             "Entity in India",
             "560001",
-            f'href="mailto:{submitter.email}"',
+            submitted,
         ):
             assert shown in page, (url, shown)
         # Shown without a search too.
@@ -390,7 +402,7 @@ def test_products_tab_filters_by_solution_type_within_scope(catalogue, client):
     assert listed(client, admin, solution_type="clinical_hmis")[0] == {hmis}
     page = client.get(reverse("experiences:products"))
     # Each row names the solution types the filter matches on.
-    assert f"{hmis.reference}</span> · Clinic HMIS ·".encode() in page.content
+    assert "· Clinic HMIS".encode() in page.content
     assert listed(
         client,
         admin,

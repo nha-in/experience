@@ -26,9 +26,10 @@
           hx-target="#main-content"
           hx-select="#main-content"
           hx-swap="outerHTML"
-          hx-trigger="change, submit"
-          hx-push-url="true">
-      {% include "components/table_state.html" %}
+          hx-trigger="change, submit, change from:#product-sort"
+          hx-push-url="true"
+          id="product-filter-form">
+      {% include "components/table_state.html" with skip_sort=True %}
       <div class="min-w-0">
         <label class="ui-label" for="product-search">Search products</label>
         <div class="flex gap-2">
@@ -104,100 +105,63 @@
         {{ products.paginator.count }} product{{ products.paginator.count|pluralize }}{% if search or selected_organization or selected_solution_type or selected_track or selected_wasa %} found{% endif %}
       </p>
       {% if products %}
-        {% include "components/export_download.html" %}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <span class="flex items-center gap-2">
+            <label class="text-xs text-soft-foreground" for="product-sort">Sort</label>
+            <div class="ui-select-wrapper w-52">
+              <select class="ui-select ui-select--sm md:h-9"
+                      id="product-sort"
+                      name="sort"
+                      form="product-filter-form">
+                <option value="-registered"
+                        {% if table_sort == '-registered' %}selected{% endif %}>Newest registered</option>
+                <option value="registered"
+                        {% if table_sort == 'registered' %}selected{% endif %}>Oldest registered</option>
+                <option value="product" {% if table_sort == 'product' %}selected{% endif %}>Product A–Z</option>
+                <option value="-product" {% if table_sort == '-product' %}selected{% endif %}>Product Z–A</option>
+                <option value="organisation"
+                        {% if table_sort == 'organisation' %}selected{% endif %}>Organisation A–Z</option>
+                <option value="-open" {% if table_sort == '-open' %}selected{% endif %}>Most open requests</option>
+                {% if wasa_choices %}
+                  <option value="wasa" {% if table_sort == 'wasa' %}selected{% endif %}>WASA expiring first</option>
+                {% endif %}
+              </select>
+            </div>
+          </span>
+          {% include "components/export_download.html" %}
+        </div>
       {% endif %}
     </div>
     {% if products %}
-      <div class="hidden overflow-x-auto md:block">
-        <table class="ui-grid-table min-w-[860px]">
-          <caption class="sr-only">Products</caption>
-          <thead hx-boost="true"
-                 hx-target="#main-content"
-                 hx-select="#main-content"
-                 hx-swap="outerHTML"
-                 hx-push-url="true">
-            <tr>
-              {% sort_header "Product" "product" %}
-              {% sort_header "Organisation" "organisation" %}
-              {% sort_header "Solution type" "solution" %}
-              {% sort_header "Open requests" "open" "text-right" descending_first=True %}
-              {% if wasa_choices %}
-                {% sort_header "WASA valid until" "wasa" %}
-              {% endif %}
-              {% sort_header "Registered on" "registered" descending_first=True %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for product in products %}
-              <tr class="group">
-                <td class="min-w-[200px]">
-                  <a class="font-semibold text-foreground no-underline group-hover:text-primary"
-                     href="{% url 'experiences:product-overview' product.reference %}"
-                     data-row-link>{{ product.name }}</a>
-                  <span class="mt-0.5 block font-mono text-xs text-soft-foreground">{{ product.reference }}</span>
-                  {% include 'experiences/partials/search_match.html' with match=product.search_match %}
-                </td>
-                <td class="max-w-[240px] text-muted-foreground">
-                  {{ product.organisation.display_name }}
-                  {% if product.organisation.entity_type_label %}
-                    <span class="mt-1 block text-xs">{{ product.organisation.entity_type_label }}</span>
-                  {% endif %}
-                </td>
-                <td class="text-muted-foreground">{{ product.get_solution_type_display|default:'—' }}</td>
-                <td class="text-right tabular-nums">{{ product.open_count }}</td>
-                {% if wasa_choices %}
-                  <td class="whitespace-nowrap tabular-nums">{{ product.certificate_valid_until|date:'d/m/Y'|default:'—' }}</td>
-                {% endif %}
-                <td class="whitespace-nowrap tabular-nums">{{ product.registered_at|date:'d/m/Y'|default:'—' }}</td>
-              </tr>
-              <tr data-details-strip>
-                <td class="py-0 has-aria-expanded:bg-slate-50"
-                    colspan="{% if wasa_choices %}6{% else %}5{% endif %}">
-                  {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:product.reference %}
-                </td>
-              </tr>
-              <tr id="organisation-details-{{ product.reference }}"
-                  data-details-row
-                  hidden>
-                <td class="bg-slate-50 pt-1 pl-12"
-                    colspan="{% if wasa_choices %}6{% else %}5{% endif %}">
-                  {% include 'experiences/partials/organisation_details.html' with organisation=product.organisation %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="divide-y divide-border md:hidden">
+      <ul class="divide-y divide-border border-t border-soft-border"
+          aria-label="Products">
         {% for product in products %}
-          <div>
-            <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 pt-6 pb-2 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-               href="{% url 'experiences:product-overview' product.reference %}">
-              <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
-                    aria-hidden="true">{{ product.name|first }}</span>
-              <div class="min-w-0 flex-[1_1_12rem]">
-                <h2 class="text-base font-bold break-words group-hover:text-primary">{{ product.name }}</h2>
-                <p class="mt-1 text-xs text-soft-foreground">
-                  <span class="font-mono">{{ product.reference }}</span>{% if product.solution_type %} · {{ product.get_solution_type_display }}{% endif %} · {{ product.organisation.display_name }}{% if product.organisation.entity_type_label %} · {{ product.organisation.entity_type_label }}{% endif %}
-                </p>
-                {% include 'experiences/partials/search_match.html' with match=product.search_match %}
-              </div>
-              {% if product.open_count %}
-                <span class="ui-badge ui-badge--warning ui-badge--size-xs">{{ product.open_count }} open<span class="sr-only"> request{{ product.open_count|pluralize }}</span></span>
-              {% endif %}
-              {% if product.certificate_valid_until %}
-                <span class="text-xs text-soft-foreground">WASA until {{ product.certificate_valid_until|date:'d/m/Y' }}</span>
-              {% endif %}
+          <li class="group grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] md:gap-0 md:p-0">
+            <div class="min-w-0 md:px-5 md:py-4">
+              <a class="text-base font-semibold break-words text-foreground group-hover:text-primary hover:underline"
+                 href="{% url 'experiences:product-overview' product.reference %}"
+                 data-row-link>{{ product.name }}</a>
+              <p class="mt-0.5 text-sm break-words text-muted-foreground">
+                <span class="font-mono text-xs">{{ product.reference }}</span> · {{ product.organisation.display_name }}{% if product.organisation.entity_type_label %} · {{ product.organisation.entity_type_label }}{% endif %}
+              </p>
               {% if product.registered_at %}
-                <span class="text-xs text-soft-foreground">Registered {{ product.registered_at|date:'d/m/Y' }}</span>
+                <p class="mt-1 text-sm text-muted-foreground">
+                  Registered <span class="tabular-nums">{{ product.registered_at|date:'d/m/Y' }}</span>
+                </p>
               {% endif %}
-              <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
-                    aria-hidden="true">→</span>
-            </a>
-            {% include 'experiences/partials/details_disclosure.html' with organisation=product.organisation %}
-          </div>
+              {% include 'experiences/partials/search_match.html' with match=product.search_match %}
+              <p class="mt-3 text-sm {% if product.open_count %}text-foreground{% else %}text-muted-foreground{% endif %}">
+                {% if product.open_count %}
+                  {{ product.open_count }} open request{{ product.open_count|pluralize }}
+                {% else %}
+                  No open requests
+                {% endif %}
+              </p>
+            </div>
+            {% include 'experiences/partials/product_facts.html' with wasa_until=wasa_choices %}
+          </li>
         {% endfor %}
-      </div>
+      </ul>
     {% else %}
       <div class="px-5 py-12 text-center">
         {% if search or selected_organization or selected_solution_type or selected_track or selected_wasa %}

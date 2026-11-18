@@ -112,6 +112,7 @@ from .queue_presentation import populate_verification_page
 from .queue_presentation import queue_requests
 from .queue_presentation import review_order
 from .queue_presentation import verification_requests
+from .queue_presentation import with_contacts
 from .registry import get_program
 from .support_presentation import support_inbox
 
@@ -829,7 +830,13 @@ def organizations(request):
                 ),
             ),
         )
-    page = _page(request, rows)
+    listed = permissions.visible_products(request.user).order_by(Lower("name"))
+    page = _page(
+        request,
+        rows.prefetch_related(
+            Prefetch("products", queryset=listed, to_attr="listed_products"),
+        ),
+    )
     page.object_list = list(_with_labels(page))
     production_services.with_organisation_details(get_program(), page.object_list)
     if search:
@@ -892,9 +899,8 @@ def _reviewer_products(request):
         wasa = ""
     search, field = _search(request, global_search.PRODUCT_FIELDS)
     if search:
-        rows = rows.filter(
-            global_search.product_filter(search, field),
-        ).select_related("credential")
+        rows = rows.filter(global_search.product_filter(search, field))
+    rows = rows.select_related("credential", "created_by")
     sort, order = tables.sorting(
         request,
         _product_columns(reviewer=True),
@@ -909,6 +915,7 @@ def _reviewer_products(request):
             _product_export_rows(rows, reviewer=True),
         )
     products = _page(request, rows)
+    with_contacts(products)
     production_services.with_organisation_details(
         program,
         (product.organisation for product in products),

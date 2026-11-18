@@ -5,13 +5,14 @@
 // The link stays the row's one real link. Keyboard and screen reader users reach
 // the page through it, htmx boosts it, and a click elsewhere in the row is handed
 // to it, so both open the page the same way. A click on another control in the
-// row stays with that control, and a click that ends a text selection only
-// selects, so a reference can still be copied out of the row. Ctrl or Cmd and the
+// row, or in its opened organisation details, stays there, and a click that
+// ends a text selection only selects, so a reference can still be copied out of
+// the row. Ctrl or Cmd and the
 // middle button open the page in a new tab, as they do on the link itself.
 // Without JavaScript only the link opens the page.
 (() => {
   const rows = 'tr, li';
-  const controls = 'a[href], button, input, select, textarea, label, summary, [role="button"]';
+  const controls = 'a[href], button, input, select, textarea, label, summary, [role="button"], [data-details-panel]';
 
   // The nearest row with a marked link of its own. A marked link in a row nested
   // inside it, such as a table in a list item, belongs to that inner row.

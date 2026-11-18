@@ -60,7 +60,7 @@
         {% include 'experiences/partials/queue_state_icon.html' with state='approved' %}Approved
       </li>
     </ul>
-    <ul class="divide-y divide-soft-border border-t border-soft-border">
+    <ul class="divide-y divide-border border-t border-soft-border">
       {% for entry in page %}
         <li class="group grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] md:gap-0 md:p-0"
             data-queue-entry="{{ entry.reference }}">
@@ -69,7 +69,7 @@
                href="{{ entry.url }}"
                data-row-link>{{ entry.title }}</a>
             <p class="mt-0.5 text-sm break-words text-muted-foreground">
-              <span class="font-mono text-xs">{{ entry.reference }}</span> · {{ entry.organisation.display_name }}
+              <span class="font-mono text-xs">{{ entry.reference }}</span> · {{ entry.organisation.display_name }}{% if entry.organisation.entity_type_label %} · {{ entry.organisation.entity_type_label }}{% endif %}
             </p>
             <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               <span>Submitted <span class="tabular-nums">{{ entry.submitted_at|date:'d/m/Y' }}</span></span>
@@ -79,54 +79,7 @@
             <a class="ui-btn ui-btn--outline ui-btn--size-sm mt-3 min-h-11"
                href="{{ entry.url }}">Review</a>
           </div>
-          {% with product=entry.product %}
-            <dl class="grid min-w-0 content-start gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm break-words md:rounded-none md:border-l md:border-soft-border md:px-5 md:py-4">
-              <div>
-                <dt class="text-xs text-soft-foreground">Product</dt>
-                <dd class="mt-0.5">
-                  {% if product.credential %}
-                    <span class="font-mono">{{ product.credential.client_id }}</span>{% if product.credential.status == 'revoked' %} (revoked){% endif %}
-                  {% else %}
-                    No client ID yet
-                  {% endif %}
-                  {% if product.solution_type %}· {{ product.get_solution_type_display }}{% endif %}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-xs text-soft-foreground">Contact{% if entry.organisation.entity_type_label %} · {{ entry.organisation.entity_type_label }}{% endif %}</dt>
-                <dd class="mt-0.5">
-                  {{ product.contact_email }}
-                  {% if product.contact_mobile %}<br />{{ product.contact_mobile }}{% endif %}
-                </dd>
-              </div>
-              {% if product.wasa %}
-                <div>
-                  <dt class="flex flex-wrap items-center gap-2 text-xs text-soft-foreground">
-                    WASA <span class="ui-badge ui-badge--{{ product.wasa.tone }} ui-badge--size-xs">{{ product.wasa.status_label }}</span>
-                  </dt>
-                  {% if product.wasa.agency %}
-                    <dd class="mt-0.5">
-                      {{ product.wasa.agency }}{% if product.wasa.audit_date %}<br />Audited <span class="tabular-nums">{{ product.wasa.audit_date|date:'d/m/Y' }}</span>{% endif %}
-                    </dd>
-                  {% else %}
-                    <dd class="sr-only">
-                      No certificate on file
-                    </dd>
-                  {% endif %}
-                </div>
-              {% endif %}
-            </dl>
-          {% endwith %}
-        </li>
-        {# Their own list items, so a click in them does not open the row's review. #}
-        <li class="px-5 has-aria-expanded:bg-slate-50" data-details-strip>
-          {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:entry.product.reference %}
-        </li>
-        <li class="bg-slate-50 px-5 pt-1 pb-4 md:pl-12"
-            id="organisation-details-{{ entry.product.reference }}"
-            data-details-row
-            hidden>
-          {% include 'experiences/partials/organisation_details.html' with organisation=entry.organisation row_contact=entry.product.contact_email %}
+          {% include 'experiences/partials/product_facts.html' with product=entry.product %}
         </li>
       {% endfor %}
     </ul>

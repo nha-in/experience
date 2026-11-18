@@ -1,0 +1,38 @@
+{% comment %}
+  An organisation row's facts box, the same in every organisation list, ending
+  in the rest of its details. Context: organisation, after
+  production.with_organisation_details; products, the ones the viewer may see;
+  target, a page-unique id for the details.
+{% endcomment %}
+<div class="grid min-w-0 content-start gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm break-words md:rounded-none md:border-l md:border-soft-border md:px-5 md:py-4">
+  <dl class="grid gap-3">
+    <div>
+      <dt class="text-xs text-soft-foreground">Products</dt>
+      <dd class="mt-0.5">
+        {% for product in products|slice:':3' %}
+          {{ product.name }}{% if not forloop.last %},{% endif %}
+        {% empty %}
+          No products yet
+        {% endfor %}
+        {% if products|length > 3 %}<span class="text-soft-foreground">and {{ products|length|add:'-3' }} more</span>{% endif %}
+      </dd>
+    </div>
+    {% with submitter=organisation.submitted_by %}
+      {% if submitter %}
+        <div>
+          <dt class="text-xs text-soft-foreground">Submitted by</dt>
+          <dd class="mt-0.5 flex min-w-0 flex-col">
+            <span>{{ submitter.display_name }}</span>
+            {% if submitter.phone_number %}
+              <a class="text-primary tabular-nums hover:underline"
+                 href="tel:{{ submitter.phone_number }}">{{ submitter.phone_number }}</a>
+            {% endif %}
+            <a class="break-all text-primary hover:underline"
+               href="mailto:{{ submitter.email }}">{{ submitter.email }}</a>
+          </dd>
+        </div>
+      {% endif %}
+    {% endwith %}
+  </dl>
+  {% include 'experiences/partials/details_toggle.html' with skip_submitter=True %}
+</div>

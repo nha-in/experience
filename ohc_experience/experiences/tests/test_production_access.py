@@ -344,7 +344,8 @@ def test_rows_open_the_organisation_details(environment, client):
         ],
         "Digital health systems for connected care.",
         "Entity in India",
-        f'href="mailto:{submitter.email}"',
+        # As the row's contact, so the details do not repeat it.
+        submitter.email,
     ):
         assert shown in page
     assert "Type of entity" not in page
@@ -522,7 +523,6 @@ def test_the_screens_use_nhas_words(environment, client):
     assert "Production approval</a></li>" in content
     assert "<title> Production approval |" in " ".join(content.split())
     assert '<h1 class="ui-hero-title">Production approval</h1>' in content
-    assert "Production details" in content
     assert "production details for" in content
     for gone in ["Production access", "Awaiting ID", "Recorded"]:
         assert gone not in content

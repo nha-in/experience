@@ -22,6 +22,7 @@ from .models import Product
 from .models import ProductCredential
 from .models import ReviewItem
 from .models import SubmissionStatus
+from .queue_presentation import with_contacts
 from .registry import get_program
 
 PAGE_SIZE = 20
@@ -92,8 +93,12 @@ def production_list(request):
     stage, q = _filters(request)
     products, counts = production.listing(program, stage=stage, q=q)
     sort, order = tables.sorting(request, COLUMNS, DEFAULT_SORT[stage])
-    page = tables.paginate(request, products.order_by(*order), PAGE_SIZE)
-    rows = production.with_codes(page)
+    page = tables.paginate(
+        request,
+        products.select_related("credential", "created_by").order_by(*order),
+        PAGE_SIZE,
+    )
+    rows = with_contacts(production.with_codes(page))
     production.with_organisation_details(
         program,
         (product.organisation for product in rows),

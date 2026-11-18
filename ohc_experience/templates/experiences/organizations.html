@@ -23,9 +23,10 @@
           hx-target="#main-content"
           hx-select="#main-content"
           hx-swap="outerHTML"
-          hx-trigger="change, submit"
-          hx-push-url="true">
-      {% include "components/table_state.html" %}
+          hx-trigger="change, submit, change from:#organization-sort"
+          hx-push-url="true"
+          id="organization-filter-form">
+      {% include "components/table_state.html" with skip_sort=True %}
       <div class="min-w-0">
         <label class="ui-label" for="organization-search">Search organisations</label>
         <div class="flex gap-2">
@@ -87,87 +88,64 @@
         {{ organizations.paginator.count }} organisation{{ organizations.paginator.count|pluralize }}{% if filtered %} found{% endif %}
       </p>
       {% if organizations %}
-        {% include "components/export_download.html" %}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <span class="flex items-center gap-2">
+            <label class="text-xs text-soft-foreground" for="organization-sort">Sort</label>
+            <div class="ui-select-wrapper w-52">
+              <select class="ui-select ui-select--sm md:h-9"
+                      id="organization-sort"
+                      name="sort"
+                      form="organization-filter-form">
+                <option value="-registered"
+                        {% if table_sort == '-registered' %}selected{% endif %}>Newest registered</option>
+                <option value="registered"
+                        {% if table_sort == 'registered' %}selected{% endif %}>Oldest registered</option>
+                <option value="name" {% if table_sort == 'name' %}selected{% endif %}>Organisation A–Z</option>
+                <option value="-name" {% if table_sort == '-name' %}selected{% endif %}>Organisation Z–A</option>
+                <option value="-open" {% if table_sort == '-open' %}selected{% endif %}>Most open requests</option>
+                <option value="-products"
+                        {% if table_sort == '-products' %}selected{% endif %}>Most products</option>
+                <option value="status" {% if table_sort == 'status' %}selected{% endif %}>Verification status</option>
+              </select>
+            </div>
+          </span>
+          {% include "components/export_download.html" %}
+        </div>
       {% endif %}
     </div>
     {% if organizations %}
-      <div class="hidden overflow-x-auto md:block">
-        <table class="ui-grid-table min-w-[900px]">
-          <caption class="sr-only">Organisations</caption>
-          <thead hx-boost="true"
-                 hx-target="#main-content"
-                 hx-select="#main-content"
-                 hx-swap="outerHTML"
-                 hx-push-url="true">
-            <tr>
-              {% sort_header "Organisation" "name" %}
-              {% sort_header "Type of entity" "type" %}
-              {% sort_header "State" "state" %}
-              {% sort_header "Products" "products" "text-right" descending_first=True %}
-              {% sort_header "Open requests" "open" "text-right" descending_first=True %}
-              {% sort_header "Verification" "status" %}
-              {% sort_header "Registered on" "registered" descending_first=True %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for organization in organizations %}
-              <tr class="group">
-                <td class="min-w-[220px]">
-                  <a class="font-semibold text-foreground no-underline group-hover:text-primary"
-                     href="{% url 'experiences:organization-detail' organization.slug %}"
-                     data-row-link>{{ organization.display_name }}</a>
-                  {% include 'experiences/partials/search_match.html' with match=organization.search_match %}
-                </td>
-                <td class="text-muted-foreground">{{ organization.entity_type_label|default:'—' }}</td>
-                <td class="text-muted-foreground">{{ organization.state_label|default:'—' }}</td>
-                <td class="text-right tabular-nums">{{ organization.visible_product_count }}</td>
-                <td class="text-right tabular-nums">{{ organization.open_count }}</td>
-                <td>
-                  {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
-                </td>
-                <td class="whitespace-nowrap tabular-nums">{{ organization.created_at|date:'d/m/Y' }}</td>
-              </tr>
-              <tr data-details-strip>
-                <td class="py-0 has-aria-expanded:bg-slate-50" colspan="7">
-                  {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:organization.slug %}
-                </td>
-              </tr>
-              <tr id="organisation-details-{{ organization.slug }}"
-                  data-details-row
-                  hidden>
-                <td class="bg-slate-50 pt-1 pl-12" colspan="7">
-                  {% include 'experiences/partials/organisation_details.html' with organisation=organization %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="divide-y divide-border md:hidden">
+      <ul class="divide-y divide-border border-t border-soft-border"
+          aria-label="Organisations">
         {% for organization in organizations %}
-          <div>
-            <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 pt-6 pb-2 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-               href="{% url 'experiences:organization-detail' organization.slug %}">
-              <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
-                    aria-hidden="true">{{ organization.initials }}</span>
-              <div class="min-w-0 flex-[1_1_12rem]">
-                <h2 class="text-base font-bold break-words group-hover:text-primary">{{ organization.display_name }}</h2>
-                {% if organization.entity_type_label %}
-                  <p class="mt-0.5 text-xs text-muted-foreground">{{ organization.entity_type_label }}</p>
-                {% endif %}
-                {% include 'experiences/partials/search_match.html' with match=organization.search_match %}
-                <p class="mt-1 text-xs text-soft-foreground">
-                  {{ organization.visible_product_count }} product{{ organization.visible_product_count|pluralize }} · {{ organization.open_count }} open request{{ organization.open_count|pluralize }}
+          <li class="group grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] md:gap-0 md:p-0">
+            <div class="min-w-0 md:px-5 md:py-4">
+              <a class="text-base font-semibold break-words text-foreground group-hover:text-primary hover:underline"
+                 href="{% url 'experiences:organization-detail' organization.slug %}"
+                 data-row-link>{{ organization.display_name }}</a>
+              {% if organization.entity_type_label or organization.state_label %}
+                <p class="mt-0.5 text-sm break-words text-muted-foreground">
+                  {{ organization.entity_type_label }}{% if organization.entity_type_label and organization.state_label %} · {% endif %}{{ organization.state_label }}
                 </p>
+              {% endif %}
+              <p class="mt-1 text-sm text-muted-foreground">
+                Registered <span class="tabular-nums">{{ organization.created_at|date:'d/m/Y' }}</span>
+              </p>
+              {% include 'experiences/partials/search_match.html' with match=organization.search_match %}
+              <div class="mt-3">
+                {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
               </div>
-              {% include 'experiences/partials/status.html' with status=organization.verification_status label=organization.get_verification_status_display %}
-              <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
-                    aria-hidden="true">→</span>
-            </a>
-            {% include 'experiences/partials/details_disclosure.html' with organisation=organization %}
-          </div>
+              <p class="mt-1.5 text-sm {% if organization.open_count %}text-foreground{% else %}text-muted-foreground{% endif %}">
+                {% if organization.open_count %}
+                  {{ organization.open_count }} open request{{ organization.open_count|pluralize }}
+                {% else %}
+                  No open requests
+                {% endif %}
+              </p>
+            </div>
+            {% include 'experiences/partials/organisation_facts.html' with organisation=organization products=organization.listed_products target='organisation-details-'|add:organization.slug %}
+          </li>
         {% endfor %}
-      </div>
+      </ul>
     {% else %}
       <div class="px-5 py-12 text-center">
         {% if filtered %}

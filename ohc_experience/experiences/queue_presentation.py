@@ -289,6 +289,32 @@ def review_order(review):
     return (2, 0, review.pk)
 
 
+def with_contacts(products):
+    """Each product's contact: its organisation's owner, else whoever registered it.
+
+    The products need created_by loaded.
+    """
+    products = list(products)
+    owners = {}
+    # The first owner, so every list names the same one.
+    for membership in (
+        Membership.objects.filter(
+            organisation_id__in={product.organisation_id for product in products},
+            role=Role.OWNER,
+        )
+        .select_related("user")
+        .order_by("pk")
+    ):
+        owners.setdefault(membership.organisation_id, membership.user)
+    for product in products:
+        owner = owners.get(product.organisation_id)
+        product.contact_email = (owner and owner.email) or product.created_by.email
+        product.contact_mobile = (
+            owner and owner.phone_number
+        ) or product.created_by.phone_number
+    return products
+
+
 def populate_queue_page(page, user, matching):
     """Load status context only for this page and the reviewer's visible scope."""
     groups = list(page.object_list)
@@ -297,13 +323,7 @@ def populate_queue_page(page, user, matching):
         "credential",
         "created_by",
     ).in_bulk([row["product_id"] for row in groups])
-    owners = {
-        membership.organisation_id: membership.user
-        for membership in Membership.objects.filter(
-            organisation_id__in={p.organisation_id for p in products.values()},
-            role=Role.OWNER,
-        ).select_related("user")
-    }
+    with_contacts(products.values())
     entity_types = dict(get_program().signup_organisation_choices)
     for product in products.values():
         organisation = product.organisation
@@ -311,12 +331,6 @@ def populate_queue_page(page, user, matching):
             organisation.entity_type,
             organisation.entity_type,
         )
-        # The organisation's owner, else whoever registered the product.
-        owner = owners.get(product.organisation_id)
-        product.contact_email = (owner and owner.email) or product.created_by.email
-        product.contact_mobile = (
-            owner and owner.phone_number
-        ) or product.created_by.phone_number
         # shortcut: a few queries per row; annotate the page if the queue slows.
         product.wasa = product.definition.certification_context(product)
     matches = defaultdict(set)

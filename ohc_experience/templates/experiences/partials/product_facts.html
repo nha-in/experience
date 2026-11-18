@@ -1,0 +1,65 @@
+{% comment %}
+  A product row's facts box, the same in every product list, ending in its
+  organisation's details. Context: product, after queue_presentation.with_contacts
+  and production.with_organisation_details, with credential loaded. Lists add:
+  wasa_until for the WASA certificate's end date (the queue shows product.wasa
+  instead); production for the production client ID once one is added.
+{% endcomment %}
+<div class="grid min-w-0 content-start gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm break-words md:rounded-none md:border-l md:border-soft-border md:px-5 md:py-4">
+  <dl class="grid gap-3">
+    <div>
+      <dt class="text-xs text-soft-foreground">Product</dt>
+      <dd class="mt-0.5">
+        {% if product.credential %}
+          <span class="font-mono">{{ product.credential.client_id }}</span>{% if product.credential.status == 'revoked' %} (revoked){% endif %}
+        {% else %}
+          No client ID yet
+        {% endif %}
+        {% if product.solution_type %}· {{ product.get_solution_type_display }}{% endif %}
+      </dd>
+    </div>
+    <div>
+      <dt class="text-xs text-soft-foreground">Contact</dt>
+      <dd class="mt-0.5">
+        {{ product.contact_email }}
+        {% if product.contact_mobile %}<br />{{ product.contact_mobile }}{% endif %}
+      </dd>
+    </div>
+    {% if product.wasa %}
+      <div>
+        <dt class="flex flex-wrap items-center gap-2 text-xs text-soft-foreground">
+          WASA <span class="ui-badge ui-badge--{{ product.wasa.tone }} ui-badge--size-xs">{{ product.wasa.status_label }}</span>
+        </dt>
+        {% if product.wasa.agency %}
+          <dd class="mt-0.5">
+            {{ product.wasa.agency }}{% if product.wasa.audit_date %}<br />Audited <span class="tabular-nums">{{ product.wasa.audit_date|date:'d/m/Y' }}</span>{% endif %}
+          </dd>
+        {% else %}
+          <dd class="sr-only">
+            No certificate on file
+          </dd>
+        {% endif %}
+      </div>
+    {% elif wasa_until %}
+      <div>
+        <dt class="text-xs text-soft-foreground">WASA valid until</dt>
+        <dd class="mt-0.5 tabular-nums">
+          {{ product.certificate_valid_until|date:'d/m/Y'|default:'—' }}
+        </dd>
+      </div>
+    {% endif %}
+    {% if production and product.production_client_id %}
+      <div>
+        <dt class="text-xs text-soft-foreground">Production client ID</dt>
+        <dd class="mt-0.5">
+          <span class="font-mono break-all">{{ product.production_client_id }}</span>
+          {% if product.production_issued_on %}
+            <br />
+            Issued <span class="tabular-nums">{{ product.production_issued_on|date:'d/m/Y' }}</span>
+          {% endif %}
+        </dd>
+      </div>
+    {% endif %}
+  </dl>
+  {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:product.reference organisation=product.organisation row_contact=product.contact_email %}
+</div>
