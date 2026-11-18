@@ -484,6 +484,7 @@ PRODUCT_EXPORT_HEADER = (
 )
 REVIEWER_PRODUCT_EXPORT_HEADER = (
     *PRODUCT_EXPORT_HEADER[:-1],
+    "Status",
     "Open requests",
     "Registered on",
 )
@@ -494,8 +495,23 @@ def _client_id(product):
     return credential.client_id if credential else ""
 
 
-def _product_export_rows(products, *, open_counts=False):
-    for product in products.select_related("credential"):
+SANDBOX_STATUS = {
+    Organisation.VerificationStatus.VERIFIED: "Sandbox approved",
+    Organisation.VerificationStatus.REJECTED: "Sandbox rejected",
+    Organisation.VerificationStatus.PENDING: "Sandbox pending",
+    Organisation.VerificationStatus.WITHDRAWN: "Sandbox withdrawn",
+}
+
+
+def _export_status(organisation, product=None):
+    """Production Approved once the production client ID is in, else the sandbox."""
+    if product and product.production_client_id:
+        return "Production Approved"
+    return SANDBOX_STATUS[organisation.verification_status]
+
+
+def _product_export_rows(products, *, reviewer=False):
+    for product in products.select_related("credential", "organisation"):
         yield (
             product.reference,
             _client_id(product),
@@ -503,7 +519,11 @@ def _product_export_rows(products, *, open_counts=False):
             product.name,
             product.organisation.display_name,
             product.get_solution_type_display(),
-            *((product.open_count,) if open_counts else ()),
+            *(
+                (_export_status(product.organisation, product), product.open_count)
+                if reviewer
+                else ()
+            ),
             tables.day(product.registered_at),
         )
 
@@ -659,7 +679,7 @@ ORGANISATION_EXPORT_HEADER = (
     "Owner",
     "Owner email",
     "Owner mobile",
-    "Verification",
+    "Status",
     "Products",
     "Open requests",
     "Registered on",
@@ -702,7 +722,7 @@ def _organisation_export_rows(organisations):
         data = production_services.verification_data(organisation)
         owners = organisation.owner_memberships
         owner = owners[0].user if owners else None
-        cells = (
+        profile = (
             organisation.display_name,
             data.get("name") or organisation.name,
             organisation.entity_type_label,
@@ -718,7 +738,8 @@ def _organisation_export_rows(organisations):
             owner.name if owner else "",
             owner.email if owner else "",
             owner.phone_number if owner else "",
-            organisation.get_verification_status_display(),
+        )
+        counts = (
             organisation.visible_product_count,
             organisation.open_count,
             tables.day(organisation.created_at),
@@ -726,10 +747,12 @@ def _organisation_export_rows(organisations):
         )
         if not organisation.export_products:
             blank = len(production_services.PRODUCT_DETAIL_HEADER) + 4
-            yield (*cells, *[""] * blank)
+            yield (*profile, _export_status(organisation), *counts, *[""] * blank)
         for product in organisation.export_products:
             yield (
-                *cells,
+                *profile,
+                _export_status(organisation, product),
+                *counts,
                 product.reference,
                 product.name,
                 *production_services.detail_cells(
@@ -808,8 +831,8 @@ def organizations(request):
         )
     page = _page(request, rows)
     page.object_list = list(_with_labels(page))
+    production_services.with_organisation_details(get_program(), page.object_list)
     if search:
-        production_services.with_organisation_details(get_program(), page.object_list)
         global_search.with_organisation_matches(page.object_list, search, field)
     return render(
         request,
@@ -883,14 +906,14 @@ def _reviewer_products(request):
             export,
             "products",
             REVIEWER_PRODUCT_EXPORT_HEADER,
-            _product_export_rows(rows, open_counts=True),
+            _product_export_rows(rows, reviewer=True),
         )
     products = _page(request, rows)
+    production_services.with_organisation_details(
+        program,
+        (product.organisation for product in products),
+    )
     if search:
-        production_services.with_organisation_details(
-            program,
-            (product.organisation for product in products),
-        )
         for product in products:
             product.search_match = global_search.product_match(product, search, field)
     return render(
@@ -3197,7 +3220,7 @@ def _kind_switch(params, kind):
 
 
 @login_required
-def queue(request):  # noqa: C901
+def queue(request):
     _reviewer_required(request)
     program = get_program()
     verifies = permissions.has_access(request.user, "review", program=program.key)
@@ -3264,12 +3287,10 @@ def queue(request):  # noqa: C901
             query,
             scope,
         )
-    searched = bool(params.get("q", "").strip())
-    if searched:
-        production_services.with_organisation_details(
-            program,
-            (entry.organisation for entry in page),
-        )
+    production_services.with_organisation_details(
+        program,
+        (entry.organisation for entry in page),
+    )
     # The product page's back link returns to the queue as filtered here.
     request.session["queue_query"] = request.GET.urlencode()
     return render(
@@ -3291,7 +3312,6 @@ def queue(request):  # noqa: C901
             statuses=statuses,
             filters=params,
             filter_query=params.urlencode(),
-            searched=searched,
             request_choices=_request_choices(program, request.user),
             track_choices=tracks,
         ),

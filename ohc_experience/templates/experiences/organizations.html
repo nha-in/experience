@@ -127,34 +127,32 @@
                 </td>
                 <td class="whitespace-nowrap tabular-nums">{{ organization.created_at|date:'d/m/Y' }}</td>
               </tr>
-              {% if search %}
-                <tr data-details-strip>
-                  <td class="py-0 has-aria-expanded:bg-slate-50" colspan="7">
-                    {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:organization.slug %}
-                  </td>
-                </tr>
-                <tr id="organisation-details-{{ organization.slug }}"
-                    data-details-row
-                    hidden>
-                  <td class="bg-slate-50 pt-1 pl-12" colspan="7">
-                    {% include 'experiences/partials/organisation_details.html' with organisation=organization %}
-                  </td>
-                </tr>
-              {% endif %}
+              <tr data-details-strip>
+                <td class="py-0 has-aria-expanded:bg-slate-50" colspan="7">
+                  {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:organization.slug %}
+                </td>
+              </tr>
+              <tr id="organisation-details-{{ organization.slug }}"
+                  data-details-row
+                  hidden>
+                <td class="bg-slate-50 pt-1 pl-12" colspan="7">
+                  {% include 'experiences/partials/organisation_details.html' with organisation=organization %}
+                </td>
+              </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-      <div class="divide-y {% if search %}divide-border{% else %}divide-soft-border{% endif %} md:hidden">
+      <div class="divide-y divide-border md:hidden">
         {% for organization in organizations %}
           <div>
-            <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 pt-6 {% if search %}pb-2{% else %}pb-6{% endif %} text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+            <a class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 pt-6 pb-2 text-foreground no-underline transition-colors hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                href="{% url 'experiences:organization-detail' organization.slug %}">
               <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-base font-semibold text-primary"
                     aria-hidden="true">{{ organization.initials }}</span>
               <div class="min-w-0 flex-[1_1_12rem]">
                 <h2 class="text-base font-bold break-words group-hover:text-primary">{{ organization.display_name }}</h2>
-                {% if search and organization.entity_type_label %}
+                {% if organization.entity_type_label %}
                   <p class="mt-0.5 text-xs text-muted-foreground">{{ organization.entity_type_label }}</p>
                 {% endif %}
                 {% include 'experiences/partials/search_match.html' with match=organization.search_match %}
@@ -166,9 +164,7 @@
               <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-soft-foreground transition-colors group-hover:bg-primary/8 group-hover:text-primary"
                     aria-hidden="true">→</span>
             </a>
-            {% if search %}
-              {% include 'experiences/partials/details_disclosure.html' with organisation=organization %}
-            {% endif %}
+            {% include 'experiences/partials/details_disclosure.html' with organisation=organization %}
           </div>
         {% endfor %}
       </div>

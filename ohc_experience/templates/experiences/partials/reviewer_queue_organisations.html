@@ -2,8 +2,8 @@
 
 {% comment %}
   The review queue's Organisations list: one row per organisation verification,
-  which opens its review. Context: page, of VerificationEntry; searched, when
-  the rows carry production.with_organisation_details.
+  which opens its review. Context: page, of VerificationEntry, its
+  organisations after production.with_organisation_details.
 {% endcomment %}
 <div class="hidden overflow-x-auto md:block">
   <table class="ui-grid-table min-w-[860px]">
@@ -56,32 +56,30 @@
           <td class="whitespace-nowrap align-top tabular-nums">{{ entry.submitted_at|date:'d/m/Y' }}</td>
           <td class="align-top">{% include 'experiences/partials/reviewer_age.html' with item=entry %}</td>
         </tr>
-        {% if searched %}
-          <tr data-details-strip>
-            <td class="py-0 has-aria-expanded:bg-slate-50" colspan="5">
-              {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:entry.reference %}
-            </td>
-          </tr>
-          <tr id="organisation-details-{{ entry.reference }}"
-              data-details-row
-              hidden>
-            <td class="bg-slate-50 pt-1 pl-12" colspan="5">
-              {% include 'experiences/partials/organisation_details.html' with organisation=entry.organisation %}
-            </td>
-          </tr>
-        {% endif %}
+        <tr data-details-strip>
+          <td class="py-0 has-aria-expanded:bg-slate-50" colspan="5">
+            {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:entry.reference %}
+          </td>
+        </tr>
+        <tr id="organisation-details-{{ entry.reference }}"
+            data-details-row
+            hidden>
+          <td class="bg-slate-50 pt-1 pl-12" colspan="5">
+            {% include 'experiences/partials/organisation_details.html' with organisation=entry.organisation %}
+          </td>
+        </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
-<ul class="divide-y {% if searched %}divide-border{% else %}divide-soft-border{% endif %} border-t border-soft-border md:hidden">
+<ul class="divide-y divide-border border-t border-soft-border md:hidden">
   {% for entry in page %}
     <li data-queue-entry="{{ entry.reference }}">
-      <a class="group block px-5 pt-4 {% if searched %}pb-1{% else %}pb-4{% endif %} transition-colors hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+      <a class="group block px-5 pt-4 pb-1 transition-colors hover:bg-primary-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
          href="{{ entry.url }}">
         <p class="font-mono text-xs text-soft-foreground">{{ entry.reference }}</p>
         <p class="mt-1 text-sm font-semibold leading-relaxed break-words group-hover:text-primary">{{ entry.organisation.display_name }}</p>
-        {% if searched and entry.organisation.entity_type_label %}
+        {% if entry.organisation.entity_type_label %}
           <p class="mt-0.5 text-xs text-muted-foreground">{{ entry.organisation.entity_type_label }}</p>
         {% endif %}
         <p class="mt-0.5 text-xs text-muted-foreground">
@@ -101,9 +99,7 @@
           <span class="sr-only">Submitted {{ entry.submitted_at|date:'d/m/Y' }}</span>
         </div>
       </a>
-      {% if searched %}
-        {% include 'experiences/partials/details_disclosure.html' with organisation=entry.organisation %}
-      {% endif %}
+      {% include 'experiences/partials/details_disclosure.html' with organisation=entry.organisation %}
     </li>
   {% endfor %}
 </ul>

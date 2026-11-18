@@ -94,11 +94,10 @@ def production_list(request):
     sort, order = tables.sorting(request, COLUMNS, DEFAULT_SORT[stage])
     page = tables.paginate(request, products.order_by(*order), PAGE_SIZE)
     rows = production.with_codes(page)
-    if q:
-        production.with_organisation_details(
-            program,
-            (product.organisation for product in rows),
-        )
+    production.with_organisation_details(
+        program,
+        (product.organisation for product in rows),
+    )
     return render(
         request,
         "experiences/production_list.html",

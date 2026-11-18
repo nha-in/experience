@@ -366,3 +366,24 @@ def test_the_organisation_export_carries_every_detail(environment, client):
         "HIE-CM M1, HIE-CM M2, HIE-CM M3, HIE-CM M4, UHI"
     )
     assert values["Product registered by"] == environment["applicant"].email
+    assert values["Status"] == "Sandbox approved"
+
+
+def test_list_exports_say_sandbox_or_production_status(environment, client):
+    product = environment["product"]
+    product.production_client_id = "PROD-1"
+    product.save(update_fields=["production_client_id"])
+    client.force_login(environment["admin"])
+
+    def status(url):
+        header, row = rows(client.get(reverse(url), {"export": "xlsx"}))
+        return row[header.index("Status")]
+
+    assert status("experiences:organizations") == "Production Approved"
+    assert status("experiences:products") == "Production Approved"
+    product.production_client_id = ""
+    product.save(update_fields=["production_client_id"])
+    organisation = environment["org"]
+    organisation.set_verification(organisation.VerificationStatus.REJECTED)
+    assert status("experiences:organizations") == "Sandbox rejected"
+    assert status("experiences:products") == "Sandbox rejected"

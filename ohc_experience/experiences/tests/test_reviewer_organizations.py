@@ -106,7 +106,7 @@ def test_organization_detail_shows_the_submitted_form_and_owner(environment, cli
         assert shown in page
 
 
-def test_searched_lists_open_the_organisation_details(environment, client):
+def test_list_rows_open_the_organisation_details(environment, client):
     organization = environment["org"]
     product = environment["product"]
     submitter = organization.review_items.get(
@@ -132,11 +132,11 @@ def test_searched_lists_open_the_organisation_details(environment, client):
             f'href="mailto:{submitter.email}"',
         ):
             assert shown in page, (url, shown)
-        # The plain list stays as it was.
-        assert "organisation-details-" not in client.get(url).content.decode()
+        # Shown without a search too.
+        assert f'id="organisation-details-{row}"' in client.get(url).content.decode()
 
 
-def test_searched_queue_opens_the_organisation_details(environment, client):
+def test_queue_rows_open_the_organisation_details(environment, client):
     organization = environment["org"]
     submit(environment, "m1")
     submitter = organization.review_items.get(
@@ -157,8 +157,9 @@ def test_searched_queue_opens_the_organisation_details(environment, client):
             submitter.display_name,
         ):
             assert shown in page, (tab, shown)
-        # The plain list stays as it was.
-        assert "organisation-details-" not in client.get(url, tab).content.decode()
+        # Shown without a search too.
+        unsearched = client.get(url, tab).content.decode()
+        assert f'id="organisation-details-{entry.reference}"' in unsearched
 
     # A product row's side panel already shows the contact.
     response = client.get(url, {"scope": "all", "q": organization.name})

@@ -118,18 +118,16 @@
             </dl>
           {% endwith %}
         </li>
-        {% if searched %}
-          {# Their own list items, so a click in them does not open the row's review. #}
-          <li class="px-5 has-aria-expanded:bg-slate-50" data-details-strip>
-            {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:entry.product.reference %}
-          </li>
-          <li class="bg-slate-50 px-5 pt-1 pb-4 md:pl-12"
-              id="organisation-details-{{ entry.product.reference }}"
-              data-details-row
-              hidden>
-            {% include 'experiences/partials/organisation_details.html' with organisation=entry.organisation row_contact=entry.product.contact_email %}
-          </li>
-        {% endif %}
+        {# Their own list items, so a click in them does not open the row's review. #}
+        <li class="px-5 has-aria-expanded:bg-slate-50" data-details-strip>
+          {% include 'experiences/partials/details_toggle.html' with target='organisation-details-'|add:entry.product.reference %}
+        </li>
+        <li class="bg-slate-50 px-5 pt-1 pb-4 md:pl-12"
+            id="organisation-details-{{ entry.product.reference }}"
+            data-details-row
+            hidden>
+          {% include 'experiences/partials/organisation_details.html' with organisation=entry.organisation row_contact=entry.product.contact_email %}
+        </li>
       {% endfor %}
     </ul>
   {% else %}

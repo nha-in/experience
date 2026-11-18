@@ -1,9 +1,9 @@
 {% comment %}
-  A searched list row's "Organisation details" strip, which opens the hidden
+  A list row's "Organisation details" strip, which opens the hidden
   row under it (portal-ux.js). Context: target, the id of that row. The strip's
   own row or list item pads it and turns grey while it is open.
 {% endcomment %}
-<button class="group/details flex min-h-9 w-full items-center gap-1.5 text-left text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary aria-expanded:text-foreground"
+<button class="group/details flex min-h-9 w-full items-center gap-1.5 text-left text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"
         type="button"
         aria-expanded="false"
         aria-controls="{{ target }}"
