@@ -1310,9 +1310,7 @@ def test_track_filter_keeps_shared_m1_on_its_own_track(environment, client):
     product.save()
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
-    assert (
-        item in client.get(url, exits("HIE-CM")).context["page"][0].matching_reviews
-    )
+    assert item in client.get(url, exits("HIE-CM")).context["page"][0].matching_reviews
     assert not client.get(url, exits("UHI")).context["page"]
     product.applied_milestones.append("UHI:uhi1")
     product.save()
