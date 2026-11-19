@@ -2660,11 +2660,6 @@ def _reviewer_required(request):
         raise PermissionDenied(msg)
 
 
-def _track_filter(code):
-    program = get_program()
-    return permissions.track_items(program.track_map()[code])
-
-
 def _requests(program):
     """Review requests that belong to no track, keyed by their filter value."""
     requests = {
@@ -2707,26 +2702,28 @@ def _request_choices(program, user):
 
 
 def _programme_filter(code):
-    """Requests on a product in this programme, and the verification of every
-    organisation that owns one, so an organisation counts in each programme."""
-    products = Product.objects.filter(
-        permissions.track_products(get_program().track_map()[code]),
-    )
-    return Q(product__in=products) | Q(
-        kind=ReviewItem.Kind.ORGANISATION,
-        organisation__in=products.values("organisation"),
+    """The programme's own exit forms, every other request on a product in it,
+    and the verification of each organisation that owns one, so an
+    organisation counts in each programme."""
+    track = get_program().track_map()[code]
+    products = Product.objects.filter(permissions.track_products(track))
+    return (
+        permissions.track_items(track)
+        | Q(product__in=products, application__milestone__isnull=True)
+        | Q(
+            kind=ReviewItem.Kind.ORGANISATION,
+            organisation__in=products.values("organisation"),
+        )
     )
 
 
 def _item_filter(program, item):
-    """The queue's Type filter: one request, every milestone, or one track's."""
+    """The queue's Type filter: one request, or every milestone."""
     requests = _requests(program)
     if item in requests:
         return requests[item][1]
     if item == "milestones":
         return Q(application__milestone__isnull=False)
-    if item in program.track_map():
-        return _track_filter(item)
     return None
 
 
@@ -2752,7 +2749,7 @@ def _dashboard_queues(user, program, track):
     track: entity registrations and WASA renewals for onboarding reviewers,
     and exits for anyone the track's reviews are open to."""
     narrow = {"track": track.code} if track else {}
-    queues = {"exit": {"scope": "ready", "item": track.code if track else "milestones"}}
+    queues = {"exit": {"scope": "ready", "item": "milestones", **narrow}}
     if permissions.has_access(user, "review", program=program.key):
         queues["onboarding"] = {"kind": "organisations", "scope": "ready", **narrow}
         certification = program.applications.certification

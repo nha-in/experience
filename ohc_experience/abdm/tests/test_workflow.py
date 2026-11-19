@@ -136,6 +136,11 @@ def pending_exits(client, *tracks):
     }
 
 
+def exits(track):
+    """The queue narrowed to one programme's exit forms, as its dashboard links."""
+    return {"item": "milestones", "track": track}
+
+
 def ready(product):
     """Provisioned and holding a callback URL, as the milestones expect."""
     provision_inline(product)
@@ -1306,12 +1311,12 @@ def test_track_filter_keeps_shared_m1_on_its_own_track(environment, client):
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
     assert (
-        item in client.get(url, {"item": "HIE-CM"}).context["page"][0].matching_reviews
+        item in client.get(url, exits("HIE-CM")).context["page"][0].matching_reviews
     )
-    assert not client.get(url, {"item": "UHI"}).context["page"]
+    assert not client.get(url, exits("UHI")).context["page"]
     product.applied_milestones.append("UHI:uhi1")
     product.save()
-    assert not client.get(url, {"item": "UHI"}).context["page"]
+    assert not client.get(url, exits("UHI")).context["page"]
 
 
 def submit_claims(environment, key):
@@ -1352,12 +1357,12 @@ def test_track_filter_leaves_out_another_tracks_prerequisite(environment, client
     m1, _m3, nhcx_payer = claims_exit(environment, "m1", "m3", "nhcx_payer")
     client.force_login(environment["reviewer"])
 
-    def listed(item):
+    def listed(track):
         return [
             review
             for entry in client.get(
                 reverse("experiences:queue"),
-                {"item": item, "scope": "all"},
+                {**exits(track), "scope": "all"},
             ).context["page"]
             for review in entry.matching_reviews
         ]
@@ -1423,7 +1428,7 @@ def test_organisation_verification_has_a_list_of_its_own(environment, client):
     client.force_login(environment["reviewer"])
     url = reverse("experiences:queue")
 
-    products = client.get(url, {"item": "HIE-CM", "scope": "all"}).context["page"]
+    products = client.get(url, {"item": "milestones", "scope": "all"}).context["page"]
     assert milestone_item in [
         review for entry in products for review in entry.matching_reviews
     ]
@@ -1467,12 +1472,12 @@ def test_the_type_filter_gathers_the_milestones_of_every_track(environment, clie
     )
     client.force_login(environment["reviewer"])
 
-    def listed(item):
+    def listed(track):
         return [
             review
             for entry in client.get(
                 reverse("experiences:queue"),
-                {"item": item, "scope": "all"},
+                {**exits(track), "scope": "all"},
             ).context["page"]
             for review in entry.matching_reviews
         ]
