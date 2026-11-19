@@ -64,11 +64,12 @@ class Organisation(models.Model):
     """An integrator company: the unit owning a sandbox, certifications and a team."""
 
     class VerificationStatus(models.TextChoices):
-        PENDING = "pending", _("Verification pending")
-        VERIFIED = "verified", _("Verified integrator")
-        REJECTED = "rejected", _("Verification rejected")
+        # The sandbox's standing, as the exports and product rows name it.
+        PENDING = "pending", _("Sandbox pending")
+        VERIFIED = "verified", _("Sandbox approved")
+        REJECTED = "rejected", _("Sandbox rejected")
         # Taken back to edit; the stored value predates the Edit wording.
-        WITHDRAWN = "withdrawn", _("Verification being edited")
+        WITHDRAWN = "withdrawn", _("Being edited")
 
     name = models.CharField(_("Organisation"), max_length=255)
     slug = models.SlugField(_("Slug"), max_length=255, unique=True)

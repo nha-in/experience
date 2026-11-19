@@ -496,19 +496,11 @@ def _client_id(product):
     return credential.client_id if credential else ""
 
 
-SANDBOX_STATUS = {
-    Organisation.VerificationStatus.VERIFIED: "Sandbox approved",
-    Organisation.VerificationStatus.REJECTED: "Sandbox rejected",
-    Organisation.VerificationStatus.PENDING: "Sandbox pending",
-    Organisation.VerificationStatus.WITHDRAWN: "Sandbox withdrawn",
-}
-
-
 def _export_status(organisation, product=None):
     """Production Approved once the production client ID is in, else the sandbox."""
     if product and product.production_client_id:
         return "Production Approved"
-    return SANDBOX_STATUS[organisation.verification_status]
+    return organisation.get_verification_status_display()
 
 
 def _product_export_rows(products, *, reviewer=False):
@@ -920,8 +912,13 @@ def _reviewer_products(request):
         program,
         (product.organisation for product in products),
     )
-    if search:
-        for product in products:
+    for product in products:
+        # shortcut: a few queries per row, as on the integrator's dashboard;
+        # batch them if the list slows.
+        tracks = _tracks(product, request.user)
+        _lock_tiles(product, tracks)
+        product.statuses = product_statuses(tracks, {})
+        if search:
             product.search_match = global_search.product_match(product, search, field)
     return render(
         request,

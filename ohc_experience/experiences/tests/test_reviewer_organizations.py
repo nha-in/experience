@@ -148,6 +148,26 @@ def test_list_rows_open_the_organisation_details(environment, client):
         assert f'id="organisation-details-{row}"' in client.get(url).content.decode()
 
 
+def test_products_list_shows_where_each_product_stands(environment, client):
+    product = environment["product"]
+    submit(environment, "m1")
+    client.force_login(environment["reviewer"])
+    url = reverse("experiences:products")
+
+    response = client.get(url)
+    page = response.content.decode()
+    # The sandbox standing, as the export words it, and a chip per milestone.
+    assert product.organisation.get_verification_status_display() in page
+    [listed] = response.context["products"]
+    assert "in_review" in {chip["state"] for chip in listed.statuses}
+    for chip in listed.statuses:
+        assert f"ui-queue-chip--{chip['state']}" in page
+
+    product.production_client_id = "PROD-CLIENT-1"
+    product.save(update_fields=["production_client_id"])
+    assert "Production approved" in client.get(url).content.decode()
+
+
 def test_queue_rows_open_the_organisation_details(environment, client):
     organization = environment["org"]
     submit(environment, "m1")

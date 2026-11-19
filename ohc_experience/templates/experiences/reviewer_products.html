@@ -150,7 +150,15 @@
                 </p>
               {% endif %}
               {% include 'experiences/partials/search_match.html' with match=product.search_match %}
-              <p class="mt-3 text-sm {% if product.open_count %}text-foreground{% else %}text-muted-foreground{% endif %}">
+              <div class="mt-3 flex flex-col items-start gap-2">
+                {% if product.production_client_id %}
+                  {% include 'experiences/partials/status.html' with status='approved' label='Production approved' %}
+                {% else %}
+                  {% include 'experiences/partials/status.html' with status=product.organisation.verification_status label=product.organisation.get_verification_status_display %}
+                {% endif %}
+                {% include 'experiences/partials/product_status.html' %}
+              </div>
+              <p class="mt-2 text-sm {% if product.open_count %}text-foreground{% else %}text-muted-foreground{% endif %}">
                 {% if product.open_count %}
                   {{ product.open_count }} open request{{ product.open_count|pluralize }}
                 {% else %}

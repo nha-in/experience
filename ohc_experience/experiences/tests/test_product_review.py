@@ -529,8 +529,8 @@ def test_withdrawn_organisation_verification_waits_on_the_integrator(
         f"{item.title}: {WITHDRAWN_HOLD}" for item in items
     ]
     content = " ".join(response.content.decode().split())
-    assert "Verification being edited" in content
-    assert "Verification pending" not in content
+    assert "Being edited" in content
+    assert "Sandbox pending" not in content
     assert WITHDRAWN_HOLD in content
 
     response = client.get(items[0].get_absolute_url())
