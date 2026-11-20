@@ -243,7 +243,8 @@ def create_product_handoff_url(product, *, solution_type: str, actor) -> str:
         "entity_type": organisation["entity_type"],
         "ownership": organisation["entity_type"],
         "client_id": str(product.pk),
-        "mobile": product.created_by.phone_number,
+        # DHIS accepts ten digits only; ours are stored as +91 and ten digits.
+        "mobile": product.created_by.phone_number[-10:],
         "email": product.created_by.email,
         "addressLine1": organisation["registered_address"],
         "addressLine2": "",

@@ -182,9 +182,9 @@ def test_other_integrator_still_sends_product_creator_identity(
 
     payload = encoder.call_args.args[0]
     assert payload["email"] == creator.email
-    assert payload["mobile"] == creator.phone_number
+    assert payload["mobile"] == "9876543210"
     assert teammate.email not in payload.values()
-    assert teammate.phone_number not in payload.values()
+    assert "9123456789" not in payload.values()
 
 
 def test_a_solution_change_applies_to_the_next_handoff(eligible_hmis, encoder):
