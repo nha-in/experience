@@ -57,7 +57,7 @@ def stated(**overrides) -> str:
         {
             "is_certificate": True,
             "agency": AGENCY,
-            "audit_date": (today - timedelta(days=20)).isoformat(),
+            "issue_date": (today - timedelta(days=20)).isoformat(),
         }
         | overrides,
     )
@@ -164,7 +164,7 @@ def test_a_document_that_is_not_a_certificate_is_refused(reader, denial):
     reader["reply"] = stated(
         is_certificate=denial,
         agency="",
-        audit_date="",
+        issue_date="",
     )
 
     with pytest.raises(WasaExtractionError) as failure:
@@ -179,7 +179,7 @@ def test_a_refusal_does_not_override_the_certificate_it_was_asked_about(reader):
     reader["reply"] = json.dumps(
         {
             "agency": AGENCY,
-            "audit_date": timezone.localdate().isoformat(),
+            "issue_date": timezone.localdate().isoformat(),
         },
     )
 
@@ -194,26 +194,27 @@ def test_the_model_is_asked_to_check_the_document_first(sent):
     assert "First decide whether it really is one" in instruction
     # The same certificate goes by either name in the wild.
     assert "Safe to Host" in instruction
-    # An audit runs over days; the certificate is dated by the day it ended.
-    assert "give the last day of that range" in instruction
+    # Certificates print testing dates beside their own; only their own is wanted.
+    assert "the day it was issued" in instruction
+    assert "Judge by what a date means, not by its label" in instruction
     # The form works the expiry out from the audit date, so it is not asked for.
     assert "valid_until" not in instruction
 
 
 @pytest.mark.parametrize(
-    "audit_date",
+    "issue_date",
     ["", "yesterday", "12/03/2024", "2024-13-01", None],
 )
-def test_only_iso_dates_are_kept(reader, audit_date):
-    reader["reply"] = stated(audit_date=audit_date)
+def test_only_iso_dates_are_kept(reader, issue_date):
+    reader["reply"] = stated(issue_date=issue_date)
     assert extract_certificate(certificate())["wasa_date"] == ""
 
 
-def test_an_audit_spanning_days_is_dated_by_the_day_it_ended(reader):
-    """Real certificates print 'Audit Date: 30th March 2026 to 3rd April 2026'."""
-    reader["reply"] = stated(audit_date="2026-03-30 to 2026-04-03")
+def test_a_validity_period_is_dated_by_the_day_it_starts(reader):
+    """Real certificates print 'Validity Period: 30/03/2026 To 29/03/2027'."""
+    reader["reply"] = stated(issue_date="2026-03-30 to 2026-04-03")
 
-    assert extract_certificate(certificate())["wasa_date"] == "2026-04-03"
+    assert extract_certificate(certificate())["wasa_date"] == "2026-03-30"
 
 
 def test_an_expiry_in_the_reply_is_never_proposed(reader):
@@ -226,9 +227,9 @@ def test_an_expiry_in_the_reply_is_never_proposed(reader):
     assert details["wasa_date"]
 
 
-def test_a_future_audit_date_is_dropped(reader):
+def test_a_future_issue_date_is_dropped(reader):
     tomorrow = timezone.localdate() + timedelta(days=1)
-    reader["reply"] = stated(audit_date=tomorrow.isoformat())
+    reader["reply"] = stated(issue_date=tomorrow.isoformat())
     assert extract_certificate(certificate())["wasa_date"] == ""
 
 
@@ -248,7 +249,7 @@ def test_the_same_file_is_only_read_once(reader):
 
 def test_a_reading_that_proposed_nothing_is_not_kept(reader):
     """Nothing useful was learned, so the next attempt deserves its own look."""
-    reader["reply"] = stated(agency="Unlisted", audit_date="")
+    reader["reply"] = stated(agency="Unlisted", issue_date="")
     assert not any(extract_certificate(certificate()).values())
 
     reader["reply"] = stated()
