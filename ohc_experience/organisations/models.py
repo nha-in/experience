@@ -25,6 +25,19 @@ SOLE_PROPRIETOR = "sole_proprietor"
 GOVERNMENT = "government"
 
 
+def legacy_ownership(entity_type: str) -> str:
+    """Who owns the entity, as legacy told the HIE-CM bridge and DHIS.
+
+    Legacy asked only government or private, and sent NA for an individual,
+    which a sole proprietor is here.
+    """
+    if entity_type == SOLE_PROPRIETOR:
+        return "NA"
+    if entity_type == GOVERNMENT:
+        return "Government"
+    return "Private"
+
+
 class Role(models.TextChoices):
     """Roles a member can hold inside an organisation.
 

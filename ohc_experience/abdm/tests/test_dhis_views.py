@@ -167,7 +167,7 @@ def test_post_creates_signed_redirect_from_trusted_product_data(
     )
 
     payload = claims(response)
-    assert payload["client_id"] == str(product.pk)
+    assert payload["client_id"] == product.credential.client_id
     assert payload["email"] == eligible_hmis["applicant"].email
     assert payload["role"] == "sandbox"
     assert payload["generatedTime"] == "17890000001230"

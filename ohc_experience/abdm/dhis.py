@@ -20,6 +20,7 @@ from ohc_experience.experiences.permissions import require_integrator
 from ohc_experience.integrations.dhis import DHISConfig
 from ohc_experience.integrations.dhis import DHISConfigurationError
 from ohc_experience.integrations.dhis import build_dhis_url
+from ohc_experience.organisations.models import legacy_ownership
 
 from .wasa import approved_wasa_submission
 from .wasa import current_wasa
@@ -63,9 +64,19 @@ def _fresh_product(product, actor):
     product = Product.objects.select_related(
         "organisation",
         "created_by",
+        "credential",
     ).get(pk=product.pk)
     require_integrator(actor, product.organisation)
     return product
+
+
+def _sandbox_client_id(product):
+    """DHIS knows an integrator by its sandbox client ID, as legacy sent it."""
+    credential = getattr(product, "credential", None)
+    if credential is None:
+        msg = "The product needs its sandbox credentials for DHIS."
+        raise ValidationError(msg)
+    return credential.client_id
 
 
 def _approved_data(item):
@@ -175,6 +186,7 @@ class DHISHandoff(ProductHandoffDefinition):
         registration_error, wasa_error, configuration_error = "", "", ""
         try:
             _, approved_types = _registration_data(product)
+            _sandbox_client_id(product)
         except ValidationError as error:
             registration_error = " ".join(error.messages)
         if not registration_error:
@@ -219,7 +231,7 @@ class DHISHandoff(ProductHandoffDefinition):
 
 
 def create_product_handoff_url(product, *, solution_type: str, actor) -> str:
-    """Use the product ID and its latest approved WASA for a DHIS handoff.
+    """Use the sandbox client ID and the latest approved WASA for a DHIS handoff.
 
     Read fresh state for every request, even when the caller retained a product
     instance across a renewal. Previous claims never prevent another handoff.
@@ -230,19 +242,22 @@ def create_product_handoff_url(product, *, solution_type: str, actor) -> str:
         raise ValidationError(msg)
     intent, required, milestone = SOLUTION_MILESTONES[solution_type]
     organisation, approved_types = _registration_data(product)
+    client_id = _sandbox_client_id(product)
     if reason := _solution_error(solution_type, approved_types):
         raise ValidationError(reason)
     approval = _require_wasa(product)
     if reason := _milestone_error(required, _approved_milestones(product)):
         raise ValidationError(reason)
+    ownership = legacy_ownership(organisation["entity_type"])
     # The legacy helper omitted wasa_start_date and top-level wasa_status.
     # Preserve that behavior rather than reinterpret an audit date as validity.
     payload = {
-        "name": organisation["name"],
+        # Legacy sent the registrant's full name here and the entity below.
+        "name": product.created_by.name or organisation["name"],
         "entity": organisation["name"],
-        "entity_type": organisation["entity_type"],
-        "ownership": organisation["entity_type"],
-        "client_id": str(product.pk),
+        "entity_type": ownership,
+        "ownership": ownership,
+        "client_id": client_id,
         # DHIS accepts ten digits only; ours are stored as +91 and ten digits.
         "mobile": product.created_by.phone_number[-10:],
         "email": product.created_by.email,

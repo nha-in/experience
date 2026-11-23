@@ -21,6 +21,7 @@ from ohc_experience.abdm.tests.test_workflow import pdf
 from ohc_experience.abdm.tests.test_workflow import product_for
 from ohc_experience.abdm.wasa import current_wasa
 from ohc_experience.experiences import workflows
+from ohc_experience.experiences.models import ProductCredential
 from ohc_experience.organisations.models import Membership
 from ohc_experience.users.tests.factories import UserFactory
 
@@ -98,7 +99,7 @@ def eligible_hmis(environment):
         ("pharmacy", ("m1", "m2"), "Pharmacy", "M2"),
     ],
 )
-def test_solution_handoff_uses_product_id_and_approved_wasa(  # noqa: PLR0913, PLR0917
+def test_solution_handoff_uses_sandbox_client_id_and_approved_wasa(  # noqa: PLR0913, PLR0917
     environment,
     encoder,
     solution_type,
@@ -113,7 +114,7 @@ def test_solution_handoff_uses_product_id_and_approved_wasa(  # noqa: PLR0913, P
     assert handoff(environment, solution_type, product=product) == HANDOFF_URL
 
     payload = encoder.call_args.args[0]
-    assert payload["client_id"] == str(product.pk)
+    assert payload["client_id"] == product.credential.client_id
     assert payload["intent_request"] == intent
     assert payload["integration_level"] == terminal
     assert payload["wasa_valid_upto_date"] == [
@@ -181,10 +182,59 @@ def test_other_integrator_still_sends_product_creator_identity(
     assert handoff(eligible_hmis, actor=teammate) == HANDOFF_URL
 
     payload = encoder.call_args.args[0]
+    assert payload["name"] == creator.name
     assert payload["email"] == creator.email
     assert payload["mobile"] == "9876543210"
+    assert teammate.name not in payload.values()
     assert teammate.email not in payload.values()
     assert "9123456789" not in payload.values()
+
+
+def test_a_creator_without_a_name_sends_the_entity_name(eligible_hmis, encoder):
+    creator = eligible_hmis["applicant"]
+    creator.name = ""
+    creator.save(update_fields=["name"])
+
+    assert handoff(eligible_hmis) == HANDOFF_URL
+
+    payload = encoder.call_args.args[0]
+    assert payload["name"] == payload["entity"]
+    assert payload["entity"]
+
+
+@pytest.mark.parametrize(
+    ("entity_type", "ownership"),
+    [
+        ("private_company", "Private"),
+        ("trust", "Private"),
+        ("government", "Government"),
+        ("sole_proprietor", "NA"),
+    ],
+)
+def test_ownership_is_sent_as_legacy_sent_it(
+    eligible_hmis,
+    encoder,
+    entity_type,
+    ownership,
+):
+    item = eligible_hmis["org"].review_items.get(kind="organisation_verification")
+    approved = item.selected_submission
+    approved.data = {**approved.data, "entity_type": entity_type}
+    approved.save(update_fields=["data"])
+
+    assert handoff(eligible_hmis) == HANDOFF_URL
+
+    payload = encoder.call_args.args[0]
+    assert payload["entity_type"] == payload["ownership"] == ownership
+
+
+def test_a_product_without_sandbox_credentials_is_refused(eligible_hmis, encoder):
+    ProductCredential.objects.filter(product=eligible_hmis["product"]).delete()
+
+    with pytest.raises(ValidationError, match="needs its sandbox credentials"):
+        handoff(eligible_hmis)
+
+    encoder.assert_not_called()
 
 
 def test_a_solution_change_applies_to_the_next_handoff(eligible_hmis, encoder):
@@ -227,7 +277,7 @@ def test_multiple_solutions_share_one_product_identity(eligible_hmis, encoder):
     payloads = [call.args[0] for call in encoder.call_args_list]
     assert {payload["intent_request"] for payload in payloads} == {"HMIS", "LMIS"}
     assert {payload["client_id"] for payload in payloads} == {
-        str(eligible_hmis["product"].pk),
+        eligible_hmis["product"].credential.client_id,
     }
 
 
@@ -261,7 +311,7 @@ def test_organisation_draft_uses_last_approved_identity(
     assert handoff(eligible_hmis) == HANDOFF_URL
 
     payload = encoder.call_args.args[0]
-    assert payload["name"] == original_name
+    assert payload["entity"] == original_name
     assert "Unapproved replacement name" not in payload.values()
 
 

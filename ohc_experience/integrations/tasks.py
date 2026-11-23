@@ -51,6 +51,7 @@ from ohc_experience.integrations.registry import get_idp_admin
 from ohc_experience.integrations.secret_ref import has_secret
 from ohc_experience.integrations.secret_ref import store_secret
 from ohc_experience.integrations.wso2.apis import api_ids_for
+from ohc_experience.organisations.models import legacy_ownership
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -519,18 +520,8 @@ def _bridge_spec(product: Product, bridge_id: str, url: str) -> BridgeSpec:
         bridge_id=bridge_id,
         name=_external_name(product),
         url=url,
-        entity=_bridge_entity(product),
+        entity=legacy_ownership(product.organisation.entity_type),
     )
-
-
-def _bridge_entity(product: Product) -> str:
-    """The bridge's `entity`, valued as legacy sent it."""
-    entity_type = product.organisation.entity_type
-    if entity_type == "sole_proprietor":
-        return "NA"
-    if entity_type == "government":
-        return "Government"
-    return "Private"
 
 
 #: The chain, in the order the data forces.

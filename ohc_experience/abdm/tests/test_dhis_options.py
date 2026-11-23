@@ -16,6 +16,7 @@ from ohc_experience.abdm.tests.test_dhis_product import workspace_of
 from ohc_experience.abdm.tests.test_workflow import environment  # noqa: F401
 from ohc_experience.abdm.tests.test_workflow import phr_product
 from ohc_experience.abdm.wasa import current_wasa
+from ohc_experience.experiences.models import ProductCredential
 
 pytestmark = pytest.mark.django_db
 
@@ -114,6 +115,17 @@ def test_an_unverified_organisation_is_offered_no_solution(eligible_hmis):
 
     assert all(not row["enabled"] for row in rows.values())
     assert "Organisation verification must be approved" in rows["hmis"]["reason"]
+
+
+def test_a_product_without_sandbox_credentials_is_offered_no_solution(eligible_hmis):
+    ProductCredential.objects.filter(product=eligible_hmis["product"]).delete()
+
+    rows = options(eligible_hmis)
+
+    assert all(not row["enabled"] for row in rows.values())
+    assert rows["hmis"]["reason"] == (
+        "The product needs its sandbox credentials for DHIS."
+    )
 
 
 def test_revoked_current_wasa_disables_previously_eligible_option(eligible_hmis):
