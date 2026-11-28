@@ -831,7 +831,9 @@ document.addEventListener("keydown", (event) => {
     form.querySelectorAll('[data-reject-controls]').forEach(controls => { controls.hidden = !rejecting; });
     const button = form.querySelector('[data-bulk-submit]');
     if (!button) return;
-    button.textContent = rejecting ? 'Reject all' : 'Accept all';
+    button.textContent = rejecting
+      ? button.dataset.rejectLabel || 'Reject all'
+      : button.dataset.approveLabel || 'Accept all';
     button.disabled = !choice || choice.disabled
       || (rejecting && [...form.querySelectorAll('[data-bulk-reason]')].some(select => !select.value));
   }

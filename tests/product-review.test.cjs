@@ -125,13 +125,13 @@ test('both bulk decisions require the shared note', () => {
   assert.equal(browser.fire('click', target).prevented, false);
 });
 
-function decisionForm({ action = 'approve', held = [], reasons = [] } = {}) {
+function decisionForm({ action = 'approve', held = [], reasons = [], labels = {} } = {}) {
   const choices = ['approve', 'reject'].map(value => ({
     value,
     checked: value === action,
     disabled: held.includes(value),
   }));
-  const button = { disabled: false, textContent: '' };
+  const button = { disabled: false, textContent: '', dataset: labels };
   const controls = { hidden: false };
   const selects = reasons.map(value => ({ value }));
   const form = {
@@ -182,6 +182,20 @@ test('rejecting shows the reasons and waits for one from every list', () => {
   page_.selects[1].value = 'Wrong website address';
   browser.fire('change', page_.target);
   assert.equal(page_.button.disabled, false);
+});
+
+test('organisation verification names its own button', () => {
+  const browser = page();
+  const page_ = decisionForm({
+    reasons: [''],
+    labels: { approveLabel: 'Approve verification', rejectLabel: 'Reject verification' },
+  });
+  browser.bulkForms.push(page_.form);
+  browser.fire('DOMContentLoaded');
+  assert.equal(page_.button.textContent, 'Approve verification');
+  page_.choose('reject');
+  browser.fire('change', page_.target);
+  assert.equal(page_.button.textContent, 'Reject verification');
 });
 
 test('switching back to accept needs no reason again', () => {

@@ -1153,7 +1153,8 @@ def _decision_notice(item, action, *, queries=1):
     if action == "query":
         raised = "Query" if queries == 1 else f"{queries} queries"
         return f"{raised} raised on {_review_label(item)}."
-    return f"{_review_label(item)} approved."
+    outcome = "approved" if action == "approve" else "rejected"
+    return f"{_review_label(item)} {outcome}."
 
 
 def _posted_reasons(request):
@@ -1194,13 +1195,18 @@ def _product_review_post(request, product):
                 expected_revision=request.POST.get("revision", ""),
             )
             notice = _decision_notice(item, action, queries=len(questions))
-        elif action == "approve" and item.definition.auto_approve:
-            # Accept all leaves these out, so an override is decided on its own.
+        elif (action == "approve" and item.definition.auto_approve) or (
+            action in {"approve", "reject"}
+            and item.kind == ReviewItem.Kind.ORGANISATION
+        ):
+            # Accept all leaves overrides out. Verification is also decided on
+            # its own while NHA reviews everything from one account.
             services.decide(
                 item,
                 request.user,
                 action=action,
                 note=request.POST.get("note", ""),
+                reason=request.POST.get("reason", ""),
                 expected_revision=request.POST.get("revision", ""),
             )
             notice = _decision_notice(item, action)
@@ -1209,6 +1215,9 @@ def _product_review_post(request, product):
             raise ValidationError(msg)
         messages.success(request, notice)
         anchor = f"review-{item.pk}"
+        if action != "query" and item.kind == ReviewItem.Kind.ORGANISATION:
+            # Back to the top panel, where Accept all now waits.
+            anchor = "decisions"
     else:
         msg = "Choose a review action."
         raise ValidationError(msg)
@@ -1283,6 +1292,11 @@ def _product_review_sections(request, items):
                 if item.status == ReviewItem.Status.DRAFT
                 else None,
                 "can_decide": "reject" in actions,
+                "decide_alone": "reject" in actions
+                and item.kind == ReviewItem.Kind.ORGANISATION,
+                "reject_reasons": services.reject_reasons(item.definition),
+                "decision_action": action,
+                "decision_reason": request.POST.get("reason", "") if posted else "",
                 "can_query": "query" in actions,
                 "can_override": can_override,
                 "unresolved_query_count": unresolved,
@@ -1394,6 +1408,8 @@ def product_detail(request, reference):
         and item.selected_submission.status == SubmissionStatus.COMPLETED
         and item.submitted_at
         and not item.definition.auto_approve
+        # Decided on its own card, so a pending one holds Accept all.
+        and item.kind != ReviewItem.Kind.ORGANISATION
         and permissions.can_review(request.user, item, "approve")
     ]
     bulk_approve_blockers = (
@@ -1445,6 +1461,17 @@ def product_detail(request, reference):
         ),
         None,
     )
+    verification_decision = (
+        organisation_section
+        if organisation_section
+        and organisation_section["decide_alone"]
+        and organisation_section["snapshot"]
+        and organisation_section["item"].pending
+        else None
+    )
+    if verification_decision:
+        # Decided in the top panel, so its details open right under it.
+        verification_decision["opened"] = True
     certification = _certification_context(request, product)
     production = (
         production_services.state(product)
@@ -1487,6 +1514,7 @@ def product_detail(request, reference):
             decidable=decidable,
             review_sections=review_sections,
             review_groups=_review_groups(review_sections),
+            verification_decision=verification_decision,
             bulk_items=bulk_items,
             bulk_approve_blockers=bulk_approve_blockers,
             bulk_reject_blockers=bulk_reject_blockers,

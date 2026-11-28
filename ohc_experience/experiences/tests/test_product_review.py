@@ -393,13 +393,75 @@ def test_organisation_verification_is_reviewed_in_the_product(environment, clien
     section = response.context["review_sections"][0]
     assert section["item"] == verification
     assert section["snapshot"] == verification.selected_submission
-    assert {item.pk for item in response.context["bulk_items"]} == {
-        verification.pk,
-        m1.pk,
-        m2.pk,
-    }
-    assert not response.context["bulk_approve_blockers"]
-    assert not response.context["bulk_reject_blockers"]
+    # Decided on its own; until then it holds Accept all and Reject all.
+    assert {item.pk for item in response.context["bulk_items"]} == {m1.pk, m2.pk}
+    hold = "Approve or reject this request once organisation verification is approved."
+    expected = [f"{item.title}: {hold}" for item in (m1, m2)]
+    assert response.context["bulk_approve_blockers"] == expected
+    assert response.context["bulk_reject_blockers"] == expected
+
+    # It takes the top panel in place of Accept all, its details open below.
+    assert response.context["verification_decision"] is section
+    assert section["opened"]
+    assert b"Accept all</button>" not in response.content
+    assert f'id="decision-form-{verification.pk}"'.encode() in response.content
+    for item in (m1, m2):
+        assert f'id="decision-form-{item.pk}"'.encode() not in response.content
+
+
+@pytest.mark.parametrize(
+    ("action", "status", "verified"),
+    [("approve", "approved", True), ("reject", "rejected", False)],
+)
+def test_organisation_verification_is_decided_on_its_own(
+    environment,
+    client,
+    action,
+    status,
+    verified,
+):
+    m1, m2 = submit_together(environment, "m1", "m2")
+    verification = reverify(environment)
+    client.force_login(environment["reviewer"])
+
+    response = client.post(
+        product_url(environment),
+        {
+            "intent": "decision",
+            "review_id": verification.pk,
+            "revision": verification.selected_submission_id,
+            "action": action,
+            "note": "Organisation identity checked.",
+            "reason": "Wrong website address",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url.endswith("#decisions")
+    assert last_flash(response) == f"Organisation verification {status}."
+    verification.refresh_from_db()
+    assert verification.status == status
+    environment["org"].refresh_from_db()
+    assert environment["org"].is_verified is verified
+    for item in (m1, m2):
+        item.refresh_from_db()
+        assert item.pending
+
+    # The panel goes back to Accept all, open only once verification is approved.
+    page = client.get(product_url(environment))
+    assert page.context["verification_decision"] is None
+    assert b"Accept all</button>" in page.content
+    assert (not page.context["bulk_approve_blockers"]) is verified
+
+
+def test_organisation_decision_waits_on_open_queries(environment, client):
+    verification = reverify(environment)
+    workflows.raise_queries(
+        verification,
+        environment["reviewer"],
+        [("form", "Which registration number is current?")],
+    )
+    client.force_login(environment["reviewer"])
 
     response = client.post(
         product_url(environment),
@@ -408,17 +470,16 @@ def test_organisation_verification_is_reviewed_in_the_product(environment, clien
             "review_id": verification.pk,
             "revision": verification.selected_submission_id,
             "action": "approve",
-            "note": "Organisation identity verified.",
+            "note": "Organisation identity checked.",
         },
     )
-    # It goes with the rest of the page, never on its own.
+
     assert response.status_code == HTTPStatus.OK
-    assert b"Decide this request with Accept all or Reject all." in response.content
-    environment["org"].refresh_from_db()
-    assert not environment["org"].is_verified
-    for item in (m1, m2):
-        item.refresh_from_db()
-        assert item.pending
+    assert b"Resolve all queries on this submission before deciding." in (
+        response.content
+    )
+    verification.refresh_from_db()
+    assert verification.pending
 
 
 @pytest.mark.parametrize(

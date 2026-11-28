@@ -1,5 +1,99 @@
 <div class="scroll-mt-20 px-5 py-4" id="decisions">
-  {% if bulk_items %}
+  {% if verification_decision %}
+    {% with item=verification_decision.item chosen=verification_decision.decision_action held=verification_decision.unresolved_query_count %}
+      {# Decided before Accept all, which waits on it. Reuses the Accept all form's script. #}
+      <form method="post"
+            id="decision-form-{{ item.pk }}"
+            class="flex flex-col gap-3"
+            data-unsaved-form
+            data-product-bulk-form>
+        {% csrf_token %}
+        <input type="hidden" name="intent" value="decision" />
+        <input type="hidden" name="review_id" value="{{ item.pk }}" />
+        <input type="hidden"
+               name="revision"
+               value="{{ item.selected_submission_id }}" />
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold" id="decisions-title">Organisation verification</h2>
+            <p class="mt-1 text-xs leading-relaxed text-soft-foreground">Shared across all products of {{ organisation.display_name }}.{% if bulk_items %} The {{ bulk_items|length }} submitted request{{ bulk_items|length|pluralize }} below wait{{ bulk_items|length|pluralize:'s,' }} until it is approved.{% endif %}</p>
+          </div>
+          <fieldset class="flex gap-1 rounded-xl bg-muted-background p-1 text-center text-sm">
+            <legend class="sr-only">Decision on organisation verification</legend>
+            <label class="flex min-h-9 min-w-20 cursor-pointer items-center justify-center rounded-lg px-3 py-1.5 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+              <input class="sr-only"
+                     type="radio"
+                     name="action"
+                     value="approve"
+                     {% if chosen != 'reject' %}checked{% endif %}
+                     {% if held %}disabled aria-describedby="verification-hold"{% endif %} />
+              <span>Approve</span>
+            </label>
+            <label class="flex min-h-9 min-w-20 cursor-pointer items-center justify-center rounded-lg px-3 py-1.5 text-soft-foreground transition-colors has-[:checked]:bg-card has-[:checked]:font-semibold has-[:checked]:text-primary has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+              <input class="sr-only"
+                     type="radio"
+                     name="action"
+                     value="reject"
+                     {% if chosen == 'reject' %}checked{% endif %}
+                     {% if held %}disabled aria-describedby="verification-hold"{% endif %} />
+              <span>Reject</span>
+            </label>
+          </fieldset>
+        </div>
+        <div class="flex flex-col items-start gap-x-4 gap-y-3 md:flex-row">
+          {% if verification_decision.reject_reasons %}
+            <div class="w-full min-w-0 md:w-72 md:shrink-0"
+                 data-reject-controls
+                 {% if chosen != 'reject' %}hidden{% endif %}>
+              <label class="ui-label" for="decision-reason-{{ item.pk }}">Rejection reason <span class="ui-required" aria-hidden="true">*</span></label>
+              <div class="ui-select-wrapper">
+                <select class="ui-select"
+                        id="decision-reason-{{ item.pk }}"
+                        name="reason"
+                        data-bulk-reason>
+                  <option value="">Choose a reason</option>
+                  {% for reason in verification_decision.reject_reasons %}
+                    <option value="{{ reason }}"
+                            {% if reason == verification_decision.decision_reason %}selected{% endif %}>{{ reason }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <p class="ui-hint">The integrator sees this reason above your review.</p>
+            </div>
+          {% endif %}
+          <div class="w-full min-w-0 flex-1">
+            <label class="ui-label" for="decision-note-{{ item.pk }}">Review <span class="ui-required" aria-hidden="true">*</span></label>
+            <textarea class="ui-textarea min-h-12 md:min-h-10"
+                      id="decision-note-{{ item.pk }}"
+                      name="note"
+                      rows="1"
+                      maxlength="10000"
+                      minlength="{{ min_note_length }}"
+                      required
+                      aria-describedby="decision-help-{{ item.pk }}">{{ verification_decision.decision_note }}</textarea>
+            <p class="ui-hint" id="decision-help-{{ item.pk }}">Shared with the integrator and saved in this request's history. At least {{ min_note_length }} characters.</p>
+          </div>
+        </div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-end">
+          {% if held %}
+            <div class="min-w-0 flex-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950"
+                 id="verification-hold">
+              <p class="font-semibold">Decision is on hold</p>
+              <p class="mt-1">Resolve {{ held }} outstanding quer{{ held|pluralize:'y,ies' }} before approving or rejecting.</p>
+              <a class="mt-1 inline-flex min-h-9 items-center font-semibold underline underline-offset-2"
+                 href="#queries-{{ item.pk }}">Review queries and replies</a>
+            </div>
+          {% endif %}
+          <button class="ui-btn ui-btn--default ui-btn--size-sm min-h-11 shrink-0"
+                  type="submit"
+                  data-bulk-submit
+                  data-approve-label="Approve verification"
+                  data-reject-label="Reject verification"
+                  {% if held %}disabled aria-describedby="verification-hold"{% endif %}>{% if chosen == 'reject' %}Reject verification{% else %}Approve verification{% endif %}</button>
+        </div>
+      </form>
+    {% endwith %}
+  {% elif bulk_items %}
     <form method="post"
           class="flex flex-col gap-3"
           data-unsaved-form
@@ -38,11 +132,6 @@
           </label>
         </fieldset>
       </div>
-      {% for item in bulk_items %}
-        {% if item.kind == 'organisation_verification' %}
-          <p class="text-xs leading-relaxed text-soft-foreground">Organisation verification applies to all products of {{ organisation.display_name }}.</p>
-        {% endif %}
-      {% endfor %}
       <div class="flex flex-col items-start gap-x-4 gap-y-3 md:flex-row">
         {% if bulk_reasons %}
           <div class="w-full min-w-0 md:w-72 md:shrink-0"

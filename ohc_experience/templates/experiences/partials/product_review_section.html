@@ -161,7 +161,9 @@
             {% elif not can_decide and not prerequisites %}
               <p class="mt-3 text-sm leading-relaxed text-soft-foreground">You have read-only access to this request.</p>
             {% endif %}
-            {% if can_decide %}
+            {% if decide_alone %}
+              <p class="mt-3 text-xs leading-relaxed text-soft-foreground">Approve or reject it at the top of this page.</p>
+            {% elif can_decide %}
               <p class="mt-3 text-xs leading-relaxed text-soft-foreground">Approve or reject it with Accept all or Reject all, together with the other requests here.</p>
             {% endif %}
           {% else %}

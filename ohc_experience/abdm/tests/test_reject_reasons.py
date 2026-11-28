@@ -168,10 +168,10 @@ def test_reject_all_asks_for_a_reason_from_each_forms_list(environment, client):
 
     html = client.get(product_page(environment)).content.decode()
 
-    assert "Sandbox exit evidence rejection reason <span" in html
-    assert "Organisation verification rejection reason <span" in html
-    assert 'name="reason_sandbox_exit_evidence"' in html
-    assert 'name="reason_sandbox_organisation"' in html
+    # Verification is decided first, with its own list; Reject all waits on it.
+    assert f'id="decision-reason-{verification.pk}"' in html
+    assert 'name="reason_sandbox_exit_evidence"' not in html
+    assert 'name="reason_sandbox_organisation"' not in html
 
     response = client.post(
         product_page(environment),
@@ -229,7 +229,7 @@ def test_one_form_asks_for_one_reason_and_shares_it_across_the_exit(
         assert (item.status, item.decision_reason) == ("rejected", DOCUMENTS)
 
 
-def test_reject_all_with_no_reason_changes_nothing_and_keeps_what_was_chosen(
+def test_reject_all_with_a_reason_missing_changes_nothing(
     environment,
     client,
 ):
@@ -244,7 +244,6 @@ def test_reject_all_with_no_reason_changes_nothing_and_keeps_what_was_chosen(
 
     assert response.status_code == HTTPStatus.OK
     assert b"Choose a reason for rejecting this request." in response.content
-    assert re.search(rf'value="{DOCUMENTS}"\s+selected', response.content.decode())
     item.refresh_from_db()
     verification.refresh_from_db()
     assert item.pending
