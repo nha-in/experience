@@ -153,14 +153,13 @@ def test_a_milestone_missing_a_callback_url_is_offered_disabled_with_the_reason(
     }
     assert choices.keys() == {"M2", "M3", "M4"}
     assert choices["M2"]["blocked"] == "Add a callback URL to submit M2."
-    assert choices["M4"]["blocked"] == ""
+    assert choices["M4"]["blocked"] == "Add a callback URL to submit M4."
     boxes = attributes_by(response, "data-milestone-code")
     assert "disabled" in boxes["M2"]
-    assert "disabled" not in boxes["M4"]
+    assert "disabled" in boxes["M4"]
     assert b"Add a callback URL to submit M2." in response.content
     # A milestone nobody can choose asks for no testing dates.
-    panels = attributes_by(response, "data-milestone-dates")
-    assert set(panels) == {str(choices["M4"]["item"].pk)}
+    assert attributes_by(response, "data-milestone-dates") == {}
 
 
 def test_the_section_stays_when_every_other_milestone_is_blocked(environment, client):

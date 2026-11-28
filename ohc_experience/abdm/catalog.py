@@ -54,6 +54,8 @@ MILESTONES = {
             "Health Facility Registry (HFR), then link the facility to your "
             "software. M2 and M3 need a facility ID to go live.",
             docs_url=docs_page("/docs/hiecm/v3/milestones/m4"),
+            # Linking a facility to the bridge needs the bridge on HIE-CM first.
+            needs_callback=True,
         ),
         MilestoneDefinition(
             "p1",

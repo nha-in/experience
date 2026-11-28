@@ -121,9 +121,7 @@ def test_targets_exclude_disabled_milestones(environment):
 
 def test_targets_exclude_milestones_waiting_on_a_callback_url(environment):
     clear_callback_url(environment)
-    assert workflows.submission_targets(milestone(environment), ALL_KEYS) == [
-        milestone(environment, "m4"),
-    ]
+    assert workflows.submission_targets(milestone(environment), ALL_KEYS) == []
 
 
 def test_choices_keep_a_blocked_milestone_with_the_reason_it_cannot_join(environment):
@@ -135,7 +133,7 @@ def test_choices_keep_a_blocked_milestone_with_the_reason_it_cannot_join(environ
     } == {
         "m2": "Add a callback URL to submit M2.",
         "m3": "Add a callback URL to submit M3.",
-        "m4": "",
+        "m4": "Add a callback URL to submit M4.",
     }
 
 
